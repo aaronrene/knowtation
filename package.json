@@ -13,5 +13,8 @@
     "index": "node scripts/index-vault.mjs"
   },
   "keywords": ["knowledge-base", "obsidian", "cli", "agents", "rag"],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
 }

@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * Knowledger CLI — single entry point for search, get-note, list-notes, index, etc.
- * Agents discover usage via SKILL.md and `knowledger --help` / `knowledger <cmd> --help`.
- * Output: JSON or structured text for piping.
+ * Knowtation CLI — single entry point for search, get-note, list-notes, index, etc.
+ * Phase 1: config loader, vault utils, get-note, list-notes (real implementation). Others stubbed.
  */
+
+import yaml from 'js-yaml';
+import { loadConfig } from '../lib/config.mjs';
+import { listMarkdownFiles, readNote, normalizeSlug, normalizeTags, resolveVaultRelativePath } from '../lib/vault.mjs';
+import { exitWithError } from '../lib/errors.mjs';
 
 const args = process.argv.slice(2);
 const subcommand = args[0];
+const useJson = args.includes('--json');
 
 const help = `
 knowtation — personal knowledge and content system (know + notation)
@@ -15,36 +20,166 @@ Usage:
   knowtation <command> [options]
 
 Commands:
-  search <query>     Semantic search over vault (returns ranked notes/chunks). Use --json for machine output.
-  get-note <path>   Return full content of one note by path.
-  list-notes        List notes with optional --folder, --tag, --limit, --offset. Use --json for machine output.
+  search <query>     Semantic search over vault. Use --project, --tag, --folder, --limit. --json for machine output.
+  get-note <path>   Return full content of one note by path. Use --body-only, --frontmatter-only, --json.
+  list-notes        List notes. Use --folder, --project, --tag, --limit, --offset, --fields, --count-only, --json.
   index             Re-run indexer: vault → chunk → embed → vector store (Qdrant or sqlite-vec).
+  write <path>      Create or overwrite a note. Use --stdin for body, --frontmatter k=v, --append.
+  export <path|query> <output>  Export note(s) to dir/file. Use --format, --project. Provenance and AIR per spec.
+  import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
 
 Options (global):
   --help, -h        Show this help or command-specific help.
   --json            Output JSON for piping to other tools.
 
-Examples:
-  knowtation search "community building"
-  knowtation search "transcript about launch" --json
-  knowtation get-note vault/projects/default/notes.md
-  knowtation list-notes --folder vault/inbox --limit 10 --json
-  knowtation index
-
-Config: vault path and vector store URL from config/local.yaml or env (KNOWTATION_VAULT_PATH, QDRANT_URL).
+Config: config/local.yaml or env (KNOWTATION_VAULT_PATH). Full spec: docs/SPEC.md.
 `;
 
-const searchHelp = `
-knowtation search <query>
+function getOpt(name, type = 'string') {
+  const i = args.indexOf('--' + name);
+  if (i === -1 || !args[i + 1]) return null;
+  const v = args[i + 1];
+  return type === 'number' ? parseInt(v, 10) : v;
+}
 
-  Semantic search over the indexed vault. Returns ranked notes (path, snippet, score).
-  Add --json for machine-readable output.
+function hasOpt(name) {
+  return args.includes('--' + name);
+}
 
-  Options:
-    --folder <path>   Limit to vault subfolder.
-    --limit <n>       Max results (default 10).
-    --json            JSON output.
-`;
+function getNotesWithMeta(vaultPath, config) {
+  const paths = listMarkdownFiles(vaultPath, { ignore: config.ignore });
+  const notes = [];
+  for (const p of paths) {
+    try {
+      notes.push(readNote(vaultPath, p));
+    } catch (_) {
+      // skip unreadable
+    }
+  }
+  return notes;
+}
+
+function runGetNote() {
+  const pathArg = args.find((a, i) => i >= 1 && !a.startsWith('--'));
+  if (!pathArg) {
+    exitWithError('knowtation get-note: provide a note path.', 1, useJson);
+  }
+  const bodyOnly = hasOpt('body-only');
+  const frontmatterOnly = hasOpt('frontmatter-only');
+  if (bodyOnly && frontmatterOnly) {
+    exitWithError('knowtation get-note: use only one of --body-only or --frontmatter-only.', 1, useJson);
+  }
+
+  let config;
+  try {
+    config = loadConfig();
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    resolveVaultRelativePath(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  let note;
+  try {
+    note = readNote(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  if (useJson) {
+    if (bodyOnly) {
+      console.log(JSON.stringify({ path: note.path, body: note.body }));
+    } else if (frontmatterOnly) {
+      console.log(JSON.stringify({ path: note.path, frontmatter: note.frontmatter }));
+    } else {
+      console.log(JSON.stringify({ path: note.path, frontmatter: note.frontmatter, body: note.body }));
+    }
+  } else {
+    if (bodyOnly) {
+      process.stdout.write(note.body + (note.body ? '\n' : ''));
+    } else if (frontmatterOnly) {
+      console.log(JSON.stringify(note.frontmatter, null, 2));
+    } else {
+      console.log('---');
+      console.log(yaml.dump(note.frontmatter).trimEnd());
+      console.log('---');
+      if (note.body) console.log(note.body);
+    }
+  }
+  process.exit(0);
+}
+
+function runListNotes() {
+  const folder = getOpt('folder');
+  const project = getOpt('project');
+  const tag = getOpt('tag');
+  const limit = getOpt('limit', 'number') ?? 20;
+  const offset = getOpt('offset', 'number') ?? 0;
+  const order = getOpt('order') || 'date';
+  const fields = getOpt('fields') || 'path+metadata';
+  const countOnly = hasOpt('count-only');
+
+  let config;
+  try {
+    config = loadConfig();
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  let notes = getNotesWithMeta(config.vault_path, config);
+
+  if (folder) {
+    const prefix = folder.replace(/\\/g, '/').replace(/\/$/, '') + '/';
+    notes = notes.filter((n) => n.path === folder || n.path.startsWith(prefix));
+  }
+  if (project) {
+    const p = normalizeSlug(project);
+    notes = notes.filter((n) => n.project === p || (n.frontmatter?.project && normalizeSlug(String(n.frontmatter.project)) === p));
+  }
+  if (tag) {
+    const t = normalizeSlug(tag);
+    notes = notes.filter((n) => n.tags?.includes(t) || normalizeTags(n.frontmatter?.tags).includes(t));
+  }
+
+  if (order === 'date-asc') {
+    notes.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  } else if (order === 'date') {
+    notes.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  } else {
+    notes.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  const total = notes.length;
+  const slice = notes.slice(offset, offset + limit);
+
+  if (countOnly) {
+    if (useJson) {
+      console.log(JSON.stringify({ total }));
+    } else {
+      console.log(total);
+    }
+    process.exit(0);
+  }
+
+  if (useJson) {
+    const list = slice.map((n) => {
+      if (fields === 'path') return { path: n.path };
+      if (fields === 'full') return { path: n.path, frontmatter: n.frontmatter, body: n.body };
+      return { path: n.path, project: n.project || null, tags: n.tags || [], date: n.date || null };
+    });
+    console.log(JSON.stringify({ notes: list, total }));
+  } else {
+    for (const n of slice) {
+      const meta = [n.project, n.tags?.join(', '), n.date].filter(Boolean).join(' | ');
+      console.log(n.path + (meta ? `  ${meta}` : ''));
+    }
+  }
+  process.exit(0);
+}
 
 function main() {
   if (!subcommand || subcommand === '--help' || subcommand === '-h') {
@@ -52,48 +187,74 @@ function main() {
     process.exit(0);
   }
 
-  if (subcommand === 'search') {
-    if (args.includes('--help') || args.includes('-h')) {
-      console.log(searchHelp.trim());
+  if (subcommand === 'get-note') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation get-note <path>\n  Options: --json, --body-only, --frontmatter-only');
       process.exit(0);
     }
-    const query = args.slice(1).filter(a => !a.startsWith('--')).join(' ');
-    if (!query) {
-      console.error('knowtation search: provide a query string.');
-      process.exit(1);
-    }
-    // Stub: implement by calling vector store (Qdrant) and optionally vault keyword search
-    console.log(JSON.stringify({ stub: true, command: 'search', query, message: 'Implement: connect to Qdrant and return ranked chunks.' }));
-    process.exit(0);
-  }
-
-  if (subcommand === 'get-note') {
-    const path = args[1];
-    if (!path) {
-      console.error('knowtation get-note: provide a note path.');
-      process.exit(1);
-    }
-    // Stub: implement by reading file from vault
-    console.log(JSON.stringify({ stub: true, command: 'get-note', path, message: 'Implement: read vault file and return content.' }));
-    process.exit(0);
+    runGetNote();
   }
 
   if (subcommand === 'list-notes') {
-    const folder = args.includes('--folder') ? args[args.indexOf('--folder') + 1] : null;
-    const limit = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1], 10) : 20;
-    console.log(JSON.stringify({ stub: true, command: 'list-notes', folder, limit, message: 'Implement: list vault notes with filters.' }));
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation list-notes\n  Options: --folder, --project, --tag, --limit, --offset, --order date|date-asc, --fields path|path+metadata|full, --count-only, --json');
+      process.exit(0);
+    }
+    runListNotes();
+  }
+
+  if (subcommand === 'search') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation search <query>\n  Options: --folder, --project, --tag, --limit, --json (stub: implement in Phase 3)');
+      process.exit(0);
+    }
+    const query = args.slice(1).filter((a) => !a.startsWith('--')).join(' ');
+    if (!query) {
+      exitWithError('knowtation search: provide a query string.', 1, useJson);
+    }
+    console.log(JSON.stringify({ stub: true, command: 'search', query, message: 'Implement in Phase 3: vector store search.' }));
     process.exit(0);
   }
 
   if (subcommand === 'index') {
-    // Delegate to scripts/index-vault.mjs
-    console.log('Run: node scripts/index-vault.mjs');
+    console.log('Run: node scripts/index-vault.mjs (Phase 2)');
     process.exit(0);
   }
 
-  console.error(`Unknown command: ${subcommand}`);
-  console.log(help.trim());
-  process.exit(1);
+  if (subcommand === 'write') {
+    const pathArg = args[1];
+    if (!pathArg) {
+      exitWithError('knowtation write: provide a note path.', 1, useJson);
+    }
+    console.log(JSON.stringify({ stub: true, command: 'write', path: pathArg, message: 'Implement in Phase 4.' }));
+    process.exit(0);
+  }
+
+  if (subcommand === 'export') {
+    const pathOrQuery = args[1];
+    const output = args[2];
+    if (!pathOrQuery || !output) {
+      exitWithError('knowtation export: provide <path-or-query> and <output-dir-or-file>.', 1, useJson);
+    }
+    console.log(JSON.stringify({ stub: true, command: 'export', message: 'Implement in Phase 4.' }));
+    process.exit(0);
+  }
+
+  if (subcommand === 'import') {
+    const sourceType = args[1];
+    const input = args[2];
+    if (!sourceType || !input) {
+      exitWithError('knowtation import: provide <source-type> and <input>. See docs/IMPORT-SOURCES.md.', 1, useJson);
+    }
+    const validTypes = ['chatgpt-export', 'claude-export', 'mem0-export', 'notebooklm', 'gdrive', 'mif', 'markdown', 'audio', 'video'];
+    if (!validTypes.includes(sourceType)) {
+      exitWithError(`Unknown source-type "${sourceType}". Valid: ${validTypes.join(', ')}.`, 1, useJson);
+    }
+    console.log(JSON.stringify({ stub: true, command: 'import', message: 'Implement in Phase 6.' }));
+    process.exit(0);
+  }
+
+  exitWithError(`Unknown command: ${subcommand}`, 1, useJson);
 }
 
 main();
