@@ -6,6 +6,8 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
+**Build status (update at end of each session):** Phase 1 complete (committed). **Phase 2 complete (committed).** Next: Phase 3 (search).
+
 ---
 
 ## Phase 1 — Foundation: config, vault paths, and read-only CLI
@@ -24,7 +26,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 ---
 
-## Phase 2 — Indexer: chunk, embed, vector store
+## Phase 2 — Indexer: chunk, embed, vector store ✅
 
 **Goal:** Walk vault, chunk Markdown, embed, store in Qdrant or sqlite-vec with metadata (path, project, tags). Idempotent upsert.
 
@@ -37,6 +39,14 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 5. **Optional ignore** — Config or default ignore patterns (e.g. `templates/`, `meta/`) so those folders are not indexed.
 
 **Acceptance:** After adding/editing notes, `knowtation index` runs without error. Vector store contains chunks with correct metadata. Re-run does not duplicate points.
+
+**Implemented (Phase 2 session):**
+- `lib/chunk.mjs`: Split by `##`/`###` then by configurable size/overlap; stable id `path_index`.
+- `lib/embedding.mjs`: Ollama (default `nomic-embed-text`) and OpenAI (`OPENAI_API_KEY`); `embeddingDimension()` for collection creation.
+- `lib/vector-store.mjs`: Qdrant only (`@qdrant/js-client-rest`); `ensureCollection(dimension)`, `upsert(points)`; point id = hash of chunk id for idempotent upsert.
+- `lib/indexer.mjs`: `runIndex()` — list vault (with ignore), chunk, embed in batches, upsert; config `indexer.chunk_size` / `chunk_overlap`, `embedding` defaults in config.
+- CLI `knowtation index` and `node scripts/index-vault.mjs` both call `runIndex()`; `--json` outputs `{ ok, notesProcessed, chunksIndexed }`.
+- **sqlite-vec:** Not implemented; config `vector_store: qdrant` and `qdrant_url` required. Can be added in a later phase as a second backend.
 
 ---
 
@@ -228,6 +238,8 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **11** | **New session(s)** | Hub, landing, hosting; can split “Hub API + UI” and “deploy + 4Everland/ICP” if useful. |
 
 Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, and 11 (and optionally after 3 or 4). Commit at the end of every phase.
+
+**Update this plan at the end of each session.** Before committing (or when you commit the next phase), update IMPLEMENTATION-PLAN.md to reflect the session: e.g. mark the phase(s) completed, add a short “Last session” or “Status” line (what was done, what’s next), or bump a “Current phase” pointer. That keeps the plan the single place to see where the build stands. Commit those plan updates together with the phase commit (e.g. Phase 2 commit can include both the Phase 2 code and the updated plan from the end of session 1).
 
 ---
 

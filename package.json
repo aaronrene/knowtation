@@ -12,9 +12,16 @@
     "search": "node cli/index.mjs search",
     "index": "node scripts/index-vault.mjs"
   },
-  "keywords": ["knowledge-base", "obsidian", "cli", "agents", "rag"],
+  "keywords": [
+    "knowledge-base",
+    "obsidian",
+    "cli",
+    "agents",
+    "rag"
+  ],
   "license": "MIT",
   "dependencies": {
+    "@qdrant/js-client-rest": "^1.17.0",
     "js-yaml": "^4.1.0"
   }
 }

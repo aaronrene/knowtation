@@ -181,7 +181,7 @@ function runListNotes() {
   process.exit(0);
 }
 
-function main() {
+async function main() {
   if (!subcommand || subcommand === '--help' || subcommand === '-h') {
     console.log(help.trim());
     process.exit(0);
@@ -217,8 +217,20 @@ function main() {
   }
 
   if (subcommand === 'index') {
-    console.log('Run: node scripts/index-vault.mjs (Phase 2)');
-    process.exit(0);
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation index\n  Re-run indexer: vault → chunk → embed → vector store. Reads config; exit 0 on success, 2 on failure.');
+      process.exit(0);
+    }
+    const { runIndex } = await import('../lib/indexer.mjs');
+    try {
+      const result = await runIndex();
+      if (useJson) {
+        console.log(JSON.stringify({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed }));
+      }
+      process.exit(0);
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
   }
 
   if (subcommand === 'write') {
@@ -257,4 +269,7 @@ function main() {
   exitWithError(`Unknown command: ${subcommand}`, 1, useJson);
 }
 
-main();
+main().catch((e) => {
+  console.error(e.message || e);
+  process.exit(2);
+});

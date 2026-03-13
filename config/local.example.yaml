@@ -1,13 +1,38 @@
 # Copy to config/local.yaml and set your paths. Do not commit config/local.yaml.
+# Full schema: docs/SPEC.md §4.4. Use env for secrets (e.g. OPENAI_API_KEY).
 
+# --- Required ---
 # Absolute path to the vault (Obsidian-style Markdown root)
 # vault_path: /absolute/path/to/knowtation/vault
+# Or env: KNOWTATION_VAULT_PATH
 
-# Vector store (optional; CLI uses this for search)
+# --- Vector store (one of) ---
 # qdrant_url: http://localhost:6333
-# Or use sqlite-vec and set data/vectors.db path in the indexer.
+# Or env: QDRANT_URL
+# vector_store: qdrant   # or sqlite-vec
+# data_dir: data/       # for sqlite-vec; env KNOWTATION_DATA_DIR
 
-# Embedding (for indexer and, if needed, for CLI search)
+# --- Embedding (indexer and search) ---
 # embedding:
 #   provider: ollama
 #   model: nomic-embed-text
+#   # ollama_url: http://localhost:11434   # optional override
+# For OpenAI: set OPENAI_API_KEY in env and use provider: openai, model: text-embedding-3-small
+
+# --- Indexer chunking (optional) ---
+# indexer:
+#   chunk_size: 2048    # chars (~512 tokens); overlap below
+#   chunk_overlap: 256
+
+# --- Optional: memory layer (Mem0, SAME, Mem) ---
+# memory:
+#   enabled: false
+#   provider: mem0
+#   url: http://localhost:8080
+# Or env: KNOWTATION_MEMORY_URL
+
+# --- Optional: AIR attestation (write non-inbox, export) ---
+# air:
+#   enabled: false
+#   endpoint: http://localhost:3000
+# Or env: KNOWTATION_AIR_ENDPOINT
