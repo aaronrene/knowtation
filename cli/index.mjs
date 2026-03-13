@@ -4,6 +4,7 @@
  * Phase 1: config loader, vault utils, get-note, list-notes (real implementation). Others stubbed.
  */
 
+import fs from 'fs';
 import yaml from 'js-yaml';
 import { loadConfig } from '../lib/config.mjs';
 import { listMarkdownFiles, readNote, normalizeSlug, normalizeTags, resolveVaultRelativePath } from '../lib/vault.mjs';
@@ -320,22 +321,137 @@ async function main() {
   }
 
   if (subcommand === 'write') {
-    const pathArg = args[1];
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation write <path> [content]\n  Options: --stdin (body from stdin), --frontmatter k=v [k2=v2 ...], --append, --json');
+      process.exit(0);
+    }
+    const pathArg = args.find((a, i) => i >= 1 && !a.startsWith('--'));
     if (!pathArg) {
       exitWithError('knowtation write: provide a note path.', 1, useJson);
     }
-    console.log(JSON.stringify({ stub: true, command: 'write', path: pathArg, message: 'Implement in Phase 4.' }));
-    process.exit(0);
+    const stdin = hasOpt('stdin');
+    const append = hasOpt('append');
+    const frontmatterPairs = [];
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--frontmatter' && args[i + 1]) {
+        let j = i + 1;
+        while (j < args.length && !args[j].startsWith('--') && args[j].includes('=')) {
+          frontmatterPairs.push(args[j]);
+          j++;
+        }
+        break;
+      }
+    }
+    const frontmatterOverrides = {};
+    for (const p of frontmatterPairs) {
+      const eq = p.indexOf('=');
+      if (eq > 0) {
+        frontmatterOverrides[p.slice(0, eq).trim()] = p.slice(eq + 1).trim();
+      }
+    }
+    let body;
+    if (stdin) {
+      body = fs.readFileSync(0, 'utf8');
+    } else {
+      const contentArg = args[args.indexOf(pathArg) + 1];
+      body = contentArg && !contentArg.startsWith('--') ? contentArg : undefined;
+    }
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+    (async () => {
+      try {
+        const { writeNote, isInboxPath } = await import('../lib/write.mjs');
+        const { attestBeforeWrite } = await import('../lib/air.mjs');
+        if (config.air?.enabled && !isInboxPath(pathArg)) {
+          await attestBeforeWrite(config, pathArg);
+        }
+        const result = writeNote(config.vault_path, pathArg, {
+          body,
+          frontmatter: Object.keys(frontmatterOverrides).length ? frontmatterOverrides : undefined,
+          append,
+        });
+        if (useJson) {
+          console.log(JSON.stringify(result));
+        } else {
+          console.log(`Written: ${result.path}`);
+        }
+        process.exit(0);
+      } catch (e) {
+        exitWithError(e.message, 2, useJson);
+      }
+    })();
+    return;
   }
 
   if (subcommand === 'export') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation export <path-or-query> <output-dir-or-file>\n  Options: --format md|html, --project <slug>, --json');
+      process.exit(0);
+    }
     const pathOrQuery = args[1];
     const output = args[2];
     if (!pathOrQuery || !output) {
       exitWithError('knowtation export: provide <path-or-query> and <output-dir-or-file>.', 1, useJson);
     }
-    console.log(JSON.stringify({ stub: true, command: 'export', message: 'Implement in Phase 4.' }));
-    process.exit(0);
+    const format = getOpt('format') || 'md';
+    const project = getOpt('project');
+    if (format && !['md', 'html'].includes(format)) {
+      exitWithError('knowtation export: --format must be md or html.', 1, useJson);
+    }
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+    (async () => {
+      try {
+        const { exportNotes } = await import('../lib/export.mjs');
+        const { attestBeforeExport } = await import('../lib/air.mjs');
+        let paths = [];
+        const looksLikePath = !pathOrQuery.includes(' ') && (pathOrQuery.endsWith('.md') || pathOrQuery.includes('/'));
+        if (looksLikePath) {
+          try {
+            resolveVaultRelativePath(config.vault_path, pathOrQuery);
+            paths = [pathOrQuery];
+          } catch (_) {
+            // Fall through: treat as query
+          }
+        }
+        if (paths.length === 0) {
+          const { runSearch } = await import('../lib/search.mjs');
+          const result = await runSearch(pathOrQuery, {
+            limit: 50,
+            project: project ?? undefined,
+            fields: 'path',
+          });
+          paths = (result.results || []).map((r) => r.path).filter(Boolean);
+        }
+        if (!paths.length) {
+          exitWithError('knowtation export: no notes found for path or query.', 2, useJson);
+        }
+        if (config.air?.enabled) {
+          await attestBeforeExport(config, paths);
+        }
+        const result = exportNotes(config.vault_path, paths, output, { format });
+        if (useJson) {
+          console.log(JSON.stringify({ exported: result.exported, provenance: result.provenance }));
+        } else {
+          for (const e of result.exported) {
+            console.log(`${e.path} → ${e.output}`);
+          }
+          if (result.provenance) console.log(result.provenance);
+        }
+        process.exit(0);
+      } catch (e) {
+        exitWithError(e.message, 2, useJson);
+      }
+    })();
+    return;
   }
 
   if (subcommand === 'import') {

@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phase 1 complete (committed). Phase 2 complete (committed). Phase 3 complete (committed). **Phase 3.1 complete (not yet committed).** Next: Phase 4.
+**Build status (update at end of each session):** Phase 1 complete (committed). Phase 2 complete (committed). Phase 3 complete (committed). Phase 3.1 complete (committed). **Phase 4 in progress** (write and export implemented; not yet committed).
 
-**Status for next session:** Phase 3.1 implemented (time/causal filters). After commit, **proceed to Phase 4** (write, export).
+**Status for next session:** Phase 4 implemented: `write` (--stdin, --frontmatter, --append, AIR hook) and `export` (path or query, md/html, provenance, AIR hook). After commit, proceed to Phase 5 (capture plugin).
 
 ---
 
@@ -109,6 +109,13 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Error handling** — Write/export failures (e.g. permission, disk full) → exit 2, JSON error when `--json`.
 
 **Acceptance:** `knowtation write vault/inbox/new.md --stdin --frontmatter source=cli date=2026-03-13` creates the note. `knowtation export vault/projects/foo/note.md ./out/ --format md` produces file and provenance.
+
+**Implemented (Phase 4 session):**
+- `lib/write.mjs`: writeNote(vaultPath, relativePath, { body, frontmatter, append }); path validation via resolveVaultRelativePath; merge frontmatter; append body; mkdirp parent; toMarkdown serialization.
+- `lib/air.mjs`: attestBeforeWrite(config, path) and attestBeforeExport(config, paths); when air.enabled and path outside inbox, call endpoint or return placeholder; inbox exempt.
+- `lib/export.mjs`: exportNotes(vaultPath, paths, outputPath, { format: 'md'|'html' }); single file or directory; provenance in exported frontmatter (source_notes); minimal HTML wrapper.
+- CLI `write`: --stdin, --frontmatter k=v [k2=v2 ...], --append; AIR hook before write (non-inbox). JSON: `{ path, written: true }`.
+- CLI `export`: path-or-query (path or search query); --format md|html, --project; resolve paths via path check or runSearch; AIR hook before export; export to file or dir; JSON: `{ exported: [{ path, output }], provenance }`.
 
 ---
 
