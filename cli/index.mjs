@@ -455,6 +455,10 @@ async function main() {
   }
 
   if (subcommand === 'import') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json\n  Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, audio, video (notebooklm, gdrive: stub)');
+      process.exit(0);
+    }
     const sourceType = args[1];
     const input = args[2];
     if (!sourceType || !input) {
@@ -464,8 +468,39 @@ async function main() {
     if (!validTypes.includes(sourceType)) {
       exitWithError(`Unknown source-type "${sourceType}". Valid: ${validTypes.join(', ')}.`, 1, useJson);
     }
-    console.log(JSON.stringify({ stub: true, command: 'import', message: 'Implement in Phase 6.' }));
-    process.exit(0);
+    (async () => {
+      try {
+        const config = loadConfig();
+        const { runImport } = await import('../lib/import.mjs');
+        const project = getOpt('project');
+        const outputDir = getOpt('output-dir');
+        const tagsOpt = getOpt('tags');
+        const tags = tagsOpt ? tagsOpt.split(',').map((t) => t.trim()).filter(Boolean) : [];
+        const dryRun = hasOpt('dry-run');
+        const result = await runImport(sourceType, input, {
+          project: project ?? undefined,
+          outputDir: outputDir ?? undefined,
+          tags,
+          dryRun,
+        });
+        if (useJson) {
+          console.log(JSON.stringify({ imported: result.imported, count: result.count }));
+        } else {
+          for (const r of result.imported) {
+            console.log(r.path);
+          }
+          if (result.count === 0) {
+            console.log('No notes imported.');
+          } else {
+            console.log(`Imported ${result.count} note(s).`);
+          }
+        }
+        process.exit(0);
+      } catch (e) {
+        exitWithError(e.message, 2, useJson);
+      }
+    })();
+    return;
   }
 
   exitWithError(`Unknown command: ${subcommand}`, 1, useJson);

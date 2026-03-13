@@ -86,3 +86,39 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 - **Any agent or business use:** Once in the vault, content is searchable, project/tag-filterable, and usable for blogs, podcasts, videos, marketing, analysis, writing. No second-class content.
 
 Implementors: see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) for the phase that builds the importers.
+
+---
+
+## 6. How to run (examples)
+
+**Markdown** (file or folder):
+```bash
+knowtation import markdown ./my-notes.md --output-dir imports/notes
+knowtation import markdown ./exported-folder --project myproject
+```
+
+**ChatGPT export** — Extract the OpenAI ZIP first, then:
+```bash
+knowtation import chatgpt-export /path/to/extracted-folder --output-dir imports/chatgpt --tags chatgpt
+```
+The folder must contain `conversations.json` (Settings → Data Controls → Export Data).
+
+**Claude export** — Folder of .md files (from third-party exporters) or JSON:
+```bash
+knowtation import claude-export /path/to/claude-export-folder --project myproject
+```
+
+**MIF** (.memory.md or folder):
+```bash
+knowtation import mif ./my-memories.memory.md --output-dir imports/mif
+```
+
+**Mem0 export** (JSON file):
+```bash
+knowtation import mem0-export ./mem0-export.json --project memories
+```
+
+**Dry run** (preview without writing):
+```bash
+knowtation import markdown ./notes --dry-run --json
+```

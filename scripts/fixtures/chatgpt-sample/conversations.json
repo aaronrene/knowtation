@@ -1,0 +1,21 @@
+[
+  {
+    "title": "Test conversation",
+    "mapping": {
+      "msg-1": {
+        "message": {
+          "author": { "role": "user" },
+          "content": { "parts": ["Hello"] },
+          "create_time": 1700000000
+        }
+      },
+      "msg-2": {
+        "message": {
+          "author": { "role": "assistant" },
+          "content": { "parts": ["Hi there!"] },
+          "create_time": 1700000001
+        }
+      }
+    }
+  }
+]

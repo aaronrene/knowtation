@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phase 1–4 complete (committed). **Phase 5 in progress** (capture contract + reference plugins; not yet committed).
+**Build status (update at end of each session):** Phases 1–6 complete (committed).
 
-**Status for next session:** Phase 5 implemented: docs/CAPTURE-CONTRACT.md, scripts/capture-file.mjs (file-based), scripts/capture-webhook.mjs (HTTP server). After commit, proceed to Phase 6 (import).
+**Status for next session:** Phase 7 (transcription pipeline): audio/video → transcribe → vault note.
 
 ---
 
@@ -161,6 +161,19 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Docs** — IMPORT-SOURCES.md already describes each type; add "How to run" examples (e.g. where to get ChatGPT export ZIP, how to run `knowtation import chatgpt-export ./chatgpt-export.zip`).
 
 **Acceptance:** For each implemented source type, a test input (e.g. sample ZIP or file) produces the expected vault notes. `knowtation list-notes` and `knowtation search` see them after indexing.
+
+**Implemented (Phase 6 session):**
+- `lib/import.mjs`: runImport(sourceType, input, options); dispatches to importers; options: project, outputDir, tags, dryRun.
+- `lib/importers/markdown.mjs`: File or folder; preserve frontmatter; add source: markdown, date if missing; merge project/tags.
+- `lib/importers/chatgpt.mjs`: Folder with conversations.json; one note per conversation; source: chatgpt, source_id, date, title.
+- `lib/importers/claude.mjs`: Folder of .md or JSON; one note per conversation; source: claude, source_id, date.
+- `lib/importers/mif.mjs`: .memory.md, .memory.json, or folder; add source: mif; normalize mif:id → source_id.
+- `lib/importers/mem0.mjs`: Mem0 export JSON; one note per memory; source: mem0, source_id.
+- `lib/importers/audio.mjs` / video: Placeholder note (Phase 7 transcription not yet implemented).
+- `lib/importers/notebooklm.mjs`, gdrive.mjs: Stub (throws with guidance).
+- CLI: import subcommand with --project, --output-dir, --tags, --dry-run, --json.
+- docs/IMPORT-SOURCES.md: Added §6 "How to run" examples.
+- docs/PHASE6-MANUAL-TEST.md: Manual testing guide.
 
 ---
 
