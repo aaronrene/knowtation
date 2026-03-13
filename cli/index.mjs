@@ -113,10 +113,23 @@ function runGetNote() {
   process.exit(0);
 }
 
+/**
+ * Normalize date to YYYY-MM-DD for range comparison.
+ */
+function dateSlice(d) {
+  if (d == null || typeof d !== 'string') return '';
+  return d.trim().slice(0, 10) || '';
+}
+
 function runListNotes() {
   const folder = getOpt('folder');
   const project = getOpt('project');
   const tag = getOpt('tag');
+  const since = getOpt('since');
+  const until = getOpt('until');
+  const chain = getOpt('chain');
+  const entity = getOpt('entity');
+  const episode = getOpt('episode');
   const limit = getOpt('limit', 'number') ?? 20;
   const offset = getOpt('offset', 'number') ?? 0;
   const order = getOpt('order') || 'date';
@@ -144,11 +157,31 @@ function runListNotes() {
     const t = normalizeSlug(tag);
     notes = notes.filter((n) => n.tags?.includes(t) || normalizeTags(n.frontmatter?.tags).includes(t));
   }
+  if (since) {
+    const s = dateSlice(since);
+    if (s) notes = notes.filter((n) => dateSlice(n.date || n.updated) >= s);
+  }
+  if (until) {
+    const u = dateSlice(until);
+    if (u) notes = notes.filter((n) => dateSlice(n.date || n.updated) <= u);
+  }
+  if (chain) {
+    const c = normalizeSlug(chain);
+    notes = notes.filter((n) => n.causal_chain_id === c);
+  }
+  if (entity) {
+    const e = normalizeSlug(entity);
+    notes = notes.filter((n) => Array.isArray(n.entity) && n.entity.includes(e));
+  }
+  if (episode) {
+    const ep = normalizeSlug(episode);
+    notes = notes.filter((n) => n.episode_id === ep);
+  }
 
   if (order === 'date-asc') {
-    notes.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    notes.sort((a, b) => (a.date || a.updated || '').localeCompare(b.date || b.updated || ''));
   } else if (order === 'date') {
-    notes.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    notes.sort((a, b) => (b.date || b.updated || '').localeCompare(a.date || a.updated || ''));
   } else {
     notes.sort((a, b) => a.path.localeCompare(b.path));
   }
@@ -197,7 +230,7 @@ async function main() {
 
   if (subcommand === 'list-notes') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation list-notes\n  Options: --folder, --project, --tag, --limit, --offset, --order date|date-asc, --fields path|path+metadata|full, --count-only, --json');
+      console.log('knowtation list-notes\n  Options: --folder, --project, --tag, --since, --until, --chain, --entity, --episode, --limit, --offset, --order date|date-asc, --fields path|path+metadata|full, --count-only, --json');
       process.exit(0);
     }
     runListNotes();
@@ -205,7 +238,7 @@ async function main() {
 
   if (subcommand === 'search') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation search <query>\n  Options: --folder, --project, --tag, --limit, --fields path|path+snippet|full, --snippet-chars <n>, --count-only, --json');
+      console.log('knowtation search <query>\n  Options: --folder, --project, --tag, --since, --until, --chain, --entity, --episode, --order date|date-asc, --limit, --fields path|path+snippet|full, --snippet-chars <n>, --count-only, --json');
       process.exit(0);
     }
     const query = args.slice(1).filter((a) => !a.startsWith('--')).join(' ').trim();
@@ -215,6 +248,12 @@ async function main() {
     const folder = getOpt('folder');
     const project = getOpt('project');
     const tag = getOpt('tag');
+    const since = getOpt('since');
+    const until = getOpt('until');
+    const chain = getOpt('chain');
+    const entity = getOpt('entity');
+    const episode = getOpt('episode');
+    const order = getOpt('order');
     const limit = getOpt('limit', 'number') ?? 10;
     const fields = getOpt('fields') || 'path+snippet';
     const snippetChars = getOpt('snippet-chars', 'number');
@@ -230,6 +269,12 @@ async function main() {
           folder: folder ?? undefined,
           project: project ?? undefined,
           tag: tag ?? undefined,
+          since: since ?? undefined,
+          until: until ?? undefined,
+          chain: chain ?? undefined,
+          entity: entity ?? undefined,
+          episode: episode ?? undefined,
+          order: order ?? undefined,
           limit,
           fields: fields || 'path+snippet',
           snippetChars: snippetChars ?? 300,

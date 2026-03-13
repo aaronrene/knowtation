@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phase 1 complete (committed). Phase 2 complete (committed). **Phase 3 complete (committed).** Next: Phase 3.1.
+**Build status (update at end of each session):** Phase 1 complete (committed). Phase 2 complete (committed). Phase 3 complete (committed). **Phase 3.1 complete (not yet committed).** Next: Phase 4.
 
-**Status for next session:** Phase 3 committed. **Next phase: Phase 3.1** — time and causal filters for search and list-notes (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`). Indexer already stores `date` in metadata; optional frontmatter (causal_chain_id, entity, episode_id) can be indexed in 3.1. After 3.1, proceed to Phase 4 (write, export).
+**Status for next session:** Phase 3.1 implemented (time/causal filters). After commit, **proceed to Phase 4** (write, export).
 
 ---
 
@@ -85,6 +85,13 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Vector store search:** Extend `search()` filter for `since`/`until` (date range) and, if indexed, `causal_chain_id`, `entity`, `episode_id`. Qdrant supports range filters on payload.
 
 **Acceptance:** `knowtation search "decisions" --since 2025-01-01 --until 2025-03-31 --json` returns only hits in that date range. `knowtation list-notes --since 2025-03-01 --order date-asc --limit 5 --json` returns notes in range, oldest first. Optional: `--chain` / `--entity` / `--episode` work when notes carry that frontmatter and indexer stores it.
+
+**Implemented (Phase 3.1 session):**
+- `lib/vault.mjs`: readNote() returns `updated`, `causal_chain_id`, `entity` (array), `episode_id` from optional frontmatter; normalized per SPEC §2.3.
+- `lib/chunk.mjs` + `lib/indexer.mjs`: Chunks and upsert payload include `causal_chain_id`, `entity`, `episode_id` so vector store can filter.
+- `lib/vector-store.mjs`: buildFilter() adds date range (`since`/`until`), `causal_chain_id`, `entity`, `episode_id`; search() accepts and applies them; results sorted by `order` (date | date-asc). Payload stores causal_chain_id, entity, episode_id.
+- `lib/search.mjs`: runSearch() accepts since, until, order, chain, entity, episode; passes to store.search().
+- `cli/index.mjs`: list-notes parses --since, --until, --chain, --entity, --episode; filters by date range and optional frontmatter; search parses --since, --until, --order, --chain, --entity, --episode and passes to runSearch(). Help text updated for both commands.
 
 **After Phase 3.1:** Proceed to Phase 4 (write, export).
 
@@ -226,6 +233,26 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 ---
 
+## Phase 12 — Blockchain, wallets, and agent payments (optional)
+
+**Goal:** Support agent use of **wallets** and **blockchain** (payments, on-chain activity, attestation) without backtracking. Agents are increasingly wallet-enabled; notes may reference transactions, networks, and payment status. This phase reserves schema and adds optional interfaces so we don't redesign later.
+
+**Scope (reserved now; implement when needed):** See **docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md**.
+
+**Deliverables (Phase 12 or follow-on):**
+
+1. **Optional frontmatter** — `network` / `chain_id`, `wallet_address`, `tx_hash`, `payment_status` (and optional AIR-on-chain id). Indexer stores in chunk metadata; search and list-notes can filter. No collision with existing `--chain` (causal_chain_id); use `--network` and `--wallet` for blockchain.
+2. **CLI filters** — `--network <id>`, `--wallet <address>` for search and list-notes when notes carry the reserved frontmatter.
+3. **Tags / categories** — Optional reserved or suggested tags for payment/blockchain notes (e.g. `payment`, `on-chain`); no change to core tag semantics.
+4. **Capture** — Same message-interface contract (Phase 5): plugins can write notes from on-chain events (webhooks, indexers) with the reserved frontmatter. Optional import source for wallet/transaction history.
+5. **AIR and attestation** — Optional backend where attestation is recorded on-chain (e.g. ICP signing); AIR interface unchanged.
+
+**Acceptance:** When implemented: notes can carry network/wallet/tx frontmatter; `knowtation search` and `list-notes` support `--network` and `--wallet`; capture can ingest on-chain events into inbox. Core and Hub remain fully usable without Phase 12.
+
+**Depends on:** 1–4 (and 3.1 for filter consistency). Can follow Phase 10 or 11. No backtracking to earlier phases.
+
+---
+
 ## Summary: phase order and dependencies
 
 | Phase | Depends on | Delivers |
@@ -242,10 +269,11 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | 9 | 1–4, 6 | MCP server |
 | 10 | 1–9 | Docs, SKILL, tests, packaging, **sqlite-vec** backend |
 | 11 | 1–4, 9 | Shared vault / hub (API, proposals, review queue, optional UI); public landing site (web/); hosted or ICP (Motoko) deployment; agent-to-agent and agent-to-human without GitHub |
+| **12** | **1–4, 9** | **Blockchain, wallets, agent payments (optional): frontmatter, --network/--wallet filters, capture for on-chain events, optional AIR-on-chain. See docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md.** |
 
 **Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in **Phase 3.1 or Phase 4** (search and list-notes); indexer already stores `date` in metadata. Causal/entity/episode and evals remain in an optional later phase so we don’t backtrack.
 
-**Estimated order of implementation:** 1 → 2 → 3 → **3.1** (core loop + temporal filters); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10. Total scope: core in 1–10; simplified shared collaboration in 11. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
+**Estimated order of implementation:** 1 → 2 → 3 → **3.1** (core loop + temporal filters); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10; **12 optional** (blockchain/wallets/agent payments when needed). Total scope: core in 1–10; simplified shared collaboration in 11; blockchain and agent payments in 12. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
 
 **Commit after each phase.** Each phase is a shippable increment; commit when its acceptance criteria are met so history stays clear and you can revert or branch by phase.
 
@@ -265,8 +293,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **9** | **New session** | MCP server; different surface (protocol, tools). |
 | **10** | **New session** | Polish: SKILL, docs, tests, packaging, **sqlite-vec** backend; broad. |
 | **11** | **New session(s)** | Hub, landing, hosting; can split “Hub API + UI” and “deploy + 4Everland/ICP” if useful. |
+| **12** | **New session** | Blockchain, wallets, agent payments; optional; see BLOCKCHAIN-AND-AGENT-PAYMENTS.md. |
 
-Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, and 11 (and optionally after 3 or 4). Commit at the end of every phase.
+Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 11, and 12 (and optionally after 3 or 4). Commit at the end of every phase.
 
 **Update this plan at the end of each session.** Before committing (or when you commit the next phase), update IMPLEMENTATION-PLAN.md to reflect the session: e.g. mark the phase(s) completed, add a short “Last session” or “Status” line (what was done, what’s next), or bump a “Current phase” pointer. That keeps the plan the single place to see where the build stands. Commit those plan updates together with the phase commit (e.g. Phase 2 commit can include both the Phase 2 code and the updated plan from the end of session 1).
 
@@ -293,6 +322,7 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 - **Simple agent-to-agent and agent-to-human:** Phase 11 (shared vault / hub) — API, proposals, review queue, optional UI — so people who are unfamiliar with or adverse to GitHub can still share a vault and review proposals. Optional; core remains usable without it. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md).
 - **Website and hosted option:** Public landing site (web/) and the hosted Hub offering are part of the plan so we don't backtrack. Landing is deployable (e.g. 4Everland); Hub can be self-hosted or deployed on ICP (Motoko canisters). See below.
 - **bornfree-hub reference:** Existing platform ([bornfree-hub](https://github.com/aaronrene/bornfree-hub)) uses five canisters (Signing, Documents, Identity, Assets, Encryption) with Netlify + 4Everland. Reuse those patterns when implementing the Knowtation Hub on ICP (Phase 11) to avoid redoing work.
+- **Blockchain, wallets, and agent payments:** Agents increasingly have wallet access and use blockchain for payments and on-chain activity. **Phase 12** (optional) reserves optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`), CLI filters (`--network`, `--wallet`), capture for on-chain events, and optional AIR-on-chain. No collision with existing `--chain` (causal chain). See **docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md**. Implement when needed; no backtracking to earlier phases.
 
 ---
 
@@ -332,4 +362,4 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 - **Open source hygiene:** LICENSE (e.g. MIT), CONTRIBUTING (how to run tests, PR expectations), optional code-of-conduct and issue/PR templates. Phase 10 mentions COPY-TO-REPO and LICENSE; ensure no secrets or credentials in repo (user rule).
 - **Performance:** Index size and search latency depend on vault size and vector store. Document when to re-index (after bulk import, after model change); optional "Operational notes" in docs if needed.
 
-You can implement phases in sequence (1 → 2 → … → 11) or parallelize 5, 6, 7 after 4. Phase 11 is optional. This plan ensures the full product is built with no scope left unspecified.
+You can implement phases in sequence (1 → 2 → … → 11) or parallelize 5, 6, 7 after 4. Phases 11 and 12 are optional. This plan ensures the full product is built with no scope left unspecified; Phase 12 reserves blockchain/wallets/agent payments so we don’t backtrack when agents adopt wallets and on-chain activity.
