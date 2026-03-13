@@ -1,0 +1,13 @@
+# Copy to config/local.yaml and set your paths. Do not commit config/local.yaml.
+
+# Absolute path to the vault (Obsidian-style Markdown root)
+# vault_path: /absolute/path/to/knowtation/vault
+
+# Vector store (optional; CLI uses this for search)
+# qdrant_url: http://localhost:6333
+# Or use sqlite-vec and set data/vectors.db path in the indexer.
+
+# Embedding (for indexer and, if needed, for CLI search)
+# embedding:
+#   provider: ollama
+#   model: nomic-embed-text

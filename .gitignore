@@ -1,0 +1,21 @@
+# Config and secrets
+config/local.yaml
+config/*-local.*
+.env
+.env.*
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Obsidian
+vault/.obsidian/workspace*
+vault/.trash/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+*.log

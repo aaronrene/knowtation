@@ -1,0 +1,17 @@
+{
+  "name": "knowtation",
+  "version": "0.1.0",
+  "description": "Knowtation — personal knowledge and content system (know + notation). CLI and vault for multi-agent use.",
+  "type": "module",
+  "main": "cli/index.mjs",
+  "bin": {
+    "knowtation": "cli/index.mjs"
+  },
+  "scripts": {
+    "start": "node cli/index.mjs",
+    "search": "node cli/index.mjs search",
+    "index": "node scripts/index-vault.mjs"
+  },
+  "keywords": ["knowledge-base", "obsidian", "cli", "agents", "rag"],
+  "license": "MIT"
+}
