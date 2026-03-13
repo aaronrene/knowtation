@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phase 1 complete (committed). Phase 2 complete (committed). Phase 3 complete (committed). Phase 3.1 complete (committed). **Phase 4 in progress** (write and export implemented; not yet committed).
+**Build status (update at end of each session):** Phase 1–4 complete (committed). **Phase 5 in progress** (capture contract + reference plugins; not yet committed).
 
-**Status for next session:** Phase 4 implemented: `write` (--stdin, --frontmatter, --append, AIR hook) and `export` (path or query, md/html, provenance, AIR hook). After commit, proceed to Phase 5 (capture plugin).
+**Status for next session:** Phase 5 implemented: docs/CAPTURE-CONTRACT.md, scripts/capture-file.mjs (file-based), scripts/capture-webhook.mjs (HTTP server). After commit, proceed to Phase 6 (import).
 
 ---
 
@@ -131,6 +131,12 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Docs** — README or docs update: how to run the reference plugin; how to add another (JIRA, Telegram, etc.) using the same contract.
 
 **Acceptance:** Sending a test message to the webhook (or running the script with a test file) creates a note in the vault with correct frontmatter. Re-send with same `source_id` → idempotent (skip or update per design).
+
+**Implemented (Phase 5 session):**
+- `docs/CAPTURE-CONTRACT.md`: Plugin-author doc (output location, required frontmatter, filename, idempotency, examples).
+- `scripts/capture-file.mjs`: File-based capture; stdin or `--file`; `--source`, `--source-id` (idempotent overwrite), `--project`, `--tags`; writes to inbox or projects/<project>/inbox with SPEC §2.2 frontmatter.
+- `scripts/capture-webhook.mjs`: HTTP server; POST /capture with JSON `{ body, source_id?, source?, project?, tags? }`; writes to inbox per contract.
+- `docs/setup.md`: Added capture step; link to CAPTURE-CONTRACT.
 
 ---
 

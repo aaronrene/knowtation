@@ -17,7 +17,7 @@
 1. **Clone or use this repo** — This is the Knowtation repository. If you are copying this seed elsewhere, see [COPY-TO-REPO.md](./COPY-TO-REPO.md).
 2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml` and set your vault path (and optionally Qdrant URL, embedding). Do not commit secrets.
 3. **Open the vault** — Open the `vault/` folder in Obsidian (or any Markdown vault editor).
-4. **Run the CLI** — `node cli/index.mjs --help`. Run `node cli/index.mjs index` once (requires Qdrant and Ollama for default embedding); then `node cli/index.mjs search "your query"`. See [docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md) — Phase 3 complete; next is Phase 3.1 (time/causal filters).
+4. **Run the CLI** — `node cli/index.mjs --help`. Run `node cli/index.mjs index` once (requires Qdrant and Ollama for default embedding); then `node cli/index.mjs search "your query"`, `write`, `export`. See [docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md) — Phases 1–5 implemented.
 5. **Use from agents** — The skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open; copy to `~/.cursor/skills/knowtation/` for global use. Agents discover it and invoke the CLI.
 
 ## Repository layout
@@ -40,9 +40,8 @@ knowtation/
 
 ## Message interfaces and plugins
 
-- **Supported / planned:** Capture from Telegram, WhatsApp, Discord into `vault/inbox` (or project-specific inbox).
-- **Recommended plugins:** JIRA, Slack—same inbox contract (write Markdown notes with frontmatter: `source`, `project`, `tags`, `date`).
-- **Extensible:** You can add other message interfaces (e.g. Teams, email, custom tools) by implementing the same contract. See [ARCHITECTURE.md](./ARCHITECTURE.md).
+- **Reference plugins:** `scripts/capture-file.mjs` (file/stdin) and `scripts/capture-webhook.mjs` (HTTP POST). Both write to `vault/inbox` per [docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md).
+- **Recommended (planned):** JIRA, Slack, Telegram—same inbox contract. See [ARCHITECTURE.md](./ARCHITECTURE.md) and [docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md).
 
 ## Docs
 
@@ -51,6 +50,7 @@ knowtation/
 - **[docs/CLARIFICATIONS.md](./docs/CLARIFICATIONS.md)** — Simple explanations: capture/import contracts, optional memory/AIR, backends behind an abstraction, “plug into any LLM or service.”
 - **[docs/INTENTION-AND-TEMPORAL.md](./docs/INTENTION-AND-TEMPORAL.md)** — Intention and temporal understanding: temporal sequence, causation, hierarchical memory, state compression, evals. Optional frontmatter and CLI filters; schema defined now so we don’t backtrack.
 - **[docs/RETRIEVAL-AND-CLI-REFERENCE.md](./docs/RETRIEVAL-AND-CLI-REFERENCE.md)** — All CLI commands and add-on features in one place; how they interact; how each helps the retrieval bottleneck and token cost; expansions (e.g. `--fields`, `--snippet-chars`, `--count-only`) for right information at best price token-wise.
+- **[docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md)** — Capture plugin contract: output location, frontmatter, idempotency. Use when building Telegram, Slack, or custom capture plugins.
 - **[docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md)** — Import from ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, markdown, audio/video; formats and how to run.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — High-level design; points to SPEC for details.
 - **[docs/STANDALONE-PLAN.md](./docs/STANDALONE-PLAN.md)** — Product plan (CLI-first, SKILL.md, memory, AIR, scenarios).
