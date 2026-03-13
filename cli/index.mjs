@@ -205,15 +205,56 @@ async function main() {
 
   if (subcommand === 'search') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation search <query>\n  Options: --folder, --project, --tag, --limit, --json (stub: implement in Phase 3)');
+      console.log('knowtation search <query>\n  Options: --folder, --project, --tag, --limit, --fields path|path+snippet|full, --snippet-chars <n>, --count-only, --json');
       process.exit(0);
     }
-    const query = args.slice(1).filter((a) => !a.startsWith('--')).join(' ');
+    const query = args.slice(1).filter((a) => !a.startsWith('--')).join(' ').trim();
     if (!query) {
       exitWithError('knowtation search: provide a query string.', 1, useJson);
     }
-    console.log(JSON.stringify({ stub: true, command: 'search', query, message: 'Implement in Phase 3: vector store search.' }));
-    process.exit(0);
+    const folder = getOpt('folder');
+    const project = getOpt('project');
+    const tag = getOpt('tag');
+    const limit = getOpt('limit', 'number') ?? 10;
+    const fields = getOpt('fields') || 'path+snippet';
+    const snippetChars = getOpt('snippet-chars', 'number');
+    const countOnly = hasOpt('count-only');
+    const validFields = ['path', 'path+snippet', 'full'];
+    if (fields && !validFields.includes(fields)) {
+      exitWithError(`knowtation search: --fields must be one of ${validFields.join(', ')}.`, 1, useJson);
+    }
+    (async () => {
+      try {
+        const { runSearch } = await import('../lib/search.mjs');
+        const out = await runSearch(query, {
+          folder: folder ?? undefined,
+          project: project ?? undefined,
+          tag: tag ?? undefined,
+          limit,
+          fields: fields || 'path+snippet',
+          snippetChars: snippetChars ?? 300,
+          countOnly,
+        });
+        if (useJson) {
+          console.log(JSON.stringify(out));
+        } else {
+          if (out.count !== undefined) {
+            console.log(out.count);
+          } else {
+            const list = out.results || [];
+            for (const r of list) {
+              const meta = [r.project, r.tags?.join(', ')].filter(Boolean).join(' | ');
+              const line = r.snippet != null ? `${r.path}\t${r.snippet}` : r.path;
+              console.log(line + (meta ? `  ${meta}` : ''));
+            }
+          }
+        }
+        process.exit(0);
+      } catch (e) {
+        exitWithError(e.message || String(e), 2, useJson);
+      }
+    })();
+    return;
   }
 
   if (subcommand === 'index') {

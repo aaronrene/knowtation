@@ -6,7 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phase 1 complete (committed). **Phase 2 complete (committed).** Next: Phase 3 (search).
+**Build status (update at end of each session):** Phase 1 complete (committed). Phase 2 complete (committed). **Phase 3 complete (committed).** Next: Phase 3.1.
+
+**Status for next session:** Phase 3 committed. **Next phase: Phase 3.1** — time and causal filters for search and list-notes (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`). Indexer already stores `date` in metadata; optional frontmatter (causal_chain_id, entity, episode_id) can be indexed in 3.1. After 3.1, proceed to Phase 4 (write, export).
 
 ---
 
@@ -46,7 +48,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 - `lib/vector-store.mjs`: Qdrant only (`@qdrant/js-client-rest`); `ensureCollection(dimension)`, `upsert(points)`; point id = hash of chunk id for idempotent upsert.
 - `lib/indexer.mjs`: `runIndex()` — list vault (with ignore), chunk, embed in batches, upsert; config `indexer.chunk_size` / `chunk_overlap`, `embedding` defaults in config.
 - CLI `knowtation index` and `node scripts/index-vault.mjs` both call `runIndex()`; `--json` outputs `{ ok, notesProcessed, chunksIndexed }`.
-- **sqlite-vec:** Not implemented; config `vector_store: qdrant` and `qdrant_url` required. Can be added in a later phase as a second backend.
+- **sqlite-vec:** Deferred to **Phase 10** (see Phase 10 deliverable below). Until then, `vector_store: qdrant` and `qdrant_url` are required.
 
 ---
 
@@ -60,7 +62,31 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 2. **Hybrid (optional)** — Keyword or BM25 alongside vector search; combine scores. Can be Phase 3.1 if time.
 3. **JSON and errors** — `--json` outputs exact shape from SPEC §4.2 (including count-only and fields variants). Exit 0/1/2; JSON error object on failure when `--json`.
 
+**Moved to Phase 3.1:** Time and causal filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) for search and list-notes are implemented in **Phase 3.1** (next). See Phase 3.1 below.
+
 **Acceptance:** `knowtation search "community building" --project born-free --json` returns valid JSON. Unindexed vault or missing store → clear error and exit 2.
+
+**Implemented (Phase 3 session):**
+- `lib/vector-store.mjs`: Added `search(queryVector, options)` with Qdrant filter (project, tag), post-filter for folder (path prefix); `count()` for collection. Clear error when collection does not exist ("Run knowtation index first").
+- `lib/search.mjs`: `runSearch(query, options)` — load config, embed query, vector store search, apply --fields (path | path+snippet | full), --snippet-chars, --count-only; SPEC §4.2 JSON shape. For `--fields full`, reads note from vault per hit (cached by path).
+- CLI `knowtation search <query>`: parses --folder, --project, --tag, --limit, --fields, --snippet-chars, --count-only; table or --json output; exit 2 on runtime errors (missing index, embedding failure, etc.).
+
+---
+
+## Phase 3.1 — Time and causal filters (next)
+
+**Goal:** Add time-bounded and optional causal/entity/episode filters to search and list-notes so retrieval matches SPEC §4.1 and docs/INTENTION-AND-TEMPORAL.md. Completes the retrieval filter set before Phase 4.
+
+**Deliverables:**
+
+1. **search:** `--since <date>`, `--until <date>` — Filter results to chunks/notes with `date` (or `updated`) in range. Use metadata filter in vector store (Qdrant supports range on payload) or post-filter. `--order date|date-asc` — Order search results by date when applicable (post-sort or via store).
+2. **list-notes:** `--since`, `--until`, `--order date|date-asc` — Already has date from frontmatter; filter and order by date. Add `--chain <causal_chain_id>`, `--entity <entity>`, `--episode <id>` when optional frontmatter is present (filter list-notes by these fields).
+3. **Indexer (optional in 3.1):** If implementing `--chain`, `--entity`, `--episode` for search: store optional frontmatter (`causal_chain_id`, `entity`, `episode_id`) in chunk metadata and vector store payload so search can filter. SPEC §2.3 and INTENTION-AND-TEMPORAL define the fields; indexer already has path, project, tags, date.
+4. **Vector store search:** Extend `search()` filter for `since`/`until` (date range) and, if indexed, `causal_chain_id`, `entity`, `episode_id`. Qdrant supports range filters on payload.
+
+**Acceptance:** `knowtation search "decisions" --since 2025-01-01 --until 2025-03-31 --json` returns only hits in that date range. `knowtation list-notes --since 2025-03-01 --order date-asc --limit 5 --json` returns notes in range, oldest first. Optional: `--chain` / `--entity` / `--episode` work when notes carry that frontmatter and indexer stores it.
+
+**After Phase 3.1:** Proceed to Phase 4 (write, export).
 
 ---
 
@@ -163,9 +189,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 ---
 
-## Phase 10 — Polish: SKILL, docs, tests, and packaging
+## Phase 10 — Polish: SKILL, docs, tests, packaging, and sqlite-vec
 
-**Goal:** Production-ready: SKILL.md and docs updated, tests for critical paths, and clear install/run instructions.
+**Goal:** Production-ready: SKILL.md and docs updated, tests for critical paths, clear install/run instructions, and **sqlite-vec** as second vector store option so SPEC §4.4 / §5 (“Qdrant or sqlite-vec”) has no loose ends.
 
 **Deliverables:**
 
@@ -174,9 +200,10 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 3. **Docs** — README: quick start, link to SPEC, IMPORT-SOURCES, IMPLEMENTATION-PLAN, AGENT-ORCHESTRATION. Setup: config, vault, index, capture, import (ChatGPT/Claude, etc.). ARCHITECTURE references SPEC and plan.
 4. **Tests** — Unit or integration tests for: config load; vault list/filter; get-note/list-notes; indexer (chunk + metadata); search (mock or real vector store); write; at least one importer (e.g. markdown or chatgpt-export with fixture). Exit codes and JSON output where relevant.
 5. **Packaging** — `package.json` scripts: `knowtation`, `index`, optional `transcribe`, `import`. Dependencies pinned. Optional: `npm link` or global install instructions. No secrets in repo; `.gitignore` for `config/local.yaml`, `data/`, `.env`.
-6. **Cleanup** — Remove stub outputs from CLI; ensure all commands implement real behavior or fail with clear errors. COPY-TO-REPO and LICENSE if publishing.
+6. **sqlite-vec backend** — Implement second vector store backend so users can run without a Qdrant server. Same interface as current Qdrant backend: `ensureCollection(dimension)`, `upsert(points)` with same metadata (path, project, tags, date, text). Config: `vector_store: sqlite-vec`, `data_dir` (or `KNOWTATION_DATA_DIR`); store DB under `data_dir` (e.g. `data/knowtation_vectors.db` or equivalent). Index and search (Phase 3) already use the vector-store abstraction; wire `createVectorStore(config)` to return a sqlite-vec implementation when `vector_store === 'sqlite-vec'`. No duplicate points on re-run (stable chunk id). Document in config example and README when to use Qdrant vs sqlite-vec (e.g. single-machine vs multi-process, scale).
+7. **Cleanup** — Remove stub outputs from CLI; ensure all commands implement real behavior or fail with clear errors. COPY-TO-REPO and LICENSE if publishing.
 
-**Acceptance:** New user can clone, copy config, run index, run search, run import on a sample export, and run write/export. Tests pass. SKILL and docs are accurate.
+**Acceptance:** New user can clone, copy config, run index, run search, run import on a sample export, and run write/export. Tests pass. SKILL and docs are accurate. With `vector_store: sqlite-vec` and `data_dir` set, index and search work without Qdrant (no loose ends for SPEC’s “Qdrant or sqlite-vec”).
 
 ---
 
@@ -206,18 +233,19 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | 1 | — | Config, vault read, get-note, list-notes, errors |
 | 2 | 1 | Indexer (chunk, embed, vector store) |
 | 3 | 2 | Search with filters, JSON, exit codes |
+| **3.1** | **3** | **Time/causal filters: --since, --until, --order, --chain, --entity, --episode (search + list-notes)** |
 | 4 | 1 | Write, export, provenance, AIR hook |
 | 5 | 1 | One capture plugin, contract doc, optional webhook |
 | 6 | 1, 4 | Import (all source types) |
 | 7 | 1 | Transcription; import audio/video |
 | 8 | 1, 4 | Memory + AIR integration |
 | 9 | 1–4, 6 | MCP server |
-| 10 | 1–9 | Docs, SKILL, tests, packaging |
+| 10 | 1–9 | Docs, SKILL, tests, packaging, **sqlite-vec** backend |
 | 11 | 1–4, 9 | Shared vault / hub (API, proposals, review queue, optional UI); public landing site (web/); hosted or ICP (Motoko) deployment; agent-to-agent and agent-to-human without GitHub |
 
-**Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in Phase 3 or 4; causal/entity/episode and evals in an optional later phase so we don’t backtrack.
+**Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in **Phase 3.1 or Phase 4** (search and list-notes); indexer already stores `date` in metadata. Causal/entity/episode and evals remain in an optional later phase so we don’t backtrack.
 
-**Estimated order of implementation:** 1 → 2 → 3 (core loop); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10. Total scope: core in 1–10; simplified shared collaboration in 11. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
+**Estimated order of implementation:** 1 → 2 → 3 → **3.1** (core loop + temporal filters); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10. Total scope: core in 1–10; simplified shared collaboration in 11. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
 
 **Commit after each phase.** Each phase is a shippable increment; commit when its acceptance criteria are met so history stays clear and you can revert or branch by phase.
 
@@ -228,13 +256,14 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **1** | Single session | Foundation only; already done in one pass. |
 | **2** | **New session** | Indexer: chunking, embedding, vector store (Qdrant/sqlite-vec). Multiple backends and config; good to start fresh with full context. |
 | **3** | Same as 2, or new | Search builds on 2. Can do 2+3 in one “core loop” session, or 3 alone if 2 was done earlier. |
+| **3.1** | Same or new | Time/causal filters for search and list-notes. Small; can follow 3 in same or next session. |
 | **4** | Single or new | Write + export + provenance + AIR hooks. Medium; new session if 2+3 was long. |
 | **5** | Single | One capture plugin + contract doc; focused. |
 | **6** | **New session** | Many importers (markdown, chatgpt, claude, mem0, audio, video, mif, …). Big; split 6a (first 2–3) and 6b (rest) if needed. |
 | **7** | **New session** | Transcription pipeline (Whisper/Deepgram, etc.); external deps and config. |
 | **8** | **New session** | Memory + AIR; integration with external services. |
 | **9** | **New session** | MCP server; different surface (protocol, tools). |
-| **10** | **New session** | Polish: SKILL, docs, tests, packaging; broad. |
+| **10** | **New session** | Polish: SKILL, docs, tests, packaging, **sqlite-vec** backend; broad. |
 | **11** | **New session(s)** | Hub, landing, hosting; can split “Hub API + UI” and “deploy + 4Everland/ICP” if useful. |
 
 Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, and 11 (and optionally after 3 or 4). Commit at the end of every phase.
@@ -243,11 +272,20 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 
 ---
 
+## Phase 1–2 review (oversights and fixes)
+
+- **Phase 1 (foundation):** No blocking oversights. get-note and list-notes match SPEC §4.1–4.2 (exit codes, JSON shape, --fields, --count-only). Path validation (prevent `../` escape) is called out in "Other considerations / Before first release" and should be implemented before first release (e.g. in Phase 4 for write, or Phase 10 polish).
+- **Phase 2 (indexer):** Chunk metadata includes path, project, tags, date. Qdrant payload matches; search filters (project, tag) use same field names. sqlite-vec remains Phase 10.
+- **Phase 3 scope:** Core search delivered; time/causal filters assigned to **Phase 3.1** (next). Phase 3 stays shippable without scope creep.
+
+---
+
 ## What we're not forgetting
 
 - **Any audio:** Smart glasses, wearables, past blogs/videos → Phase 7 + message-interface for real-time (Phase 5).
 - **Any knowledge base / LLM export:** ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, generic Markdown → Phase 6.
 - **Multi-project, tags, filters:** Phase 1 (list-notes), Phase 2 (indexer metadata), Phase 3 (search filters).
+- **Vector store options:** SPEC §4.4 and §5 allow Qdrant or sqlite-vec. **Qdrant** implemented in Phase 2; **sqlite-vec** (no separate server; uses `data_dir`) is a Phase 10 deliverable so the “or sqlite-vec” is not a loose end.
 - **Retrieval and token cost:** All retrieval levers are in scope: `--fields`, `--snippet-chars`, `--count-only` (search, list-notes), `--body-only`/`--frontmatter-only` (get-note). Tiered retrieval (narrow → cheap first → get-note only for chosen paths) documented in SKILL and [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 - **Agents and business use:** Phases 1–4 and 9 (CLI + MCP); write, export, provenance, AIR (Phase 4, 8). Content creation (blogs, podcasts, videos, marketing, analysis) uses search + get-note + write + export.
 - **Agent orchestration (e.g. AgentCeption):** Knowtation is a first-class **knowledge backend** for multi-agent orchestration. Orchestrators and their agents use **both** CLI and MCP: MCP when the runtime speaks MCP (Cursor, Claude); CLI when agents run in containers/worktrees (e.g. engineer agents). Vault = org brain (read for context, write-back plans/summaries). See **docs/AGENT-ORCHESTRATION.md**.
