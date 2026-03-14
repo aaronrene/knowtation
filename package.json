@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node cli/index.mjs",
     "search": "node cli/index.mjs search",
-    "index": "node scripts/index-vault.mjs"
+    "index": "node scripts/index-vault.mjs",
+    "mcp": "node mcp/server.mjs"
   },
   "keywords": [
     "knowledge-base",
@@ -21,8 +22,10 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@qdrant/js-client-rest": "^1.17.0",
     "dotenv": "^16.4.5",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "zod": "^4.3.6"
   }
 }

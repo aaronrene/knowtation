@@ -8,7 +8,8 @@ import '../lib/load-env.mjs';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import { loadConfig } from '../lib/config.mjs';
-import { listMarkdownFiles, readNote, normalizeSlug, normalizeTags, resolveVaultRelativePath } from '../lib/vault.mjs';
+import { readNote, resolveVaultRelativePath } from '../lib/vault.mjs';
+import { runListNotes as runListNotesOp } from '../lib/list-notes.mjs';
 import { exitWithError } from '../lib/errors.mjs';
 
 const args = process.argv.slice(2);
@@ -30,6 +31,7 @@ Commands:
   export <path|query> <output>  Export note(s) to dir/file. Use --format, --project. Provenance and AIR per spec.
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
   memory query <key>             Read from memory layer (requires memory.enabled). Keys: last_search, last_export.
+  mcp                           Start MCP server (stdio transport). For Cursor/Claude Desktop.
 
 Options (global):
   --help, -h        Show this help or command-specific help.
@@ -47,19 +49,6 @@ function getOpt(name, type = 'string') {
 
 function hasOpt(name) {
   return args.includes('--' + name);
-}
-
-function getNotesWithMeta(vaultPath, config) {
-  const paths = listMarkdownFiles(vaultPath, { ignore: config.ignore });
-  const notes = [];
-  for (const p of paths) {
-    try {
-      notes.push(readNote(vaultPath, p));
-    } catch (_) {
-      // skip unreadable
-    }
-  }
-  return notes;
 }
 
 function runGetNote() {
@@ -116,14 +105,6 @@ function runGetNote() {
   process.exit(0);
 }
 
-/**
- * Normalize date to YYYY-MM-DD for range comparison.
- */
-function dateSlice(d) {
-  if (d == null || typeof d !== 'string') return '';
-  return d.trim().slice(0, 10) || '';
-}
-
 function runListNotes() {
   const folder = getOpt('folder');
   const project = getOpt('project');
@@ -146,71 +127,36 @@ function runListNotes() {
     exitWithError(e.message, 2, useJson);
   }
 
-  let notes = getNotesWithMeta(config.vault_path, config);
-
-  if (folder) {
-    const prefix = folder.replace(/\\/g, '/').replace(/\/$/, '') + '/';
-    notes = notes.filter((n) => n.path === folder || n.path.startsWith(prefix));
-  }
-  if (project) {
-    const p = normalizeSlug(project);
-    notes = notes.filter((n) => n.project === p || (n.frontmatter?.project && normalizeSlug(String(n.frontmatter.project)) === p));
-  }
-  if (tag) {
-    const t = normalizeSlug(tag);
-    notes = notes.filter((n) => n.tags?.includes(t) || normalizeTags(n.frontmatter?.tags).includes(t));
-  }
-  if (since) {
-    const s = dateSlice(since);
-    if (s) notes = notes.filter((n) => dateSlice(n.date || n.updated) >= s);
-  }
-  if (until) {
-    const u = dateSlice(until);
-    if (u) notes = notes.filter((n) => dateSlice(n.date || n.updated) <= u);
-  }
-  if (chain) {
-    const c = normalizeSlug(chain);
-    notes = notes.filter((n) => n.causal_chain_id === c);
-  }
-  if (entity) {
-    const e = normalizeSlug(entity);
-    notes = notes.filter((n) => Array.isArray(n.entity) && n.entity.includes(e));
-  }
-  if (episode) {
-    const ep = normalizeSlug(episode);
-    notes = notes.filter((n) => n.episode_id === ep);
-  }
-
-  if (order === 'date-asc') {
-    notes.sort((a, b) => (a.date || a.updated || '').localeCompare(b.date || b.updated || ''));
-  } else if (order === 'date') {
-    notes.sort((a, b) => (b.date || b.updated || '').localeCompare(a.date || a.updated || ''));
-  } else {
-    notes.sort((a, b) => a.path.localeCompare(b.path));
-  }
-
-  const total = notes.length;
-  const slice = notes.slice(offset, offset + limit);
+  const out = runListNotesOp(config, {
+    folder: folder ?? undefined,
+    project: project ?? undefined,
+    tag: tag ?? undefined,
+    since: since ?? undefined,
+    until: until ?? undefined,
+    chain: chain ?? undefined,
+    entity: entity ?? undefined,
+    episode: episode ?? undefined,
+    limit,
+    offset,
+    order,
+    fields,
+    countOnly,
+  });
 
   if (countOnly) {
     if (useJson) {
-      console.log(JSON.stringify({ total }));
+      console.log(JSON.stringify({ total: out.total }));
     } else {
-      console.log(total);
+      console.log(out.total);
     }
     process.exit(0);
   }
 
   if (useJson) {
-    const list = slice.map((n) => {
-      if (fields === 'path') return { path: n.path };
-      if (fields === 'full') return { path: n.path, frontmatter: n.frontmatter, body: n.body };
-      return { path: n.path, project: n.project || null, tags: n.tags || [], date: n.date || null };
-    });
-    console.log(JSON.stringify({ notes: list, total }));
+    console.log(JSON.stringify({ notes: out.notes, total: out.total }));
   } else {
-    for (const n of slice) {
-      const meta = [n.project, n.tags?.join(', '), n.date].filter(Boolean).join(' | ');
+    for (const n of out.notes) {
+      const meta = [n.project, n.tags?.join?.(', ') ?? (n.tags || []).join(', '), n.date].filter(Boolean).join(' | ');
       console.log(n.path + (meta ? `  ${meta}` : ''));
     }
   }
@@ -519,6 +465,15 @@ async function main() {
         exitWithError(e.message, 2, useJson);
       }
     })();
+    return;
+  }
+
+  if (subcommand === 'mcp') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation mcp\n  Start MCP server with stdio transport. Use with Cursor MCP config or Claude Desktop.\n  Requires config/local.yaml and KNOWTATION_VAULT_PATH.');
+      process.exit(0);
+    }
+    const serverMod = await import('../mcp/server.mjs');
     return;
   }
 

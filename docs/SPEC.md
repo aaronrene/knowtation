@@ -166,7 +166,7 @@ No secrets in config; use env for API keys (e.g. `OPENAI_API_KEY`). Do not commi
 
 ## 6. MCP server (optional)
 
-When an MCP server is provided, it MUST expose the same operations and semantics as the CLI: search, get-note, list-notes, index, write, export. Same filters (folder, project, tag), same JSON shapes, same error behavior. MCP is a transport only; the spec is the CLI.
+When an MCP server is provided, it MUST expose the same operations and semantics as the CLI: search, get-note, list-notes, index, write, export, import. Same filters (folder, project, tag), same JSON shapes, same error behavior. MCP is a transport only; the spec is the CLI.
 
 ---
 

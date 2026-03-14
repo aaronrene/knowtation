@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–8 complete (committed).
+**Build status (update at end of each session):** Phases 1–9 complete (committed).
 
-**Status for next session:** Phase 9 (MCP server): expose search, get_note, list_notes, index, write, export, import as MCP tools; stdio transport; single backend (reuse CLI logic).
+**Status for next session:** Phase 10 (Polish: SKILL, docs, tests, packaging, sqlite-vec).
 
 ---
 
@@ -235,6 +235,14 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Single backend** — Server calls the same core logic as the CLI (no duplicate business logic).
 
 **Acceptance:** MCP client (e.g. Cursor with MCP config) can run search, get-note, list-notes, write, export, import and get correct responses. CLI works when invoked from an agent process (e.g. Docker exec) with vault path and config set.
+
+**Implemented (Phase 9 session):**
+- `mcp/server.mjs`: MCP server with stdio transport; tools: search, get_note, list_notes, index, write, export, import. Uses `@modelcontextprotocol/sdk` and zod.
+- `lib/list-notes.mjs`: Extracted `runListNotes(config, options)` for single backend; CLI and MCP both use it.
+- CLI `knowtation mcp`: Starts MCP server; `npm run mcp` runs `node mcp/server.mjs`.
+- Tools map to CLI args; outputs match CLI `--json` shapes. Memory and AIR hooks preserved where applicable.
+- docs/AGENT-ORCHESTRATION.md: Updated MCP config example (mcp/server.mjs path, `knowtation mcp` option).
+- docs/PHASE9-MANUAL-TEST.md: Manual testing guide for MCP server.
 
 ---
 
