@@ -3,6 +3,7 @@ config/local.yaml
 config/*-local.*
 .env
 .env.*
+!.env.example
 
 # Data
 data/

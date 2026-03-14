@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import '../lib/load-env.mjs';
+
 /**
  * Index vault: walk Markdown under vault_path → chunk → embed → upsert to Qdrant.
  * Config: config/local.yaml or env (KNOWTATION_VAULT_PATH, QDRANT_URL).

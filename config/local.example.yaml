@@ -24,6 +24,12 @@
 #   chunk_size: 2048    # chars (~512 tokens); overlap below
 #   chunk_overlap: 256
 
+# --- Transcription (audio/video import) ---
+# transcription:
+#   provider: openai
+#   model: whisper-1
+# Requires OPENAI_API_KEY in env. Get key: platform.openai.com → API Keys. New accounts get $5 free credits; Whisper ~$0.006/min.
+
 # --- Optional: memory layer (Mem0, SAME, Mem) ---
 # memory:
 #   enabled: false

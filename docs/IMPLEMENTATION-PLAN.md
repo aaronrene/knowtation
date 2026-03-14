@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–6 complete (committed).
+**Build status (update at end of each session):** Phases 1–7 complete (committed).
 
-**Status for next session:** Phase 7 (transcription pipeline): audio/video → transcribe → vault note.
+**Status for next session:** Phase 8 (memory and AIR hooks): optional memory layer, AIR attestation at write/export.
 
 ---
 
@@ -189,6 +189,13 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Wearables** — Document that real-time wearable transcripts (e.g. Omi webhook) can be handled by the same message-interface contract: webhook receiver writes transcript to inbox with `source: audio` or `source: wearable`. No separate pipeline; capture plugin suffices.
 
 **Acceptance:** `knowtation import audio ./recording.m4a --project born-free` produces a note in the vault. `knowtation index` then makes it searchable.
+
+**Implemented (Phase 7 session):**
+- `lib/transcribe.mjs`: transcribe(filePath) via OpenAI Whisper API; OPENAI_API_KEY required; formats: mp3, mp4, mpeg, mpga, m4a, wav, webm.
+- `lib/importers/audio.mjs`: importAudio/importVideo call transcribe(), write note with transcript as body; source: audio|video, source_id, date.
+- `scripts/transcribe.mjs`: Standalone script; transcribe to stdout or `--write <vault-path>`.
+- Config: transcription.provider, transcription.model (default openai, whisper-1).
+- docs/PHASE7-MANUAL-TEST.md: manual testing guide.
 
 ---
 

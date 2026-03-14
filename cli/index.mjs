@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import '../lib/load-env.mjs';
+
 /**
  * Knowtation CLI — single entry point for search, get-note, list-notes, index, etc.
- * Phase 1: config loader, vault utils, get-note, list-notes (real implementation). Others stubbed.
  */
 
 import fs from 'fs';

@@ -66,7 +66,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 ### 3.6 Audio and video (including wearables)
 
 - **Smart glasses / wearables:** Devices (e.g. TranscribeGlass, Omi, Ray-Ban + GlassFlow, ViveGlass) often produce transcripts via app, webhook, or export. Omi supports webhooks for real-time transcript delivery. TranscribeGlass and similar may export text or send to a URL.
-- **Importer behavior:** `import audio <file>` or `import audio <url>` runs the same pipeline as `scripts/transcribe.mjs`: transcribe → one note in `vault/media/audio/` or `vault/inbox/` with frontmatter `source: audio` (or `video`), `source_id`, `date`. Webhook receivers (e.g. from Omi) can write directly to inbox per message-interface contract; no separate “import” needed for real-time, but batch “import audio” for past recordings.
+- **Importer behavior:** `import audio <file>` or `import video <file>` transcribes via OpenAI Whisper (OPENAI_API_KEY required) → one note with transcript as body; frontmatter `source: audio` or `video`, `source_id`, `date`. Formats: mp3, mp4, mpeg, mpga, m4a, wav, webm. Webhook receivers (e.g. Omi) can write transcripts directly to inbox per message-interface contract.
 - **Past blogs/videos:** User exports blog text or video transcript (or uses our transcription). Import as `markdown` or `video`/`audio` so all historical content lives in the vault.
 
 ---
@@ -116,6 +116,12 @@ knowtation import mif ./my-memories.memory.md --output-dir imports/mif
 **Mem0 export** (JSON file):
 ```bash
 knowtation import mem0-export ./mem0-export.json --project memories
+```
+
+**Audio / video** (transcription via OpenAI Whisper; requires OPENAI_API_KEY):
+```bash
+knowtation import audio ./recording.m4a --project born-free --output-dir media/audio
+knowtation import video ./meeting.mp4 --output-dir media/video
 ```
 
 **Dry run** (preview without writing):
