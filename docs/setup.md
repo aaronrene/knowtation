@@ -5,8 +5,8 @@
 3. **Secrets** — Copy `.env.example` to `.env` and set API keys (e.g. `OPENAI_API_KEY` for transcription and optional OpenAI embeddings). `.env` is gitignored and loaded automatically.
 4. **Vault** — Open the `vault/` folder in Obsidian as your vault.
 4. **Index** — Run the indexer once: `knowtation index` or `node scripts/index-vault.mjs` (requires Qdrant at `qdrant_url` and Ollama for default embedding). After indexing, search (Phase 3) will have data.
-5. **CLI** — From repo root: `node cli/index.mjs --help`, `node cli/index.mjs list-notes`, `node cli/index.mjs get-note <path>`, `node cli/index.mjs index`. Use `node cli/index.mjs search "query"` once Phase 3 (search) is implemented.
+5. **CLI** — From repo root: `node cli/index.mjs --help`, `node cli/index.mjs list-notes`, `node cli/index.mjs get-note <path>`, `node cli/index.mjs index`, `node cli/index.mjs search "query"`, `write`, `export`, `import`. Use `--json` for machine output.
 6. **Capture (optional)** — File-based: `echo "Note" | node scripts/capture-file.mjs --source file --source-id id123`. Webhook: `node scripts/capture-webhook.mjs --port 3131` then POST `/capture` with JSON. See [docs/CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md).
 7. **Transcription (optional)** — `node cli/index.mjs import audio ./recording.mp3` (requires OPENAI_API_KEY in `.env`). See [docs/PHASE7-MANUAL-TEST.md](./PHASE7-MANUAL-TEST.md).
 8. **Memory (optional)** — Set `memory.enabled: true` in config to store last search and export provenance. Query with `knowtation memory query last_search` or `last_export`.
-9. **Agents** — The skill in `.cursor/skills/knowtation/SKILL.md` is auto-discovered by Cursor when this repo is open. For global use, copy that skill folder to `~/.cursor/skills/knowtation/`.
+9. **Agents** — The skill in `.cursor/skills/knowtation/SKILL.md` is auto-discovered by Cursor when this repo is open. For global use, copy that skill folder to `~/.cursor/skills/knowtation/`. For **MCP** (Cursor, Claude Desktop), run `node cli/index.mjs mcp` or `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).

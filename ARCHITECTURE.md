@@ -22,8 +22,17 @@ Audio/Video → transcribe → vault (one note per recording)
 ## Interface: CLI first, MCP optional
 
 - **Primary:** One CLI, `knowtation`, with subcommands. Agents discover usage via SKILL.md and `knowtation --help`; no large tool schema in context. Full command set and JSON shapes: **docs/SPEC.md**.
-- **Optional:** MCP server that wraps the same backend for clients that only speak MCP. When present, MCP MUST expose the same operations and semantics as the CLI (search, get-note, list-notes, index, write, export); same filters and output; MCP is transport only.
+- **Optional:** MCP server that wraps the same backend for clients that only speak MCP. When present, MCP MUST expose the same operations and semantics as the CLI (search, get-note, list-notes, index, write, export, import); same filters and output; MCP is transport only. Run `knowtation mcp` or see **docs/AGENT-ORCHESTRATION.md**.
 - **Exit codes:** 0 success, 1 usage error, 2 runtime error. With `--json`, errors return `{ "error": "...", "code": "..." }`.
+
+## Agent orchestration (e.g. AgentCeption)
+
+Knowtation is a first-class **knowledge backend** for multi-agent orchestration. We support **both** interfaces so orchestrators can choose per environment:
+
+- **MCP:** When the agent runtime speaks MCP (Cursor, Claude Desktop, or an orchestrator that exposes MCP), configure the Knowtation MCP server; agents get tools like `search`, `get_note`, `list_notes`, `write`.
+- **CLI:** When agents run in containers or git worktrees (e.g. [AgentCeption](https://github.com/cgcardona/agentception) engineer agents), install the Knowtation CLI in that environment, set `KNOWTATION_VAULT_PATH`, and run `knowtation ... --json`; parse output in the agent.
+
+The vault acts as the **org brain**: agents read it for context (search → get-note with token-optimal retrieval) and can write back plans or summaries. See **docs/AGENT-ORCHESTRATION.md** for setup, patterns, and a write-back bridge example.
 
 ## Vault layout and format
 

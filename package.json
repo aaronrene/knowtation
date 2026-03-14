@@ -11,7 +11,8 @@
     "start": "node cli/index.mjs",
     "search": "node cli/index.mjs search",
     "index": "node scripts/index-vault.mjs",
-    "mcp": "node mcp/server.mjs"
+    "mcp": "node mcp/server.mjs",
+    "transcribe": "node scripts/transcribe.mjs"
   },
   "keywords": [
     "knowledge-base",

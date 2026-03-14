@@ -17,8 +17,8 @@
 1. **Clone or use this repo** — This is the Knowtation repository. If you are copying this seed elsewhere, see [COPY-TO-REPO.md](./COPY-TO-REPO.md).
 2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml` and set your vault path (and optionally Qdrant URL, embedding). Do not commit secrets.
 3. **Open the vault** — Open the `vault/` folder in Obsidian (or any Markdown vault editor).
-4. **Run the CLI** — `node cli/index.mjs --help`. Run `node cli/index.mjs index` once (requires Qdrant and Ollama for default embedding); then `node cli/index.mjs search "your query"`, `write`, `export`. See [docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md) — Phases 1–5 implemented.
-5. **Use from agents** — The skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open; copy to `~/.cursor/skills/knowtation/` for global use. Agents discover it and invoke the CLI.
+4. **Run the CLI** — `node cli/index.mjs --help`. Run `node cli/index.mjs index` once (requires Qdrant and Ollama for default embedding); then `node cli/index.mjs search "your query"`, `write`, `export`, `import`. See [docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md) — Phases 1–9 implemented.
+5. **Use from agents** — The skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open; copy to `~/.cursor/skills/knowtation/` for global use. For **MCP** (Cursor, Claude Desktop), run `knowtation mcp` or `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md).
 
 ## Repository layout
 
@@ -46,7 +46,8 @@ knowtation/
 ## Docs
 
 - **[docs/SPEC.md](./docs/SPEC.md)** — **Spec:** frontmatter, inbox contract, CLI (all commands/flags including `import`), config, indexer, MCP, memory/AIR hooks, import sources, versioning.
-- **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** — **Final document: all phases** (1–11). Core (1–10) + optional Phase 11 (shared vault / hub). Implement in order or parallelize where noted.
+- **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** — **Final document: all phases** (1–11). Core (1–10) + optional Phase 11 (shared vault / hub). Phases 1–9 implemented.
+- **[docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md)** — Using Knowtation with agent orchestration: MCP (Cursor/Claude config) and CLI in agent environments; vault as knowledge backend, write-back patterns.
 - **[docs/CLARIFICATIONS.md](./docs/CLARIFICATIONS.md)** — Simple explanations: capture/import contracts, optional memory/AIR, backends behind an abstraction, “plug into any LLM or service.”
 - **[docs/INTENTION-AND-TEMPORAL.md](./docs/INTENTION-AND-TEMPORAL.md)** — Intention and temporal understanding: temporal sequence, causation, hierarchical memory, state compression, evals. Optional frontmatter and CLI filters; schema defined now so we don’t backtrack.
 - **[docs/RETRIEVAL-AND-CLI-REFERENCE.md](./docs/RETRIEVAL-AND-CLI-REFERENCE.md)** — All CLI commands and add-on features in one place; how they interact; how each helps the retrieval bottleneck and token cost; expansions (e.g. `--fields`, `--snippet-chars`, `--count-only`) for right information at best price token-wise.
