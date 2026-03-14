@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–7 complete (committed).
+**Build status (update at end of each session):** Phases 1–8 complete (committed).
 
-**Status for next session:** Phase 8 (memory and AIR hooks): optional memory layer, AIR attestation at write/export.
+**Status for next session:** Phase 9 (MCP server): expose search, get_note, list_notes, index, write, export, import as MCP tools; stdio transport; single backend (reuse CLI logic).
 
 ---
 
@@ -211,6 +211,15 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 4. **Graceful degradation** — If memory or AIR service unavailable, log and either skip (memory) or fail the operation (AIR) per product choice. Document behavior.
 
 **Acceptance:** With memory and AIR configured, running export triggers AIR and stores provenance in memory. With services off, CLI still works (memory optional; AIR can fail the op or be made optional per config).
+
+**Implemented (Phase 8 session):**
+- `lib/memory.mjs`: storeMemory(dataDir, key, value), getMemory(dataDir, key); file backend stores in data/memory.json; graceful on error.
+- CLI search: after runSearch, if memory.enabled, store last_search (query, paths, count).
+- CLI export: after exportNotes, if memory.enabled, store last_export (provenance, exported).
+- CLI: `knowtation memory query <key>` — keys: last_search, last_export; requires memory.enabled.
+- Config: memory.enabled, memory.provider (file), memory.url; air.enabled, air.endpoint (normalized).
+- AIR: already implemented in Phase 4 (lib/air.mjs); calls endpoint or placeholder when unreachable.
+- docs/PHASE8-MANUAL-TEST.md.
 
 ---
 

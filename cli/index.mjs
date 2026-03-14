@@ -29,6 +29,7 @@ Commands:
   write <path>      Create or overwrite a note. Use --stdin for body, --frontmatter k=v, --append.
   export <path|query> <output>  Export note(s) to dir/file. Use --format, --project. Provenance and AIR per spec.
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
+  memory query <key>             Read from memory layer (requires memory.enabled). Keys: last_search, last_export.
 
 Options (global):
   --help, -h        Show this help or command-specific help.
@@ -266,6 +267,7 @@ async function main() {
     }
     (async () => {
       try {
+        const config = loadConfig();
         const { runSearch } = await import('../lib/search.mjs');
         const out = await runSearch(query, {
           folder: folder ?? undefined,
@@ -282,6 +284,16 @@ async function main() {
           snippetChars: snippetChars ?? 300,
           countOnly,
         });
+        if (config.memory?.enabled) {
+          try {
+            const { storeMemory } = await import('../lib/memory.mjs');
+            storeMemory(config.data_dir, 'last_search', {
+              query: out.query,
+              paths: (out.results || []).map((r) => r.path),
+              count: out.count ?? (out.results || []).length,
+            });
+          } catch (_) {}
+        }
         if (useJson) {
           console.log(JSON.stringify(out));
         } else {
@@ -439,6 +451,12 @@ async function main() {
           await attestBeforeExport(config, paths);
         }
         const result = exportNotes(config.vault_path, paths, output, { format });
+        if (config.memory?.enabled) {
+          try {
+            const { storeMemory } = await import('../lib/memory.mjs');
+            storeMemory(config.data_dir, 'last_export', { provenance: result.provenance, exported: result.exported });
+          } catch (_) {}
+        }
         if (useJson) {
           console.log(JSON.stringify({ exported: result.exported, provenance: result.provenance }));
         } else {
@@ -501,6 +519,39 @@ async function main() {
         exitWithError(e.message, 2, useJson);
       }
     })();
+    return;
+  }
+
+  if (subcommand === 'memory') {
+    const action = args[1];
+    const keyArg = args[2];
+    if (action !== 'query' || !keyArg) {
+      exitWithError('knowtation memory: use "memory query <key>". Keys: last_search, last_export.', 1, useJson);
+    }
+    const key = keyArg.replace(/\s+/g, '_');
+    const validKeys = ['last_search', 'last_export'];
+    if (!validKeys.includes(key)) {
+      exitWithError(`knowtation memory: unknown key "${key}". Use: ${validKeys.join(', ')}.`, 1, useJson);
+    }
+    try {
+      const config = loadConfig();
+      if (!config.memory?.enabled) {
+        exitWithError('knowtation memory: memory layer not enabled. Set memory.enabled in config.', 2, useJson);
+      }
+      const { getMemory } = await import('../lib/memory.mjs');
+      const val = getMemory(config.data_dir, key);
+      if (!val) {
+        if (useJson) console.log(JSON.stringify({ key, value: null }));
+        else console.log('(no value)');
+      } else if (useJson) {
+        console.log(JSON.stringify({ key, value: val }));
+      } else {
+        console.log(JSON.stringify(val, null, 2));
+      }
+      process.exit(0);
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
     return;
   }
 

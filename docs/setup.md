@@ -8,4 +8,5 @@
 5. **CLI** — From repo root: `node cli/index.mjs --help`, `node cli/index.mjs list-notes`, `node cli/index.mjs get-note <path>`, `node cli/index.mjs index`. Use `node cli/index.mjs search "query"` once Phase 3 (search) is implemented.
 6. **Capture (optional)** — File-based: `echo "Note" | node scripts/capture-file.mjs --source file --source-id id123`. Webhook: `node scripts/capture-webhook.mjs --port 3131` then POST `/capture` with JSON. See [docs/CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md).
 7. **Transcription (optional)** — `node cli/index.mjs import audio ./recording.mp3` (requires OPENAI_API_KEY in `.env`). See [docs/PHASE7-MANUAL-TEST.md](./PHASE7-MANUAL-TEST.md).
-8. **Agents** — The skill in `.cursor/skills/knowtation/SKILL.md` is auto-discovered by Cursor when this repo is open. For global use, copy that skill folder to `~/.cursor/skills/knowtation/`.
+8. **Memory (optional)** — Set `memory.enabled: true` in config to store last search and export provenance. Query with `knowtation memory query last_search` or `last_export`.
+9. **Agents** — The skill in `.cursor/skills/knowtation/SKILL.md` is auto-discovered by Cursor when this repo is open. For global use, copy that skill folder to `~/.cursor/skills/knowtation/`.

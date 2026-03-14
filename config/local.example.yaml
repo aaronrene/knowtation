@@ -30,14 +30,13 @@
 #   model: whisper-1
 # Requires OPENAI_API_KEY in env. Get key: platform.openai.com → API Keys. New accounts get $5 free credits; Whisper ~$0.006/min.
 
-# --- Optional: memory layer (Mem0, SAME, Mem) ---
+# --- Optional: memory layer (store last search, export provenance) ---
 # memory:
-#   enabled: false
-#   provider: mem0
-#   url: http://localhost:8080
-# Or env: KNOWTATION_MEMORY_URL
+#   enabled: true
+#   provider: file   # stores in data/memory.json
+#   # url: http://localhost:8080   # for Mem0; env KNOWTATION_MEMORY_URL
 
-# --- Optional: AIR attestation (write non-inbox, export) ---
+# --- Optional: AIR attestation (before write non-inbox, before export) ---
 # air:
 #   enabled: false
 #   endpoint: http://localhost:3000
