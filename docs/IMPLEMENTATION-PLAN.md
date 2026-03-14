@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–9 complete (committed).
+**Build status (update at end of each session):** Phases 1–10 complete (sqlite-vec + test suite implemented; commit when ready).
 
-**Status for next session:** Phase 10 in progress (SKILL, docs, packaging done this session; tests, sqlite-vec, cleanup remaining).
+**Status for next session:** Phase 10 ready to commit; then Phase 11 (hub) or cleanup (LICENSE, COPY-TO-REPO).
 
 ---
 
@@ -260,7 +260,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 6. **sqlite-vec backend** — Implement second vector store backend so users can run without a Qdrant server. Same interface as current Qdrant backend: `ensureCollection(dimension)`, `upsert(points)` with same metadata (path, project, tags, date, text). Config: `vector_store: sqlite-vec`, `data_dir` (or `KNOWTATION_DATA_DIR`); store DB under `data_dir` (e.g. `data/knowtation_vectors.db` or equivalent). Index and search (Phase 3) already use the vector-store abstraction; wire `createVectorStore(config)` to return a sqlite-vec implementation when `vector_store === 'sqlite-vec'`. No duplicate points on re-run (stable chunk id). Document in config example and README when to use Qdrant vs sqlite-vec (e.g. single-machine vs multi-process, scale).
 7. **Cleanup** — Remove stub outputs from CLI; ensure all commands implement real behavior or fail with clear errors. COPY-TO-REPO and LICENSE if publishing.
 
-**Implemented (Phase 10 session — docs and packaging):** SKILL.md (retrieval levers, tiered retrieval, MCP, when to use); README and setup.md (Phases 1–9, MCP); ARCHITECTURE (MCP import + run); package.json transcribe script; .gitignore verified. **Remaining:** Tests; sqlite-vec backend; cleanup (stubs, LICENSE).
+**Implemented (Phase 10 session — docs, packaging, sqlite-vec, tests):** SKILL.md (retrieval levers, tiered retrieval, MCP, when to use); README and setup.md (Phases 1–9, MCP); ARCHITECTURE (MCP import + run); package.json transcribe script; .gitignore verified. **sqlite-vec backend:** lib/vector-store-sqlite.mjs — ensureCollection, upsert, search, count, close(); vec0 TEXT columns use empty string instead of NULL; dimension mismatch detected and throws clear error with recovery instructions; createVectorStore async and delegates to sqlite-vec when vector_store === 'sqlite-vec'; indexer allows sqlite-vec without qdrant_url; config/local.example.yaml and KNOWTATION_VECTOR_STORE env. **Tests:** Node node:test runner; npm test runs test/*.test.mjs. Fixtures: test/fixtures/vault-fs, config, markdown-import. Tests: config load (file + env, missing vault_path); vault (listMarkdownFiles, readNote, parseFrontmatterAndBody, resolveVaultRelativePath, normalizeSlug/Tags); runListNotes (filters, limit/offset, countOnly); chunkNote and stableChunkId; vector-store-sqlite (ensureCollection, upsert, search, count, close, dimension mismatch); writeNote and isInboxPath; importMarkdown (import, dryRun, project/tags, not-found); createVectorStore(sqlite-vec); CLI list-notes/get-note/help exit codes and JSON. **Remaining:** Optional cleanup (stubs, LICENSE, COPY-TO-REPO).
 
 **Acceptance:** New user can clone, copy config, run index, run search, run import on a sample export, and run write/export. Tests pass. SKILL and docs are accurate. With `vector_store: sqlite-vec` and `data_dir` set, index and search work without Qdrant (no loose ends for SPEC’s “Qdrant or sqlite-vec”).
 

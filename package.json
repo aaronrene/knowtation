@@ -12,7 +12,8 @@
     "search": "node cli/index.mjs search",
     "index": "node scripts/index-vault.mjs",
     "mcp": "node mcp/server.mjs",
-    "transcribe": "node scripts/transcribe.mjs"
+    "transcribe": "node scripts/transcribe.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "keywords": [
     "knowledge-base",
@@ -25,8 +26,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@qdrant/js-client-rest": "^1.17.0",
+    "better-sqlite3": "^12.8.0",
     "dotenv": "^16.4.5",
     "js-yaml": "^4.1.0",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "zod": "^4.3.6"
   }
 }

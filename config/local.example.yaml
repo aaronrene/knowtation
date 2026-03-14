@@ -7,10 +7,15 @@
 # Or env: KNOWTATION_VAULT_PATH
 
 # --- Vector store (one of) ---
+# Qdrant: requires a running Qdrant server. Use for multi-process or scale.
 # qdrant_url: http://localhost:6333
 # Or env: QDRANT_URL
-# vector_store: qdrant   # or sqlite-vec
-# data_dir: data/       # for sqlite-vec; env KNOWTATION_DATA_DIR
+# vector_store: qdrant
+#
+# sqlite-vec: no separate server; DB under data_dir. Use for single-machine, simple setup.
+# vector_store: sqlite-vec
+# data_dir: data/       # env KNOWTATION_DATA_DIR; DB file: data/knowtation_vectors.db
+# Or env: KNOWTATION_VECTOR_STORE=sqlite-vec
 
 # --- Embedding (indexer and search) ---
 # embedding:

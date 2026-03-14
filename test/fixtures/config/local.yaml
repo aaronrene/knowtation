@@ -1,0 +1,3 @@
+vault_path: vault-fs
+data_dir: data
+ignore: [templates, meta]

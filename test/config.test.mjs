@@ -1,0 +1,74 @@
+/**
+ * Config load tests: file + env, missing vault_path, vault path validation.
+ */
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { loadConfig } from '../lib/config.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fixturesDir = path.join(__dirname, 'fixtures');
+
+describe('loadConfig', () => {
+  const envBackup = { ...process.env };
+
+  after(() => {
+    process.env.KNOWTATION_VAULT_PATH = envBackup.KNOWTATION_VAULT_PATH;
+    process.env.KNOWTATION_DATA_DIR = envBackup.KNOWTATION_DATA_DIR;
+    process.env.KNOWTATION_VECTOR_STORE = envBackup.KNOWTATION_VECTOR_STORE;
+    delete process.env.KNOWTATION_VAULT_PATH;
+    delete process.env.KNOWTATION_DATA_DIR;
+    delete process.env.KNOWTATION_VECTOR_STORE;
+    if (envBackup.KNOWTATION_VAULT_PATH !== undefined) process.env.KNOWTATION_VAULT_PATH = envBackup.KNOWTATION_VAULT_PATH;
+    if (envBackup.KNOWTATION_DATA_DIR !== undefined) process.env.KNOWTATION_DATA_DIR = envBackup.KNOWTATION_DATA_DIR;
+    if (envBackup.KNOWTATION_VECTOR_STORE !== undefined) process.env.KNOWTATION_VECTOR_STORE = envBackup.KNOWTATION_VECTOR_STORE;
+  });
+
+  it('loads from fixture config when cwd is fixtures', () => {
+    const config = loadConfig(fixturesDir);
+    assert.strictEqual(typeof config.vault_path, 'string');
+    assert(config.vault_path.endsWith('vault-fs') || config.vault_path.includes('vault-fs'));
+    assert.strictEqual(config.data_dir, path.resolve(fixturesDir, 'data'));
+    assert(Array.isArray(config.ignore));
+    assert(config.ignore.includes('templates'));
+    assert(config.ignore.includes('meta'));
+  });
+
+  it('throws when vault_path is missing (no file, no env)', () => {
+    const emptyDir = path.join(__dirname, 'fixtures', 'config');
+    const prev = process.env.KNOWTATION_VAULT_PATH;
+    delete process.env.KNOWTATION_VAULT_PATH;
+    try {
+      assert.throws(
+        () => loadConfig(emptyDir),
+        /vault_path is required/
+      );
+    } finally {
+      if (prev !== undefined) process.env.KNOWTATION_VAULT_PATH = prev;
+    }
+  });
+
+  it('respects KNOWTATION_VAULT_PATH env override', () => {
+    const vaultAbs = path.join(fixturesDir, 'vault-fs');
+    process.env.KNOWTATION_VAULT_PATH = vaultAbs;
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.vault_path, vaultAbs);
+    } finally {
+      delete process.env.KNOWTATION_VAULT_PATH;
+    }
+  });
+
+  it('respects KNOWTATION_VECTOR_STORE env override', () => {
+    process.env.KNOWTATION_VAULT_PATH = path.join(fixturesDir, 'vault-fs');
+    process.env.KNOWTATION_VECTOR_STORE = 'sqlite-vec';
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.vector_store, 'sqlite-vec');
+    } finally {
+      delete process.env.KNOWTATION_VAULT_PATH;
+      delete process.env.KNOWTATION_VECTOR_STORE;
+    }
+  });
+});

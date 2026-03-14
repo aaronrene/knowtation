@@ -1,0 +1,5 @@
+vault_path: ./vault-fs
+vector_store: qdrant
+qdrant_url: http://localhost:6333
+data_dir: ./data
+ignore: [templates, meta]

@@ -11,6 +11,10 @@ out/
 *.db
 *.sqlite
 
+# Test artifacts (temp vaults and vector DB from tests)
+test/fixtures/data/
+test/fixtures/tmp-*/
+
 # Obsidian
 vault/.obsidian/workspace*
 vault/.trash/
