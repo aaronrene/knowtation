@@ -46,3 +46,15 @@
 #   enabled: false
 #   endpoint: http://localhost:3000
 # Or env: KNOWTATION_AIR_ENDPOINT
+
+# --- Vault Git (optional backup / versioning) ---
+# vault:
+#   git:
+#     enabled: true
+#     remote: https://github.com/you/your-vault-repo.git
+#     auto_commit: false   # set true to auto-commit after Hub write/capture/approve (and CLI write if using Hub)
+#     auto_push: false     # set true to push after each auto-commit (requires remote)
+# Proposals stay Hub-only; Git is for the vault content. See PROVENANCE-AND-GIT.md.
+
+# --- Reserved: Phase 12 (blockchain / agent payments) ---
+# Future config may add blockchain or payment-related keys. No keys in current schema.

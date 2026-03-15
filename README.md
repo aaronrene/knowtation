@@ -15,7 +15,7 @@
 ## Quick start
 
 1. **Clone or use this repo** — This is the Knowtation repository. If you are copying this seed elsewhere, see [COPY-TO-REPO.md](./COPY-TO-REPO.md).
-2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml` and set your vault path (and optionally Qdrant URL, embedding). Do not commit secrets.
+2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml` and set your vault path. For vector search: use **Qdrant** (set `qdrant_url`) or **sqlite-vec** (set `vector_store: sqlite-vec`; no server, DB under `data_dir`). Set embedding provider (e.g. Ollama). Do not commit secrets.
 3. **Open the vault** — Open the `vault/` folder in Obsidian (or any Markdown vault editor).
 4. **Run the CLI** — `node cli/index.mjs --help`. Run `node cli/index.mjs index` once (requires Qdrant and Ollama for default embedding); then `node cli/index.mjs search "your query"`, `write`, `export`, `import`. See [docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md) — Phases 1–9 implemented.
 5. **Use from agents** — The skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open; copy to `~/.cursor/skills/knowtation/` for global use. For **MCP** (Cursor, Claude Desktop), run `knowtation mcp` or `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md).
@@ -45,6 +45,7 @@ knowtation/
 
 ## Docs
 
+- **[docs/WHITEPAPER.md](./docs/WHITEPAPER.md)** — **Whitepaper:** why fragmented knowledge and weak retrieval motivate a portable vault; Knowtation’s thesis (data liberation, CLI/MCP, indexing); who it’s for; questions for builders. Landing page links here from [web/index.html](./web/index.html).
 - **[docs/SPEC.md](./docs/SPEC.md)** — **Spec:** frontmatter, inbox contract, CLI (all commands/flags including `import`), config, indexer, MCP, memory/AIR hooks, import sources, versioning.
 - **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** — **Final document: all phases** (1–11). Core (1–10) + optional Phase 11 (shared vault / hub). Phases 1–9 implemented.
 - **[docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md)** — Using Knowtation with agent orchestration: MCP (Cursor/Claude config) and CLI in agent environments; vault as knowledge backend, write-back patterns.
