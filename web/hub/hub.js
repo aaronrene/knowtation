@@ -156,12 +156,13 @@
     }
   }
 
-  btnLoginGoogle.onclick = () => {
-    window.location.href = apiBase + '/api/v1/auth/login?provider=google';
-  };
-  btnLoginGithub.onclick = () => {
-    window.location.href = apiBase + '/api/v1/auth/login?provider=github';
-  };
+  function loginUrl(provider) {
+    const u = apiBase + '/api/v1/auth/login?provider=' + provider;
+    const invite = params.get('invite');
+    return invite ? u + '&invite=' + encodeURIComponent(invite) : u;
+  }
+  btnLoginGoogle.onclick = () => { window.location.href = loginUrl('google'); };
+  btnLoginGithub.onclick = () => { window.location.href = loginUrl('github'); };
 
   btnLogout.onclick = () => {
     token = null;
@@ -233,7 +234,20 @@
     if (app) app.classList.add('login-screen');
     main.classList.add('hidden');
     loginRequired.classList.remove('hidden');
+    const inviteBanner = el('login-invite-banner');
+    if (inviteBanner && params.get('invite')) {
+      inviteBanner.textContent = "You've been invited. Sign in to join.";
+      inviteBanner.classList.remove('hidden');
+    }
     initProviders();
+  }
+  if (token && params.get('invite_accepted') === '1') {
+    setTimeout(() => {
+      if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
+      const u = new URL(location.href);
+      u.searchParams.delete('invite_accepted');
+      history.replaceState({}, '', u.toString());
+    }, 500);
   }
 
   function dateSlice(d) {
@@ -1005,9 +1019,80 @@
       document.querySelectorAll('.settings-panel').forEach((p) => {
         p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
       });
-      if (id === 'team') loadTeamRolesList();
+      if (id === 'team') {
+        loadTeamRolesList();
+        loadInvitesList();
+      }
     });
   });
+
+  async function loadInvitesList() {
+    const listEl = el('invites-pending-list');
+    if (!listEl) return;
+    listEl.textContent = 'Loading…';
+    try {
+      const out = await api('/api/v1/invites');
+      const invites = out.invites || [];
+      if (invites.length === 0) {
+        listEl.textContent = 'No pending invites. Create a link above.';
+      } else {
+        listEl.innerHTML = invites.map((inv) => {
+          const tokenShort = inv.token.slice(0, 12) + '…';
+          const exp = inv.expires_at ? inv.expires_at.slice(0, 10) : '';
+          return '<div class="team-role-row invite-row">' +
+            '<span>' + escapeHtml(inv.role) + ' · ' + escapeHtml(tokenShort) + (exp ? ' · expires ' + escapeHtml(exp) : '') + '</span>' +
+            '<button type="button" class="btn-revoke-invite btn-secondary small" data-token="' + escapeHtml(inv.token) + '">Revoke</button>' +
+            '</div>';
+        }).join('');
+        listEl.querySelectorAll('.btn-revoke-invite').forEach((btn) => {
+          btn.onclick = async () => {
+            const t = btn.dataset.token;
+            if (!t) return;
+            try {
+              await api('/api/v1/invites/' + encodeURIComponent(t), { method: 'DELETE' });
+              loadInvitesList();
+            } catch (e) {
+              if (typeof showToast === 'function') showToast(e.message || 'Revoke failed', true);
+            }
+          };
+        });
+      }
+    } catch (e) {
+      listEl.textContent = 'Could not load: ' + (e.message || '');
+    }
+  }
+
+  const btnInviteCreate = el('btn-invite-create');
+  const inviteLinkBlock = el('invite-link-block');
+  const inviteLinkUrl = el('invite-link-url');
+  const inviteCreateMsg = el('invite-create-msg');
+  if (btnInviteCreate) {
+    btnInviteCreate.onclick = async () => {
+      const roleSelect = el('invite-role');
+      const role = (roleSelect && roleSelect.value) || 'editor';
+      if (inviteCreateMsg) { inviteCreateMsg.textContent = ''; inviteCreateMsg.className = 'settings-msg'; }
+      try {
+        const out = await api('/api/v1/invites', { method: 'POST', body: JSON.stringify({ role }) });
+        if (inviteLinkUrl) inviteLinkUrl.value = out.invite_url || '';
+        if (inviteLinkBlock) inviteLinkBlock.classList.remove('hidden');
+        if (inviteCreateMsg) { inviteCreateMsg.textContent = 'Link created. Copy and share.'; inviteCreateMsg.className = 'settings-msg ok'; }
+        loadInvitesList();
+      } catch (e) {
+        if (inviteCreateMsg) { inviteCreateMsg.textContent = e.message || 'Failed'; inviteCreateMsg.className = 'settings-msg err'; }
+      }
+    };
+  }
+  const btnInviteCopy = el('btn-invite-copy');
+  if (btnInviteCopy && inviteLinkUrl) {
+    btnInviteCopy.onclick = () => {
+      inviteLinkUrl.select();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(inviteLinkUrl.value).then(() => {
+          if (typeof showToast === 'function') showToast('Link copied.');
+        }).catch(() => {});
+      }
+    };
+  }
 
   async function loadTeamRolesList() {
     const listEl = el('team-roles-list');

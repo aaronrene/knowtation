@@ -30,7 +30,7 @@ So today, **“team” = everyone who can access the Hub URL and log in** — sh
 
 | Area | Status | Notes |
 |------|--------|--------|
-| **Invite flow** | Not built | No “Invite teammate” or email invite; you share the Hub URL (and optionally the backup repo). |
+| **Invite flow** | Built | Admins create an invite link (Settings → Team); invitee opens link and signs in; added to role. Pending list and revoke. |
 | **Roles (viewer / editor / admin)** | Not built | Mentioned in SIMILAR-SERVICES and “post–Phase 11”; would allow “team vault” without giving everyone full access. |
 | **Team or workspace concept** | Not built | No notion of “team” or “workspace” in the app; single vault per Hub instance. |
 | **Hub reading GitHub collaborators** | Not built | Hub does not sync with GitHub’s collaborator list or use it for access control. |
@@ -40,7 +40,7 @@ So today, **“team” = everyone who can access the Hub URL and log in** — sh
 ## Where it lives in the plan (phase and roadmap)
 
 - **Phase 11 (Hub)** is done for self-hosted: one vault, OAuth, proposals, review.
-- **Phase 13 — Teams and collaboration:** **Roles are implemented.** Admins assign roles from the Hub: **Settings → Team** (admin-only tab). Paste the user’s **User ID** (they copy it from their own Settings → “Your user ID”), choose role, click Add/update. No backup repo required. Alternatively edit `data/hub_roles.json` on the server. **Not yet:** invite flow (assign by email or link so admins don’t need to collect User IDs); planned for Phase 13 (invite). See [hub/README.md](../hub/README.md) (Roles) and [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
+- **Phase 13 — Teams and collaboration:** **Roles are implemented.** Admins assign roles from the Hub: **Settings → Team** (admin-only tab). Paste the user’s **User ID** (they copy it from their own Settings → “Your user ID”), choose role, click Add/update. No backup repo required. Alternatively edit `data/hub_roles.json` on the server. **Invite flow:** Implemented (create link in Settings → Team; invitee signs in via link). See [hub/README.md](../hub/README.md) (Roles) and [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
 - **"Teams" / invite / roles** are called out as **post–Phase 11** in [SIMILAR-SERVICES-AND-FEATURES.md](./SIMILAR-SERVICES-AND-FEATURES.md): *“Share links, roles, notifications, optional real-time sync, optional web UI.”* So there is no dedicated “Phase: Teams” yet; it’s part of the **later** work (roles, share, notifications).
 - **Simple roles** (viewer / editor / admin per vault or per project) are listed as a way to enable a “team vault” without full Git permissions; that would be a future phase or part of a “Phase 13” style addition.
 - **Hosted product** ([HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md)) is multi-tenant (one deployment, one vault per tenant). That’s “one vault per org/user,” not “teams inside a tenant” — but the same codebase could later add team/invite/roles inside a tenant.
@@ -59,9 +59,9 @@ For now, **invite = share Hub URL (and repo URL if you use a shared backup repo)
 
 | Question | Answer |
 |----------|--------|
-| **Have we developed Teams?** | **Roles are built** (viewer / editor / admin via `data/hub_roles.json`). No invite flow or team workspace yet. |
-| **How do you “invite” others today?** | Share the Hub URL; they log in with Google/GitHub if OAuth is configured. |
+| **Have we developed Teams?** | **Roles are built** (viewer / editor / admin via `data/hub_roles.json`). Invite by link (Settings → Team) is built. |
+| **How do you “invite” others today?** | Create an invite link (Settings → Team) and send it; they open and sign in. Or share the Hub URL. |
 | **Do we add them as collaborators on GitHub?** | For the **vault backup repo**, yes — add them on GitHub if you want them to push/pull the repo. That does not control Hub login or “team” in the app. |
-| **What is the phase and plan?** | **Phase 13** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): roles first (viewer / editor / admin), **roles done** (see hub/README.md). Next: optional invite flow, then optional GitHub-backed access. |
+| **What is the phase and plan?** | **Phase 13** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): roles and **invite flow done** (see hub/README.md). Next: optional GitHub-backed access. |
 
-When we implement Phase 13, we’ll update this doc with concrete API and UI details.
+**Invite API:** POST /api/v1/invites body “{ role }” → invite_url; GET /api/v1/invites lists pending; DELETE /api/v1/invites/:token revokes. Invitee opens link and signs in; they are added to roles.

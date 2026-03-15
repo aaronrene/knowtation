@@ -33,6 +33,7 @@ import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
 import { loadRoleMap, getRole, readRolesObject, writeRolesFile } from './roles.mjs';
+import { createInvite, consumeInvite, revokeInvite, listInvites } from './invites.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -187,36 +188,45 @@ app.get('/api/v1/auth/providers', (_req, res) => {
   });
 });
 
-// Auth: login redirect (rate limited)
+// Auth: login redirect (rate limited). Optional ?invite=TOKEN passed through state for Phase 13 invite.
 app.get('/api/v1/auth/login', loginLimiter, (req, res, next) => {
   const provider = (req.query.provider || 'google').toLowerCase();
+  const inviteToken = typeof req.query.invite === 'string' ? req.query.invite.trim() : null;
+  const stateOpt = inviteToken ? { state: signState({ invite: inviteToken, ts: Date.now() }) } : {};
   if (provider === 'google' && process.env.GOOGLE_CLIENT_ID) {
-    return passport.authenticate('google', { scope: ['profile'] })(req, res, next);
+    return passport.authenticate('google', { scope: ['profile'], ...stateOpt })(req, res, next);
   }
   if (provider === 'github' && process.env.GITHUB_CLIENT_ID) {
-    return passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
+    return passport.authenticate('github', { scope: ['user:email'], ...stateOpt })(req, res, next);
   }
   return res.status(400).json({ error: `Unknown or disabled provider: ${provider}`, code: 'BAD_REQUEST' });
 });
 
-// Auth: OAuth callbacks
+// Auth: OAuth callbacks. If state contains invite token, consume it and re-issue JWT with new role.
+function handleAuthCallback(req, res) {
+  const redirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
+  let token = issueToken(req.user);
+  const statePayload = req.query.state ? verifyState(req.query.state, 7 * 24 * 60 * 60 * 1000) : null;
+  if (statePayload && statePayload.invite && req.user && req.user.id) {
+    const sub = `${req.user.provider}:${req.user.id}`;
+    const consumed = consumeInvite(config.data_dir, statePayload.invite, sub);
+    if (consumed) {
+      roleMap = loadRoleMap(config.data_dir);
+      token = issueToken(req.user);
+      return res.redirect(`${redirect}/?token=${encodeURIComponent(token)}&invite_accepted=1`);
+    }
+  }
+  res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
+}
 app.get(
   '/api/v1/auth/callback/google',
   passport.authenticate('google', { session: false }),
-  (req, res) => {
-    const token = issueToken(req.user);
-    const redirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
-    res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
-  }
+  handleAuthCallback
 );
 app.get(
   '/api/v1/auth/callback/github',
   passport.authenticate('github', { session: false }),
-  (req, res) => {
-    const token = issueToken(req.user);
-    const redirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
-    res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
-  }
+  handleAuthCallback
 );
 
 // Connect GitHub (repo scope): redirect to GitHub, then callback saves token for vault push
@@ -225,14 +235,14 @@ function signState(statePayload) {
   const sig = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('hex');
   return Buffer.from(payload).toString('base64url') + '.' + sig;
 }
-function verifyState(stateStr) {
+function verifyState(stateStr, maxAgeMs = 600000) {
   const [payloadB64, sig] = String(stateStr).split('.');
   if (!payloadB64 || !sig) return null;
   try {
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(JSON.stringify(payload)).digest('hex');
     if (expected !== sig) return null;
-    if (Date.now() - (payload.ts || 0) > 600000) return null; // 10 min
+    if (Date.now() - (payload.ts || 0) > maxAgeMs) return null;
     return payload;
   } catch (_) {
     return null;
@@ -574,6 +584,46 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
     writeRolesFile(config.data_dir, current);
     roleMap = loadRoleMap(config.data_dir);
     res.json({ ok: true, roles: current });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Phase 13 invite flow (admin only)
+const baseOrigin = () => (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
+
+// POST /api/v1/invites — create invite link (admin only)
+app.post('/api/v1/invites', jwtAuth, requireRole('admin'), (req, res) => {
+  const role = (req.body?.role || 'editor').toLowerCase();
+  if (!['viewer', 'editor', 'admin'].includes(role)) {
+    return res.status(400).json({ error: 'role must be viewer, editor, or admin', code: 'BAD_REQUEST' });
+  }
+  try {
+    const { token, role: r, created_at, expires_at } = createInvite(config.data_dir, role);
+    const invite_url = `${baseOrigin()}?invite=${encodeURIComponent(token)}`;
+    res.status(201).json({ invite_url, token, role: r, created_at, expires_at });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/invites — list pending invites (admin only)
+app.get('/api/v1/invites', jwtAuth, requireRole('admin'), (_req, res) => {
+  try {
+    const invites = listInvites(config.data_dir);
+    res.json({ invites });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// DELETE /api/v1/invites/:token — revoke invite (admin only)
+app.delete('/api/v1/invites/:token', jwtAuth, requireRole('admin'), (req, res) => {
+  const token = req.params.token;
+  if (!token) return res.status(400).json({ error: 'token required', code: 'BAD_REQUEST' });
+  try {
+    const removed = revokeInvite(config.data_dir, token);
+    res.json({ ok: true, removed });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }

@@ -23,6 +23,7 @@
     </header>
 
     <div id="login-required" class="panel login-first-screen">
+      <div id="login-invite-banner" class="login-invite-banner hidden" role="status"></div>
       <div class="login-hero">
         <h2 class="login-title">Knowtation Hub</h2>
         <p class="login-tagline">Your notes, searchable. One place for you and your agents.</p>
@@ -267,6 +268,29 @@
                 <span id="team-save-msg" class="settings-msg"></span>
               </div>
             </div>
+            <h4 class="settings-h4">Invite teammate (link)</h4>
+            <p class="settings-intro small">Create a link to invite someone. They sign in with Google or GitHub and get the role you choose. Link expires in 7 days.</p>
+            <div class="settings-form">
+              <label for="invite-role">Role for invite</label>
+              <select id="invite-role">
+                <option value="viewer">Viewer (read only)</option>
+                <option value="editor">Editor (read, write, propose)</option>
+                <option value="admin">Admin (full access)</option>
+              </select>
+              <div class="settings-form-actions">
+                <button type="button" id="btn-invite-create" class="btn-primary">Create invite link</button>
+                <span id="invite-create-msg" class="settings-msg"></span>
+              </div>
+              <div id="invite-link-block" class="invite-link-block hidden">
+                <label class="settings-label-hint">Link (copy and share)</label>
+                <div class="invite-link-row">
+                  <input type="text" id="invite-link-url" readonly class="invite-link-input">
+                  <button type="button" id="btn-invite-copy" class="btn-secondary">Copy</button>
+                </div>
+              </div>
+            </div>
+            <h4 class="settings-h4">Pending invites</h4>
+            <div id="invites-pending-list" class="team-roles-list muted small">Loading…</div>
             <h4 class="settings-h4">Current roles</h4>
             <div id="team-roles-list" class="team-roles-list muted small">Loading…</div>
           </div>
