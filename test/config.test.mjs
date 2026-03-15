@@ -1,14 +1,17 @@
 /**
- * Config load tests: file + env, missing vault_path, vault path validation.
+ * Config load tests: file + env, missing vault_path, vault path validation, hub_setup merge.
  */
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from '../lib/config.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures');
+const dataDir = path.join(fixturesDir, 'data');
+const hubSetupPath = path.join(dataDir, 'hub_setup.yaml');
 
 describe('loadConfig', () => {
   const envBackup = { ...process.env };
@@ -69,6 +72,23 @@ describe('loadConfig', () => {
     } finally {
       delete process.env.KNOWTATION_VAULT_PATH;
       delete process.env.KNOWTATION_VECTOR_STORE;
+    }
+  });
+
+  it('merges hub_setup.yaml (vault.git) over config when present', () => {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(
+      hubSetupPath,
+      'vault:\n  git:\n    enabled: true\n    remote: https://github.com/test/repo.git\n',
+      'utf8'
+    );
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.vault_git?.enabled, true);
+      assert.strictEqual(config.vault_git?.remote, 'https://github.com/test/repo.git');
+    } finally {
+      try { fs.unlinkSync(hubSetupPath); } catch (_) {}
+      try { fs.rmdirSync(dataDir); } catch (_) {}
     }
   });
 });

@@ -1,0 +1,449 @@
+openapi: 3.0.3
+info:
+  title: Knowtation Hub API
+  description: REST API for the Knowtation Hub (vault read/write, proposals, capture). Same contract as CLI/MCP where applicable.
+  version: 1.0.0
+  links:
+    - description: API contract (human-readable)
+      url: ./HUB-API.md
+
+servers:
+  - url: /api/v1
+    description: Relative to Hub base URL (e.g. https://hub.example.com)
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Notes
+  - name: Search
+  - name: Proposals
+  - name: Capture
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Hub is up
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } }, required: [ok] }
+
+  /auth/providers:
+    get:
+      tags: [Auth]
+      summary: OAuth providers configured
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  google: { type: boolean }
+                  github: { type: boolean }
+
+  /notes/facets:
+    get:
+      tags: [Notes]
+      summary: Projects, tags, folders for filter dropdowns
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects: { type: array, items: { type: string } }
+                  tags: { type: array, items: { type: string } }
+                  folders: { type: array, items: { type: string } }
+
+  /notes:
+    get:
+      tags: [Notes]
+      summary: List notes
+      parameters:
+        - name: folder
+          in: query
+          schema: { type: string }
+        - name: project
+          in: query
+          schema: { type: string }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: since
+          in: query
+          schema: { type: string }
+        - name: until
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: order
+          in: query
+          schema: { type: string, enum: [date, date-asc] }
+        - name: fields
+          in: query
+          schema: { type: string, enum: [path, path+metadata, full] }
+        - name: count_only
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      notes: { type: array, items: { $ref: '#/components/schemas/NoteListItem' } }
+                      total: { type: integer }
+                  - type: object
+                    properties:
+                      total: { type: integer }
+    post:
+      tags: [Notes]
+      summary: Write or update a note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+                body: { type: string }
+                frontmatter: { type: object }
+                append: { type: boolean }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: object, properties: { path: { type: string }, written: { type: boolean } } }
+        '400':
+        '500':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /notes/{path}:
+    get:
+      tags: [Notes]
+      summary: Get one note by path
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NoteFull' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /index:
+    post:
+      tags: [Notes]
+      summary: Re-run indexer (vault to vector store)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  notesProcessed: { type: integer }
+                  chunksIndexed: { type: integer }
+        '500':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /settings:
+    get:
+      tags: [Notes]
+      summary: Config status for Settings UI (no secrets)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vault_path_display: { type: string }
+                  vault_git:
+                    type: object
+                    properties:
+                      enabled: { type: boolean }
+                      has_remote: { type: boolean }
+                      auto_commit: { type: boolean }
+                      auto_push: { type: boolean }
+
+  /vault/sync:
+    post:
+      tags: [Notes]
+      summary: Manual vault backup (git add, commit, push)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /search:
+    post:
+      tags: [Search]
+      summary: Semantic search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                folder: { type: string }
+                project: { type: string }
+                tag: { type: string }
+                since: { type: string }
+                until: { type: string }
+                limit: { type: integer }
+                order: { type: string }
+                fields: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                  query: { type: string }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /proposals:
+    get:
+      tags: [Proposals]
+      summary: List proposals
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposals: { type: array, items: { $ref: '#/components/schemas/Proposal' } }
+                  total: { type: integer }
+    post:
+      tags: [Proposals]
+      summary: Create proposal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path: { type: string }
+                body: { type: string }
+                frontmatter: { type: object }
+                intent: { type: string }
+                base_state_id: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposal_id: { type: string }
+                  path: { type: string }
+                  status: { type: string, enum: [proposed] }
+        '400':
+
+  /proposals/{id}:
+    get:
+      tags: [Proposals]
+      summary: Get one proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProposalDetail' }
+        '404':
+
+  /proposals/{id}/approve:
+    post:
+      tags: [Proposals]
+      summary: Apply proposal to vault
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_state_id: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposal_id: { type: string }
+                  status: { type: string, enum: [approved] }
+        '409':
+
+  /proposals/{id}/discard:
+    post:
+      tags: [Proposals]
+      summary: Discard proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposal_id: { type: string }
+                  status: { type: string, enum: [discarded] }
+
+  /capture:
+    post:
+      tags: [Capture]
+      summary: Ingest message into vault inbox (webhook-style)
+      description: Same contract as capture-webhook. If CAPTURE_WEBHOOK_SECRET is set, require X-Webhook-Secret header.
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+                source_id: { type: string }
+                source: { type: string }
+                project: { type: string }
+                tags: { type: array, items: { type: string } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean }, path: { type: string } } }
+        '400':
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        code: { type: string }
+
+    NoteListItem:
+      type: object
+      properties:
+        path: { type: string }
+        title: { type: string, nullable: true }
+        project: { type: string, nullable: true }
+        tags: { type: array, items: { type: string } }
+        date: { type: string, nullable: true }
+
+    NoteFull:
+      type: object
+      properties:
+        path: { type: string }
+        frontmatter: { type: object }
+        body: { type: string }
+
+    SearchResult:
+      type: object
+      properties:
+        path: { type: string }
+        snippet: { type: string }
+        score: { type: number }
+        project: { type: string }
+        tags: { type: array, items: { type: string } }
+
+    Proposal:
+      type: object
+      properties:
+        proposal_id: { type: string }
+        path: { type: string }
+        status: { type: string }
+        intent: { type: string }
+        base_state_id: { type: string }
+        created_at: { type: string }
+        updated_at: { type: string }
+
+    ProposalDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Proposal' }
+        - type: object
+          properties:
+            body: { type: string }
+            frontmatter: { type: object }

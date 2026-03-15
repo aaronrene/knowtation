@@ -1,0 +1,564 @@
+/**
+ * Knowtation Hub — REST API + OAuth + JWT. Phase 11.
+ * Run from repo root: node hub/server.mjs
+ * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL.
+ */
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import fs from 'fs';
+import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { Strategy as GitHubStrategy } from 'passport-github2';
+
+import { loadConfig } from '../lib/config.mjs';
+import { runListNotes, runFacets } from '../lib/list-notes.mjs';
+import { readNote, normalizeSlug } from '../lib/vault.mjs';
+import { writeNote } from '../lib/write.mjs';
+import { runSearch } from '../lib/search.mjs';
+import {
+  listProposals,
+  getProposal,
+  createProposal,
+  updateProposalStatus,
+} from './proposals-store.mjs';
+import { appendAudit } from './audit-log.mjs';
+import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
+import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
+import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '..');
+// Load .env from project root
+const envPath = path.join(projectRoot, '.env');
+if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
+
+const PORT = parseInt(process.env.HUB_PORT || '3333', 10);
+const isProduction = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.HUB_JWT_SECRET || (isProduction ? null : 'change-me-in-production');
+if (isProduction && !process.env.HUB_JWT_SECRET) {
+  console.error('Hub: HUB_JWT_SECRET is required in production. Set in .env.');
+  process.exit(1);
+}
+const BASE_URL = process.env.HUB_BASE_URL || `http://localhost:${PORT}`;
+const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '1h';
+
+let config;
+try {
+  config = loadConfig(projectRoot);
+} catch (e) {
+  console.error('Hub: config load failed. Set KNOWTATION_VAULT_PATH.', e.message);
+  process.exit(1);
+}
+
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: `${BASE_URL}/api/v1/auth/callback/google`,
+      },
+      (_accessToken, _refreshToken, profile, done) => {
+        return done(null, { provider: 'google', id: profile.id, displayName: profile.displayName });
+      }
+    )
+  );
+}
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  passport.use(
+    new GitHubStrategy(
+      {
+        clientID: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        callbackURL: `${BASE_URL}/api/v1/auth/callback/github`,
+      },
+      (_accessToken, _refreshToken, profile, done) => {
+        return done(null, { provider: 'github', id: profile.id, displayName: profile.username });
+      }
+    )
+  );
+}
+
+function issueToken(user) {
+  return jwt.sign(
+    { sub: `${user.provider}:${user.id}`, name: user.displayName },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRY }
+  );
+}
+
+function parseQueryBounds(req, res, next) {
+  const limitRaw = req.query?.limit != null ? parseInt(req.query.limit, 10) : undefined;
+  const offsetRaw = req.query?.offset != null ? parseInt(req.query.offset, 10) : undefined;
+  if (limitRaw != null && (isNaN(limitRaw) || limitRaw < 0 || limitRaw > 100)) {
+    return res.status(400).json({ error: 'limit must be 0–100', code: 'BAD_REQUEST' });
+  }
+  if (offsetRaw != null && (isNaN(offsetRaw) || offsetRaw < 0)) {
+    return res.status(400).json({ error: 'offset must be non-negative', code: 'BAD_REQUEST' });
+  }
+  next();
+}
+
+function jwtAuth(req, res, next) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
+  }
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (_) {
+    return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
+  }
+}
+
+const app = express();
+const corsOrigin = process.env.HUB_CORS_ORIGIN;
+app.use(cors({ origin: corsOrigin ? corsOrigin.split(',') : true, credentials: true }));
+app.use(express.json());
+app.use(passport.initialize());
+
+// Rate limits
+const loginLimiter = rateLimit({ windowMs: 60 * 1000, max: 5, message: { error: 'Too many login attempts', code: 'RATE_LIMIT' } });
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Too many requests', code: 'RATE_LIMIT' } });
+
+function captureAuth(req, res, next) {
+  const secret = process.env.CAPTURE_WEBHOOK_SECRET;
+  if (!secret) return next();
+  const provided = req.headers['x-webhook-secret'];
+  if (provided === secret) return next();
+  return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+}
+
+function sanitizeForFilename(id) {
+  if (typeof id !== 'string') return '';
+  return id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'unknown';
+}
+
+// Health (no auth)
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
+
+// Which OAuth providers are configured (no auth; UI uses this to show buttons vs setup help)
+app.get('/api/v1/auth/providers', (_req, res) => {
+  res.json({
+    google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+  });
+});
+
+// Auth: login redirect (rate limited)
+app.get('/api/v1/auth/login', loginLimiter, (req, res, next) => {
+  const provider = (req.query.provider || 'google').toLowerCase();
+  if (provider === 'google' && process.env.GOOGLE_CLIENT_ID) {
+    return passport.authenticate('google', { scope: ['profile'] })(req, res, next);
+  }
+  if (provider === 'github' && process.env.GITHUB_CLIENT_ID) {
+    return passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
+  }
+  return res.status(400).json({ error: `Unknown or disabled provider: ${provider}`, code: 'BAD_REQUEST' });
+});
+
+// Auth: OAuth callbacks
+app.get(
+  '/api/v1/auth/callback/google',
+  passport.authenticate('google', { session: false }),
+  (req, res) => {
+    const token = issueToken(req.user);
+    const redirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
+    res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
+  }
+);
+app.get(
+  '/api/v1/auth/callback/github',
+  passport.authenticate('github', { session: false }),
+  (req, res) => {
+    const token = issueToken(req.user);
+    const redirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
+    res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
+  }
+);
+
+// Connect GitHub (repo scope): redirect to GitHub, then callback saves token for vault push
+function signState(statePayload) {
+  const payload = JSON.stringify(statePayload);
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(payload).digest('hex');
+  return Buffer.from(payload).toString('base64url') + '.' + sig;
+}
+function verifyState(stateStr) {
+  const [payloadB64, sig] = String(stateStr).split('.');
+  if (!payloadB64 || !sig) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(JSON.stringify(payload)).digest('hex');
+    if (expected !== sig) return null;
+    if (Date.now() - (payload.ts || 0) > 600000) return null; // 10 min
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+app.get('/api/v1/auth/github-connect', (req, res) => {
+  if (!process.env.GITHUB_CLIENT_ID) {
+    return res.redirect((process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '') + '/?github_connect_error=not_configured');
+  }
+  const state = signState({ r: crypto.randomBytes(16).toString('hex'), ts: Date.now() });
+  const redirectUri = BASE_URL + '/api/v1/auth/callback/github-connect';
+  const url = 'https://github.com/login/oauth/authorize?client_id=' + encodeURIComponent(process.env.GITHUB_CLIENT_ID) + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=repo&state=' + encodeURIComponent(state);
+  res.redirect(url);
+});
+app.get('/api/v1/auth/callback/github-connect', async (req, res) => {
+  const { code, state } = req.query || {};
+  const baseRedirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
+  if (!verifyState(state)) {
+    return res.redirect(baseRedirect + '/?github_connect_error=invalid_state');
+  }
+  if (!code || !process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
+    return res.redirect(baseRedirect + '/?github_connect_error=missing');
+  }
+  try {
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: BASE_URL + '/api/v1/auth/callback/github-connect',
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      return res.redirect(baseRedirect + '/?github_connect_error=no_token');
+    }
+    writeGitHubConnection(config.data_dir, { access_token: accessToken });
+    return res.redirect(baseRedirect + '/?github_connected=1');
+  } catch (e) {
+    return res.redirect(baseRedirect + '/?github_connect_error=' + encodeURIComponent(e.message || 'exchange_failed'));
+  }
+});
+
+// POST /api/v1/capture — webhook for Slack, Discord, etc. (no JWT; optional X-Webhook-Secret)
+app.post('/api/v1/capture', captureAuth, (req, res) => {
+  const payload = req.body || {};
+  const body = payload.body;
+  if (!body || typeof body !== 'string') {
+    return res.status(400).json({ error: 'body (string) is required', code: 'BAD_REQUEST' });
+  }
+  const source = payload.source || 'webhook';
+  const sourceId = payload.source_id || null;
+  const project = payload.project || null;
+  const tags = payload.tags || null;
+  const now = new Date().toISOString().slice(0, 10);
+  const sourceSlug = normalizeSlug(source) || 'webhook';
+  const filename = sourceId
+    ? `${sourceSlug}_${sanitizeForFilename(sourceId)}.md`
+    : `${sourceSlug}_${Date.now()}.md`;
+  const relativePath = project
+    ? `projects/${normalizeSlug(project)}/inbox/${filename}`
+    : `inbox/${filename}`;
+  const frontmatter = {
+    source,
+    date: now,
+    ...(sourceId && { source_id: sourceId }),
+    ...(project && { project: normalizeSlug(project) }),
+    ...(tags && { tags }),
+  };
+  try {
+    const result = writeNote(config.vault_path, relativePath, { body: body.trimEnd(), frontmatter });
+    invalidateFacetsCache();
+    maybeAutoSync(config);
+    res.status(200).json({ ok: true, path: result.path });
+  } catch (e) {
+    if (e.message && e.message.includes('Invalid path')) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// API v1 (JWT + rate limit for write/propose)
+app.use('/api/v1/notes', jwtAuth, apiLimiter);
+app.use('/api/v1/search', jwtAuth, apiLimiter);
+app.use('/api/v1/proposals', jwtAuth, apiLimiter);
+
+// Facets cache (60s) to avoid rescan on every filter load; invalidate on write/approve
+const FACETS_TTL_MS = 60 * 1000;
+let facetsCache = { data: null, ts: 0 };
+function invalidateFacetsCache() {
+  facetsCache = { data: null, ts: 0 };
+}
+
+// GET /api/v1/notes/facets — filter dropdown values (before /:path to avoid collision)
+app.get('/api/v1/notes/facets', (req, res) => {
+  try {
+    if (facetsCache.data && Date.now() - facetsCache.ts < FACETS_TTL_MS) {
+      return res.json(facetsCache.data);
+    }
+    const facets = runFacets(config);
+    facetsCache = { data: facets, ts: Date.now() };
+    res.json(facets);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/notes — list notes
+app.get('/api/v1/notes', parseQueryBounds, (req, res) => {
+  try {
+    const limit = req.query.limit != null ? Math.min(100, Math.max(0, parseInt(req.query.limit, 10) || 20)) : 20;
+    const offset = req.query.offset != null ? Math.max(0, parseInt(req.query.offset, 10) || 0) : 0;
+    const opts = {
+      folder: req.query.folder,
+      project: req.query.project,
+      tag: req.query.tag,
+      since: req.query.since,
+      until: req.query.until,
+      chain: req.query.chain,
+      entity: req.query.entity,
+      episode: req.query.episode,
+      limit,
+      offset,
+      order: req.query.order,
+      fields: req.query.fields || 'path+metadata',
+      countOnly: req.query.count_only === 'true',
+    };
+    const out = runListNotes(config, opts);
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/notes/:path — get one note (path may contain slashes)
+app.get(/^\/api\/v1\/notes\/(.+)$/, (req, res) => {
+  const notePath = req.path.replace(/^\/api\/v1\/notes\//, '');
+  if (!notePath) return res.status(400).json({ error: 'Path required', code: 'BAD_REQUEST' });
+  try {
+    const note = readNote(config.vault_path, decodeURIComponent(notePath));
+    res.json({ path: note.path, frontmatter: note.frontmatter, body: note.body });
+  } catch (e) {
+    if (e.message && e.message.includes('not found')) return res.status(404).json({ error: e.message, code: 'NOT_FOUND' });
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/search — semantic search
+app.post('/api/v1/search', async (req, res) => {
+  const query = req.body?.query;
+  if (!query || typeof query !== 'string') {
+    return res.status(400).json({ error: 'query required', code: 'BAD_REQUEST' });
+  }
+  const rawLimit = req.body?.limit;
+  const limit = rawLimit != null ? Math.min(100, Math.max(0, parseInt(rawLimit, 10) || 20)) : 20;
+  try {
+    const opts = {
+      folder: req.body.folder,
+      project: req.body.project,
+      tag: req.body.tag,
+      limit,
+      since: req.body.since,
+      until: req.body.until,
+      order: req.body.order,
+      fields: req.body.fields,
+    };
+    const out = await runSearch(query, opts);
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/notes — write note
+app.post('/api/v1/notes', (req, res) => {
+  const { path: notePath, body, frontmatter, append } = req.body || {};
+  if (!notePath || typeof notePath !== 'string') {
+    return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
+  }
+  try {
+    const out = writeNote(config.vault_path, notePath, { body, frontmatter, append });
+    invalidateFacetsCache();
+    maybeAutoSync(config);
+    res.json(out);
+  } catch (e) {
+    if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/index — re-run indexer (vault → chunk → embed → vector store). Auth required.
+app.post('/api/v1/index', async (_req, res) => {
+  try {
+    const { runIndex } = await import('../lib/indexer.mjs');
+    const result = await runIndex({ log: () => {} });
+    invalidateFacetsCache();
+    res.json({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Proposals
+app.get('/api/v1/proposals', parseQueryBounds, (req, res) => {
+  try {
+    const limit = req.query.limit != null ? Math.min(100, Math.max(0, parseInt(req.query.limit, 10) || 50)) : 50;
+    const offset = req.query.offset != null ? Math.max(0, parseInt(req.query.offset, 10) || 0) : 0;
+    const opts = {
+      status: req.query.status,
+      limit,
+      offset,
+    };
+    const out = listProposals(config.data_dir, opts);
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/proposals/:id', (req, res) => {
+  const proposal = getProposal(config.data_dir, req.params.id);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  res.json(proposal);
+});
+
+app.post('/api/v1/proposals', (req, res) => {
+  const { path: notePath, body, frontmatter, intent, base_state_id } = req.body || {};
+  try {
+    const proposal = createProposal(config.data_dir, {
+      path: notePath,
+      body,
+      frontmatter,
+      intent,
+      base_state_id,
+    });
+    res.status(201).json(proposal);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/proposals/:id/approve', (req, res) => {
+  const proposal = getProposal(config.data_dir, req.params.id);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  if (proposal.status !== 'proposed') {
+    return res.status(400).json({ error: `Proposal status is ${proposal.status}`, code: 'BAD_REQUEST' });
+  }
+  try {
+    writeNote(config.vault_path, proposal.path, {
+      body: proposal.body,
+      frontmatter: proposal.frontmatter,
+    });
+    const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved');
+    appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'approve', proposalId: req.params.id });
+    invalidateFacetsCache();
+    maybeAutoSync(config);
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/proposals/:id/discard', (req, res) => {
+  const proposal = getProposal(config.data_dir, req.params.id);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  const updated = updateProposalStatus(config.data_dir, req.params.id, 'discarded');
+  appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'discard', proposalId: req.params.id });
+  res.json(updated);
+});
+
+// GET /api/v1/settings — safe config status for Settings UI (no secrets, no full paths)
+app.get('/api/v1/settings', (_req, res) => {
+  const vg = config.vault_git;
+  const vaultPath = config.vault_path || '';
+  const vault_path_display = vaultPath ? '…/' + path.basename(vaultPath) : '';
+  const githubConn = readGitHubConnection(config.data_dir);
+  res.json({
+    vault_path_display,
+    vault_git: {
+      enabled: !!vg?.enabled,
+      has_remote: !!vg?.remote,
+      auto_commit: !!vg?.auto_commit,
+      auto_push: !!vg?.auto_push,
+    },
+    github_connect_available: Boolean(process.env.GITHUB_CLIENT_ID),
+    github_connected: Boolean(githubConn?.access_token),
+  });
+});
+
+// POST /api/v1/vault/sync — manual "Back up now" (same as knowtation vault sync)
+app.post('/api/v1/vault/sync', (req, res) => {
+  try {
+    const result = runVaultSync(config);
+    res.json(result);
+  } catch (e) {
+    if (e.message && e.message.includes('must be set in config')) {
+      return res.status(400).json({ error: e.message, code: 'NOT_CONFIGURED' });
+    }
+    res.status(500).json({ error: e.message || 'Sync failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/setup — editable setup (vault path, vault.git) for Setup wizard
+app.get('/api/v1/setup', (_req, res) => {
+  const vg = config.vault_git;
+  res.json({
+    vault_path: config.vault_path || '',
+    vault_git: {
+      enabled: !!vg?.enabled,
+      remote: vg?.remote || '',
+    },
+  });
+});
+
+// POST /api/v1/setup — write vault_path and/or vault.git to data/hub_setup.yaml; reload config
+app.post('/api/v1/setup', (req, res) => {
+  if (process.env.HUB_ALLOW_SETUP_WRITE === 'false') {
+    return res.status(403).json({ error: 'Setup write is disabled (HUB_ALLOW_SETUP_WRITE=false)', code: 'FORBIDDEN' });
+  }
+  const body = req.body || {};
+  try {
+    const payload = {};
+    if (body.vault_path !== undefined) payload.vault_path = body.vault_path;
+    if (body.vault_git !== undefined) {
+      payload.vault = { git: body.vault_git };
+    }
+    if (Object.keys(payload).length === 0) {
+      return res.status(400).json({ error: 'Provide vault_path and/or vault_git', code: 'BAD_REQUEST' });
+    }
+    writeHubSetup(config.data_dir, payload);
+    config = loadConfig(projectRoot);
+    res.json({ ok: true, message: 'Setup saved. Config applied.' });
+  } catch (e) {
+    if (e.message && e.message.includes('cannot be empty')) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
+    res.status(500).json({ error: e.message || 'Setup save failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Rich Hub UI — same origin as API so opening http://localhost:3333/ shows the app
+const hubUiDir = path.join(projectRoot, 'web', 'hub');
+app.use(express.static(hubUiDir, { index: 'index.html' }));
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(hubUiDir, 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Knowtation Hub listening on http://localhost:${PORT}`);
+  console.log('  UI:     GET /  (Rich Hub)');
+  console.log('  Health: GET /health');
+  console.log('  Login:  GET /api/v1/auth/login?provider=google|github');
+  console.log('  API:    /api/v1/notes, /api/v1/search, /api/v1/proposals (Bearer JWT)');
+});

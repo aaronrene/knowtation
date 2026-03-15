@@ -1,0 +1,21 @@
+{
+  "name": "knowtation-hub",
+  "version": "0.1.0",
+  "description": "Knowtation Hub — API and auth for self-hosted vault + proposals",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-github2": "^0.1.12",
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^8.3.1"
+  }
+}

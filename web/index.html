@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Knowtation: portable Markdown vault, semantic retrieval, and agent-ready CLI. Own your notation—high-signal context without surrendering knowledge to a single cloud.">
+  <title>Knowtation — Own your notation. Retrieval agents can trust.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050505;
+      --surface: #0d0d0d;
+      --surface-elevated: #141414;
+      --text: #fafafa;
+      --text-muted: #a1a1a1;
+      --accent: #22d3ee;
+      --accent-dim: rgba(34, 211, 238, 0.15);
+      --accent-soft: rgba(34, 211, 238, 0.08);
+      --border: #262626;
+      --success: #34d399;
+      --radius: 12px;
+      --radius-lg: 20px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Outfit", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+    .wide { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* Hero */
+    .hero {
+      padding: 5rem 0 4rem;
+      text-align: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 2rem;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+    .badge:hover { background: rgba(34, 211, 238, 0.25); color: var(--accent); }
+    h1 {
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(2.5rem, 7vw, 4rem);
+      font-weight: 400;
+      margin: 0 0 1rem;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+    .tagline {
+      font-size: clamp(1.1rem, 2vw, 1.35rem);
+      color: var(--text-muted);
+      margin: 0 auto 1.5rem;
+      max-width: 28em;
+      font-weight: 400;
+    }
+    .intent {
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem 2rem;
+      margin: 2rem auto;
+      max-width: 36em;
+      font-size: 1rem;
+      text-align: left;
+    }
+    .intent strong { color: var(--accent); font-weight: 500; }
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: #000;
+      padding: 0.85rem 1.75rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25);
+    }
+
+    /* Product mock */
+    .mock-section {
+      padding: 3rem 0 5rem;
+    }
+    .mock-container {
+      position: relative;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 32px 64px -12px rgba(0,0,0,0.5);
+    }
+    .mock-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      background: var(--surface-elevated);
+      border-bottom: 1px solid var(--border);
+    }
+    .mock-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .mock-dot.r { background: #ef4444; }
+    .mock-dot.y { background: #eab308; }
+    .mock-dot.g { background: #22c55e; }
+    .mock-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .mock-content {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 0;
+      min-height: 340px;
+    }
+    @media (max-width: 768px) {
+      .mock-content { grid-template-columns: 1fr; }
+    }
+    .mock-sidebar {
+      padding: 1.25rem;
+      background: var(--surface-elevated);
+      border-right: 1px solid var(--border);
+    }
+    .mock-sidebar-item {
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .mock-sidebar-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .mock-main {
+      padding: 1.5rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+      line-height: 1.7;
+    }
+    .mock-prompt { color: var(--accent); }
+    .mock-output { color: var(--text-muted); }
+    .mock-output .path { color: var(--success); }
+
+    /* Why Knowtation — narrative */
+    .narrative-section {
+      padding: 4rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .narrative-section h2 {
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 0.75rem;
+    }
+    .narrative-section .lead {
+      text-align: center;
+      color: var(--text-muted);
+      max-width: 40em;
+      margin: 0 auto 2.5rem;
+      font-size: 1rem;
+    }
+    .narrative-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+    }
+    .narrative-card {
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.75rem;
+    }
+    .narrative-card h3 {
+      margin: 0 0 0.75rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .narrative-card p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* Flywheel */
+    .flywheel-section {
+      padding: 3.5rem 0;
+      border-top: 1px solid var(--border);
+      background: linear-gradient(180deg, transparent 0%, var(--accent-soft) 50%, transparent 100%);
+    }
+    .flywheel-section h2 {
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(1.5rem, 3.5vw, 2rem);
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 1rem;
+    }
+    .flywheel-section p {
+      text-align: center;
+      color: var(--text-muted);
+      max-width: 42em;
+      margin: 0 auto 1.5rem;
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+    .flywheel-steps {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem 1rem;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+    .flywheel-steps span { color: var(--accent); font-weight: 600; }
+    .flywheel-arrow { color: var(--border); }
+
+    /* Feature grid */
+    .features {
+      padding: 4rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .features h2 {
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 2.5rem;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: rgba(34, 211, 238, 0.3);
+      transform: translateY(-2px);
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+    .feature-card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .feature-card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .feature-card code {
+      background: var(--surface-elevated);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    /* Pricing cards */
+    .pricing-section {
+      padding: 4rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .pricing-section h2 {
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 2rem;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .plan {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+    }
+    .plan.featured {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
+    }
+    .plan h3 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+    .plan .price { font-size: 1.75rem; font-weight: 700; margin: 0.5rem 0; }
+    .plan .price-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .plan ul {
+      margin: 1rem 0 0;
+      padding-left: 1.2rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .plan li { margin-bottom: 0.5rem; }
+
+    /* Phases - compact visual */
+    .phases-section {
+      padding: 4rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .phases-section h2 {
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(1.75rem, 4vw, 2.25rem);
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 2rem;
+    }
+    .phases-flow {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .phase-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .phase-pill span { color: var(--accent); font-weight: 600; margin-right: 0.25rem; }
+
+    footer {
+      padding: 3rem 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <a href="https://github.com/your-username/knowtation" class="badge" target="_blank" rel="noopener">★ Open source</a>
+      <h1>Knowtation</h1>
+      <p class="tagline">Data liberation. Capture, index, and search your notes and media. Your data stays yours.</p>
+      <div class="intent">
+        <strong>Intent:</strong> Knowtation is <strong>data liberation</strong> — your context, memory, and intention live in a vault you own. It's modular and built to plug into any LLM or service. Agents use it via CLI or MCP: Cursor, Claude Code, DeerFlow, Windsurf, and any runtime that can run a CLI or speak MCP. You keep full control of your knowledge.
+      </div>
+      <a href="https://github.com/your-username/knowtation" class="cta" target="_blank" rel="noopener">View repository →</a>
+    </header>
+  </div>
+
+  <section class="mock-section wide">
+    <div class="mock-container">
+      <div class="mock-bar">
+        <span class="mock-dot r"></span><span class="mock-dot y"></span><span class="mock-dot g"></span>
+        <span class="mock-title">Knowtation CLI + vault</span>
+      </div>
+      <div class="mock-content">
+        <div class="mock-sidebar">
+          <div class="mock-sidebar-item active">inbox/</div>
+          <div class="mock-sidebar-item">projects/</div>
+          <div class="mock-sidebar-item">imports/</div>
+        </div>
+        <div class="mock-main">
+          <div class="mock-prompt">$ knowtation search "community building" --limit 5 --json</div>
+          <div class="mock-output">
+            { "results": [<br>
+            &nbsp;&nbsp;{ "path": "projects/born-free/notes/community.md", "score": 0.92 },<br>
+            &nbsp;&nbsp;{ "path": "inbox/meeting-notes.md", "score": 0.87 },<br>
+            &nbsp;&nbsp;{ "path": "inbox/decisions-2025-03.md", "score": 0.84 }<br>
+            ] }
+          </div>
+          <br>
+          <div class="mock-prompt">$ knowtation get-note projects/born-free/notes/community.md</div>
+          <div class="mock-output">
+            <span class="path"># Community building</span><br>
+            Notes from last sprint. Key decisions:...
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="narrative-section container wide">
+    <h2>Why Knowtation</h2>
+    <p class="lead">Knowledge scatters across tools and chats. Models need context—but dumping everything in a window helps nobody. The bet here is <strong style="color: var(--text); font-weight: 600;">notation you own</strong> plus <strong style="color: var(--text); font-weight: 600;">retrieval that returns the right slice</strong>.</p>
+    <div class="narrative-grid">
+      <div class="narrative-card">
+        <h3>The problem</h3>
+        <p>What matters is rarely one document—it is how decisions, rationale, and history connect. When that map lives only in people’s heads or inside a vendor’s closed session, you lose continuity when teams change or when you switch tools.</p>
+      </div>
+      <div class="narrative-card">
+        <h3>The shift</h3>
+        <p>Long context alone is not enough. Agents need <em>high-signal</em> segments: scoped by project, tag, time, and (where you model it) chains of cause and effect. Storage without retrieval discipline is noise.</p>
+      </div>
+      <div class="narrative-card">
+        <h3>What we built</h3>
+        <p>A vault of Markdown you control, indexed for search, callable from any agent via CLI or MCP. Import from the tools you already use; re-index after edits; keep authority in files you can copy, diff, and move—not in an opaque graph you cannot export.</p>
+      </div>
+    </div>
+    <p style="text-align: center; margin-top: 2rem;">
+      <a href="../docs/WHITEPAPER.md" class="cta" style="display: inline-flex;">Read the whitepaper →</a>
+    </p>
+  </section>
+
+  <section class="features container">
+    <h2>What you get</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📁</div>
+        <h3>Vault</h3>
+        <p>Markdown + frontmatter (Obsidian-style). Single source of truth. Use any editor.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3>CLI + MCP</h3>
+        <p>Search, get-note, list-notes, index, write, export, import. Same interface for you and agents.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📥</div>
+        <h3>Import</h3>
+        <p>ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, audio/video transcripts.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏷️</div>
+        <h3>Multi-project</h3>
+        <p>One vault, many projects. Filter by project or tag. All content available when you need it.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎙️</div>
+        <h3>Transcription</h3>
+        <p>Audio and video → one note per recording. Smart glasses and wearables supported.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>Agent-ready</h3>
+        <p>Cursor, Claude, DeerFlow, Windsurf, MCP-Agent — any runtime that speaks CLI or MCP.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing-section container">
+    <h2>Simple pricing</h2>
+    <div class="pricing-grid">
+      <div class="plan">
+        <h3>Self-hosted</h3>
+        <div class="price">$0</div>
+        <div class="price-note">Forever. Your machine, your data.</div>
+        <ul>
+          <li>Full CLI + vault + search + write</li>
+          <li>Indexer, capture, transcription locally</li>
+          <li>Optional MCP server</li>
+          <li>Data never leaves your machine</li>
+        </ul>
+      </div>
+      <div class="plan featured">
+        <h3>Knowtation Hub (hosted)</h3>
+        <div class="price">TBD</div>
+        <div class="price-note">Per vault or per seat. No servers to run.</div>
+        <ul>
+          <li>Everything in self-hosted</li>
+          <li>Hosted vault + API</li>
+          <li>Proposals & review queue</li>
+          <li>Web UI: view, search, approve</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="features container" style="border-top: 1px solid var(--border); padding-top: 4rem;">
+    <h2>Intention & temporal</h2>
+    <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: -1rem auto 2rem;">Agents often lack intention and an overarching view over time. Knowtation helps.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⏱️</div>
+        <h3>Time-bounded search</h3>
+        <p><code>--since</code>, <code>--until</code> to scope results to date ranges.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>Causal chains</h3>
+        <p>Track decisions and events across time. Optional links: follows, caused by.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Hierarchical memory</h3>
+        <p>Chunk, note, episode, project — reason at the right granularity.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="flywheel-section container">
+    <h2>Building a flywheel</h2>
+    <p>Capture and import into the vault → index → query from agents with tight fields and filters → refine notes → index again. Each cycle improves what retrieval can see; nothing depends on a single model release or a single vendor’s memory.</p>
+    <div class="flywheel-steps">
+      <span>Index</span><span class="flywheel-arrow">→</span>
+      <span>Search</span><span class="flywheel-arrow">→</span>
+      <span>Write</span><span class="flywheel-arrow">→</span>
+      <span>Re-index</span>
+    </div>
+  </section>
+
+  <footer>
+    <p><a href="https://github.com/your-username/knowtation">Knowtation</a> — Data liberation. Your notation, your data, your context.</p>
+    <p style="margin-top: 1rem;"><a href="../docs/WHITEPAPER.md">Whitepaper</a> (full narrative in the repo)</p>
+  </footer>
+</body>
+</html>

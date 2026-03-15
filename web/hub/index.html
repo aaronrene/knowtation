@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Knowtation Hub</title>
+  <link rel="stylesheet" href="hub.css">
+</head>
+<body>
+  <div id="app">
+    <header class="hub-header">
+      <h1>Knowtation Hub</h1>
+      <div class="hub-auth" id="hub-auth-buttons">
+        <button type="button" id="btn-how-to-use" class="hidden btn-secondary">How to use</button>
+        <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
+        <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
+        <span id="user-name" class="muted"></span>
+        <span id="login-buttons-wrap" class="login-buttons-wrap hidden"></span>
+        <button id="btn-login-google" type="button" class="hidden btn-provider">Continue with Google</button>
+        <button id="btn-login-github" type="button" class="hidden btn-provider">Continue with GitHub</button>
+        <button id="btn-logout" type="button" class="hidden">Log out</button>
+      </div>
+    </header>
+
+    <div id="login-required" class="panel">
+      <p id="login-intro">Sign in with Google or GitHub to view the vault and proposals. There is no separate sign-up—your first sign-in is your account.</p>
+      <div id="oauth-not-configured" class="oauth-setup hidden">
+        <p><strong>OAuth is not configured yet.</strong> The Hub only accepts login through Google or GitHub. Add credentials to your project <code>.env</code>, then restart the Hub.</p>
+        <ul class="oauth-steps">
+          <li><strong>Google:</strong> Cloud Console → OAuth client (Web) → redirect URI <code>http://localhost:3333/api/v1/auth/callback/google</code> → set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.</li>
+          <li><strong>GitHub:</strong> Settings → Developer settings → OAuth App → callback <code>http://localhost:3333/api/v1/auth/callback/github</code> → set <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code>.</li>
+        </ul>
+        <p class="muted">See <code>hub/README.md</code> (section “Log in (OAuth)”).</p>
+      </div>
+    </div>
+
+    <main id="main" class="hidden">
+      <section class="search-section">
+        <input type="text" id="search-query" placeholder="Search vault…" autocomplete="off">
+        <select id="filter-project">
+          <option value="">All projects</option>
+        </select>
+        <select id="filter-tag">
+          <option value="">All tags</option>
+        </select>
+        <select id="filter-folder">
+          <option value="">All folders</option>
+        </select>
+        <label for="filter-since" class="filter-date-label">Since</label>
+        <input type="date" id="filter-since" aria-label="Filter notes from this date">
+        <label for="filter-until" class="filter-date-label">Until</label>
+        <input type="date" id="filter-until" aria-label="Filter notes until this date">
+        <button id="btn-search" type="button">Search</button>
+        <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
+        <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
+      </section>
+
+      <section class="browse-toolbar hidden" id="browse-toolbar">
+        <div class="view-modes">
+          <span class="toolbar-label">Browse</span>
+          <button type="button" class="view-tab active" data-view="list">List</button>
+          <button type="button" class="view-tab" data-view="calendar">Calendar</button>
+          <button type="button" class="view-tab" data-view="graph">Overview</button>
+        </div>
+        <div id="filter-chips" class="filter-chips"></div>
+        <div class="presets-row">
+          <input type="text" id="preset-name" placeholder="Save view as…" maxlength="40">
+          <button type="button" id="btn-save-preset">Save preset</button>
+          <div id="presets-list" class="presets-list"></div>
+        </div>
+      </section>
+
+      <section class="tabs">
+        <button type="button" data-tab="notes" class="tab active">Notes</button>
+        <button type="button" data-tab="activity" class="tab">Activity</button>
+        <button type="button" data-tab="suggested" class="tab">Suggested</button>
+        <button type="button" data-tab="problem" class="tab">Discarded</button>
+      </section>
+
+      <section id="tab-notes" class="tab-panel">
+        <div id="notes-view-list" class="notes-view-panel">
+          <div id="notes-list" class="list"></div>
+          <div id="notes-total" class="muted total"></div>
+        </div>
+        <div id="notes-view-calendar" class="notes-view-panel hidden">
+          <div class="calendar-nav" id="calendar-nav">
+            <button type="button" id="cal-prev" aria-label="Previous month">←</button>
+            <h3 id="cal-title"></h3>
+            <button type="button" id="cal-next" aria-label="Next month">→</button>
+          </div>
+          <div class="calendar-weekdays">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div id="calendar-grid" class="calendar-grid"></div>
+          <div id="calendar-day-list" class="calendar-day-list hidden">
+            <button type="button" id="cal-back" class="btn-secondary">← Back to month</button>
+            <h4 id="cal-day-title"></h4>
+            <div id="calendar-day-notes" class="list"></div>
+          </div>
+        </div>
+        <div id="notes-view-graph" class="notes-view-panel hidden">
+          <div class="dashboard-cards" id="dashboard-cards"></div>
+          <div class="chart-row">
+            <div class="chart-box"><canvas id="chart-projects"></canvas></div>
+            <div class="chart-box"><canvas id="chart-tags"></canvas></div>
+          </div>
+          <div class="chart-box chart-wide"><canvas id="chart-timeline"></canvas></div>
+          <p class="muted dashboard-footnote" id="dashboard-footnote"></p>
+        </div>
+      </section>
+      <section id="tab-activity" class="tab-panel hidden">
+        <p class="muted">Proposal timeline: created → approved/discarded. Proposals are created by the CLI (<code>knowtation propose --hub ...</code>) or by an agent; you review them here.</p>
+        <div id="proposals-activity" class="list activity-timeline"></div>
+      </section>
+      <section id="tab-suggested" class="tab-panel hidden">
+        <p class="muted">Proposals needing your review. They are created by the CLI or an agent (not by a button in the Hub). Click one, then Approve (writes to vault) or Discard.</p>
+        <div id="proposals-suggested" class="list"></div>
+      </section>
+      <section id="tab-problem" class="tab-panel hidden">
+        <p class="muted">Proposals you (or someone) discarded. They were not applied to the vault. You can still open them to read.</p>
+        <div id="proposals-problem" class="list"></div>
+      </section>
+
+      <aside id="detail-panel" class="detail-panel hidden">
+        <div class="detail-header">
+          <h2 id="detail-title"></h2>
+          <div class="detail-header-actions">
+            <button type="button" id="btn-copy-path" class="hidden">Copy path</button>
+            <button type="button" id="detail-close">Close</button>
+          </div>
+        </div>
+        <div id="detail-body"></div>
+        <div id="detail-actions" class="detail-actions"></div>
+      </aside>
+    </main>
+
+    <div id="modal-create" class="modal hidden" aria-modal="true" role="dialog">
+      <div class="modal-backdrop" id="modal-create-backdrop"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Add to vault</h2>
+          <button type="button" id="modal-create-close" class="modal-close">×</button>
+        </div>
+        <div class="modal-tabs">
+          <button type="button" class="modal-tab active" data-create-tab="quick">Quick capture</button>
+          <button type="button" class="modal-tab" data-create-tab="full">New note</button>
+        </div>
+        <div id="create-quick" class="create-panel">
+          <textarea id="quick-body" rows="6" placeholder="Type or paste anything…"></textarea>
+          <label>Project (optional)</label>
+          <input type="text" id="quick-project" placeholder="e.g. myproject">
+          <p class="muted small">Saves to inbox with today’s date.</p>
+          <button type="button" id="btn-quick-save" class="btn-primary">Save to inbox</button>
+          <p id="create-msg-quick" class="create-msg"></p>
+        </div>
+        <div id="create-full" class="create-panel hidden">
+          <label>Path (vault-relative)</label>
+          <input type="text" id="full-path" placeholder="inbox/my-note.md">
+          <label>Title</label>
+          <input type="text" id="full-title" placeholder="Note title">
+          <label>Body (Markdown)</label>
+          <textarea id="full-body" rows="8" placeholder="Content…"></textarea>
+          <label>Project (optional)</label>
+          <input type="text" id="full-project" placeholder="slug">
+          <label>Tags (comma-separated)</label>
+          <input type="text" id="full-tags" placeholder="tag1, tag2">
+          <button type="button" id="btn-full-save" class="btn-primary">Create note</button>
+          <p id="create-msg-full" class="create-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-settings" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="settings-title">
+      <div class="modal-backdrop" id="modal-settings-backdrop"></div>
+      <div class="modal-card modal-card-settings">
+        <div class="modal-header">
+          <h2 id="settings-title">Settings</h2>
+          <button type="button" id="modal-settings-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
+          <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-settings-tab="backup">Backup</button>
+          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
+        </nav>
+        <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
+          <div class="settings-body">
+            <h3 class="settings-h3">Status</h3>
+            <p class="settings-intro small">Current vault and backup state. To change where the vault lives or which Git repo is used, use <strong>Configure backup</strong> below.</p>
+            <div class="settings-row">
+              <span class="settings-label">Vault</span>
+              <span id="settings-vault-display" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Git backup</span>
+              <span id="settings-git-status" class="settings-value">—</span>
+            </div>
+            <div class="settings-row" id="settings-github-connect-row">
+              <span class="settings-label">GitHub</span>
+              <span id="settings-github-status" class="settings-value">—</span>
+              <a id="btn-connect-github" class="btn-secondary hidden" href="#" target="_self">Connect GitHub</a>
+            </div>
+            <div class="settings-actions">
+              <button type="button" id="btn-settings-sync" class="btn-primary" disabled>Back up now</button>
+              <span id="settings-sync-msg" class="settings-msg"></span>
+            </div>
+            <hr class="settings-hr">
+            <h3 class="settings-h3">Configure backup</h3>
+            <p class="settings-intro small">To turn on Git backup, follow these steps:</p>
+            <ol class="settings-steps-list">
+              <li>Create a new repository on GitHub (empty is fine).</li>
+              <li>Below, check <em>Git backup enabled</em> and paste that repo’s URL into <em>Git remote URL</em>.</li>
+              <li>Click <strong>Save setup</strong>. Status will then show the repo and you can use <strong>Back up now</strong>.</li>
+            </ol>
+            <p class="settings-intro small">Changes are saved to <code>data/hub_setup.yaml</code> and applied immediately. Vault path can be absolute or relative to the project root.</p>
+            <div class="settings-form">
+              <label for="setup-vault-path">Vault path</label>
+              <input type="text" id="setup-vault-path" placeholder="e.g. ./vault or /path/to/vault">
+              <label class="settings-checkbox-label"><input type="checkbox" id="setup-git-enabled"> Git backup enabled</label>
+              <label for="setup-git-remote">Git remote URL <span class="settings-label-hint">(paste the repo you created on GitHub)</span></label>
+              <input type="text" id="setup-git-remote" placeholder="https://github.com/you/your-repo.git">
+              <div class="settings-form-actions">
+                <button type="button" id="btn-settings-save" class="btn-primary">Save setup</button>
+                <span id="settings-save-msg" class="settings-msg"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="settings-panel-appearance" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <h3 class="settings-h3">Theme</h3>
+            <p class="settings-intro small">Night or day. Saved in your browser.</p>
+            <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
+              <button type="button" class="theme-btn" data-theme="dark" aria-pressed="true">Night</button>
+              <button type="button" class="theme-btn" data-theme="light" aria-pressed="false">Day</button>
+            </div>
+            <hr class="settings-hr">
+            <h3 class="settings-h3">Accent color</h3>
+            <p class="settings-intro small">Choose an accent color for links, buttons, and highlights. Saved in your browser.</p>
+            <div class="accent-presets" id="accent-presets" role="group" aria-label="Accent color presets">
+              <button type="button" class="accent-swatch" data-accent="#22d3ee" title="Cyan (default)" aria-label="Cyan default"></button>
+              <button type="button" class="accent-swatch" data-accent="#22c55e" title="Green" aria-label="Green"></button>
+              <button type="button" class="accent-swatch" data-accent="#eab308" title="Amber" aria-label="Amber"></button>
+              <button type="button" class="accent-swatch" data-accent="#f43f5e" title="Rose" aria-label="Rose"></button>
+              <button type="button" class="accent-swatch" data-accent="#a855f7" title="Violet" aria-label="Violet"></button>
+              <button type="button" class="accent-swatch" data-accent="#0ea5e9" title="Sky" aria-label="Sky"></button>
+            </div>
+            <div class="settings-form" style="margin-top: 1rem;">
+              <label for="accent-custom">Custom color</label>
+              <input type="color" id="accent-custom" value="#22d3ee" aria-label="Custom accent color">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-how-to-use" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="how-to-use-title">
+      <div class="modal-backdrop" id="modal-how-to-use-backdrop"></div>
+      <div class="modal-card modal-card-how-to-use">
+        <div class="modal-header">
+          <h2 id="how-to-use-title">How to use Knowtation Hub</h2>
+          <button type="button" id="modal-how-to-use-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="how-to-use-body">
+          <p class="how-to-intro">Follow the steps below in order. Each step unlocks the next. Diagrams show how data and agents connect.</p>
+
+          <div class="how-to-flow" aria-hidden="true">
+            <div class="flow-step"><span class="flow-num">1</span><span>Vault &amp; config</span></div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step"><span class="flow-num">2</span><span>Run Hub</span></div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step"><span class="flow-num">3</span><span>Log in</span></div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step"><span class="flow-num">4</span><span>Import data</span></div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step"><span class="flow-num">5</span><span>Use &amp; automate</span></div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step"><span class="flow-num">6</span><span>GitHub backup</span></div>
+          </div>
+
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 1</span> Vault and config</h3>
+            <p class="step-what">What this does: Tells Knowtation where your notes live so the Hub and CLI can read and write them.</p>
+            <ul>
+              <li>Create or choose a folder for your Markdown notes (e.g. <code>~/knowtation-vault</code>).</li>
+              <li>In the project’s <code>config/local.yaml</code> set <code>vault_path: ./vault</code> (or a path to that folder). Or set the env var <code>KNOWTATION_VAULT_PATH</code>.</li>
+            </ul>
+            <div class="example-block">
+              <span class="example-label">Example config</span>
+              <pre>vault_path: ./vault
+data_dir: data</pre>
+            </div>
+          </section>
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 2</span> Run the Hub</h3>
+            <p class="step-what">What this does: Starts the web app you’re using now so you can browse, search, and approve changes.</p>
+            <ul>
+              <li>From the project root run <code>npm run hub</code>.</li>
+              <li>Open <code>http://localhost:3333</code> (or the port you set with <code>HUB_PORT</code>).</li>
+            </ul>
+            <div class="example-block">
+              <span class="example-label">Example</span>
+              <pre>$ npm run hub
+Knowtation Hub listening on http://localhost:3333</pre>
+            </div>
+          </section>
+
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 3</span> Log in (OAuth)</h3>
+            <p class="step-what">What this does: Proves who you are so the Hub can show your vault and let you approve proposals.</p>
+            <ul>
+              <li>Click “Continue with Google” or “Continue with GitHub” on the login screen.</li>
+              <li>If you see “OAuth is not configured”: add <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> (and callback <code>http://localhost:3333/api/v1/auth/callback/google</code>) or the same for GitHub in your <code>.env</code>, then restart the Hub.</li>
+            </ul>
+          </section>
+
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 4</span> Import data into the vault</h3>
+            <p class="step-what">What this does: Brings in notes from Slack, files, ChatGPT, or other tools so they appear in the Hub and can be searched.</p>
+            <div class="diagram-box">
+              <div class="diagram-title">Where data comes from → where it goes</div>
+              <svg class="diagram-svg" viewBox="0 0 420 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <text x="30" y="28" class="diagram-text">Slack / Discord / File / ChatGPT</text>
+                <path d="M 120 24 L 160 24" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arrow-data)"/>
+                <text x="30" y="52" class="diagram-text-small">Webhook or script</text>
+                <rect x="165" y="8" width="90" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="210" y="28" class="diagram-text" text-anchor="middle">Capture</text>
+                <path d="M 260 24 L 300 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="305" y="8" width="70" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="340" y="28" class="diagram-text" text-anchor="middle">Vault</text>
+                <path d="M 380 24 L 420 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <text x="400" y="52" class="diagram-text-small" text-anchor="middle">Hub UI / API</text>
+                <defs><marker id="arrow-data" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--accent)"/></marker></defs>
+              </svg>
+            </div>
+            <ul>
+              <li><strong>Hub capture (easiest):</strong> POST to <code>/api/v1/capture</code> with JSON: <code>{"body": "your text", "source": "slack", "project": "myproject"}</code>. Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> and send header <code>X-Webhook-Secret</code>.</li>
+              <li><strong>Standalone webhook:</strong> Run <code>node scripts/capture-webhook.mjs --port 3131</code> and POST to that server’s <code>/capture</code>. Use <code>scripts/capture-slack-adapter.mjs</code> (or Discord/Telegram adapters) to convert events into the same JSON.</li>
+              <li><strong>Files / ChatGPT exports:</strong> Use <code>scripts/capture-file.mjs</code> for stdin or files. For exports, drop Markdown into <code>vault/inbox/</code> or <code>vault/imports/</code> with frontmatter: <code>source</code>, <code>date</code>, and optionally <code>project</code>, <code>tags</code>.</li>
+            </ul>
+          </section>
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 5</span> Use the Hub and automate with agents</h3>
+            <p class="step-what">What this does: You browse and filter notes here; agents and LLMs can read and propose changes via the API or CLI, and you approve in the Hub.</p>
+            <div class="diagram-box">
+              <div class="diagram-title">Agents and LLMs → Hub → you</div>
+              <svg class="diagram-svg" viewBox="0 0 440 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="10" y="8" width="100" height="32" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                <text x="60" y="28" class="diagram-text" text-anchor="middle">Open CLAW / Abacus / LLM</text>
+                <path d="M 115 24 L 155 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="160" y="8" width="120" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="220" y="28" class="diagram-text" text-anchor="middle">Hub API or MCP / CLI</text>
+                <path d="M 285 24 L 325 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="330" y="8" width="100" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="380" y="28" class="diagram-text" text-anchor="middle">Proposals</text>
+                <path d="M 435 24 L 440 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <text x="220" y="58" class="diagram-text-small" text-anchor="middle">You approve or discard in Hub (Suggested / Discarded)</text>
+              </svg>
+            </div>
+            <h4 class="how-to-sub">Proposals: where they come from and where to see them</h4>
+            <p>Proposals are <strong>not</strong> created by a button in the Hub. They are created by the CLI or by an agent/LLM calling the Hub API. The Hub is where you <strong>review</strong> them.</p>
+            <ul>
+              <li><strong>Create a proposal:</strong> From a terminal run <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> (with <code>KNOWTATION_HUB_TOKEN</code> set), or have an agent send <code>POST /api/v1/proposals</code> with the same kind of data. The proposal then appears in the Hub.</li>
+              <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it, then click <strong>Approve</strong> (writes the content to the vault) or <strong>Discard</strong> (rejects it).</li>
+              <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
+              <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
+            </ul>
+            <p class="how-to-note">There is no "Add proposal" button in the Hub by design: proposals are created by tools and agents. You use the Hub to approve or discard them before anything is written to the vault.</p>
+
+            <h4 class="how-to-sub">Hub UI: filters and views</h4>
+            <ul>
+              <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then Apply filters. Quick chips (e.g. <code>project:myproject</code>, <code>folder:inbox</code>) jump to a view. Save a view with Save view as and click a preset pill later.</li>
+              <li><strong>Search:</strong> Type in Search vault and click Search for semantic search.</li>
+              <li><strong>List / Calendar / Overview:</strong> List = filtered rows; Calendar = month grid (click a day for that day's notes); Overview = dashboard and charts.</li>
+              <li><strong>+ New note:</strong> Quick capture (inbox) or full form (path, title, body, project, tags). Use "Copy path" in the detail panel to copy the note path for CLI/API use.</li>
+              <li><strong>Re-index:</strong> After importing notes or changing many files, click Re-index so semantic search reflects the latest vault. Same as running <code>knowtation index</code> from the CLI.</li>
+              <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Enter</kbd> open selected note; <kbd>Esc</kbd> close panel or modal.</li>
+            </ul>
+            <h4 class="how-to-sub">Connecting agents and other tools</h4>
+            <p>Give your agent or LLM a way to talk to Knowtation: either the Hub API (with a JWT) or the CLI. Agents can list notes, search, and create proposals; you review and approve in the Hub.</p>
+            <div class="integration-card">
+              <h5>Open CLAW</h5>
+              <p>Open CLAW can call tools. Configure it with the Knowtation Hub as a tool endpoint: set the Hub base URL and a JWT (from this Hub after login). It can then call <code>GET /api/v1/notes</code>, <code>POST /api/v1/search</code>, and <code>POST /api/v1/proposals</code>. For writes, use proposals and approve them here.</p>
+              <div class="example-block"><span class="example-label">Example env</span><pre>KNOWTATION_HUB_URL=http://localhost:3333
+KNOWTATION_HUB_TOKEN=&lt;paste JWT from Hub after login&gt;</pre></div>
+            </div>
+            <div class="integration-card">
+              <h5>Abacus</h5>
+              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Suggested tab and approve or discard.</p>
+              <div class="example-block"><span class="example-label">Example</span><pre># In your Abacus tool config, add Knowtation Hub:
+# - Hub URL + KNOWTATION_HUB_TOKEN for API calls
+# - Or shell tool: knowtation search "query" --json</pre></div>
+            </div>
+            <div class="integration-card">
+              <h5>Common LLMs (Claude, ChatGPT, etc.)</h5>
+              <p>Use the Knowtation CLI from a wrapper or script the LLM can trigger: <code>knowtation search "..." --json</code>, <code>knowtation list-notes --limit 20 --json</code>. For write flows, use <code>knowtation propose --hub http://localhost:3333</code> with a token; the LLM's proposed change becomes a proposal you approve in the Hub.</p>
+              <div class="example-block"><span class="example-label">Example</span><pre># CLI (read-only, no Hub needed):
+knowtation search "meeting notes" --json
+knowtation list-notes --project myproject --limit 10 --json
+
+# With Hub (propose + review):
+export KNOWTATION_HUB_TOKEN=&lt;JWT&gt;
+knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</pre></div>
+            </div>
+            <p class="how-to-note"><strong>MCP (e.g. Cursor):</strong> If your environment supports MCP, enable the Knowtation MCP server to search and read notes. For writes, combine with the Hub and proposals as above.</p>
+          </section>
+
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 6</span> GitHub backup and version control (crucial)</h3>
+            <p class="step-what">What this does: Keeps your vault in a Git repo and syncs to GitHub (or another remote) for <strong>backup and version history</strong>. This is strongly recommended so your knowledge is safe and portable.</p>
+            <p>Your vault can live in a Git repository and sync with a remote like GitHub. That gives you:</p>
+            <ul>
+              <li><strong>Backup:</strong> A copy of your notes in GitHub; if your machine is lost, you can clone the repo and point Knowtation at it again.</li>
+              <li><strong>Version history:</strong> Every commit is a snapshot; you can see diffs and revert changes. Proposals you approve in the Hub can be committed and pushed as part of your workflow.</li>
+              <li><strong>Portability:</strong> The vault is a normal Git repo; clone it on another machine, use GitHub’s UI to browse, or hook in CI/CD.</li>
+            </ul>
+            <p><strong>Setup:</strong> Use <strong>Settings</strong> in the Hub header: the <strong>Setup</strong> section lets you set the vault path and Git remote (saved to <code>data/hub_setup.yaml</code>, applied immediately). Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Create the repo on GitHub first. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI. For push without a deploy key, click <strong>Connect GitHub</strong> in Settings (uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings). Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. Proposals stay Hub-only. See PROVENANCE-AND-GIT.md.</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="hub.js"></script>
+</body>
+</html>

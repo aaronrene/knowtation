@@ -1,0 +1,96 @@
+/**
+ * Simple file-based proposal store. Phase 11.
+ * Stores proposals in data_dir/hub_proposals.json.
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
+
+const FILENAME = 'hub_proposals.json';
+
+export function getProposalsPath(dataDir) {
+  return path.join(dataDir, FILENAME);
+}
+
+function loadProposals(dataDir) {
+  const filePath = getProposalsPath(dataDir);
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveProposals(dataDir, proposals) {
+  const filePath = getProposalsPath(dataDir);
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(proposals, null, 2), 'utf8');
+}
+
+/**
+ * @param {string} dataDir
+ * @returns {{ proposal_id: string, path: string, status: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, created_at: string, updated_at: string }[]}
+ */
+export function listProposals(dataDir, options = {}) {
+  const all = loadProposals(dataDir);
+  let list = all;
+  if (options.status) list = list.filter((p) => p.status === options.status);
+  const total = list.length;
+  const offset = Math.max(0, options.offset ?? 0);
+  const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+  list = list.slice(offset, offset + limit);
+  return { proposals: list, total };
+}
+
+/**
+ * @param {string} dataDir
+ * @param {string} id
+ */
+export function getProposal(dataDir, id) {
+  const all = loadProposals(dataDir);
+  return all.find((p) => p.proposal_id === id) ?? null;
+}
+
+/**
+ * @param {string} dataDir
+ * @param {{ path?: string, body?: string, frontmatter?: object, intent?: string, base_state_id?: string }} input
+ * @returns {{ proposal_id: string, path: string, status: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, created_at: string, updated_at: string }}
+ */
+export function createProposal(dataDir, input) {
+  const all = loadProposals(dataDir);
+  const now = new Date().toISOString();
+  const proposal = {
+    proposal_id: randomUUID(),
+    path: input.path || `inbox/proposal-${Date.now()}.md`,
+    status: 'proposed',
+    intent: input.intent ?? undefined,
+    base_state_id: input.base_state_id ?? undefined,
+    body: input.body ?? '',
+    frontmatter: input.frontmatter ?? {},
+    created_at: now,
+    updated_at: now,
+  };
+  all.push(proposal);
+  saveProposals(dataDir, all);
+  return proposal;
+}
+
+/**
+ * @param {string} dataDir
+ * @param {string} id
+ * @param {'approved'|'discarded'}} status
+ * @returns {object|null} Updated proposal or null
+ */
+export function updateProposalStatus(dataDir, id, status) {
+  const all = loadProposals(dataDir);
+  const idx = all.findIndex((p) => p.proposal_id === id);
+  if (idx === -1) return null;
+  const now = new Date().toISOString();
+  all[idx] = { ...all[idx], status, updated_at: now };
+  saveProposals(dataDir, all);
+  return all[idx];
+}
