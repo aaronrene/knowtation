@@ -55,6 +55,7 @@
   const THEME_STORAGE_KEY = 'hub_theme';
   const DEFAULT_ACCENT = '#22d3ee';
   const DEFAULT_THEME = 'dark';
+  const loadingHtml = '<div class="loading-state" aria-live="polite">Loading…</div>';
   function applyAccent(hex) {
     if (hex) {
       document.documentElement.style.setProperty('--accent', hex);
@@ -128,7 +129,6 @@
   function showMain() {
     loginRequired.classList.add('hidden');
     main.classList.remove('hidden');
-    btnNewNote.classList.remove('hidden');
     btnHowToUse.classList.remove('hidden');
     if (btnSettings) btnSettings.classList.remove('hidden');
     browseToolbar.classList.remove('hidden');
@@ -140,9 +140,16 @@
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         userName.textContent = payload.name || payload.sub || 'Logged in';
+        window.__hubUserRole = payload.role || 'member';
+        const isViewer = window.__hubUserRole === 'viewer';
+        if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
       } catch (_) {
         userName.textContent = 'Logged in';
+        window.__hubUserRole = 'member';
+        if (btnNewNote) btnNewNote.classList.remove('hidden');
       }
+    } else {
+      if (btnNewNote) btnNewNote.classList.remove('hidden');
     }
   }
 
@@ -382,8 +389,6 @@
     });
   }
 
-  const loadingHtml = '<div class="loading-state" aria-live="polite">Loading…</div>';
-
   async function loadNotes() {
     const q = new URLSearchParams();
     q.set('limit', '100');
@@ -466,7 +471,7 @@
   }
 
   async function loadProposals() {
-    const emptySuggested = '<div class="empty-state">No proposals waiting for review. Create one via the CLI or an agent.</div>';
+    const emptySuggested = '<div class="empty-state">No proposals waiting for review. Add notes with <strong>+ New note</strong> above, or have an agent or the CLI create a proposal for you to approve.</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     [
       { kind: 'suggested', status: 'proposed', empty: emptySuggested },
@@ -864,6 +869,8 @@
     el('modal-how-to-use').classList.add('hidden');
   }
   if (btnHowToUse) btnHowToUse.onclick = openHowToUse;
+  const btnLoginHowToUse = el('btn-login-how-to-use');
+  if (btnLoginHowToUse) btnLoginHowToUse.onclick = openHowToUse;
   el('modal-how-to-use-backdrop').onclick = closeHowToUse;
   el('modal-how-to-use-close').onclick = closeHowToUse;
 
@@ -898,6 +905,10 @@
     if (ghStatus) ghStatus.textContent = 'Loading…';
     api('/api/v1/settings')
       .then((s) => {
+        const roleEl = el('settings-role-display');
+        if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
+        const userIdEl = el('settings-user-id');
+        if (userIdEl) userIdEl.textContent = s.user_id || '—';
         el('settings-vault-display').textContent = s.vault_path_display || '—';
         const vg = s.vault_git || {};
         let gitText = 'Not configured';
@@ -908,7 +919,15 @@
         } else if (vg.enabled) gitText = 'Enabled but no remote set';
         el('settings-git-status').textContent = gitText;
         const syncBtn = el('btn-settings-sync');
-        if (syncBtn) syncBtn.disabled = !vg.enabled || !vg.has_remote;
+        const isAdmin = s.role === 'admin';
+        if (syncBtn) syncBtn.disabled = !vg.enabled || !vg.has_remote || !isAdmin;
+        const saveSetupBtn = el('btn-settings-save');
+        if (saveSetupBtn) {
+          saveSetupBtn.disabled = false;
+          saveSetupBtn.title = isAdmin ? '' : 'Only admins can save; your role is shown under Status above.';
+        }
+        const teamTab = el('settings-tab-team');
+        if (teamTab) teamTab.classList.toggle('hidden', !isAdmin);
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
         if (s.github_connect_available) {
@@ -979,10 +998,53 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
+        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
       });
+      if (id === 'team') loadTeamRolesList();
     });
   });
+
+  async function loadTeamRolesList() {
+    const listEl = el('team-roles-list');
+    if (!listEl) return;
+    listEl.textContent = 'Loading…';
+    try {
+      const out = await api('/api/v1/roles');
+      const roles = out.roles || {};
+      const entries = Object.entries(roles);
+      if (entries.length === 0) {
+        listEl.innerHTML = 'No roles assigned yet. When you add one above, it appears here.';
+      } else {
+        listEl.innerHTML = entries.map(([uid, role]) => '<div class="team-role-row">' + escapeHtml(uid) + ' → ' + escapeHtml(role) + '</div>').join('');
+      }
+    } catch (e) {
+      listEl.textContent = 'Could not load: ' + (e.message || '');
+    }
+  }
+
+  const btnTeamSave = el('btn-team-save');
+  if (btnTeamSave) {
+    btnTeamSave.onclick = async () => {
+      const userIdInput = el('team-user-id');
+      const roleSelect = el('team-role');
+      const msgEl = el('team-save-msg');
+      const userId = (userIdInput && userIdInput.value || '').trim();
+      const role = (roleSelect && roleSelect.value) || 'editor';
+      if (!userId) {
+        if (msgEl) { msgEl.textContent = 'Enter a User ID.'; msgEl.className = 'settings-msg err'; }
+        return;
+      }
+      if (msgEl) msgEl.textContent = '';
+      try {
+        await api('/api/v1/roles', { method: 'POST', body: JSON.stringify({ user_id: userId, role }) });
+        if (msgEl) { msgEl.textContent = 'Saved. They have role: ' + role + '.'; msgEl.className = 'settings-msg'; }
+        userIdInput.value = '';
+        loadTeamRolesList();
+      } catch (e) {
+        if (msgEl) { msgEl.textContent = e.message || 'Failed'; msgEl.className = 'settings-msg err'; }
+      }
+    };
+  }
 
   const currentAccent = () => document.documentElement.style.getPropertyValue('--accent').trim() || DEFAULT_ACCENT;
   document.querySelectorAll('.accent-swatch').forEach((btn) => {
@@ -1042,41 +1104,61 @@
       msg.className = 'settings-msg err';
     }
   };
-  el('btn-settings-save').onclick = async () => {
-    const msg = el('settings-save-msg');
-    msg.textContent = 'Saving…';
-    msg.className = 'settings-msg';
-    const vault_path = (el('setup-vault-path') && el('setup-vault-path').value.trim()) || undefined;
-    const enabled = el('setup-git-enabled') && el('setup-git-enabled').checked;
-    const remote = (el('setup-git-remote') && el('setup-git-remote').value.trim()) || '';
-    try {
-      await api('/api/v1/setup', {
-        method: 'POST',
-        body: JSON.stringify({
-          vault_path: vault_path || undefined,
-          vault_git: { enabled, remote: remote || undefined },
-        }),
-      });
-      msg.textContent = 'Saved. Config applied.';
-      if (vault_path !== undefined) msg.textContent += ' If you changed the vault path, run Re-index or restart the Hub so search uses the new path.';
-      api('/api/v1/settings').then((s) => {
-        el('settings-vault-display').textContent = s.vault_path_display || '—';
-        const vg = s.vault_git || {};
-        let gitText = 'Not configured';
-        if (vg.enabled && vg.has_remote) {
-          gitText = 'Configured';
-          if (vg.auto_commit) gitText += ' (auto-commit on)';
-          if (vg.auto_push) gitText += ', auto-push on';
-        } else if (vg.enabled) gitText = 'Enabled but no remote set';
-        el('settings-git-status').textContent = gitText;
-        const syncBtn = el('btn-settings-sync');
-        if (syncBtn) syncBtn.disabled = !vg.enabled || !vg.has_remote;
-      }).catch(() => {});
-    } catch (e) {
-      msg.textContent = e.message || 'Save failed';
-      msg.className = 'settings-msg err';
-    }
-  };
+  const saveSetupBtn = el('btn-settings-save');
+  if (saveSetupBtn) {
+    saveSetupBtn.onclick = async () => {
+      const msg = el('settings-save-msg');
+      if (msg) {
+        msg.textContent = 'Saving…';
+        msg.className = 'settings-msg';
+      }
+      const vault_path = (el('setup-vault-path') && el('setup-vault-path').value.trim()) || undefined;
+      const enabled = el('setup-git-enabled') && el('setup-git-enabled').checked;
+      const remote = (el('setup-git-remote') && el('setup-git-remote').value.trim()) || '';
+      try {
+        await api('/api/v1/setup', {
+          method: 'POST',
+          body: JSON.stringify({
+            vault_path: vault_path || undefined,
+            vault_git: { enabled, remote: remote || undefined },
+          }),
+        });
+        const successText = 'Saved. Config applied.' + (vault_path !== undefined ? ' If you changed the vault path, run Re-index or restart the Hub so search uses the new path.' : '');
+        if (msg) {
+          msg.textContent = successText;
+          msg.className = 'settings-msg ok';
+        }
+        if (typeof showToast === 'function') showToast('Setup saved.');
+        api('/api/v1/settings').then((s) => {
+          el('settings-vault-display').textContent = s.vault_path_display || '—';
+          const vg = s.vault_git || {};
+          let gitText = 'Not configured';
+          if (vg.enabled && vg.has_remote) {
+            gitText = 'Configured';
+            if (vg.auto_commit) gitText += ' (auto-commit on)';
+            if (vg.auto_push) gitText += ', auto-push on';
+          } else if (vg.enabled) gitText = 'Enabled but no remote set';
+          el('settings-git-status').textContent = gitText;
+          const syncBtn = el('btn-settings-sync');
+          const isAdmin = s.role === 'admin';
+          if (syncBtn) syncBtn.disabled = !vg.enabled || !vg.has_remote || !isAdmin;
+          if (msg) {
+            msg.textContent = successText;
+            msg.className = 'settings-msg ok';
+          }
+        }).catch(() => {});
+      } catch (e) {
+        const errMsg = e.message || 'Save failed';
+        if (msg) {
+          msg.textContent = errMsg.includes('different role') || errMsg.includes('FORBIDDEN')
+            ? 'Only admins can save setup. Your role is shown under Status above.'
+            : errMsg;
+          msg.className = 'settings-msg err';
+        }
+        if (typeof showToast === 'function') showToast(errMsg.includes('different role') || errMsg.includes('FORBIDDEN') ? 'Only admins can save setup.' : errMsg, true);
+      }
+    };
+  }
 
   document.querySelectorAll('.modal-tab').forEach((t) => {
     t.onclick = () => {
@@ -1176,6 +1258,19 @@
     if (currentNotePathForCopy) navigator.clipboard.writeText(currentNotePathForCopy);
   };
 
+  const btnCopyUserId = el('btn-copy-user-id');
+  if (btnCopyUserId) {
+    btnCopyUserId.onclick = () => {
+      const idEl = el('settings-user-id');
+      const text = idEl && idEl.textContent && idEl.textContent !== '—' ? idEl.textContent : '';
+      if (text && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          if (typeof showToast === 'function') showToast('User ID copied.');
+        }).catch(() => {});
+      }
+    };
+  }
+
   function openProposal(id) {
     currentNotePathForCopy = '';
     el('btn-copy-path').classList.add('hidden');
@@ -1190,7 +1285,8 @@
         body.textContent =
           (p.body || '') + '\n\n---\nIntent: ' + (p.intent || '—') + '\nBase state: ' + (p.base_state_id || '—');
         actions.innerHTML = '';
-        if (p.status === 'proposed') {
+        const isAdmin = window.__hubUserRole === 'admin';
+        if (p.status === 'proposed' && isAdmin) {
           const approveBtn = document.createElement('button');
           approveBtn.textContent = 'Approve';
           approveBtn.onclick = () => approveProposal(id, panel);
@@ -1198,6 +1294,11 @@
           discardBtn.textContent = 'Discard';
           discardBtn.onclick = () => discardProposal(id, panel);
           actions.append(approveBtn, discardBtn);
+        } else if (p.status === 'proposed' && !isAdmin) {
+          const hint = document.createElement('p');
+          hint.className = 'muted small';
+          hint.textContent = 'Only admins can approve or discard proposals.';
+          actions.append(hint);
         }
       })
       .catch((e) => {
