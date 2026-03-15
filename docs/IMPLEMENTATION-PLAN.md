@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings and disables Setup/Back up for non-admins. Not yet: ICP canisters (placeholder), landing (web/) build-complete, Phase 13 invite flow.
+**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. Not yet: ICP canisters (placeholder), landing (web/) build-complete, Phase 13 invite flow.
 
-**Status for next session:** Test Phase 11 + 13 (Hub with roles); commit or cleanup. Optional: Phase 13 invite, landing (web/), ICP. Use "Audience, UX principles, and general-public checklist" for any new UI work.
+**Status for next session:** Phase 11 + 13 tested (backup, Save feedback, roles). **Next step:** Choose one—**Phase 13 invite** (optional), **Phase 11.1** (Hub first screen / guided Setup), or **landing (web/)** refresh. Use "Audience, UX principles, and general-public checklist" for any new UI work.
 
 ---
 
@@ -16,8 +16,8 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 | Step | What | When |
 |------|------|------|
-| **Now** | **Done:** Stubs (JWT `role`, hub_roles.json); Phase 13 scope in plan; **Audience/UX principles and general-public checklist** in plan; Phase 11 Hub UX: How to use on login screen, OAuth hosted note, friendlier empty states. | This session. |
-| **Next** | Test Hub end-to-end (including roles); commit Phase 11 + 13 or cleanup. **Phase 13 invite** (optional): invite flow. Use the UX checklist for any new UI. | Next session. |
+| **Now** | **Done:** Phase 11 + 13 tested; backup setup docs (How to use + Settings); Save setup feedback (toast + inline, error for non-admin); loadingHtml fix; commits. | This session. |
+| **Next** | **Phase 13 invite** (optional): invite-by-email/link so admins don’t need to collect User IDs. Or **Phase 11.1**: Hub first screen / guided Setup. Or **landing (web/)** refresh. Use the UX checklist for any new UI. | Next session. |
 | **Later** | **Hosted / ICP:** Landing (web/) and Hub-on-ICP; multi-tenant hosted per [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md). First-run wizard and guided Setup per checklist. | After Phase 11 stable or in parallel. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
@@ -49,7 +49,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 | **Empty states (Notes, Suggested, Activity)** | Phase 11 (Hub UX) ✅ | Friendly copy when no notes or no proposals (e.g. Suggested mentions + New note and agent/CLI; Notes already had "Add a note or clear filters."). |
 | **First-run / onboarding wizard (hosted)** | Hosted (HOSTED-PLUG-AND-PLAY) | After sign-up: optional "Get started" flow (create first note, connect GitHub, connect agent). Not for self-hosted. |
 | **Guided Setup in Hub** | Phase 11.1 or later | For self-hosted: wizard or checklist in Setup (vault path → run Hub → log in → backup) with "Done" state per step. |
-| **Help entry point everywhere** | Phase 11 (Hub UX) | How to use and Knowledge & agents reachable from header; from login screen; optional "?" in Settings tabs. |
+| **Help entry point everywhere** | Phase 11 (Hub UX) / Phase 11.1 | How to use and Knowledge & agents reachable from header and from login screen ✅. Optional "?" or link in Settings modal (Phase 11.1). |
 | **Teams: invite and roles UX** | Phase 13 | When we add roles and invite: "Invite teammate" and role labels (viewer / editor / admin) in plain language; no technical jargon. |
 | **Landing page: clear value and CTA** | Phase 11 (web/) | Landing explains what Knowtation is and who it's for (humans + agents); primary CTA for hosted sign-up or self-host docs. |
 | **Hub first screen (login): simple, user-friendly CTA** | Phase 11.1 (or before Hosted) | First thing users see at the Hub URL should be a short value line (e.g. tagline) and one clear primary CTA (sign-in), with "How to use" secondary. Reuse ideas from landing (web/index.html)—tagline, intent, visual tone—updated for current product (vault, search, agents, proposals). Order: do after Hub stable; before or as part of Hosted launch. |
@@ -364,7 +364,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 
 **Goal:** Add **roles** (viewer / editor / admin) and optionally an **invite flow** so the Hub supports a "team vault" without giving everyone full access. No backtracking: token shape and reserved data/config are prepared in advance (see "Preparation" below).
 
-**Implemented (Phase 13 — roles):** Role store `hub/roles.mjs` (reads `data/hub_roles.json`). JWT role from store at login; default `member` (treated as editor) when not in file; when no roles file (or empty file), everyone receives JWT role admin so the Team tab is visible and no manual setup is needed; once the file has entries, only listed users get that role. Middleware `requireRole()`; GET notes/search/proposals/settings/setup require viewer; POST notes, proposals, index, vault/sync require editor; POST setup, approve, discard require admin. Hub UI: Settings shows "Your role", disables Save setup and Back up now for non-admins; Approve/Discard only for admins; + New note hidden for viewers. See hub/README.md (Roles) and TEAMS-AND-COLLABORATION.md. **Not yet:** invite flow, GitHub-backed access.
+**Implemented (Phase 13 — roles):** Role store `hub/roles.mjs` (reads `data/hub_roles.json`). JWT role from store at login; default `member` (treated as editor) when not in file; when no roles file (or empty file), everyone receives JWT role admin so the Team tab is visible and no manual setup is needed; once the file has entries, only listed users get that role. Middleware `requireRole()`; GET notes/search/proposals/settings/setup require viewer; POST notes, proposals, index, vault/sync require editor; POST setup, approve, discard require admin. Hub UI: Settings shows "Your role"; **Back up now** disabled for non-admins; **Save setup** always enabled—non-admins get clear error message and toast on click; admins get success toast and inline "Saved. Config applied." Approve/Discard only for admins; + New note hidden for viewers. See hub/README.md (Roles) and TEAMS-AND-COLLABORATION.md. **Not yet:** invite flow, GitHub-backed access.
 
 **Deliverables (remaining for Phase 13):**
 
