@@ -39,7 +39,7 @@ This document (1) lists **all CLI commands and optional features**, (2) explains
 | **Order** (`--order date \| date-asc`) | `search`, `list-notes` | Get “newest first” or “oldest first” without over-fetching. |
 | **Optional memory layer** (Mem0, etc.) | After search/export | Store “last query + result set” or provenance; agent can ask memory for “last run” instead of re-querying. Saves repeat retrieval. |
 | **Optional AIR** | Before write/export | Attestation only; no direct token impact on retrieval. |
-| **MUSE-style proposals** | Hub / propose flow | Proposals live outside main vault until committed; agent can list/diff proposals without loading full vault. |
+| **Proposals** | Hub / propose flow | Proposals live outside main vault until committed; agent can list/diff proposals without loading full vault. |
 | **Summary notes / state snapshots** | Vault content + filters | Notes with `summarizes` or `state_snapshot` compress a range; agent retrieves one summary instead of many notes. Big token saving for long horizons. |
 | **Optional hub API** (shared vault / hub) | Same as CLI | Same filters and limits; same token benefits. |
 

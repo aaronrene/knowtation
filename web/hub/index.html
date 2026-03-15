@@ -170,10 +170,21 @@
           <input type="text" id="full-title" placeholder="Note title">
           <label>Body (Markdown)</label>
           <textarea id="full-body" rows="8" placeholder="Content…"></textarea>
+          <label>Date (optional)</label>
+          <input type="date" id="full-date" placeholder="YYYY-MM-DD">
           <label>Project (optional)</label>
           <input type="text" id="full-project" placeholder="slug">
           <label>Tags (comma-separated)</label>
           <input type="text" id="full-tags" placeholder="tag1, tag2">
+          <p class="muted small" style="margin-top: 0.5rem;">Temporal and hierarchical (optional):</p>
+          <label>Causal chain ID</label>
+          <input type="text" id="full-causal-chain" placeholder="e.g. auth-decisions">
+          <label>Entity (comma-separated)</label>
+          <input type="text" id="full-entity" placeholder="e.g. alice, auth">
+          <label>Episode ID</label>
+          <input type="text" id="full-episode" placeholder="e.g. planning-2025-03">
+          <label>Follows (vault path this note follows)</label>
+          <input type="text" id="full-follows" placeholder="e.g. inbox/prior-note.md">
           <button type="button" id="btn-full-save" class="btn-primary">Create note</button>
           <p id="create-msg-full" class="create-msg"></p>
         </div>
@@ -195,6 +206,31 @@
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
           <div class="settings-body">
+            <h3 class="settings-h3">Setup checklist</h3>
+            <p class="settings-intro small">Get from zero to using the Hub and (optionally) backing up. Complete each step; optional steps can be skipped.</p>
+            <ul class="setup-checklist" aria-label="Setup progress">
+              <li id="setup-step-1" class="setup-step">
+                <span class="setup-step-icon" aria-hidden="true"></span>
+                <span class="setup-step-label">Vault path set</span>
+                <span class="setup-step-hint">Set below under Configure backup</span>
+              </li>
+              <li id="setup-step-2" class="setup-step setup-step-done">
+                <span class="setup-step-icon" aria-hidden="true">✓</span>
+                <span class="setup-step-label">Hub is running</span>
+                <span class="setup-step-hint">You’re here</span>
+              </li>
+              <li id="setup-step-3" class="setup-step setup-step-done">
+                <span class="setup-step-icon" aria-hidden="true">✓</span>
+                <span class="setup-step-label">Logged in</span>
+                <span class="setup-step-hint">You’re here</span>
+              </li>
+              <li id="setup-step-4" class="setup-step">
+                <span class="setup-step-icon" aria-hidden="true"></span>
+                <span class="setup-step-label">Backup configured (optional)</span>
+                <span class="setup-step-hint">Git enabled + remote below; then Connect GitHub and Back up now</span>
+              </li>
+            </ul>
+            <hr class="settings-hr">
             <h3 class="settings-h3">Status</h3>
             <p class="settings-intro small">Current vault and backup state. To change where the vault lives or which Git repo is used, use <strong>Configure backup</strong> below (admins only).</p>
             <div class="settings-row">
@@ -535,13 +571,33 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <p class="how-to-intro">How your vault feeds agents and how agents interact with Knowtation. One vault, one backup repo; you control what gets into the vault and what gets backed up to GitHub.</p>
 
             <section class="how-to-step">
+              <h3>What we track (metadata and filters)</h3>
+              <p class="step-what">Every note can carry optional frontmatter. <strong>None of this is auto-extracted by an LLM</strong>—you or an agent add it when creating or editing a note (Hub <strong>+ New note</strong> full form, CLI, or API). When present, the index and search use it.</p>
+              <table class="how-to-table">
+                <thead><tr><th>Field</th><th>Used for</th></tr></thead>
+                <tbody>
+                  <tr><td><code>date</code>, <code>updated</code></td><td><strong>Time-bounded search:</strong> Hub filters Since/Until; CLI <code>--since</code>, <code>--until</code>. Scope results to a date range.</td></tr>
+                  <tr><td><code>project</code></td><td>Project slug. Filter by project in Hub and CLI (<code>--project</code>).</td></tr>
+                  <tr><td><code>tags</code></td><td>Tags. Filter in Hub and CLI (<code>--tag</code>).</td></tr>
+                  <tr><td><code>folder</code> (path)</td><td>Inferred from path (e.g. <code>inbox/</code>, <code>projects/…</code>). Filter in Hub and CLI (<code>--folder</code>).</td></tr>
+                  <tr><td><code>causal_chain_id</code></td><td><strong>Causal chains:</strong> Groups notes in the same decision/event chain. CLI <code>--chain</code>. Enables "what led to this?"</td></tr>
+                  <tr><td><code>entity</code></td><td>Entity labels (person, concept). CLI <code>--entity</code>. Relational queries across time.</td></tr>
+                  <tr><td><code>episode_id</code></td><td><strong>Hierarchical memory:</strong> Groups notes into an episode/session. CLI <code>--episode</code>. Project → episode → note → chunk.</td></tr>
+                  <tr><td><code>follows</code></td><td>Vault path(s) this note follows (causal or sequential). Links notes in a chain.</td></tr>
+                  <tr><td><code>summarizes</code>, <code>summarizes_range</code>, <code>state_snapshot</code></td><td>State compression: summary notes for a range or snapshot at a point in time. Optional.</td></tr>
+                </tbody>
+              </table>
+              <p class="how-to-note"><strong>In the Hub:</strong> The <strong>+ New note</strong> full form lets you set date, project, tags, causal chain, entity, episode, and follows. Search bar has <strong>Since</strong> and <strong>Until</strong> for time. Agents and humans can set the same fields via CLI or API.</p>
+            </section>
+
+            <section class="how-to-step">
               <h3>Giving agents context</h3>
-              <p class="step-what">Add notes to your vault the usual way (Hub + New note, capture, import). Use <strong>project</strong> (folder <code>vault/projects/&lt;slug&gt;/</code> or frontmatter <code>project: slug</code>) and <strong>tags</strong> so agents can filter. Agents then read only what’s relevant (e.g. everything for project <code>myapp</code>).</p>
+              <p class="step-what">Add notes to your vault the usual way (Hub + New note, capture, import). Use <strong>project</strong> (folder <code>vault/projects/&lt;slug&gt;/</code> or frontmatter <code>project: slug</code>) and <strong>tags</strong> so agents can filter. Optionally add <strong>causal_chain_id</strong>, <strong>entity</strong>, <strong>episode_id</strong>, or <strong>follows</strong> for temporal and hierarchical retrieval. Agents then read only what's relevant.</p>
             </section>
 
             <section class="how-to-step">
               <h3>How agents find it</h3>
-              <p>Agents use the same vault via <strong>CLI</strong>, <strong>MCP</strong>, or <strong>Hub API</strong>: <code>knowtation search "query" --project myapp --limit 5 --json</code>, <code>knowtation list-notes --project myapp --json</code>, then <code>get-note</code> for full content. Filters: <code>--project</code>, <code>--tag</code>, <code>--folder</code>. No separate “node” type—the vault and these filters are the contract.</p>
+              <p>Agents use the same vault via <strong>CLI</strong>, <strong>MCP</strong>, or <strong>Hub API</strong>: <code>knowtation search "query" --project myapp --limit 5 --json</code>, <code>knowtation list-notes --project myapp --json</code>, then <code>get-note</code> for full content. See RETRIEVAL-AND-CLI-REFERENCE.md and INTENTION-AND-TEMPORAL.md in the repo. Filters: <code>--project</code>, <code>--tag</code>, <code>--folder</code>, <code>--since</code>, <code>--until</code>, <code>--chain</code>, <code>--entity</code>, <code>--episode</code>.</p>
             </section>
 
             <section class="how-to-step">

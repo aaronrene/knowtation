@@ -259,10 +259,13 @@
       font-family: ui-monospace, monospace;
       font-size: 0.8rem;
       line-height: 1.7;
+      overflow-x: auto;
     }
     .mock-prompt { color: var(--accent); }
     .mock-output { color: var(--text-muted); }
     .mock-output .path { color: var(--success); }
+    .mock-tracking-icons { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--surface-elevated); border-top: 1px solid var(--border); font-size: 1.1rem; }
+    .mock-tracking-icon { opacity: 0.85; }
 
     /* Why Knowtation — narrative */
     .narrative-section {
@@ -511,7 +514,7 @@
     <div class="mock-container">
       <div class="mock-bar">
         <span class="mock-dot r"></span><span class="mock-dot y"></span><span class="mock-dot g"></span>
-        <span class="mock-title">Knowtation CLI + vault — precise faster fetch, fewer tokens</span>
+        <span class="mock-title">Knowtation CLI + vault — filters and metadata (precise faster fetch, fewer tokens)</span>
       </div>
       <div class="mock-content">
         <div class="mock-sidebar">
@@ -520,21 +523,32 @@
           <div class="mock-sidebar-item">imports/</div>
         </div>
         <div class="mock-main">
-          <div class="mock-prompt">$ knowtation search "decisions about auth" --limit 5 --fields path --json</div>
+          <div class="mock-prompt">$ knowtation list-notes --project myapp --since 2025-03-01 --limit 3 --fields path+metadata --json</div>
           <div class="mock-output">
-            { "results": [<br>
-            &nbsp;&nbsp;{ "path": "projects/myapp/decisions/auth.md" },<br>
-            &nbsp;&nbsp;{ "path": "inbox/auth-meeting-notes.md" },<br>
-            &nbsp;&nbsp;{ "path": "inbox/decisions-2025-03.md" }<br>
-            ] }
+            { "notes": [<br>
+            &nbsp;&nbsp;{ "path": "projects/myapp/decisions/auth.md", "project": "myapp", "tags": ["auth", "decisions"], "date": "2025-03-10", "causal_chain_id": "auth-decisions", "entity": ["auth"], "episode_id": "sprint-12" },<br>
+            &nbsp;&nbsp;{ "path": "inbox/auth-meeting-notes.md", "project": "myapp", "tags": ["meeting"], "date": "2025-03-08" },<br>
+            &nbsp;&nbsp;{ "path": "inbox/decisions-2025-03.md", "tags": ["decisions"], "date": "2025-03-01" }<br>
+            ], "total": 3 }
           </div>
           <br>
           <div class="mock-prompt">$ knowtation get-note projects/myapp/decisions/auth.md</div>
           <div class="mock-output">
             <span class="path"># Auth decisions</span><br>
+            project: myapp · tags: auth, decisions · date: 2025-03-10 · causal_chain_id: auth-decisions · episode_id: sprint-12<br>
             Chosen: OAuth + JWT. Rationale: ...
           </div>
         </div>
+      </div>
+      <div class="mock-tracking-icons" aria-label="Metadata and filters Knowtation tracks">
+        <span class="mock-tracking-icon" title="Date / time">⏱️</span>
+        <span class="mock-tracking-icon" title="Project">📁</span>
+        <span class="mock-tracking-icon" title="Tags">🏷️</span>
+        <span class="mock-tracking-icon" title="Folder">📂</span>
+        <span class="mock-tracking-icon" title="Causal chain">🔗</span>
+        <span class="mock-tracking-icon" title="Entity">👤</span>
+        <span class="mock-tracking-icon" title="Episode">📊</span>
+        <span class="mock-tracking-icon" title="Follows (links)">↪️</span>
       </div>
     </div>
   </section>
@@ -566,7 +580,15 @@
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" class="cta" style="display: inline-flex;" target="_blank" rel="noopener">Read the whitepaper →</a>
     </p>
     <p style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem;">
-      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener" style="color: var(--accent);">Connect via CLI or MCP</a> · <a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener" style="color: var(--accent);">Retrieval &amp; token levers</a>
+      <details class="landing-details" style="display: inline-block; text-align: left; max-width: 28em;">
+        <summary style="cursor: pointer; color: var(--accent);">Connect via CLI or MCP</summary>
+        <p style="margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.85rem;">CLI: <code>knowtation search</code>, <code>get-note</code>, <code>list-notes</code>. MCP: same tools in Cursor/Claude. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener" style="color: var(--accent);">AGENT-INTEGRATION.md</a> (in repo)</p>
+      </details>
+      <span style="color: var(--border); margin: 0 0.5rem;">·</span>
+      <details class="landing-details" style="display: inline-block; text-align: left; max-width: 28em;">
+        <summary style="cursor: pointer; color: var(--accent);">Retrieval &amp; token levers</summary>
+        <p style="margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.85rem;"><code>--limit</code>, <code>--fields path</code>, <code>--since</code>/<code>--until</code>, <code>--count-only</code>. Tiered retrieval = fewer tokens. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener" style="color: var(--accent);">RETRIEVAL-AND-CLI-REFERENCE.md</a> (in repo)</p>
+      </details>
     </p>
   </section>
 
@@ -590,6 +612,10 @@
         <p>Chunk, note, episode, project — reason at the right granularity.</p>
       </div>
     </div>
+    <details class="landing-details" style="max-width: 40em; margin: 1.5rem auto 0; text-align: left;">
+      <summary style="cursor: pointer; font-size: 0.9rem; color: var(--accent);">What we track (summary)</summary>
+      <p style="margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--text-muted);">All of these use <strong>optional frontmatter</strong>: <code>date</code>, <code>project</code>, <code>tags</code>, <code>causal_chain_id</code>, <code>entity</code>, <code>episode_id</code>, <code>follows</code>. Set them in the Hub (New note full form) or via CLI/API. Not auto-extracted—you or your agent add them. Filters: <code>--since</code>, <code>--until</code>, <code>--chain</code>, <code>--entity</code>, <code>--episode</code>. Full list and behavior: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener" style="color: var(--accent);">INTENTION-AND-TEMPORAL.md</a> (in repo) and How to use in the Hub.</p>
+    </details>
   </section>
 
   <section id="hosted" class="container" style="padding: 3rem 1.5rem; border-top: 1px solid var(--border);">

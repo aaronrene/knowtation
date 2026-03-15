@@ -930,6 +930,21 @@
         if (userIdEl) userIdEl.textContent = s.user_id || '—';
         el('settings-vault-display').textContent = s.vault_path_display || '—';
         const vg = s.vault_git || {};
+        // Guided Setup checklist: step 1 = vault path set, step 4 = backup configured
+        const step1 = document.getElementById('setup-step-1');
+        const step4 = document.getElementById('setup-step-4');
+        if (step1) {
+          const done = Boolean(s.vault_path_display && s.vault_path_display.trim());
+          step1.classList.toggle('setup-step-done', done);
+          const icon = step1.querySelector('.setup-step-icon');
+          if (icon) icon.textContent = done ? '✓' : '';
+        }
+        if (step4) {
+          const done = !!(vg.enabled && vg.has_remote);
+          step4.classList.toggle('setup-step-done', done);
+          const icon = step4.querySelector('.setup-step-icon');
+          if (icon) icon.textContent = done ? '✓' : '';
+        }
         let gitText = 'Not configured';
         if (vg.enabled && vg.has_remote) {
           gitText = 'Configured';
@@ -1257,6 +1272,7 @@
       const tab = t.dataset.createTab;
       el('create-quick').classList.toggle('hidden', tab !== 'quick');
       el('create-full').classList.toggle('hidden', tab !== 'full');
+      if (tab === 'full' && el('full-date') && !el('full-date').value) el('full-date').value = ymd(new Date());
     };
   });
 
@@ -1306,8 +1322,23 @@
     const body = el('full-body').value;
     const project = el('full-project').value.trim();
     const tags = el('full-tags').value.trim();
-    const today = ymd(new Date());
-    const fm = { date: today, ...(title && { title }), ...(project && { project }), ...(tags && { tags }) };
+    const dateVal = el('full-date') && el('full-date').value ? el('full-date').value.trim() : ymd(new Date());
+    const causalChain = el('full-causal-chain') && el('full-causal-chain').value.trim();
+    const entityRaw = el('full-entity') && el('full-entity').value.trim();
+    const entity = entityRaw ? entityRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+    const episode = el('full-episode') && el('full-episode').value.trim();
+    const followsRaw = el('full-follows') && el('full-follows').value.trim();
+    const follows = followsRaw ? (followsRaw.includes(',') ? followsRaw.split(',').map((s) => s.trim()).filter(Boolean) : followsRaw) : undefined;
+    const fm = {
+      date: dateVal,
+      ...(title && { title }),
+      ...(project && { project }),
+      ...(tags && { tags }),
+      ...(causalChain && { causal_chain_id: causalChain }),
+      ...(entity && entity.length && { entity }),
+      ...(episode && { episode_id: episode }),
+      ...(follows && { follows }),
+    };
     try {
       await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: notePath, body, frontmatter: fm }) });
       msg.textContent = 'Created: ' + notePath;
@@ -1317,6 +1348,11 @@
       el('full-body').value = '';
       el('full-project').value = '';
       el('full-tags').value = '';
+      if (el('full-date')) el('full-date').value = '';
+      if (el('full-causal-chain')) el('full-causal-chain').value = '';
+      if (el('full-entity')) el('full-entity').value = '';
+      if (el('full-episode')) el('full-episode').value = '';
+      if (el('full-follows')) el('full-follows').value = '';
       loadFacets();
       loadNotes();
     } catch (e) {

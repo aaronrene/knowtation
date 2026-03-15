@@ -100,7 +100,7 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 - **GET /setup** — Editable setup (vault_path, vault_git) for the Setup wizard. Returns current values.  
 - **POST /setup** — Body: `{ vault_path?, vault_git?: { enabled?, remote? } }`. Writes to `data/hub_setup.yaml` and reloads config (no restart). **400** if invalid; **500** on write failure.
 
-### 3.4 Proposals (Muse-style)
+### 3.4 Proposals
 
 - **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?" }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
   **Response:** `{ "proposal_id": "...", "path": "...", "status": "proposed" }`.  
