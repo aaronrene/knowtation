@@ -856,6 +856,9 @@
 
   function openHowToUse() {
     el('modal-how-to-use').classList.remove('hidden');
+    document.querySelectorAll('.how-to-tab').forEach((t) => t.classList.toggle('active', t.dataset.howToTab === 'setup'));
+    document.querySelectorAll('.how-to-tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.howToTab === 'setup' ? 'true' : 'false'));
+    document.querySelectorAll('.how-to-panel').forEach((p) => p.classList.toggle('active', p.id === 'how-to-panel-setup'));
   }
   function closeHowToUse() {
     el('modal-how-to-use').classList.add('hidden');
@@ -863,6 +866,19 @@
   if (btnHowToUse) btnHowToUse.onclick = openHowToUse;
   el('modal-how-to-use-backdrop').onclick = closeHowToUse;
   el('modal-how-to-use-close').onclick = closeHowToUse;
+
+  document.querySelectorAll('.how-to-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const id = tab.dataset.howToTab;
+      document.querySelectorAll('.how-to-tab').forEach((t) => {
+        t.classList.toggle('active', t.dataset.howToTab === id);
+        t.setAttribute('aria-selected', t.dataset.howToTab === id ? 'true' : 'false');
+      });
+      document.querySelectorAll('.how-to-panel').forEach((p) => {
+        p.classList.toggle('active', p.id === 'how-to-panel-' + id);
+      });
+    });
+  });
 
   function openSettings() {
     el('modal-settings').classList.remove('hidden');
@@ -905,6 +921,12 @@
           if (connectBtn) connectBtn.classList.add('hidden');
           if (ghStatus) ghStatus.textContent = '—';
         }
+        const ed = s.embedding_display || {};
+        if (el('agents-embedding-provider')) el('agents-embedding-provider').textContent = ed.provider || '—';
+        if (el('agents-embedding-model')) el('agents-embedding-model').textContent = ed.model || '—';
+        const ollamaRow = el('agents-ollama-row');
+        if (ollamaRow) ollamaRow.style.display = ed.provider === 'ollama' ? '' : 'none';
+        if (el('agents-embedding-ollama-url')) el('agents-embedding-ollama-url').textContent = ed.ollama_url || '—';
       })
       .catch(() => {
         el('settings-vault-display').textContent = '—';
@@ -926,6 +948,29 @@
   el('modal-settings-backdrop').onclick = closeSettings;
   el('modal-settings-close').onclick = closeSettings;
 
+  el('btn-copy-env-agentception').onclick = () => {
+    const provider = (el('agents-embedding-provider') && el('agents-embedding-provider').textContent) || '';
+    const model = (el('agents-embedding-model') && el('agents-embedding-model').textContent) || '';
+    const ollamaUrl = (el('agents-embedding-ollama-url') && el('agents-embedding-ollama-url').textContent) || '';
+    const lines = [];
+    if (provider === 'ollama' && ollamaUrl && ollamaUrl !== '—') {
+      lines.push('OLLAMA_BASE_URL=' + ollamaUrl.trim());
+    }
+    lines.push('# Embedding model: ' + (model !== '—' ? model : 'nomic-embed-text'));
+    const snippet = lines.join('\n');
+    const msg = el('agents-copy-msg');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(snippet).then(() => {
+        if (msg) { msg.textContent = 'Copied.'; msg.className = 'settings-msg'; }
+        setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
+      }).catch(() => {
+        if (msg) { msg.textContent = 'Copy failed'; msg.className = 'settings-msg err'; }
+      });
+    } else {
+      if (msg) { msg.textContent = 'Clipboard not available'; msg.className = 'settings-msg err'; }
+    }
+  };
+
   document.querySelectorAll('.settings-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.dataset.settingsTab;
@@ -934,8 +979,7 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        const isBackup = p.id === 'settings-panel-backup';
-        p.classList.toggle('active', (id === 'backup' && isBackup) || (id === 'appearance' && p.id === 'settings-panel-appearance'));
+        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
       });
     });
   });

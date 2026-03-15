@@ -180,6 +180,7 @@
         <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
           <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-settings-tab="backup">Backup</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
+          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="agents">Agents</button>
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
           <div class="settings-body">
@@ -249,6 +250,28 @@
             </div>
           </div>
         </div>
+        <div id="settings-panel-agents" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <h3 class="settings-h3">Local model (for agents)</h3>
+            <p class="settings-intro small">Current embedding config so you can use the same local setup in orchestrators or other agent runtimes. Read-only; edit <code>config/local.yaml</code> to change.</p>
+            <div class="settings-row">
+              <span class="settings-label">Provider</span>
+              <span id="agents-embedding-provider" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Model</span>
+              <span id="agents-embedding-model" class="settings-value">—</span>
+            </div>
+            <div class="settings-row" id="agents-ollama-row">
+              <span class="settings-label">Ollama URL</span>
+              <span id="agents-embedding-ollama-url" class="settings-value">—</span>
+            </div>
+            <div class="settings-actions" style="margin-top: 1rem;">
+              <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy env for orchestrators</button>
+              <span id="agents-copy-msg" class="settings-msg"></span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -259,7 +282,12 @@
           <h2 id="how-to-use-title">How to use Knowtation Hub</h2>
           <button type="button" id="modal-how-to-use-close" class="modal-close" aria-label="Close">×</button>
         </div>
-        <div class="how-to-use-body">
+        <nav class="how-to-tabs" role="tablist" aria-label="How to use sections">
+          <button type="button" class="how-to-tab active" role="tab" aria-selected="true" data-how-to-tab="setup">Setup</button>
+          <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="knowledge-agents">Knowledge &amp; agents</button>
+        </nav>
+        <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
+          <div class="how-to-use-body">
           <p class="how-to-intro">Follow the steps below in order. Each step unlocks the next. Diagrams show how data and agents connect.</p>
 
           <div class="how-to-flow" aria-hidden="true">
@@ -340,6 +368,8 @@ Knowtation Hub listening on http://localhost:3333</pre>
           <section class="how-to-step">
             <h3><span class="step-num">Step 5</span> Use the Hub and automate with agents</h3>
             <p class="step-what">What this does: You browse and filter notes here; agents and LLMs can read and propose changes via the API or CLI, and you approve in the Hub.</p>
+            <p class="how-to-note"><strong>Vault and backup:</strong> You have one vault (your notes) and optionally one GitHub repo to back it up (Settings → Backup). Projects are folders or tags <em>inside</em> the vault so you and agents can filter—they are not separate GitHub repos. <strong>Agents</strong> read and write the vault (CLI/MCP/API); they do not push to GitHub. You approve their changes (proposals) in the Hub and you control backup (Back up now or auto-sync).</p>
+            <p class="how-to-note"><strong>Projects and filters:</strong> Organize notes by project (e.g. <code>vault/projects/myapp/</code> or frontmatter <code>project: myapp</code>) and tags. Agents use <code>--project</code> and <code>--tag</code> to read only what’s relevant. See the <strong>Knowledge &amp; agents</strong> tab above for the full picture.</p>
             <div class="diagram-box">
               <div class="diagram-title">Agents and LLMs → Hub → you</div>
               <svg class="diagram-svg" viewBox="0 0 440 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -414,6 +444,32 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             </ul>
             <p><strong>Setup:</strong> Use <strong>Settings</strong> in the Hub header: the <strong>Setup</strong> section lets you set the vault path and Git remote (saved to <code>data/hub_setup.yaml</code>, applied immediately). Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Create the repo on GitHub first. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI. For push without a deploy key, click <strong>Connect GitHub</strong> in Settings (uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings). Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. Proposals stay Hub-only. See PROVENANCE-AND-GIT.md.</p>
           </section>
+          </div>
+        </div>
+        <div id="how-to-panel-knowledge-agents" class="how-to-panel" role="tabpanel">
+          <div class="how-to-use-body">
+            <p class="how-to-intro">How your vault feeds agents and how agents interact with Knowtation. One vault, one backup repo; you control what gets into the vault and what gets backed up to GitHub.</p>
+
+            <section class="how-to-step">
+              <h3>Giving agents context</h3>
+              <p class="step-what">Add notes to your vault the usual way (Hub + New note, capture, import). Use <strong>project</strong> (folder <code>vault/projects/&lt;slug&gt;/</code> or frontmatter <code>project: slug</code>) and <strong>tags</strong> so agents can filter. Agents then read only what’s relevant (e.g. everything for project <code>myapp</code>).</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>How agents find it</h3>
+              <p>Agents use the same vault via <strong>CLI</strong>, <strong>MCP</strong>, or <strong>Hub API</strong>: <code>knowtation search "query" --project myapp --limit 5 --json</code>, <code>knowtation list-notes --project myapp --json</code>, then <code>get-note</code> for full content. Filters: <code>--project</code>, <code>--tag</code>, <code>--folder</code>. No separate “node” type—the vault and these filters are the contract.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Proposals and GitHub</h3>
+              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Suggested / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Orchestrators</h3>
+              <p>Point any orchestrator at this vault and the same project slugs. Use CLI in worktrees or MCP where available. For local models (e.g. Ollama), use the same embedding URL and model as Knowtation—see <strong>Settings → Agents</strong> for the current config and a copyable env snippet.</p>
+            </section>
+          </div>
         </div>
       </div>
     </div>

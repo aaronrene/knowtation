@@ -484,6 +484,8 @@ app.get('/api/v1/settings', (_req, res) => {
   const vaultPath = config.vault_path || '';
   const vault_path_display = vaultPath ? '…/' + path.basename(vaultPath) : '';
   const githubConn = readGitHubConnection(config.data_dir);
+  const emb = config.embedding || {};
+  const ollamaUrl = emb.ollama_url || (emb.provider === 'ollama' ? 'http://localhost:11434' : undefined);
   res.json({
     vault_path_display,
     vault_git: {
@@ -494,6 +496,11 @@ app.get('/api/v1/settings', (_req, res) => {
     },
     github_connect_available: Boolean(process.env.GITHUB_CLIENT_ID),
     github_connected: Boolean(githubConn?.access_token),
+    embedding_display: {
+      provider: emb.provider || 'ollama',
+      model: emb.model || 'nomic-embed-text',
+      ollama_url: ollamaUrl,
+    },
   });
 });
 

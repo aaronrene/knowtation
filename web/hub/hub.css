@@ -261,6 +261,12 @@ button:hover { border-color: var(--accent); }
 .settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .settings-panel { display: none; flex: 1; min-height: 0; overflow: auto; }
 .settings-panel.active { display: flex; flex-direction: column; }
+.how-to-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 1.25rem; }
+.how-to-tab { padding: 0.65rem 1rem; border: none; background: transparent; color: var(--muted); font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.how-to-tab:hover { color: var(--text); }
+.how-to-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.how-to-panel { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.how-to-panel.active { display: flex; }
 .settings-steps-list { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.6; color: var(--text); }
 .settings-steps-list li { margin-bottom: 0.35rem; }
 .settings-label-hint { font-weight: normal; color: var(--muted); font-size: 0.85em; }
