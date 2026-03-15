@@ -34,7 +34,7 @@ Use this list to see what’s done and what’s not. Update the status when each
 | 4 | **Guided Setup in Hub** | Done | Setup checklist in Settings → Backup: (1) Vault path set, (2) Hub running, (3) Logged in, (4) Backup configured (optional). Steps 2–3 always Done; 1 and 4 derived from /api/v1/settings. "Done" per step with ✓. |
 | 5 | **Help in Settings** | Not started | Optional "?" or link in Settings modal to How to use / Knowledge & agents. |
 | 6 | **Hackathon (e.g. Age Inception)** | In progress | Landing reflects whitepaper (token savings, precise fetch); clear connect instructions (CLI/MCP in AGENT-INTEGRATION, RETRIEVAL; landing links to both). Any hackathon-specific doc: e.g. AGENTCEPTION-HACKATHON.md. |
-| 7 | **Domain connection** | Planned | Connect user's domain when hosted is ready; document in plan, execute at appropriate time. |
+| 7 | **Domain connection** | Ready when you are | **Landing now:** Deploy `web/` to Netlify or 4Everland, add custom domain. **Hub later:** Subdomain when hosted Hub exists. See [DOMAIN-AND-DEPLOYMENT.md](./DOMAIN-AND-DEPLOYMENT.md) for step-by-step (Netlify, 4Everland, Cloudflare). |
 | 8 | **Landing: add "API" to tagline** | Later | Tagline currently says "agent-ready MCP and CLI"; add "API" in a later phase when we surface a dedicated public/developer API (Hub REST exists but is not yet called out in landing tagline). |
 | — | **Hosted / ICP** | Later | Multi-tenant, first-run wizard; pre-roll UI on landing (Try Knowtation Hub, #hosted) ready. See HOSTED-PLUG-AND-PLAY.md. |
 
