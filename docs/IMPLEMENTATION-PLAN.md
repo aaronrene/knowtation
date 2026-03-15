@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. **Phase 13 invite** implemented: create invite link (Settings → Team), invitee signs in via link and is added to role; pending list and revoke. **Landing (web/)** refreshed: repo and whitepaper links, tagline, intent (Hub, proposals, agents), Hub feature card, footer. Not yet: ICP canisters (placeholder).
+**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. **Phase 13 invite** implemented: create invite link (Settings → Team), invitee signs in via link and is added to role; pending list and revoke. **Landing (web/)** refreshed: repo/whitepaper links, tagline, intent, Hub feature card; **enhanced** with ecosystem graphic (tools → Knowtation → precise fetch), token-savings copy, compact intent below mock, dual CTA (View repository + Try Knowtation Hub), #hosted section, links to AGENT-INTEGRATION and RETRIEVAL. Not yet: ICP canisters (placeholder). **Domain:** connect user domain when hosted is ready (on plan).
 
-**Status for next session:** Phase 11.1, Phase 13 invite, and **Landing (web/) refresh** done. **Next step:** **Guided Setup in Hub** or Help in Settings. Use "Audience, UX principles, and general-public checklist" for any new UI work.
+**Status for next session:** Phase 11.1, Phase 13 invite, **Landing refresh + enhancement** (ecosystem, token copy, dual CTA, connect links) done. **Next step:** Complete hackathon alignment (landing + connect docs), then **Guided Setup in Hub** or Help in Settings. **Domain:** connect when hosted is ready (on plan). Use "Audience, UX principles, and general-public checklist" for any new UI work.
 
 ---
 
@@ -16,9 +16,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 | Step | What | When |
 |------|------|------|
-| **Now** | **Done:** Phase 11 + 13 tested; backup setup docs; Save setup feedback; loadingHtml fix; commits. | Done. |
-| **Next** | **Guided Setup in Hub** or Help in Settings. See order below. | Next. |
-| **Later** | Guided Setup → Help in Settings → Hosted/ICP. See order below. | Backlog. |
+| **Now** | **Done:** Phase 13 invite + Landing refresh commit; Landing enhanced (ecosystem, token savings, dual CTA, connect links). | Done. |
+| **Next** | Hackathon alignment (landing + connect docs); Guided Setup in Hub or Help in Settings. | Next. |
+| **Later** | Domain connection (when hosted ready); Guided Setup → Help → Hosted/ICP. | Backlog. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
 
@@ -30,10 +30,13 @@ Use this list to see what’s done and what’s not. Update the status when each
 |---|------|--------|-------|
 | 1 | **Hub first screen (login)** | Done | First thing at Hub URL: hero (title, tagline, intent), primary CTA (sign in above), "How to use" secondary. App class `login-screen` when shown; header provider buttons emphasized. |
 | 2 | **Phase 13 invite** | Done | Invite by link: admin creates link (role) in Settings → Team; invitee opens link, signs in; added to roles. Pending list and revoke. |
-| 3 | **Landing (web/) refresh** | Done | web/index.html: repo + whitepaper links (GitHub), tagline aligned with meta, intent mentions Hub/proposals/agents, Hub feature card, footer links. |
+| 3 | **Landing (web/) refresh** | Done | Repo + whitepaper links, tagline, Hub feature card. **Enhancement:** ecosystem graphic (tools → Knowtation → precise fetch), token-savings copy, intent compact/lower, dual CTA (View repo + Try Hub), #hosted section, links to AGENT-INTEGRATION + RETRIEVAL. |
 | 4 | **Guided Setup in Hub** | Not started | Wizard or checklist in Setup (vault path → run Hub → log in → backup) with "Done" per step. |
 | 5 | **Help in Settings** | Not started | Optional "?" or link in Settings modal to How to use / Knowledge & agents. |
-| — | **Hosted / ICP** | Later | Multi-tenant, first-run wizard; see HOSTED-PLUG-AND-PLAY.md. |
+| 6 | **Hackathon (e.g. Age Inception)** | In progress | Landing reflects whitepaper (token savings, precise fetch); clear connect instructions (CLI/MCP in AGENT-INTEGRATION, RETRIEVAL; landing links to both). Any hackathon-specific doc: e.g. AGENTCEPTION-HACKATHON.md. |
+| 7 | **Domain connection** | Planned | Connect user's domain when hosted is ready; document in plan, execute at appropriate time. |
+| 8 | **Landing: add "API" to tagline** | Later | Tagline currently says "agent-ready MCP and CLI"; add "API" in a later phase when we surface a dedicated public/developer API (Hub REST exists but is not yet called out in landing tagline). |
+| — | **Hosted / ICP** | Later | Multi-tenant, first-run wizard; pre-roll UI on landing (Try Knowtation Hub, #hosted) ready. See HOSTED-PLUG-AND-PLAY.md. |
 
 ---
 

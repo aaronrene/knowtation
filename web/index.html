@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Knowtation: portable Markdown vault, semantic retrieval, and agent-ready CLI. Own your notation—high-signal context without surrendering knowledge to a single cloud.">
-  <title>Knowtation — Own your notation. Retrieval agents can trust.</title>
+  <meta name="description" content="Knowtation: portable Markdown vault, search by meaning, and agent-ready MCP and CLI. Precise faster fetch, fewer tokens—your data stays yours.">
+  <title>Knowtation — Know and own your data. Precise faster fetch, fewer tokens.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -99,6 +99,104 @@
     .cta:hover {
       transform: translateY(-1px);
       box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25);
+    }
+    .cta-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      margin-left: 0.75rem;
+    }
+    .cta-secondary:hover {
+      background: var(--accent-soft);
+      box-shadow: none;
+    }
+    .cta-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
+    .token-callout {
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin: 0 auto 1.5rem;
+      max-width: 32em;
+      font-weight: 500;
+    }
+    /* Ecosystem diagram: tools → Knowtation → outcome */
+    .ecosystem {
+      margin: 2rem auto 2.5rem;
+      max-width: 640px;
+    }
+    .ecosystem-diagram {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+    }
+    .ecosystem-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      justify-content: center;
+    }
+    .ecosystem-tools span {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.65rem;
+      color: var(--text-muted);
+    }
+    .ecosystem-core {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .ecosystem-outcome {
+      color: var(--success);
+      font-weight: 500;
+    }
+    .ecosystem-arrow { color: var(--border); font-size: 1rem; }
+    /* Icon-first ecosystem (less text clutter) */
+    .ecosystem-icons .ecosystem-icons-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .ecosystem-icons .ecosystem-icon {
+      font-size: 1.75rem;
+      line-height: 1;
+      opacity: 0.9;
+    }
+    .ecosystem-icons .ecosystem-center-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 0.5rem 0 0.75rem;
+    }
+    .ecosystem-icons .ecosystem-core-icon {
+      font-size: 2.5rem;
+      filter: grayscale(0.2);
+    }
+    .ecosystem-icons .ecosystem-core-label {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .ecosystem-icons .ecosystem-outcome-line {
+      font-size: 0.85rem;
+      color: var(--success);
+      margin: 0;
+      font-weight: 500;
+    }
+    .intent.compact {
+      padding: 1rem 1.25rem;
+      margin: 2rem auto;
+      font-size: 0.9rem;
+      max-width: 40em;
     }
 
     /* Product mock */
@@ -384,11 +482,28 @@
     <header class="hero">
       <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">★ Open source</a>
       <h1>Knowtation</h1>
-      <p class="tagline">Know and Own your data, context and intent. Portable Markdown vault, search by meaning, and agent-ready CLI. Your data stays yours.</p>
-      <div class="intent">
-        <strong>Intent:</strong> Knowtation is <strong>data liberation</strong> — your context, memory, and intention live in a vault you own. Use the <strong>Hub</strong> (web UI) to view notes, manage <strong>proposals</strong>, and review imports; use the <strong>CLI or MCP</strong> so Cursor, Claude Code, DeerFlow, Windsurf, and any agent get high-signal context. You keep full control of your knowledge.
+      <p class="tagline">Know and Own your data, context and intent.<br>Portable Markdown vault, search by meaning, and agent-ready MCP and CLI.<br>Your data stays yours.</p>
+      <p class="token-callout">Precise faster fetch, fewer tokens—fetch only what agents need. Streamlined requests, lower cost.</p>
+      <div class="ecosystem ecosystem-icons" aria-label="Knowtation at the center of your data access">
+        <div class="ecosystem-icons-row">
+          <span class="ecosystem-icon" title="Cursor">✏️</span>
+          <span class="ecosystem-icon" title="Claude">🤖</span>
+          <span class="ecosystem-icon" title="DeerFlow">🦌</span>
+          <span class="ecosystem-icon" title="Windsurf">🏄</span>
+          <span class="ecosystem-icon" title="MCP">🔌</span>
+          <span class="ecosystem-icon" title="CLI">💻</span>
+        </div>
+        <div class="ecosystem-center-wrap">
+          <span class="ecosystem-core-icon" aria-hidden="true">📁</span>
+          <span class="ecosystem-core-label">Knowtation</span>
+        </div>
+        <p class="ecosystem-outcome-line">Your data, accessible everywhere · Precise faster fetch, fewer tokens</p>
       </div>
-      <a href="https://github.com/aaronrene/knowtation" class="cta" target="_blank" rel="noopener">View repository →</a>
+      <div class="cta-row">
+        <a href="https://github.com/aaronrene/knowtation" class="cta" target="_blank" rel="noopener">View repository</a>
+        <a href="#hosted" class="cta cta-secondary">Try Knowtation Hub</a>
+      </div>
+      <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Self-host from the repo, or use our hosted setup—ready when you are.</p>
     </header>
   </div>
 
@@ -396,7 +511,7 @@
     <div class="mock-container">
       <div class="mock-bar">
         <span class="mock-dot r"></span><span class="mock-dot y"></span><span class="mock-dot g"></span>
-        <span class="mock-title">Knowtation CLI + vault</span>
+        <span class="mock-title">Knowtation CLI + vault — precise faster fetch, fewer tokens</span>
       </div>
       <div class="mock-content">
         <div class="mock-sidebar">
@@ -405,28 +520,34 @@
           <div class="mock-sidebar-item">imports/</div>
         </div>
         <div class="mock-main">
-          <div class="mock-prompt">$ knowtation search "community building" --limit 5 --json</div>
+          <div class="mock-prompt">$ knowtation search "decisions about auth" --limit 5 --fields path --json</div>
           <div class="mock-output">
             { "results": [<br>
-            &nbsp;&nbsp;{ "path": "projects/born-free/notes/community.md", "score": 0.92 },<br>
-            &nbsp;&nbsp;{ "path": "inbox/meeting-notes.md", "score": 0.87 },<br>
-            &nbsp;&nbsp;{ "path": "inbox/decisions-2025-03.md", "score": 0.84 }<br>
+            &nbsp;&nbsp;{ "path": "projects/myapp/decisions/auth.md" },<br>
+            &nbsp;&nbsp;{ "path": "inbox/auth-meeting-notes.md" },<br>
+            &nbsp;&nbsp;{ "path": "inbox/decisions-2025-03.md" }<br>
             ] }
           </div>
           <br>
-          <div class="mock-prompt">$ knowtation get-note projects/born-free/notes/community.md</div>
+          <div class="mock-prompt">$ knowtation get-note projects/myapp/decisions/auth.md</div>
           <div class="mock-output">
-            <span class="path"># Community building</span><br>
-            Notes from last sprint. Key decisions:...
+            <span class="path"># Auth decisions</span><br>
+            Chosen: OAuth + JWT. Rationale: ...
           </div>
         </div>
       </div>
     </div>
   </section>
 
+  <section class="container" style="padding: 0 1.5rem 3rem;">
+    <div class="intent compact">
+      <strong>Intent:</strong> Knowtation is <strong>data liberation</strong> — your context, memory, and intention live in a vault you own. Use the <strong>Hub</strong> (web UI) to view notes, manage <strong>proposals</strong>, and review imports; use the <strong>CLI or MCP</strong> so any agent gets high-signal context with fewer tokens. You keep full control.
+    </div>
+  </section>
+
   <section class="narrative-section container wide">
     <h2>Why Knowtation</h2>
-    <p class="lead">Knowledge scatters across tools and chats. Models need context—but dumping everything in a window helps nobody. The bet here is <strong style="color: var(--text); font-weight: 600;">notation you own</strong> plus <strong style="color: var(--text); font-weight: 600;">retrieval that returns the right slice</strong>.</p>
+    <p class="lead">Knowledge scatters across tools and chats. Models need context—but dumping everything in a window wastes tokens and hurts accuracy. The bet here is <strong style="color: var(--text); font-weight: 600;">notation you own</strong> plus <strong style="color: var(--text); font-weight: 600;">retrieval that returns the right slice</strong>: precise faster fetch, fewer tokens, lower cost.</p>
     <div class="narrative-grid">
       <div class="narrative-card">
         <h3>The problem</h3>
@@ -434,16 +555,47 @@
       </div>
       <div class="narrative-card">
         <h3>The shift</h3>
-        <p>Long context alone is not enough. Agents need <em>high-signal</em> segments: scoped by project, tag, time, and (where you model it) chains of cause and effect. Storage without retrieval discipline is noise.</p>
+        <p>Long context alone is not enough. Agents need <em>high-signal</em> segments: scoped by project, tag, time, and cause. Over-fetch wastes money; precise retrieval—<code>--limit</code>, <code>--fields</code>, then <code>get-note</code> only for what matters—saves tokens and keeps answers sharp.</p>
       </div>
       <div class="narrative-card">
         <h3>What we built</h3>
-        <p>A vault of Markdown you control, indexed for search, callable from any agent via CLI or MCP. Import from the tools you already use; re-index after edits; keep authority in files you can copy, diff, and move—not in an opaque graph you cannot export.</p>
+        <p>A vault of Markdown you control, indexed for search, callable from any agent via CLI or MCP. Tiered retrieval: narrow scope, cheap first (paths or count), fetch full content only when needed. Import from the tools you use; keep authority in files you can copy, diff, and move.</p>
       </div>
     </div>
     <p style="text-align: center; margin-top: 2rem;">
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" class="cta" style="display: inline-flex;" target="_blank" rel="noopener">Read the whitepaper →</a>
     </p>
+    <p style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem;">
+      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener" style="color: var(--accent);">Connect via CLI or MCP</a> · <a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener" style="color: var(--accent);">Retrieval &amp; token levers</a>
+    </p>
+  </section>
+
+  <section class="features container" style="border-top: 1px solid var(--border); padding-top: 4rem;">
+    <h2>Intention & temporal</h2>
+    <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: -1rem auto 2rem;">Agents often lack intention and an overarching view over time. Knowtation helps.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⏱️</div>
+        <h3>Time-bounded search</h3>
+        <p><code>--since</code>, <code>--until</code> to scope results to date ranges.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>Causal chains</h3>
+        <p>Track decisions and events across time. Optional links: follows, caused by.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Hierarchical memory</h3>
+        <p>Chunk, note, episode, project — reason at the right granularity.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="hosted" class="container" style="padding: 3rem 1.5rem; border-top: 1px solid var(--border);">
+    <h2 style="font-family: 'Instrument Serif', serif; font-size: clamp(1.5rem, 3vw, 1.75rem); text-align: center; margin: 0 0 1rem;">Knowtation Hub (hosted)</h2>
+    <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: 0 auto 1.5rem;">No servers to run. User-friendly setup—we're building it next. You can self-host from the repo today or sign up when hosted is ready.</p>
+    <p style="text-align: center;"><a href="https://github.com/aaronrene/knowtation" class="cta cta-secondary" target="_blank" rel="noopener">View repository (self-host)</a></p>
   </section>
 
   <section class="features container">
@@ -511,28 +663,6 @@
           <li>Proposals & review queue</li>
           <li>Web UI: view, search, approve</li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="features container" style="border-top: 1px solid var(--border); padding-top: 4rem;">
-    <h2>Intention & temporal</h2>
-    <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: -1rem auto 2rem;">Agents often lack intention and an overarching view over time. Knowtation helps.</p>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">⏱️</div>
-        <h3>Time-bounded search</h3>
-        <p><code>--since</code>, <code>--until</code> to scope results to date ranges.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔗</div>
-        <h3>Causal chains</h3>
-        <p>Track decisions and events across time. Optional links: follows, caused by.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
-        <h3>Hierarchical memory</h3>
-        <p>Chunk, note, episode, project — reason at the right granularity.</p>
       </div>
     </div>
   </section>

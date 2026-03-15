@@ -1,6 +1,6 @@
 # Agent integration — one page
 
-Integrate Knowtation with any agent (OpenAI, Claude, LangChain, LlamaIndex, custom runners). Three entry points: **CLI**, **MCP**, **Hub API**.
+Integrate Knowtation with any agent (OpenAI, Claude, LangChain, LlamaIndex, custom runners). **Precise retrieval = fewer tokens:** use filters and limits so agents fetch only what they need; see [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) for token levers. Three entry points: **CLI**, **MCP**, **Hub API**.
 
 ---
 
