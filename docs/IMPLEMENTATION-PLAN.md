@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. Not yet: ICP canisters (placeholder), landing (web/) build-complete, Phase 13 invite flow.
+**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. Not yet: ICP canisters (placeholder), landing (web/) build-complete, Phase 13 invite flow.
 
-**Status for next session:** Phase 11 + 13 tested (backup, Save feedback, roles). **Next step:** Choose one—**Phase 13 invite** (optional), **Phase 11.1** (Hub first screen / guided Setup), or **landing (web/)** refresh. Use "Audience, UX principles, and general-public checklist" for any new UI work.
+**Status for next session:** Phase 11.1 Hub first screen done. **Next step:** **Phase 13 invite** (optional) or **landing (web/)** refresh. Use "Audience, UX principles, and general-public checklist" for any new UI work.
 
 ---
 
@@ -16,11 +16,24 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 | Step | What | When |
 |------|------|------|
-| **Now** | **Done:** Phase 11 + 13 tested; backup setup docs (How to use + Settings); Save setup feedback (toast + inline, error for non-admin); loadingHtml fix; commits. | This session. |
-| **Next** | **Phase 13 invite** (optional): invite-by-email/link so admins don’t need to collect User IDs. Or **Phase 11.1**: Hub first screen / guided Setup. Or **landing (web/)** refresh. Use the UX checklist for any new UI. | Next session. |
-| **Later** | **Hosted / ICP:** Landing (web/) and Hub-on-ICP; multi-tenant hosted per [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md). First-run wizard and guided Setup per checklist. | After Phase 11 stable or in parallel. |
+| **Now** | **Done:** Phase 11 + 13 tested; backup setup docs; Save setup feedback; loadingHtml fix; commits. | Done. |
+| **Next** | **Phase 13 invite** (or Landing refresh). See order below. | Next. |
+| **Later** | Landing refresh → Guided Setup → Help in Settings → Hosted/ICP. See order below. | Backlog. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
+
+### Phase 11.1 and follow-on: order and status
+
+Use this list to see what’s done and what’s not. Update the status when each item is completed.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | **Hub first screen (login)** | Done | First thing at Hub URL: hero (title, tagline, intent), primary CTA (sign in above), "How to use" secondary. App class `login-screen` when shown; header provider buttons emphasized. |
+| 2 | **Phase 13 invite** | Not started | Invite by email/link; invitee signs in with OAuth and is added to roles. Admins don’t need to collect User IDs. |
+| 3 | **Landing (web/) refresh** | Not started | Update web/index.html: copy, repo/whitepaper links, current product (Hub, proposals, agents). |
+| 4 | **Guided Setup in Hub** | Not started | Wizard or checklist in Setup (vault path → run Hub → log in → backup) with "Done" per step. |
+| 5 | **Help in Settings** | Not started | Optional "?" or link in Settings modal to How to use / Knowledge & agents. |
+| — | **Hosted / ICP** | Later | Multi-tenant, first-run wizard; see HOSTED-PLUG-AND-PLAY.md. |
 
 ---
 
@@ -52,7 +65,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 | **Help entry point everywhere** | Phase 11 (Hub UX) / Phase 11.1 | How to use and Knowledge & agents reachable from header and from login screen ✅. Optional "?" or link in Settings modal (Phase 11.1). |
 | **Teams: invite and roles UX** | Phase 13 | When we add roles and invite: "Invite teammate" and role labels (viewer / editor / admin) in plain language; no technical jargon. |
 | **Landing page: clear value and CTA** | Phase 11 (web/) | Landing explains what Knowtation is and who it's for (humans + agents); primary CTA for hosted sign-up or self-host docs. |
-| **Hub first screen (login): simple, user-friendly CTA** | Phase 11.1 (or before Hosted) | First thing users see at the Hub URL should be a short value line (e.g. tagline) and one clear primary CTA (sign-in), with "How to use" secondary. Reuse ideas from landing (web/index.html)—tagline, intent, visual tone—updated for current product (vault, search, agents, proposals). Order: do after Hub stable; before or as part of Hosted launch. |
+| **Hub first screen (login): simple, user-friendly CTA** | Phase 11.1 ✅ | First thing at Hub URL: hero (title, tagline, intent), sign-in as primary CTA (header buttons), "How to use" secondary. Done. |
 | **Proposals: verify with agents/repos** | When integrating agents/repos | Proposals (create/approve/discard) not yet verified with agent integrations or repo flows. When we connect agents or repo workflows, verify end-to-end and update UI copy if needed. |
 | **Accessibility and i18n** | Ongoing | Semantic HTML, ARIA, keyboard nav; optional i18n later. |
 

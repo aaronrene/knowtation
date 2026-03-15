@@ -17,6 +17,7 @@
 
   const PRESETS_KEY = 'hub_view_presets';
   const el = (id) => document.getElementById(id);
+  const app = el('app');
   const main = el('main');
   const loginRequired = el('login-required');
   const btnLoginGoogle = el('btn-login-google');
@@ -94,6 +95,7 @@
     if (res.status === 401) {
       token = null;
       localStorage.removeItem('hub_token');
+      if (app) app.classList.add('login-screen');
       main.classList.add('hidden');
       loginRequired.classList.remove('hidden');
       browseToolbar.classList.add('hidden');
@@ -127,6 +129,7 @@
   }
 
   function showMain() {
+    if (app) app.classList.remove('login-screen');
     loginRequired.classList.add('hidden');
     main.classList.remove('hidden');
     btnHowToUse.classList.remove('hidden');
@@ -163,6 +166,7 @@
   btnLogout.onclick = () => {
     token = null;
     localStorage.removeItem('hub_token');
+    if (app) app.classList.add('login-screen');
     main.classList.add('hidden');
     browseToolbar.classList.add('hidden');
     btnNewNote.classList.add('hidden');
@@ -226,6 +230,7 @@
       }, 500);
     }
   } else {
+    if (app) app.classList.add('login-screen');
     main.classList.add('hidden');
     loginRequired.classList.remove('hidden');
     initProviders();

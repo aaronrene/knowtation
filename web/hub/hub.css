@@ -76,8 +76,16 @@ button:hover { border-color: var(--accent); }
 .empty-state a { color: var(--accent); cursor: pointer; }
 .btn-link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: inherit; }
 .btn-link:hover { color: #67e8f9; }
-.login-tagline { font-size: 1.15rem; color: var(--text); margin: 0 0 0.5rem; font-weight: 500; }
-.login-how-to-wrap { margin-top: 0.75rem; }
+/* Login first screen (Phase 11.1) */
+.login-first-screen { margin: 0 auto; }
+.login-hero { margin-bottom: 2rem; }
+.login-title { font-size: 1.75rem; font-weight: 600; margin: 0 0 0.5rem; color: var(--text); letter-spacing: -0.02em; }
+.login-tagline { font-size: 1.2rem; color: var(--text); margin: 0 0 0.5rem; font-weight: 500; }
+.login-intent { font-size: 1rem; color: var(--muted); margin: 0; line-height: 1.5; max-width: 32em; }
+.login-cta-block { margin-top: 0.5rem; }
+.login-cta-label { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.95rem; }
+#app.login-screen .hub-header .btn-provider { padding: 0.6rem 1.25rem; font-size: 1rem; font-weight: 600; }
+.login-how-to-wrap { margin-top: 1rem; }
 .hosted-note { margin-top: 0.75rem; }
 
 /* Calendar */

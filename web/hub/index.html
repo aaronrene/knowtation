@@ -22,10 +22,16 @@
       </div>
     </header>
 
-    <div id="login-required" class="panel">
-      <p class="login-tagline">Your notes, searchable. One place for you and your agents.</p>
-      <p id="login-intro">Sign in with Google or GitHub to view your vault and proposals. Your first sign-in is your account—no separate sign-up.</p>
-      <p class="login-how-to-wrap"><button type="button" id="btn-login-how-to-use" class="btn-link">New here? How to use</button> — setup and how agents use your vault.</p>
+    <div id="login-required" class="panel login-first-screen">
+      <div class="login-hero">
+        <h2 class="login-title">Knowtation Hub</h2>
+        <p class="login-tagline">Your notes, searchable. One place for you and your agents.</p>
+        <p class="login-intent">Portable vault, semantic search, and a single place for proposals—so you and your agents stay in context.</p>
+      </div>
+      <div class="login-cta-block">
+        <p id="login-intro" class="login-cta-label">Sign in with Google or GitHub above to open your vault. Your first sign-in is your account—no separate sign-up.</p>
+        <p class="login-how-to-wrap"><button type="button" id="btn-login-how-to-use" class="btn-link">New here? How to use</button> — setup and how agents use your vault.</p>
+      </div>
       <div id="oauth-not-configured" class="oauth-setup hidden">
         <p><strong>OAuth is not configured yet.</strong> The Hub only accepts login through Google or GitHub. Add credentials to your project <code>.env</code>, then restart the Hub.</p>
         <ul class="oauth-steps">
