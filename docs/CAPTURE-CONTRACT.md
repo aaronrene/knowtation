@@ -89,3 +89,19 @@ node scripts/capture-webhook.mjs --port 3131
 ```
 
 Same contract: `source`, `date`, `source_id` in frontmatter; body from the request.
+
+---
+
+## Hub capture endpoint
+
+When running the Knowtation Hub, use `POST /api/v1/capture` instead of a separate webhook server:
+
+```bash
+curl -X POST http://localhost:3333/api/v1/capture \
+  -H "Content-Type: application/json" \
+  -d '{"body": "Message", "source_id": "msg-123", "source": "slack", "project": "myproject"}'
+```
+
+**Auth:** If `CAPTURE_WEBHOOK_SECRET` is set in the Hub env, include `X-Webhook-Secret: <secret>` header.
+
+See [HUB-API.md](./HUB-API.md) §3.5 and [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md) for Slack, Discord, Telegram integration and adapter scripts (`scripts/capture-slack-adapter.mjs`, `scripts/capture-discord-adapter.mjs`).

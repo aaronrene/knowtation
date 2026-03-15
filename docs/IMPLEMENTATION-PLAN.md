@@ -6,9 +6,59 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–10 complete (sqlite-vec + test suite implemented; commit when ready).
+**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings and disables Setup/Back up for non-admins. Not yet: ICP canisters (placeholder), landing (web/) build-complete, Phase 13 invite flow.
 
-**Status for next session:** Phase 10 ready to commit; then Phase 11 (hub) or cleanup (LICENSE, COPY-TO-REPO).
+**Status for next session:** Test Phase 11 + 13 (Hub with roles); commit or cleanup. Optional: Phase 13 invite, landing (web/), ICP. Use "Audience, UX principles, and general-public checklist" for any new UI work.
+
+---
+
+## What we're doing next (path and stubs)
+
+| Step | What | When |
+|------|------|------|
+| **Now** | **Done:** Stubs (JWT `role`, hub_roles.json); Phase 13 scope in plan; **Audience/UX principles and general-public checklist** in plan; Phase 11 Hub UX: How to use on login screen, OAuth hosted note, friendlier empty states. | This session. |
+| **Next** | Test Hub end-to-end (including roles); commit Phase 11 + 13 or cleanup. **Phase 13 invite** (optional): invite flow. Use the UX checklist for any new UI. | Next session. |
+| **Later** | **Hosted / ICP:** Landing (web/) and Hub-on-ICP; multi-tenant hosted per [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md). First-run wizard and guided Setup per checklist. | After Phase 11 stable or in parallel. |
+
+Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
+
+---
+
+## Audience, UX principles, and general-public checklist
+
+**Goal:** The **hosted** offering is for the **majority of users who are not technical**. They should be able to sign up, use the Hub, and connect agents or backup without editing config files or running servers. **Self-hosted** remains for technical users who want full control. Every UI and "How to use" decision should keep both in mind; when in doubt, optimize for **non-technical, hosted** users so we don't forget obvious UI/UX.
+
+### Principles (apply as we go)
+
+| Principle | Meaning |
+|-----------|--------|
+| **Streamline setup** | Minimize steps to first value. Hosted: sign up → land in Hub → add note or import. Self-hosted: How to use + Setup modal guide step-by-step; avoid jargon where possible. |
+| **Reduce technical burden** | No YAML or env vars in the main path for hosted users. For self-hosted, document clearly but offer "Copy env" and plain-language explanations (e.g. Settings → Agents). |
+| **Plain-language errors** | Error messages and empty states should say what went wrong and what to do next in human terms. Avoid raw stack traces or API codes in the UI. |
+| **In-app How to use** | How to use (and Knowledge & agents) must be discoverable: from the header when logged in, and **from the login screen** so new users can read before signing in. |
+| **Agents and teams** | Agent integration (CLI, MCP, proposals) is documented and surfaced (e.g. Settings → Agents). Phase 13 (Teams) will add roles and invite; UX for "invite a teammate" and role hints should be non-technical. |
+
+### Checklist: UI/UX and How to use (don't forget)
+
+Use this as a living checklist. As we implement each item, mark it or move it to "Done." Items not done now are assigned to a phase so we don't drop them.
+
+| Item | Phase / when | Notes |
+|------|--------------|--------|
+| **How to use visible before login** | Phase 11 (Hub UX) ✅ | Link or button on login screen opens How to use modal so new users can read before signing in. |
+| **OAuth message for hosted users** | Phase 11 (Hub UX) ✅ | When OAuth not configured, add one line: "If you're on a hosted Knowtation site, the provider has set this up—just sign in above." |
+| **Empty states (Notes, Suggested, Activity)** | Phase 11 (Hub UX) ✅ | Friendly copy when no notes or no proposals (e.g. Suggested mentions + New note and agent/CLI; Notes already had "Add a note or clear filters."). |
+| **First-run / onboarding wizard (hosted)** | Hosted (HOSTED-PLUG-AND-PLAY) | After sign-up: optional "Get started" flow (create first note, connect GitHub, connect agent). Not for self-hosted. |
+| **Guided Setup in Hub** | Phase 11.1 or later | For self-hosted: wizard or checklist in Setup (vault path → run Hub → log in → backup) with "Done" state per step. |
+| **Help entry point everywhere** | Phase 11 (Hub UX) | How to use and Knowledge & agents reachable from header; from login screen; optional "?" in Settings tabs. |
+| **Teams: invite and roles UX** | Phase 13 | When we add roles and invite: "Invite teammate" and role labels (viewer / editor / admin) in plain language; no technical jargon. |
+| **Landing page: clear value and CTA** | Phase 11 (web/) | Landing explains what Knowtation is and who it's for (humans + agents); primary CTA for hosted sign-up or self-host docs. |
+| **Hub first screen (login): simple, user-friendly CTA** | Phase 11.1 (or before Hosted) | First thing users see at the Hub URL should be a short value line (e.g. tagline) and one clear primary CTA (sign-in), with "How to use" secondary. Reuse ideas from landing (web/index.html)—tagline, intent, visual tone—updated for current product (vault, search, agents, proposals). Order: do after Hub stable; before or as part of Hosted launch. |
+| **Proposals: verify with agents/repos** | When integrating agents/repos | Proposals (create/approve/discard) not yet verified with agent integrations or repo flows. When we connect agents or repo workflows, verify end-to-end and update UI copy if needed. |
+| **Accessibility and i18n** | Ongoing | Semantic HTML, ARIA, keyboard nav; optional i18n later. |
+
+**Phase 11 (Hub UX)** in the table means: do it as part of the current Hub work (this plan update and the next step). **Phase 11.1** is an optional follow-on for a fuller "Hub UX and onboarding" pass (e.g. guided Setup wizard, **Hub first screen** with landing-style CTA). **Hosted** items live in [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md) and the multi-tenant phase.
+
+**Landing page (web/index.html):** The existing landing has hero (tagline, intent, CTA), product mock, Why Knowtation, What you get, pricing, etc. Some copy and links are outdated (e.g. repo URL, whitepaper path). When we do **Hub first screen** or refresh the **public landing**, reuse that structure and tone but update for current implementation (Hub, proposals, agents, hosted). See checklist row "Hub first screen" and "Landing page: clear value and CTA."
 
 ---
 
@@ -272,16 +322,21 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Deliverables:**
 
-1. **Vault + proposals API** — REST (or MCP) endpoints: read vault (list notes, get note, search), write note, **create proposal** (variation: proposed note or diff), **list proposals**, **approve** (apply to vault), **discard**. Same semantics as CLI; proposals stored in sidecar or `.proposals/` (see [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md)). Optional: `baseStateId` for optimistic concurrency.
-2. **Simple auth** — API key or lightweight auth (e.g. JWT) so agents and users can call the API. No full OAuth required for v1; document how to run behind a reverse proxy with your own auth if needed.
-3. **Hub service** — Optional server (or Docker Compose) that: serves the API, stores vault (or syncs from Git), stores proposals, and optionally serves a **minimal web UI**: view vault, search, see review queue (list proposals), approve/discard. Can be self-hosted or offered as a **hosted product**. **Deployment options:** (a) Self-hosted (Docker); (b) Decentralized: ICP canister(s) in Motoko (or Rust) for API + vault/proposal state — see "Website and decentralized hosting" below.
-4. **Public website (landing)** — The marketing/landing site in **web/** (intent, open source, what's included, pricing, GitHub link) is part of the phased build. Production-ready and deployable so that when you have a domain, the site can go live without backtracking. See "Website and decentralized hosting" below.
-5. **CLI integration** — Optional: `knowtation hub status` or `knowtation propose --hub <url>` that talks to the hub API so CLI users can push proposals to a shared hub without using Git. Document “local vault only” vs “vault + hub” workflows.
-6. **Docs** — When to use hub vs Git+PRs; how to run self-hosted hub; how agents and humans use the API (list, search, propose, review). Link to MUSE-STYLE-EXTENSION.
+1. **Vault + proposals API** — REST (or MCP) endpoints: read vault (list notes, get note, search), write note, **create proposal** (variation: proposed note or diff), **list proposals**, **approve** (apply to vault), **discard**. Same semantics as CLI; proposals stored in sidecar or `.proposals/` (see [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md)). Optional: `baseStateId` for optimistic concurrency. Contract: [HUB-API.md](./HUB-API.md).
+2. **Auth: JWT with login** — OAuth 2.0 (e.g. Google, GitHub) as primary login; no password storage. For ICP deployment: Internet Identity. JWT issued after successful login; all Hub API calls use Bearer JWT. Document token lifetime, refresh flow, and scopes (read / write / propose). No API-key-only path; login required. See [HUB-API.md](./HUB-API.md).
+3. **Hub service** — Server (or Docker Compose) that: serves the API, stores vault (or syncs from Git), stores proposals, and serves the **Rich Hub UI**. **Deployment options (both in scope from day one):** (a) **Self-hosted (Docker):** Node server, OAuth + JWT, vault/proposals on disk or DB; (b) **Hosted (ICP):** Motoko (or Rust) canister(s) implementing the same API contract, Internet Identity. See "Website and decentralized hosting" below and [HUB-API.md](./HUB-API.md).
+4. **Rich Hub UI** — Web UI: search bar (semantic search); category/filter picker (project, tag, folder); task/proposal views (suggested tasks, in progress, problem areas); state and status on every list/detail (draft, proposed, approved, discarded; baseStateId, intention); actions: approve/discard, open note, edit where in scope. Single front-end for self-hosted or ICP Hub. See [HUB-API.md](./HUB-API.md).
+5. **Public website (landing)** — The marketing/landing site in **web/** (intent, open source, what's included, pricing, GitHub link) is part of the phased build. Production-ready and deployable so that when you have a domain, the site can go live without backtracking. See "Website and decentralized hosting" below.
+6. **CLI integration** — `knowtation hub status` and `knowtation propose --hub <url>`; document local vault only vs vault + hub workflows. See [HUB-API.md](./HUB-API.md).
+7. **Docs** — When to use hub vs Git+PRs; how to run self-hosted hub (Docker) and use hosted Hub (ICP); how to get tokens and use the API. Link to MUSE-STYLE-EXTENSION and HUB-API.
 
-**Acceptance:** With the hub running (local or hosted), a user or agent can create a proposal via API; another user sees it in the review queue and approves or discards; canonical vault updates without touching Git. Core Knowtation (Phases 1–10) remains fully usable without the hub. Landing site (web/) is build-complete and deployable.
+**Acceptance:** With the hub running (self-hosted or hosted), a user or agent can log in (OAuth or Internet Identity), create a proposal via API, and another user sees it in the rich UI (search, categories, task views) and approves or discards; canonical vault updates without touching Git. Core Knowtation (Phases 1–10) remains fully usable without the hub. Landing site (web/) is build-complete and deployable.
 
 **Note:** Phase 11 is **optional**. Teams that prefer Git + PRs can skip it. It is for users who want “shared vault + review” without learning GitHub. Monetization: open source core + optional paid hosted hub (this phase).
+
+**Implemented (Phase 11 session):** Hub API (Node): Express, CORS, dotenv from project root; Passport Google + GitHub, JWT issue/verify; routes: health, auth login/callback, notes list/get/write, search, proposals CRUD, approve/discard. Proposals in `data_dir/hub_proposals.json`. Rich Hub UI: `web/hub/` (search, filters, tabs, approve/discard). CLI: `knowtation hub status [--hub <url>]`, `knowtation propose <path> --hub <url>` with `KNOWTATION_HUB_TOKEN`. Dockerfile and hub/README; setup.md step 10; HUB-API.md. ICP: `hub/icp/README.md` placeholder only. Landing (web/) and ICP canisters not built.
+
+**Phase 11 Hub UX (general public):** Per "Audience, UX principles, and general-public checklist" above: How to use link on login screen (before sign-in); OAuth-not-configured message for hosted users; friendly empty states for Notes, Suggested, Activity. Keeps hosted and non-technical users in mind.
 
 ---
 
@@ -305,6 +360,29 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 ---
 
+## Phase 13 — Teams and collaboration (optional, post–Phase 11)
+
+**Goal:** Add **roles** (viewer / editor / admin) and optionally an **invite flow** so the Hub supports a "team vault" without giving everyone full access. No backtracking: token shape and reserved data/config are prepared in advance (see "Preparation" below).
+
+**Implemented (Phase 13 — roles):** Role store `hub/roles.mjs` (reads `data/hub_roles.json`). JWT role from store at login; default `member` (treated as editor) when not in file; when no roles file (or empty file), everyone receives JWT role admin so the Team tab is visible and no manual setup is needed; once the file has entries, only listed users get that role. Middleware `requireRole()`; GET notes/search/proposals/settings/setup require viewer; POST notes, proposals, index, vault/sync require editor; POST setup, approve, discard require admin. Hub UI: Settings shows "Your role", disables Save setup and Back up now for non-admins; Approve/Discard only for admins; + New note hidden for viewers. See hub/README.md (Roles) and TEAMS-AND-COLLABORATION.md. **Not yet:** invite flow, GitHub-backed access.
+
+**Deliverables (remaining for Phase 13):**
+
+1. **Roles** — ✅ Done. Viewer / editor / admin via `data/hub_roles.json`; JWT and middleware enforce; **Settings → Team** (admin only) lets admins assign roles from the UI; no file editing required. Backup repo is **not** a prerequisite for roles.
+2. **Invite flow (next priority)** — **Not user-friendly yet:** today admins must get the User ID from each person (they copy it from Settings) and add it in Team or in the file. An **invite flow** would let an admin enter an **email** (or send a link); the invitee signs in with OAuth and is added to the roles store with the chosen role. **Complexity:** medium (pending-invites store, invite token, one-time link or email step, UI "Invite teammate"). **Planned for Phase 13 (invite)** so we do not leave role assignment as file-only or "paste User ID" only. See checklist and TEAMS-AND-COLLABORATION.
+3. **Optional GitHub-backed access** — Sync with GitHub repo collaborators for allowed users or role list; larger design, Phase 13.1 or later.
+
+**Preparation (do now to avoid backtracking):**
+
+- **JWT payload:** Hub already issues JWT with `sub`, `name`. Add optional **`role`** claim (e.g. `member` by default). All tokens then have a role; Phase 13 only changes how we set it (from config or `data/hub_roles.json`). No token-shape change later.
+- **Reserved role store:** Document that Phase 13 will use a **role store**: e.g. `data/hub_roles.json` (or config key `hub.roles_file`) mapping `sub` (or email) → role. No file or key required until Phase 13; Hub continues to treat "no role store" as "everyone is member" and allows current behavior.
+
+**Acceptance (Phase 13 when implemented):** Admin can restrict Setup and approve/discard to admins; viewers can only read. Optional invite flow allows adding users with a role. See [TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md).
+
+**Depends on:** Phase 11. Optional. Order: roles first, then invite, then optional GitHub-backed.
+
+---
+
 ## Summary: phase order and dependencies
 
 | Phase | Depends on | Delivers |
@@ -322,10 +400,11 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | 10 | 1–9 | Docs, SKILL, tests, packaging, **sqlite-vec** backend |
 | 11 | 1–4, 9 | Shared vault / hub (API, proposals, review queue, optional UI); public landing site (web/); hosted or ICP (Motoko) deployment; agent-to-agent and agent-to-human without GitHub |
 | **12** | **1–4, 9** | **Blockchain, wallets, agent payments (optional): frontmatter, --network/--wallet filters, capture for on-chain events, optional AIR-on-chain. See docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md.** |
+| **13** | **11** | **Teams and collaboration (optional): roles (viewer/editor/admin), optional invite, optional GitHub-backed access. See Phase 13 and TEAMS-AND-COLLABORATION.md. Preparation: JWT `role` stub, reserved role store.** |
 
 **Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in **Phase 3.1 or Phase 4** (search and list-notes); indexer already stores `date` in metadata. Causal/entity/episode and evals remain in an optional later phase so we don’t backtrack.
 
-**Estimated order of implementation:** 1 → 2 → 3 → **3.1** (core loop + temporal filters); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10; **12 optional** (blockchain/wallets/agent payments when needed). Total scope: core in 1–10; simplified shared collaboration in 11; blockchain and agent payments in 12. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
+**Estimated order of implementation:** 1 → 2 → 3 → **3.1** (core loop + temporal filters); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10; **12 optional** (blockchain/wallets/agent payments when needed); **13 optional** (teams: roles, invite, after 11). Total scope: core in 1–10; simplified shared collaboration in 11; teams in 13; blockchain and agent payments in 12. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
 
 **Commit after each phase.** Each phase is a shippable increment; commit when its acceptance criteria are met so history stays clear and you can revert or branch by phase.
 
@@ -346,6 +425,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **10** | **New session** | Polish: SKILL, docs, tests, packaging, **sqlite-vec** backend; broad. |
 | **11** | **New session(s)** | Hub, landing, hosting; can split “Hub API + UI” and “deploy + 4Everland/ICP” if useful. |
 | **12** | **New session** | Blockchain, wallets, agent payments; optional; see BLOCKCHAIN-AND-AGENT-PAYMENTS.md. |
+| **13** | **New session** | Teams and collaboration (roles, invite); optional; after Phase 11; see TEAMS-AND-COLLABORATION.md. |
 
 Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 11, and 12 (and optionally after 3 or 4). Commit at the end of every phase.
 
@@ -375,6 +455,7 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 - **Website and hosted option:** Public landing site (web/) and the hosted Hub offering are part of the plan so we don't backtrack. Landing is deployable (e.g. 4Everland); Hub can be self-hosted or deployed on ICP (Motoko canisters). See below.
 - **bornfree-hub reference:** Existing platform ([bornfree-hub](https://github.com/aaronrene/bornfree-hub)) uses five canisters (Signing, Documents, Identity, Assets, Encryption) with Netlify + 4Everland. Reuse those patterns when implementing the Knowtation Hub on ICP (Phase 11) to avoid redoing work.
 - **Blockchain, wallets, and agent payments:** Agents increasingly have wallet access and use blockchain for payments and on-chain activity. **Phase 12** (optional) reserves optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`), CLI filters (`--network`, `--wallet`), capture for on-chain events, and optional AIR-on-chain. No collision with existing `--chain` (causal chain). See **docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md**. Implement when needed; no backtracking to earlier phases.
+- **Teams and collaboration:** **Phase 13** (optional, after Phase 11) adds roles (viewer / editor / admin) and optional invite so we don't backtrack. Preparation stubs: JWT includes optional `role` claim (default `member`); reserved `data/hub_roles.json` or config for future role store. See **Phase 13** above and **docs/TEAMS-AND-COLLABORATION.md**.
 
 ---
 

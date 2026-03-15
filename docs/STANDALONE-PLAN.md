@@ -12,7 +12,7 @@ This document defines **Knowtation** (*know* + *notation*) as a **standalone, ge
 
 ## 2. CLI + Skill Manifest First, MCP When Needed
 
-- **Primary interface:** One CLI, `knowtation`, with subcommands (`search`, `get-note`, `list-notes`, `index`, and optionally `write`, `export`). Agents discover usage via **SKILL.md** and `knowtation --help`; no large MCP schema in context.
+- **Primary interface:** One CLI, `knowtation`, with subcommands (`search`, `get-note`, `list-notes`, `index`, `write`, `export`). Full surface in **docs/SPEC.md**. Agents discover usage via **SKILL.md** and `knowtation --help`; no large MCP schema in context.
 - **MCP optional:** Offer an MCP server that wraps the same backend when a client only speaks MCP or you need stateful sessions / OAuth.
 - **Orchestration:** The agent runtime (Cursor, Claude, etc.) discovers the skill, reads SKILL.md when the task matches, and invokes the CLI; no separate orchestration service.
 
@@ -28,8 +28,8 @@ See the full scenario coverage (capture → index → search → content → mar
 - **Capture:** Inbox and transcription; optional memory for rules.
 - **Index & search:** CLI returns ranked notes/chunks; memory for last index.
 - **Content creation:** Export to blog/podcast/reel/book; provenance (`source_notes`); AIR before export.
-- **Marketing:** Agents pull copy/assets from Knowledger; memory for campaigns; AIR before approve/schedule.
-- **Analysis:** Agents query Knowledger; memory for last run; AIR before analysis.
+- **Marketing:** Agents pull copy/assets from Knowtation; memory for campaigns; AIR before approve/schedule.
+- **Analysis:** Agents query Knowtation; memory for last run; AIR before analysis.
 - **Governance:** Logging, agent-generated tags, provenance chain.
 
 ## 5. Next Steps in This Repo

@@ -73,6 +73,8 @@ Same **tiered retrieval** pattern: use `--limit`, `--fields path`, `--count-only
 
 ## AgentCeption specifically
 
+For a dedicated guide to the AgentCeption + Knowtation integration (including this weekend's hackathon implementation), see **[AGENTCEPTION-HACKATHON.md](./AGENTCEPTION-HACKATHON.md)**.
+
 [AgentCeption](https://github.com/cgcardona/agentception) turns a brain dump into a structured plan (PlanSpec), GitHub issues, and an agent org (CTO → coordinators → engineers) that works in isolated worktrees and opens PRs.
 
 - **Knowtation as backend:** Point the orchestrator (or its agents) at a shared Knowtation vault. CTO/coordinators/engineers use **MCP** if they run in a context where MCP is configured (e.g. Cursor), or **CLI** inside the Docker/worktree environment. They search/list/get-note for project and component context; optionally write phase summaries or decisions back into the vault.

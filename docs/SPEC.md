@@ -69,6 +69,19 @@ For temporal sequence, causation, hierarchical memory, and state compression the
 
 Same slug normalization as project/tag for `causal_chain_id` and `entity`. CLI may support `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order` when these are present; see INTENTION-AND-TEMPORAL.
 
+### 2.4 Reserved for Phase 12 (blockchain and agent payments)
+
+The following frontmatter fields are **reserved** for a future phase. Notes remain valid without them; parsers and indexers MUST NOT require them. When implemented, they will be optional and used for payment attribution and on-chain provenance.
+
+| Field | Type | Description (when implemented) |
+|-------|------|--------------------------------|
+| `network` | string | Blockchain or network identifier. |
+| `wallet_address` | string | Address used for payment or attribution. |
+| `tx_hash` | string | Transaction hash (e.g. payment or attestation). |
+| `payment_status` | string | Status of payment (e.g. pending, completed). |
+
+See BLOCKCHAIN-AND-AGENT-PAYMENTS.md for the Phase 12 scope. No CLI or Hub behavior depends on these fields until that phase.
+
 ---
 
 ## 3. Message-interface (capture plugin) contract

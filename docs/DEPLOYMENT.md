@@ -48,6 +48,21 @@ Caddy obtains and renews TLS certificates automatically.
 - **Proposals:** `data/hub_proposals.json` is plain JSON. Do not put secrets in proposal bodies; treat as sensitive if your workflow does.
 - **Setup and GitHub:** `data/hub_setup.yaml` (vault path and vault.git overrides) and `data/github_connection.json` (GitHub OAuth token for push) live under `data/`. Do not commit them; they are already covered by `data/` in .gitignore. Restrict file permissions if the server is multi-user.
 
+### Data directory: do not commit
+
+The **data directory** (`data/`, or whatever `config.data_dir` / `KNOWTATION_DATA_DIR` is set to) holds runtime and user-specific files that must stay on the server and out of version control:
+
+| File | What it is | Why not commit |
+|------|------------|-----------------|
+| `data/hub_setup.yaml` | Vault path and Git backup settings written from the Hub Setup form. | Per-instance; may contain absolute paths. Merged over config at load. |
+| `data/github_connection.json` | GitHub OAuth token used for “Connect GitHub” and vault push. | Contains a live token; must never be in the repo. |
+| `data/hub_proposals.json` | Pending and historical proposals. | Instance-specific; may contain sensitive content. |
+| `data/hub_audit.log` | Log of approve/discard actions. | Instance-specific; may contain PII. |
+| `data/*.db`, `data/knowtation_vectors.db` | Vector store (e.g. sqlite-vec) and other DBs. | Generated at runtime; large and instance-specific. |
+| `data/hub_roles.json` | **Phase 13 (Teams):** Maps user identifiers to roles. Format: <code>{ "roles": { "provider:id": "admin" \| "editor" \| "viewer" } }</code> (e.g. <code>"github:123": "admin"</code>). If file is missing, everyone has full access (admin). If file exists, only listed users get that role; others are editor. | Do not commit; instance-specific. |
+
+The repo’s `.gitignore` includes `data/`, so nothing under `data/` is committed by default. If you copy or deploy the app, treat the data dir as local state: back it up separately if needed, and never commit it or add it to version control.
+
 ---
 
 ## Process and ports

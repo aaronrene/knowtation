@@ -19,7 +19,7 @@ This document (1) lists **all CLI commands and optional features**, (2) explains
 | **search** \<query\> | Semantic (and optional hybrid) search over the indexed vault. | `--folder`, `--project`, `--tag`, `--limit` (default 10), `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`, `--fields`, `--snippet-chars`, `--count-only`, `--json` |
 | **list-notes** | List notes with filters (no semantic search). | `--folder`, `--project`, `--tag`, `--limit`, `--offset`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`, `--fields`, `--count-only`, `--json` |
 | **get-note** \<path\> | Return full content of one note (frontmatter + body), or subset. | `--body-only`, `--frontmatter-only`, `--json` |
-| **index** | Re-run indexer: vault → chunk → embed → vector store. | (none) |
+| **index** | Re-run indexer: vault → chunk → embed → vector store. | (optional: `--json` for machine output) |
 | **write** \<path\> [content] | Create or overwrite a note. | `--stdin`, `--frontmatter`, `--append`, `--json` |
 | **export** \<path-or-query\> \<output\> | Export note(s) to a format/directory. | `--format`, `--project`, `--json` |
 | **import** \<source-type\> \<input\> | Ingest from external platform (ChatGPT, Claude, etc.). | `--project`, `--output-dir`, `--tags`, `--dry-run`, `--json` |
