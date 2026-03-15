@@ -32,6 +32,7 @@ import { appendAudit } from './audit-log.mjs';
 import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
+import { loadRoleMap, getRole, readRolesObject, writeRolesFile } from './roles.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -56,6 +57,9 @@ try {
   console.error('Hub: config load failed. Set KNOWTATION_VAULT_PATH.', e.message);
   process.exit(1);
 }
+
+/** Phase 13: role store (data/hub_roles.json). Reloaded when config is reloaded (e.g. after POST setup). */
+let roleMap = loadRoleMap(config.data_dir);
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
@@ -89,9 +93,17 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   );
 }
 
+/**
+ * Issue JWT for authenticated user. Payload includes `role` from role store (Phase 13).
+ * When no roles file exists (or it is empty), everyone gets role 'admin' — no manual setup
+ * or hardcoded IDs; every new install works and the Team tab is visible. Once the file has
+ * at least one entry, only listed users get that role; others get getRole() default 'member'.
+ */
 function issueToken(user) {
+  const sub = `${user.provider}:${user.id}`;
+  const role = roleMap.size === 0 ? 'admin' : getRole(roleMap, sub);
   return jwt.sign(
-    { sub: `${user.provider}:${user.id}`, name: user.displayName },
+    { sub, name: user.displayName, role },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -121,6 +133,23 @@ function jwtAuth(req, res, next) {
   } catch (_) {
     return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
   }
+}
+
+/** Phase 13: effective role for permission checks. When no roles file, everyone is admin (backward compat). */
+function effectiveRole(req) {
+  if (roleMap.size === 0) return 'admin';
+  const r = req.user?.role;
+  return r === 'member' || !r ? 'editor' : r;
+}
+
+/** Phase 13: require one of the given roles (viewer, editor, admin). Must run after jwtAuth. */
+function requireRole(...allowedRoles) {
+  const set = new Set(allowedRoles);
+  return (req, res, next) => {
+    const role = effectiveRole(req);
+    if (set.has(role)) return next();
+    return res.status(403).json({ error: 'This action requires a different role.', code: 'FORBIDDEN' });
+  };
 }
 
 const app = express();
@@ -381,8 +410,8 @@ app.post('/api/v1/search', async (req, res) => {
   }
 });
 
-// POST /api/v1/notes — write note
-app.post('/api/v1/notes', (req, res) => {
+// POST /api/v1/notes — write note (Phase 13: editor or admin)
+app.post('/api/v1/notes', requireRole('editor', 'admin'), (req, res) => {
   const { path: notePath, body, frontmatter, append } = req.body || {};
   if (!notePath || typeof notePath !== 'string') {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
@@ -398,8 +427,8 @@ app.post('/api/v1/notes', (req, res) => {
   }
 });
 
-// POST /api/v1/index — re-run indexer (vault → chunk → embed → vector store). Auth required.
-app.post('/api/v1/index', async (_req, res) => {
+// POST /api/v1/index — re-run indexer (Phase 13: editor or admin)
+app.post('/api/v1/index', requireRole('editor', 'admin'), async (_req, res) => {
   try {
     const { runIndex } = await import('../lib/indexer.mjs');
     const result = await runIndex({ log: () => {} });
@@ -433,7 +462,7 @@ app.get('/api/v1/proposals/:id', (req, res) => {
   res.json(proposal);
 });
 
-app.post('/api/v1/proposals', (req, res) => {
+app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
   const { path: notePath, body, frontmatter, intent, base_state_id } = req.body || {};
   try {
     const proposal = createProposal(config.data_dir, {
@@ -449,7 +478,7 @@ app.post('/api/v1/proposals', (req, res) => {
   }
 });
 
-app.post('/api/v1/proposals/:id/approve', (req, res) => {
+app.post('/api/v1/proposals/:id/approve', requireRole('admin'), (req, res) => {
   const proposal = getProposal(config.data_dir, req.params.id);
   if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
   if (proposal.status !== 'proposed') {
@@ -470,7 +499,7 @@ app.post('/api/v1/proposals/:id/approve', (req, res) => {
   }
 });
 
-app.post('/api/v1/proposals/:id/discard', (req, res) => {
+app.post('/api/v1/proposals/:id/discard', requireRole('admin'), (req, res) => {
   const proposal = getProposal(config.data_dir, req.params.id);
   if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
   const updated = updateProposalStatus(config.data_dir, req.params.id, 'discarded');
@@ -478,8 +507,8 @@ app.post('/api/v1/proposals/:id/discard', (req, res) => {
   res.json(updated);
 });
 
-// GET /api/v1/settings — safe config status for Settings UI (no secrets, no full paths)
-app.get('/api/v1/settings', (_req, res) => {
+// GET /api/v1/settings — safe config status for Settings UI (Phase 13: requires auth + viewer)
+app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (req, res) => {
   const vg = config.vault_git;
   const vaultPath = config.vault_path || '';
   const vault_path_display = vaultPath ? '…/' + path.basename(vaultPath) : '';
@@ -487,6 +516,8 @@ app.get('/api/v1/settings', (_req, res) => {
   const emb = config.embedding || {};
   const ollamaUrl = emb.ollama_url || (emb.provider === 'ollama' ? 'http://localhost:11434' : undefined);
   res.json({
+    role: req.user?.role ?? 'member',
+    user_id: req.user?.sub ?? '',
     vault_path_display,
     vault_git: {
       enabled: !!vg?.enabled,
@@ -504,8 +535,8 @@ app.get('/api/v1/settings', (_req, res) => {
   });
 });
 
-// POST /api/v1/vault/sync — manual "Back up now" (same as knowtation vault sync)
-app.post('/api/v1/vault/sync', (req, res) => {
+// POST /api/v1/vault/sync — manual "Back up now" (Phase 13: editor or admin)
+app.post('/api/v1/vault/sync', jwtAuth, requireRole('editor', 'admin'), (req, res) => {
   try {
     const result = runVaultSync(config);
     res.json(result);
@@ -517,8 +548,39 @@ app.post('/api/v1/vault/sync', (req, res) => {
   }
 });
 
-// GET /api/v1/setup — editable setup (vault path, vault.git) for Setup wizard
-app.get('/api/v1/setup', (_req, res) => {
+// GET /api/v1/roles — list roles (Phase 13: admin only; for Team UI)
+app.get('/api/v1/roles', jwtAuth, requireRole('admin'), (_req, res) => {
+  try {
+    const roles = readRolesObject(config.data_dir);
+    res.json({ roles });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/roles — add or update one role (Phase 13: admin only)
+app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
+  const { user_id: userId, role } = req.body || {};
+  if (!userId || typeof userId !== 'string' || !userId.trim()) {
+    return res.status(400).json({ error: 'user_id required (e.g. github:12345)', code: 'BAD_REQUEST' });
+  }
+  const r = (role || '').toLowerCase();
+  if (!['admin', 'editor', 'viewer'].includes(r)) {
+    return res.status(400).json({ error: 'role must be admin, editor, or viewer', code: 'BAD_REQUEST' });
+  }
+  try {
+    const current = readRolesObject(config.data_dir);
+    current[userId.trim()] = r;
+    writeRolesFile(config.data_dir, current);
+    roleMap = loadRoleMap(config.data_dir);
+    res.json({ ok: true, roles: current });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/setup — editable setup (Phase 13: requires auth + viewer)
+app.get('/api/v1/setup', jwtAuth, requireRole('viewer', 'editor', 'admin'), (_req, res) => {
   const vg = config.vault_git;
   res.json({
     vault_path: config.vault_path || '',
@@ -529,8 +591,8 @@ app.get('/api/v1/setup', (_req, res) => {
   });
 });
 
-// POST /api/v1/setup — write vault_path and/or vault.git to data/hub_setup.yaml; reload config
-app.post('/api/v1/setup', (req, res) => {
+// POST /api/v1/setup — write vault_path and/or vault.git (Phase 13: admin only)
+app.post('/api/v1/setup', jwtAuth, requireRole('admin'), (req, res) => {
   if (process.env.HUB_ALLOW_SETUP_WRITE === 'false') {
     return res.status(403).json({ error: 'Setup write is disabled (HUB_ALLOW_SETUP_WRITE=false)', code: 'FORBIDDEN' });
   }
@@ -546,6 +608,7 @@ app.post('/api/v1/setup', (req, res) => {
     }
     writeHubSetup(config.data_dir, payload);
     config = loadConfig(projectRoot);
+    roleMap = loadRoleMap(config.data_dir);
     res.json({ ok: true, message: 'Setup saved. Config applied.' });
   } catch (e) {
     if (e.message && e.message.includes('cannot be empty')) {

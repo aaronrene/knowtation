@@ -72,6 +72,52 @@ docker run -p 3333:3333 \
 
 Proposals are stored under `data_dir` (e.g. `/app/data/hub_proposals.json`). Mount a volume for persistence.
 
+## Roles (Phase 13)
+
+### First-run: no roles file (works for everyone)
+
+**When there is no `data/hub_roles.json` file** (or the file has no entries), **everyone who logs in receives role admin**. No manual setup or hardcoded IDs. You see the **Team** tab in Settings and have full access. This is the default so every new install works without intervention.
+
+When you want to **restrict** who can do what, use **Settings → Team** and add the first role (e.g. yourself as admin, or a teammate as viewer). That creates the roles file. From then on, only users listed in the file get the role you set; anyone not listed gets **member** (editor). To avoid locking yourself out, add your own User ID as admin in the Team tab before adding others with more restricted roles.
+
+### Why roles?
+
+Roles let you **control who can do what** on a shared vault without giving everyone full access. For example: give teammates **viewer** (read-only), **editor** (can add notes and create proposals but not approve them or change Setup), or **admin** (full access). That way you can share the Hub URL and still decide who can change backup settings or approve agent proposals.
+
+### How assignment works (user ID, not email or handle)
+
+Role assignment uses a **user ID** of the form **`provider:id`** — for example `github:12345678` or `google:109876543210987654321`. This is the OAuth subject ID from Google or GitHub, **not** the person’s email or GitHub username. So you do **not** put `alice@company.com` or `alice-github` in the file; you put the ID the Hub uses internally (e.g. `github:12345`).
+
+**How to get someone’s user ID**
+
+**How to assign a role:** A **backup repo is not required** for roles. Two options:
+
+**Option A — From the Hub (recommended)**  
+If you are an admin: open **Settings → Team** (only admins see it). Have the other person copy **Your user ID** from their Settings and send it to you. Paste it in the Team tab, choose Role (viewer / editor / admin), click **Add / update role**.
+
+**Option B — Edit the file**  
+On the server, create or edit `data/hub_roles.json` (see format below); restart the Hub or save Setup once to reload.
+
+### The roles file
+
+**No file or empty file:** Everyone is admin (see "First-run" above). **File with entries:** Only listed users get the assigned role; others get member (editor). To restrict access, create or edit `data/hub_roles.json` (or use Settings → Team). Format:
+
+```json
+{
+  "roles": {
+    "github:12345": "admin",
+    "google:67890": "editor",
+    "github:11111": "viewer"
+  }
+}
+```
+
+- **Viewer** — Can only read (notes, search, proposals). Cannot write, propose, approve, or change Setup.
+- **Editor** — Can read, write notes, and create proposals; cannot change Setup or approve/discard proposals.
+- **Admin** — Full access: everything above plus Setup and approve/discard.
+
+The Hub UI shows **Your role** and **Your user ID** in Settings so users know their role and can share their ID with an admin. A future **invite flow** (Phase 13) may allow assigning by email or invite link so you don’t have to manage the JSON file by hand.
+
 ## API contract
 
 See [docs/HUB-API.md](../docs/HUB-API.md) for routes, request/response shapes, and auth (JWT, OAuth, ICP).
