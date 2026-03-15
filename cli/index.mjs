@@ -6,6 +6,7 @@ import '../lib/load-env.mjs';
  */
 
 import fs from 'fs';
+import { execSync } from 'child_process';
 import yaml from 'js-yaml';
 import { loadConfig } from '../lib/config.mjs';
 import { readNote, resolveVaultRelativePath } from '../lib/vault.mjs';
@@ -31,6 +32,9 @@ Commands:
   export <path|query> <output>  Export note(s) to dir/file. Use --format, --project. Provenance and AIR per spec.
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
   memory query <key>             Read from memory layer (requires memory.enabled). Keys: last_search, last_export.
+  hub status                    Check Hub reachability (use --hub <url>). Requires Hub API.
+  propose <path>                Create a proposal on the Hub (use --hub <url>, --intent "...").
+  vault sync                    Commit and push vault to Git (when vault.git.enabled and remote set). See config.
   mcp                           Start MCP server (stdio transport). For Cursor/Claude Desktop.
 
 Options (global):
@@ -114,8 +118,16 @@ function runListNotes() {
   const chain = getOpt('chain');
   const entity = getOpt('entity');
   const episode = getOpt('episode');
-  const limit = getOpt('limit', 'number') ?? 20;
-  const offset = getOpt('offset', 'number') ?? 0;
+  let limit = getOpt('limit', 'number') ?? 20;
+  let offset = getOpt('offset', 'number') ?? 0;
+  if (typeof limit === 'number' && (limit < 0 || limit > 100)) {
+    exitWithError('knowtation list-notes: --limit must be between 0 and 100.', 1, useJson);
+  }
+  if (typeof offset === 'number' && offset < 0) {
+    exitWithError('knowtation list-notes: --offset must be non-negative.', 1, useJson);
+  }
+  limit = Math.min(100, Math.max(0, limit ?? 20));
+  offset = Math.max(0, offset ?? 0);
   const order = getOpt('order') || 'date';
   const fields = getOpt('fields') || 'path+metadata';
   const countOnly = hasOpt('count-only');
@@ -203,7 +215,11 @@ async function main() {
     const entity = getOpt('entity');
     const episode = getOpt('episode');
     const order = getOpt('order');
-    const limit = getOpt('limit', 'number') ?? 10;
+    let limit = getOpt('limit', 'number') ?? 10;
+    if (typeof limit === 'number' && (limit < 0 || limit > 100)) {
+      exitWithError('knowtation search: --limit must be between 0 and 100.', 1, useJson);
+    }
+    limit = Math.min(100, Math.max(0, limit ?? 10));
     const fields = getOpt('fields') || 'path+snippet';
     const snippetChars = getOpt('snippet-chars', 'number');
     const countOnly = hasOpt('count-only');
@@ -333,6 +349,10 @@ async function main() {
           frontmatter: Object.keys(frontmatterOverrides).length ? frontmatterOverrides : undefined,
           append,
         });
+        try {
+          const { maybeAutoSync } = await import('../lib/vault-git-sync.mjs');
+          maybeAutoSync(config);
+        } catch (_) {}
         if (useJson) {
           console.log(JSON.stringify(result));
         } else {
@@ -507,6 +527,94 @@ async function main() {
     } catch (e) {
       exitWithError(e.message, 2, useJson);
     }
+    return;
+  }
+
+  if (subcommand === 'hub') {
+    const action = args[1];
+    if (action !== 'status') {
+      exitWithError('knowtation hub: use "hub status". Option: --hub <url>.', 1, useJson);
+    }
+    const hubUrl = getOpt('hub') || process.env.KNOWTATION_HUB_URL || 'http://localhost:3333';
+    const base = hubUrl.replace(/\/$/, '');
+    (async () => {
+      try {
+        const res = await fetch(base + '/health', { method: 'GET' });
+        const data = await res.json().catch(() => ({}));
+        if (useJson) {
+          console.log(JSON.stringify({ ok: res.ok, status: res.status, url: base }));
+        } else {
+          console.log(res.ok ? `Hub at ${base} is up.` : `Hub at ${base} returned ${res.status}.`);
+        }
+        process.exit(res.ok ? 0 : 2);
+      } catch (e) {
+        exitWithError('Hub unreachable: ' + e.message, 2, useJson);
+      }
+    })();
+    return;
+  }
+
+  if (subcommand === 'vault') {
+    const vaultSub = args[1];
+    if (vaultSub === 'sync') {
+      if (hasOpt('help') || hasOpt('h')) {
+        console.log('knowtation vault sync\n  Commits and pushes the vault to the configured Git remote.\n  Requires config: vault.git.enabled=true and vault.git.remote=<url>.');
+        process.exit(0);
+      }
+      let config;
+      try {
+        config = loadConfig();
+      } catch (e) {
+        exitWithError(e.message, 2, useJson);
+      }
+      (async () => {
+        try {
+          const { runVaultSync } = await import('../lib/vault-git-sync.mjs');
+          const result = runVaultSync(config);
+          if (useJson) console.log(JSON.stringify(result));
+          else console.log(result.message === 'Synced' ? 'Vault synced to remote.' : result.message);
+          process.exit(0);
+        } catch (e) {
+          exitWithError('knowtation vault sync: ' + (e.message || 'git failed'), 1, useJson);
+        }
+      })();
+      return;
+    }
+    exitWithError('knowtation vault: unknown subcommand. Use vault sync.', 1, useJson);
+  }
+
+  if (subcommand === 'propose') {
+    const pathArg = args[1];
+    const hubUrl = getOpt('hub') || process.env.KNOWTATION_HUB_URL;
+    if (!hubUrl) {
+      exitWithError('knowtation propose: set --hub <url> or KNOWTATION_HUB_URL.', 1, useJson);
+    }
+    const intent = getOpt('intent') || '';
+    const token = process.env.KNOWTATION_HUB_TOKEN;
+    if (!token) {
+      exitWithError('knowtation propose: set KNOWTATION_HUB_TOKEN (JWT from Hub login).', 2, useJson);
+    }
+    const base = hubUrl.replace(/\/$/, '');
+    (async () => {
+      try {
+        const body = { path: pathArg || 'inbox/proposal.md', intent: intent || undefined };
+        const res = await fetch(base + '/api/v1/proposals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          exitWithError(data.error || res.statusText, 2, useJson);
+          return;
+        }
+        if (useJson) console.log(JSON.stringify(data));
+        else console.log('Proposal created:', data.proposal_id, data.path);
+        process.exit(0);
+      } catch (e) {
+        exitWithError(e.message, 2, useJson);
+      }
+    })();
     return;
   }
 
