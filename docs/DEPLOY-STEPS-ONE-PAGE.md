@@ -106,4 +106,45 @@ So the browser allows the Hub to call the gateway.
 
 ---
 
-**Summary order:** Canister (1) → DNS + 4Everland (2, 3) → Gateway on Netlify/Node (5) → Hub config (4) → CORS (6) → Test (7).
+## Password protection (keep site private until launch)
+
+4Everland does **not** offer built-in password protection for static hosting. To restrict access to **knowtation.store** (landing + Hub) until you’re ready to go public, use one of these:
+
+**Option A — Cloudflare Access (recommended)**  
+Protects the whole site at the edge; free for up to 50 users.
+
+1. In **Cloudflare** → **Zero Trust** (or **Workers & Pages** → **Access**): open **Access** → **Applications**.
+2. **Add an application**: Application type **Self-hosted**; name e.g. `Knowtation`.  
+   **Session Duration** e.g. 24 hours.  
+   **Application domain**: `knowtation.store` (and add `www.knowtation.store` if you use it).
+3. Under **Policies**, add a policy: **Action** = Allow; **Include** = **Emails** and list the email addresses that may access the site (or use **One-time PIN** so users get a PIN by email).
+4. Save. Visitors to knowtation.store will see a Cloudflare Access login page; after they pass the policy they can use the landing and **https://knowtation.store/hub/** as usual.
+
+**Option B — Simple shared password (weaker)**  
+For a single shared password without Cloudflare: you could use a static-site password tool (e.g. [StatiCrypt](https://github.com/robinmoisson/staticrypt)) at build time to encrypt the HTML, or add a client-side gate (password in sessionStorage). These are not strong security—use only for “soft launch” and switch to Access or remove the gate when you go public.
+
+---
+
+## Hub account setup (the app at knowtation.store/hub/)
+
+The **Hub** is the app at **https://knowtation.store/hub/** (same domain as the landing, path `/hub/`). There is no separate “hub account” product—**your account is created the first time you sign in** with Google or GitHub from that page.
+
+**What you need in place**
+
+1. **Gateway deployed** (Step 5) with env: **CANISTER_URL**, **SESSION_SECRET**, **HUB_BASE_URL**, **HUB_UI_ORIGIN**, **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** (and **GITHUB_*** if you want GitHub login). **HUB_CORS_ORIGIN** = `https://knowtation.store` (Step 6).
+2. **OAuth callback URLs** (in Google Cloud Console and GitHub OAuth app) set to your **gateway** URL, e.g.  
+   `https://knowtation-gateway.netlify.app/api/v1/auth/callback/google`  
+   `https://knowtation-gateway.netlify.app/api/v1/auth/callback/github`
+3. **web/hub/config.js** (Step 4): `window.HUB_API_BASE_URL = 'https://knowtation-gateway.netlify.app';` (or your real gateway URL), committed and deployed so 4Everland serves it.
+
+**How users “set up” their Hub account**
+
+1. Open **https://knowtation.store/** → click **Try Knowtation Hub** (or go directly to **https://knowtation.store/hub/**).
+2. Click **Continue with Google** or **Continue with GitHub**.
+3. They’re sent to the gateway for OAuth; after approving, they’re redirected back to the Hub with a JWT. **That first sign-in is their account**—no separate sign-up. They can then use the Hub (search, notes, proposals, settings).
+
+If you added Cloudflare Access (password protection), users will see the Access screen first, then the Hub login screen.
+
+---
+
+**Summary order:** Canister (1) → DNS + 4Everland (2, 3) → Gateway on Netlify/Node (5) → Hub config (4) → CORS (6) → Test (7). Optional: Password protection (Cloudflare Access). Hub “account” = first sign-in at knowtation.store/hub/.

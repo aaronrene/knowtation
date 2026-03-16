@@ -191,11 +191,20 @@
       oauthNotConfigured.classList.remove('hidden');
       if (loginIntro) loginIntro.classList.add('hidden');
       const first = oauthNotConfigured.querySelector('p');
-      if (first)
-        first.innerHTML =
-          '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +
-          escapeHtml(apiBase) +
-          '</code>? Open this page from the same machine as <code>npm run hub</code> (e.g. <code>http://localhost:3333/</code>).';
+      if (first) {
+        const isHosted = location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
+        const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
+        if (isHosted && sameOrigin) {
+          first.innerHTML =
+            '<strong>Could not load OAuth status.</strong> The Hub at <code>' + escapeHtml(location.origin) +
+            '</code> is calling itself for the API, but the API runs on the <strong>gateway</strong>. Set <code>window.HUB_API_BASE_URL</code> in <code>web/hub/config.js</code> to your gateway URL (e.g. <code>https://knowtation-gateway.netlify.app</code>), then commit and redeploy so 4Everland serves the updated config.';
+        } else {
+          first.innerHTML =
+            '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +
+            escapeHtml(apiBase) +
+            '</code>? Open this page from the same machine as <code>npm run hub</code> (e.g. <code>http://localhost:3333/</code>).';
+        }
+      }
       return;
     }
 

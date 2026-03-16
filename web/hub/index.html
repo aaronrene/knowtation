@@ -25,13 +25,46 @@
     <div id="login-required" class="panel login-first-screen">
       <div id="login-invite-banner" class="login-invite-banner hidden" role="status"></div>
       <div class="login-hero">
-        <h2 class="login-title">Knowtation Hub</h2>
+        <h2 class="login-title login-title-equation"><span class="login-title-main">Knowtation</span> <span class="login-title-eq">Know + Own + Action</span></h2>
         <p class="login-tagline">Your notes, searchable. One place for you and your agents.</p>
         <p class="login-intent">Portable vault, semantic search, and a single place for proposals—so you and your agents stay in context.</p>
       </div>
       <div class="login-cta-block">
         <p id="login-intro" class="login-cta-label">Sign in with Google or GitHub above to open your vault. Your first sign-in is your account—no separate sign-up.</p>
         <p class="login-how-to-wrap"><button type="button" id="btn-login-how-to-use" class="btn-link">New here? How to use</button> — setup and how agents use your vault.</p>
+      </div>
+      <div class="hub-ecosystem" aria-label="Knowtation at the center of your connections">
+        <div class="hub-ecosystem-rings">
+          <svg class="hub-ecosystem-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle class="hub-ring hub-ring-1" cx="160" cy="160" r="90" fill="none" stroke="var(--border)" stroke-width="1"/>
+            <circle class="hub-ring hub-ring-2" cx="160" cy="160" r="135" fill="none" stroke="var(--border)" stroke-width="1"/>
+            <circle class="hub-ring hub-ring-3" cx="160" cy="160" r="158" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
+          </svg>
+          <div class="hub-ecosystem-center">
+            <span class="hub-ecosystem-core-icon" aria-hidden="true">📁</span>
+            <span class="hub-ecosystem-core-label">Knowtation</span>
+          </div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-1" title="Cursor">✏️</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-2" title="Claude">🤖</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-3" title="DeerFlow">🦌</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-4" title="Windsurf">🏄</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-5" title="MCP">🔌</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-6" title="CLI">💻</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-7" title="Search">🔍</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-8" title="Import">📥</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-9" title="Tags">🏷️</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-10" title="Project">📂</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-11" title="Causal chain">🔗</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-12" title="Time">⏱️</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-13" title="Proposals">📋</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-14" title="GitHub">🐙</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-15" title="API">📡</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-16" title="Vault">🔐</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-17" title="Transcription">🎙️</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-18" title="Sync">🔄</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-19" title="Notes">📝</div>
+          <div class="hub-ecosystem-icon hub-ecosystem-icon-20" title="Export">📤</div>
+        </div>
       </div>
       <div id="oauth-not-configured" class="oauth-setup hidden">
         <p><strong>OAuth is not configured yet.</strong> The Hub only accepts login through Google or GitHub. Add credentials to your project <code>.env</code>, then restart the Hub.</p>
@@ -574,16 +607,16 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="how-to-note"><strong>Projects and filters:</strong> Organize notes by project (e.g. <code>vault/projects/myapp/</code> or frontmatter <code>project: myapp</code>) and tags. Agents use <code>--project</code> and <code>--tag</code> to read only what’s relevant. See the <strong>Knowledge &amp; agents</strong> tab above for the full picture.</p>
             <div class="diagram-box">
               <div class="diagram-title">Agents and LLMs → Hub → you</div>
-              <svg class="diagram-svg" viewBox="0 0 440 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <rect x="10" y="8" width="100" height="32" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-                <text x="60" y="28" class="diagram-text" text-anchor="middle">Open CLAW / Abacus / LLM</text>
-                <path d="M 115 24 L 155 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+              <svg class="diagram-svg" viewBox="0 0 460 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="10" y="8" width="130" height="32" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                <text x="75" y="28" class="diagram-text" text-anchor="middle">Open CLAW / Abacus / LLM</text>
+                <path d="M 145 24 L 155 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
                 <rect x="160" y="8" width="120" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
                 <text x="220" y="28" class="diagram-text" text-anchor="middle">Hub API or MCP / CLI</text>
-                <path d="M 285 24 L 325 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
-                <rect x="330" y="8" width="100" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
-                <text x="380" y="28" class="diagram-text" text-anchor="middle">Proposals</text>
-                <path d="M 435 24 L 440 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <path d="M 285 24 L 295 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="300" y="8" width="100" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="350" y="28" class="diagram-text" text-anchor="middle">Proposals</text>
+                <path d="M 405 24 L 460 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
                 <text x="220" y="58" class="diagram-text-small" text-anchor="middle">You approve or discard in Hub (Suggested / Discarded)</text>
               </svg>
             </div>
@@ -671,11 +704,17 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
               <li><strong>Private is recommended</strong> for personal notes; public works if you want the repo visible.</li>
             </ul>
             <h4 class="how-to-sub">When do I need to run <code>git init</code>?</h4>
-            <p>The folder that holds your vault (whatever you set as <em>Vault path</em>, e.g. <code>./vault</code>) must be the root of a Git repository for backup to work. Knowtation does not create that repo for you.</p>
-            <ul>
-              <li><strong>Default setup (typical):</strong> If you use the built‑in vault folder (e.g. <code>./vault</code>), it is just a normal folder — not a Git repo. So <strong>everyone</strong> using this default and wanting GitHub backup needs a <strong>one-time</strong> init and first commit <strong>inside the vault folder</strong>. From your project root run: <code>cd vault && git init && git add -A && git commit -m "Initial vault"</code>. (If your vault path is different, replace <code>vault</code> with that folder name.) Do <em>not</em> run <code>git init</code> from the project root — that would make the whole Knowtation project the repo; backup is only for the vault folder.</li>
-              <li><strong>You already have a Git repo for notes:</strong> If you point <em>Vault path</em> at a folder that is already a Git repository (e.g. an existing Obsidian vault or notes repo), you do <strong>not</strong> need to run <code>git init</code>. Just set that path and the backup remote in Settings and use <strong>Back up now</strong>.</li>
-            </ul>
+            <p class="step-what">The folder that holds your vault (whatever you set as <em>Vault path</em>, e.g. <code>./vault</code>) must be the root of a Git repository for backup to work. Knowtation does not create that repo for you.</p>
+            <section class="how-to-step-inline">
+              <h5><span class="step-num">Step A</span> Default setup (typical)</h5>
+              <p>If you use the built‑in vault folder (e.g. <code>./vault</code>), it is just a normal folder — not a Git repo. Run a <strong>one-time</strong> init and first commit <strong>inside the vault folder</strong>.</p>
+              <div class="example-block"><span class="example-label">From project root</span><pre>cd vault && git init && git add -A && git commit -m "Initial vault"</pre></div>
+              <p class="how-to-note">If your vault path is different, replace <code>vault</code> with that folder name. Do <em>not</em> run <code>git init</code> from the project root — that would make the whole Knowtation project the repo; backup is only for the vault folder.</p>
+            </section>
+            <section class="how-to-step-inline">
+              <h5><span class="step-num">Step B</span> You already have a Git repo for notes</h5>
+              <p>If you point <em>Vault path</em> at a folder that is already a Git repository (e.g. an existing Obsidian vault or notes repo), you do <strong>not</strong> need to run <code>git init</code>. Just set that path and the backup remote in Settings, then use <strong>Back up now</strong>.</p>
+            </section>
             <p>After the vault folder is a Git repo: in the Hub set the vault path and backup repo URL in Settings → Backup, click <strong>Save setup</strong>, and <strong>Connect GitHub</strong> so the Hub can push with your token. Then <strong>Back up now</strong> will push. If the first push fails with “no upstream branch”, run once from the vault folder: <code>git push -u origin main</code> (or <code>master</code> if that’s your default branch).</p>
             <p><strong>Setup in the Hub:</strong> Use <strong>Settings</strong> in the Hub header: the Backup tab lets you set the vault path and Git remote (saved to <code>data/hub_setup.yaml</code>, applied immediately). Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI. For push without a deploy key, click <strong>Connect GitHub</strong> in Settings (uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings). Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. Proposals stay Hub-only. See PROVENANCE-AND-GIT.md.</p>
           </section>
@@ -757,6 +796,7 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="config.js"></script>
   <script src="hub.js"></script>
 </body>
 </html>
