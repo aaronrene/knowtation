@@ -16,8 +16,14 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '..', '..');
+// Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
+let projectRoot;
+try {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  projectRoot = path.resolve(__dirname, '..', '..');
+} catch (_) {
+  projectRoot = process.cwd();
+}
 const envPath = path.join(projectRoot, '.env');
 if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
 
