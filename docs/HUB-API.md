@@ -48,6 +48,7 @@ If not implemented in v1, all authenticated users have full access. Document sco
 
 - **Base URL:** Self-hosted: `http(s)://<host>:<port>/api` (or no prefix). ICP: `https://<canister-id>.ic0.app/api` (or as deployed).
 - **Versioning:** Path prefix `/api/v1` recommended (e.g. `GET /api/v1/notes`). Omit version in this doc for brevity; implementations use a consistent prefix.
+- **Vault context (multi-vault / hosted):** Optional header **`X-Vault-Id`** or query param **`vault_id`** to scope requests to a vault. When absent, implementations use a default (e.g. `default` or the single vault). For v1 canister, one user = one vault; vault_id is reserved for future multi-vault. See [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md) for gateway/canister auth.
 
 ---
 

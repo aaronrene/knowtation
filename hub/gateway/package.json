@@ -1,0 +1,21 @@
+{
+  "name": "@knowtation/hub-gateway",
+  "version": "0.1.0",
+  "description": "OAuth gateway for Knowtation Hub (hosted): login + proxy to ICP canister with X-User-Id proof",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.0.12",
+    "passport-google-oauth20": "^2.0.0"
+  }
+}

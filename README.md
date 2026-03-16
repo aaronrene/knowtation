@@ -12,13 +12,27 @@
 
 **Spec:** All data formats, CLI surface, and contracts are in **[docs/SPEC.md](./docs/SPEC.md)**. The **final document that lays out all phases** is **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** (Phases 1–11). Data ownership and vendor independence are in SPEC §0. Internal planning lives in **development/** (gitignored). A **simple landing page** (intent, open source, what’s included, mock pricing) is in **[web/index.html](./web/index.html)** — open in a browser or host it.
 
+## Prerequisites
+
+- **Node.js 18+** (for CLI, Hub, MCP).
+- **Ollama** (optional but recommended for semantic search): install from [ollama.ai](https://ollama.ai), then run `ollama pull nomic-embed-text` so the indexer can embed. Alternatively use OpenAI embeddings (set `OPENAI_API_KEY` in `.env` and `embedding.provider: openai` in config).
+
 ## Quick start
 
-1. **Clone or use this repo** — This is the Knowtation repository. If you are copying this seed elsewhere, see [COPY-TO-REPO.md](./COPY-TO-REPO.md).
-2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml` and set your vault path. For vector search: use **Qdrant** (set `qdrant_url`) or **sqlite-vec** (set `vector_store: sqlite-vec`; no server, DB under `data_dir`). Set embedding provider (e.g. Ollama). Do not commit secrets.
-3. **Open the vault** — Open the `vault/` folder in Obsidian (or any Markdown vault editor).
-4. **Run the CLI** — `node cli/index.mjs --help`. Run `node cli/index.mjs index` once (requires Qdrant and Ollama for default embedding); then `node cli/index.mjs search "your query"`, `write`, `export`, `import`. See [docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md) — Phases 1–9 implemented.
-5. **Use from agents** — The skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open; copy to `~/.cursor/skills/knowtation/` for global use. For **MCP** (Cursor, Claude Desktop), run `knowtation mcp` or `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md).
+1. **Clone and install**
+   ```bash
+   git clone https://github.com/aaronrene/knowtation.git
+   cd knowtation
+   npm install
+   ```
+2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml`. Set `vault_path` to the absolute path of the repo vault (e.g. `$(pwd)/vault` or `/Users/you/knowtation/vault`). For search without a separate server, set `vector_store: sqlite-vec` and `data_dir: data/`. Set embedding (e.g. Ollama: `embedding: { provider: ollama, model: nomic-embed-text }`). Do not commit `config/local.yaml`.
+3. **Secrets (optional)** — Copy `.env.example` to `.env` for API keys (e.g. `OPENAI_API_KEY` for transcription, `HUB_JWT_SECRET` for the Hub). See [docs/setup.md](./docs/setup.md).
+4. **Index once** — `npm run index` or `node cli/index.mjs index` (needs Ollama running for default embedding, or OpenAI key). Then search: `node cli/index.mjs search "your query"`.
+5. **Hub (optional)** — `cd hub && npm install && cd ..`, set `KNOWTATION_VAULT_PATH` and `HUB_JWT_SECRET` in `.env`, then `npm run hub`. Open **http://localhost:3333/** for the web UI. See [hub/README.md](./hub/README.md).
+6. **Agents** — Skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open. For **MCP**: `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md).
+
+**Step-by-step:** **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** (clone → config → index → search, plus Hub, landing, and **AgentCeption** examples).  
+Full setup (transcription, OAuth, memory, capture): **[docs/setup.md](./docs/setup.md)**.
 
 ## Repository layout
 
@@ -45,6 +59,7 @@ knowtation/
 
 ## Docs
 
+- **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** — **Getting started:** clone → config → index → search; optional Hub, landing, MCP; **AgentCeption** integration with examples.
 - **[docs/WHITEPAPER.md](./docs/WHITEPAPER.md)** — **Whitepaper:** why fragmented knowledge and weak retrieval motivate a portable vault; Knowtation’s thesis (data liberation, CLI/MCP, indexing); who it’s for; questions for builders. Landing page links here from [web/index.html](./web/index.html).
 - **[docs/SPEC.md](./docs/SPEC.md)** — **Spec:** frontmatter, inbox contract, CLI (all commands/flags including `import`), config, indexer, MCP, memory/AIR hooks, import sources, versioning.
 - **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** — **Final document: all phases** (1–11). Core (1–10) + optional Phase 11 (shared vault / hub). Phases 1–9 implemented.
@@ -59,7 +74,7 @@ knowtation/
 - **[docs/PROVENANCE-AND-GIT.md](./docs/PROVENANCE-AND-GIT.md)** — What “provenance” and “vault under git” mean (traceability of outputs vs version history); inbox stays file-based.
 - **[docs/MUSE-STYLE-EXTENSION.md](./docs/MUSE-STYLE-EXTENSION.md)** — Optional Muse-style variation/review/commit layer for context, intention, and hub-style workflows. Phase 11 (shared vault / hub) for simple agent-to-agent and agent-to-human without GitHub.
 - **[docs/setup.md](./docs/setup.md)** — Setup steps.
-- **[web/index.html](./web/index.html)** — Landing page: intent, open source, GitHub link, what’s included, phases summary, mock pricing. **To view:** run <code>open web/index.html</code> (macOS) or <code>python3 -m http.server 8000 --directory web</code> then open http://localhost:8000. See [web/README.md](./web/README.md).
+- **[web/index.html](./web/index.html)** — Landing page: intent, open source, GitHub link, what’s included, phases summary, mock pricing. **To view locally:** run <code>npx -y serve web -p 8888</code> (or <code>python3 -m http.server 8888 --directory web</code>), then open **http://localhost:8888**. See [web/README.md](./web/README.md).
 - **[COPY-TO-REPO.md](./COPY-TO-REPO.md)** — Use when creating a new repo from this seed.
 
 ## License

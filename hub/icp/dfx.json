@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "canisters": {
+    "hub": {
+      "type": "motoko",
+      "main": "src/hub/main.mo"
+    }
+  }
+}

@@ -196,16 +196,21 @@
       <div class="modal-card modal-card-settings">
         <div class="modal-header">
           <h2 id="settings-title">Settings</h2>
-          <button type="button" id="modal-settings-close" class="modal-close" aria-label="Close">×</button>
+          <div class="modal-header-actions">
+            <button type="button" id="btn-settings-help" class="btn-link btn-link-small" aria-label="Open How to use">How to use</button>
+            <button type="button" id="modal-settings-close" class="modal-close" aria-label="Close">×</button>
+          </div>
         </div>
         <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
           <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-settings-tab="backup">Backup</button>
           <button type="button" class="settings-tab hidden" id="settings-tab-team" role="tab" aria-selected="false" data-settings-tab="team">Team</button>
+          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="integrations">Integrations</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="agents">Agents</button>
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
           <div class="settings-body">
+            <p class="settings-intro">Backup connects your vault to a Git repo (e.g. GitHub) so your notes are versioned and safe. Follow the checklist and configure steps below.</p>
             <h3 class="settings-h3">Setup checklist</h3>
             <p class="settings-intro small">Get from zero to using the Hub and (optionally) backing up. Complete each step; optional steps can be skipped.</p>
             <ul class="setup-checklist" aria-label="Setup progress">
@@ -263,7 +268,7 @@
               <span id="settings-sync-msg" class="settings-msg"></span>
             </div>
             <hr class="settings-hr">
-            <h3 class="settings-h3">Configure backup</h3>
+            <h3 class="settings-h3">How to connect backup</h3>
             <p class="settings-intro small">To turn on Git backup, follow these steps:</p>
             <ol class="settings-steps-list">
               <li>Create a new repository on GitHub. <strong>Leave it empty</strong> (do not add README, .gitignore, or license). Use the <strong>HTTPS</strong> URL (e.g. <code>https://github.com/you/repo-name.git</code>) so Connect GitHub can push; private is recommended for notes.</li>
@@ -288,8 +293,9 @@
         </div>
         <div id="settings-panel-team" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <h3 class="settings-h3">Assign roles</h3>
-            <p class="settings-intro small">Only admins see this. Add a user by their <strong>User ID</strong> (e.g. <code>github:12345</code>). They find it in their own Settings under &quot;Your user ID&quot; — they copy it and send it to you, or you add your own after copying yours.</p>
+            <p class="settings-intro">Team lets you invite others and set roles (viewer, editor, admin). Only admins see this tab. Use User ID or invite links to connect teammates.</p>
+            <h3 class="settings-h3">How to add someone</h3>
+            <p class="settings-intro small">Add a user by their <strong>User ID</strong> (e.g. <code>github:12345</code>). They find it in their own Settings → Backup under &quot;Your user ID&quot; — they copy it and send it to you.</p>
             <div class="settings-form">
               <label for="team-user-id">User ID</label>
               <input type="text" id="team-user-id" placeholder="e.g. github:12345678">
@@ -304,8 +310,8 @@
                 <span id="team-save-msg" class="settings-msg"></span>
               </div>
             </div>
-            <h4 class="settings-h4">Invite teammate (link)</h4>
-            <p class="settings-intro small">Create a link to invite someone. They sign in with Google or GitHub and get the role you choose. Link expires in 7 days.</p>
+            <h4 class="settings-h4">How to invite by link</h4>
+            <p class="settings-intro small">Create a link to invite someone. They sign in with Google or GitHub and get the role you choose. Link expires in 7 days. Share the link; they open it, sign in, and are added.</p>
             <div class="settings-form">
               <label for="invite-role">Role for invite</label>
               <select id="invite-role">
@@ -331,17 +337,57 @@
             <div id="team-roles-list" class="team-roles-list muted small">Loading…</div>
           </div>
         </div>
+        <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents (AgentCeption). Each block below explains how to connect.</p>
+            <h3 class="settings-h3">Capture (messages → inbox)</h3>
+            <p class="settings-intro small">Send messages or events into the vault as notes. When the Hub is running, the capture URL is <code>POST /api/v1/capture</code> (e.g. <code>http://localhost:3333/api/v1/capture</code>). Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> in the server and send header <code>X-Webhook-Secret</code>.</p>
+            <h4 class="settings-h4">How to connect capture</h4>
+            <p class="settings-intro small">Run an adapter (or Zapier/n8n) that converts platform events to the capture format, then POSTs to the Hub. Body format: <code>{"body": "text", "source": "slack", "project": "optional"}</code>. Full format: How to use → Step 4.</p>
+            <ul class="settings-list">
+              <li><strong>Slack:</strong> Run <code>node scripts/capture-slack-adapter.mjs --port 3132</code>. Set env <code>CAPTURE_URL</code> (Hub URL), <code>SLACK_SIGNING_SECRET</code>, and optionally <code>CAPTURE_WEBHOOK_SECRET</code>. Point Slack Events API at the adapter URL.</li>
+              <li><strong>Discord:</strong> Run <code>node scripts/capture-discord-adapter.mjs --port 3133</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Point your Discord webhook or bot at the adapter.</li>
+              <li><strong>Telegram:</strong> Run <code>node scripts/capture-telegram-adapter.mjs --port 3134</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Or any bot that POSTs to <code>/api/v1/capture</code> with <code>{"body": "...", "source": "telegram"}</code>.</li>
+              <li><strong>WhatsApp:</strong> Use Zapier or n8n: WhatsApp trigger → HTTP POST to <code>https://your-hub/api/v1/capture</code> with <code>{"body": "message text", "source": "whatsapp"}</code>. See <code>docs/MESSAGING-INTEGRATION.md</code>.</li>
+            </ul>
+            <hr class="settings-hr">
+            <h3 class="settings-h3">Import sources (files → vault)</h3>
+            <p class="settings-intro small">Bring data into the vault from exports and platforms using the CLI.</p>
+            <h4 class="settings-h4">How to connect imports</h4>
+            <p class="settings-intro small">From a terminal: <code>knowtation import &lt;source-type&gt; &lt;input&gt;</code>. Use <code>--project</code>, <code>--output-dir</code>, <code>--tags</code> as needed. Source types:</p>
+            <ul class="settings-list">
+              <li><strong>Chats:</strong> <code>chatgpt-export</code>, <code>claude-export</code>, <code>mem0-export</code> — point at exported folder or file.</li>
+              <li><strong>Platforms:</strong> <code>notion</code>, <code>jira-export</code>, <code>notebooklm</code>, <code>gdrive</code>, <code>linear-export</code> — use API keys or export files as required.</li>
+              <li><strong>Generic:</strong> <code>markdown</code>, <code>mif</code>, <code>audio</code>, <code>video</code> — folders or files.</li>
+            </ul>
+            <p class="settings-intro small">Full list and options: How to use (Import data) or <code>docs/IMPORT-SOURCES.md</code>.</p>
+            <hr class="settings-hr">
+            <h3 class="settings-h3">AgentCeption (shared vault for agents)</h3>
+            <p class="settings-intro small">Use Knowtation as the shared context for planner and engineer agents. One vault path for the whole setup.</p>
+            <h4 class="settings-h4">How to connect AgentCeption</h4>
+            <p class="settings-intro small">Set the same vault path in the planner and every engineer. Copy the env snippet below into each environment.</p>
+            <div class="settings-form">
+              <label for="integrations-agentception-env">Env snippet (copy)</label>
+              <div class="settings-value-wrap" style="margin-top: 0.25rem;">
+                <code id="integrations-agentception-env" class="settings-code">KNOWTATION_VAULT_PATH=/path/to/shared/vault</code>
+                <button type="button" id="btn-copy-agentception-env" class="btn-copy-small" title="Copy">Copy</button>
+              </div>
+            </div>
+            <p class="settings-intro small"><button type="button" id="btn-integrations-how-to-agentception" class="btn-link btn-link-small">Full setup → How to use (AgentCeption)</button></p>
+          </div>
+        </div>
         <div id="settings-panel-appearance" class="settings-panel" role="tabpanel">
           <div class="settings-body">
+            <p class="settings-intro">Appearance controls how the Hub looks in your browser. Changes are saved locally (no server config).</p>
             <h3 class="settings-h3">Theme</h3>
-            <p class="settings-intro small">Night or day. Saved in your browser.</p>
+            <p class="settings-intro small">Switch between night and day. Saved in your browser; applies as soon as you click.</p>
             <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
               <button type="button" class="theme-btn" data-theme="dark" aria-pressed="true">Night</button>
               <button type="button" class="theme-btn" data-theme="light" aria-pressed="false">Day</button>
             </div>
             <hr class="settings-hr">
             <h3 class="settings-h3">Accent color</h3>
-            <p class="settings-intro small">Choose an accent color for links, buttons, and highlights. Saved in your browser.</p>
+            <p class="settings-intro small">Choose an accent for links, buttons, and highlights. Pick a preset or use the custom color picker. Saved in your browser.</p>
             <div class="accent-presets" id="accent-presets" role="group" aria-label="Accent color presets">
               <button type="button" class="accent-swatch" data-accent="#22d3ee" title="Cyan (default)" aria-label="Cyan default"></button>
               <button type="button" class="accent-swatch" data-accent="#22c55e" title="Green" aria-label="Green"></button>
@@ -358,8 +404,9 @@
         </div>
         <div id="settings-panel-agents" class="settings-panel" role="tabpanel">
           <div class="settings-body">
+            <p class="settings-intro">Agents shows the embedding config the Hub uses. Use the same config in your orchestrator or agent runtime so search behaves the same. Copy the env block below into the agent environment.</p>
             <h3 class="settings-h3">Local model (for agents)</h3>
-            <p class="settings-intro small">Current embedding config so you can use the same local setup in orchestrators or other agent runtimes. Read-only; edit <code>config/local.yaml</code> to change.</p>
+            <p class="settings-intro small">Current embedding provider and model. Read-only here; edit <code>config/local.yaml</code> to change. Match this in agents so they use the same embeddings.</p>
             <div class="settings-row">
               <span class="settings-label">Provider</span>
               <span id="agents-embedding-provider" class="settings-value">—</span>
@@ -372,6 +419,8 @@
               <span class="settings-label">Ollama URL</span>
               <span id="agents-embedding-ollama-url" class="settings-value">—</span>
             </div>
+            <h4 class="settings-h4">How to connect agents</h4>
+            <p class="settings-intro small">In your orchestrator or agent config: set <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code> (get the token after logging in to the Hub). Use &quot;Copy env for orchestrators&quot; below to copy a full env snippet. For AgentCeption and MCP, see Integrations → AgentCeption and How to use.</p>
             <div class="settings-actions" style="margin-top: 1rem;">
               <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy env for orchestrators</button>
               <span id="agents-copy-msg" class="settings-msg"></span>
@@ -465,11 +514,58 @@ Knowtation Hub listening on http://localhost:3333</pre>
                 <defs><marker id="arrow-data" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--accent)"/></marker></defs>
               </svg>
             </div>
-            <ul>
-              <li><strong>Hub capture (easiest):</strong> POST to <code>/api/v1/capture</code> with JSON: <code>{"body": "your text", "source": "slack", "project": "myproject"}</code>. Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> and send header <code>X-Webhook-Secret</code>.</li>
-              <li><strong>Standalone webhook:</strong> Run <code>node scripts/capture-webhook.mjs --port 3131</code> and POST to that server’s <code>/capture</code>. Use <code>scripts/capture-slack-adapter.mjs</code> (or Discord/Telegram adapters) to convert events into the same JSON.</li>
-              <li><strong>Files / ChatGPT exports:</strong> Use <code>scripts/capture-file.mjs</code> for stdin or files. For exports, drop Markdown into <code>vault/inbox/</code> or <code>vault/imports/</code> with frontmatter: <code>source</code>, <code>date</code>, and optionally <code>project</code>, <code>tags</code>.</li>
-            </ul>
+            <p class="how-to-note">Hub capture (easiest): POST to <code>/api/v1/capture</code> with JSON <code>{"body": "your text", "source": "slack", "project": "myproject"}</code>. Optional: <code>CAPTURE_WEBHOOK_SECRET</code> and header <code>X-Webhook-Secret</code>. Per-service steps below.</p>
+            <h4 class="how-to-sub">Capture (messages → vault)</h4>
+            <details class="how-to-details">
+              <summary>Slack</summary>
+              <div class="how-to-details-body">
+                <p>Run <code>node scripts/capture-slack-adapter.mjs --port 3132</code>. Set <code>CAPTURE_URL</code> (default Hub), <code>SLACK_SIGNING_SECRET</code>, and optionally <code>CAPTURE_WEBHOOK_SECRET</code>. Point Slack Events API at the adapter URL; it responds to <code>url_verification</code> and forwards message events to capture. Or use Zapier/n8n: Slack trigger → HTTP POST to <code>/api/v1/capture</code>.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Discord</summary>
+              <div class="how-to-details-body">
+                <p>Run <code>node scripts/capture-discord-adapter.mjs --port 3133</code>. POST with JSON <code>{ "content": "message text", "id?", "channel_id?", "project?", "tags?" }</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Or Zapier/n8n: Discord trigger → HTTP POST to Hub capture.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Telegram</summary>
+              <div class="how-to-details-body">
+                <p>Run <code>node scripts/capture-telegram-adapter.mjs --port 3134</code>. Accepts Telegram Bot API webhook payloads or simplified <code>{ "body": "message text", "source_id?", "project?", "tags?" }</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Or any bot that POSTs to <code>/api/v1/capture</code> with <code>source: telegram</code>.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>WhatsApp</summary>
+              <div class="how-to-details-body">
+                <p>No dedicated adapter. Use Zapier/n8n: WhatsApp trigger → HTTP POST to <code>https://your-hub.example.com/api/v1/capture</code> with <code>{"body": "&lt;message text&gt;", "source": "whatsapp", "source_id": "&lt;id&gt;"}</code>. Or run a small webhook that normalizes WhatsApp payloads and POSTs to capture. See Settings → Integrations and <code>docs/MESSAGING-INTEGRATION.md</code>.</p>
+              </div>
+            </details>
+            <h4 class="how-to-sub">Import (LLM / platform exports → vault)</h4>
+            <details class="how-to-details">
+              <summary>ChatGPT export</summary>
+              <div class="how-to-details-body">
+                <p>Export from ChatGPT: Settings → Data Controls → Export Data. Extract the ZIP; then <code>knowtation import chatgpt-export /path/to/extracted-folder --output-dir imports/chatgpt --tags chatgpt</code>. Folder must contain <code>conversations.json</code>.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Claude export</summary>
+              <div class="how-to-details-body">
+                <p>Export chat history from Claude (Settings → Privacy → Export). If you have a folder of .md or JSON from a third-party exporter: <code>knowtation import claude-export /path/to/folder --project myproject</code>.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Mem0 export</summary>
+              <div class="how-to-details-body">
+                <p><code>knowtation import mem0-export /path/to/mem0-export.json --project memories</code>. Each memory becomes a vault note with <code>source: mem0</code>.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Notion, Jira, NotebookLM, GDrive, Linear</summary>
+              <div class="how-to-details-body">
+                <p>CLI: <code>knowtation import &lt;source-type&gt; &lt;input&gt;</code> with <code>notion</code>, <code>jira-export</code>, <code>notebooklm</code>, <code>gdrive</code>, <code>linear-export</code>. See <code>docs/IMPORT-SOURCES.md</code> and Settings → Integrations for full list and options (<code>--project</code>, <code>--output-dir</code>, <code>--tags</code>).</p>
+              </div>
+            </details>
+            <p class="how-to-note"><strong>Files / generic:</strong> <code>scripts/capture-file.mjs</code> for stdin or files. Or drop Markdown into <code>vault/inbox/</code> or <code>vault/imports/</code> with frontmatter <code>source</code>, <code>date</code>, <code>project</code>, <code>tags</code>. <code>knowtation import markdown &lt;path&gt;</code> for folders.</p>
           </section>
           <section class="how-to-step">
             <h3><span class="step-num">Step 5</span> Use the Hub and automate with agents</h3>
@@ -536,6 +632,25 @@ knowtation list-notes --project myproject --limit 10 --json
 export KNOWTATION_HUB_TOKEN=&lt;JWT&gt;
 knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</pre></div>
             </div>
+            <div class="integration-card">
+              <h5>AgentCeption</h5>
+              <p>Knowtation is the shared vault and two-step fetch layer for AgentCeption’s planner and engineer agents. One vault path for the whole org; agents search with <code>--limit</code> and <code>--fields path</code>, then <code>get-note</code> only for the paths that matter. Phase summaries write back to the vault.</p>
+              <details class="how-to-details">
+                <summary>Show full setup steps</summary>
+                <div class="how-to-details-body">
+                  <p><strong>Prerequisites:</strong> AgentCeption repo/setup; a folder for the shared vault (e.g. inside the AgentCeption project or a dedicated repo).</p>
+                  <ol class="how-to-steps-list">
+                    <li><strong>Vault and env:</strong> Create or choose vault path. Set <code>KNOWTATION_VAULT_PATH</code> to that path for the planner and for every engineer agent (same path). Optionally set <code>vault_path</code> in <code>config/local.yaml</code>.</li>
+                    <li><strong>Orchestrator / CTO (MCP):</strong> Run <code>knowtation mcp</code> or add the Knowtation MCP server to the Cursor/Claude config used by the planner. Tools: <code>search</code>, <code>get_note</code>, <code>list_notes</code>, <code>write</code>.</li>
+                    <li><strong>Engineer agents (CLI):</strong> In each worktree/agent environment, install the Knowtation CLI and set <code>KNOWTATION_VAULT_PATH</code>. Use <code>knowtation search "..." --project &lt;project&gt; --limit 3 --fields path --json</code>, then <code>knowtation get-note &lt;path&gt; --json</code> for the 1–2 paths that matter.</li>
+                    <li><strong>Write-back:</strong> After phases, pipe summaries into the vault: <code>echo "Phase 1: ..." | knowtation write vault/projects/&lt;project&gt;/decisions/phase-1.md --stdin --frontmatter source=agentception project=&lt;project&gt;</code> or use <code>scripts/write-to-vault.sh</code> with <code>--source agentception --project &lt;project&gt;</code>.</li>
+                    <li><strong>Index:</strong> Run <code>knowtation index</code> after writes so new content is searchable.</li>
+                  </ol>
+                  <p><strong>Optional — Hub and proposals:</strong> If the orchestrator uses the Hub, set <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code>; agents can create proposals for human review before commit.</p>
+                  <p class="how-to-note">Full reference: <code>docs/AGENTCEPTION-HACKATHON-SUBMISSION.md</code> in the repo.</p>
+                </div>
+              </details>
+            </div>
             <p class="how-to-note"><strong>MCP (e.g. Cursor):</strong> If your environment supports MCP, enable the Knowtation MCP server to search and read notes. For writes, combine with the Hub and proposals as above.</p>
           </section>
 
@@ -564,6 +679,33 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <p>After the vault folder is a Git repo: in the Hub set the vault path and backup repo URL in Settings → Backup, click <strong>Save setup</strong>, and <strong>Connect GitHub</strong> so the Hub can push with your token. Then <strong>Back up now</strong> will push. If the first push fails with “no upstream branch”, run once from the vault folder: <code>git push -u origin main</code> (or <code>master</code> if that’s your default branch).</p>
             <p><strong>Setup in the Hub:</strong> Use <strong>Settings</strong> in the Hub header: the Backup tab lets you set the vault path and Git remote (saved to <code>data/hub_setup.yaml</code>, applied immediately). Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI. For push without a deploy key, click <strong>Connect GitHub</strong> in Settings (uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings). Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. Proposals stay Hub-only. See PROVENANCE-AND-GIT.md.</p>
           </section>
+            <h4 class="how-to-sub">Common questions</h4>
+            <details class="how-to-details">
+              <summary>Where do proposals come from?</summary>
+              <div class="how-to-details-body">
+                <p>Proposals are created by the CLI (<code>knowtation propose --hub &lt;url&gt;</code>) or by an agent/LLM calling <code>POST /api/v1/proposals</code>. There is no “Add proposal” button in the Hub by design—you use the Hub to approve or discard what tools and agents suggest.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>How do I back up the vault?</summary>
+              <div class="how-to-details-body">
+                <p>Settings → Backup: set vault path and Git remote URL, click Save setup, then Connect GitHub (so the Hub can push with your token), then Back up now. Or run <code>knowtation vault sync</code> from the CLI. The vault folder must be a Git repo (run <code>git init</code> inside the vault folder once if needed).</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>What if I want to share only some projects or keep personal notes private?</summary>
+              <div class="how-to-details-body">
+                <p>Today, one Hub = one vault. Everyone you invite sees the <strong>entire</strong> vault (viewers read-only, editors can edit). Project and folder filters in the Hub only narrow the list; they do <strong>not</strong> hide notes from teammates.</p>
+                <p><strong>To keep personal and shared separate:</strong> Use <strong>two vaults and two Hub instances</strong>—e.g. one Hub for a shared team vault (invite people there) and a separate Hub or local-only CLI for your personal vault. No code change needed; run each Hub with its own <code>KNOWTATION_VAULT_PATH</code> and port.</p>
+                <p>Scoped access (e.g. “teammate only sees project X”) and multi-vault in a single Hub are not implemented yet. See <code>docs/MULTI-VAULT-AND-SCOPED-ACCESS.md</code> for details and options.</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Where is the JWT for agents?</summary>
+              <div class="how-to-details-body">
+                <p>Log in to the Hub; the app can provide a token for API access (see Settings → Agents or Integrations for “Copy env” or token instructions). Use <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code> in your agent or orchestrator config.</p>
+              </div>
+            </details>
           </div>
         </div>
         <div id="how-to-panel-knowledge-agents" class="how-to-panel" role="tabpanel">

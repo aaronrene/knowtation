@@ -82,10 +82,17 @@ Expects POST with JSON: `{ "content": "message text", "id?", "channel_id?", "pro
 
 ## Telegram
 
-- **Telegram Bot API:** Use a bot that receives messages and forwards them to your capture endpoint. POST body: `{"body": "<message text>", "source": "telegram", "source_id": "<chat_id_message_id>", "project": "optional"}`.
+- **Telegram Bot API:** Use a bot that receives messages and forwards them to your capture endpoint. You can use the dedicated adapter to accept Telegram webhook payloads, or POST the contract directly.
+- **Adapter:** `node scripts/capture-telegram-adapter.mjs --port 3134` — Accepts Telegram Bot API update payloads or simplified JSON `{ "body": "message text", "source_id?", "project?", "tags?" }`. Forwards to `CAPTURE_URL`. Env: `CAPTURE_URL`, `CAPTURE_WEBHOOK_SECRET`.
 - **Zapier / n8n:** “Telegram – New Message” → HTTP POST to Hub capture or webhook.
 
-No dedicated adapter script is required; any small bot or workflow that can HTTP POST to `/api/v1/capture` or `/capture` with the contract above will work.
+---
+
+## WhatsApp
+
+- **WhatsApp Business API:** To bring WhatsApp messages into the vault, use automation or a custom webhook. No dedicated adapter script is shipped.
+- **Zapier / n8n:** Use a "WhatsApp – New Message" trigger and an "HTTP – POST" action. Map message content to `body` and POST to `https://your-hub.example.com/api/v1/capture` with JSON `{"body": "<message text>", "source": "whatsapp", "source_id": "<unique_id>", "project": "optional"}`. Add header `X-Webhook-Secret` if you use `CAPTURE_WEBHOOK_SECRET`.
+- **Custom webhook:** If you run a receiver for WhatsApp Cloud API, normalize the payload to the capture contract (`body`, `source`, `source_id`, `project`, `tags`) and POST to the Hub or to `node scripts/capture-webhook.mjs`.
 
 ---
 

@@ -65,3 +65,11 @@ For now, **invite = share Hub URL (and repo URL if you use a shared backup repo)
 | **What is the phase and plan?** | **Phase 13** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): roles and **invite flow done** (see hub/README.md). Next: optional GitHub-backed access. |
 
 **Invite API:** POST /api/v1/invites body “{ role }” → invite_url; GET /api/v1/invites lists pending; DELETE /api/v1/invites/:token revokes. Invitee opens link and signs in; they are added to roles.
+
+---
+
+## Sharing only part of the vault / multiple vaults
+
+**What if I don't want teammates to see all my personal notes?** Roles (viewer / editor / admin) control **what** someone can do, not **which notes** they can see. Everyone with access to the Hub sees the **same vault**; project and folder filters are for convenience, not access control.
+
+- **Today:** To separate personal and shared content, use **multiple vaults and multiple Hub instances** — e.g. one Hub for a team vault (invite people there) and another Hub or local-only CLI for your personal vault. Each instance uses its own `KNOWTATION_VAULT_PATH` and port. See **[MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md)** for current behavior, options, and what would be needed for scoped access or multi-vault in one Hub.

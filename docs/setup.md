@@ -1,7 +1,7 @@
 # Setup
 
-1. **Copy seed to repo** — See [COPY-TO-REPO.md](../COPY-TO-REPO.md) to create the Knowtation repo and open it in Cursor.
-2. **Config** — Copy `config/local.example.yaml` to `config/local.yaml` and set `vault_path` (absolute path to `vault/`). Optionally set `qdrant_url` and embedding provider. Do not commit `config/local.yaml`.
+1. **Clone and install** — `git clone <repo> && cd knowtation && npm install`. (If you are copying this seed to a new repo instead, see [COPY-TO-REPO.md](../COPY-TO-REPO.md).)
+2. **Config** — Copy `config/local.example.yaml` to `config/local.yaml` and set `vault_path` (absolute path to `vault/`, e.g. `$(pwd)/vault`). For search without Qdrant: set `vector_store: sqlite-vec` and `data_dir: data/`. Optionally set `qdrant_url` and embedding provider. Do not commit `config/local.yaml`.
 3. **Secrets** — Copy `.env.example` to `.env` and set API keys (e.g. `OPENAI_API_KEY` for transcription and optional OpenAI embeddings). `.env` is gitignored and loaded automatically.
 4. **Vault** — Open the `vault/` folder in Obsidian as your vault.
 4. **Index** — Run the indexer once: `knowtation index` or `node scripts/index-vault.mjs` (requires Qdrant at `qdrant_url` and Ollama for default embedding). After indexing, search (Phase 3) will have data.

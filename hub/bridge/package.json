@@ -1,0 +1,17 @@
+{
+  "name": "@knowtation/hub-bridge",
+  "version": "0.1.0",
+  "description": "GitHub connect + Back up now for hosted Knowtation: store token, fetch vault from canister, push to user repo",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

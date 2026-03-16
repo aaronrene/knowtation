@@ -132,10 +132,24 @@ button:hover { border-color: var(--accent); }
 .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1rem; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
 .modal-card { position: relative; width: 100%; max-width: 520px; max-height: 90vh; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-.modal-card-settings { max-width: 680px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; }
-.modal-card-settings .settings-body { overflow: auto; flex: 1; min-height: 0; }
+.modal-card-settings {
+  max-width: 680px;
+  width: 92%;
+  height: 82vh;
+  min-height: 420px;
+  max-height: 82vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.modal-card-settings .settings-body { overflow: auto; flex: 1; min-height: 0; padding-bottom: 1.5rem; }
+.settings-panel { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.settings-panel.active { display: flex; }
+.settings-panel .settings-body { flex: 1; min-height: 280px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
 .modal-header h2 { margin: 0; font-size: 1.1rem; }
+.modal-header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.btn-link-small { font-size: 0.875rem; padding: 0.25rem 0.5rem; }
 .modal-close { border: none; background: transparent; font-size: 1.5rem; line-height: 1; color: var(--muted); padding: 0 0.25rem; }
 .modal-close:hover { color: var(--text); }
 .modal-tabs { display: flex; border-bottom: 1px solid var(--border); }
@@ -272,6 +286,16 @@ button:hover { border-color: var(--accent); }
 .integration-card h5 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--accent); }
 .integration-card p { margin: 0 0 0.5rem; font-size: 0.9rem; line-height: 1.5; }
 .integration-card .example-block { margin-top: 0.5rem; }
+.how-to-details { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.how-to-details summary { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.9rem; color: var(--accent); background: var(--surface); list-style: none; }
+.how-to-details summary:hover { color: var(--text); }
+.how-to-details summary:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.how-to-details summary::-webkit-details-marker { display: none; }
+.how-to-details-body { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.9rem; line-height: 1.5; }
+.how-to-steps-list { margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
+.how-to-steps-list li { margin-bottom: 0.5rem; }
+.settings-list { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.55; }
+.settings-list li { margin-bottom: 0.5rem; }
 .how-to-note { margin-top: 1rem; padding: 0.5rem 0.75rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem; line-height: 1.5; }
 .settings-body { padding: 1rem 1.25rem; }
 .settings-intro { margin: 0 0 1rem; font-size: 0.9rem; color: var(--muted); }
@@ -288,8 +312,6 @@ button:hover { border-color: var(--accent); }
 .settings-tab { padding: 0.65rem 1rem; border: none; background: transparent; color: var(--muted); font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .settings-tab:hover { color: var(--text); }
 .settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.settings-panel { display: none; flex: 1; min-height: 0; overflow: auto; }
-.settings-panel.active { display: flex; flex-direction: column; }
 .how-to-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 1.25rem; }
 .how-to-tab { padding: 0.65rem 1rem; border: none; background: transparent; color: var(--muted); font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .how-to-tab:hover { color: var(--text); }

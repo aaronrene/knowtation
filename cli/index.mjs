@@ -441,7 +441,7 @@ async function main() {
 
   if (subcommand === 'import') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json\n  Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, audio, video (notebooklm, gdrive: stub)');
+      console.log('knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json\n  Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, notion, jira-export, notebooklm, gdrive, linear-export, audio, video');
       process.exit(0);
     }
     const sourceType = args[1];
@@ -449,7 +449,7 @@ async function main() {
     if (!sourceType || !input) {
       exitWithError('knowtation import: provide <source-type> and <input>. See docs/IMPORT-SOURCES.md.', 1, useJson);
     }
-    const validTypes = ['chatgpt-export', 'claude-export', 'mem0-export', 'notebooklm', 'gdrive', 'mif', 'markdown', 'audio', 'video'];
+    const validTypes = ['chatgpt-export', 'claude-export', 'mem0-export', 'notion', 'jira-export', 'notebooklm', 'gdrive', 'linear-export', 'mif', 'markdown', 'audio', 'video'];
     if (!validTypes.includes(sourceType)) {
       exitWithError(`Unknown source-type "${sourceType}". Valid: ${validTypes.join(', ')}.`, 1, useJson);
     }

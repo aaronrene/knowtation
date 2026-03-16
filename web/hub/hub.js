@@ -4,7 +4,10 @@
 
 (function () {
   const params = new URLSearchParams(location.search);
-  const apiBase = params.get('api') || localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333';
+  // Build-time or deployment config: set window.HUB_API_BASE_URL (e.g. from config.js) for hosted/gateway URL
+  const apiBase = typeof window !== 'undefined' && window.HUB_API_BASE_URL
+    ? window.HUB_API_BASE_URL
+    : (params.get('api') || localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333');
   let token = params.get('token') || localStorage.getItem('hub_token');
   if (token) {
     localStorage.setItem('hub_token', token);
@@ -878,18 +881,26 @@
   el('modal-create-backdrop').onclick = closeCreateModal;
   el('modal-create-close').onclick = closeCreateModal;
 
-  function openHowToUse() {
+  function openHowToUse(tabId) {
+    const id = tabId || 'setup';
     el('modal-how-to-use').classList.remove('hidden');
-    document.querySelectorAll('.how-to-tab').forEach((t) => t.classList.toggle('active', t.dataset.howToTab === 'setup'));
-    document.querySelectorAll('.how-to-tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.howToTab === 'setup' ? 'true' : 'false'));
-    document.querySelectorAll('.how-to-panel').forEach((p) => p.classList.toggle('active', p.id === 'how-to-panel-setup'));
+    document.querySelectorAll('.how-to-tab').forEach((t) => t.classList.toggle('active', t.dataset.howToTab === id));
+    document.querySelectorAll('.how-to-tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.howToTab === id ? 'true' : 'false'));
+    document.querySelectorAll('.how-to-panel').forEach((p) => p.classList.toggle('active', p.id === 'how-to-panel-' + id));
   }
   function closeHowToUse() {
     el('modal-how-to-use').classList.add('hidden');
   }
-  if (btnHowToUse) btnHowToUse.onclick = openHowToUse;
+  if (btnHowToUse) btnHowToUse.onclick = () => openHowToUse();
   const btnLoginHowToUse = el('btn-login-how-to-use');
-  if (btnLoginHowToUse) btnLoginHowToUse.onclick = openHowToUse;
+  if (btnLoginHowToUse) btnLoginHowToUse.onclick = () => openHowToUse();
+  const btnSettingsHelp = el('btn-settings-help');
+  if (btnSettingsHelp) {
+    btnSettingsHelp.onclick = () => {
+      closeSettings();
+      openHowToUse('knowledge-agents');
+    };
+  }
   el('modal-how-to-use-backdrop').onclick = closeHowToUse;
   el('modal-how-to-use-close').onclick = closeHowToUse;
 
@@ -1032,7 +1043,7 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
+        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'integrations' && p.id === 'settings-panel-integrations') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
       });
       if (id === 'team') {
         loadTeamRolesList();
@@ -1394,6 +1405,25 @@
           if (typeof showToast === 'function') showToast('User ID copied.');
         }).catch(() => {});
       }
+    };
+  }
+  const btnCopyAgentceptionEnv = el('btn-copy-agentception-env');
+  if (btnCopyAgentceptionEnv) {
+    btnCopyAgentceptionEnv.onclick = () => {
+      const envEl = el('integrations-agentception-env');
+      const text = envEl && envEl.textContent ? envEl.textContent.trim() : '';
+      if (text && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          if (typeof showToast === 'function') showToast('Env snippet copied.');
+        }).catch(() => {});
+      }
+    };
+  }
+  const btnIntegrationsHowToAgentception = el('btn-integrations-how-to-agentception');
+  if (btnIntegrationsHowToAgentception) {
+    btnIntegrationsHowToAgentception.onclick = () => {
+      closeSettings();
+      openHowToUse('setup');
     };
   }
 

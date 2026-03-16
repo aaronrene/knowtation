@@ -289,6 +289,13 @@ app.get('/api/v1/auth/callback/github-connect', async (req, res) => {
   }
 });
 
+// Vault context for multi-vault / canister: optional X-Vault-Id header or vault_id query (Phase 0 / hosted)
+app.use('/api/v1', (req, res, next) => {
+  const raw = req.get('X-Vault-Id') || req.query.vault_id;
+  req.vault_id = typeof raw === 'string' && raw.trim() ? raw.trim() : 'default';
+  next();
+});
+
 // POST /api/v1/capture — webhook for Slack, Discord, etc. (no JWT; optional X-Webhook-Secret)
 app.post('/api/v1/capture', captureAuth, (req, res) => {
   const payload = req.body || {};
@@ -528,6 +535,7 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (
   res.json({
     role: req.user?.role ?? 'member',
     user_id: req.user?.sub ?? '',
+    vault_id: req.vault_id ?? 'default',
     vault_path_display,
     vault_git: {
       enabled: !!vg?.enabled,
