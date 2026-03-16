@@ -82,8 +82,9 @@ After you add the custom domain in 4Everland (Step 3), 4Everland will show a **C
    - **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** (and **GITHUB_*** if you use GitHub login)
 3. Optional: deploy the **bridge** (hub/bridge/) the same way; set **BRIDGE_URL** on the gateway to that URL so the gateway can proxy vault/sync and search.
 4. Note the **gateway URL** and use it in **Step 4** for `HUB_API_BASE_URL`.  
-   In **Google Cloud Console** (and GitHub OAuth app): set the OAuth **callback URL** to  
-   `https://YOUR-GATEWAY-URL/api/v1/auth/callback/google` (and `/callback/github` for GitHub).
+   In **Google Cloud Console** (and GitHub OAuth app): set the OAuth **callback URL** to
+   `https://YOUR-GATEWAY-URL/auth/callback/google` (and `/auth/callback/github` for GitHub). The gateway uses `/auth/callback/...`, not `/api/v1/auth/callback/...`.
+   **Production vs localhost:** If you previously only had localhost callbacks, add the **gateway** URLs above for the live site. **Google:** you can add multiple redirect URIs to the same OAuth client (keep localhost for dev, add the gateway URL)—same client ID/secret. **GitHub:** each app has one callback URL; either change it to the gateway URL for production (localhost login will break until you change it back), or create a second GitHub OAuth App for production with the gateway callback and put that app’s client ID/secret in Netlify so dev and prod use different apps.
 
 ---
 
@@ -132,9 +133,9 @@ The **Hub** is the app at **https://knowtation.store/hub/** (same domain as the 
 **What you need in place**
 
 1. **Gateway deployed** (Step 5) with env: **CANISTER_URL**, **SESSION_SECRET**, **HUB_BASE_URL**, **HUB_UI_ORIGIN**, **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** (and **GITHUB_*** if you want GitHub login). **HUB_CORS_ORIGIN** = `https://knowtation.store` (Step 6).
-2. **OAuth callback URLs** (in Google Cloud Console and GitHub OAuth app) set to your **gateway** URL, e.g.  
-   `https://knowtation-gateway.netlify.app/api/v1/auth/callback/google`  
-   `https://knowtation-gateway.netlify.app/api/v1/auth/callback/github`
+2. **OAuth callback URLs** (in Google Cloud Console and GitHub OAuth app) set to your **gateway** URL, e.g.
+   `https://knowtation-gateway.netlify.app/auth/callback/google`
+   `https://knowtation-gateway.netlify.app/auth/callback/github`
 3. **web/hub/config.js** (Step 4): `window.HUB_API_BASE_URL = 'https://knowtation-gateway.netlify.app';` (or your real gateway URL), committed and deployed so 4Everland serves it.
 
 **How users “set up” their Hub account**

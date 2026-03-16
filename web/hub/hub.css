@@ -304,7 +304,7 @@ button:hover { border-color: var(--accent); }
 }
 .step-what {
   margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
   background: rgba(34, 211, 238, 0.08);
   border-left: 3px solid var(--accent);
   border-radius: 0 6px 6px 0;

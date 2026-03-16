@@ -477,9 +477,51 @@
     }
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+
+    /* Password gate (main site only) */
+    #password-gate {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg); display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    #password-gate.hidden { display: none; }
+    #main-content.gate-locked { display: none; }
+    .gate-form {
+      width: 100%; max-width: 360px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 2rem; text-align: center;
+    }
+    .gate-form h2 { font-family: "Instrument Serif", serif; font-size: 1.75rem; font-weight: 400; margin: 0 0 0.5rem; }
+    .gate-form p { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 1.5rem; }
+    .gate-form input[type="password"] {
+      width: 100%; padding: 0.75rem 1rem; margin-bottom: 1rem;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); font-size: 1rem;
+    }
+    .gate-form input[type="password"]:focus { outline: none; border-color: var(--accent); }
+    .gate-form button {
+      width: 100%; padding: 0.75rem 1rem;
+      background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius);
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    .gate-form button:hover { opacity: 0.9; }
+    .gate-form .gate-error { color: #f87171; font-size: 0.9rem; margin-top: 0.75rem; }
   </style>
 </head>
 <body>
+  <!-- Expected password hash (SHA-256 hex). Default: "knowtation". To change: echo -n 'yourpass' | shasum -a 256 -->
+  <div id="password-gate" aria-label="Site password" data-expected-hash="67aa5b2614155391b604c3f02fc05a56195cf769292eadef46057193b6a78746">
+    <div class="gate-form">
+      <h2>Knowtation</h2>
+      <p>Enter the site password to continue.</p>
+      <form id="gate-form" method="post" action="#" autocomplete="off">
+        <input type="password" id="gate-password" name="password" placeholder="Password" required autofocus>
+        <button type="submit">Continue</button>
+      </form>
+      <p id="gate-error" class="gate-error" role="alert" aria-live="polite" style="display: none;"></p>
+    </div>
+  </div>
+  <div id="main-content" class="gate-locked">
   <!-- Repo: https://github.com/aaronrene/knowtation -->
   <div class="container">
     <header class="hero">
@@ -719,5 +761,59 @@
     <p><a href="https://github.com/aaronrene/knowtation">Knowtation</a> — Data liberation. Your notation, your data, your context.</p>
     <p style="margin-top: 1rem;"><a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper</a> (full narrative in the repo)</p>
   </footer>
+  </div><!-- #main-content -->
+
+  <script>
+  (function () {
+    var gate = document.getElementById('password-gate');
+    var main = document.getElementById('main-content');
+    var form = document.getElementById('gate-form');
+    var input = document.getElementById('gate-password');
+    var errEl = document.getElementById('gate-error');
+    var expectedHash = (gate && gate.getAttribute('data-expected-hash')) || '';
+
+    function showMain() {
+      if (gate) gate.classList.add('hidden');
+      if (main) main.classList.remove('gate-locked');
+    }
+
+    function sha256Hex(str) {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+        .then(function (buf) {
+          return Array.from(new Uint8Array(buf))
+            .map(function (b) { return ('0' + b.toString(16)).slice(-2); })
+            .join('');
+        });
+    }
+
+    if (expectedHash && sessionStorage.getItem('knowtation_site_unlock') === expectedHash) {
+      showMain();
+      return;
+    }
+
+    if (form && expectedHash) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+        var pwd = input && input.value;
+        if (!pwd) return;
+        sha256Hex(pwd).then(function (hash) {
+          if (hash === expectedHash) {
+            sessionStorage.setItem('knowtation_site_unlock', expectedHash);
+            showMain();
+          } else {
+            errEl.textContent = 'Incorrect password.';
+            errEl.style.display = 'block';
+            input.value = '';
+            input.focus();
+          }
+        });
+      });
+    } else {
+      showMain();
+    }
+  })();
+  </script>
 </body>
 </html>

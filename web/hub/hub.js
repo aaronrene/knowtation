@@ -198,6 +198,10 @@
           first.innerHTML =
             '<strong>Could not load OAuth status.</strong> The Hub at <code>' + escapeHtml(location.origin) +
             '</code> is calling itself for the API, but the API runs on the <strong>gateway</strong>. Set <code>window.HUB_API_BASE_URL</code> in <code>web/hub/config.js</code> to your gateway URL (e.g. <code>https://knowtation-gateway.netlify.app</code>), then commit and redeploy so 4Everland serves the updated config.';
+        } else if (isHosted && !sameOrigin) {
+          first.innerHTML =
+            '<strong>Could not reach the gateway.</strong> Sign-in with Google or GitHub will appear once the gateway at <code>' + escapeHtml(apiBase) +
+            '</code> is deployed and allows this site (check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) + '</code>). If the gateway is still deploying on Netlify, wait a few minutes and refresh.';
         } else {
           first.innerHTML =
             '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +

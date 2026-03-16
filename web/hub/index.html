@@ -531,6 +531,8 @@ Knowtation Hub listening on http://localhost:3333</pre>
           <section class="how-to-step">
             <h3><span class="step-num">Step 4</span> Import data into the vault</h3>
             <p class="step-what">What this does: Brings in notes from Slack, files, ChatGPT, or other tools so they appear in the Hub and can be searched.</p>
+            <h4 class="how-to-sub">Integrations at a glance</h4>
+            <p class="how-to-note" style="margin-bottom: 0.5rem;"><strong>Capture (messages → vault):</strong> Slack, Discord, Telegram, WhatsApp (via webhook or Zapier/n8n). <strong>Import (exports → vault):</strong> ChatGPT, Claude, Mem0, Notion, Jira, NotebookLM, Google Drive, Linear, and generic Markdown/files. Expand each source below for setup steps.</p>
             <div class="diagram-box">
               <div class="diagram-title">Where data comes from → where it goes</div>
               <svg class="diagram-svg" viewBox="0 0 420 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -713,16 +715,27 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             </section>
             <section class="how-to-step-inline">
               <h5><span class="step-num">Step B</span> You already have a Git repo for notes</h5>
-              <p>If you point <em>Vault path</em> at a folder that is already a Git repository (e.g. an existing Obsidian vault or notes repo), you do <strong>not</strong> need to run <code>git init</code>. Just set that path and the backup remote in Settings, then use <strong>Back up now</strong>.</p>
+              <p>If you point <em>Vault path</em> at a folder that is already a Git repository (e.g. an existing Obsidian vault or notes repo), you do <strong>not</strong> need to run <code>git init</code>.</p>
+              <ul>
+                <li>Set that path and the backup remote in Settings.</li>
+                <li>Use <strong>Back up now</strong>.</li>
+              </ul>
             </section>
-            <p>After the vault folder is a Git repo: in the Hub set the vault path and backup repo URL in Settings → Backup, click <strong>Save setup</strong>, and <strong>Connect GitHub</strong> so the Hub can push with your token. Then <strong>Back up now</strong> will push. If the first push fails with “no upstream branch”, run once from the vault folder: <code>git push -u origin main</code> (or <code>master</code> if that’s your default branch).</p>
-            <p><strong>Setup in the Hub:</strong> Use <strong>Settings</strong> in the Hub header: the Backup tab lets you set the vault path and Git remote (saved to <code>data/hub_setup.yaml</code>, applied immediately). Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI. For push without a deploy key, click <strong>Connect GitHub</strong> in Settings (uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings). Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. Proposals stay Hub-only. See PROVENANCE-AND-GIT.md.</p>
+            <h4 class="how-to-sub">After the vault is a Git repo — connect and push</h4>
+            <ol class="how-to-steps-list">
+              <li>In the Hub: <strong>Settings → Backup</strong>. Set vault path and backup repo URL, then click <strong>Save setup</strong>.</li>
+              <li>Click <strong>Connect GitHub</strong> so the Hub can push with your token.</li>
+              <li>Click <strong>Back up now</strong>. If the first push fails with "no upstream branch", run once from the vault folder: <code>git push -u origin main</code> (or <code>master</code> if that's your default branch).</li>
+            </ol>
+            <h4 class="how-to-sub">Alternative: config file</h4>
+            <p>Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI.</p>
+            <p class="how-to-note"><strong>Connect GitHub</strong> (push without a deploy key): uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings. Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. See PROVENANCE-AND-GIT.md.</p>
           </section>
             <h4 class="how-to-sub">Common questions</h4>
             <details class="how-to-details">
               <summary>Where do proposals come from?</summary>
               <div class="how-to-details-body">
-                <p>Proposals are created by the CLI (<code>knowtation propose --hub &lt;url&gt;</code>) or by an agent/LLM calling <code>POST /api/v1/proposals</code>. There is no “Add proposal” button in the Hub by design—you use the Hub to approve or discard what tools and agents suggest.</p>
+                <p>Proposals are created by the CLI (<code>knowtation propose --hub &lt;url&gt;</code>) or by an agent/LLM calling <code>POST /api/v1/proposals</code>. There is no "Add proposal" button in the Hub by design—you use the Hub to approve or discard what tools and agents suggest.</p>
               </div>
             </details>
             <details class="how-to-details">
@@ -736,13 +749,13 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
               <div class="how-to-details-body">
                 <p>Today, one Hub = one vault. Everyone you invite sees the <strong>entire</strong> vault (viewers read-only, editors can edit). Project and folder filters in the Hub only narrow the list; they do <strong>not</strong> hide notes from teammates.</p>
                 <p><strong>To keep personal and shared separate:</strong> Use <strong>two vaults and two Hub instances</strong>—e.g. one Hub for a shared team vault (invite people there) and a separate Hub or local-only CLI for your personal vault. No code change needed; run each Hub with its own <code>KNOWTATION_VAULT_PATH</code> and port.</p>
-                <p>Scoped access (e.g. “teammate only sees project X”) and multi-vault in a single Hub are not implemented yet. See <code>docs/MULTI-VAULT-AND-SCOPED-ACCESS.md</code> for details and options.</p>
+                <p>Scoped access (e.g. "teammate only sees project X") and multi-vault in a single Hub are not implemented yet. See <code>docs/MULTI-VAULT-AND-SCOPED-ACCESS.md</code> for details and options.</p>
               </div>
             </details>
             <details class="how-to-details">
               <summary>Where is the JWT for agents?</summary>
               <div class="how-to-details-body">
-                <p>Log in to the Hub; the app can provide a token for API access (see Settings → Agents or Integrations for “Copy env” or token instructions). Use <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code> in your agent or orchestrator config.</p>
+                <p>Log in to the Hub; the app can provide a token for API access (see Settings → Agents or Integrations for "Copy env" or token instructions). Use <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code> in your agent or orchestrator config.</p>
               </div>
             </details>
           </div>
