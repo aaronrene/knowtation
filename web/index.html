@@ -39,9 +39,13 @@
 
     /* Hero */
     .hero {
-      padding: 5rem 0 4rem;
+      padding: 2rem 0 2rem;
       text-align: center;
     }
+    .hero .tagline { margin: 0 auto 0.75rem; }
+    .hero .hero-intent-line { margin: 0 auto 0.75rem; }
+    .hero .token-callout { margin: 0 auto 1rem; }
+    .landing-ecosystem { margin: 1rem auto 0; }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -52,10 +56,11 @@
       border-radius: 999px;
       font-size: 0.8rem;
       font-weight: 600;
-      margin-bottom: 2rem;
+      margin: 0;
       text-decoration: none;
       letter-spacing: 0.02em;
     }
+    .badge-wrap { text-align: center; padding: 1rem 0 1.25rem; }
     .badge:hover { background: rgba(34, 211, 238, 0.25); color: var(--accent); }
     h1 {
       font-family: "Instrument Serif", serif;
@@ -478,6 +483,64 @@
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
 
+    /* Hub-style top fold: title equation + ecosystem rings (same as Hub login) */
+    .hero-title-equation { font-size: clamp(1.5rem, 4vw, 2.25rem); line-height: 1.3; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+    .hero-title-equation .hero-title-main { display: block; font-family: "Instrument Serif", serif; font-weight: 400; font-size: 1.15em; }
+    .hero-title-equation .hero-title-eq { font-family: "Outfit", system-ui, sans-serif; font-weight: 500; color: var(--text-muted); font-size: 0.85em; }
+    .hero-intent-line { font-size: 1rem; color: var(--text-muted); margin: 0 auto 1.5rem; max-width: 32em; line-height: 1.5; }
+    .landing-ecosystem { margin: 2rem auto 0; max-width: 320px; }
+    .landing-ecosystem-rings { position: relative; width: 320px; height: 320px; margin: 0 auto; }
+    .landing-ecosystem-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .landing-ecosystem-svg circle { transition: stroke 0.2s ease; }
+    .landing-ecosystem-center {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      display: flex; flex-direction: column; align-items: center; gap: 0.35rem; z-index: 2;
+      padding: 1.25rem; min-width: 100px; min-height: 90px; box-sizing: border-box;
+    }
+    .landing-ecosystem-core-icon { font-size: 2.75rem; line-height: 1; filter: grayscale(0.15); }
+    .landing-ecosystem-core-label { color: var(--accent); font-weight: 600; font-size: 0.95rem; }
+    .landing-ecosystem-icon {
+      position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin-left: -18px; margin-top: -18px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
+      transform-origin: center center; z-index: 1; opacity: 0.9;
+    }
+    .landing-ecosystem-icon-1 { transform: rotate(0deg) translate(0, -90px); }
+    .landing-ecosystem-icon-2 { transform: rotate(45deg) translate(0, -90px); }
+    .landing-ecosystem-icon-3 { transform: rotate(90deg) translate(0, -90px); }
+    .landing-ecosystem-icon-4 { transform: rotate(135deg) translate(0, -90px); }
+    .landing-ecosystem-icon-5 { transform: rotate(180deg) translate(0, -90px); }
+    .landing-ecosystem-icon-6 { transform: rotate(225deg) translate(0, -90px); }
+    .landing-ecosystem-icon-7 { transform: rotate(270deg) translate(0, -90px); }
+    .landing-ecosystem-icon-8 { transform: rotate(315deg) translate(0, -90px); }
+    .landing-ecosystem-icon-9 { transform: rotate(0deg) translate(0, -135px); }
+    .landing-ecosystem-icon-10 { transform: rotate(30deg) translate(0, -135px); }
+    .landing-ecosystem-icon-11 { transform: rotate(60deg) translate(0, -135px); }
+    .landing-ecosystem-icon-12 { transform: rotate(90deg) translate(0, -135px); }
+    .landing-ecosystem-icon-13 { transform: rotate(120deg) translate(0, -135px); }
+    .landing-ecosystem-icon-14 { transform: rotate(150deg) translate(0, -135px); }
+    .landing-ecosystem-icon-15 { transform: rotate(180deg) translate(0, -135px); }
+    .landing-ecosystem-icon-16 { transform: rotate(210deg) translate(0, -135px); }
+    .landing-ecosystem-icon-17 { transform: rotate(240deg) translate(0, -135px); }
+    .landing-ecosystem-icon-18 { transform: rotate(270deg) translate(0, -135px); }
+    .landing-ecosystem-icon-19 { transform: rotate(300deg) translate(0, -135px); }
+    .landing-ecosystem-icon-20 { transform: rotate(330deg) translate(0, -135px); }
+
+    /* Top bar: sign-in buttons on the right */
+    .landing-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 0.75rem 1.5rem;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .landing-header .cta-signin {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+    .cta-row.cta-row-center { justify-content: center; }
+
     /* Password gate (main site only) */
     #password-gate {
       position: fixed; inset: 0; z-index: 9999;
@@ -522,34 +585,63 @@
     </div>
   </div>
   <div id="main-content" class="gate-locked">
+  <header class="landing-header">
+    <a href="#" id="main-signin-google" class="cta cta-signin" data-provider="google">Sign in with Google</a>
+    <a href="#" id="main-signin-github" class="cta cta-signin" data-provider="github">Sign in with GitHub</a>
+  </header>
   <!-- Repo: https://github.com/aaronrene/knowtation -->
   <div class="container">
     <header class="hero">
-      <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">★ Open source</a>
-      <h1>Knowtation</h1>
-      <p class="tagline">Know and Own your data, context and intent.<br>Portable Markdown vault, search by meaning, and agent-ready MCP and CLI.<br>Your data stays yours.</p>
+      <h2 class="hero-title-equation">
+        <span class="hero-title-main">Knowtation</span>
+        <span class="hero-title-eq">Know + Own + Action</span>
+      </h2>
+      <p class="tagline">Your notes, searchable. One place for you and your agents.</p>
+      <p class="hero-intent-line">Portable vault, semantic search, and a single place for proposals—so you and your agents stay in context.</p>
       <p class="token-callout">Precise so fewer tokens and faster. Fetch only what agents need. Streamlined requests mean lower cost.</p>
-      <div class="ecosystem ecosystem-icons" aria-label="Knowtation at the center of your data access">
-        <div class="ecosystem-icons-row">
-          <span class="ecosystem-icon" title="Cursor">✏️</span>
-          <span class="ecosystem-icon" title="Claude">🤖</span>
-          <span class="ecosystem-icon" title="DeerFlow">🦌</span>
-          <span class="ecosystem-icon" title="Windsurf">🏄</span>
-          <span class="ecosystem-icon" title="MCP">🔌</span>
-          <span class="ecosystem-icon" title="CLI">💻</span>
+      <div class="landing-ecosystem" aria-label="Knowtation at the center of your connections">
+        <div class="landing-ecosystem-rings">
+          <svg class="landing-ecosystem-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle class="hub-ring" cx="160" cy="160" r="90" fill="none" stroke="var(--border)" stroke-width="1"/>
+            <circle class="hub-ring" cx="160" cy="160" r="135" fill="none" stroke="var(--border)" stroke-width="1"/>
+            <circle class="hub-ring" cx="160" cy="160" r="158" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
+          </svg>
+          <div class="landing-ecosystem-center">
+            <span class="landing-ecosystem-core-icon" aria-hidden="true">📁</span>
+            <span class="landing-ecosystem-core-label">Knowtation</span>
+          </div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-1" title="Cursor">✏️</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-2" title="Claude">🤖</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-3" title="DeerFlow">🦌</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-4" title="Windsurf">🏄</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-5" title="MCP">🔌</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-6" title="CLI">💻</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-7" title="Search">🔍</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-8" title="Import">📥</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-9" title="Tags">🏷️</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-10" title="Project">📂</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-11" title="Causal chain">🔗</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-12" title="Time">⏱️</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-13" title="Proposals">📋</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-14" title="GitHub">🐙</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-15" title="API">📡</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-16" title="Vault">🔐</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-17" title="Transcription">🎙️</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-18" title="Sync">🔄</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-19" title="Notes">📝</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-20" title="Export">📤</div>
         </div>
-        <div class="ecosystem-center-wrap">
-          <span class="ecosystem-core-icon" aria-hidden="true">📁</span>
-          <span class="ecosystem-core-label">Knowtation</span>
-        </div>
-        <p class="ecosystem-outcome-line">Your data, accessible everywhere · Precise so fewer tokens and faster</p>
       </div>
-      <div class="cta-row">
-        <a href="https://github.com/aaronrene/knowtation" class="cta" target="_blank" rel="noopener">View repository</a>
-        <a href="/hub/" class="cta cta-secondary">Try Knowtation Hub</a>
+      <div class="cta-row cta-row-center">
+        <a href="/hub/" class="cta cta-secondary">Open Knowtation Hub</a>
+        <a href="https://github.com/aaronrene/knowtation" class="cta cta-secondary" target="_blank" rel="noopener">View repository</a>
       </div>
-      <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Self-host from the repo, or use our hosted setup—ready when you are.</p>
+      <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Sign in above to open your vault in the Hub, or self-host from the repo.</p>
     </header>
+  </div>
+
+  <div class="badge-wrap">
+    <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">★ Open source</a>
   </div>
 
   <section class="mock-section wide">
@@ -813,6 +905,17 @@
     } else {
       showMain();
     }
+  })();
+
+  (function () {
+    var host = typeof location !== 'undefined' && location.hostname;
+    var gateway = (host === 'knowtation.store' || host === 'www.knowtation.store')
+      ? 'https://knowtation-gateway.netlify.app'
+      : (typeof location !== 'undefined' ? location.origin : '');
+    document.querySelectorAll('.cta-signin').forEach(function (a) {
+      var p = a.getAttribute('data-provider');
+      if (gateway && p) a.href = gateway + '/auth/login?provider=' + p;
+    });
   })();
   </script>
 </body>
