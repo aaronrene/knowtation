@@ -1,4 +1,4 @@
-# Knowtation — Whitepaper V2
+# Knowtation — Whitepaper
 
 **Version:** 2.1 (March 2026)  
 **Product:** Knowtation (*know* + *notation*) — personal and team knowledge vault with CLI, optional MCP, indexing, search, and imports.
