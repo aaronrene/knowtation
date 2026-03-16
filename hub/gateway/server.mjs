@@ -99,12 +99,23 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(passport.initialize());
 
-app.use((_req, res, next) => {
-  res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
+// CORS: with credentials, browser rejects *. Use HUB_CORS_ORIGIN (single or comma-separated).
+const corsOrigins = process.env.HUB_CORS_ORIGIN
+  ? process.env.HUB_CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+  : [];
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  const allow =
+    origin && corsOrigins.length > 0 && corsOrigins.includes(origin)
+      ? origin
+      : corsOrigins.length > 0
+        ? corsOrigins[0]
+        : '*';
+  res.set('Access-Control-Allow-Origin', allow);
   res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
   res.set('Access-Control-Allow-Credentials', 'true');
-  if (process.env.HUB_CORS_ORIGIN) res.set('Vary', 'Origin');
+  if (corsOrigins.length > 0) res.set('Vary', 'Origin');
   next();
 });
 
@@ -250,9 +261,14 @@ app.get('/api/v1/health-canister', async (_req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Knowtation Hub Gateway listening on http://localhost:${PORT}`);
-  console.log('  Canister: ' + CANISTER_URL);
-  console.log('  UI origin: ' + HUB_UI_ORIGIN);
-  console.log('  Login: GET /auth/login?provider=google|github');
-});
+// When running on Netlify, the app is imported by netlify/functions/gateway.mjs and not started here.
+if (!process.env.NETLIFY) {
+  app.listen(PORT, () => {
+    console.log(`Knowtation Hub Gateway listening on http://localhost:${PORT}`);
+    console.log('  Canister: ' + CANISTER_URL);
+    console.log('  UI origin: ' + HUB_UI_ORIGIN);
+    console.log('  Login: GET /auth/login?provider=google|github');
+  });
+}
+
+export { app };

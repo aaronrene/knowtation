@@ -79,6 +79,7 @@ After you add the custom domain in 4Everland (Step 3), 4Everland will show a **C
    - **SESSION_SECRET** = a long random string (for JWT signing)
    - **HUB_BASE_URL** = your gateway’s public URL (e.g. `https://knowtation-gateway.netlify.app`)
    - **HUB_UI_ORIGIN** = `https://knowtation.store`
+   - **HUB_CORS_ORIGIN** = `https://knowtation.store,https://www.knowtation.store` (required for Hub on a different domain; without it the Hub shows “Could not reach the gateway” and no sign-in buttons)
    - **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** (and **GITHUB_*** if you use GitHub login)
 3. Optional: deploy the **bridge** (hub/bridge/) the same way; set **BRIDGE_URL** on the gateway to that URL so the gateway can proxy vault/sync and search.
 4. Note the **gateway URL** and use it in **Step 4** for `HUB_API_BASE_URL`.  
@@ -88,13 +89,17 @@ After you add the custom domain in 4Everland (Step 3), 4Everland will show a **C
 
 ---
 
-## Step 6 — CORS (if the Hub and gateway are on different domains)
+## Step 6 — CORS (required when Hub and gateway are on different domains)
 
-If the Hub is at **https://knowtation.store** and the gateway is at **https://something.netlify.app**, set on the **gateway** host:
+The Hub (e.g. **https://knowtation.store/hub/**) calls the gateway from the browser. With credentials, the gateway **must** send an explicit `Access-Control-Allow-Origin` (not `*`). If **HUB_CORS_ORIGIN** is not set in Netlify, the Hub will show “Could not reach the gateway” and no Google/GitHub sign-in buttons.
 
-- **HUB_CORS_ORIGIN** = `https://knowtation.store`
+**In Netlify** (Site → Site configuration → Environment variables), add:
 
-So the browser allows the Hub to call the gateway.
+- **HUB_CORS_ORIGIN** = `https://knowtation.store,https://www.knowtation.store`
+
+(Use one or both origins depending on how users reach your site. Comma-separated list is supported.)
+
+Then **Save** and **Trigger deploy** (or wait for the next deploy) so the gateway uses the new env.
 
 ---
 
