@@ -1,0 +1,12 @@
+# Knowtation: gateway runs as a Netlify serverless function; static site is on 4Everland.
+[build]
+  command = "mkdir -p public && cd hub/gateway && npm ci"
+  functions = "netlify/functions"
+  publish = "public"
+
+# Send all requests to the gateway (OAuth + proxy to canister). Omit publish if you only deploy the gateway.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/gateway"
+  status = 200
+  force = true
