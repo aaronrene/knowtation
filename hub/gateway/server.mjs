@@ -154,8 +154,8 @@ app.get(
   passport.authenticate('google', { session: false }),
   (req, res) => {
     const token = issueToken(req.user);
-    if (!token) return res.redirect(HUB_UI_ORIGIN + '/?auth_error=1');
-    res.redirect(`${HUB_UI_ORIGIN}/?token=${encodeURIComponent(token)}`);
+    if (!token) return res.redirect(HUB_UI_ORIGIN + '/hub/?auth_error=1');
+    res.redirect(`${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`);
   }
 );
 app.get(
@@ -163,8 +163,8 @@ app.get(
   passport.authenticate('github', { session: false }),
   (req, res) => {
     const token = issueToken(req.user);
-    if (!token) return res.redirect(HUB_UI_ORIGIN + '/?auth_error=1');
-    res.redirect(`${HUB_UI_ORIGIN}/?token=${encodeURIComponent(token)}`);
+    if (!token) return res.redirect(HUB_UI_ORIGIN + '/hub/?auth_error=1');
+    res.redirect(`${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`);
   }
 );
 
