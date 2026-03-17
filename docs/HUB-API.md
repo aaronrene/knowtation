@@ -111,15 +111,17 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 
 ### 3.4 Proposals
 
-- **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?" }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
+**Variation protocol (Muse-aligned).** Proposals implement a variation lifecycle compatible with [Muse](https://github.com/cgcardona/muse): **identifiers** — `proposal_id` (variation id), `base_state_id` (optional, for optimistic concurrency); **intent** — human- or agent-readable reason for the change; **lifecycle** — propose → review → approve or discard. We do not run Muse; we align our API and payload so we can interoperate or adopt Muse later. Optional `external_ref` (e.g. future Muse commit id) may be added for cross-system references.
+
+- **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?", "external_ref?" }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
   **Response:** `{ "proposal_id": "...", "path": "...", "status": "proposed" }`.  
   **400** if invalid.
 
 - **GET /proposals** — List proposals. Query: `status` (e.g. `proposed`, `approved`, `discarded`), `limit`, `offset`.  
-  **Response:** `{ "proposals": [ { "proposal_id", "path", "status", "intent?", "base_state_id?", "created_at?", "updated_at?" } ], "total": number }`.
+  **Response:** `{ "proposals": [ { "proposal_id", "path", "status", "intent?", "base_state_id?", "external_ref?", "created_at?", "updated_at?" } ], "total": number }`.
 
 - **GET /proposals/:id** — Get one proposal (metadata + proposed content).  
-  **Response:** `{ "proposal_id", "path", "status", "intent?", "base_state_id?", "body?", "frontmatter?", "created_at?", "updated_at?" }`.  
+  **Response:** `{ "proposal_id", "path", "status", "intent?", "base_state_id?", "external_ref?", "body?", "frontmatter?", "created_at?", "updated_at?" }`.  
   **404** if not found.
 
 - **POST /proposals/:id/approve** — Apply proposal to vault. Optional body: `{ "base_state_id?" }` for optimistic concurrency check.  

@@ -8,7 +8,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. **Phase 13 invite** implemented: create invite link (Settings → Team), invitee signs in via link and is added to role; pending list and revoke. **Landing (web/)** refreshed and enhanced (ecosystem, token savings, dual CTA, #hosted, knowtation.store). **Guided Setup in Hub** and **Help in Settings** done. **Hosted (canister) product — code complete:** Phase 0 (vault_id, canister auth doc, Hub API URL config); Phase 1 canister (`hub/icp/` Motoko: vault, proposals, export); Phase 2 gateway (`hub/gateway/`: OAuth, proxy to canister with X-User-Id); Phase 3 bridge (`hub/bridge/`: Connect GitHub, Back up now); Phase 4 bridge (index + search); Phase 5 docs (DEPLOY-HOSTED, CANISTER-AND-SINGLE-URL, single URL knowtation.store). **Deploy pending:** dfx deploy canister, 4Everland for web/, Netlify (or Node host) for gateway/bridge, DNS (knowtation.store). **Phase 14 (Two-path launch):** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in TWO-PATHS-HOSTED-AND-SELF-HOSTED.md); beta disclaimer on landing and Hub. Hosting = beta, free until Phase 16 (credits). **Hosted parity:** Not yet done; hosted path currently returns 404 for roles, invites, and POST setup (canister does not implement them). See **[PARITY-PLAN.md](./PARITY-PLAN.md)** for phased work to bring hosting up to parity with self-hosted before deploy. **Multi-vault:** Not implemented; design in MULTI-VAULT-AND-SCOPED-ACCESS.md; Phase 15. **Phase 12 (blockchain):** Reserved in SPEC and BLOCKCHAIN-AND-AGENT-PAYMENTS.md; implement separately when needed.
 
-**Status for next session:** See **[STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md)** and **[PARITY-PLAN.md](./PARITY-PLAN.md)**. **Next step:** **Hosted parity** (Phase 1 of Parity Plan: gateway stubs for roles, invites, POST setup) so Settings → Team and Setup work on hosted; then deploy hosted; then Phase 15 (multi-vault) or Phase 16 (credits) when ready.
+**Status for next session:** See **[STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md)** and **[PARITY-PLAN.md](./PARITY-PLAN.md)**. **Next step:** **Option B (Muse protocol alignment)** first — document variation protocol and canister extensibility; then **hosted parity** (Phase 1 of Parity Plan); then deploy hosted; then Phase 15 (multi-vault) or Phase 16 (credits) when ready.
 
 ---
 
@@ -17,11 +17,29 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | Step | What | When |
 |------|------|------|
 | **Done** | Phase 13 invite, Landing refresh + enhancement, Help in Settings, Guided Setup. **Hosted (canister):** Phases 0–5 code and docs. **Phase 14 (Two-path launch):** Split messaging (Use in cloud beta / Run it yourself), Quick start doc, beta disclaimer; hosting = beta, free until Phase 16. | Done. |
-| **Next** | **Hosted parity (Phase 1):** Gateway stubs for GET/POST /api/v1/roles, GET/POST/DELETE /api/v1/invites, POST /api/v1/setup so Settings → Team and Setup don’t 404 on hosted. See [PARITY-PLAN.md](./PARITY-PLAN.md). | Next. |
+| **Next (first)** | **Option B — Muse protocol alignment:** Document the variation protocol (baseStateId, intent, lifecycle) and ensure canister proposal metadata stays extensible (optional fields for future Muse refs, e.g. muse_commit_id / external_ref). No Muse runtime; we align our contract with [Muse](https://github.com/cgcardona/muse) so we stay compatible. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2. | Do first. |
+| **Then** | **Hosted parity (Phase 1):** Gateway stubs for GET/POST /api/v1/roles, GET/POST/DELETE /api/v1/invites, POST /api/v1/setup, GET /api/v1/notes/facets so Settings → Team, Setup, and filter dropdowns don’t 404 on hosted. See [PARITY-PLAN.md](./PARITY-PLAN.md). | After Option B. |
 | **Then** | **Deploy hosted:** dfx deploy canister; 4Everland (web/); Netlify (gateway + bridge); DNS knowtation.store. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md). | After parity. |
 | **Later** | **Phase 15:** Multi-vault (see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md)). **Phase 16:** Hosted credits / pay-as-you-go. **Phase 12:** Blockchain in a separate session when needed. | Backlog. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
+
+### Option B (Muse protocol alignment) — do first
+
+**Concrete tasks:**
+
+- [x] **Document the variation protocol** in [HUB-API.md](./HUB-API.md) §3.4 Proposals: add "Variation protocol (Muse-aligned)" — identifiers (`proposal_id`, `base_state_id`), `intent`, optional `external_ref`, lifecycle (propose → review → approve/discard). State alignment with [Muse](https://github.com/cgcardona/muse); no Muse runtime.
+- [x] **Canister extensibility:** Add `base_state_id` and `external_ref` (both `Text`, default `""`) to `ProposalRecord` in [hub/icp/src/hub/main.mo](hub/icp/src/hub/main.mo). Parse on POST /proposals; include in GET /proposals and GET /proposals/:id responses.
+- [x] **No Muse runtime** — we do not run or depend on Muse; protocol alignment only.
+
+**Upgrade note:** If the canister was deployed before Option B with existing proposals, upgrading adds the new fields; Motoko stable storage may require a migration or re-deploy depending on runtime behavior. For fresh deploys, no migration needed.
+
+### Recommended next steps (after Option B)
+
+1. **Complete Phase 1 parity** — Add GET /api/v1/notes/facets stub in gateway if not already present; verify all Phase 1 stubs (roles, invites, POST setup, import 501) are in place. See [PARITY-PLAN.md](./PARITY-PLAN.md).
+2. **Deploy hosted** — Merge parity branch; trigger Netlify rebuild for gateway; no canister redeploy unless hub/icp code changed. See [DEPLOY-STEPS-ONE-PAGE.md](./DEPLOY-STEPS-ONE-PAGE.md) and "Already deployed" path if canister + Netlify already exist.
+3. **Suggested prompts for agents** (optional) — Add a Hub section or doc (e.g. SUGGESTED-AGENT-PROMPTS.md) with example prompts, commands, and reasoning strings for agents; backlog in IMPLEMENTATION-PLAN.
+4. **Issues #1 and #2** — Capture requirements from GitHub issues into a backlog section or doc so we can implement when ready.
 
 ### Phase 11.1 and follow-on: order and status
 
@@ -574,5 +592,12 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 - **Evals:** SPEC §12 and INTENTION-AND-TEMPORAL reserve `knowtation eval` and eval set format. After core retrieval is stable, an optional Evals phase (golden set, accuracy/grounding) can be added; not blocking for first release.
 - **Open source hygiene:** LICENSE (e.g. MIT), CONTRIBUTING (how to run tests, PR expectations), optional code-of-conduct and issue/PR templates. Phase 10 mentions COPY-TO-REPO and LICENSE; ensure no secrets or credentials in repo (user rule).
 - **Performance:** Index size and search latency depend on vault size and vector store. Document when to re-index (after bulk import, after model change); optional "Operational notes" in docs if needed.
+
+**Future / out of scope (note here; implement in a later phase or when needed):**
+
+- **Rate limiting:** Gateway and Hub API do not yet enforce rate limits. Add in a later phase (e.g. per-IP or per-user) for production hardening.
+- **API keys for server-to-server:** JWT from OAuth only today. Optional "Developer" or "API access" in Settings to issue long-lived API keys for scripts/agents; document in HUB-API when added.
+- **Muse Option A (Muse as backend):** Out of scope for current plan. Implement only when there is a concrete need (e.g. partner using Muse, or shared DAG with other Muse agents). See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2.
+- **Canister proposal migration:** If the canister was deployed before Option B with existing proposals, upgrade to the new ProposalRecord (base_state_id, external_ref) may require migration or re-deploy; document in deploy notes when we have a procedure.
 
 You can implement phases in sequence (1 → 2 → … → 11) or parallelize 5, 6, 7 after 4. Phases 11 and 12 are optional. This plan ensures the full product is built with no scope left unspecified; Phase 12 reserves blockchain/wallets/agent payments so we don’t backtrack when agents adopt wallets and on-chain activity.
