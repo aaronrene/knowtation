@@ -85,7 +85,13 @@ function issueToken(user) {
   const sub = userId(user);
   if (!sub) return null;
   return jwt.sign(
-    { sub, provider: user.provider, id: user.id },
+    {
+      sub,
+      provider: user.provider,
+      id: user.id,
+      name: user.displayName ?? '',
+      role: 'member',
+    },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -221,6 +227,31 @@ function getUserId(req) {
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   return token ? verifyToken(token) : null;
 }
+
+// GET /api/v1/settings and GET /api/v1/setup — hosted stub (canister does not implement these)
+app.get('/api/v1/settings', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({
+    role: 'member',
+    user_id: uid,
+    vault_id: 'default',
+    vault_path_display: 'Canister',
+    vault_git: { enabled: false, has_remote: false, auto_commit: false, auto_push: false },
+    github_connect_available: Boolean(BRIDGE_URL),
+    github_connected: false,
+    embedding_display: { provider: '—', model: '—', ollama_url: '—' },
+  });
+});
+
+app.get('/api/v1/setup', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({
+    vault_path: '',
+    vault_git: { enabled: false, remote: '' },
+  });
+});
 
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);

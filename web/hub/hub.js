@@ -1006,8 +1006,14 @@
         if (el('agents-embedding-ollama-url')) el('agents-embedding-ollama-url').textContent = ed.ollama_url || '—';
       })
       .catch(() => {
+        const roleEl = el('settings-role-display');
+        if (roleEl) roleEl.textContent = '—';
+        const userIdEl = el('settings-user-id');
+        if (userIdEl) userIdEl.textContent = '—';
         el('settings-vault-display').textContent = '—';
         el('settings-git-status').textContent = 'Could not load';
+        const ghStatus = el('settings-github-status');
+        if (ghStatus) ghStatus.textContent = '—';
         if (el('btn-settings-sync')) el('btn-settings-sync').disabled = true;
       });
     api('/api/v1/setup')

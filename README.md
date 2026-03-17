@@ -60,6 +60,7 @@ knowtation/
 ## Docs
 
 - **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** — **Getting started:** clone → config → index → search; optional Hub, landing, MCP; **AgentCeption** integration with examples.
+- **[docs/STATUS-HOSTED-AND-PLANS.md](./docs/STATUS-HOSTED-AND-PLANS.md)** — **Status:** canister/hosted (Phases 0–5 code done, deploy pending), multi-vault (not implemented), Phase 12 blockchain (reserved, separate).
 - **[docs/WHITEPAPER.md](./docs/WHITEPAPER.md)** — **Whitepaper:** why fragmented knowledge and weak retrieval motivate a portable vault; Knowtation’s thesis (data liberation, CLI/MCP, indexing); who it’s for; questions for builders. Landing page links here from [web/index.html](./web/index.html).
 - **[docs/SPEC.md](./docs/SPEC.md)** — **Spec:** frontmatter, inbox contract, CLI (all commands/flags including `import`), config, indexer, MCP, memory/AIR hooks, import sources, versioning.
 - **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** — **Final document: all phases** (1–11). Core (1–10) + optional Phase 11 (shared vault / hub). Phases 1–9 implemented.

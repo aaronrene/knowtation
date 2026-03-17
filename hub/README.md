@@ -33,13 +33,20 @@ There is **no separate “Sign up”**. Identity is **Google or GitHub**: the fi
 ### Google
 
 1. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → **Credentials** → **Create credentials** → **OAuth client ID** (configure consent screen if asked). Application type: **Web application**.
-2. **Authorized redirect URIs** (exact):  
-   `http://localhost:3333/api/v1/auth/callback/google`  
-   (For production, add your real Hub URL too.)
+2. **Authorized redirect URIs** must match **exactly** what the server sends (scheme, host, port, path). There are two stacks:
+   - **This server** (`npm run hub`, port **3333** by default):  
+     `http://localhost:3333/api/v1/auth/callback/google`  
+   - **Gateway** (hosted OAuth; see [hub/gateway/README.md](./gateway/README.md)): path is **`/auth/callback/google`**, not `/api/v1/...`. Example local gateway on port 3340:  
+     `http://localhost:3340/auth/callback/google`  
+     If you run the gateway on port **3333**, set **`HUB_BASE_URL=http://localhost:3333`** and add **`http://localhost:3333/auth/callback/google`** to Google.  
+     Production gateway: `https://YOUR-GATEWAY-HOST/auth/callback/google`.
+   You can add **multiple** redirect URIs to one OAuth client (local full Hub + local gateway + production).
 3. Copy **Client ID** and **Client secret** into `.env`:  
    `GOOGLE_CLIENT_ID=...`  
    `GOOGLE_CLIENT_SECRET=...`  
 4. Restart `npm run hub` and open `http://localhost:3333/` → **Continue with Google**.
+
+**Error 400: `redirect_uri_mismatch`:** The URI Google receives is not in the list above. Compare with what your process uses: full Hub → `/api/v1/auth/callback/google`; gateway → `/auth/callback/google`. Port must match **`HUB_BASE_URL`** (gateway) or **`HUB_PORT`** (full Hub).
 
 ### GitHub
 

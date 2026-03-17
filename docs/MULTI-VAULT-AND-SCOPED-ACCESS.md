@@ -1,5 +1,7 @@
 # Multiple vaults and scoped access
 
+*(Also **split vault**: splitting personal vs shared content, or multiple vaults in one place.)*
+
 This doc answers: **What if I invite a teammate but don’t want them to see all my personal notes? How do we differentiate shared vs private content? Do we support multiple vaults, or filters/gates?**
 
 ---
@@ -88,3 +90,16 @@ None of this is implemented; the codebase is **not** currently set up for (1) or
 | **Are we set up for multiple vaults?** | **Yes** in the sense that you can run multiple instances (each with its own vault path). **No** in the sense that a single Hub cannot serve or switch between multiple vaults; that would require new design and implementation. |
 
 See **TEAMS-AND-COLLABORATION.md** for roles and invite flow; **SPEC.md** for single vault root; **ARCHITECTURE.md** for “one vault, many projects” and filters.
+
+---
+
+## Finishing multi-vault in a later session (implementation checklist)
+
+**Status:** Design and current behavior are documented above; **no code yet** for multiple vaults per Hub or scoped visibility.
+
+**When implementing:**
+
+1. Choose direction from "If we add multi-vault later" (e.g. multiple vaults per instance with vault list in config/setup, or one vault with scoped visibility by project/folder).
+2. Add a dedicated phase to **IMPLEMENTATION-PLAN.md** (e.g. Phase 13.1 "Multi-vault / split vault") with concrete deliverables.
+3. Implement in order: config/setup (vault list or scope rules) → backend scoping (list/search/get by vault or scope) → Hub UI (vault switcher or scope hints). For canister/hosted, extend canister and gateway to honor `vault_id` beyond the current default.
+4. Update **STATUS-HOSTED-AND-PLANS.md** and this doc when done.

@@ -112,6 +112,26 @@ Then **Save** and **Trigger deploy** (or wait for the next deploy) so the gatewa
 
 ---
 
+## If you see "redirect_uri_mismatch" or "not authorized"
+
+**Two different servers use two different callback paths.** Add the **exact** redirect URI for each place you sign in.
+
+| Where you sign in | Server | Redirect URI (Google example) |
+|-------------------|--------|----------------------------------|
+| **localhost** full Hub (`npm run hub`, port 3333) | hub/server.mjs | `http://localhost:3333/api/v1/auth/callback/google` |
+| **localhost** gateway (`hub/gateway`, set `HUB_BASE_URL` to match port) | Gateway | `http://localhost:3340/auth/callback/google` **or** `http://localhost:3333/auth/callback/google` — must match **`HUB_BASE_URL`** + `/auth/callback/google` (not `/api/v1/`) |
+| **Live site** (knowtation.store/hub/) | Netlify gateway | `https://YOUR-GATEWAY-URL/auth/callback/google` |
+
+Gateway uses **`/auth/callback/...`** (no `/api/v1/`). Full Hub uses **`/api/v1/auth/callback/...`**.
+
+If you only added the **full Hub** localhost URI (`/api/v1/...`) but you sign in against the **gateway** on port 3333, Google will show **Error 400: redirect_uri_mismatch** — add **`http://localhost:3333/auth/callback/google`** (same port as **`HUB_BASE_URL`** in `.env` for the gateway).
+
+**Google:** Cloud Console → Credentials → your OAuth client → **Authorized redirect URIs**. Add every URI you use (local full Hub + local gateway + production). No trailing slash. Save.  
+**GitHub:** One callback per app—use the gateway URL for production, or a second GitHub OAuth App for prod with its ID/secret in Netlify.  
+After changing URIs, try signing in again (no redeploy needed).
+
+---
+
 ## Password protection (keep site private until launch)
 
 4Everland does **not** offer built-in password protection for static hosting. To restrict access to **knowtation.store** (landing + Hub) until you’re ready to go public, use one of these:

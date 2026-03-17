@@ -19,6 +19,9 @@ test/fixtures/tmp-*/
 vault/.obsidian/workspace*
 vault/.trash/
 
+# DFX local build (do not commit)
+hub/icp/.dfx/
+
 # Node
 node_modules/
 

@@ -26,6 +26,21 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 | **HUB_CORS_ORIGIN** | No | CORS Allow-Origin (default `*`). Set to Hub UI origin in production. |
 | **HUB_JWT_EXPIRY** | No | JWT expiry (default `7d`). |
 
+## Google OAuth — redirect URI (fixes `redirect_uri_mismatch`)
+
+Passport uses **`callbackURL = HUB_BASE_URL + '/auth/callback/google'`** (not `/api/v1/...`). The full Node Hub under `hub/server.mjs` uses `/api/v1/auth/callback/google`; the gateway does **not**.
+
+In **Google Cloud Console** → OAuth client → **Authorized redirect URIs**, add the URI that matches **`HUB_BASE_URL`**:
+
+| If you run gateway on | Set `HUB_BASE_URL` | Add this exact URI in Google |
+|----------------------|--------------------|------------------------------|
+| Default (3340) | `http://localhost:3340` | `http://localhost:3340/auth/callback/google` |
+| 3333 | `http://localhost:3333` | `http://localhost:3333/auth/callback/google` |
+
+Production: `https://YOUR-GATEWAY-URL/auth/callback/google` (no trailing slash).
+
+If Google only has `http://localhost:3333/api/v1/auth/callback/google` (full Hub) and you log in via the **gateway**, the request fails with **Error 400: redirect_uri_mismatch** — add the `/auth/callback/google` URI for the port you use.
+
 ## Run locally
 
 ```bash
@@ -39,7 +54,7 @@ export GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
 npm start
 ```
 
-Point the Hub UI at `http://localhost:3340` (e.g. `?api=http://localhost:3340` or set `window.HUB_API_BASE_URL`). Login will redirect to Google/GitHub and back; then all API calls go through the gateway to the canister with X-User-Id.
+Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_BASE_URL = 'http://localhost:3340'`). Login will redirect to Google/GitHub and back; then all API calls go through the gateway to the canister with X-User-Id.
 
 ## Deploy (e.g. Netlify)
 

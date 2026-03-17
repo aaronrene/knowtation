@@ -10,10 +10,13 @@ import Blob "mo:base/Blob";
 import Char "mo:base/Char";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
+import Int "mo:base/Int";
 import Nat "mo:base/Nat";
 import Option "mo:base/Option";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+
+persistent actor Hub {
 
 // --- HTTP types (IC gateway) ---
 type Header = (Text, Text);
@@ -58,33 +61,38 @@ type ProposalRecord = {
   updated_at : Text;
 };
 
-// Stable storage: user_id -> [(path, (frontmatter, body))], user_id -> [ProposalRecord]
-stable var vaultEntries : [(Text, [(Text, (Text, Text))])] = [];
-stable var proposalEntries : [(Text, [ProposalRecord])] = [];
+// Single stable var (avoids DFX 0.30.2 parser bug with consecutive "stable var" lines)
+type StableStorage = {
+  vaultEntries : [(Text, [(Text, (Text, Text))])];
+  proposalEntries : [(Text, [ProposalRecord])];
+};
+var storage : StableStorage = { vaultEntries = []; proposalEntries = [] };
 
-var vaults = HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>(10, Text.equal, Text.hash);
-var proposals = HashMap.HashMap<Text, [ProposalRecord]>(10, Text.equal, Text.hash);
+transient var vaults = HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>(10, Text.equal, Text.hash);
+transient var proposals = HashMap.HashMap<Text, [ProposalRecord]>(10, Text.equal, Text.hash);
 
 func loadStable() {
-  for ((uid, entries) in Array.vals(vaultEntries)) {
+  for ((uid, entries) in Array.vals(storage.vaultEntries)) {
     let m = HashMap.HashMap<Text, (Text, Text)>(10, Text.equal, Text.hash);
     for ((path, fmBody) in Array.vals(entries)) {
       m.put(path, fmBody);
     };
     vaults.put(uid, m);
   };
-  for ((uid, list) in Array.vals(proposalEntries)) {
+  for ((uid, list) in Array.vals(storage.proposalEntries)) {
     proposals.put(uid, list);
   };
 };
 
 func saveStable() {
-  vaultEntries := Iter.toArray(Iter.map(vaults.entries(), func((uid, m) : (Text, HashMap.HashMap<Text, (Text, Text)>)) {
-    (uid, Iter.toArray(m.entries()))
-  }));
-  proposalEntries := Iter.toArray(Iter.map(proposals.entries(), func((uid, list) : (Text, [ProposalRecord])) {
-    (uid, list)
-  }));
+  storage := {
+    vaultEntries = Iter.toArray(Iter.map<((Text, HashMap.HashMap<Text, (Text, Text)>)), (Text, [(Text, (Text, Text))])>(vaults.entries(), func((uid, m) : (Text, HashMap.HashMap<Text, (Text, Text)>)) : (Text, [(Text, (Text, Text))]) {
+      (uid, Iter.toArray(m.entries()))
+    }));
+    proposalEntries = Iter.toArray(Iter.map<((Text, [ProposalRecord])), (Text, [ProposalRecord])>(proposals.entries(), func((uid, list) : (Text, [ProposalRecord])) : (Text, [ProposalRecord]) {
+      (uid, list)
+    }));
+  };
 };
 
 loadStable();
@@ -94,8 +102,8 @@ func charToLower(c : Char) : Char {
 };
 func getHeader(req : HttpRequest, name : Text) : ?Text {
   let lower = Text.map(name, charToLower);
-  Array.find(req.headers, func(h : Header) { Text.map(h.0, charToLower) == lower })
-  |> Option.map(_, func(h : Header) { h.1 });
+  Array.find<Header>(req.headers, func(h : Header) : Bool { Text.map(h.0, charToLower) == lower })
+  |> Option.map<Header, Text>(_, func(h : Header) : Text { h.1 });
 };
 
 func userId(req : HttpRequest) : Text {
@@ -119,7 +127,7 @@ func corsHeaders() : [Header] {
   ];
 };
 
-func jsonBody(s : Text) : Blob { Blob.fromArray(Text.toUtf8(s)) };
+func jsonBody(s : Text) : Blob { Text.encodeUtf8(s) };
 
 func parsePath(url : Text) : (Text, Text) {
   let pathParts = Iter.toArray(Text.split(url, #char '?'));
@@ -164,18 +172,42 @@ func setProposalsList(uid : Text, list : [ProposalRecord]) {
   proposals.put(uid, list);
 };
 
+// Helpers for text slice and find (base library has no Text.sub / Text.find returning position).
+func textSlice(t : Text, start : Nat, len : Nat) : Text {
+  let arr = Text.toArray(t);
+  var out = "";
+  var i = start;
+  var n : Nat = 0;
+  while (n < len and i < arr.size()) {
+    out := out # Text.fromChar(arr[i]);
+    i += 1;
+    n += 1;
+  };
+  out;
+};
+func textFind(t : Text, needle : Text) : ?Nat {
+  var i : Nat = 0;
+  let nsize = Text.size(needle);
+  let tsize = Text.size(t);
+  while (i + nsize <= tsize) {
+    if (textSlice(t, i, nsize) == needle) { return ?i };
+    i += 1;
+  };
+  null;
+};
+
 // Minimal JSON: extract string value for key (finds "\"key\":\"...\"").
 func extractJsonString(body : Text, key : Text) : ?Text {
   let needle = "\"" # key # "\":\"";
-  switch (Text.find(body, #text needle)) {
+  switch (textFind(body, needle)) {
     case null { null };
     case (?start) {
       var i = start + Text.size(needle);
       var out = "";
       while (i < Text.size(body)) {
-        let c = Text.sub(body, i, 1);
+        let c = textSlice(body, i, 1);
         if (c == "\\" and i + 1 < Text.size(body)) {
-          out := out # Text.sub(body, i, 2);
+          out := out # textSlice(body, i, 2);
           i += 2;
         } else if (c == "\"") {
           return ?out;
@@ -193,7 +225,7 @@ func escapeJson(s : Text) : Text {
   var out = "";
   var i : Nat = 0;
   while (i < Text.size(s)) {
-    let c = Text.sub(s, i, 1);
+    let c = textSlice(s, i, 1);
     if (c == "\\") { out := out # "\\\\"; i += 1 }
     else if (c == "\"") { out := out # "\\\""; i += 1 }
     else if (c == "\n") { out := out # "\\n"; i += 1 }
@@ -267,7 +299,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
 
   if (pathKind == "proposal" and req.method == "GET") {
     let list = getProposalsList(uid);
-    switch (Array.find(list, func(p : ProposalRecord) { p.proposal_id == pathArg })) {
+    switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
         let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
@@ -288,7 +320,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
 public func http_request_update(req : HttpRequest) : async HttpResponse {
   let uid = userId(req);
   let (pathKind, pathArg) = parsePath(req.url);
-  let bodyText = if (req.body.size() > 0) { Text.fromUtf8(Blob.toArray(req.body)) } else { "{}" };
+  let bodyText = if (req.body.size() > 0) { Option.get(Text.decodeUtf8(req.body), "{}") } else { "{}" };
 
   if (pathKind == "notes" and req.method == "POST") {
     let vault = getVault(uid);
@@ -304,11 +336,11 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "proposals" and req.method == "POST") {
-    let path = Option.get(extractJsonString(bodyText, "path"), "inbox/proposal-" # Nat.toText(Time.now()) # ".md");
+    let path = Option.get(extractJsonString(bodyText, "path"), "inbox/proposal-" # Int.toText(Time.now()) # ".md");
     let body = Option.get(extractJsonString(bodyText, "body"), "");
     let intent = Option.get(extractJsonString(bodyText, "intent"), "");
     let frontmatter = Option.get(extractJsonString(bodyText, "frontmatter"), "{}");
-    let proposal_id = "prop-" # Nat.toText(Time.now());
+    let proposal_id = "prop-" # Int.toText(Time.now());
     let now = "2025-01-01T00:00:00.000Z";
     var list = getProposalsList(uid);
     let newP : ProposalRecord = { proposal_id; path; status = "proposed"; body; frontmatter; intent; created_at = now; updated_at = now };
@@ -321,11 +353,11 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
 
   if (pathKind == "approve" and req.method == "POST") {
     var list = getProposalsList(uid);
-    switch (Array.find(list, func(p : ProposalRecord) { p.proposal_id == pathArg })) {
+    switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
         let vault = getVault(uid);
         vault.put(p.path, (p.frontmatter, p.body));
-        list := Array.map(list, func(x : ProposalRecord) {
+        list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) { { x with status = "approved"; updated_at = "2025-01-01T00:00:00.000Z" } } else { x }
         });
         setProposalsList(uid, list);
@@ -340,7 +372,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
 
   if (pathKind == "discard" and req.method == "POST") {
     var list = getProposalsList(uid);
-    list := Array.map(list, func(x : ProposalRecord) {
+    list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
       if (x.proposal_id == pathArg) { { x with status = "discarded"; updated_at = "2025-01-01T00:00:00.000Z" } } else { x }
     });
     setProposalsList(uid, list);
@@ -350,3 +382,5 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
 
   return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null };
 };
+
+}
