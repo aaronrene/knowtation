@@ -27,6 +27,7 @@
   const btnLoginGithub = el('btn-login-github');
   const btnLogout = el('btn-logout');
   const btnNewNote = el('btn-new-note');
+  const btnImport = el('btn-import');
   const btnHowToUse = el('btn-how-to-use');
   const btnSettings = el('btn-settings');
   const browseToolbar = el('browse-toolbar');
@@ -53,6 +54,8 @@
   let providers = null;
   let calendarMonth = new Date();
   let currentNotePathForCopy = '';
+  /** @type {{ path: string, body: string, frontmatter: Record<string, string> } | null} */
+  let currentOpenNote = null;
   let listSelectedIndex = 0;
   /** @type {import('chart.js').Chart[]} */
   let chartInstances = [];
@@ -151,13 +154,16 @@
         window.__hubUserRole = payload.role || 'member';
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
+        if (btnImport) btnImport.classList.toggle('hidden', isViewer);
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
+        if (btnImport) btnImport.classList.remove('hidden');
       }
     } else {
       if (btnNewNote) btnNewNote.classList.remove('hidden');
+      if (btnImport) btnImport.classList.remove('hidden');
     }
   }
 
@@ -176,6 +182,7 @@
     main.classList.add('hidden');
     browseToolbar.classList.add('hidden');
     btnNewNote.classList.add('hidden');
+    if (btnImport) btnImport.classList.add('hidden');
     if (btnHowToUse) btnHowToUse.classList.add('hidden');
     if (btnSettings) btnSettings.classList.add('hidden');
     loginRequired.classList.remove('hidden');
@@ -896,6 +903,58 @@
   el('modal-create-backdrop').onclick = closeCreateModal;
   el('modal-create-close').onclick = closeCreateModal;
 
+  function openImportModal() {
+    el('modal-import').classList.remove('hidden');
+    el('import-msg').textContent = '';
+    el('import-file').value = '';
+  }
+  function closeImportModal() {
+    el('modal-import').classList.add('hidden');
+  }
+  if (btnImport) btnImport.onclick = openImportModal;
+  el('modal-import-backdrop').onclick = closeImportModal;
+  el('modal-import-close').onclick = closeImportModal;
+  el('btn-import-submit').onclick = async () => {
+    const sourceType = el('import-source-type').value;
+    const fileInput = el('import-file');
+    const msgEl = el('import-msg');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      msgEl.textContent = 'Choose a file or ZIP to import.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
+    const formData = new FormData();
+    formData.append('source_type', sourceType);
+    formData.append('file', fileInput.files[0]);
+    const project = (el('import-project') && el('import-project').value) ? el('import-project').value.trim() : '';
+    const tags = (el('import-tags') && el('import-tags').value) ? el('import-tags').value.trim() : '';
+    if (project) formData.append('project', project);
+    if (tags) formData.append('tags', tags);
+    msgEl.textContent = 'Importing…';
+    msgEl.className = 'create-msg';
+    try {
+      const res = await fetch(apiBase + '/api/v1/import', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        msgEl.textContent = data.error || res.statusText || 'Import failed';
+        msgEl.className = 'create-msg err';
+        return;
+      }
+      msgEl.textContent = 'Imported ' + (data.count ?? data.imported?.length ?? 0) + ' note(s).';
+      msgEl.className = 'create-msg ok';
+      if (typeof loadNotes === 'function') loadNotes();
+      if (typeof loadFacets === 'function') loadFacets();
+      if (typeof showToast === 'function') showToast('Import complete');
+    } catch (e) {
+      msgEl.textContent = e.message || 'Import failed';
+      msgEl.className = 'create-msg err';
+    }
+  };
+
   function openHowToUse(tabId) {
     const id = tabId || 'setup';
     el('modal-how-to-use').classList.remove('hidden');
@@ -959,6 +1018,10 @@
         const isHosted = (vaultDisplay + '').toLowerCase() === 'canister';
         if (el('settings-mode-display')) el('settings-mode-display').textContent = isHosted ? 'Hosted (beta)' : 'Self-hosted';
         el('settings-vault-display').textContent = vaultDisplay;
+        const configureSection = el('settings-configure-backup-section');
+        const configureHr = el('settings-hr-configure');
+        if (configureSection) configureSection.style.display = isHosted ? 'none' : '';
+        if (configureHr) configureHr.style.display = isHosted ? 'none' : '';
         const vg = s.vault_git || {};
         // Guided Setup checklist: step 1 = vault path set, step 4 = backup configured
         const step1 = document.getElementById('setup-step-1');
@@ -1019,6 +1082,10 @@
         if (el('settings-mode-display')) el('settings-mode-display').textContent = '—';
         el('settings-vault-display').textContent = '—';
         el('settings-git-status').textContent = 'Could not load';
+        const configureSection = el('settings-configure-backup-section');
+        const configureHr = el('settings-hr-configure');
+        if (configureSection) configureSection.style.display = '';
+        if (configureHr) configureHr.style.display = '';
         const ghStatus = el('settings-github-status');
         if (ghStatus) ghStatus.textContent = '—';
         if (el('btn-settings-sync')) el('btn-settings-sync').disabled = true;
@@ -1273,8 +1340,13 @@
         if (typeof showToast === 'function') showToast('Setup saved.');
         api('/api/v1/settings').then((s) => {
           const vd = s.vault_path_display || '—';
-          if (el('settings-mode-display')) el('settings-mode-display').textContent = (vd + '').toLowerCase() === 'canister' ? 'Hosted (beta)' : 'Self-hosted';
+          const isHostedNow = (vd + '').toLowerCase() === 'canister';
+          if (el('settings-mode-display')) el('settings-mode-display').textContent = isHostedNow ? 'Hosted (beta)' : 'Self-hosted';
           el('settings-vault-display').textContent = vd;
+          const configureSection = el('settings-configure-backup-section');
+          const configureHr = el('settings-hr-configure');
+          if (configureSection) configureSection.style.display = isHostedNow ? 'none' : '';
+          if (configureHr) configureHr.style.display = isHostedNow ? 'none' : '';
           const vg = s.vault_git || {};
           let gitText = 'Not configured';
           if (vg.enabled && vg.has_remote) {
@@ -1400,23 +1472,115 @@
     }
   };
 
+  function switchNoteToReadMode() {
+    if (!currentOpenNote) return;
+    const bodyEl = el('detail-body');
+    const actionsEl = el('detail-actions');
+    bodyEl.innerHTML = '';
+    bodyEl.textContent = (currentOpenNote.body || '') + '\n\n---\n' + JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
+    bodyEl.className = '';
+    const role = window.__hubUserRole;
+    const canEdit = role === 'editor' || role === 'admin';
+    actionsEl.innerHTML = '';
+    if (canEdit) {
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.onclick = () => switchNoteToEditMode();
+      const exportBtn = document.createElement('button');
+      exportBtn.textContent = 'Export';
+      exportBtn.onclick = () => exportCurrentNote('md');
+      actionsEl.append(editBtn, exportBtn);
+    }
+  }
+
+  async function exportCurrentNote(format) {
+    if (!currentOpenNote) return;
+    try {
+      const res = await api('/api/v1/export', { method: 'POST', body: JSON.stringify({ path: currentOpenNote.path, format: format || 'md' }) });
+      const blob = new Blob([res.content], { type: format === 'html' ? 'text/html' : 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = res.filename || 'export.md';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      if (typeof showToast === 'function') showToast('Exported ' + (res.filename || 'note'));
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Export failed: ' + (e.message || String(e)), true);
+    }
+  }
+
+  function switchNoteToEditMode() {
+    if (!currentOpenNote) return;
+    const bodyEl = el('detail-body');
+    const actionsEl = el('detail-actions');
+    bodyEl.className = 'detail-edit-container';
+    bodyEl.innerHTML = '<label for="detail-edit-body">Body</label><textarea id="detail-edit-body" class="detail-edit-body" rows="12"></textarea><label for="detail-edit-fm">Frontmatter (JSON)</label><textarea id="detail-edit-fm" class="detail-edit-fm" rows="6"></textarea>';
+    const bodyTa = el('detail-edit-body');
+    const fmTa = el('detail-edit-fm');
+    if (bodyTa) bodyTa.value = currentOpenNote.body || '';
+    if (fmTa) fmTa.value = JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
+    actionsEl.innerHTML = '';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.onclick = async () => {
+      let frontmatter;
+      try {
+        const raw = (el('detail-edit-fm') && el('detail-edit-fm').value) || '{}';
+        frontmatter = raw.trim() ? JSON.parse(raw) : {};
+      } catch (_) {
+        if (typeof showToast === 'function') showToast('Invalid frontmatter JSON');
+        return;
+      }
+      const body = (el('detail-edit-body') && el('detail-edit-body').value) || '';
+      try {
+        await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: currentOpenNote.path, body, frontmatter }) });
+        if (typeof showToast === 'function') showToast('Note saved');
+        currentOpenNote = { path: currentOpenNote.path, body, frontmatter };
+        switchNoteToReadMode();
+        if (typeof loadNotes === 'function') loadNotes();
+      } catch (e) {
+        if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)));
+      }
+    };
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => switchNoteToReadMode();
+    actionsEl.append(saveBtn, cancelBtn);
+  }
+
   function openNote(path) {
     currentNotePathForCopy = path;
+    currentOpenNote = null;
     const panel = el('detail-panel');
     const title = el('detail-title');
-    const body = el('detail-body');
-    const actions = el('detail-actions');
+    const bodyEl = el('detail-body');
+    const actionsEl = el('detail-actions');
     const btnCopy = el('btn-copy-path');
     title.textContent = path;
-    body.textContent = 'Loading…';
-    actions.innerHTML = '';
+    bodyEl.textContent = 'Loading…';
+    bodyEl.className = '';
+    actionsEl.innerHTML = '';
     btnCopy.classList.remove('hidden');
     panel.classList.remove('hidden');
     api('/api/v1/notes/' + encodeURIComponent(path))
       .then((note) => {
-        body.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
+        currentOpenNote = { path, body: note.body || '', frontmatter: note.frontmatter || {} };
+        bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
+        const role = window.__hubUserRole;
+        const canEdit = role === 'editor' || role === 'admin';
+        if (canEdit) {
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Edit';
+          editBtn.onclick = () => switchNoteToEditMode();
+          const exportBtn = document.createElement('button');
+          exportBtn.textContent = 'Export';
+          exportBtn.onclick = () => exportCurrentNote('md');
+          actionsEl.append(editBtn, exportBtn);
+        }
       })
-      .catch((e) => (body.textContent = 'Error: ' + e.message));
+      .catch((e) => {
+        bodyEl.textContent = 'Error: ' + e.message;
+      });
   }
 
   el('btn-copy-path').onclick = () => {
@@ -1457,6 +1621,7 @@
 
   function openProposal(id) {
     currentNotePathForCopy = '';
+    currentOpenNote = null;
     el('btn-copy-path').classList.add('hidden');
     const panel = el('detail-panel');
     const title = el('detail-title');
@@ -1513,12 +1678,16 @@
     }
   }
 
-  el('detail-close').onclick = () => el('detail-panel').classList.add('hidden');
+  el('detail-close').onclick = () => {
+    currentOpenNote = null;
+    el('detail-panel').classList.add('hidden');
+  };
 
   document.addEventListener('keydown', (e) => {
     const inInput = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
     if (e.key === 'Escape') {
       if (el('detail-panel') && !el('detail-panel').classList.contains('hidden')) {
+        currentOpenNote = null;
         el('detail-panel').classList.add('hidden');
         e.preventDefault();
       } else if (el('modal-create') && !el('modal-create').classList.contains('hidden')) {
@@ -1529,6 +1698,9 @@
         e.preventDefault();
       } else if (el('modal-settings') && !el('modal-settings').classList.contains('hidden')) {
         closeSettings();
+        e.preventDefault();
+      } else if (el('modal-import') && !el('modal-import').classList.contains('hidden')) {
+        closeImportModal();
         e.preventDefault();
       }
       return;

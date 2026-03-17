@@ -5,9 +5,12 @@
  */
 
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import multer from 'multer';
+import AdmZip from 'adm-zip';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
@@ -19,9 +22,11 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 
 import { loadConfig } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
-import { readNote, normalizeSlug } from '../lib/vault.mjs';
+import { readNote, normalizeSlug, resolveVaultRelativePath } from '../lib/vault.mjs';
 import { writeNote } from '../lib/write.mjs';
 import { runSearch } from '../lib/search.mjs';
+import { exportNoteToContent } from '../lib/export.mjs';
+import { runImport } from '../lib/import.mjs';
 import {
   listProposals,
   getProposal,
@@ -453,6 +458,69 @@ app.post('/api/v1/index', requireRole('editor', 'admin'), async (_req, res) => {
     res.json({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/export — export one note to content (editor/admin). Returns { content, filename } for client download.
+app.post('/api/v1/export', jwtAuth, apiLimiter, requireRole('editor', 'admin'), (req, res) => {
+  const { path: notePath, format } = req.body || {};
+  if (!notePath || typeof notePath !== 'string') {
+    return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
+  }
+  const fmt = format === 'html' ? 'html' : 'md';
+  try {
+    resolveVaultRelativePath(config.vault_path, notePath);
+    const { content, filename } = exportNoteToContent(config.vault_path, notePath, { format: fmt });
+    res.json({ content, filename });
+  } catch (e) {
+    if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    res.status(404).json({ error: e.message || 'Note not found', code: 'NOT_FOUND' });
+  }
+});
+
+// POST /api/v1/import — upload file (or zip) and run import (editor/admin). Multipart: source_type, file; optional project, output_dir, tags.
+const IMPORT_SOURCE_TYPES = ['markdown', 'chatgpt-export', 'claude-export', 'mif', 'mem0-export', 'audio', 'video', 'notion', 'jira-export', 'notebooklm', 'gdrive', 'linear-export'];
+const importTempDirMiddleware = (req, _res, next) => {
+  req._importTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-import-'));
+  next();
+};
+const importUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => cb(null, req._importTempDir),
+    filename: (req, file, cb) => cb(null, file.originalname || 'upload'),
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+}).single('file');
+app.post('/api/v1/import', jwtAuth, apiLimiter, requireRole('editor', 'admin'), importTempDirMiddleware, importUpload, async (req, res) => {
+  const tempDir = req._importTempDir;
+  try {
+    if (!req.file) return res.status(400).json({ error: 'file required', code: 'BAD_REQUEST' });
+    const sourceType = (req.body && req.body.source_type) ? String(req.body.source_type).trim() : '';
+    if (!IMPORT_SOURCE_TYPES.includes(sourceType)) {
+      return res.status(400).json({ error: `source_type must be one of: ${IMPORT_SOURCE_TYPES.join(', ')}`, code: 'BAD_REQUEST' });
+    }
+    const project = req.body && req.body.project ? String(req.body.project).trim() : undefined;
+    const outputDir = req.body && req.body.output_dir ? String(req.body.output_dir).trim() : undefined;
+    const tagsRaw = req.body && req.body.tags ? String(req.body.tags) : '';
+    const tags = tagsRaw ? tagsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    let inputPath = req.file.path;
+    if (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.zip')) {
+      const extractDir = path.join(tempDir, 'extracted');
+      fs.mkdirSync(extractDir, { recursive: true });
+      const zip = new AdmZip(req.file.path);
+      zip.extractAllTo(extractDir, true);
+      inputPath = extractDir;
+    }
+    const result = await runImport(sourceType, inputPath, { project, outputDir, tags });
+    invalidateFacetsCache();
+    maybeAutoSync(config);
+    res.json({ imported: result.imported, count: result.count });
+  } catch (e) {
+    res.status(500).json({ error: e.message || String(e), code: 'RUNTIME_ERROR' });
+  } finally {
+    if (tempDir && fs.existsSync(tempDir)) {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
+    }
   }
 });
 

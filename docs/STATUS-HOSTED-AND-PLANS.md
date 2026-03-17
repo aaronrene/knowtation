@@ -1,6 +1,8 @@
 # Status: hosted product, multi-vault, Phase 12
 
-Short reference for where we are on **canister/hosted**, **multi-vault**, and **Phase 12 (blockchain)** so you can pick up in another session.
+Short reference for where we are on **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)** so you can pick up in another session.
+
+**Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta, free** until Phase 16 (credits).
 
 ---
 
@@ -35,7 +37,7 @@ Short reference for where we are on **canister/hosted**, **multi-vault**, and **
 - **Current behavior:** One Hub instance = one vault (`vault_path`). Roles (viewer/editor/admin) control **actions**, not **which notes** are visible. Everyone with access sees the same vault.
 - **Design doc:** [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) — options (multiple vaults per instance, scoped visibility), what would be needed, and how to use two vaults today (two Hub instances).
 - **API:** `vault_id` (and optional `X-Vault-Id` / `vault_id` query) exist in the Node Hub and in the canister auth contract for **future** multi-vault; no UI or backend logic yet to switch or scope by vault.
-- **Next:** When you want multi-vault or scoped access, implement per the design in MULTI-VAULT-AND-SCOPED-ACCESS.md and update IMPLEMENTATION-PLAN (e.g. Phase 13.1 or a dedicated phase).
+- **Next:** **Phase 15** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — implement per the design in MULTI-VAULT-AND-SCOPED-ACCESS.md (vault list or scoped visibility, backend + Hub UI).
 
 ---
 
@@ -68,12 +70,13 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 
 | Priority | What |
 |----------|------|
-| **Hosted live** | Deploy canister (`dfx deploy`), gateway + bridge (Netlify), web/ to 4Everland, point knowtation.store, set `HUB_API_BASE_URL`. Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) and [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md). |
-| **Multi-vault** | When needed: implement per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md); add to IMPLEMENTATION-PLAN as a phase. |
-| **Phase 12** | When needed: implement reserved frontmatter, CLI filters, capture/import; see [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md). |
+| **Hosted live** | Deploy canister (`dfx deploy`), gateway + bridge (Netlify), web/ to 4Everland, point knowtation.store, set `HUB_API_BASE_URL`. Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) and [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md). Hosting is **beta, free** until Phase 16 (credits). |
+| **Phase 15 (multi-vault)** | When needed: implement per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md); see Phase 15 in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). |
+| **Phase 16 (hosted credits)** | When ready to monetize: balance model, deduction rules, purchase flow, Hub UI; see Phase 16 in IMPLEMENTATION-PLAN. |
+| **Phase 12 (blockchain)** | When needed: implement reserved frontmatter, CLI filters, capture/import; see [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md). |
 
 See **§4** above for when to consider a separate HTTP canister (Rust) vs keeping HTTP in Motoko.
 
 ---
 
-**Last updated:** Session that added this status doc and refreshed IMPLEMENTATION-PLAN build status for canister/hosted and Phase 12.
+**Last updated:** Phase 14 (two-path launch) done; IMPLEMENTATION-PLAN includes Phases 14, 15 (multi-vault), 16 (hosted credits). Hosting = beta, free until Phase 16.

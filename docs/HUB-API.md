@@ -87,6 +87,14 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "ok": true, "notesProcessed": number, "chunksIndexed": number }`.  
   **500** on indexer or config failure.
 
+- **POST /export** — Export one note to downloadable content (editor/admin). Body: `{ "path": string, "format"?: "md" | "html" }`.  
+  **Response:** `{ "content": string, "filename": string }`. Client may create a blob and trigger download.  
+  **400** if path invalid; **404** if note not found.
+
+- **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, audio, video, notion, jira-export, notebooklm, gdrive, linear-export. If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export).  
+  **Response:** `{ "imported": [ { "path", "source_id?" } ], "count": number }`.  
+  **400** if file or source_type missing/invalid; **500** on import failure.
+
 ### 3.3.1 Settings and vault backup (JWT required)
 
 - **GET /settings** — Safe config status for the Settings UI. No secrets or full paths.  

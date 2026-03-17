@@ -6,9 +6,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Monetization:** Core is open source. Optional paid layer: hosted “Knowtation Hub” (Phase 11) for users who do not want to self-host; they get shared vault, proposals, and review without running servers. See Phase 11.
 
-**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. **Phase 13 invite** implemented: create invite link (Settings → Team), invitee signs in via link and is added to role; pending list and revoke. **Landing (web/)** refreshed and enhanced (ecosystem, token savings, dual CTA, #hosted, knowtation.store). **Guided Setup in Hub** and **Help in Settings** done. **Hosted (canister) product — code complete:** Phase 0 (vault_id, canister auth doc, Hub API URL config); Phase 1 canister (`hub/icp/` Motoko: vault, proposals, export); Phase 2 gateway (`hub/gateway/`: OAuth, proxy to canister with X-User-Id); Phase 3 bridge (`hub/bridge/`: Connect GitHub, Back up now); Phase 4 bridge (index + search); Phase 5 docs (DEPLOY-HOSTED, CANISTER-AND-SINGLE-URL, single URL knowtation.store). **Deploy pending:** dfx deploy canister, 4Everland for web/, Netlify (or Node host) for gateway/bridge, DNS (knowtation.store). **Multi-vault:** Not implemented; design in MULTI-VAULT-AND-SCOPED-ACCESS.md. **Phase 12 (blockchain):** Reserved in SPEC and BLOCKCHAIN-AND-AGENT-PAYMENTS.md; implement separately when needed.
+**Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. **Phase 13 invite** implemented: create invite link (Settings → Team), invitee signs in via link and is added to role; pending list and revoke. **Landing (web/)** refreshed and enhanced (ecosystem, token savings, dual CTA, #hosted, knowtation.store). **Guided Setup in Hub** and **Help in Settings** done. **Hosted (canister) product — code complete:** Phase 0 (vault_id, canister auth doc, Hub API URL config); Phase 1 canister (`hub/icp/` Motoko: vault, proposals, export); Phase 2 gateway (`hub/gateway/`: OAuth, proxy to canister with X-User-Id); Phase 3 bridge (`hub/bridge/`: Connect GitHub, Back up now); Phase 4 bridge (index + search); Phase 5 docs (DEPLOY-HOSTED, CANISTER-AND-SINGLE-URL, single URL knowtation.store). **Deploy pending:** dfx deploy canister, 4Everland for web/, Netlify (or Node host) for gateway/bridge, DNS (knowtation.store). **Phase 14 (Two-path launch):** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in TWO-PATHS-HOSTED-AND-SELF-HOSTED.md); beta disclaimer on landing and Hub. Hosting = beta, free until Phase 16 (credits). **Multi-vault:** Not implemented; design in MULTI-VAULT-AND-SCOPED-ACCESS.md; Phase 15. **Phase 12 (blockchain):** Reserved in SPEC and BLOCKCHAIN-AND-AGENT-PAYMENTS.md; implement separately when needed.
 
-**Status for next session:** See **[STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md)** for canister/hosted, multi-vault, and Phase 12. **Next step:** Deploy hosted (canister, gateway, bridge, 4Everland, knowtation.store) per DEPLOY-HOSTED.md; or multi-vault when needed; or Phase 12 in a separate session.
+**Status for next session:** See **[STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md)** for canister/hosted, multi-vault, and Phase 12. **Next step:** Deploy hosted (canister, gateway, bridge, 4Everland, knowtation.store) per DEPLOY-HOSTED.md; Phase 15 (multi-vault) or Phase 16 (hosted credits) when ready.
 
 ---
 
@@ -16,9 +16,9 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 | Step | What | When |
 |------|------|------|
-| **Done** | Phase 13 invite, Landing refresh + enhancement, Help in Settings, Guided Setup. **Hosted (canister):** Phases 0–5 code and docs (canister, gateway, bridge, single URL knowtation.store). | Done. |
+| **Done** | Phase 13 invite, Landing refresh + enhancement, Help in Settings, Guided Setup. **Hosted (canister):** Phases 0–5 code and docs. **Phase 14 (Two-path launch):** Split messaging (Use in cloud beta / Run it yourself), Quick start doc, beta disclaimer; hosting = beta, free until Phase 16. | Done. |
 | **Next** | **Deploy hosted:** dfx deploy canister; 4Everland (web/); Netlify (gateway + bridge); DNS knowtation.store. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md). | Next. |
-| **Later** | Multi-vault (design in MULTI-VAULT-AND-SCOPED-ACCESS.md). Phase 12 (blockchain) in a separate session when needed. | Backlog. |
+| **Later** | **Phase 15:** Multi-vault (see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md)). **Phase 16:** Hosted credits / pay-as-you-go. **Phase 12:** Blockchain in a separate session when needed. | Backlog. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
 
@@ -36,6 +36,9 @@ Use this list to see what’s done and what’s not. Update the status when each
 | 6 | **Hackathon (e.g. Age Inception)** | In progress | Landing reflects whitepaper (token savings, precise fetch); clear connect instructions (CLI/MCP in AGENT-INTEGRATION, RETRIEVAL; landing links to both). Any hackathon-specific doc: e.g. AGENTCEPTION-HACKATHON.md. |
 | 7 | **Domain connection** | Ready when you are | **Landing now:** Deploy `web/` to Netlify or 4Everland, add custom domain. **Hub later:** Subdomain when hosted Hub exists. See [DOMAIN-AND-DEPLOYMENT.md](./DOMAIN-AND-DEPLOYMENT.md) for step-by-step (Netlify, 4Everland, Cloudflare). |
 | 8 | **Landing: add "API" to tagline** | Later | Tagline currently says "agent-ready MCP and CLI"; add "API" in a later phase when we surface a dedicated public/developer API (Hub REST exists but is not yet called out in landing tagline). |
+| 9 | **Phase 14 (Two-path launch)** | Done | Landing and Hub: "Use in the cloud (beta)" and "Run it yourself" (Quick start in TWO-PATHS-HOSTED-AND-SELF-HOSTED.md); beta disclaimer. Hosting = beta, free until Phase 16. |
+| 10 | **Edit note in Hub detail panel** | Done | Note detail panel: "Edit" button for editor/admin; inline edit (body + frontmatter JSON); Save → POST /api/v1/notes; Cancel restores read-only. Implemented in web/hub/hub.js; works with Node Hub and canister-hosted. |
+| 11 | **Hub Export and Import** | Done | Export: POST /api/v1/export (path, format) returns { content, filename }; note detail panel "Export" button (editor/admin). Import: POST /api/v1/import multipart (source_type, file; optional project, tags); ZIP extracted for folder sources; header "Import" button and modal. lib/export.mjs exportNoteToContent(); hub multer + adm-zip. |
 | — | **Hosted / ICP (canister)** | Code done | Canister (hub/icp/), gateway (hub/gateway/), bridge (hub/bridge/); single URL knowtation.store; DEPLOY-HOSTED, CANISTER-AND-SINGLE-URL. **Deploy pending:** dfx, 4Everland, Netlify, DNS. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md). |
 
 ---
@@ -400,6 +403,57 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 
 ---
 
+## Phase 14 — Two-path launch (go live, hosting beta)
+
+**Goal:** Ship the split explicitly so users can "use in the cloud (beta)" or "run it yourself." Hosting is free during beta.
+
+**Deliverables:**
+
+1. **Landing / Hub copy** — Two clear CTAs or sections: (1) Use in the cloud (beta) → knowtation.store/hub/, (2) Run it yourself → Quick start (self-hosted) link.
+2. **Quick start (self-hosted)** — One short doc or section (e.g. in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) or [GETTING-STARTED.md](./GETTING-STARTED.md)): clone, set `KNOWTATION_VAULT_PATH` and `HUB_JWT_SECRET`, `npm run hub`, open localhost. Optional: OAuth and hub/README link.
+3. **Beta disclaimer** — On landing or Hub: hosted is beta; free to use; usage-based billing (credits) will be added later.
+4. **Build status / "What we're doing next"** — Update top of IMPLEMENTATION-PLAN and STATUS-HOSTED-AND-PLANS to say "Two-path launch done; hosting = beta, free."
+
+**Acceptance:** A new user can choose "cloud (beta)" or "self-host" from the site and follow the chosen path. No second codebase.
+
+**Depends on:** Phases 11 and hosted deploy (canister, gateway, 4Everland) already done or in progress. Can be done in one session.
+
+---
+
+## Phase 15 — Multi-vault (optional)
+
+**Goal:** Support multiple vaults per Hub (or scoped visibility) so users can separate e.g. personal vs shared. Design: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
+
+**Deliverables:**
+
+1. **Direction** — Choose one: (a) multiple vaults per instance (vault list in config/setup, user→vault or role→vault mapping), or (b) one vault with scoped visibility (project/folder allowlists per user/role). Document in IMPLEMENTATION-PLAN and optionally in MULTI-VAULT doc.
+2. **Backend** — Config/setup: vault list or scope rules. API and canister: scope list/search/get-note by vault or scope. Gateway and canister honor `vault_id` / scope (extend beyond current default).
+3. **Hub UI** — Vault switcher or scope hint (e.g. "This view: vault X" or filter by allowed scope). Settings or Team: assign vault(s) or scope to users/roles if applicable.
+4. **CLI / MCP (optional)** — `--vault <id>` or equivalent so agents and CLI can target a vault explicitly.
+
+**Acceptance:** One Hub instance can serve multiple vaults (or one vault with scoped visibility); users only see notes they're allowed to see. Self-hosted and hosted both supported per design.
+
+**Depends on:** Phase 11 (Hub). Can follow Phase 14. Implement in a separate session (or several) when you prioritize multi-vault.
+
+---
+
+## Phase 16 — Hosted credits / pay-as-you-go (optional)
+
+**Goal:** Monetize hosted usage: users buy credits; balance decreases with **storage** and **service use** (e.g. search, index, sync). Hosting remains free (beta) until this phase is implemented.
+
+**Deliverables:**
+
+1. **Balance model** — Per-user (or per-org) balance; stored in canister or gateway-backed store. Define units (e.g. bytes stored, API calls, or abstract "credits" that map to both).
+2. **Deduction rules** — On write/index/sync (and optionally read/search): decrement balance. Reject or throttle when balance < 0 (or soft limit). Document in a short "Hosted billing" or "Credits" doc.
+3. **Purchase flow** — How users add credits (e.g. Stripe, ICP, or other). No implementation detail required here; just a phase placeholder and link to a future billing doc.
+4. **Hub UI** — Show balance (e.g. in Settings or header); low-balance warning; link to "Buy credits" when implemented.
+
+**Acceptance:** Hosted users have a visible balance; usage reduces it; they can purchase more when that flow exists. Self-hosted and core are unchanged.
+
+**Depends on:** Phase 11 and hosted deploy. Order: after Phase 14 (two-path launch); can follow Phase 15 (multi-vault) or run in parallel when you're ready to monetize.
+
+---
+
 ## Summary: phase order and dependencies
 
 | Phase | Depends on | Delivers |
@@ -418,6 +472,9 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 | 11 | 1–4, 9 | Shared vault / hub (API, proposals, review queue, optional UI); public landing site (web/); hosted or ICP (Motoko) deployment; agent-to-agent and agent-to-human without GitHub |
 | **12** | **1–4, 9** | **Blockchain, wallets, agent payments (optional): frontmatter, --network/--wallet filters, capture for on-chain events, optional AIR-on-chain. See docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md.** |
 | **13** | **11** | **Teams and collaboration (optional): roles (viewer/editor/admin), optional invite, optional GitHub-backed access. See Phase 13 and TEAMS-AND-COLLABORATION.md. Preparation: JWT `role` stub, reserved role store.** |
+| **14** | **11** | **Two-path launch: landing/Hub CTAs (Use in cloud beta / Run it yourself), Quick start (self-hosted), beta disclaimer. Hosting = beta, free until Phase 16.** |
+| **15** | **11** | **Multi-vault (optional): multiple vaults per Hub or scoped visibility. Design in MULTI-VAULT-AND-SCOPED-ACCESS.md; backend + UI vault/scope.** |
+| **16** | **11, 14** | **Hosted credits / pay-as-you-go (optional): balance, deduction rules, purchase flow, Hub UI. Hosting free (beta) until this phase.** |
 
 **Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in **Phase 3.1 or Phase 4** (search and list-notes); indexer already stores `date` in metadata. Causal/entity/episode and evals remain in an optional later phase so we don’t backtrack.
 
@@ -443,6 +500,9 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 | **11** | **New session(s)** | Hub, landing, hosting; can split “Hub API + UI” and “deploy + 4Everland/ICP” if useful. |
 | **12** | **New session** | Blockchain, wallets, agent payments; optional; see BLOCKCHAIN-AND-AGENT-PAYMENTS.md. |
 | **13** | **New session** | Teams and collaboration (roles, invite); optional; after Phase 11; see TEAMS-AND-COLLABORATION.md. |
+| **14** | **Single session** | Two-path launch: copy, Quick start, beta disclaimer; can be same session as plan update. |
+| **15** | **New session** | Multi-vault; use MULTI-VAULT-AND-SCOPED-ACCESS.md; one or more sessions. |
+| **16** | **New session** | Hosted credits; after beta; separate session(s) when adding billing. |
 
 Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 11, and 12 (and optionally after 3 or 4). Commit at the end of every phase.
 
@@ -473,6 +533,7 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 - **bornfree-hub reference:** Existing platform ([bornfree-hub](https://github.com/aaronrene/bornfree-hub)) uses five canisters (Signing, Documents, Identity, Assets, Encryption) with Netlify + 4Everland. Reuse those patterns when implementing the Knowtation Hub on ICP (Phase 11) to avoid redoing work.
 - **Blockchain, wallets, and agent payments:** Agents increasingly have wallet access and use blockchain for payments and on-chain activity. **Phase 12** (optional) reserves optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`), CLI filters (`--network`, `--wallet`), capture for on-chain events, and optional AIR-on-chain. No collision with existing `--chain` (causal chain). See **docs/BLOCKCHAIN-AND-AGENT-PAYMENTS.md**. Implement when needed; no backtracking to earlier phases.
 - **Teams and collaboration:** **Phase 13** (optional, after Phase 11) adds roles (viewer / editor / admin) and optional invite so we don't backtrack. Preparation stubs: JWT includes optional `role` claim (default `member`); reserved `data/hub_roles.json` or config for future role store. See **Phase 13** above and **docs/TEAMS-AND-COLLABORATION.md**.
+- **Two-path launch (Phase 14):** Go live with hosted (beta) + self-hosted; clear CTAs and Quick start (self-hosted). Hosting = beta, free until **Phase 16 (credits)**. Multi-vault = **Phase 15**; design in [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
 
 ---
 
