@@ -253,6 +253,69 @@ app.get('/api/v1/setup', (req, res) => {
   });
 });
 
+// --- Parity (Phase 1): roles, invites, POST setup, import — canister does not implement these ---
+// GET /api/v1/roles — hosted stub: no role store; return empty list (Settings → Team shows no other members)
+app.get('/api/v1/roles', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ roles: [] });
+});
+
+// POST /api/v1/roles — no-op on hosted (role assignment not supported)
+app.post('/api/v1/roles', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ ok: true });
+});
+
+// GET /api/v1/invites — hosted stub: no invite store
+app.get('/api/v1/invites', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ invites: [] });
+});
+
+// POST /api/v1/invites — not supported on hosted (UI can show message from error)
+app.post('/api/v1/invites', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.status(400).json({
+    error: 'Invites are not supported on hosted. Use self-hosted Hub for team invite.',
+    code: 'NOT_SUPPORTED',
+  });
+});
+
+// DELETE /api/v1/invites/:token — no-op on hosted
+app.delete('/api/v1/invites/:token', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ ok: true });
+});
+
+// POST /api/v1/setup — no-op on hosted (vault is canister; nothing to persist)
+app.post('/api/v1/setup', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ ok: true });
+});
+
+// POST /api/v1/import — not yet available on hosted (canister does not implement)
+app.post('/api/v1/import', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.status(501).json({
+    error: 'Import is not yet available on hosted.',
+    code: 'NOT_AVAILABLE',
+  });
+});
+
+// GET /api/v1/notes/facets — hosted stub (canister does not implement; Hub filter dropdowns need this)
+app.get('/api/v1/notes/facets', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ projects: [], tags: [], folders: [] });
+});
+
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
   if (!uid) {

@@ -2,6 +2,8 @@
 
 This doc covers production deployment: 4Everland for static UI and landing, gateway and bridge (e.g. Netlify or a Node host), and DNS/domains.
 
+**Before deploy:** Ensure [Parity Plan Phase 1](./PARITY-PLAN.md) is merged (gateway stubs for roles, invites, setup) so the Hub Settings → Team and Setup work on hosted.
+
 ---
 
 ## 1. Architecture (production) — single URL: knowtation.store

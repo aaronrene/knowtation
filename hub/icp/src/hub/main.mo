@@ -57,6 +57,8 @@ type ProposalRecord = {
   body : Text;
   frontmatter : Text;
   intent : Text;
+  base_state_id : Text;
+  external_ref : Text;
   created_at : Text;
   updated_at : Text;
 };
@@ -291,7 +293,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     var items : Text = "";
     for (p in Array.vals(list)) {
       if (items != "") { items := items # "," };
-      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
+      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
     };
     let json = "{\"proposals\":[" # items # "],\"total\":" # Nat.toText(list.size()) # "}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
@@ -301,7 +303,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     let list = getProposalsList(uid);
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
       };
       case null {
@@ -340,10 +342,12 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let body = Option.get(extractJsonString(bodyText, "body"), "");
     let intent = Option.get(extractJsonString(bodyText, "intent"), "");
     let frontmatter = Option.get(extractJsonString(bodyText, "frontmatter"), "{}");
+    let base_state_id = Option.get(extractJsonString(bodyText, "base_state_id"), "");
+    let external_ref = Option.get(extractJsonString(bodyText, "external_ref"), "");
     let proposal_id = "prop-" # Int.toText(Time.now());
     let now = "2025-01-01T00:00:00.000Z";
     var list = getProposalsList(uid);
-    let newP : ProposalRecord = { proposal_id; path; status = "proposed"; body; frontmatter; intent; created_at = now; updated_at = now };
+    let newP : ProposalRecord = { proposal_id; path; status = "proposed"; body; frontmatter; intent; base_state_id; external_ref; created_at = now; updated_at = now };
     list := Array.append(list, [newP]);
     setProposalsList(uid, list);
     saveStable();

@@ -129,6 +129,61 @@ So a **shared vault** (in any form) is what lets **multiple actors** — humans 
 
 ---
 
+## 6.2 Muse v2 (domain-agnostic): two integration options
+
+[Muse](https://github.com/cgcardona/muse) is now a **domain-agnostic** version control system: State = content-addressed snapshot, Commit = named delta in a DAG, Branch / Merge / Drift / Checkout. A **domain plugin** implements snapshot, diff, merge, drift, and apply; music is the first plugin. Muse is built for **agent collaboration** over a shared DAG. Below are two ways Knowtation could relate to Muse.
+
+### Option A — Muse as backend for variations
+
+**What it is:** Implement a **Knowtation domain plugin for Muse** where "state" = vault (snapshot = vault snapshot, diff = note-level deltas, merge = three-way note merge). Our propose/review/commit flow would be **powered by Muse's DAG**: proposals become Muse commits or branches; the Hub (or bridge) talks to a Muse service that holds the variation history.
+
+**In simple terms:** We'd run Muse (e.g. in the bridge or a separate service) and plug our vault into it. Every proposal would be a Muse commit; branching and three-way merge would use Muse's engine. The canister stays the canonical vault; Muse owns the DAG of variations.
+
+**Benefits:**
+
+- **Real shared DAG:** Same semantics as Muse — other tools or agents that speak Muse could, in theory, share or interoperate with our variation history.
+- **Proven merge engine:** Three-way merge and conflict handling come from Muse instead of us reimplementing them.
+- **Ecosystem alignment:** We'd be "native" in the Muse world (agent collaboration, branches, lineage).
+
+**Costs:**
+
+- **Operational:** We run and maintain a Muse runtime (Python) somewhere (bridge or new service).
+- **Dependency:** We depend on Muse's roadmap and stability; Muse v2 is still early.
+- **Scope:** Implementing a full domain plugin (snapshot, diff, merge, drift, apply for vault state) is non-trivial.
+
+**When to implement:** When we have a **concrete need** — e.g. collaborating with other Muse-using agents, or a partner/product that already uses Muse — or when Muse's ecosystem is mature enough that running it is low-friction. Not as a first step.
+
+---
+
+### Option B — Protocol alignment only
+
+**What it is:** Keep our **current proposal store** (canister + Node). Define (or adopt) a **variation protocol** that matches Muse's concepts: identifiers (baseStateId, variationId), intent, lifecycle (propose → review → commit/discard). No Muse runtime; we just align our API and data so that, later, a Muse client could talk to our Hub or we could export/import to Muse.
+
+**In simple terms:** We don't run Muse. We keep full control of our stack. We document and shape our proposal contract so it matches Muse's *protocol* — same names and lifecycle — so we're compatible if we or others want to plug in Muse later.
+
+**Benefits:**
+
+- **Low risk:** No new runtime, no new dependency. We already have `baseStateId` and `intent`; we add documentation and optional fields (e.g. `muse_commit_id` or `external_ref`) if we ever need to point at a Muse commit.
+- **Future-proof:** If we later adopt Option A, our proposal format is already aligned; we don't have to redesign the canister or Hub API.
+- **Interop-ready:** Third parties (or we) could build a Muse client that talks to our Hub, or we could export proposals to Muse format, without running Muse ourselves.
+
+**Costs:**
+
+- **No Muse engine:** We don't get Muse's DAG or merge implementation; we keep our own proposal storage and merge logic (or simple apply). For our current scale, that's usually enough.
+
+**When to implement:** **Anytime.** This is documentation plus optional metadata. Can be done in the same phase as suggested prompts or right after parity. No canister logic change required — only keep existing proposal metadata and reserve optional fields for future Muse refs.
+
+---
+
+### Recommendation
+
+- **Do Option B now (or soon).** It's low effort, keeps our options open, and avoids dependency on Muse's roadmap. Document the variation protocol (baseStateId, intent, lifecycle) and ensure the canister keeps optional extensibility (e.g. for `muse_commit_id` or `external_ref`) so we don't backtrack if we later integrate Muse.
+- **Consider Option A only when there's a clear use case** — e.g. a partner or product using Muse, or a need for shared DAG with other Muse-using agents — or when Muse's tooling and ecosystem make running it straightforward. Until then, Option B gives us protocol compatibility without the operational cost.
+
+**Is it worthwhile?** Option B is worthwhile: it's cheap and keeps the door open. Option A is worthwhile only when the benefit (shared DAG, Muse ecosystem, or partner requirement) justifies running and maintaining Muse.
+
+---
+
 ## 7. Next steps (for the spec)
 
 - **Short term:** Keep the current spec as-is. Document this as an **extension idea** (this file) and add a pointer in SPEC §12 (extension points): "Optional: Muse-style variation/review/commit layer for proposed vault changes; see docs/MUSE-STYLE-EXTENSION.md."

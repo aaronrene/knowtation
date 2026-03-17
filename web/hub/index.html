@@ -746,6 +746,12 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
                 </div>
               </details>
             </div>
+            <div class="integration-card">
+              <h5>Muse (extending notation with versioned state)</h5>
+              <p><a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">Muse</a> is a domain-agnostic version control system for multidimensional state: commit, branch, merge, and a shared DAG that multiple agents can use. Knowtation’s proposal flow (propose → review → approve/discard) is already aligned with Muse’s variation protocol (Option B): same lifecycle and identifiers (<code>base_state_id</code>, <code>intent</code>).</p>
+              <p><strong>How you might use it:</strong> To extend Knowtation with full Muse semantics (branches, three-way merge, shared DAG across tools), a developer can implement a <strong>Knowtation domain plugin for Muse</strong>: treat the vault as Muse “state,” proposals as commits, and use Muse’s engine for merge and history. Today you get protocol alignment and optional <code>external_ref</code> for future cross-links; running Muse as a backend is optional and documented in the repo.</p>
+              <p class="how-to-note">See <code>docs/MUSE-STYLE-EXTENSION.md</code> for the full pattern, Option A vs B, and when to adopt Muse as a backend.</p>
+            </div>
             <p class="how-to-note"><strong>MCP (e.g. Cursor):</strong> If your environment supports MCP, enable the Knowtation MCP server to search and read notes. For writes, combine with the Hub and proposals as above.</p>
           </section>
 
