@@ -113,6 +113,8 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 
 **Reference:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md), [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md).
 
+**Deploy order (run when ready; no need to push between steps):** 1) Canister (`dfx deploy`). 2) Gateway + bridge (Netlify or Node host; set env). 3) Web to 4Everland (landing + Hub); set custom domain knowtation.store and `HUB_API_BASE_URL` in `web/hub/config.js` to gateway URL. 4) DNS. 5) Pre-roll checklist. Push/merge this branch once when in-repo work is done; actual deploy steps use your accounts and don't require further commits unless you change production config.
+
 ### 2.1 Checklist (Phase 2)
 
 - [ ] **Canister:** `dfx deploy` (local or `--network ic`). Set `CANISTER_URL` in gateway and bridge env.
