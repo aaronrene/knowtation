@@ -309,6 +309,13 @@ app.post('/api/v1/import', (req, res) => {
   });
 });
 
+// GET /api/v1/notes/facets — hosted stub (canister does not implement; Hub filter dropdowns need this)
+app.get('/api/v1/notes/facets', (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ projects: [], tags: [], folders: [] });
+});
+
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
   if (!uid) {

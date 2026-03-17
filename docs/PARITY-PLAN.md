@@ -4,6 +4,8 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Reference:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (build status, Phase 11/13/14), [HUB-API.md](./HUB-API.md) (API contract), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) (canister/deploy), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (deploy steps).
 
+**Order of work:** We do **Option B (Muse protocol alignment)** first per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — document variation protocol and canister extensibility; then Phase 1 (gateway stubs) below.
+
 ---
 
 ## Current state (before parity work)
@@ -36,6 +38,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Health | Gateway (local) | ✅ |
 | Auth providers | Gateway (local) | ✅ |
 | Notes, proposals, export | Canister (proxy) | ✅ |
+| Notes facets (filter dropdowns) | Gateway stub (GET /api/v1/notes/facets) | ✅ |
 | Search, index | Bridge (proxy from gateway) | ✅ |
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
 | Settings | Gateway **stub** (GET only) | ✅ |
@@ -91,7 +94,15 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 
 **Recommendation:** In Phase 1, add a single gateway route `POST /api/v1/import` that returns 501 and JSON `{ "error": "Import is not yet available on hosted", "code": "NOT_AVAILABLE" }` so the UI can show a clear message. Full import-on-hosted can be a later phase.
 
-### 1.5 Checklist (Phase 1)
+### 1.5 Facets (filter dropdowns)
+
+| Method | Path | Hosted (stub) response |
+|--------|------|-------------------------|
+| GET | /api/v1/notes/facets | 200, body `{ "projects": [], "tags": [], "folders": [] }`. |
+
+**Auth:** Require JWT. 401 if no token. Route registered in gateway before the canister proxy.
+
+### 1.6 Checklist (Phase 1)
 
 - [x] GET /api/v1/roles — 200, `{ "roles": [] }` (or current user as member).
 - [x] POST /api/v1/roles — 200 no-op or 400 “not supported.”
@@ -100,6 +111,7 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 - [x] DELETE /api/v1/invites/:token — 200 no-op.
 - [x] POST /api/v1/setup — 200 no-op.
 - [x] POST /api/v1/import — 501 with clear error (or defer to later phase).
+- [x] GET /api/v1/notes/facets — 200, `{ "projects": [], "tags": [], "folders": [] }`.
 - [x] All above require JWT; 401 when missing.
 - [x] Update PARITY-PLAN and IMPLEMENTATION-PLAN when Phase 1 is done.
 
