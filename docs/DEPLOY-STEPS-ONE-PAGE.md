@@ -4,6 +4,18 @@ You have: your domain (e.g. **knowtation.store**), 4Everland account, Netlify ac
 
 ---
 
+## If you already have canister + Netlify + 4Everland
+
+You have **one canister** and Netlify for the gateway (e.g. knowtation-gateway.netlify.app). To ship the latest parity and Hub changes (stubs, facets, Muse in How to use):
+
+1. **Merge** the parity branch (e.g. `parity-phase-1`) into `main` and push.
+2. **Netlify:** Trigger a new deploy (or let it auto-deploy from `main` if connected). No new canister deploy unless you changed `hub/icp/` and want those changes live.
+3. **Canister (optional):** If you want the new proposal fields (`base_state_id`, `external_ref`) live, run `cd hub/icp && dfx deploy --network ic`. If the canister was never deployed with proposals, this is safe; if it had proposals, see IMPLEMENTATION-PLAN “Canister proposal migration.”
+
+**4Everland (web/):** If the Hub UI is built from the same repo, 4Everland will pick up the merge on its next build (or trigger a redeploy so the Muse How to use section and latest Hub are live).
+
+---
+
 ## Step 1 — Deploy the canister (ICP)
 
 1. **If you don’t have DFX yet:** install it from https://internetcomputer.org/docs/current/developer-docs/setup/install  
