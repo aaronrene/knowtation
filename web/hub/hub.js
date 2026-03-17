@@ -47,6 +47,8 @@
   const filterChipsEl = el('filter-chips');
   const presetsListEl = el('presets-list');
   const presetNameInput = el('preset-name');
+  const hubBetaNote = el('hub-beta-note');
+  if (hubBetaNote && window.location.hostname !== 'knowtation.store' && window.location.hostname !== 'www.knowtation.store') hubBetaNote.classList.add('hidden');
 
   let providers = null;
   let calendarMonth = new Date();
@@ -942,6 +944,7 @@
     el('settings-sync-msg').className = 'settings-msg';
     el('settings-save-msg').textContent = '';
     el('settings-save-msg').className = 'settings-msg';
+    el('settings-mode-display').textContent = 'Loading…';
     el('settings-vault-display').textContent = 'Loading…';
     el('settings-git-status').textContent = 'Loading…';
     const ghStatus = el('settings-github-status');
@@ -952,7 +955,10 @@
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
         const userIdEl = el('settings-user-id');
         if (userIdEl) userIdEl.textContent = s.user_id || '—';
-        el('settings-vault-display').textContent = s.vault_path_display || '—';
+        const vaultDisplay = s.vault_path_display || '—';
+        const isHosted = (vaultDisplay + '').toLowerCase() === 'canister';
+        if (el('settings-mode-display')) el('settings-mode-display').textContent = isHosted ? 'Hosted (beta)' : 'Self-hosted';
+        el('settings-vault-display').textContent = vaultDisplay;
         const vg = s.vault_git || {};
         // Guided Setup checklist: step 1 = vault path set, step 4 = backup configured
         const step1 = document.getElementById('setup-step-1');
@@ -1010,6 +1016,7 @@
         if (roleEl) roleEl.textContent = '—';
         const userIdEl = el('settings-user-id');
         if (userIdEl) userIdEl.textContent = '—';
+        if (el('settings-mode-display')) el('settings-mode-display').textContent = '—';
         el('settings-vault-display').textContent = '—';
         el('settings-git-status').textContent = 'Could not load';
         const ghStatus = el('settings-github-status');
@@ -1265,7 +1272,9 @@
         }
         if (typeof showToast === 'function') showToast('Setup saved.');
         api('/api/v1/settings').then((s) => {
-          el('settings-vault-display').textContent = s.vault_path_display || '—';
+          const vd = s.vault_path_display || '—';
+          if (el('settings-mode-display')) el('settings-mode-display').textContent = (vd + '').toLowerCase() === 'canister' ? 'Hosted (beta)' : 'Self-hosted';
+          el('settings-vault-display').textContent = vd;
           const vg = s.vault_git || {};
           let gitText = 'Not configured';
           if (vg.enabled && vg.has_remote) {
