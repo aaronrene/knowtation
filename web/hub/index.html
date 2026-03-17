@@ -14,6 +14,7 @@
         <button type="button" id="btn-how-to-use" class="hidden btn-secondary">How to use</button>
         <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
         <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
+        <button type="button" id="btn-import" class="hidden btn-secondary">Import</button>
         <span id="user-name" class="muted"></span>
         <span id="login-buttons-wrap" class="login-buttons-wrap hidden"></span>
         <button id="btn-login-google" type="button" class="hidden btn-provider">Continue with Google</button>
@@ -227,6 +228,41 @@
           <input type="text" id="full-follows" placeholder="e.g. inbox/prior-note.md">
           <button type="button" id="btn-full-save" class="btn-primary">Create note</button>
           <p id="create-msg-full" class="create-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-import" class="modal hidden" aria-modal="true" role="dialog">
+      <div class="modal-backdrop" id="modal-import-backdrop"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Import into vault</h2>
+          <button type="button" id="modal-import-close" class="modal-close">×</button>
+        </div>
+        <div class="create-panel">
+        <p class="muted small">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder.</p>
+        <label for="import-source-type">Source type</label>
+        <select id="import-source-type">
+          <option value="markdown">Markdown (file or folder)</option>
+          <option value="chatgpt-export">ChatGPT export (ZIP or folder)</option>
+          <option value="claude-export">Claude export</option>
+          <option value="mem0-export">Mem0 export (JSON)</option>
+          <option value="mif">MIF (Memory Interchange Format)</option>
+          <option value="notebooklm">NotebookLM</option>
+          <option value="gdrive">Google Drive (Markdown folder)</option>
+          <option value="jira-export">Jira CSV export</option>
+          <option value="linear-export">Linear CSV export</option>
+          <option value="audio">Audio (transcribe)</option>
+          <option value="video">Video (transcribe)</option>
+        </select>
+        <label for="import-file">File or ZIP</label>
+        <input type="file" id="import-file" accept=".md,.json,.csv,.zip,.txt,audio/*,video/*">
+        <label for="import-project">Project (optional)</label>
+        <input type="text" id="import-project" placeholder="e.g. myproject">
+        <label for="import-tags">Tags (comma-separated, optional)</label>
+        <input type="text" id="import-tags" placeholder="tag1, tag2">
+        <button type="button" id="btn-import-submit" class="btn-primary">Import</button>
+        <p id="import-msg" class="create-msg"></p>
         </div>
       </div>
     </div>

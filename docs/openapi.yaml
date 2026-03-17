@@ -177,6 +177,73 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /export:
+    post:
+      tags: [Notes]
+      summary: Export one note to content (returns body + filename for client download)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+                format: { type: string, enum: [md, html] }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content: { type: string }
+                  filename: { type: string }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /import:
+    post:
+      tags: [Notes]
+      summary: Import from uploaded file or ZIP (multipart: source_type, file; optional project, tags)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [source_type, file]
+              properties:
+                source_type: { type: string }
+                file: { type: string, format: binary }
+                project: { type: string }
+                output_dir: { type: string }
+                tags: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported: { type: array, items: { type: object } }
+                  count: { type: integer }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /settings:
     get:
       tags: [Notes]
