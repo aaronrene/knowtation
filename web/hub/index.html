@@ -25,13 +25,19 @@
     <div id="login-required" class="panel login-first-screen">
       <div id="login-invite-banner" class="login-invite-banner hidden" role="status"></div>
       <div class="login-hero">
-        <h2 class="login-title login-title-equation"><span class="login-title-main">Knowtation</span> <span class="login-title-eq">Know + Own + Action</span></h2>
+        <h2 class="login-title login-title-main-only">Knowtation</h2>
         <p class="login-tagline">Your notes, searchable. One place for you and your agents.</p>
-        <p class="login-intent">Portable vault, semantic search, and a single place for proposals—so you and your agents stay in context.</p>
+        <p class="login-tagline login-tagline-sub">Precise token use mean speed &amp; savings.</p>
+      </div>
+      <div class="login-two-paths" role="region" aria-label="Two ways to use Knowtation">
+        <p class="login-two-paths-title">Two ways to use Knowtation</p>
+        <ul class="login-two-paths-list">
+          <li><strong>Use in the decentralized cloud (beta)</strong> — Sign in with Google or GitHub; we host your vault. Free during beta.</li>
+          <li><strong>Run it locally</strong> — Clone, set <code>KNOWTATION_VAULT_PATH</code> and <code>HUB_JWT_SECRET</code>, <code>npm run hub</code>. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" target="_blank" rel="noopener" class="btn-link">Quick start (self-hosted)</a>.</li>
+        </ul>
       </div>
       <div class="login-cta-block">
-        <p id="login-intro" class="login-cta-label">Sign in with Google or GitHub above to open your vault. Your first sign-in is your account—no separate sign-up.</p>
-        <p id="hub-beta-note" class="login-cta-label muted" style="font-size: 0.85rem; margin-top: 0.5rem;">Hosted is in beta; free to use. Usage-based billing (credits) will be added later.</p>
+        <p id="hub-beta-note" class="login-cta-label muted" style="font-size: 0.8rem; margin-top: 0;">Decentralized cloud is in beta; free to use. Usage-based billing (credits) will be added later.</p>
         <p class="login-how-to-wrap"><button type="button" id="btn-login-how-to-use" class="btn-link">New here? How to use</button> — setup and how agents use your vault.</p>
       </div>
       <div class="hub-ecosystem" aria-label="Knowtation at the center of your connections">
@@ -270,8 +276,11 @@
               </li>
             </ul>
             <hr class="settings-hr">
+            <div class="settings-two-paths-intro" role="region" aria-label="Two options">
+              <p class="settings-intro small"><strong>Two options:</strong> <strong>Hosted (beta)</strong> — we store your vault in the decentralized cloud; Mode and Vault below show “Hosted (beta)” and “Canister”. Optional: Connect GitHub to back up to your repo. <strong>Self-hosted</strong> — your vault is a folder on your machine; Mode shows “Self-hosted” and Vault shows your path. Use <strong>Configure backup</strong> below to set vault path and Git (admins only).</p>
+            </div>
             <h3 class="settings-h3">Status</h3>
-            <p class="settings-intro small">Current vault and backup state. To change where the vault lives or which Git repo is used, use <strong>Configure backup</strong> below (admins only).</p>
+            <p class="settings-intro small">Current vault and backup state.</p>
             <div class="settings-row">
               <span class="settings-label">Your role</span>
               <span id="settings-role-display" class="settings-value">—</span>
@@ -305,7 +314,8 @@
               <button type="button" id="btn-settings-sync" class="btn-primary" disabled>Back up now</button>
               <span id="settings-sync-msg" class="settings-msg"></span>
             </div>
-            <hr class="settings-hr">
+            <hr class="settings-hr" id="settings-hr-configure">
+            <div id="settings-configure-backup-section">
             <h3 class="settings-h3">How to connect backup</h3>
             <p class="settings-intro small">To turn on Git backup, follow these steps:</p>
             <ol class="settings-steps-list">
@@ -326,6 +336,7 @@
                 <button type="button" id="btn-settings-save" class="btn-primary">Save setup</button>
                 <span id="settings-save-msg" class="settings-msg"></span>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -481,7 +492,15 @@
         </nav>
         <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
           <div class="how-to-use-body">
-          <p class="how-to-intro">Follow the steps below in order. Each step unlocks the next. Diagrams show how data and agents connect.</p>
+          <div class="how-to-two-paths-box" role="region" aria-label="Two paths">
+            <h3 class="how-to-two-paths-title">Two paths: choose how you run Knowtation</h3>
+            <ul class="how-to-two-paths-list">
+              <li><strong>Hosted (beta)</strong> — Use Knowtation at <strong>knowtation.store/hub/</strong>. We store your vault in the decentralized cloud. No vault path or Hub to run; just sign in. Optional: Connect GitHub to back up your vault to your repo. Free during beta.</li>
+              <li><strong>Self-hosted</strong> — Run the Hub on your machine. You set <code>KNOWTATION_VAULT_PATH</code> and <code>HUB_JWT_SECRET</code>, run <code>npm run hub</code>, and configure OAuth. Your vault is a folder on your disk. The steps below (vault, run Hub, log in, backup) apply to self-hosted setup.</li>
+            </ul>
+            <p class="how-to-note small">In Settings → Backup, <strong>Mode</strong> shows which path you’re on: “Hosted (beta)” or “Self-hosted”.</p>
+          </div>
+          <p class="how-to-intro">Follow the steps below in order (for self-hosted). Each step unlocks the next. Diagrams show how data and agents connect.</p>
 
           <div class="how-to-flow" aria-hidden="true">
             <div class="flow-step"><span class="flow-num">1</span><span>Vault &amp; config</span></div>

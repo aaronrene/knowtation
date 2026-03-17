@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Knowtation: portable Markdown vault, search by meaning, and agent-ready MCP and CLI. Precise so fewer tokens and faster—your data stays yours.">
-  <title>Knowtation — Know and own your data. Precise so fewer tokens and faster.</title>
+  <meta name="description" content="Knowtation: portable Markdown vault, search by meaning, and agent-ready MCP and CLI. Precise token use mean speed &amp; savings—your data stays yours.">
+  <title>Knowtation — Know and own your data. Precise token use mean speed &amp; savings.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -487,6 +487,8 @@
     .hero-title-equation { font-size: clamp(1.5rem, 4vw, 2.25rem); line-height: 1.3; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
     .hero-title-equation .hero-title-main { display: block; font-family: "Instrument Serif", serif; font-weight: 400; font-size: 1.15em; }
     .hero-title-equation .hero-title-eq { font-family: "Outfit", system-ui, sans-serif; font-weight: 500; color: var(--text-muted); font-size: 0.85em; }
+    .hero-title-main-only { font-family: "Instrument Serif", serif; font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 400; margin: 0 0 0.5rem; letter-spacing: -0.02em; line-height: 1.2; }
+    .tagline-sub { margin-bottom: 1rem; }
     .hero-intent-line { font-size: 1rem; color: var(--text-muted); margin: 0 auto 1.5rem; max-width: 32em; line-height: 1.5; }
     .landing-ecosystem { margin: 2rem auto 0; max-width: 320px; }
     .landing-ecosystem-rings { position: relative; width: 320px; height: 320px; margin: 0 auto; }
@@ -592,13 +594,10 @@
   <!-- Repo: https://github.com/aaronrene/knowtation -->
   <div class="container">
     <header class="hero">
-      <h2 class="hero-title-equation">
-        <span class="hero-title-main">Knowtation</span>
-        <span class="hero-title-eq">Know + Own + Action</span>
-      </h2>
+      <h2 class="hero-title-main-only">Knowtation</h2>
       <p class="tagline">Your notes, searchable. One place for you and your agents.</p>
-      <p class="hero-intent-line">Portable vault, semantic search, and a single place for proposals—so you and your agents stay in context.</p>
-      <p class="token-callout">Precise so fewer tokens and faster. Fetch only what agents need. Streamlined requests mean lower cost.</p>
+      <p class="tagline tagline-sub">Precise token use mean speed &amp; savings.</p>
+      <p class="token-callout">Fetch only what agents need. Streamlined requests mean lower cost.</p>
       <div class="landing-ecosystem" aria-label="Knowtation at the center of your connections">
         <div class="landing-ecosystem-rings">
           <svg class="landing-ecosystem-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -633,10 +632,10 @@
         </div>
       </div>
       <div class="cta-row cta-row-center">
-        <a href="/hub/" class="cta cta-secondary">Open Knowtation Hub</a>
-        <a href="https://github.com/aaronrene/knowtation" class="cta cta-secondary" target="_blank" rel="noopener">View repository</a>
+        <a href="/hub/" class="cta cta-secondary">Use Knowtation in the decentralized cloud (beta)</a>
+        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Run it yourself</a>
       </div>
-      <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Sign in above to open your vault in the Hub, or self-host from the repo.</p>
+      <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Decentralized cloud is in beta and free to use. We’ll add usage-based billing (credits) later. Or run the Hub on your own machine with the Quick start guide.</p>
     </header>
   </div>
 
@@ -755,8 +754,8 @@
   <section id="hosted" class="container" style="padding: 3rem 1.5rem; border-top: 1px solid var(--border);">
     <h2 style="font-family: 'Instrument Serif', serif; font-size: clamp(1.5rem, 3vw, 1.75rem); text-align: center; margin: 0 0 1rem;">Knowtation Hub (hosted)</h2>
     <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: 0 auto 1.5rem;">No servers to run. Sign in with Google or GitHub; your vault lives on the Internet Computer. Back up to GitHub anytime.</p>
-    <p style="text-align: center; margin-bottom: 0.5rem;"><a href="/hub/" id="hosted-hub-url" class="cta" rel="noopener">Open Knowtation Hub</a></p>
-    <p style="text-align: center; font-size: 0.9rem;"><a href="https://github.com/aaronrene/knowtation" class="cta-secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem;" target="_blank" rel="noopener">Self-host from repo</a></p>
+    <p style="text-align: center; margin-bottom: 0.5rem;"><a href="/hub/" id="hosted-hub-url" class="cta" rel="noopener">Use Knowtation in the decentralized cloud (beta)</a></p>
+    <p style="text-align: center; font-size: 0.9rem;"><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta-secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem;" target="_blank" rel="noopener">Run it yourself</a></p>
   </section>
 
   <section class="features container">

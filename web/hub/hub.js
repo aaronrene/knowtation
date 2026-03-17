@@ -959,6 +959,10 @@
         const isHosted = (vaultDisplay + '').toLowerCase() === 'canister';
         if (el('settings-mode-display')) el('settings-mode-display').textContent = isHosted ? 'Hosted (beta)' : 'Self-hosted';
         el('settings-vault-display').textContent = vaultDisplay;
+        const configureSection = el('settings-configure-backup-section');
+        const configureHr = el('settings-hr-configure');
+        if (configureSection) configureSection.style.display = isHosted ? 'none' : '';
+        if (configureHr) configureHr.style.display = isHosted ? 'none' : '';
         const vg = s.vault_git || {};
         // Guided Setup checklist: step 1 = vault path set, step 4 = backup configured
         const step1 = document.getElementById('setup-step-1');
@@ -1019,6 +1023,10 @@
         if (el('settings-mode-display')) el('settings-mode-display').textContent = '—';
         el('settings-vault-display').textContent = '—';
         el('settings-git-status').textContent = 'Could not load';
+        const configureSection = el('settings-configure-backup-section');
+        const configureHr = el('settings-hr-configure');
+        if (configureSection) configureSection.style.display = '';
+        if (configureHr) configureHr.style.display = '';
         const ghStatus = el('settings-github-status');
         if (ghStatus) ghStatus.textContent = '—';
         if (el('btn-settings-sync')) el('btn-settings-sync').disabled = true;
@@ -1273,8 +1281,13 @@
         if (typeof showToast === 'function') showToast('Setup saved.');
         api('/api/v1/settings').then((s) => {
           const vd = s.vault_path_display || '—';
-          if (el('settings-mode-display')) el('settings-mode-display').textContent = (vd + '').toLowerCase() === 'canister' ? 'Hosted (beta)' : 'Self-hosted';
+          const isHostedNow = (vd + '').toLowerCase() === 'canister';
+          if (el('settings-mode-display')) el('settings-mode-display').textContent = isHostedNow ? 'Hosted (beta)' : 'Self-hosted';
           el('settings-vault-display').textContent = vd;
+          const configureSection = el('settings-configure-backup-section');
+          const configureHr = el('settings-hr-configure');
+          if (configureSection) configureSection.style.display = isHostedNow ? 'none' : '';
+          if (configureHr) configureHr.style.display = isHostedNow ? 'none' : '';
           const vg = s.vault_git || {};
           let gitText = 'Not configured';
           if (vg.enabled && vg.has_remote) {
