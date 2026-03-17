@@ -37,6 +37,7 @@ Use this list to see what’s done and what’s not. Update the status when each
 | 7 | **Domain connection** | Ready when you are | **Landing now:** Deploy `web/` to Netlify or 4Everland, add custom domain. **Hub later:** Subdomain when hosted Hub exists. See [DOMAIN-AND-DEPLOYMENT.md](./DOMAIN-AND-DEPLOYMENT.md) for step-by-step (Netlify, 4Everland, Cloudflare). |
 | 8 | **Landing: add "API" to tagline** | Later | Tagline currently says "agent-ready MCP and CLI"; add "API" in a later phase when we surface a dedicated public/developer API (Hub REST exists but is not yet called out in landing tagline). |
 | 9 | **Phase 14 (Two-path launch)** | Done | Landing and Hub: "Use in the cloud (beta)" and "Run it yourself" (Quick start in TWO-PATHS-HOSTED-AND-SELF-HOSTED.md); beta disclaimer. Hosting = beta, free until Phase 16. |
+| 10 | **Edit note in Hub detail panel** | Done | Note detail panel: "Edit" button for editor/admin; inline edit (body + frontmatter JSON); Save → POST /api/v1/notes; Cancel restores read-only. Implemented in web/hub/hub.js; works with Node Hub and canister-hosted. |
 | — | **Hosted / ICP (canister)** | Code done | Canister (hub/icp/), gateway (hub/gateway/), bridge (hub/bridge/); single URL knowtation.store; DEPLOY-HOSTED, CANISTER-AND-SINGLE-URL. **Deploy pending:** dfx, 4Everland, Netlify, DNS. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md). |
 
 ---

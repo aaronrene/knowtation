@@ -53,6 +53,8 @@
   let providers = null;
   let calendarMonth = new Date();
   let currentNotePathForCopy = '';
+  /** @type {{ path: string, body: string, frontmatter: Record<string, string> } | null} */
+  let currentOpenNote = null;
   let listSelectedIndex = 0;
   /** @type {import('chart.js').Chart[]} */
   let chartInstances = [];
@@ -1413,23 +1415,93 @@
     }
   };
 
+  function switchNoteToReadMode() {
+    if (!currentOpenNote) return;
+    const bodyEl = el('detail-body');
+    const actionsEl = el('detail-actions');
+    bodyEl.innerHTML = '';
+    bodyEl.textContent = (currentOpenNote.body || '') + '\n\n---\n' + JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
+    bodyEl.className = '';
+    const role = window.__hubUserRole;
+    const canEdit = role === 'editor' || role === 'admin';
+    actionsEl.innerHTML = '';
+    if (canEdit) {
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.onclick = () => switchNoteToEditMode();
+      actionsEl.append(editBtn);
+    }
+  }
+
+  function switchNoteToEditMode() {
+    if (!currentOpenNote) return;
+    const bodyEl = el('detail-body');
+    const actionsEl = el('detail-actions');
+    bodyEl.className = 'detail-edit-container';
+    bodyEl.innerHTML = '<label for="detail-edit-body">Body</label><textarea id="detail-edit-body" class="detail-edit-body" rows="12"></textarea><label for="detail-edit-fm">Frontmatter (JSON)</label><textarea id="detail-edit-fm" class="detail-edit-fm" rows="6"></textarea>';
+    const bodyTa = el('detail-edit-body');
+    const fmTa = el('detail-edit-fm');
+    if (bodyTa) bodyTa.value = currentOpenNote.body || '';
+    if (fmTa) fmTa.value = JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
+    actionsEl.innerHTML = '';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.onclick = async () => {
+      let frontmatter;
+      try {
+        const raw = (el('detail-edit-fm') && el('detail-edit-fm').value) || '{}';
+        frontmatter = raw.trim() ? JSON.parse(raw) : {};
+      } catch (_) {
+        if (typeof showToast === 'function') showToast('Invalid frontmatter JSON');
+        return;
+      }
+      const body = (el('detail-edit-body') && el('detail-edit-body').value) || '';
+      try {
+        await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: currentOpenNote.path, body, frontmatter }) });
+        if (typeof showToast === 'function') showToast('Note saved');
+        currentOpenNote = { path: currentOpenNote.path, body, frontmatter };
+        switchNoteToReadMode();
+        if (typeof loadNotes === 'function') loadNotes();
+      } catch (e) {
+        if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)));
+      }
+    };
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => switchNoteToReadMode();
+    actionsEl.append(saveBtn, cancelBtn);
+  }
+
   function openNote(path) {
     currentNotePathForCopy = path;
+    currentOpenNote = null;
     const panel = el('detail-panel');
     const title = el('detail-title');
-    const body = el('detail-body');
-    const actions = el('detail-actions');
+    const bodyEl = el('detail-body');
+    const actionsEl = el('detail-actions');
     const btnCopy = el('btn-copy-path');
     title.textContent = path;
-    body.textContent = 'Loading…';
-    actions.innerHTML = '';
+    bodyEl.textContent = 'Loading…';
+    bodyEl.className = '';
+    actionsEl.innerHTML = '';
     btnCopy.classList.remove('hidden');
     panel.classList.remove('hidden');
     api('/api/v1/notes/' + encodeURIComponent(path))
       .then((note) => {
-        body.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
+        currentOpenNote = { path, body: note.body || '', frontmatter: note.frontmatter || {} };
+        bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
+        const role = window.__hubUserRole;
+        const canEdit = role === 'editor' || role === 'admin';
+        if (canEdit) {
+          const editBtn = document.createElement('button');
+          editBtn.textContent = 'Edit';
+          editBtn.onclick = () => switchNoteToEditMode();
+          actionsEl.append(editBtn);
+        }
       })
-      .catch((e) => (body.textContent = 'Error: ' + e.message));
+      .catch((e) => {
+        bodyEl.textContent = 'Error: ' + e.message;
+      });
   }
 
   el('btn-copy-path').onclick = () => {
@@ -1470,6 +1542,7 @@
 
   function openProposal(id) {
     currentNotePathForCopy = '';
+    currentOpenNote = null;
     el('btn-copy-path').classList.add('hidden');
     const panel = el('detail-panel');
     const title = el('detail-title');
@@ -1526,12 +1599,16 @@
     }
   }
 
-  el('detail-close').onclick = () => el('detail-panel').classList.add('hidden');
+  el('detail-close').onclick = () => {
+    currentOpenNote = null;
+    el('detail-panel').classList.add('hidden');
+  };
 
   document.addEventListener('keydown', (e) => {
     const inInput = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
     if (e.key === 'Escape') {
       if (el('detail-panel') && !el('detail-panel').classList.contains('hidden')) {
+        currentOpenNote = null;
         el('detail-panel').classList.add('hidden');
         e.preventDefault();
       } else if (el('modal-create') && !el('modal-create').classList.contains('hidden')) {
