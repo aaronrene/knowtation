@@ -15,13 +15,13 @@ import dotenv from 'dotenv';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
-// When Netlify bundles as CJS, import.meta.url is empty; fallback so the app loads and routes register.
+// When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
+const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
 let projectRoot;
-if (typeof import.meta !== 'undefined' && import.meta.url) {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  projectRoot = path.resolve(__dirname, '..', '..');
-} else {
+if (inServerless) {
   projectRoot = process.cwd();
+} else {
+  projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 }
 const __dirname = path.join(projectRoot, 'hub', 'bridge');
 const envPath = path.join(projectRoot, '.env');
