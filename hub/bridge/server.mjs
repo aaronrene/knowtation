@@ -2,11 +2,13 @@
  * Knowtation Hub Bridge — Connect GitHub + Back up now + indexer + search for hosted product.
  * Stores GitHub token per user; sync fetches vault from canister and pushes to repo.
  * Index/search: pull vault from canister, chunk → embed → sqlite-vec per user; search via POST /api/v1/search.
+ * On Netlify, tokens and vector DBs persist via Netlify Blobs (set by netlify/functions/bridge.mjs).
  * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional GITHUB_*, EMBEDDING_*, BRIDGE_PORT, DATA_DIR.
  */
 
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
@@ -42,9 +44,14 @@ function getBridgeEmbeddingConfig() {
   };
 }
 
-function getBridgeStoreConfig(uid) {
-  const vectorsDir = path.join(DATA_DIR, 'vectors', sanitizeUserId(uid));
-  if (!fs.existsSync(vectorsDir)) fs.mkdirSync(vectorsDir, { recursive: true });
+const DB_FILENAME = 'knowtation_vectors.db';
+
+function getBridgeStoreConfig(uid, vectorsDirOverride) {
+  const vectorsDir = vectorsDirOverride ?? (() => {
+    const d = path.join(DATA_DIR, 'vectors', sanitizeUserId(uid));
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+    return d;
+  })();
   return {
     vector_store: 'sqlite-vec',
     data_dir: vectorsDir,
@@ -81,11 +88,28 @@ function decrypt(encrypted, secret) {
   return decipher.update(Buffer.from(encB, 'base64url')) + decipher.final('utf8');
 }
 
-function loadTokens() {
-  ensureDataDir();
-  if (!fs.existsSync(TOKENS_FILE)) return {};
+async function loadTokens(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(TOKENS_FILE)) return {};
+    try {
+      const raw = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
+      const out = {};
+      for (const [uid, v] of Object.entries(raw)) {
+        if (v && typeof v.token === 'string') {
+          const t = decrypt(v.token, SESSION_SECRET);
+          if (t) out[uid] = { token: t, repo: v.repo || null };
+        }
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
   try {
-    const raw = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
+    const rawStr = await blobStore.get('hub_github_tokens');
+    if (!rawStr) return {};
+    const raw = JSON.parse(rawStr);
     const out = {};
     for (const [uid, v] of Object.entries(raw)) {
       if (v && typeof v.token === 'string') {
@@ -99,16 +123,52 @@ function loadTokens() {
   }
 }
 
-function saveTokens(tokens) {
-  ensureDataDir();
+async function saveTokens(blobStore, tokens) {
   const toWrite = {};
   for (const [uid, v] of Object.entries(tokens)) {
     toWrite[uid] = { token: encrypt(v.token, SESSION_SECRET), repo: v.repo || null };
   }
-  fs.writeFileSync(TOKENS_FILE, JSON.stringify(toWrite, null, 2), 'utf8');
+  const str = JSON.stringify(toWrite, null, 2);
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(TOKENS_FILE, str, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_github_tokens', str);
 }
 
-let tokensByUser = loadTokens();
+/** Return a directory path that contains (or will contain) knowtation_vectors.db for this user. Rehydrates from Blob if needed. */
+async function getVectorsDirForUser(req, uid) {
+  const safeUid = sanitizeUserId(uid);
+  if (!req.blobStore) {
+    const d = path.join(DATA_DIR, 'vectors', safeUid);
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+    return d;
+  }
+  const dir = path.join(os.tmpdir(), 'knowtation-bridge-vectors', safeUid);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const key = 'vectors/' + safeUid;
+  try {
+    const data = await req.blobStore.get(key, { type: 'arrayBuffer' });
+    if (data && data.byteLength > 0) {
+      fs.writeFileSync(path.join(dir, DB_FILENAME), Buffer.from(data));
+    }
+  } catch (_) {
+    // No existing blob or read error; start fresh
+  }
+  return dir;
+}
+
+/** Persist user's vector DB from disk to Blob (call after index). */
+async function persistVectorsToBlob(req, uid, vectorsDir) {
+  if (!req.blobStore) return;
+  const dbPath = path.join(vectorsDir, DB_FILENAME);
+  if (!fs.existsSync(dbPath)) return;
+  const key = 'vectors/' + sanitizeUserId(uid);
+  const buf = fs.readFileSync(dbPath);
+  const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  await req.blobStore.set(key, arrayBuffer);
+}
 
 function signState(payload) {
   const payloadStr = JSON.stringify(payload);
@@ -142,6 +202,11 @@ function userIdFromJwt(token) {
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
+
+app.use((req, _res, next) => {
+  req.blobStore = globalThis.__netlify_blob_store || null;
+  next();
+});
 
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
@@ -194,9 +259,9 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     if (!data.access_token) {
       return res.redirect(baseRedirect + 'error_token');
     }
-    tokensByUser = loadTokens();
+    const tokensByUser = await loadTokens(req.blobStore);
     tokensByUser[uid] = { token: data.access_token, repo: tokensByUser[uid]?.repo || null };
-    saveTokens(tokensByUser);
+    await saveTokens(req.blobStore, tokensByUser);
     res.redirect(baseRedirect + 'ok');
   });
 }
@@ -210,7 +275,7 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
 
-  tokensByUser = loadTokens();
+  const tokensByUser = await loadTokens(req.blobStore);
   const conn = tokensByUser[uid];
   const repo = req.body?.repo || conn?.repo;
   if (!conn?.token) {
@@ -249,7 +314,7 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   // Store repo for next time
   if (req.body?.repo && (!conn.repo || conn.repo !== repo)) {
     tokensByUser[uid] = { ...conn, repo };
-    saveTokens(tokensByUser);
+    await saveTokens(req.blobStore, tokensByUser);
   }
 
   // Push to GitHub: get default branch, create blobs, create tree, commit, push
@@ -345,14 +410,14 @@ app.post('/api/v1/vault/sync', async (req, res) => {
 });
 
 // Optional: GET status for Settings (connected + repo)
-app.get('/api/v1/vault/github-status', (req, res) => {
+app.get('/api/v1/vault/github-status', async (req, res) => {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   const uid = token ? userIdFromJwt(token) : null;
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
-  tokensByUser = loadTokens();
+  const tokensByUser = await loadTokens(req.blobStore);
   const conn = tokensByUser[uid];
   res.json({
     github_connected: Boolean(conn?.token),
@@ -395,7 +460,8 @@ app.post('/api/v1/index', async (req, res) => {
     const { embed, embeddingDimension } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
 
-    const storeConfig = getBridgeStoreConfig(uid);
+    const vectorsDir = await getVectorsDirForUser(req, uid);
+    const storeConfig = getBridgeStoreConfig(uid, vectorsDir);
     const chunkOpts = {
       chunkSize: parseInt(process.env.INDEXER_CHUNK_SIZE || '2048', 10),
       chunkOverlap: parseInt(process.env.INDEXER_CHUNK_OVERLAP || '256', 10),
@@ -447,6 +513,7 @@ app.post('/api/v1/index', async (req, res) => {
       }));
       await store.upsert(points);
     }
+    await persistVectorsToBlob(req, uid, vectorsDir);
     return res.json({ ok: true, notesProcessed: notes.length, chunksIndexed: allChunks.length });
   } catch (e) {
     console.error('Bridge index error:', e);
@@ -480,7 +547,8 @@ app.post('/api/v1/search', async (req, res) => {
     const { embed } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
 
-    const storeConfig = getBridgeStoreConfig(uid);
+    const vectorsDir = await getVectorsDirForUser(req, uid);
+    const storeConfig = getBridgeStoreConfig(uid, vectorsDir);
     const store = await createVectorStore(storeConfig);
     const [queryVector] = await embed([query], storeConfig.embedding);
     if (!queryVector) {
@@ -512,9 +580,14 @@ app.post('/api/v1/search', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log('Knowtation Hub Bridge listening on http://localhost:' + PORT);
-  console.log('  Canister: ' + CANISTER_URL);
-  console.log('  GitHub connect: ' + (process.env.GITHUB_CLIENT_ID ? 'enabled' : 'not configured'));
-  console.log('  Index/Search: ' + (process.env.EMBEDDING_PROVIDER || 'ollama') + ' (run POST /api/v1/index to index)');
-});
+const isServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
+if (!isServerless) {
+  app.listen(PORT, () => {
+    console.log('Knowtation Hub Bridge listening on http://localhost:' + PORT);
+    console.log('  Canister: ' + CANISTER_URL);
+    console.log('  GitHub connect: ' + (process.env.GITHUB_CLIENT_ID ? 'enabled' : 'not configured'));
+    console.log('  Index/Search: ' + (process.env.EMBEDDING_PROVIDER || 'ollama') + ' (run POST /api/v1/index to index)');
+  });
+}
+
+export { app };

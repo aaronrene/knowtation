@@ -20,11 +20,12 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 | **HUB_BASE_URL** | Yes (prod) | Public URL of this bridge (for OAuth callback). E.g. `https://bridge.knowtation.com`. |
 | **HUB_UI_ORIGIN** | No | Origin of Hub UI (post-connect redirect). Defaults to HUB_BASE_URL. |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth for "Connect GitHub". Use a separate GitHub App or same as gateway. |
-| **DATA_DIR** | No | Directory for tokens and per-user vector DBs (default: repo `data/`). |
+| **DATA_DIR** | No | Directory for tokens and per-user vector DBs (default: repo `data/`). Ignored on Netlify when Blobs are used. |
 | **BRIDGE_PORT** or **PORT** | No | Port (default 3341). |
 | **EMBEDDING_PROVIDER** | No | `ollama` (default) or `openai`. |
 | **EMBEDDING_MODEL** | No | Model name (default `nomic-embed-text` for Ollama). |
-| **OLLAMA_URL** | No | Ollama base URL (default `http://localhost:11434`). |
+| **OLLAMA_URL** | No | Ollama base URL (default `http://localhost:11434`). Use `https://ollama.com` for Ollama Cloud. |
+| **OLLAMA_API_KEY** | No | Required for Ollama Cloud; add `Authorization: Bearer` header. |
 | **OPENAI_API_KEY** | No | Required if `EMBEDDING_PROVIDER=openai`. |
 | **INDEXER_CHUNK_SIZE**, **INDEXER_CHUNK_OVERLAP** | No | Chunking params (default 2048, 256). |
 
@@ -41,6 +42,10 @@ npm start
 ```
 
 Hub UI (hosted) must call this bridge for Connect GitHub and Back up now. Either set a separate bridge URL in the UI config, or run gateway and bridge on the same host and have the gateway proxy `/api/v1/vault/sync` and `/auth/github-connect` to the bridge.
+
+## Netlify Blobs (persistence on Netlify)
+
+When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens and per-user vector DBs are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Enable **Blobs** for the bridge site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). No extra environment variables are required; the function wrapper attaches the store per request. Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
 
 ## Reference
 
