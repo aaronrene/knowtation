@@ -19,7 +19,7 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 | **SESSION_SECRET** or **HUB_JWT_SECRET** | Yes | Secret to sign JWTs. |
 | **HUB_BASE_URL** | Yes (prod) | Public URL of this gateway (for OAuth callback). E.g. `https://knowtation.store` if gateway is same origin. |
 | **HUB_UI_ORIGIN** | No | Origin of the Hub UI (for post-login redirect). Defaults to HUB_BASE_URL. E.g. `https://knowtation.store`. |
-| **BRIDGE_URL** | No | URL of the Hub Bridge (for Connect GitHub + Back up now). When set, gateway redirects/proxies `/api/v1/auth/github-connect` and `/api/v1/vault/*` to the bridge so the UI can use one origin. |
+| **BRIDGE_URL** | No | URL of the Hub Bridge (for Connect GitHub + Back up now). **Must be the bridge origin only:** e.g. `https://knowtation-bridge.netlify.app` — no trailing slash, no path (no `/api/...` or `/auth/...`). When set, gateway redirects/proxies `/api/v1/auth/github-connect` and `/api/v1/vault/*` to the bridge so the UI can use one origin. |
 | **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** | No | Google OAuth (enables "Continue with Google"). |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth (enables "Continue with GitHub"). |
 | **GATEWAY_PORT** or **PORT** | No | Port (default 3340). |
