@@ -25,6 +25,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@netlify/blobs": "^10.7.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@qdrant/js-client-rest": "^1.17.0",
     "adm-zip": "^0.5.16",
