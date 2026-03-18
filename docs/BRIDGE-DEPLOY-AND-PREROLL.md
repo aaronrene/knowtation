@@ -31,11 +31,11 @@ Yes: it’s **another Netlify site** from the **same repo**, with **different en
 
 - **Same repo, same build:** The repo has `netlify/functions/bridge.mjs` (wraps `hub/bridge/server.mjs`) and the root `netlify.toml` build installs both gateway and bridge deps (`cd hub/gateway && npm ci && cd ../bridge && npm ci`). So every build produces **both** functions (gateway and bridge). The first Netlify site sends traffic to the gateway function; the second sends traffic to the bridge function.
 - **First Netlify site (gateway):** knowtation-gateway.netlify.app. Uses the repo’s `netlify.toml`: all traffic goes to `/.netlify/functions/gateway`. Env: CANISTER_URL, SESSION_SECRET, HUB_BASE_URL, HUB_UI_ORIGIN, HUB_CORS_ORIGIN, OAuth, and optionally BRIDGE_URL.
-- **Second Netlify site (bridge):** Create a **new** site in Netlify, connect the **same** GitHub repo and branch. Build command and publish dir can stay the same (so both functions are built). The only differences:
-  1. **Redirects:** The repo build writes `public/_redirects` when **USE_BRIDGE_FUNCTION** is set. In the **second** site's Netlify dashboard → **Environment variables**, add **USE_BRIDGE_FUNCTION** = `true`. On build, traffic will go to `/.netlify/functions/bridge` instead of the gateway (Netlify processes `_redirects` before `netlify.toml`).
+- **Second Netlify site (bridge):** Create a **new** site in Netlify, connect the **same** GitHub repo and branch. Use the bridge-specific config so redirects do not depend on `public/_redirects`. The only differences:
+  1. **Package directory:** In the **second** site's Netlify dashboard → **Build & deploy** → **Continuous deployment** → **Build settings** → **Configure**, set **Package directory** to `deploy/bridge`. Leave **Base directory** empty. Netlify will use [deploy/bridge/netlify.toml](../deploy/bridge/netlify.toml), which sends all traffic to `/.netlify/functions/bridge/:splat` (path preserved). No `_redirects` file or **USE_BRIDGE_FUNCTION** env var needed for routing.
   2. **Env variables:** In the **second** site’s dashboard, set the **bridge** env vars (see below). Do **not** set BRIDGE_URL here — BRIDGE_URL goes on the **gateway** site and must be the **URL of this second site** (e.g. `https://knowtation-bridge.netlify.app`).
 
-So: **two Netlify sites, one repo, one build; difference = redirect target + env (and BRIDGE_URL on the first site pointing to the second).**
+So: **two Netlify sites, one repo, one build; difference = Package directory (bridge uses deploy/bridge) + env (and BRIDGE_URL on the first site pointing to the second).**
 
 **Bridge env on the second Netlify site:**
 
