@@ -9,6 +9,8 @@ import { connectLambda, getStore } from '@netlify/blobs';
 import { app } from '../../hub/bridge/server.mjs';
 
 export const handler = async (event, context) => {
+  // Temporary: log raw path for 404 verification (remove after debugging).
+  console.log('[bridge] event.path=', event.path, 'event.rawUrl=', event.rawUrl ?? '(none)');
   connectLambda(event);
   globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'strong' });
   try {
