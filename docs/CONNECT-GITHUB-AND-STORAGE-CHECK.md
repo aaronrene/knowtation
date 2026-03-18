@@ -32,7 +32,7 @@ the gateway builds the redirect as `BRIDGE_URL + '/auth/github-connect' + query`
 ### A. Gateway (Netlify — knowtation-gateway site)
 
 - In Netlify → **knowtation-gateway** → **Site configuration** → **Environment variables**, open **BRIDGE_URL**.
-- **Bridge site redirect:** If you see "Cannot GET /auth/github-connect" on knowtation-bridge.netlify.app, the **bridge** site is still using the repo default (traffic → gateway). In **knowtation-bridge** → **Environment variables**, add **USE_BRIDGE_FUNCTION** = `true`. Redeploy the bridge site so the build writes `public/_redirects` and traffic goes to the bridge function.
+- **Bridge site redirect:** If you see "Cannot GET /auth/github-connect" on knowtation-bridge.netlify.app, the **bridge** site is still sending traffic to the gateway. In **knowtation-bridge** → **Environment variables**, add **USE_BRIDGE_FUNCTION** = `true` (scope: **Build** or **All**). Then use **Trigger deploy** → **Clear cache and deploy site** so a full build runs. In the build log, confirm you see `[netlify-redirects] USE_BRIDGE_FUNCTION=true → bridge` and `Wrote public/_redirects: /* /.netlify/functions/bridge 200`. If you see `(unset)` or `→ gateway`, the variable is not available at build time (check scope or re-save the variable).
 - **It must be exactly:** `https://knowtation-bridge.netlify.app`
   - **Must include the protocol** (`https://`). If you set only `knowtation-bridge.netlify.app`, the redirect is treated as a relative URL and you get the malformed gateway URL.
   - No trailing slash, no path (no `/api/...`, no `.../auth/...`).
