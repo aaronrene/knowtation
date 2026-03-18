@@ -1059,7 +1059,8 @@
         const ghStatus = el('settings-github-status');
         if (s.github_connect_available) {
           if (connectBtn) {
-            connectBtn.href = apiBase + '/api/v1/auth/github-connect';
+            // Pass JWT so the bridge knows who is connecting (link is a full navigation; no Authorization header sent)
+            connectBtn.href = apiBase + '/api/v1/auth/github-connect' + (token ? '?token=' + encodeURIComponent(token) : '');
             connectBtn.classList.remove('hidden');
           }
           if (ghStatus) ghStatus.textContent = s.github_connected ? 'Connected (token stored for push)' : 'Not connected';

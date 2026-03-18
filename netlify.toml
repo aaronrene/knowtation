@@ -1,6 +1,6 @@
 # Knowtation: gateway runs as a Netlify serverless function; static site is on 4Everland.
 [build]
-  command = "npm install && mkdir -p public && cd hub/gateway && npm ci && cd ../bridge && npm ci"
+  command = "npm install && node scripts/netlify-redirects.mjs && cd hub/gateway && npm ci && cd ../bridge && npm ci"
   functions = "netlify/functions"
   publish = "public"
 
