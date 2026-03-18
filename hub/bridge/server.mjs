@@ -60,10 +60,6 @@ function getBridgeStoreConfig(uid, vectorsDirOverride) {
 }
 
 const isServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
-if (!isServerless && (!CANISTER_URL || !SESSION_SECRET)) {
-  console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required');
-  process.exit(1);
-}
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -582,6 +578,10 @@ app.post('/api/v1/search', async (req, res) => {
 });
 
 if (!isServerless) {
+  if (!CANISTER_URL || !SESSION_SECRET) {
+    console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required');
+    process.exit(1);
+  }
   app.listen(PORT, () => {
     console.log('Knowtation Hub Bridge listening on http://localhost:' + PORT);
     console.log('  Canister: ' + CANISTER_URL);
