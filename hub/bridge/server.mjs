@@ -15,8 +15,15 @@ import dotenv from 'dotenv';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '..', '..');
+// When Netlify bundles as CJS, import.meta.url is empty; fallback so the app loads and routes register.
+let projectRoot;
+if (typeof import.meta !== 'undefined' && import.meta.url) {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  projectRoot = path.resolve(__dirname, '..', '..');
+} else {
+  projectRoot = process.cwd();
+}
+const __dirname = path.join(projectRoot, 'hub', 'bridge');
 const envPath = path.join(projectRoot, '.env');
 if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
 
