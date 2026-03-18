@@ -35,15 +35,6 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '7d';
 
-if (!CANISTER_URL) {
-  console.error('Gateway: CANISTER_URL is required (e.g. https://<canister-id>.ic0.app)');
-  process.exit(1);
-}
-if (!SESSION_SECRET) {
-  console.error('Gateway: SESSION_SECRET or HUB_JWT_SECRET is required');
-  process.exit(1);
-}
-
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -363,6 +354,14 @@ app.get('/api/v1/health-canister', async (_req, res) => {
 
 // When running on Netlify, the app is imported by netlify/functions/gateway.mjs and not started here.
 if (!process.env.NETLIFY) {
+  if (!CANISTER_URL) {
+    console.error('Gateway: CANISTER_URL is required (e.g. https://<canister-id>.ic0.app)');
+    process.exit(1);
+  }
+  if (!SESSION_SECRET) {
+    console.error('Gateway: SESSION_SECRET or HUB_JWT_SECRET is required');
+    process.exit(1);
+  }
   app.listen(PORT, () => {
     console.log(`Knowtation Hub Gateway listening on http://localhost:${PORT}`);
     console.log('  Canister: ' + CANISTER_URL);
