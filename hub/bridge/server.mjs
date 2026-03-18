@@ -59,7 +59,8 @@ function getBridgeStoreConfig(uid, vectorsDirOverride) {
   };
 }
 
-if (!CANISTER_URL || !SESSION_SECRET) {
+const isServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
+if (!isServerless && (!CANISTER_URL || !SESSION_SECRET)) {
   console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required');
   process.exit(1);
 }
@@ -580,7 +581,6 @@ app.post('/api/v1/search', async (req, res) => {
   }
 });
 
-const isServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
 if (!isServerless) {
   app.listen(PORT, () => {
     console.log('Knowtation Hub Bridge listening on http://localhost:' + PORT);
