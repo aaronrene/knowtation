@@ -32,7 +32,7 @@ the gateway builds the redirect as `BRIDGE_URL + '/auth/github-connect' + query`
 ### A. Gateway (Netlify — knowtation-gateway site)
 
 - In Netlify → **knowtation-gateway** → **Site configuration** → **Environment variables**, open **BRIDGE_URL**.
-- **Bridge site redirect:** If you see "Cannot GET /auth/github-connect" on knowtation-bridge.netlify.app, the **bridge** site is still sending traffic to the gateway. In **knowtation-bridge** → **Environment variables**, add **USE_BRIDGE_FUNCTION** = `true` (scope: **Build** or **All**). Then use **Trigger deploy** → **Clear cache and deploy site** so a full build runs. In the build log, confirm you see `[netlify-redirects] USE_BRIDGE_FUNCTION=true → bridge` and `Wrote public/_redirects: /* /.netlify/functions/bridge 200`. If you see `(unset)` or `→ gateway`, the variable is not available at build time (check scope or re-save the variable).
+- **Bridge site redirect:** If you see "Cannot GET /auth/github-connect" on knowtation-bridge.netlify.app, the **bridge** site must use the bridge config so traffic goes to the bridge function with the path preserved. In **knowtation-bridge** → **Build & deploy** → **Build settings**, set **Package directory** to `deploy/bridge` (leave **Base directory** empty). That makes Netlify use [deploy/bridge/netlify.toml](../deploy/bridge/netlify.toml), which has the redirect to `/.netlify/functions/bridge/:splat`. Then **Trigger deploy** → **Clear cache and deploy site**. You do not need **USE_BRIDGE_FUNCTION** or `public/_redirects` for the bridge when using this config.
 - **It must be exactly:** `https://knowtation-bridge.netlify.app`
   - **Must include the protocol** (`https://`). If you set only `knowtation-bridge.netlify.app`, the redirect is treated as a relative URL and you get the malformed gateway URL.
   - No trailing slash, no path (no `/api/...`, no `.../auth/...`).
@@ -61,3 +61,10 @@ the gateway builds the redirect as `BRIDGE_URL + '/auth/github-connect' + query`
 3. **Test:** Clear storage or use a private window, go to knowtation.store/hub/, log in with Google, open Settings → Backup, click Connect GitHub. You should be redirected to the gateway, then to the bridge (correct URL), then to GitHub, then back with “Connected.” Local Storage will contain `hub_token` after the login redirect.
 
 No step is “redeploy because Local Storage is empty.” Redeploy is for: (1) gateway if you changed BRIDGE_URL, (2) Hub to ship the link fix.
+
+---
+
+## 5. GitHub OAuth app (bridge)
+
+- **Authorization callback URL** must be exactly: `https://knowtation-bridge.netlify.app/auth/callback/github-connect`. (When typing manually, avoid truncation—e.g. "connect" not "conne"—and copy from GitHub when possible. These are generic precautions, not conclusions about your config.)
+- **GITHUB_CLIENT_ID** on the bridge Netlify site must match the GitHub app’s Client ID exactly (e.g. when retyping, watch for letter O vs digit 0). Copy from GitHub → Developer settings → OAuth Apps → your app.
