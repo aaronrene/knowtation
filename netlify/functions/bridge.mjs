@@ -10,9 +10,10 @@ import { app } from '../../hub/bridge/server.mjs';
 
 export const handler = async (event, context) => {
   connectLambda(event);
-  // Strong consistency: OAuth callback writes tokens; the next request (gateway → github-status) must see them.
-  // Eventual consistency caused Settings to show "Not connected" immediately after a successful Connect GitHub.
-  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'strong' });
+  // Use eventual consistency only. Strong consistency requires uncachedEdgeURL in the Netlify Functions
+  // environment; without it, blob set/get throws BlobsConsistencyError and Connect GitHub crashes.
+  // Hub retries /api/v1/settings after ?github_connected=1 to cover read-after-write lag.
+  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'eventual' });
   try {
     return await serverless(app)(event, context);
   } finally {

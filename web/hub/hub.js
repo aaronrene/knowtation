@@ -296,7 +296,12 @@
       }, 500);
     } else if (params.get('github_connect_error')) {
       setTimeout(() => {
-        if (typeof showToast === 'function') showToast('GitHub connect: ' + params.get('github_connect_error'), true);
+        const code = params.get('github_connect_error');
+        const msg =
+          code === 'blob_storage'
+            ? 'GitHub connect: could not save your token to storage. Check bridge Netlify logs or try again in a moment.'
+            : 'GitHub connect: ' + code;
+        if (typeof showToast === 'function') showToast(msg, true);
         const u = new URL(location.href);
         u.searchParams.delete('github_connect_error');
         history.replaceState({}, '', u.toString());

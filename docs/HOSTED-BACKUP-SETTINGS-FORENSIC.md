@@ -85,7 +85,9 @@ with **no body**. The self-hosted flow uses **Configure backup** (hidden on host
 
 ## 6. Netlify Blobs consistency
 
-The bridge stores encrypted tokens under the `bridge-data` store. The wrapper uses **strong** consistency so a write in the OAuth callback is visible to the next `github-status` read (see `netlify/functions/bridge.mjs` and earlier fixes).
+The bridge stores encrypted tokens under the `bridge-data` store with **eventual** consistency (`getStore` in [`netlify/functions/bridge.mjs`](../netlify/functions/bridge.mjs)). **Do not** set `consistency: 'strong'` for this Netlify Function unless Netlify documents that your environment exposes `uncachedEdgeURL`. Without it, reads/writes throw `BlobsConsistencyError` and the OAuth callback **crashes** before saving the token.
+
+Read-after-write lag is mitigated in the Hub by retrying `GET /api/v1/settings` after `?github_connected=1` when opening Settings → Backup ([`web/hub/hub.js`](../web/hub/hub.js)).
 
 ---
 
@@ -106,6 +108,7 @@ The bridge stores encrypted tokens under the `bridge-data` store. The wrapper us
 |---------|----------------------------------|
 | **Git backup: Not configured** (hosted) | Gateway used to **hardcode** `vault_git` to all false; fixed by deriving from `github_connected` + `repo`. |
 | **GitHub: Not connected** | Bridge/token/JWT/Blobs/deploy — not the same as “Git backup” line. |
+| **Netlify “function has crashed” on `/auth/callback/github-connect`** | Blobs **strong** consistency without `uncachedEdgeURL` — use **eventual** only (see §6). |
 | **Back up now** always disabled (hosted) | **`role === 'admin'`** gate + always **`member`** on gateway. |
 | Sync errors / no repo | **No `repo` in POST body** and no hosted UI to set it. |
 
