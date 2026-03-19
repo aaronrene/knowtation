@@ -3,7 +3,7 @@
  * Stores GitHub token per user; sync fetches vault from canister and pushes to repo.
  * Index/search: pull vault from canister, chunk → embed → sqlite-vec per user; search via POST /api/v1/search.
  * On Netlify, tokens and vector DBs persist via Netlify Blobs (set by netlify/functions/bridge.mjs).
- * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional GITHUB_*, EMBEDDING_*, BRIDGE_PORT, DATA_DIR.
+ * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional HUB_UI_ORIGIN, HUB_UI_PATH (default /hub), GITHUB_*, EMBEDDING_*, BRIDGE_PORT, DATA_DIR.
  */
 
 import fs from 'fs';
@@ -31,6 +31,8 @@ const PORT = parseInt(process.env.BRIDGE_PORT || process.env.PORT || '3341', 10)
 const BASE_URL = (process.env.HUB_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const CANISTER_URL = (process.env.CANISTER_URL || '').replace(/\/$/, '');
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
+// Path under HUB_UI_ORIGIN where the Hub app lives (e.g. /hub). Empty string = root.
+const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const DATA_DIR = process.env.DATA_DIR
   ? (path.isAbsolute(process.env.DATA_DIR) ? process.env.DATA_DIR : path.join(projectRoot, process.env.DATA_DIR))
@@ -242,7 +244,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     const token = req.query.token || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') && req.headers.authorization.slice(7));
     const uid = token ? userIdFromJwt(token) : null;
     if (!uid) {
-      return res.redirect(HUB_UI_ORIGIN + '/?github_connect_error=not_authenticated');
+      return res.redirect(HUB_UI_ORIGIN + HUB_UI_PATH + '/?github_connect_error=not_authenticated');
     }
     const state = signState({ uid, ts: Date.now() });
     const redirectUri = BASE_URL + '/auth/callback/github-connect';
@@ -255,13 +257,18 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 
   app.get('/auth/callback/github-connect', async (req, res) => {
     const { code, state } = req.query || {};
-    const baseRedirect = HUB_UI_ORIGIN + '/?github_connect=';
+    const hubBase = HUB_UI_ORIGIN + HUB_UI_PATH + '/';
+    console.log('[bridge] callback: hubBase=%s (ORIGIN=%s PATH=%s)', hubBase, HUB_UI_ORIGIN, HUB_UI_PATH);
     const payload = verifyState(state);
     if (!payload) {
-      return res.redirect(baseRedirect + 'error_state');
+      const url = hubBase + '?github_connect_error=error_state';
+      console.log('[bridge] redirect (error_state): %s', url);
+      return res.redirect(302, url);
     }
     if (!code) {
-      return res.redirect(baseRedirect + 'error_code');
+      const url = hubBase + '?github_connect_error=error_code';
+      console.log('[bridge] redirect (error_code): %s', url);
+      return res.redirect(302, url);
     }
     const uid = payload.uid;
     const redirectUri = BASE_URL + '/auth/callback/github-connect';
@@ -277,12 +284,16 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     });
     const data = await tokenRes.json();
     if (!data.access_token) {
-      return res.redirect(baseRedirect + 'error_token');
+      const url = hubBase + '?github_connect_error=error_token';
+      console.log('[bridge] redirect (error_token): %s', url);
+      return res.redirect(302, url);
     }
     const tokensByUser = await loadTokens(req.blobStore);
     tokensByUser[uid] = { token: data.access_token, repo: tokensByUser[uid]?.repo || null };
     await saveTokens(req.blobStore, tokensByUser);
-    res.redirect(baseRedirect + 'ok');
+    const redirectTo = hubBase + '?github_connected=1';
+    console.log('[bridge] redirect after connect: HUB_UI_ORIGIN=%s HUB_UI_PATH=%s redirectTo=%s', HUB_UI_ORIGIN, HUB_UI_PATH, redirectTo);
+    res.redirect(302, redirectTo);
   });
 }
 
