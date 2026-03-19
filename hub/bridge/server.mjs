@@ -284,7 +284,9 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     const tokensByUser = await loadTokens(req.blobStore);
     tokensByUser[uid] = { token: data.access_token, repo: tokensByUser[uid]?.repo || null };
     await saveTokens(req.blobStore, tokensByUser);
-    res.redirect(hubBase + '?github_connected=1');
+    const redirectTo = hubBase + '?github_connected=1';
+    console.log('[bridge] redirect after connect: HUB_UI_ORIGIN=%s HUB_UI_PATH=%s redirectTo=%s', HUB_UI_ORIGIN, HUB_UI_PATH, redirectTo);
+    res.redirect(302, redirectTo);
   });
 }
 
