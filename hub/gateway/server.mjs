@@ -125,18 +125,25 @@ app.use(express.json({ limit: '10mb' }));
 app.use(passport.initialize());
 
 // CORS: with credentials, browser rejects *. Use HUB_CORS_ORIGIN (single or comma-separated).
+// Only echo request Origin when it is in the list. Do not fall back to corsOrigins[0] when the
+// browser sends a different Origin (e.g. www vs apex) — that value does not match and the browser
+// blocks; falling back looked like a bug. List both https://knowtation.store and https://www.knowtation.store.
 const corsOrigins = process.env.HUB_CORS_ORIGIN
   ? process.env.HUB_CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
 app.use((req, res, next) => {
   const origin = req.get('Origin');
-  const allow =
-    origin && corsOrigins.length > 0 && corsOrigins.includes(origin)
-      ? origin
-      : corsOrigins.length > 0
-        ? corsOrigins[0]
-        : '*';
-  res.set('Access-Control-Allow-Origin', allow);
+  let allow = '*';
+  if (corsOrigins.length > 0) {
+    if (origin && corsOrigins.includes(origin)) {
+      allow = origin;
+    } else if (!origin) {
+      allow = corsOrigins[0];
+    } else {
+      allow = '';
+    }
+  }
+  if (allow !== '') res.set('Access-Control-Allow-Origin', allow);
   res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
   res.set('Access-Control-Allow-Credentials', 'true');
