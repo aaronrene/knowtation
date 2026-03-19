@@ -258,12 +258,17 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   app.get('/auth/callback/github-connect', async (req, res) => {
     const { code, state } = req.query || {};
     const hubBase = HUB_UI_ORIGIN + HUB_UI_PATH + '/';
+    console.log('[bridge] callback: hubBase=%s (ORIGIN=%s PATH=%s)', hubBase, HUB_UI_ORIGIN, HUB_UI_PATH);
     const payload = verifyState(state);
     if (!payload) {
-      return res.redirect(hubBase + '?github_connect_error=error_state');
+      const url = hubBase + '?github_connect_error=error_state';
+      console.log('[bridge] redirect (error_state): %s', url);
+      return res.redirect(302, url);
     }
     if (!code) {
-      return res.redirect(hubBase + '?github_connect_error=error_code');
+      const url = hubBase + '?github_connect_error=error_code';
+      console.log('[bridge] redirect (error_code): %s', url);
+      return res.redirect(302, url);
     }
     const uid = payload.uid;
     const redirectUri = BASE_URL + '/auth/callback/github-connect';
@@ -279,7 +284,9 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     });
     const data = await tokenRes.json();
     if (!data.access_token) {
-      return res.redirect(hubBase + '?github_connect_error=error_token');
+      const url = hubBase + '?github_connect_error=error_token';
+      console.log('[bridge] redirect (error_token): %s', url);
+      return res.redirect(302, url);
     }
     const tokensByUser = await loadTokens(req.blobStore);
     tokensByUser[uid] = { token: data.access_token, repo: tokensByUser[uid]?.repo || null };
