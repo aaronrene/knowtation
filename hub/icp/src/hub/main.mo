@@ -330,14 +330,27 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
 
   if (pathKind == "note" and req.method == "GET") {
     let pathDecoded = decodePercentEncoded(pathArg);
+    let pathNormalized = if (Text.size(pathDecoded) > 0 and textSlice(pathDecoded, Text.size(pathDecoded) - 1, 1) == "/") {
+      textSlice(pathDecoded, 0, Text.size(pathDecoded) - 1)
+    } else {
+      pathDecoded
+    };
     let vault = getVault(uid);
-    switch (vault.get(pathDecoded)) {
+    switch (vault.get(pathNormalized)) {
       case (?fmBody) {
-        let json = "{\"path\":\"" # escapeJson(pathDecoded) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
+        let json = "{\"path\":\"" # escapeJson(pathNormalized) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
-        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
+        switch (vault.get(pathArg)) {
+          case (?fmBody) {
+            let json = "{\"path\":\"" # escapeJson(pathArg) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
+            return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
+          };
+          case null {
+            return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
+          };
+        };
       };
     };
   };
