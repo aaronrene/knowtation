@@ -12,7 +12,8 @@ export const handler = async (event, context) => {
   // Temporary: log raw path for 404 verification (remove after debugging).
   console.log('[bridge] event.path=', event.path, 'event.rawUrl=', event.rawUrl ?? '(none)');
   connectLambda(event);
-  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'strong' });
+  // Use eventual consistency so Blobs works without uncachedEdgeURL (strong requires it in some runtimes).
+  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'eventual' });
   try {
     return await serverless(app)(event, context);
   } finally {
