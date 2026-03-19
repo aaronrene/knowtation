@@ -220,6 +220,22 @@ app.use((_req, res, next) => {
   next();
 });
 
+// When Netlify rewrites /* to /.netlify/functions/bridge/:splat, Express sees the full path; strip prefix so routes match.
+if (inServerless) {
+  const bridgePrefix = '/.netlify/functions/bridge';
+  app.use((req, _res, next) => {
+    if (req.url.startsWith(bridgePrefix)) {
+      const before = req.url;
+      req.url = req.url.slice(bridgePrefix.length) || '/';
+      // Temporary: log path before/after strip for 404 verification (remove after debugging).
+      console.log('[bridge] req.url before strip=', before, 'after strip=', req.url);
+    } else {
+      console.log('[bridge] req.url (no strip)=', req.url);
+    }
+    next();
+  });
+}
+
 // ——— Connect GitHub ———
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   app.get('/auth/github-connect', (req, res) => {
