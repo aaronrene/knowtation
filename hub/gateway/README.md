@@ -11,6 +11,10 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 - **GET /auth/callback/google**, **GET /auth/callback/github** — OAuth callbacks; on success redirect to `HUB_UI_ORIGIN/?token=<jwt>`.
 - **GET/POST /api/v1/*** — Proxied to canister with **X-User-Id** from JWT. Returns 401 if no valid token.
 
+## Canister proxy URL (important)
+
+The canister proxy runs under **`app.use('/api/v1', …)`**. Express **strips** that mount from `req.url` / `req.path` inside the handler, so `req.path` is only the suffix (e.g. `/notes`), **not** `/api/v1/notes`. Building the upstream URL as `CANISTER_URL + req.path` would call the canister at **`/notes`**, which does not match the Hub API and returns **`{"error":"Not found"}`**. The gateway uses **`req.originalUrl`** (after Netlify path normalization) for pathname + query.
+
 ## Environment
 
 | Variable | Required | Description |
