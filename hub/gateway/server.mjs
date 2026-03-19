@@ -243,12 +243,20 @@ app.get('/api/v1/settings', async (req, res) => {
       console.warn('[gateway] bridge github-status unreachable', e?.message || String(e));
     }
   }
+  // Hosted vault is the canister — there is no local git repo. Backup UX uses bridge + GitHub.
+  // Map GitHub connection + optional default repo into vault_git so Settings matches reality (was always "Not configured" before).
+  const vault_git = {
+    enabled: github_connected,
+    has_remote: Boolean(github_repo),
+    auto_commit: false,
+    auto_push: false,
+  };
   res.json({
     role: 'member',
     user_id: uid,
     vault_id: 'default',
     vault_path_display: 'Canister',
-    vault_git: { enabled: false, has_remote: false, auto_commit: false, auto_push: false },
+    vault_git,
     github_connect_available: Boolean(BRIDGE_URL),
     github_connected,
     repo: github_repo,

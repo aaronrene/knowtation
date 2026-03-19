@@ -346,6 +346,13 @@
               <span id="settings-github-status" class="settings-value">—</span>
               <a id="btn-connect-github" class="btn-secondary hidden" href="#" target="_self">Connect GitHub</a>
             </div>
+            <div id="settings-hosted-backup-repo-section" class="settings-hosted-repo-block hidden" role="region" aria-label="Hosted backup repository">
+              <p class="settings-intro small">For <strong>hosted</strong> backup, enter the GitHub repository as <code>owner/repo</code> (create an <strong>empty</strong> repo first). This is sent with <strong>Back up now</strong>; after a successful push it is remembered for next time.</p>
+              <div class="settings-form settings-form-compact">
+                <label for="settings-hosted-repo">Backup repo <span class="settings-label-hint">(owner/repo-name)</span></label>
+                <input type="text" id="settings-hosted-repo" placeholder="e.g. myuser/my-notes" autocomplete="off">
+              </div>
+            </div>
             <div class="settings-actions">
               <button type="button" id="btn-settings-sync" class="btn-primary" disabled>Back up now</button>
               <span id="settings-sync-msg" class="settings-msg"></span>

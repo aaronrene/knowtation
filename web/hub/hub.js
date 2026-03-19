@@ -18,6 +18,9 @@
     }
   }
 
+  /** Latest GET /api/v1/settings used for Backup tab (hosted repo field + sync body). */
+  let lastBackupSettingsPayload = null;
+
   const PRESETS_KEY = 'hub_view_presets';
   const el = (id) => document.getElementById(id);
   const app = el('app');
@@ -122,6 +125,30 @@
     }
     if (!res.ok) throw new Error(data?.error || res.statusText);
     return data;
+  }
+
+  const HOSTED_BACKUP_REPO_LS = 'knowtation_hosted_backup_repo';
+
+  function normalizeGithubRepoSlug(raw) {
+    let t = (raw || '').trim();
+    if (!t) return '';
+    t = t.replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/\/+$/, '');
+    const parts = t.split('/').filter(Boolean);
+    if (parts.length >= 2) return parts[0] + '/' + parts[1];
+    return t;
+  }
+
+  /** Hosted (canister): any logged-in user may sync to their own GitHub; self-hosted still requires admin. */
+  function settingsSyncDisabled(s, vg, isHosted) {
+    const isAdmin = s.role === 'admin';
+    const hostedGitBackup = isHosted && s.github_connect_available;
+    if (hostedGitBackup) {
+      const inputEl = el('settings-hosted-repo');
+      const inputRepo = normalizeGithubRepoSlug(inputEl && inputEl.value);
+      const slug = inputRepo || normalizeGithubRepoSlug(localStorage.getItem(HOSTED_BACKUP_REPO_LS)) || normalizeGithubRepoSlug(s.repo);
+      return !s.github_connected || !slug;
+    }
+    return !vg.enabled || !vg.has_remote || !isAdmin;
   }
 
   /** After Connect GitHub, blob read-after-write can lag; retry settings until github_connected or timeout. */
@@ -1030,6 +1057,7 @@
     if (ghStatus) ghStatus.textContent = 'Loading…';
     fetchSettingsForBackupModal()
       .then((s) => {
+        lastBackupSettingsPayload = s;
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
         const userIdEl = el('settings-user-id');
@@ -1067,7 +1095,7 @@
         el('settings-git-status').textContent = gitText;
         const syncBtn = el('btn-settings-sync');
         const isAdmin = s.role === 'admin';
-        if (syncBtn) syncBtn.disabled = !vg.enabled || !vg.has_remote || !isAdmin;
+        if (syncBtn) syncBtn.disabled = settingsSyncDisabled(s, vg, isHosted);
         const saveSetupBtn = el('btn-settings-save');
         if (saveSetupBtn) {
           saveSetupBtn.disabled = false;
@@ -1087,6 +1115,29 @@
         } else {
           if (connectBtn) connectBtn.classList.add('hidden');
           if (ghStatus) ghStatus.textContent = '—';
+        }
+        const hostedRepoSection = el('settings-hosted-backup-repo-section');
+        const hostedRepoInput = el('settings-hosted-repo');
+        if (hostedRepoSection) {
+          hostedRepoSection.classList.toggle('hidden', !(isHosted && s.github_connect_available));
+        }
+        if (hostedRepoInput && isHosted && s.github_connect_available) {
+          if (!hostedRepoInput.value.trim()) {
+            hostedRepoInput.value = (s.repo && String(s.repo)) || localStorage.getItem(HOSTED_BACKUP_REPO_LS) || '';
+          }
+          if (!hostedRepoInput.dataset.knowtationBound) {
+            hostedRepoInput.dataset.knowtationBound = '1';
+            hostedRepoInput.addEventListener('input', () => {
+              const syncBtn = el('btn-settings-sync');
+              if (!syncBtn || !lastBackupSettingsPayload) return;
+              const vd = lastBackupSettingsPayload.vault_path_display || '';
+              const ih = (vd + '').toLowerCase() === 'canister';
+              if (ih && lastBackupSettingsPayload.github_connect_available) {
+                const vg = lastBackupSettingsPayload.vault_git || {};
+                syncBtn.disabled = settingsSyncDisabled(lastBackupSettingsPayload, vg, ih);
+              }
+            });
+          }
         }
         const ed = s.embedding_display || {};
         if (el('agents-embedding-provider')) el('agents-embedding-provider').textContent = ed.provider || '—';
@@ -1327,8 +1378,48 @@
     msg.textContent = 'Syncing…';
     msg.className = 'settings-msg';
     try {
-      const result = await api('/api/v1/vault/sync', { method: 'POST' });
+      const s = lastBackupSettingsPayload;
+      const isHosted = s && (String(s.vault_path_display || '').toLowerCase() === 'canister');
+      const hostedPath = isHosted && s.github_connect_available;
+      let opts = { method: 'POST' };
+      if (hostedPath) {
+        const slug =
+          normalizeGithubRepoSlug(el('settings-hosted-repo') && el('settings-hosted-repo').value) ||
+          normalizeGithubRepoSlug(localStorage.getItem(HOSTED_BACKUP_REPO_LS)) ||
+          normalizeGithubRepoSlug(s.repo);
+        if (!slug) {
+          msg.textContent = 'Enter backup repo as owner/repo (e.g. myuser/my-notes).';
+          msg.className = 'settings-msg err';
+          return;
+        }
+        localStorage.setItem(HOSTED_BACKUP_REPO_LS, slug);
+        opts.body = JSON.stringify({ repo: slug });
+      }
+      const result = await api('/api/v1/vault/sync', opts);
       msg.textContent = result.message || 'Done.';
+      if (hostedPath && s) {
+        const refreshed = await api('/api/v1/settings');
+        lastBackupSettingsPayload = refreshed;
+        const vg = refreshed.vault_git || {};
+        const vd = refreshed.vault_path_display || '';
+        const ih = (vd + '').toLowerCase() === 'canister';
+        const syncBtn = el('btn-settings-sync');
+        if (syncBtn) syncBtn.disabled = settingsSyncDisabled(refreshed, vg, ih);
+        let gitText = 'Not configured';
+        if (vg.enabled && vg.has_remote) {
+          gitText = 'Configured';
+          if (vg.auto_commit) gitText += ' (auto-commit on)';
+          if (vg.auto_push) gitText += ', auto-push on';
+        } else if (vg.enabled) gitText = 'Enabled but no remote set';
+        el('settings-git-status').textContent = gitText;
+        const step4 = document.getElementById('setup-step-4');
+        if (step4) {
+          const done = !!(vg.enabled && vg.has_remote);
+          step4.classList.toggle('setup-step-done', done);
+          const icon = step4.querySelector('.setup-step-icon');
+          if (icon) icon.textContent = done ? '✓' : '';
+        }
+      }
     } catch (e) {
       msg.textContent = e.message || 'Sync failed';
       msg.className = 'settings-msg err';
@@ -1378,7 +1469,7 @@
           el('settings-git-status').textContent = gitText;
           const syncBtn = el('btn-settings-sync');
           const isAdmin = s.role === 'admin';
-          if (syncBtn) syncBtn.disabled = !vg.enabled || !vg.has_remote || !isAdmin;
+          if (syncBtn) syncBtn.disabled = settingsSyncDisabled(s, vg, isHostedNow);
           if (msg) {
             msg.textContent = successText;
             msg.className = 'settings-msg ok';

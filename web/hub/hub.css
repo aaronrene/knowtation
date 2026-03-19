@@ -438,6 +438,8 @@ button:hover { border-color: var(--accent); }
 .settings-form input[type="text"] { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .settings-checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: normal; cursor: pointer; }
 .settings-form-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.settings-hosted-repo-block { margin: 0.75rem 0 0.25rem; padding-top: 0.25rem; border-top: 1px solid var(--border); }
+.settings-form-compact { margin-top: 0.35rem; }
 
 /* Toast (Re-index, etc.) */
 .toast {
