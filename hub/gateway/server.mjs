@@ -388,6 +388,9 @@ async function proxyToCanister(req, res) {
   try {
     const upstream = await fetch(url, opts);
     const body = await upstream.text();
+    if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
+      console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
+    }
     res.status(upstream.status).set(Object.fromEntries(upstream.headers.entries()));
     res.send(body);
   } catch (e) {
