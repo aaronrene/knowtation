@@ -1493,6 +1493,10 @@
     };
   }
 
+  function defaultFullPath() {
+    return 'inbox/note-' + Date.now() + '.md';
+  }
+
   document.querySelectorAll('.modal-tab').forEach((t) => {
     t.onclick = () => {
       document.querySelectorAll('.modal-tab').forEach((x) => x.classList.remove('active'));
@@ -1500,7 +1504,10 @@
       const tab = t.dataset.createTab;
       el('create-quick').classList.toggle('hidden', tab !== 'quick');
       el('create-full').classList.toggle('hidden', tab !== 'full');
-      if (tab === 'full' && el('full-date') && !el('full-date').value) el('full-date').value = ymd(new Date());
+      if (tab === 'full') {
+        if (el('full-date') && !el('full-date').value) el('full-date').value = ymd(new Date());
+        if (el('full-path') && !el('full-path').value.trim()) el('full-path').value = defaultFullPath();
+      }
     };
   });
 
@@ -1541,7 +1548,12 @@
   el('btn-full-save').onclick = async () => {
     const notePath = el('full-path').value.trim();
     const msg = el('create-msg-full');
-    if (!notePath || !notePath.endsWith('.md')) {
+    if (!notePath) {
+      msg.textContent = 'Enter a vault path (e.g. inbox/idea.md).';
+      msg.className = 'create-msg err';
+      return;
+    }
+    if (!notePath.endsWith('.md')) {
       msg.textContent = 'Path must end in .md (e.g. inbox/idea.md)';
       msg.className = 'create-msg err';
       return;
@@ -1571,7 +1583,7 @@
       await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: notePath, body, frontmatter: fm }) });
       msg.textContent = 'Created: ' + notePath;
       msg.className = 'create-msg ok';
-      el('full-path').value = '';
+      el('full-path').value = defaultFullPath();
       el('full-title').value = '';
       el('full-body').value = '';
       el('full-project').value = '';
