@@ -1537,8 +1537,9 @@
       msg.textContent = 'Saved: ' + path;
       msg.className = 'create-msg ok';
       el('quick-body').value = '';
-        loadFacets();
-        loadNotes();
+      loadFacets();
+      loadNotes();
+      closeCreateModal();
     } catch (e) {
       msg.textContent = e.message;
       msg.className = 'create-msg err';
@@ -1595,6 +1596,7 @@
       if (el('full-follows')) el('full-follows').value = '';
       loadFacets();
       loadNotes();
+      closeCreateModal();
     } catch (e) {
       msg.textContent = e.message;
       msg.className = 'create-msg err';

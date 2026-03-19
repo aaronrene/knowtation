@@ -12,6 +12,7 @@ import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
 import Nat "mo:base/Nat";
+import Nat32 "mo:base/Nat32";
 import Option "mo:base/Option";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
@@ -234,6 +235,46 @@ func extractJsonString(body : Text, key : Text) : ?Text {
   };
 };
 
+/// Decode percent-encoded path segment (e.g. inbox%2Fnote.md -> inbox/note.md) so GET lookup matches POST-stored keys.
+func decodePercentEncoded(s : Text) : Text {
+  var out = "";
+  var i : Nat = 0;
+  while (i < Text.size(s)) {
+    let c = textSlice(s, i, 1);
+    if (c == "%" and i + 2 < Text.size(s)) {
+      let h1 = textSlice(s, i + 1, 1);
+      let h2 = textSlice(s, i + 2, 1);
+      let n1 = charToHex(h1);
+      let n2 = charToHex(h2);
+      switch (n1, n2) {
+        case (?a, ?b) {
+          let code = a * 16 + b;
+          out := out # Char.toText(Char.fromNat32(Nat32.fromNat(code)));
+          i += 3;
+        };
+        case _ { out := out # c; i += 1 };
+      };
+    } else {
+      out := out # c;
+      i += 1;
+    };
+  };
+  out;
+};
+func charToHex(c : Text) : ?Nat {
+  if (Text.size(c) != 1) return null;
+  switch (Text.toIter(c).next()) {
+    case (?ch) {
+      let n = Char.toNat32(ch);
+      if (n >= 48 and n <= 57) return ?(Nat32.toNat(n - 48));
+      if (n >= 65 and n <= 70) return ?(Nat32.toNat(n - 55));
+      if (n >= 97 and n <= 102) return ?(Nat32.toNat(n - 87));
+      null;
+    };
+    case null { null };
+  };
+};
+
 func escapeJson(s : Text) : Text {
   var out = "";
   var i : Nat = 0;
@@ -288,10 +329,11 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "note" and req.method == "GET") {
+    let pathDecoded = decodePercentEncoded(pathArg);
     let vault = getVault(uid);
-    switch (vault.get(pathArg)) {
+    switch (vault.get(pathDecoded)) {
       case (?fmBody) {
-        let json = "{\"path\":\"" # escapeJson(pathArg) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
+        let json = "{\"path\":\"" # escapeJson(pathDecoded) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
