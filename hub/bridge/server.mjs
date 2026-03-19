@@ -358,15 +358,19 @@ app.post('/api/v1/vault/sync', async (req, res) => {
 
   // Push to GitHub: get default branch, create blobs, create tree, commit, push
   const ghToken = conn.token;
-  const headers = {
+  const ghApi = 'https://api.github.com';
+  // GitHub requires a non-empty User-Agent; some serverless runtimes send none → 403 "Administrative rules".
+  const ghHeaders = {
     Authorization: 'token ' + ghToken,
     Accept: 'application/vnd.github.v3+json',
     'Content-Type': 'application/json',
+    'User-Agent': 'KnowtationHub-Bridge/1.0 (+https://knowtation.store)',
   };
+  const headsRefEnc = (branch) => encodeURIComponent(`heads/${String(branch || 'main').trim()}`);
 
   let defaultBranch;
   try {
-    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers });
+    const repoRes = await fetch(`${ghApi}/repos/${owner}/${name}`, { headers: ghHeaders });
     if (!repoRes.ok) {
       if (repoRes.status === 404) {
         return res.status(400).json({ error: 'Repo not found or no access', code: 'REPO_NOT_FOUND' });
@@ -374,12 +378,13 @@ app.post('/api/v1/vault/sync', async (req, res) => {
       throw new Error('GitHub API ' + repoRes.status);
     }
     const repoData = await repoRes.json();
-    defaultBranch = repoData.default_branch || 'main';
+    defaultBranch = String(repoData.default_branch || 'main').trim() || 'main';
   } catch (e) {
     return res.status(502).json({ error: 'GitHub API error', code: 'BAD_GATEWAY' });
   }
 
-  const refRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs/heads/${defaultBranch}`, { headers });
+  // GET single ref: documented as /git/ref/{ref} with ref = heads/<branch> (URL-encoded). Avoids edge cases with /git/refs/... on some hosts.
+  const refRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/ref/${headsRefEnc(defaultBranch)}`, { headers: ghHeaders });
   let baseSha = null;
   let baseTreeSha = null;
   if (refRes.ok) {
@@ -388,7 +393,7 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     if (!baseSha) {
       return res.status(502).json({ error: 'Invalid ref response', code: 'BAD_GATEWAY' });
     }
-    const baseTreeRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/commits/${baseSha}`, { headers });
+    const baseTreeRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/commits/${baseSha}`, { headers: ghHeaders });
     if (!baseTreeRes.ok) {
       return res.status(502).json({ error: 'Could not get base commit', code: 'BAD_GATEWAY' });
     }
@@ -399,16 +404,28 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     baseSha = null;
     baseTreeSha = null;
   } else {
-    return res.status(502).json({ error: 'Could not get branch', code: 'BAD_GATEWAY' });
+    const refErrBody = await refRes.text();
+    console.warn('[bridge] GitHub GET ref failed', { owner, name, branch: defaultBranch, status: refRes.status, body: refErrBody.slice(0, 500) });
+    if (refRes.status === 403 || refRes.status === 401) {
+      return res.status(502).json({
+        error:
+          'GitHub denied access when reading the branch (often missing User-Agent or expired token). Use Settings → Connect GitHub again.',
+        code: 'BAD_GATEWAY',
+      });
+    }
+    return res.status(502).json({
+      error: 'Could not read branch on GitHub. If the repo is new with no commits, try Back up again after redeploying the bridge; otherwise check bridge logs.',
+      code: 'BAD_GATEWAY',
+    });
   }
 
   const tree = [];
   for (const note of notes) {
     const path = note.path || 'note.md';
     const content = (note.frontmatter && note.frontmatter !== '{}' ? '---\n' + note.frontmatter + '\n---\n\n' : '') + (note.body || '');
-    const blobRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/blobs`, {
+    const blobRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/blobs`, {
       method: 'POST',
-      headers,
+      headers: ghHeaders,
       body: JSON.stringify({ content: Buffer.from(content, 'utf8').toString('base64'), encoding: 'base64' }),
     });
     if (!blobRes.ok) {
@@ -423,9 +440,9 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     const placeholder =
       '# Knowtation vault backup\n\n'
       + 'Your hosted vault had no notes yet. Add notes in the Hub and run **Back up now** again to sync them here.\n';
-    const blobRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/blobs`, {
+    const blobRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/blobs`, {
       method: 'POST',
-      headers,
+      headers: ghHeaders,
       body: JSON.stringify({
         content: Buffer.from(placeholder, 'utf8').toString('base64'),
         encoding: 'base64',
@@ -439,9 +456,9 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   }
 
   const treePayload = baseTreeSha ? { base_tree: baseTreeSha, tree } : { tree };
-  const treeRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/trees`, {
+  const treeRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/trees`, {
     method: 'POST',
-    headers,
+    headers: ghHeaders,
     body: JSON.stringify(treePayload),
   });
   if (!treeRes.ok) {
@@ -449,9 +466,9 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   }
   const newTree = await treeRes.json();
 
-  const commitRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/commits`, {
+  const commitRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/commits`, {
     method: 'POST',
-    headers,
+    headers: ghHeaders,
     body: JSON.stringify({
       message: 'Knowtation Hub backup ' + new Date().toISOString(),
       tree: newTree.sha,
@@ -465,15 +482,15 @@ app.post('/api/v1/vault/sync', async (req, res) => {
 
   let refUpdateRes;
   if (baseSha) {
-    refUpdateRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs/heads/${defaultBranch}`, {
+    refUpdateRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/refs/${headsRefEnc(defaultBranch)}`, {
       method: 'PATCH',
-      headers,
+      headers: ghHeaders,
       body: JSON.stringify({ sha: newCommit.sha, force: false }),
     });
   } else {
-    refUpdateRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs`, {
+    refUpdateRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/refs`, {
       method: 'POST',
-      headers,
+      headers: ghHeaders,
       body: JSON.stringify({ ref: `refs/heads/${defaultBranch}`, sha: newCommit.sha }),
     });
   }

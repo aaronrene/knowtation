@@ -109,6 +109,7 @@ Read-after-write lag is mitigated in the Hub by retrying `GET /api/v1/settings` 
 | **Git backup: Not configured** (hosted) | Gateway used to **hardcode** `vault_git` to all false; fixed by deriving from `github_connected` + `repo`. |
 | **GitHub: Not connected** | Bridge/token/JWT/Blobs/deploy — not the same as “Git backup” line. |
 | **Netlify “function has crashed” on `/auth/callback/github-connect`** | Blobs **strong** consistency without `uncachedEdgeURL` — use **eventual** only (see §6). |
+| **“Could not get branch” / backup fails after Connect works** | GitHub REST **requires a `User-Agent` header**; some serverless runtimes omit it → **403**. The bridge sets `User-Agent: KnowtationHub-Bridge/1.0` on all GitHub calls. Also uses documented `GET /repos/.../git/ref/heads%2F{branch}` (encoded `heads/<branch>`). |
 | **Back up now** always disabled (hosted) | **`role === 'admin'`** gate + always **`member`** on gateway. |
 | Sync errors / no repo | **No `repo` in POST body** and no hosted UI to set it. |
 
