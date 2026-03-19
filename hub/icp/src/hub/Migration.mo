@@ -1,6 +1,7 @@
 /**
- * Stable-memory upgrade: mainnet hub was deployed with ProposalRecord without
- * `base_state_id` and `external_ref` (Option B). This migration maps V0 → current shape.
+ * Stable-memory upgrade: V0 matches on-chain shape (with base_state_id and external_ref).
+ * If the canister was ever deployed with the full ProposalRecord, V0 includes those fields
+ * so the upgrade is accepted; migration is then identity for proposals.
  * See https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility
  */
 import Array "mo:base/Array";
@@ -14,6 +15,8 @@ module Migration {
     body : Text;
     frontmatter : Text;
     intent : Text;
+    base_state_id : Text;
+    external_ref : Text;
     created_at : Text;
     updated_at : Text;
   };
@@ -60,8 +63,8 @@ module Migration {
                     body = p.body;
                     frontmatter = p.frontmatter;
                     intent = p.intent;
-                    base_state_id = "";
-                    external_ref = "";
+                    base_state_id = p.base_state_id;
+                    external_ref = p.external_ref;
                     created_at = p.created_at;
                     updated_at = p.updated_at;
                   };
