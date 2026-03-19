@@ -53,7 +53,7 @@ This doc covers production deployment: 4Everland for static UI and landing, gate
 
 **Bridge env (production):**
 
-- `CANISTER_URL`, `SESSION_SECRET`, `HUB_BASE_URL`, `HUB_UI_ORIGIN` — same as gateway logic; bridge callback URL must be on `HUB_BASE_URL` of the bridge (e.g. `https://bridge.knowtation.com/auth/callback/github-connect`)
+- `CANISTER_URL`, **`SESSION_SECRET`** (must be the **exact same** value as the gateway — if they differ, the bridge cannot verify the user JWT and Settings will show "GitHub: Not connected" even after a successful Connect GitHub), `HUB_BASE_URL`, `HUB_UI_ORIGIN` — same as gateway logic; bridge callback URL must be on `HUB_BASE_URL` of the bridge (e.g. `https://bridge.knowtation.com/auth/callback/github-connect`)
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — for Connect GitHub (can be same app as gateway or separate)
 - `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `OLLAMA_URL` or `OPENAI_API_KEY` — for index/search
 - `DATA_DIR` — persistent dir for tokens and per-user vector DBs (ensure backup/restore if needed)
@@ -69,7 +69,9 @@ Exact records depend on 4Everland and your Node host (A/CNAME, or their provided
 
 ---
 
-## 5. Pre-roll checklist
+## 5. Pre-roll checklist (hosted)
+
+This checklist is for **hosted** production readiness. It is **not** a new site or new page — you just verify each item below. For the idea that self-hosted users get the same UI/interface as hosted users, see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md) §1 (self-hosted pre-roll). For **what pre-roll is**, **bridge deploy in detail** (including second Netlify project), and **PR/branch strategy**, see [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md).
 
 - [ ] Canister deployed and healthy (`GET /health`).
 - [ ] Gateway env set; OAuth callback URLs registered with Google/GitHub.

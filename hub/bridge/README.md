@@ -18,7 +18,7 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 | **CANISTER_URL** | Yes | Canister HTTP URL (e.g. `https://<canister-id>.ic0.app`). |
 | **SESSION_SECRET** or **HUB_JWT_SECRET** | Yes | Same as gateway: verify JWT and encrypt stored tokens. |
 | **HUB_BASE_URL** | Yes (prod) | Public URL of this bridge (for OAuth callback). E.g. `https://bridge.knowtation.com`. |
-| **HUB_UI_ORIGIN** | No | Origin of Hub UI (post-connect redirect). Defaults to HUB_BASE_URL. |
+| **HUB_UI_ORIGIN** | No | Origin of Hub UI (post-connect redirect). Defaults to HUB_BASE_URL. Must match the host users actually use (e.g. `https://www.knowtation.store` if they use www; otherwise redirect can land on the wrong host and show the landing page). |
 | **HUB_UI_PATH** | No | Path under origin where the Hub lives (e.g. `/hub`). Default `/hub`. Empty = root. Redirects after Connect GitHub use this so users land on the Hub. |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth for "Connect GitHub". Use a separate GitHub App or same as gateway. |
 | **DATA_DIR** | No | Directory for tokens and per-user vector DBs (default: repo `data/`). Ignored on Netlify when Blobs are used. |

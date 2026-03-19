@@ -36,6 +36,8 @@ You have **one canister** and Netlify for the gateway (e.g. knowtation-gateway.n
 
    **If you see `backend_response_verification` / "Certification values not found":** The canister doesn’t implement HTTP response certification yet. Use the **raw** domain so the gateway skips verification: **CANISTER_URL** = `https://<canister-id>.raw.icp0.io` (or `https://<canister-id>.raw.ic0.app`). Check: `curl -s "https://<canister-id>.raw.icp0.io/health"` → `{"ok":true}`. Use this URL in the gateway; server-side calls are fine with raw.
 
+   **Current Knowtation canister:** ID `rsovz-byaaa-aaaaa-qgira-cai` (see `hub/icp/canister_ids.json`). Health returns 200 on `https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` and 400 on `.ic0.app`. Set **CANISTER_URL** in the gateway (and bridge) to the **raw** URL.
+
 ---
 
 ## Step 2 — Cloudflare and DNS (so knowtation.store points to 4Everland)

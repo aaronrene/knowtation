@@ -19,12 +19,22 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 | **4** | Bridge: indexer + search (per-user sqlite-vec) | ✅ Done — bridge POST /api/v1/index, /api/v1/search |
 | **5** | 4Everland + single URL (knowtation.store), deploy docs, landing CTA | ✅ Done — docs, web/ updated |
 
-**Not done yet (deploy and URLs):**
+**Current deployed state (verified from repo and live checks; see [EXACT-STATE-PHASE2.md](./EXACT-STATE-PHASE2.md) for details):**
 
-- **Canister:** Run `dfx deploy` (local or `--network ic`) and set `CANISTER_URL` in gateway/bridge. See [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md) and [hub/icp/README.md](../hub/icp/README.md).
-- **4Everland:** Deploy full `web/` to one project; set custom domain **knowtation.store** (landing at `/`, Hub at `/hub/`). See [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md).
-- **Gateway + bridge:** Deploy to Netlify (or Node host); set env (OAuth, `CANISTER_URL`, `BRIDGE_URL`, `SESSION_SECRET`, etc.). Gateway proxies `/api/*` to canister and (when `BRIDGE_URL` set) to bridge for vault/sync, search, index.
-- **Hub UI API base:** When live, set `window.HUB_API_BASE_URL` (e.g. `https://knowtation.store`) in `web/hub/` so the Hub at `/hub/` talks to your gateway.
+- **Canister:** Deployed on ICP. Gateway uses `CANISTER_URL` (set in Netlify env).
+- **4Everland:** Deployed. Full `web/` at **knowtation.store** (landing `/`, Hub `/hub/`). Custom domain set.
+- **Netlify:** Gateway deployed (e.g. **knowtation-gateway.netlify.app**). `web/hub/config.js` sets `HUB_API_BASE_URL = 'https://knowtation-gateway.netlify.app'` when host is knowtation.store. Env (CANISTER_URL, SESSION_SECRET, OAuth, HUB_BASE_URL, HUB_UI_ORIGIN, etc.) is set.
+- **DNS:** knowtation.store points to 4Everland (and gateway has its own Netlify URL).
+- **Pre-roll:** **Not verified.** Pre-roll is the hosted checklist in [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5; it includes **bridge env**. Do not assume done. See [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md).
+
+**What the bridge is:** The **bridge** is a **separate** Node app in `hub/bridge/`. It is **not** part of the Netlify gateway deploy (netlify.toml only builds the gateway). The bridge provides: Connect GitHub, Back up now (vault → GitHub), and index + search (per-user vector DB). The **gateway** proxies requests to the bridge only when **BRIDGE_URL** is set in the gateway’s env. If BRIDGE_URL is not set: Connect GitHub, Back up now, and search/index are **not available** on hosted (the gateway does not implement them; it only proxies to canister or to bridge). **“Set ENV” for bridge** means: if you deploy the bridge (e.g. separate Netlify project, or Railway, or same host as gateway), you set that service’s env (CANISTER_URL, SESSION_SECRET, GITHUB_*, EMBEDDING_*, DATA_DIR, etc.) and you set **BRIDGE_URL** in the **gateway’s** Netlify env to the bridge’s public URL. If you do not need GitHub backup or search on hosted, you can leave the bridge undeployed and BRIDGE_URL unset.
+
+**Remaining (redeploys and bridge — bridge is required, not optional):**
+
+- **Canister redeploy:** The merged parity branch added **Option B** canister changes (`base_state_id`, `external_ref` on proposals). To have those live, run `cd hub/icp && dfx deploy --network ic`. Same canister ID; this is a **redeploy** with new code, not a first-time deploy.
+- **Netlify rebuild:** So the **gateway** runs the merged code (Phase 1 stubs: roles, invites, setup, import, facets). If Netlify builds from main, trigger a deploy so the latest gateway code is live.
+- **4Everland rebuild:** So the Hub at knowtation.store serves the latest `web/` (e.g. Muse in How to use). Trigger a build if it does not auto-deploy from main.
+- **Bridge (required):** Connect GitHub, Back up now, and search on hosted **require** the bridge. Deploy `hub/bridge/` somewhere, set its env, and set **BRIDGE_URL** in the gateway’s Netlify env.
 
 **Docs:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md), [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md), [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md), [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md), [hub/gateway/README.md](../hub/gateway/README.md), [hub/bridge/README.md](../hub/bridge/README.md).
 
@@ -70,7 +80,7 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 
 | Priority | What |
 |----------|------|
-| **Hosted live** | Deploy canister (`dfx deploy`), gateway + bridge (Netlify), web/ to 4Everland, point knowtation.store, set `HUB_API_BASE_URL`. Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) and [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md). Hosting is **beta, free** until Phase 16 (credits). |
+| **Hosted live** | Canister, 4Everland, Netlify gateway, DNS are deployed; pre-roll is not confirmed (see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md)). Next: **canister redeploy** (Option B fields), **Netlify + 4Everland rebuild** (merged parity code). **bridge deploy and wire** (required for Connect GitHub + Back up now + search). Do not start multi-vault until Phase 2 including bridge is complete. See §1 and STATUS-VERIFICATION “Remaining” for full list. |
 | **Phase 15 (multi-vault)** | When needed: implement per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md); see Phase 15 in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). |
 | **Phase 16 (hosted credits)** | When ready to monetize: balance model, deduction rules, purchase flow, Hub UI; see Phase 16 in IMPLEMENTATION-PLAN. |
 | **Phase 12 (blockchain)** | When needed: implement reserved frontmatter, CLI filters, capture/import; see [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md). |

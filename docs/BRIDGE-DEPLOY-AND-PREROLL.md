@@ -42,9 +42,9 @@ So: **two Netlify sites, one repo, one build; difference = Package directory (br
 | Variable | Value |
 |----------|--------|
 | **CANISTER_URL** | `https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io` (same as gateway; use raw URL) |
-| **SESSION_SECRET** or **HUB_JWT_SECRET** | Same secret as the gateway (so JWTs from the gateway are valid here) |
+| **SESSION_SECRET** or **HUB_JWT_SECRET** | **Must be identical to the gateway.** If they differ, the bridge returns 401 for github-status and Settings will show "GitHub: Not connected" after Connect GitHub. Check gateway logs for `[gateway] bridge github-status non-ok 401` to confirm. |
 | **HUB_BASE_URL** | The **bridge** site URL, e.g. `https://knowtation-bridge.netlify.app` (for OAuth callback) |
-| **HUB_UI_ORIGIN** | `https://knowtation.store` (where to send the user after Connect GitHub) |
+| **HUB_UI_ORIGIN** | Where to send the user after Connect GitHub. **Must match the host you use:** if you use `https://www.knowtation.store`, set `https://www.knowtation.store`; if you use `https://knowtation.store`, set that. Otherwise the redirect can land on the wrong host and you may see the landing page instead of the Hub. |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | For “Connect GitHub” (can be same app as gateway or a separate GitHub App) |
 | **DATA_DIR** | Persistent dir for tokens and per-user vector DBs; on Netlify use a path your function can write to or omit if not persistent (search/index may not persist across invocations unless you add external storage) |
 | **EMBEDDING_PROVIDER**, **OPENAI_API_KEY** (or **OLLAMA_URL**) | For index/search; if not set, search/index may fail until configured |

@@ -94,36 +94,43 @@ function decrypt(encrypted, secret) {
   return decipher.update(Buffer.from(encB, 'base64url')) + decipher.final('utf8');
 }
 
+function parseAndDecryptTokens(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  let decryptFailures = 0;
+  for (const [uid, v] of Object.entries(raw)) {
+    if (v && typeof v.token === 'string') {
+      const t = decrypt(v.token, SESSION_SECRET);
+      if (t) out[uid] = { token: t, repo: v.repo || null };
+      else decryptFailures++;
+    }
+  }
+  if (decryptFailures > 0) {
+    console.warn(
+      '[bridge] loadTokens: decrypt failed for',
+      decryptFailures,
+      'stored GitHub token(s). If SESSION_SECRET was rotated on the bridge, run Connect GitHub again to re-store the token.'
+    );
+  }
+  return out;
+}
+
 async function loadTokens(blobStore) {
   if (!blobStore) {
     ensureDataDir();
     if (!fs.existsSync(TOKENS_FILE)) return {};
     try {
       const raw = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
-      const out = {};
-      for (const [uid, v] of Object.entries(raw)) {
-        if (v && typeof v.token === 'string') {
-          const t = decrypt(v.token, SESSION_SECRET);
-          if (t) out[uid] = { token: t, repo: v.repo || null };
-        }
-      }
-      return out;
+      return parseAndDecryptTokens(raw);
     } catch (_) {
       return {};
     }
   }
   try {
-    const rawStr = await blobStore.get('hub_github_tokens');
+    const rawStr = await blobStore.get('hub_github_tokens', { consistency: 'strong' });
     if (!rawStr) return {};
     const raw = JSON.parse(rawStr);
-    const out = {};
-    for (const [uid, v] of Object.entries(raw)) {
-      if (v && typeof v.token === 'string') {
-        const t = decrypt(v.token, SESSION_SECRET);
-        if (t) out[uid] = { token: t, repo: v.repo || null };
-      }
-    }
-    return out;
+    return parseAndDecryptTokens(raw);
   } catch (_) {
     return {};
   }
@@ -227,12 +234,7 @@ if (inServerless) {
   const bridgePrefix = '/.netlify/functions/bridge';
   app.use((req, _res, next) => {
     if (req.url.startsWith(bridgePrefix)) {
-      const before = req.url;
       req.url = req.url.slice(bridgePrefix.length) || '/';
-      // Temporary: log path before/after strip for 404 verification (remove after debugging).
-      console.log('[bridge] req.url before strip=', before, 'after strip=', req.url);
-    } else {
-      console.log('[bridge] req.url (no strip)=', req.url);
     }
     next();
   });

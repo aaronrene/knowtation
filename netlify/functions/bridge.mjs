@@ -9,11 +9,10 @@ import { connectLambda, getStore } from '@netlify/blobs';
 import { app } from '../../hub/bridge/server.mjs';
 
 export const handler = async (event, context) => {
-  // Temporary: log raw path for 404 verification (remove after debugging).
-  console.log('[bridge] event.path=', event.path, 'event.rawUrl=', event.rawUrl ?? '(none)');
   connectLambda(event);
-  // Use eventual consistency so Blobs works without uncachedEdgeURL (strong requires it in some runtimes).
-  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'eventual' });
+  // Strong consistency: OAuth callback writes tokens; the next request (gateway → github-status) must see them.
+  // Eventual consistency caused Settings to show "Not connected" immediately after a successful Connect GitHub.
+  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'strong' });
   try {
     return await serverless(app)(event, context);
   } finally {
