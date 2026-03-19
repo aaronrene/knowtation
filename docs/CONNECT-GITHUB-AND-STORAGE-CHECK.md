@@ -68,3 +68,20 @@ No step is “redeploy because Local Storage is empty.” Redeploy is for: (1) g
 
 - **Authorization callback URL** must be exactly: `https://knowtation-bridge.netlify.app/auth/callback/github-connect`. (When typing manually, avoid truncation—e.g. "connect" not "conne"—and copy from GitHub when possible. These are generic precautions, not conclusions about your config.)
 - **GITHUB_CLIENT_ID** on the bridge Netlify site must match the GitHub app’s Client ID exactly (e.g. when retyping, watch for letter O vs digit 0). Copy from GitHub → Developer settings → OAuth Apps → your app.
+
+---
+
+## 6. Settings still shows "GitHub: Not connected" after a successful Connect GitHub
+
+If the Connect GitHub flow completes (you see a success message or return to the Hub) but **Settings → Backup** still shows **GitHub: Not connected**:
+
+1. **Gateway and bridge must use the same SESSION_SECRET.** The gateway issues the user JWT; the bridge verifies it for `/api/v1/vault/github-status`. If the bridge has a different `SESSION_SECRET` (or `HUB_JWT_SECRET`), it cannot verify the token and returns 401. The gateway then leaves `github_connected` false.
+2. **Check gateway logs.** After the change in [hub/gateway/server.mjs](../hub/gateway/server.mjs), when the bridge returns non-OK you will see:
+   - `[gateway] bridge github-status non-ok 401` — bridge could not verify the JWT → fix by setting the **exact same** SESSION_SECRET on both Netlify sites (gateway and bridge).
+   - `[gateway] bridge github-status unreachable ...` — bridge not reachable (e.g. wrong BRIDGE_URL or bridge down).
+
+Fix: In the **bridge** Netlify site's environment variables, set **SESSION_SECRET** (or **HUB_JWT_SECRET**) to the **exact same** string as on the **gateway** site. Redeploy the bridge (and gateway if you changed it), then open Settings → Backup again.
+
+3. **Stored token encrypted with an old bridge SESSION_SECRET.** GitHub tokens in Netlify Blobs are encrypted with the bridge’s `SESSION_SECRET` at save time. If you later change that secret, `decrypt` fails and the bridge omits those entries — JWT verification can still succeed (gateway and bridge share the new secret), but **github_connected** stays false. **Fix:** run **Connect GitHub** once more after any bridge `SESSION_SECRET` change. Bridge logs: `[bridge] loadTokens: decrypt failed for N stored GitHub token(s)...`.
+
+4. **Netlify Blobs read-after-write.** The bridge Netlify function used **eventual** consistency for the blob store, so the first `GET` after OAuth could miss the new token. The repo now uses **strong** consistency for `bridge-data` and a short client-side retry when returning from Connect GitHub. Redeploy the **bridge** site so [netlify/functions/bridge.mjs](../netlify/functions/bridge.mjs) is live.

@@ -124,6 +124,25 @@
     return data;
   }
 
+  /** After Connect GitHub, blob read-after-write can lag; retry settings until github_connected or timeout. */
+  async function fetchSettingsForBackupModal() {
+    const pendingRaw = sessionStorage.getItem('knowtation_github_connect_pending');
+    const pendingTs = pendingRaw ? parseInt(pendingRaw, 10) : NaN;
+    const pendingFresh = Number.isFinite(pendingTs) && Date.now() - pendingTs < 120000;
+    if (!pendingFresh) {
+      if (pendingRaw) sessionStorage.removeItem('knowtation_github_connect_pending');
+      return api('/api/v1/settings');
+    }
+    let s;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      s = await api('/api/v1/settings');
+      if (s.github_connected || !s.github_connect_available) break;
+      if (attempt < 7) await new Promise((r) => setTimeout(r, 600));
+    }
+    sessionStorage.removeItem('knowtation_github_connect_pending');
+    return s;
+  }
+
   function showLoginChrome() {
     btnLogout.classList.add('hidden');
     userName.textContent = '';
@@ -241,6 +260,7 @@
     renderPresets();
     initProviders();
     if (params.get('github_connected') === '1') {
+      sessionStorage.setItem('knowtation_github_connect_pending', String(Date.now()));
       setTimeout(() => {
         if (typeof showToast === 'function') showToast('GitHub connected. Push will use the stored token.');
         const u = new URL(location.href);
@@ -1008,7 +1028,7 @@
     el('settings-git-status').textContent = 'Loading…';
     const ghStatus = el('settings-github-status');
     if (ghStatus) ghStatus.textContent = 'Loading…';
-    api('/api/v1/settings')
+    fetchSettingsForBackupModal()
       .then((s) => {
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';

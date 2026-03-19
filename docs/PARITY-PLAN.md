@@ -6,9 +6,11 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Order of work:** We do **Option B (Muse protocol alignment)** first per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — document variation protocol and canister extensibility; then Phase 1 (gateway stubs) below.
 
+**What we fixed (Phase 1, merged):** On hosted, the Hub UI used to 404 when opening Settings → Team (roles, invites), clicking Save setup (POST /api/v1/setup), using the filter dropdowns (GET /api/v1/notes/facets), or using Import. The canister does not implement those routes. We **fixed** this by adding **gateway stubs** in `hub/gateway/server.mjs`: each of those requests is now handled by the gateway with a valid response (empty list, no-op, or 501 for import) before the request is ever proxied to the canister. No canister changes; the fix is entirely in the gateway. Option B (Muse protocol alignment) and Muse in How to use were shipped in the same branch.
+
 ---
 
-## Current state (before parity work)
+## Current state (after Phase 1)
 
 ### Self-hosted (Node Hub — `hub/server.mjs`)
 
@@ -43,12 +45,12 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
 | Settings | Gateway **stub** (GET only) | ✅ |
 | Setup | Gateway **stub** (GET only) | ✅ |
-| **Roles** | Canister (not implemented) → **404** | ❌ |
-| **Invites** | Canister (not implemented) → **404** | ❌ |
-| **POST /api/v1/setup** | Canister (not implemented) → **404** | ❌ |
-| Import | Canister (not implemented) → **404** | ❌ |
+| Roles | Gateway stub (GET 200 empty list; POST no-op) | ✅ |
+| Invites | Gateway stub (GET 200 empty; POST/DELETE no-op or clear error) | ✅ |
+| POST /api/v1/setup | Gateway stub (200 no-op) | ✅ |
+| Import | Gateway stub (501 not yet available on hosted) | ✅ |
 
-The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. On hosted, those requests are proxied to the canister and return 404, so Team tab and “Save setup” break without parity work.
+The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. On hosted, Phase 1 is complete: the gateway now handles these with stubs, so Team tab and “Save setup” no longer 404.
 
 ---
 
@@ -119,6 +121,8 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 
 ## Phase 2 — Deploy hosted
 
+**What Phase 2 is:** Phase 2 is **deployment and operations only**. There is no in-repo code to write. You run deploy commands and configure infrastructure (canister, gateway, bridge, web, DNS) so the stack is live. The parity code is already in the repo (Phase 1 gateway stubs); Phase 2 is executing the deploy checklist below.
+
 **Goal:** Get the full stack live so users can use “Use in the cloud (beta)” at knowtation.store/hub/.
 
 **Prerequisite:** Phase 1 complete so Settings → Team and Setup don’t 404.
@@ -127,15 +131,27 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 
 **Deploy order (run when ready; no need to push between steps):** 1) Canister (`dfx deploy`). 2) Gateway + bridge (Netlify or Node host; set env). 3) Web to 4Everland (landing + Hub); set custom domain knowtation.store and `HUB_API_BASE_URL` in `web/hub/config.js` to gateway URL. 4) DNS. 5) Pre-roll checklist. Push/merge this branch once when in-repo work is done; actual deploy steps use your accounts and don't require further commits unless you change production config.
 
-### 2.1 Checklist (Phase 2)
+### 2.1 When you have already deployed (canister, 4Everland, Netlify, DNS)
 
-- [ ] **Canister:** `dfx deploy` (local or `--network ic`). Set `CANISTER_URL` in gateway and bridge env.
-- [ ] **Web (landing + Hub UI):** Deploy `web/` to 4Everland (or equivalent). Custom domain knowtation.store; `/` = landing, `/hub/` = Hub.
-- [ ] **Hub UI API base:** Set `window.HUB_API_BASE_URL` (e.g. `https://knowtation.store`) so Hub at `/hub/` calls the gateway.
-- [ ] **Gateway:** Deploy to Netlify (or Node host). Env: CANISTER_URL, SESSION_SECRET, HUB_BASE_URL, HUB_UI_ORIGIN, BRIDGE_URL (if separate), OAuth client IDs/secrets, callback URLs.
-- [ ] **Bridge:** Deploy (same host as gateway or separate). Env: CANISTER_URL, GitHub OAuth for Connect GitHub, embedding config, DATA_DIR. Gateway proxies /api/v1/vault/sync, /api/v1/vault/github-status, /api/v1/search, /api/v1/index to bridge.
-- [ ] **DNS:** knowtation.store points to 4Everland (and gateway/bridge hosts if different).
-- [ ] **Pre-roll:** Canister GET /health ok; OAuth callbacks registered; no secrets in repo/client.
+You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Netlify, DNS. **Pre-roll is not confirmed** (see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md)); it includes bridge env, so it cannot be done until the bridge is deployed and wired. What remains:
+
+| Action | What it does |
+|--------|----------------|
+| **Canister redeploy** | Merged code added `base_state_id` and `external_ref` to proposals (Option B). To have them live: `cd hub/icp && dfx deploy --network ic`. Same canister; this updates it with the new code. |
+| **Netlify rebuild** | Gateway must run the **merged** code (Phase 1 stubs: roles, invites, setup, import, facets). Trigger a new deploy from main so the gateway serves the latest server.mjs. |
+| **4Everland rebuild** | So knowtation.store/hub/ serves the latest web/ (e.g. Muse in How to use). Trigger build from main if it does not auto-deploy. |
+| **Bridge (required)** | The **bridge** (`hub/bridge/`) is **required** for Connect GitHub, Back up now, and search on hosted. It is a **separate** service (not part of the Netlify gateway). Deploy `hub/bridge/` somewhere; set its env (CANISTER_URL, SESSION_SECRET, GITHUB_*, EMBEDDING_*, DATA_DIR); set **BRIDGE_URL** in the **gateway's** Netlify env to the bridge URL. Do not leave on the shelf; Phase 2 is not complete until the bridge is deployed and wired. See [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md) and [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) section 1. |
+
+**Do not start Phase 3 (multi-vault)** until Phase 2 is complete: canister redeploy (if desired), Netlify rebuild, 4Everland rebuild, **bridge deploy and wire**, and pre-roll verified.
+
+### 2.2 First-time deploy checklist (only if stack is not yet live)
+
+- [ ] **Canister:** `dfx deploy --network ic`. Set `CANISTER_URL` in gateway (and bridge if used) env.
+- [ ] **Web:** Deploy `web/` to 4Everland. Custom domain knowtation.store; set `HUB_API_BASE_URL` in `web/hub/config.js` to your gateway URL.
+- [ ] **Gateway:** Deploy to Netlify (or Node host). Env: CANISTER_URL, SESSION_SECRET, HUB_BASE_URL, HUB_UI_ORIGIN, OAuth IDs/secrets, HUB_CORS_ORIGIN. Optional: BRIDGE_URL if bridge is deployed.
+- [ ] **Bridge (required):** Deploy `hub/bridge/`; set its env; set BRIDGE_URL in gateway. Connect GitHub, Back up now, and search depend on it. Do not treat as optional.
+- [ ] **DNS:** knowtation.store to 4Everland (and gateway URL as needed).
+- [ ] **Pre-roll:** Canister /health ok; OAuth callbacks set; **bridge env set**; no secrets in repo/client. Verify per [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5.
 
 ---
 
@@ -183,8 +199,8 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 | Phase | What | When |
 |-------|------|------|
 | **1** | API parity (gateway stubs: roles, invites, POST setup, optional import 501) | **Done.** Implemented in hub/gateway/server.mjs. |
-| **2** | Deploy hosted (canister, 4Everland, gateway, bridge, DNS) | **Next.** After Phase 1. |
-| **3** | Multi-vault (Phase 15) | After Phase 2; per MULTI-VAULT-AND-SCOPED-ACCESS. |
+| **2** | Deploy hosted (canister, 4Everland, gateway, **bridge**, DNS); **bridge required** — not optional | **Next.** After Phase 1. Do not start Phase 3 until Phase 2 including bridge is complete. See [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md). |
+| **3** | Multi-vault (Phase 15) | After Phase 2 **complete** (including bridge deploy and wire); per MULTI-VAULT-AND-SCOPED-ACCESS. |
 | **4** | Full hosted roles/invites (canister or gateway store) | Optional; when we want real team behavior on hosted. |
 
 **Do not start implementation** of Phase 1 until this plan (and IMPLEMENTATION-PLAN updates) are agreed. After Phase 1 is implemented, update this doc and IMPLEMENTATION-PLAN to mark parity complete and “Next” as Phase 2 (deploy).

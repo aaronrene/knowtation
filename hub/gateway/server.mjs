@@ -220,9 +220,29 @@ function getUserId(req) {
 }
 
 // GET /api/v1/settings and GET /api/v1/setup — hosted stub (canister does not implement these)
-app.get('/api/v1/settings', (req, res) => {
+app.get('/api/v1/settings', async (req, res) => {
   const uid = getUserId(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  let github_connected = false;
+  let github_repo = null;
+  if (BRIDGE_URL && req.headers.authorization) {
+    try {
+      const ghRes = await fetch(BRIDGE_URL + '/api/v1/vault/github-status', {
+        method: 'GET',
+        headers: { Authorization: req.headers.authorization, Accept: 'application/json' },
+      });
+      if (ghRes.ok) {
+        const data = await ghRes.json();
+        github_connected = Boolean(data.github_connected);
+        github_repo = data.repo || null;
+      } else {
+        // 401 = bridge could not verify JWT (e.g. SESSION_SECRET differs from gateway)
+        console.warn('[gateway] bridge github-status non-ok', ghRes.status);
+      }
+    } catch (e) {
+      console.warn('[gateway] bridge github-status unreachable', e?.message || String(e));
+    }
+  }
   res.json({
     role: 'member',
     user_id: uid,
@@ -230,7 +250,8 @@ app.get('/api/v1/settings', (req, res) => {
     vault_path_display: 'Canister',
     vault_git: { enabled: false, has_remote: false, auto_commit: false, auto_push: false },
     github_connect_available: Boolean(BRIDGE_URL),
-    github_connected: false,
+    github_connected,
+    repo: github_repo,
     embedding_display: { provider: '—', model: '—', ollama_url: '—' },
   });
 });
