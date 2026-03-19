@@ -358,12 +358,26 @@ app.get('/api/v1/notes/facets', (req, res) => {
   res.json({ projects: [], tags: [], folders: [] });
 });
 
+/** Path + query for upstream canister. Do not use req.path here: this handler runs under app.use('/api/v1', …), and Express strips the mount so req.path is only the suffix (e.g. /notes), which would call the canister at /notes and yield NOT_FOUND. */
+function upstreamPathAndQuery(req) {
+  const raw = req.originalUrl || req.url || '/';
+  try {
+    const u = new URL(raw, 'https://gateway.local');
+    return u.pathname + u.search;
+  } catch {
+    const q = raw.indexOf('?');
+    const pathPart = q >= 0 ? raw.slice(0, q) : raw;
+    const search = q >= 0 ? raw.slice(q) : '';
+    return pathPart + search;
+  }
+}
+
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
-  const url = CANISTER_URL + req.path + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+  const url = CANISTER_URL + upstreamPathAndQuery(req);
   const headers = {
     ...req.headers,
     host: new URL(CANISTER_URL).host,

@@ -15,7 +15,9 @@ import Nat "mo:base/Nat";
 import Option "mo:base/Option";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+import Migration "Migration";
 
+(with migration = Migration.migration)
 persistent actor Hub {
 
 // --- HTTP types (IC gateway) ---
@@ -36,6 +38,8 @@ type HttpResponse = {
       token : StreamingCallbackToken;
     };
   };
+  /// When set to ?true, the ICP HTTP gateway re-invokes this request on http_request_update (required for POST mutations).
+  upgrade : ?Bool;
 };
 type StreamingCallbackToken = {
   key : Text;
@@ -50,24 +54,9 @@ type StreamingCallbackResponse = {
 
 // --- Storage ---
 type NoteContent = { path : Text; frontmatter : Text; body : Text };
-type ProposalRecord = {
-  proposal_id : Text;
-  path : Text;
-  status : Text;
-  body : Text;
-  frontmatter : Text;
-  intent : Text;
-  base_state_id : Text;
-  external_ref : Text;
-  created_at : Text;
-  updated_at : Text;
-};
+type ProposalRecord = Migration.ProposalRecord;
+type StableStorage = Migration.StableStorage;
 
-// Single stable var (avoids DFX 0.30.2 parser bug with consecutive "stable var" lines)
-type StableStorage = {
-  vaultEntries : [(Text, [(Text, (Text, Text))])];
-  proposalEntries : [(Text, [ProposalRecord])];
-};
 var storage : StableStorage = { vaultEntries = []; proposalEntries = [] };
 
 transient var vaults = HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>(10, Text.equal, Text.hash);
@@ -131,30 +120,6 @@ func corsHeaders() : [Header] {
 
 func jsonBody(s : Text) : Blob { Text.encodeUtf8(s) };
 
-func parsePath(url : Text) : (Text, Text) {
-  let pathParts = Iter.toArray(Text.split(url, #char '?'));
-  let path = if (pathParts.size() > 0) { pathParts[0] } else { url };
-  if (path == "/health" or path == "/health/") {
-    ("health", "");
-  } else if (Text.startsWith(path, #text "/api/v1/notes/")) {
-    let suffix = Text.trimStart(path, #text "/api/v1/notes/");
-    ("note", suffix);
-  } else if (path == "/api/v1/notes" or path == "/api/v1/notes/") {
-    ("notes", "");
-  } else if (Text.startsWith(path, #text "/api/v1/proposals/")) {
-    let rest = Text.trimStart(path, #text "/api/v1/proposals/");
-    let parts = Iter.toArray(Text.split(rest, #char '/'));
-    if (parts.size() == 1) { ("proposal", parts[0]) }
-    else if (parts.size() >= 2 and parts[1] == "approve") { ("approve", parts[0]) }
-    else if (parts.size() >= 2 and parts[1] == "discard") { ("discard", parts[0]) }
-    else { ("unknown", "") };
-  } else if (path == "/api/v1/proposals" or path == "/api/v1/proposals/") {
-    ("proposals", "");
-  } else if (path == "/api/v1/export" or path == "/api/v1/export/") {
-    ("export", "");
-  } else { ("unknown", "") };
-};
-
 func getVault(uid : Text) : HashMap.HashMap<Text, (Text, Text)> {
   switch (vaults.get(uid)) {
     case (?m) { m };
@@ -196,6 +161,52 @@ func textFind(t : Text, needle : Text) : ?Nat {
     i += 1;
   };
   null;
+};
+
+/// HTTP gateway may pass a full URL (e.g. https://<canister>.icp0.io/api/v1/notes); routing must use the path only.
+func pathOnly(rawUrl : Text) : Text {
+  let pathParts = Iter.toArray(Text.split(rawUrl, #char '?'));
+  var path = if (pathParts.size() > 0) { pathParts[0] } else { rawUrl };
+  switch (textFind(path, "://")) {
+    case (?k) {
+      let startAuth = k + 3;
+      if (startAuth < Text.size(path)) {
+        let afterLen = Text.size(path) - startAuth;
+        let after = textSlice(path, startAuth, afterLen);
+        switch (textFind(after, "/")) {
+          case (?m) { path := textSlice(after, m, Text.size(after) - m) };
+          case null { path := "/" };
+        };
+      } else {
+        path := "/";
+      };
+    };
+    case null {};
+  };
+  path;
+};
+
+func parsePath(url : Text) : (Text, Text) {
+  let path = pathOnly(url);
+  if (path == "/health" or path == "/health/") {
+    ("health", "");
+  } else if (Text.startsWith(path, #text "/api/v1/notes/")) {
+    let suffix = Text.trimStart(path, #text "/api/v1/notes/");
+    ("note", suffix);
+  } else if (path == "/api/v1/notes" or path == "/api/v1/notes/") {
+    ("notes", "");
+  } else if (Text.startsWith(path, #text "/api/v1/proposals/")) {
+    let rest = Text.trimStart(path, #text "/api/v1/proposals/");
+    let parts = Iter.toArray(Text.split(rest, #char '/'));
+    if (parts.size() == 1) { ("proposal", parts[0]) }
+    else if (parts.size() >= 2 and parts[1] == "approve") { ("approve", parts[0]) }
+    else if (parts.size() >= 2 and parts[1] == "discard") { ("discard", parts[0]) }
+    else { ("unknown", "") };
+  } else if (path == "/api/v1/proposals" or path == "/api/v1/proposals/") {
+    ("proposals", "");
+  } else if (path == "/api/v1/export" or path == "/api/v1/export/") {
+    ("export", "");
+  } else { ("unknown", "") };
 };
 
 // Minimal JSON: extract string value for key (finds "\"key\":\"...\"").
@@ -248,6 +259,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
       headers = corsHeaders();
       body = jsonBody("{\"ok\":true}");
       streaming_strategy = null;
+      upgrade = null;
     };
   };
 
@@ -260,7 +272,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
       items := items # "{\"path\":\"" # escapeJson(p) # "\",\"frontmatter\":\"" # escapeJson(fmBody.0) # "\",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
     };
     let json = "{\"notes\":[" # items # "]}";
-    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
+    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
   };
 
   if (pathKind == "notes" and req.method == "GET") {
@@ -272,7 +284,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
       items := items # "{\"path\":\"" # escapeJson(p) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
     };
     let json = "{\"notes\":[" # items # "],\"total\":" # Nat.toText(entries.size()) # "}";
-    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
+    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
   };
 
   if (pathKind == "note" and req.method == "GET") {
@@ -280,10 +292,10 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     switch (vault.get(pathArg)) {
       case (?fmBody) {
         let json = "{\"path\":\"" # escapeJson(pathArg) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
-        return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
+        return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
-        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null };
+        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
       };
     };
   };
@@ -296,7 +308,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
       items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
     };
     let json = "{\"proposals\":[" # items # "],\"total\":" # Nat.toText(list.size()) # "}";
-    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
+    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
   };
 
   if (pathKind == "proposal" and req.method == "GET") {
@@ -304,19 +316,33 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
         let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
-        return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
+        return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
-        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null };
+        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
       };
     };
   };
 
-  if (req.method == "OPTIONS") {
-    return { status_code = 204; headers = corsHeaders(); body = jsonBody(""); streaming_strategy = null };
+  // ICP HTTP gateway always invokes http_request (query) first. Mutating methods must return
+  // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
+  if (
+    req.method == "POST" and (pathKind == "notes" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard")
+  ) {
+    return {
+      status_code = 200;
+      headers = [];
+      body = Blob.fromArray([]);
+      streaming_strategy = null;
+      upgrade = ?true;
+    };
   };
 
-  return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null };
+  if (req.method == "OPTIONS") {
+    return { status_code = 204; headers = corsHeaders(); body = jsonBody(""); streaming_strategy = null; upgrade = null };
+  };
+
+  return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
 };
 
 public func http_request_update(req : HttpRequest) : async HttpResponse {
@@ -328,13 +354,13 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let vault = getVault(uid);
     let path = if (pathArg.size() > 0) { pathArg } else { Option.get(extractJsonString(bodyText, "path"), "") };
     if (path.size() == 0) {
-      return { status_code = 400; headers = corsHeaders(); body = jsonBody("{\"error\":\"path required\",\"code\":\"BAD_REQUEST\"}"); streaming_strategy = null };
+      return { status_code = 400; headers = corsHeaders(); body = jsonBody("{\"error\":\"path required\",\"code\":\"BAD_REQUEST\"}"); streaming_strategy = null; upgrade = null };
     };
     let noteBody = Option.get(extractJsonString(bodyText, "body"), bodyText);
     let frontmatter = Option.get(extractJsonString(bodyText, "frontmatter"), "{}");
     vault.put(path, (frontmatter, noteBody));
     saveStable();
-    return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"path\":\"" # escapeJson(path) # "\",\"written\":true}"); streaming_strategy = null };
+    return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"path\":\"" # escapeJson(path) # "\",\"written\":true}"); streaming_strategy = null; upgrade = null };
   };
 
   if (pathKind == "proposals" and req.method == "POST") {
@@ -352,7 +378,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     setProposalsList(uid, list);
     saveStable();
     let json = "{\"proposal_id\":\"" # escapeJson(proposal_id) # "\",\"path\":\"" # escapeJson(path) # "\",\"status\":\"proposed\"}";
-    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null };
+    return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
   };
 
   if (pathKind == "approve" and req.method == "POST") {
@@ -366,10 +392,10 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         });
         setProposalsList(uid, list);
         saveStable();
-        return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"approved\"}"); streaming_strategy = null };
+        return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"approved\"}"); streaming_strategy = null; upgrade = null };
       };
       case null {
-        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null };
+        return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
       };
     };
   };
@@ -381,10 +407,10 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     });
     setProposalsList(uid, list);
     saveStable();
-    return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"discarded\"}"); streaming_strategy = null };
+    return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"discarded\"}"); streaming_strategy = null; upgrade = null };
   };
 
-  return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null };
+  return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
 };
 
 }

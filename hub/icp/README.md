@@ -26,9 +26,21 @@ This folder contains the **ICP canister** implementation of the Knowtation Hub A
 - After `dfx deploy`, run `dfx canister id hub` to get the canister ID.
 - Use that ID in the URL above. For the Hub UI, set the API base to the gateway URL (which proxies to the canister with auth) or, for local dev, the canister URL with `X-Test-User: default` (or another user id) on requests.
 
+## Stable memory upgrades (mainnet)
+
+If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain `ProposalRecord` shape no longer matches the source (e.g. after adding `base_state_id` / `external_ref`). The project includes **`src/hub/Migration.mo`** and `(with migration = Migration.migration)` on the hub actor so one upgrade maps **V0** proposals (without those two fields) to the current record, filling them with `""`.
+
+After this upgrade has run successfully on mainnet, a **later** release may drop the migration hook and module if you want a minimal actor (see Motoko compatibility docs).
+
+## ICP HTTP gateway behavior (hosted)
+
+- Every browser request is delivered to the canister’s **`http_request` (query)** first. **POST** mutations are **not** routed directly to `http_request_update`; the gateway only calls `http_request_update` after `http_request` returns **`upgrade = ?true`**. See [Upgrading HTTP calls to update calls](https://internetcomputer.org/docs/building-apps/network-features/using-http/http-certification/upgrading-http-query-calls-to-update-calls) and [HTTPS gateways and incoming requests](https://docs.internetcomputer.org/building-apps/network-features/using-http/gateways).
+- The gateway may set `HttpRequest.url` to a **full URL** (e.g. `https://<canister>.icp0.io/api/v1/notes?...`). Routing must normalize to the **path** (e.g. `/api/v1/notes`) before matching; `pathOnly` + `parsePath` in `main.mo` do that.
+- Without `upgrade` on POST, the canister’s query handler falls through to the generic **404** body `{"error":"Not found","code":"NOT_FOUND"}` — the same JSON the Hub shows when listing or creating notes.
+
 ## Implementation status
 
-- **Implemented:** Motoko canister in `src/hub/main.mo`: vault (notes list/get/write), proposals (list/get/create/approve/discard), health, CORS. User from header; stable storage.
+- **Implemented:** Motoko canister in `src/hub/main.mo`: vault (notes list/get/write), proposals (list/get/create/approve/discard), health, CORS. User from header; stable storage. HTTP `upgrade` for POST and URL path normalization as above.
 - **Not in canister:** Search, settings, vault sync — handled by gateway/bridge in the hosted product (see plan phases 2–4).
 
 ## Reference
