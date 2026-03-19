@@ -380,21 +380,27 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   }
 
   const refRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs/heads/${defaultBranch}`, { headers });
-  if (!refRes.ok) {
+  let baseSha = null;
+  let baseTreeSha = null;
+  if (refRes.ok) {
+    const refData = await refRes.json();
+    baseSha = refData.object?.sha;
+    if (!baseSha) {
+      return res.status(502).json({ error: 'Invalid ref response', code: 'BAD_GATEWAY' });
+    }
+    const baseTreeRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/commits/${baseSha}`, { headers });
+    if (!baseTreeRes.ok) {
+      return res.status(502).json({ error: 'Could not get base commit', code: 'BAD_GATEWAY' });
+    }
+    const baseCommit = await baseTreeRes.json();
+    baseTreeSha = baseCommit.tree?.sha;
+  } else if (refRes.status === 404) {
+    // Repo exists on GitHub but has no commits yet (Quick setup / empty repo) — no refs/heads/* yet.
+    baseSha = null;
+    baseTreeSha = null;
+  } else {
     return res.status(502).json({ error: 'Could not get branch', code: 'BAD_GATEWAY' });
   }
-  const refData = await refRes.json();
-  const baseSha = refData.object?.sha;
-  if (!baseSha) {
-    return res.status(502).json({ error: 'Invalid ref response', code: 'BAD_GATEWAY' });
-  }
-
-  const baseTreeRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/commits/${baseSha}`, { headers });
-  if (!baseTreeRes.ok) {
-    return res.status(502).json({ error: 'Could not get base commit', code: 'BAD_GATEWAY' });
-  }
-  const baseCommit = await baseTreeRes.json();
-  const baseTreeSha = baseCommit.tree?.sha;
 
   const tree = [];
   for (const note of notes) {
@@ -412,10 +418,31 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     tree.push({ path, mode: '100644', type: 'blob', sha: blob.sha });
   }
 
+  const isInitialCommit = !baseSha;
+  if (isInitialCommit && tree.length === 0) {
+    const placeholder =
+      '# Knowtation vault backup\n\n'
+      + 'Your hosted vault had no notes yet. Add notes in the Hub and run **Back up now** again to sync them here.\n';
+    const blobRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/blobs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        content: Buffer.from(placeholder, 'utf8').toString('base64'),
+        encoding: 'base64',
+      }),
+    });
+    if (!blobRes.ok) {
+      return res.status(502).json({ error: 'GitHub blob failed', code: 'BAD_GATEWAY' });
+    }
+    const blob = await blobRes.json();
+    tree.push({ path: '.knowtation/README.md', mode: '100644', type: 'blob', sha: blob.sha });
+  }
+
+  const treePayload = baseTreeSha ? { base_tree: baseTreeSha, tree } : { tree };
   const treeRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/trees`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ base_tree: baseTreeSha, tree }),
+    body: JSON.stringify(treePayload),
   });
   if (!treeRes.ok) {
     return res.status(502).json({ error: 'GitHub tree failed', code: 'BAD_GATEWAY' });
@@ -428,7 +455,7 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     body: JSON.stringify({
       message: 'Knowtation Hub backup ' + new Date().toISOString(),
       tree: newTree.sha,
-      parents: [baseSha],
+      parents: baseSha ? [baseSha] : [],
     }),
   });
   if (!commitRes.ok) {
@@ -436,12 +463,21 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   }
   const newCommit = await commitRes.json();
 
-  const updateRefRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs/heads/${defaultBranch}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ sha: newCommit.sha, force: false }),
-  });
-  if (!updateRefRes.ok) {
+  let refUpdateRes;
+  if (baseSha) {
+    refUpdateRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs/heads/${defaultBranch}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ sha: newCommit.sha, force: false }),
+    });
+  } else {
+    refUpdateRes = await fetch(`https://api.github.com/repos/${owner}/${name}/git/refs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ref: `refs/heads/${defaultBranch}`, sha: newCommit.sha }),
+    });
+  }
+  if (!refUpdateRes.ok) {
     return res.status(502).json({ error: 'GitHub push failed', code: 'BAD_GATEWAY' });
   }
 
