@@ -15,7 +15,11 @@ const useBridge = process.env.USE_BRIDGE_FUNCTION === 'true' || process.env.USE_
 console.log('[netlify-redirects] USE_BRIDGE_FUNCTION=%s → %s', process.env.USE_BRIDGE_FUNCTION ?? '(unset)', useBridge ? 'bridge' : 'gateway');
 
 await mkdir(publicDir, { recursive: true });
-const line = useBridge ? '/* /.netlify/functions/bridge/:splat 200' : '/* /.netlify/functions/gateway 200';
+// Both sites must use :splat so the function URL includes the visitor path (e.g. /api/v1/notes).
+// Without :splat, every request hits the function as "/" and the canister returns 404 Not found.
+const line = useBridge
+  ? '/* /.netlify/functions/bridge/:splat 200'
+  : '/* /.netlify/functions/gateway/:splat 200';
 await writeFile(redirectsPath, line + '\n', 'utf8');
 const content = await readFile(redirectsPath, 'utf8');
 if (!content.includes(line.trim())) {

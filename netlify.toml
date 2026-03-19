@@ -7,6 +7,6 @@
 # Send all requests to the gateway (OAuth + proxy to canister). Omit publish if you only deploy the gateway.
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/gateway"
+  to = "/.netlify/functions/gateway/:splat"
   status = 200
   force = true

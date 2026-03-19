@@ -36,6 +36,8 @@ This doc covers production deployment: 4Everland for static UI and landing, gate
 
 ## 3. Gateway + bridge
 
+**Netlify catch-all → function URL must preserve the path.** The build writes `public/_redirects` via `scripts/netlify-redirects.mjs`. The gateway line must be `/* /.netlify/functions/gateway/:splat 200` (not `.../gateway 200` without `:splat`). Without `:splat`, every browser request is rewritten to the function root, `proxyToCanister` calls the canister with the wrong path, and the canister returns JSON `{"error":"Not found","code":"NOT_FOUND"}` (404) for `/api/v1/notes` and note creation. `netlify.toml` `[[redirects]]` must match. The gateway strips `/.netlify/functions/gateway` from `req.url` when present so Express still matches `/api/v1/*` routes.
+
 - **Option A — Same origin (recommended for one URL)**  
   Deploy gateway so it is served from the same origin as the site (e.g. **knowtation.store**). For example: Netlify or 4Everland serves static files from `web/` and rewrites `/api/*` to the gateway. Then `HUB_API_BASE_URL = 'https://knowtation.store'` and all API calls are same-origin.
 

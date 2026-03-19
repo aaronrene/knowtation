@@ -98,6 +98,28 @@ function verifyToken(token) {
 }
 
 const app = express();
+
+// Netlify rewrites /* -> /.netlify/functions/gateway/:splat, so the function may receive
+// a path like /.netlify/functions/gateway/api/v1/notes. Express would not match /api/v1/* routes.
+const NETLIFY_GW_PREFIX = '/.netlify/functions/gateway';
+app.use((req, _res, next) => {
+  const raw = req.url || '/';
+  const q = raw.indexOf('?');
+  const pathPart = q >= 0 ? raw.slice(0, q) : raw;
+  const queryPart = q >= 0 ? raw.slice(q) : '';
+  if (pathPart === NETLIFY_GW_PREFIX || pathPart.startsWith(`${NETLIFY_GW_PREFIX}/`)) {
+    const rest =
+      pathPart === NETLIFY_GW_PREFIX ? '/' : pathPart.slice(NETLIFY_GW_PREFIX.length) || '/';
+    const nextUrl = rest + queryPart;
+    req.url = nextUrl;
+    // Express may set originalUrl to the internal function path; keep it aligned with req.path.
+    req.originalUrl = nextUrl;
+    delete req._parsedUrl;
+    delete req._parsedOriginalUrl;
+  }
+  next();
+});
+
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(passport.initialize());
