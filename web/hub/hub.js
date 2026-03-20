@@ -1076,12 +1076,18 @@
     }
   };
 
-  function openHowToUse(tabId) {
+  function openHowToUse(tabId, scrollToId) {
     const id = tabId || 'setup';
     el('modal-how-to-use').classList.remove('hidden');
     document.querySelectorAll('.how-to-tab').forEach((t) => t.classList.toggle('active', t.dataset.howToTab === id));
     document.querySelectorAll('.how-to-tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.howToTab === id ? 'true' : 'false'));
     document.querySelectorAll('.how-to-panel').forEach((p) => p.classList.toggle('active', p.id === 'how-to-panel-' + id));
+    if (scrollToId) {
+      requestAnimationFrame(() => {
+        const target = document.getElementById(scrollToId);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
   }
   function closeHowToUse() {
     el('modal-how-to-use').classList.add('hidden');
@@ -1891,6 +1897,13 @@
     btnIntegrationsHowToAgentception.onclick = () => {
       closeSettings();
       openHowToUse('setup');
+    };
+  }
+  const btnHowToFlexibleNetwork = el('btn-how-to-flexible-network');
+  if (btnHowToFlexibleNetwork) {
+    btnHowToFlexibleNetwork.onclick = () => {
+      closeSettings();
+      openHowToUse('setup', 'how-to-flexible-network');
     };
   }
 

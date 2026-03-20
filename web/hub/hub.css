@@ -356,6 +356,7 @@ button:hover { border-color: var(--accent); }
 }
 .diagram-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.5rem; }
 .diagram-svg { width: 100%; height: auto; max-height: 90px; }
+.diagram-svg-network { max-height: 200px; }
 .diagram-text { fill: var(--text); font-size: 11px; font-family: system-ui, sans-serif; }
 .diagram-text-small { fill: var(--muted); font-size: 9px; font-family: system-ui, sans-serif; }
 .how-to-sub { margin: 1rem 0 0.5rem; font-size: 0.95rem; color: var(--accent); }

@@ -52,7 +52,19 @@ Use this checklist to run the Knowtation Hub on your machine with the same capab
 
 ---
 
-## 5. Optional: landing and MCP
+## 5. Optional: Multi-vault and scoped access (Phase 15)
+
+**Doc:** [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md#how-to-configure-multi-vault-phase-15)
+
+- **Single vault:** No extra files needed; everyone uses vault `default`.
+- **Multiple vaults or explicit access:** Create `data/hub_vault_access.json` (user ID → list of vault IDs). Get your **user ID** from **Settings → Backup** (“Your user ID”, e.g. `google:104164334692309763642`). Example: `{ "google:104164334692309763642": ["default"] }`.
+- **Multiple vault definitions:** Create `data/hub_vaults.yaml` with a `vaults` array (at least one `id: default`); restart Hub after editing, or use **Settings → Vaults** to edit and save.
+- **Limit a user to certain projects/folders:** Edit `data/hub_scope.json`; see the doc for format. No restart needed.
+- **Multiple users:** Each sign-in (Google or GitHub) is one user ID (`provider:id`). You can have many users on the same Hub; add each ID to roles and vault access. Backup (Connect GitHub, Back up now) is per logged-in user — each can push to their own repo (or the vault’s remote). See MULTI-VAULT-AND-SCOPED-ACCESS.md § “User identity and multiple users”.
+
+---
+
+## 6. Optional: landing and MCP
 
 - **Landing:** From repo root, `npx -y serve web -p 8888` → http://localhost:8888
 - **MCP (Cursor/Claude):** `npm run mcp` and add Knowtation server to your MCP config. See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
@@ -67,5 +79,7 @@ Use this checklist to run the Knowtation Hub on your machine with the same capab
 | Config, index, search | [GETTING-STARTED.md](./GETTING-STARTED.md) |
 | Hub + OAuth | [hub/README.md](../hub/README.md) |
 | GitHub backup | How to use (Hub) → Step 7 |
+| Multi-vault / scope (optional) | [MULTI-VAULT-AND-SCOPED-ACCESS.md#how-to-configure-multi-vault-phase-15](./MULTI-VAULT-AND-SCOPED-ACCESS.md#how-to-configure-multi-vault-phase-15) |
+| Landing, MCP | [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) |
 
 When everything works: Hub loads, you can sign in, list/search notes, use Connect GitHub and Back up now. Same flows as the hosted product.

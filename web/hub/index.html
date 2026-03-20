@@ -468,6 +468,8 @@
                 <span id="scope-save-msg" class="settings-msg"></span>
               </div>
             </div>
+            <hr class="settings-hr">
+            <p class="settings-intro small"><strong>Hub as a flexible network:</strong> Many users, many vaults, many repos, and agents (MCP, AgentCeption, Muse) from one Hub. <button type="button" id="btn-how-to-flexible-network" class="btn-link btn-link-small">How to use → Hub as a flexible network</button></p>
           </div>
         </div>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
@@ -686,18 +688,21 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="how-to-note" style="margin-bottom: 0.5rem;"><strong>Capture (messages → vault):</strong> Slack, Discord, Telegram, WhatsApp (via webhook or Zapier/n8n). <strong>Import (exports → vault):</strong> ChatGPT, Claude, Mem0, Notion, Jira, NotebookLM, Google Drive, Linear, and generic Markdown/files. Expand each source below for setup steps.</p>
             <div class="diagram-box">
               <div class="diagram-title">Where data comes from → where it goes</div>
-              <svg class="diagram-svg" viewBox="0 0 420 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <text x="30" y="28" class="diagram-text">Slack / Discord / File / ChatGPT</text>
-                <path d="M 120 24 L 160 24" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arrow-data)"/>
-                <text x="30" y="52" class="diagram-text-small">Webhook or script</text>
-                <rect x="165" y="8" width="90" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
-                <text x="210" y="28" class="diagram-text" text-anchor="middle">Capture</text>
-                <path d="M 260 24 L 300 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
-                <rect x="305" y="8" width="70" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
-                <text x="340" y="28" class="diagram-text" text-anchor="middle">Vault</text>
-                <path d="M 380 24 L 420 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
-                <text x="400" y="52" class="diagram-text-small" text-anchor="middle">Hub UI / API</text>
+              <svg class="diagram-svg" viewBox="0 0 540 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs><marker id="arrow-data" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--accent)"/></marker></defs>
+                <!-- Source box wide enough that text never reaches the arrow; smaller font so it fits -->
+                <rect x="10" y="4" width="148" height="48" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                <text x="84" y="26" class="diagram-text" text-anchor="middle" style="font-size: 9px;">Slack / Discord / File / ChatGPT</text>
+                <text x="84" y="44" class="diagram-text-small" text-anchor="middle">Webhook or script</text>
+                <path d="M 161 24 L 198 24" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arrow-data)"/>
+                <rect x="203" y="8" width="90" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="248" y="28" class="diagram-text" text-anchor="middle">Capture</text>
+                <path d="M 296 24 L 332 24" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arrow-data)"/>
+                <rect x="337" y="8" width="70" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="372" y="28" class="diagram-text" text-anchor="middle">Vault</text>
+                <path d="M 410 24 L 446 24" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arrow-data)"/>
+                <rect x="451" y="8" width="78" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="490" y="28" class="diagram-text" text-anchor="middle">Hub UI / API</text>
               </svg>
             </div>
             <p class="how-to-note">Hub capture (easiest): POST to <code>/api/v1/capture</code> with JSON <code>{"body": "your text", "source": "slack", "project": "myproject"}</code>. Optional: <code>CAPTURE_WEBHOOK_SECRET</code> and header <code>X-Webhook-Secret</code>. Per-service steps below.</p>
@@ -758,19 +763,72 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="step-what">What this does: You browse and filter notes here; agents and LLMs can read and propose changes via the API or CLI, and you approve in the Hub.</p>
             <p class="how-to-note"><strong>Vault and backup:</strong> You have one vault (your notes) and optionally one GitHub repo to back it up (Settings → Backup). Projects are folders or tags <em>inside</em> the vault so you and agents can filter—they are not separate GitHub repos. <strong>Agents</strong> read and write the vault (CLI/MCP/API); they do not push to GitHub. You approve their changes (proposals) in the Hub and you control backup (Back up now or auto-sync).</p>
             <p class="how-to-note"><strong>Projects and filters:</strong> Organize notes by project (e.g. <code>vault/projects/myapp/</code> or frontmatter <code>project: myapp</code>) and tags. Agents use <code>--project</code> and <code>--tag</code> to read only what’s relevant. See the <strong>Knowledge &amp; agents</strong> tab above for the full picture.</p>
+            <h4 class="how-to-sub">Notes: project, path, and tags (two ways)</h4>
+            <p><strong>Project</strong> can come from (1) <strong>path</strong> — a note under <code>vault/projects/Launch/</code> is in project “Launch”; or (2) <strong>frontmatter</strong> — <code>project: Launch</code> in the note’s YAML. Both count for filters and scope. <strong>Tags</strong> and <code>date</code>, <code>causal_chain_id</code>, <code>entity</code>, <code>episode_id</code> go in frontmatter (or are set in the Hub when you create the note).</p>
+            <p><strong>Where the file lives:</strong> <strong>Quick capture</strong> always saves to <code>inbox/</code>; you can set project and tags in the form — they’re written into frontmatter, so the note is “in” that project for filtering even though the file is in inbox. To put the <strong>file</strong> inside a project folder, use <strong>+ New note</strong> → the <strong>“New note”</strong> tab (not Quick capture) and set <strong>Path</strong> to e.g. <code>projects/Launch/my-note.md</code>. Then fill title, body, project, tags as needed. So: project from path = file under <code>projects/&lt;name&gt;/</code>; project from frontmatter = file anywhere (e.g. inbox) with <code>project: &lt;name&gt;</code> in the note.</p>
+            <h4 class="how-to-sub">Multiple vaults and multiple users</h4>
+            <p>On <strong>self-hosted</strong> you can have multiple vaults (Settings → Vaults): define a vault list (<code>data/hub_vaults.yaml</code>), then map each <strong>user</strong> to the vaults they can see (<code>data/hub_vault_access.json</code>). Optionally restrict a user to certain projects or folders within a vault (<code>data/hub_scope.json</code>). See <code>docs/MULTI-VAULT-AND-SCOPED-ACCESS.md</code> for full setup.</p>
+            <p><strong>User ID</strong> is <code>provider:id</code> — e.g. <code>google:104164334692309763642</code> if you signed in with Google, or <code>github:12345678</code> if you signed in with GitHub. You see yours in Settings → Backup (“Your user ID”). Each sign-in identity is one user; if you have several Gmail or GitHub accounts, each account that signs in gets its own user ID. Admins add each ID to roles and vault access as needed. So the same Hub can serve many users, each with access to their assigned vaults (and optionally scoped to certain projects/folders).</p>
+            <p><strong>Backup:</strong> “Connect GitHub” and “Back up now” are per <strong>logged-in user</strong>. Each user can connect their own GitHub account and push to their own repo (or to the repo configured for the vault they’re in). Different users can back up to different repositories; they could also point to the same repo if you set remotes that way (e.g. different branches), but the Hub UI stores one token per user and pushes the current vault’s folder to that vault’s remote.</p>
+            <section id="how-to-flexible-network" class="how-to-step" style="margin-top: 1.5rem;">
+              <h4 class="how-to-sub">Hub as a flexible network</h4>
+              <p>One Hub can coordinate <strong>many users</strong> (each sign-in = one identity), <strong>many vaults</strong> (each with its own path and optional scope), and <strong>many backup repos</strong> (per user or per vault). The same Hub is flexible enough for <strong>many agents to use it in many different ways</strong>: different agents or workflows can talk to different vaults, or the same vault, while you keep one coordination layer and one URL.</p>
+              <p><strong>Why multiple vaults and scoped access help</strong></p>
+              <p>You keep all information under your control in separate vaults (e.g. personal vs team, or project A vs project B).</p>
+              <p><strong>Filter access</strong> so each user only sees the vaults they're allowed. <strong>Scope</strong> so a user or agent only sees certain projects or folders within a vault. The right people—and the right agents—get only the context they need.</p>
+              <p><strong>Examples:</strong> A planner agent uses vault A for product context while engineer agents use vault B for technical decisions. Or one vault for personal notes and another for the team, with scope so each identity sees only the right one. Or one vault with projects "Launch" and "Q1 roadmap," and agents filtered by <code>--project</code> so they only read what's relevant.</p>
+
+              <p style="margin-top: 1.25rem;"><strong>AgentCeption and Muse</strong></p>
+              <p>They can be used together in various ways on top of this. For example: AgentCeption's planner and engineer agents read from one vault and write proposals, with Muse tracking versioned state (branches, DAG) for that vault or others. Or point different AgentCeption agents at different vaults for different issues—all through the same Hub. One Hub URL, one coordination layer: you can point planner agents at vault A, engineer agents at vault B, and Muse at the vaults you version; all connect through the same Hub so you don’t run separate systems per vault or per tool.</p>
+              <div class="diagram-box">
+                <div class="diagram-title">Many users, many vaults, many repos, many agents</div>
+                <svg class="diagram-svg diagram-svg-network" viewBox="0 0 380 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs><marker id="arrow-flex" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--accent)"/></marker></defs>
+                  <!-- Center: Hub (wider box so label fits inside) -->
+                  <rect x="128" y="92" width="124" height="44" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                  <text x="190" y="114" class="diagram-text" text-anchor="middle">Knowtation Hub</text>
+                  <!-- Users -->
+                  <rect x="120" y="12" width="140" height="36" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                  <text x="190" y="32" class="diagram-text" text-anchor="middle">Users (Google / GitHub)</text>
+                  <text x="190" y="44" class="diagram-text-small" text-anchor="middle">Many identities → one Hub</text>
+                  <path d="M 190 48 L 190 90" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-flex)"/>
+                  <!-- Vaults -->
+                  <rect x="288" y="84" width="92" height="56" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                  <text x="334" y="104" class="diagram-text" text-anchor="middle">Vaults</text>
+                  <text x="334" y="118" class="diagram-text-small" text-anchor="middle">Multi-vault</text>
+                  <text x="334" y="132" class="diagram-text-small" text-anchor="middle">Scope by project</text>
+                  <path d="M 252 114 L 286 114" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-flex)"/>
+                  <!-- Repos (more vertical room) -->
+                  <rect x="120" y="184" width="140" height="44" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                  <text x="190" y="206" class="diagram-text" text-anchor="middle">Repos (backup)</text>
+                  <text x="190" y="220" class="diagram-text-small" text-anchor="middle">Per user / per vault</text>
+                  <path d="M 190 136 L 190 184" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-flex)"/>
+                  <!-- Agents: layers that can target different vaults -->
+                  <rect x="0" y="84" width="100" height="56" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+                  <text x="50" y="104" class="diagram-text" text-anchor="middle">Agents</text>
+                  <text x="50" y="118" class="diagram-text-small" text-anchor="middle">MCP, CLI</text>
+                  <text x="50" y="132" class="diagram-text-small" text-anchor="middle">AgentCeption, Muse</text>
+                  <path d="M 100 112 L 126 112" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-flex)"/>
+                </svg>
+              </div>
+            </section>
+
             <div class="diagram-box">
               <div class="diagram-title">Agents and LLMs → Hub → you</div>
-              <svg class="diagram-svg" viewBox="0 0 460 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <rect x="10" y="8" width="130" height="32" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-                <text x="75" y="28" class="diagram-text" text-anchor="middle">Open CLAW / Abacus / LLM</text>
-                <path d="M 145 24 L 155 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
-                <rect x="160" y="8" width="120" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
-                <text x="220" y="28" class="diagram-text" text-anchor="middle">Hub API or MCP / CLI</text>
-                <path d="M 285 24 L 295 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
-                <rect x="300" y="8" width="100" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
-                <text x="350" y="28" class="diagram-text" text-anchor="middle">Proposals</text>
-                <path d="M 405 24 L 460 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
-                <text x="220" y="58" class="diagram-text-small" text-anchor="middle">You approve or discard in Hub (Suggested / Discarded)</text>
+              <svg class="diagram-svg" viewBox="0 0 530 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <!-- Box 1: wider so "Open CLAW / Abacus / LLM" fits inside -->
+                <rect x="10" y="8" width="152" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="86" y="28" class="diagram-text" text-anchor="middle">Open CLAW / Abacus / LLM</text>
+                <path d="M 164 24 L 178 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="180" y="8" width="118" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="239" y="28" class="diagram-text" text-anchor="middle">Hub API or MCP / CLI</text>
+                <path d="M 300 24 L 316 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="318" y="8" width="96" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="366" y="28" class="diagram-text" text-anchor="middle">Proposals</text>
+                <path d="M 416 24 L 432 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
+                <rect x="434" y="8" width="92" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="480" y="28" class="diagram-text" text-anchor="middle">You</text>
+                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Suggested / Discarded)</text>
               </svg>
             </div>
             <h4 class="how-to-sub">Proposals: where they come from and where to see them</h4>
