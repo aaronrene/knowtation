@@ -10,6 +10,8 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Status for next session:** See **[STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md)** and **[PARITY-PLAN.md](./PARITY-PLAN.md)**. **Next step:** **Option B (Muse protocol alignment)** first — document variation protocol and canister extensibility; then **hosted parity** (Phase 1 of Parity Plan); then deploy hosted; then Phase 15 (multi-vault) or Phase 16 (credits) when ready.
 
+**Hosted parity (planning):** Same capabilities on the **hosted (web) service** as self-hosted — API parity, behavior parity (Connect GitHub, Back up now, search, index, proposals, Settings), and clear “coming soon” where not yet available. Brief overview and complexity: **[PLAN-ADDENDUM-HOSTED-PARITY.md](./PLAN-ADDENDUM-HOSTED-PARITY.md)**. Nuts and bolts in a dedicated session using PARITY-PLAN, DEPLOY-HOSTED, and BRIDGE-DEPLOY-AND-PREROLL.
+
 ---
 
 ## What we're doing next (path and stubs)
@@ -453,6 +455,8 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 **Acceptance:** One Hub instance can serve multiple vaults (or one vault with scoped visibility); users only see notes they're allowed to see. Self-hosted and hosted both supported per design.
 
 **Depends on:** Phase 11 (Hub). Can follow Phase 14. Implement in a separate session (or several) when you prioritize multi-vault.
+
+**Status (self-hosted implemented):** Option A (multiple vaults per instance) + Option B (scoped visibility) are implemented. Data: `data/hub_vaults.yaml`, `hub_vault_access.json`, `hub_scope.json`. Config: `vaultList`, `resolveVaultPath`; single-vault default when file absent. Hub server: vault resolution, access check, scope filter; admin routes GET/POST `/api/v1/vaults`, `vault-access`, `scope`; settings returns `vault_list` and `allowed_vault_ids`. UI: vault switcher, Settings → Vaults (admin). Bridge: index/search keyed by (uid, vault_id); gateway forwards X-Vault-Id. **Canister:** Storage keyed by (uid, vault_id) and migration to `default` remain follow-up; bridge and gateway are ready.
 
 ---
 

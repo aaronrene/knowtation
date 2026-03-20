@@ -8,13 +8,18 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 
 ## Current behavior (as implemented)
 
-### One Hub instance = one vault
+### Phase 15: Multi-vault and scoped access (self-hosted)
 
-- **Config:** A single `vault_path` (or `KNOWTATION_VAULT_PATH`) per Hub. All config, APIs, and CLI assume one vault root. There is **no multi-vault support** in code.
-- **Roles:** Viewer / editor / admin control **what** a user can do (read-only, write, approve, change setup). They do **not** control **which notes** a user can see. Everyone with access to the Hub sees the **same vault**; roles only gate actions (e.g. viewers cannot edit or approve).
-- **Filters:** The Hub and API support filtering by **project**, **tag**, **folder**, and date. These are **query filters** (narrow the list for convenience), not **access gates**. Any user who can list or search can omit filters and see the full vault (subject to their role’s actions).
+- **Config:** Self-hosted Hub supports **multiple vaults** via `data/hub_vaults.yaml` (id, path, label per vault; at least one with id `default`). If the file is absent, a single vault `default` from `vault_path` is used (backward compatible).
+- **Vault access:** `data/hub_vault_access.json` maps user IDs to allowed vault IDs. Users not listed get `["default"]` only.
+- **Scope (Option B):** `data/hub_scope.json` restricts a user to specific **projects** and **folders** within a vault. Omitted or empty = full vault.
+- **API:** All vault-scoped requests accept **`X-Vault-Id`** (or query `vault_id`). The server resolves vault, checks access, applies scope for list/search/facets. Proposals are keyed by `vault_id`.
+- **Hub UI:** Vault switcher in the header (when multiple vaults are allowed); Settings → **Vaults** (admin): vault list, vault access, scope (JSON edit).
+- **Roles:** Unchanged: viewer / editor / admin control actions. Vault access and scope control **which vault(s)** and **which projects/folders** a user sees.
 
-So today: **inviting someone as a team member gives them access to the entire vault** (read-only if viewer, read/write if editor, full if admin). There is no way to “share only project X” or “hide my personal folder” within a single Hub.
+### Hosted (canister)
+
+- The canister currently stores one logical vault per user. **X-Vault-Id** is forwarded by the gateway and bridge; the bridge keys index/search by (uid, vault_id). Canister storage keyed by (uid, vault_id) and migration of existing data to `default` is a follow-up (Phase 15.4).
 
 ---
 
@@ -93,13 +98,14 @@ See **TEAMS-AND-COLLABORATION.md** for roles and invite flow; **SPEC.md** for si
 
 ---
 
-## Finishing multi-vault in a later session (implementation checklist)
+## Implementation status (Phase 15)
 
-**Status:** Design and current behavior are documented above; **no code yet** for multiple vaults per Hub or scoped visibility.
+**Done (self-hosted):**
 
-**When implementing:**
+1. **Config/data:** `lib/hub-vaults.mjs`, `hub/hub_vault_access.mjs`, `hub/hub_scope.mjs`; `lib/config.mjs` loads vault list and exposes `vaultList` and `resolveVaultPath(vaultId)`. Single-vault default when `hub_vaults.yaml` is absent.
+2. **Backend:** Hub server middleware resolves `req.vault_id`, checks vault access, sets `req.vaultPath` and `req.scope`. List, search, facets, proposals, index, export, import, sync are vault-scoped. Admin routes: GET/POST `/api/v1/vaults`, `/api/v1/vault-access`, `/api/v1/scope`. GET `/api/v1/settings` returns `vault_list` and `allowed_vault_ids`.
+3. **Hub UI:** Vault switcher (header); Settings → Vaults tab (admin): vault list JSON, vault access JSON, scope JSON with Save.
+4. **Bridge:** Index and search keyed by (uid, vault_id); vectors dir and Blob key include vault_id; canister export request sends X-Vault-Id.
+5. **Gateway:** Forwards `x-vault-id` to canister.
 
-1. Choose direction from "If we add multi-vault later" (e.g. multiple vaults per instance with vault list in config/setup, or one vault with scoped visibility by project/folder).
-2. Add a dedicated phase to **IMPLEMENTATION-PLAN.md** (e.g. Phase 13.1 "Multi-vault / split vault") with concrete deliverables.
-3. Implement in order: config/setup (vault list or scope rules) → backend scoping (list/search/get by vault or scope) → Hub UI (vault switcher or scope hints). For canister/hosted, extend canister and gateway to honor `vault_id` beyond the current default.
-4. Update **STATUS-HOSTED-AND-PLANS.md** and this doc when done.
+**Follow-up (hosted canister):** Canister storage keyed by (uid, vault_id) and migration of existing data to vault_id `default` (Phase 15.4 in IMPLEMENTATION-PLAN).

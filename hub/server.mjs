@@ -39,6 +39,9 @@ import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
 import { loadRoleMap, getRole, readRolesObject, writeRolesFile } from './roles.mjs';
 import { createInvite, consumeInvite, revokeInvite, listInvites } from './invites.mjs';
+import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
+import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
+import { readHubVaults, writeHubVaults } from '../lib/hub-vaults.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -156,6 +159,33 @@ function requireRole(...allowedRoles) {
     if (set.has(role)) return next();
     return res.status(403).json({ error: 'This action requires a different role.', code: 'FORBIDDEN' });
   };
+}
+
+/** Phase 15: resolve vault_id to path, check access, set req.vaultPath and req.scope. Must run after jwtAuth. */
+function requireVaultAccess(req, res, next) {
+  const allowed = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+  if (!allowed.includes(req.vault_id)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  const vaultPath = config.resolveVaultPath(req.vault_id);
+  if (!vaultPath) {
+    return res.status(404).json({ error: 'Vault not found.', code: 'NOT_FOUND' });
+  }
+  req.vaultPath = vaultPath;
+  req.scope = getScopeForUserVault(config.data_dir, req.user?.sub ?? '', req.vault_id);
+  next();
+}
+
+function applyScopeFilter(notes, scope) {
+  if (!scope || (!scope.projects?.length && !scope.folders?.length)) return notes;
+  return notes.filter((n) => {
+    if (scope.folders?.length) {
+      const folder = n.path.includes('/') ? n.path.split('/').slice(0, -1).join('/') : '';
+      if (scope.folders.some((f) => folder === f || folder.startsWith(f + '/'))) return true;
+    }
+    if (scope.projects?.length && n.project && scope.projects.includes(n.project)) return true;
+    return false;
+  });
 }
 
 const app = express();
@@ -340,26 +370,43 @@ app.post('/api/v1/capture', captureAuth, (req, res) => {
   }
 });
 
-// API v1 (JWT + rate limit for write/propose)
-app.use('/api/v1/notes', jwtAuth, apiLimiter);
-app.use('/api/v1/search', jwtAuth, apiLimiter);
-app.use('/api/v1/proposals', jwtAuth, apiLimiter);
+// API v1 (JWT + rate limit + vault access for notes/search/proposals)
+app.use('/api/v1/notes', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/search', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/proposals', jwtAuth, apiLimiter, requireVaultAccess);
 
-// Facets cache (60s) to avoid rescan on every filter load; invalidate on write/approve
+// Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
-let facetsCache = { data: null, ts: 0 };
+const facetsCacheByVault = {};
 function invalidateFacetsCache() {
-  facetsCache = { data: null, ts: 0 };
+  Object.keys(facetsCacheByVault).forEach((k) => delete facetsCacheByVault[k]);
 }
 
 // GET /api/v1/notes/facets — filter dropdown values (before /:path to avoid collision)
 app.get('/api/v1/notes/facets', (req, res) => {
   try {
-    if (facetsCache.data && Date.now() - facetsCache.ts < FACETS_TTL_MS) {
-      return res.json(facetsCache.data);
+    const vid = req.vault_id ?? 'default';
+    const cached = facetsCacheByVault[vid];
+    if (cached?.data && Date.now() - cached.ts < FACETS_TTL_MS) {
+      return res.json(cached.data);
     }
-    const facets = runFacets(config);
-    facetsCache = { data: facets, ts: Date.now() };
+    const vaultConfig = { ...config, vault_path: req.vaultPath };
+    let facets = runFacets(vaultConfig);
+    if (req.scope?.projects?.length || req.scope?.folders?.length) {
+      const notes = runListNotes(vaultConfig, { fields: 'path+metadata' });
+      const filtered = applyScopeFilter(notes.notes || [], req.scope);
+      const projects = new Set();
+      const tags = new Set();
+      const folders = new Set();
+      for (const n of filtered) {
+        if (n.project) projects.add(n.project);
+        for (const t of n.tags || []) if (t) tags.add(t);
+        const folder = n.path.includes('/') ? n.path.split('/').slice(0, -1).join('/') : '';
+        if (folder) folders.add(folder);
+      }
+      facets = { projects: [...projects].sort(), tags: [...tags].sort(), folders: [...folders].sort() };
+    }
+    facetsCacheByVault[vid] = { data: facets, ts: Date.now() };
     res.json(facets);
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
@@ -386,7 +433,14 @@ app.get('/api/v1/notes', parseQueryBounds, (req, res) => {
       fields: req.query.fields || 'path+metadata',
       countOnly: req.query.count_only === 'true',
     };
-    const out = runListNotes(config, opts);
+    const vaultConfig = { ...config, vault_path: req.vaultPath };
+    const out = (req.scope?.projects?.length || req.scope?.folders?.length)
+      ? (() => {
+          const full = runListNotes(vaultConfig, { ...opts, limit: 10000, offset: 0 });
+          const filtered = applyScopeFilter(full.notes || [], req.scope);
+          return { notes: filtered.slice(offset, offset + limit), total: filtered.length };
+        })()
+      : runListNotes(vaultConfig, opts);
     res.json(out);
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
@@ -398,7 +452,7 @@ app.get(/^\/api\/v1\/notes\/(.+)$/, (req, res) => {
   const notePath = req.path.replace(/^\/api\/v1\/notes\//, '');
   if (!notePath) return res.status(400).json({ error: 'Path required', code: 'BAD_REQUEST' });
   try {
-    const note = readNote(config.vault_path, decodeURIComponent(notePath));
+    const note = readNote(req.vaultPath, decodeURIComponent(notePath));
     res.json({ path: note.path, frontmatter: note.frontmatter, body: note.body });
   } catch (e) {
     if (e.message && e.message.includes('not found')) return res.status(404).json({ error: e.message, code: 'NOT_FOUND' });
@@ -424,8 +478,13 @@ app.post('/api/v1/search', async (req, res) => {
       until: req.body.until,
       order: req.body.order,
       fields: req.body.fields,
+      vault_id: req.vault_id,
     };
-    const out = await runSearch(query, opts);
+    const vaultConfig = { ...config, vault_path: req.vaultPath };
+    let out = await runSearch(query, opts, vaultConfig);
+    if ((req.scope?.projects?.length || req.scope?.folders?.length) && out.results) {
+      out = { ...out, results: applyScopeFilter(out.results, req.scope) };
+    }
     res.json(out);
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
@@ -439,9 +498,9 @@ app.post('/api/v1/notes', requireRole('editor', 'admin'), (req, res) => {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
   }
   try {
-    const out = writeNote(config.vault_path, notePath, { body, frontmatter, append });
+    const out = writeNote(req.vaultPath, notePath, { body, frontmatter, append });
     invalidateFacetsCache();
-    maybeAutoSync(config);
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
     res.json(out);
   } catch (e) {
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
@@ -449,11 +508,11 @@ app.post('/api/v1/notes', requireRole('editor', 'admin'), (req, res) => {
   }
 });
 
-// POST /api/v1/index — re-run indexer (Phase 13: editor or admin)
-app.post('/api/v1/index', requireRole('editor', 'admin'), async (_req, res) => {
+// POST /api/v1/index — re-run indexer (Phase 13: editor or admin; Phase 15: vault-scoped)
+app.post('/api/v1/index', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), async (req, res) => {
   try {
     const { runIndex } = await import('../lib/indexer.mjs');
-    const result = await runIndex({ log: () => {} });
+    const result = await runIndex({ log: () => {}, vaultId: req.vault_id, vaultPath: req.vaultPath });
     invalidateFacetsCache();
     res.json({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
   } catch (e) {
@@ -462,15 +521,15 @@ app.post('/api/v1/index', requireRole('editor', 'admin'), async (_req, res) => {
 });
 
 // POST /api/v1/export — export one note to content (editor/admin). Returns { content, filename } for client download.
-app.post('/api/v1/export', jwtAuth, apiLimiter, requireRole('editor', 'admin'), (req, res) => {
+app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
   const { path: notePath, format } = req.body || {};
   if (!notePath || typeof notePath !== 'string') {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
   }
   const fmt = format === 'html' ? 'html' : 'md';
   try {
-    resolveVaultRelativePath(config.vault_path, notePath);
-    const { content, filename } = exportNoteToContent(config.vault_path, notePath, { format: fmt });
+    resolveVaultRelativePath(req.vaultPath, notePath);
+    const { content, filename } = exportNoteToContent(req.vaultPath, notePath, { format: fmt });
     res.json({ content, filename });
   } catch (e) {
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
@@ -491,7 +550,7 @@ const importUpload = multer({
   }),
   limits: { fileSize: 100 * 1024 * 1024 },
 }).single('file');
-app.post('/api/v1/import', jwtAuth, apiLimiter, requireRole('editor', 'admin'), importTempDirMiddleware, importUpload, async (req, res) => {
+app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), importTempDirMiddleware, importUpload, async (req, res) => {
   const tempDir = req._importTempDir;
   try {
     if (!req.file) return res.status(400).json({ error: 'file required', code: 'BAD_REQUEST' });
@@ -511,9 +570,9 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireRole('editor', 'admin'), 
       zip.extractAllTo(extractDir, true);
       inputPath = extractDir;
     }
-    const result = await runImport(sourceType, inputPath, { project, outputDir, tags });
+    const result = await runImport(sourceType, inputPath, { project, outputDir, tags, vaultPath: req.vaultPath });
     invalidateFacetsCache();
-    maybeAutoSync(config);
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
     res.json({ imported: result.imported, count: result.count });
   } catch (e) {
     res.status(500).json({ error: e.message || String(e), code: 'RUNTIME_ERROR' });
@@ -524,13 +583,14 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireRole('editor', 'admin'), 
   }
 });
 
-// Proposals
+// Proposals (vault-scoped)
 app.get('/api/v1/proposals', parseQueryBounds, (req, res) => {
   try {
     const limit = req.query.limit != null ? Math.min(100, Math.max(0, parseInt(req.query.limit, 10) || 50)) : 50;
     const offset = req.query.offset != null ? Math.max(0, parseInt(req.query.offset, 10) || 0) : 0;
     const opts = {
       status: req.query.status,
+      vault_id: req.vault_id,
       limit,
       offset,
     };
@@ -544,6 +604,9 @@ app.get('/api/v1/proposals', parseQueryBounds, (req, res) => {
 app.get('/api/v1/proposals/:id', (req, res) => {
   const proposal = getProposal(config.data_dir, req.params.id);
   if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  const allowed = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+  const vid = proposal.vault_id ?? 'default';
+  if (!allowed.includes(vid)) return res.status(403).json({ error: 'Access to this proposal is not allowed.', code: 'FORBIDDEN' });
   res.json(proposal);
 });
 
@@ -556,6 +619,7 @@ app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
       frontmatter,
       intent,
       base_state_id,
+      vault_id: req.vault_id,
     });
     res.status(201).json(proposal);
   } catch (e) {
@@ -566,18 +630,20 @@ app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
 app.post('/api/v1/proposals/:id/approve', requireRole('admin'), (req, res) => {
   const proposal = getProposal(config.data_dir, req.params.id);
   if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  const approveVaultPath = config.resolveVaultPath(proposal.vault_id ?? 'default');
+  if (!approveVaultPath) return res.status(400).json({ error: 'Proposal vault not found.', code: 'BAD_REQUEST' });
   if (proposal.status !== 'proposed') {
     return res.status(400).json({ error: `Proposal status is ${proposal.status}`, code: 'BAD_REQUEST' });
   }
   try {
-    writeNote(config.vault_path, proposal.path, {
+    writeNote(approveVaultPath, proposal.path, {
       body: proposal.body,
       frontmatter: proposal.frontmatter,
     });
     const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved');
     appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'approve', proposalId: req.params.id });
     invalidateFacetsCache();
-    maybeAutoSync(config);
+    maybeAutoSync({ ...config, vault_path: approveVaultPath });
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
@@ -592,7 +658,7 @@ app.post('/api/v1/proposals/:id/discard', requireRole('admin'), (req, res) => {
   res.json(updated);
 });
 
-// GET /api/v1/settings — safe config status for Settings UI (Phase 13: requires auth + viewer)
+// GET /api/v1/settings — safe config status for Settings UI (Phase 13 + Phase 15 multi-vault)
 app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (req, res) => {
   const vg = config.vault_git;
   const vaultPath = config.vault_path || '';
@@ -600,10 +666,14 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (
   const githubConn = readGitHubConnection(config.data_dir);
   const emb = config.embedding || {};
   const ollamaUrl = emb.ollama_url || (emb.provider === 'ollama' ? 'http://localhost:11434' : undefined);
+  const vaultList = (config.vaultList || []).map((v) => ({ id: v.id, label: v.label || v.id }));
+  const allowed_vault_ids = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
   res.json({
     role: req.user?.role ?? 'member',
     user_id: req.user?.sub ?? '',
     vault_id: req.vault_id ?? 'default',
+    vault_list: vaultList,
+    allowed_vault_ids,
     vault_path_display,
     vault_git: {
       enabled: !!vg?.enabled,
@@ -621,10 +691,10 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (
   });
 });
 
-// POST /api/v1/vault/sync — manual "Back up now" (Phase 13: editor or admin)
-app.post('/api/v1/vault/sync', jwtAuth, requireRole('editor', 'admin'), (req, res) => {
+// POST /api/v1/vault/sync — manual "Back up now" (Phase 13: editor or admin; Phase 15: vault-scoped)
+app.post('/api/v1/vault/sync', jwtAuth, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
   try {
-    const result = runVaultSync(config);
+    const result = runVaultSync({ ...config, vault_path: req.vaultPath });
     res.json(result);
   } catch (e) {
     if (e.message && e.message.includes('must be set in config')) {
@@ -700,6 +770,72 @@ app.delete('/api/v1/invites/:token', jwtAuth, requireRole('admin'), (req, res) =
   try {
     const removed = revokeInvite(config.data_dir, token);
     res.json({ ok: true, removed });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Phase 15: multi-vault admin (admin only)
+app.get('/api/v1/vaults', jwtAuth, requireRole('admin'), (_req, res) => {
+  try {
+    const list = readHubVaults(config.data_dir, projectRoot);
+    const vaults = list.length > 0 ? list : (config.vaultList || []).map((v) => ({ id: v.id, path: v.path, label: v.label }));
+    res.json({ vaults });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/vaults', jwtAuth, requireRole('admin'), (req, res) => {
+  const vaults = req.body?.vaults;
+  if (!Array.isArray(vaults)) return res.status(400).json({ error: 'vaults array required', code: 'BAD_REQUEST' });
+  try {
+    writeHubVaults(config.data_dir, vaults, projectRoot);
+    config = loadConfig(projectRoot);
+    res.json({ ok: true, vaults: config.vaultList });
+  } catch (e) {
+    if (e.message && (e.message.includes('default') || e.message.includes('required'))) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/vault-access', jwtAuth, requireRole('admin'), (_req, res) => {
+  try {
+    const access = readVaultAccess(config.data_dir);
+    res.json({ access });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/vault-access', jwtAuth, requireRole('admin'), (req, res) => {
+  const access = req.body?.access;
+  if (!access || typeof access !== 'object') return res.status(400).json({ error: 'access object required', code: 'BAD_REQUEST' });
+  try {
+    writeVaultAccess(config.data_dir, access);
+    res.json({ ok: true, access: readVaultAccess(config.data_dir) });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/scope', jwtAuth, requireRole('admin'), (_req, res) => {
+  try {
+    const scope = readScope(config.data_dir);
+    res.json({ scope });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/scope', jwtAuth, requireRole('admin'), (req, res) => {
+  const scope = req.body?.scope;
+  if (!scope || typeof scope !== 'object') return res.status(400).json({ error: 'scope object required', code: 'BAD_REQUEST' });
+  try {
+    writeScope(config.data_dir, scope);
+    res.json({ ok: true, scope: readScope(config.data_dir) });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }

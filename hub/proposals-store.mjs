@@ -33,12 +33,16 @@ function saveProposals(dataDir, proposals) {
 
 /**
  * @param {string} dataDir
- * @returns {{ proposal_id: string, path: string, status: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, created_at: string, updated_at: string }[]}
+ * @param {{ status?: string, vault_id?: string, limit?: number, offset?: number }} options
+ * @returns {{ proposals: object[], total: number }}
  */
 export function listProposals(dataDir, options = {}) {
   const all = loadProposals(dataDir);
   let list = all;
   if (options.status) list = list.filter((p) => p.status === options.status);
+  if (options.vault_id != null) {
+    list = list.filter((p) => (p.vault_id ?? 'default') === options.vault_id);
+  }
   const total = list.length;
   const offset = Math.max(0, options.offset ?? 0);
   const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
@@ -57,8 +61,8 @@ export function getProposal(dataDir, id) {
 
 /**
  * @param {string} dataDir
- * @param {{ path?: string, body?: string, frontmatter?: object, intent?: string, base_state_id?: string }} input
- * @returns {{ proposal_id: string, path: string, status: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, created_at: string, updated_at: string }}
+ * @param {{ path?: string, body?: string, frontmatter?: object, intent?: string, base_state_id?: string, vault_id?: string }} input
+ * @returns {{ proposal_id: string, path: string, status: string, vault_id?: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, created_at: string, updated_at: string }}
  */
 export function createProposal(dataDir, input) {
   const all = loadProposals(dataDir);
@@ -67,6 +71,7 @@ export function createProposal(dataDir, input) {
     proposal_id: randomUUID(),
     path: input.path || `inbox/proposal-${Date.now()}.md`,
     status: 'proposed',
+    vault_id: typeof input.vault_id === 'string' && input.vault_id.trim() ? input.vault_id.trim() : 'default',
     intent: input.intent ?? undefined,
     base_state_id: input.base_state_id ?? undefined,
     body: input.body ?? '',

@@ -95,6 +95,8 @@
   function headers() {
     const h = { 'Content-Type': 'application/json' };
     if (token) h['Authorization'] = 'Bearer ' + token;
+    const vid = getCurrentVaultId();
+    if (vid) h['X-Vault-Id'] = vid;
     return h;
   }
 
@@ -128,6 +130,41 @@
   }
 
   const HOSTED_BACKUP_REPO_LS = 'knowtation_hosted_backup_repo';
+  const VAULT_ID_LS = 'hub_vault_id';
+
+  function getCurrentVaultId() {
+    try {
+      return localStorage.getItem(VAULT_ID_LS) || 'default';
+    } catch (_) {
+      return 'default';
+    }
+  }
+
+  function setCurrentVaultId(id) {
+    try {
+      localStorage.setItem(VAULT_ID_LS, id);
+    } catch (_) {}
+  }
+
+  function updateVaultSwitcher(vaultList, allowedVaultIds) {
+    const wrap = el('vault-switcher-wrap');
+    const select = el('vault-switcher');
+    if (!wrap || !select) return;
+    const allowed = Array.isArray(allowedVaultIds) && allowedVaultIds.length ? allowedVaultIds : (vaultList.length ? vaultList.map((v) => v.id) : ['default']);
+    const list = Array.isArray(vaultList) && vaultList.length ? vaultList : [{ id: 'default', label: 'Default' }];
+    const options = list.filter((v) => allowed.includes(v.id));
+    select.innerHTML = options.map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label || v.id) + '</option>').join('');
+    select.value = getCurrentVaultId();
+    if (!allowed.includes(select.value)) select.value = allowed[0] || 'default';
+    setCurrentVaultId(select.value);
+    wrap.classList.toggle('hidden', options.length <= 1);
+    select.onchange = () => {
+      setCurrentVaultId(select.value);
+      loadFacets();
+      loadNotes();
+      loadProposals();
+    };
+  }
 
   function normalizeGithubRepoSlug(raw) {
     let t = (raw || '').trim();
@@ -301,11 +338,22 @@
       })();
     }
     showMain();
-    loadFacets();
-    loadNotes();
-    loadProposals();
-    loadActivity();
-    renderPresets();
+    (async function ensureVaultAndSwitcherThenLoad() {
+      try {
+        const s = await api('/api/v1/settings');
+        const allowed = s.allowed_vault_ids || [];
+        const current = getCurrentVaultId();
+        if (allowed.length && !allowed.includes(current)) {
+          setCurrentVaultId(allowed[0] || 'default');
+        }
+        updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+      } catch (_) {}
+      loadFacets();
+      loadNotes();
+      loadProposals();
+      loadActivity();
+      renderPresets();
+    })();
     initProviders();
     if (params.get('github_connected') === '1') {
       sessionStorage.setItem('knowtation_github_connect_pending', String(Date.now()));
@@ -1129,6 +1177,13 @@
         }
         const teamTab = el('settings-tab-team');
         if (teamTab) teamTab.classList.toggle('hidden', !isAdmin);
+        const vaultsTab = el('settings-tab-vaults');
+        if (vaultsTab) vaultsTab.classList.toggle('hidden', !isAdmin);
+        const allowedIds = s.allowed_vault_ids || [];
+        if (allowedIds.length && !allowedIds.includes(getCurrentVaultId())) {
+          setCurrentVaultId(allowedIds[0] || 'default');
+        }
+        updateVaultSwitcher(s.vault_list || [], allowedIds);
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
         if (s.github_connect_available) {
@@ -1234,14 +1289,82 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'integrations' && p.id === 'settings-panel-integrations') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
+        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'vaults' && p.id === 'settings-panel-vaults') || (id === 'integrations' && p.id === 'settings-panel-integrations') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
       });
       if (id === 'team') {
         loadTeamRolesList();
         loadInvitesList();
       }
+      if (id === 'vaults') loadVaultsPanel();
     });
   });
+
+  async function loadVaultsPanel() {
+    const listContainer = el('vaults-list-container');
+    const vaultsJson = el('vaults-json');
+    const accessText = el('vault-access-json');
+    const scopeText = el('scope-json');
+    if (listContainer) listContainer.textContent = 'Loading…';
+    try {
+      const [vRes, aRes, sRes] = await Promise.all([
+        api('/api/v1/vaults'),
+        api('/api/v1/vault-access'),
+        api('/api/v1/scope'),
+      ]);
+      const vaults = vRes.vaults || [];
+      if (listContainer) {
+        listContainer.innerHTML = vaults.length === 0
+          ? '<p class="muted small">No vaults (using default from vault path). Add via JSON below and Save.</p>'
+          : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
+      }
+      if (vaultsJson) vaultsJson.value = JSON.stringify(vaults, null, 2);
+      if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
+      if (scopeText) scopeText.value = JSON.stringify(sRes.scope || {}, null, 2);
+    } catch (e) {
+      if (listContainer) listContainer.textContent = 'Could not load: ' + (e.message || '');
+    }
+  }
+
+  const btnVaultsSave = el('btn-vaults-save');
+  if (btnVaultsSave) btnVaultsSave.onclick = async () => {
+    const msg = el('vaults-save-msg');
+    const raw = (el('vaults-json') && el('vaults-json').value) || '[]';
+    try {
+      const vaults = JSON.parse(raw);
+      if (!Array.isArray(vaults)) throw new Error('Must be a JSON array');
+      await api('/api/v1/vaults', { method: 'POST', body: JSON.stringify({ vaults }) });
+      if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+      loadVaultsPanel();
+    } catch (e) {
+      if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
+    }
+  };
+  const btnVaultAccessSave = el('btn-vault-access-save');
+  if (btnVaultAccessSave) btnVaultAccessSave.onclick = async () => {
+    const msg = el('vault-access-save-msg');
+    const raw = (el('vault-access-json') && el('vault-access-json').value) || '{}';
+    try {
+      const access = JSON.parse(raw);
+      if (typeof access !== 'object' || access === null) throw new Error('Must be a JSON object');
+      await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
+      if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+    } catch (e) {
+      if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
+    }
+  };
+  const btnScopeSave = el('btn-scope-save');
+  if (btnScopeSave) btnScopeSave.onclick = async () => {
+    const msg = el('scope-save-msg');
+    const raw = (el('scope-json') && el('scope-json').value) || '{}';
+    try {
+      const scope = JSON.parse(raw);
+      if (typeof scope !== 'object' || scope === null) throw new Error('Must be a JSON object');
+      await api('/api/v1/scope', { method: 'POST', body: JSON.stringify({ scope }) });
+      if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+    } catch (e) {
+      if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
+    }
+  };
 
   async function loadInvitesList() {
     const listEl = el('invites-pending-list');

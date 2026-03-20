@@ -11,6 +11,10 @@
     <header class="hub-header">
       <h1>Knowtation Hub</h1>
       <div class="hub-auth" id="hub-auth-buttons">
+        <label for="vault-switcher" class="vault-switcher-label hidden" id="vault-switcher-wrap">
+          <span class="vault-switcher-text">Vault</span>
+          <select id="vault-switcher" class="vault-switcher-select" aria-label="Current vault"></select>
+        </label>
         <button type="button" id="btn-how-to-use" class="hidden btn-secondary">How to use</button>
         <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
         <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
@@ -280,6 +284,7 @@
         <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
           <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-settings-tab="backup">Backup</button>
           <button type="button" class="settings-tab hidden" id="settings-tab-team" role="tab" aria-selected="false" data-settings-tab="team">Team</button>
+          <button type="button" class="settings-tab hidden" id="settings-tab-vaults" role="tab" aria-selected="false" data-settings-tab="vaults">Vaults</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="integrations">Integrations</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="agents">Agents</button>
@@ -427,6 +432,42 @@
             <div id="invites-pending-list" class="team-roles-list muted small">Loading…</div>
             <h4 class="settings-h4">Current roles</h4>
             <div id="team-roles-list" class="team-roles-list muted small">Loading…</div>
+          </div>
+        </div>
+        <div id="settings-panel-vaults" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
+            <h3 class="settings-h3">Vault list</h3>
+            <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
+            <div id="vaults-list-container" class="settings-vaults-list"></div>
+            <div class="settings-form">
+              <label for="vaults-json">Vaults (JSON array)</label>
+              <textarea id="vaults-json" class="settings-json-textarea" rows="6" placeholder='[{"id":"default","path":"./vault","label":"My vault"}]'></textarea>
+            </div>
+            <div class="settings-form-actions" style="margin-top: 0.5rem;">
+              <button type="button" id="btn-vaults-save" class="btn-primary">Save vault list</button>
+              <span id="vaults-save-msg" class="settings-msg"></span>
+            </div>
+            <h3 class="settings-h3">Vault access</h3>
+            <p class="settings-intro small">Map user IDs to allowed vault IDs. Users not listed get <code>default</code> only. Format: <code>{"user_id": ["vault_id1", "vault_id2"]}</code>.</p>
+            <div class="settings-form">
+              <label for="vault-access-json">Access (JSON)</label>
+              <textarea id="vault-access-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": ["default", "work"]}'></textarea>
+              <div class="settings-form-actions">
+                <button type="button" id="btn-vault-access-save" class="btn-primary">Save vault access</button>
+                <span id="vault-access-save-msg" class="settings-msg"></span>
+              </div>
+            </div>
+            <h3 class="settings-h3">Scope (per user per vault)</h3>
+            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault. Format: <code>{"user_id": {"vault_id": {"projects": ["p1"], "folders": ["f1"]}}}</code>.</p>
+            <div class="settings-form">
+              <label for="scope-json">Scope (JSON)</label>
+              <textarea id="scope-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": {"default": {"projects": ["my-project"], "folders": ["inbox"]}}}'></textarea>
+              <div class="settings-form-actions">
+                <button type="button" id="btn-scope-save" class="btn-primary">Save scope</button>
+                <span id="scope-save-msg" class="settings-msg"></span>
+              </div>
+            </div>
           </div>
         </div>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
@@ -618,7 +659,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
               <li><strong>No OAuth secrets ship in the repo.</strong> Each self-hosted install registers its own Google/GitHub OAuth app and puts <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, and/or <code>GITHUB_CLIENT_ID</code>, <code>GITHUB_CLIENT_SECRET</code> in <code>.env</code>. Add redirect URIs in the provider’s console (e.g. <code>http://localhost:3333/api/v1/auth/callback/google</code>).</li>
               <li>If you see “OAuth is not configured”, add those variables, restart the Hub, and try again.</li>
             </ul>
-            <p class="how-to-note"><strong>Hosted users</strong> (knowtation.store) use our gateway's OAuth — you do not add client IDs on your machine. <strong>Admin on hosted:</strong> Operators set <code>HUB_ADMIN_USER_IDS</code> (comma-separated user IDs, e.g. <code>google:123,github:456</code>) in the gateway env; those users get role <strong>admin</strong> (Edit, Team tab). See hub/gateway/README.md and docs/DEPLOY-HOSTED.md.</p>
+            <p class="how-to-note"><strong>Hosted users</strong> (knowtation.store) use our gateway’s OAuth — you do not add client IDs on your machine.</p>
           </section>
 
           <section class="how-to-step">
