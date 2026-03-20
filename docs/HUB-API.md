@@ -98,7 +98,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 ### 3.3.1 Settings and vault backup (JWT required)
 
 - **GET /settings** — Safe config status for the Settings UI. No secrets or full paths.  
-  **Response:** `{ "vault_path_display": string, "vault_git": { "enabled": boolean, "has_remote": boolean, "auto_commit": boolean, "auto_push": boolean } }`.
+  **Response:** `{ "role", "user_id", "vault_id", "vault_list": [ { "id", "label?" } ], "allowed_vault_ids": string[], "vault_path_display", "vault_git": { "enabled", "has_remote", "auto_commit", "auto_push" }, "github_connect_available", "github_connected", "embedding_display" }`. Phase 15: `vault_list` and `allowed_vault_ids` drive the vault switcher; requests use **X-Vault-Id** to scope to a vault.
 
 - **POST /vault/sync** — Run manual vault sync (same as `knowtation vault sync`): git add, commit, push. Use for "Back up now" in Settings.  
   **Response:** `{ "ok": true, "message": "Synced" | "Nothing to commit" }`.  
@@ -108,6 +108,15 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 
 - **GET /setup** — Editable setup (vault_path, vault_git) for the Setup wizard. Returns current values.  
 - **POST /setup** — Body: `{ vault_path?, vault_git?: { enabled?, remote? } }`. Writes to `data/hub_setup.yaml` and reloads config (no restart). **400** if invalid; **500** on write failure.
+
+### 3.3.2 Multi-vault admin (Phase 15; admin only)
+
+- **GET /vaults** — List vaults (from `data/hub_vaults.yaml` or default single vault). **Response:** `{ "vaults": [ { "id", "path", "label?" } ] }`.
+- **POST /vaults** — Body: `{ "vaults": [ { "id", "path", "label?" } ] }`. Writes `data/hub_vaults.yaml`. At least one vault must have id `default`. **400** if invalid.
+- **GET /vault-access** — User → allowed vault IDs. **Response:** `{ "access": { "user_id": [ "vault_id", ... ] } }`.
+- **POST /vault-access** — Body: `{ "access": { "user_id": [ "vault_id", ... ] } }`. Writes `data/hub_vault_access.json`.
+- **GET /scope** — Per-user per-vault scope (projects/folders). **Response:** `{ "scope": { "user_id": { "vault_id": { "projects": [], "folders": [] } } } }`.
+- **POST /scope** — Body: `{ "scope": { ... } }`. Writes `data/hub_scope.json`.
 
 ### 3.4 Proposals
 

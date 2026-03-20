@@ -54,6 +54,10 @@ function sanitizeUserId(uid) {
   return String(uid).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128) || 'default';
 }
 
+function sanitizeVaultId(vaultId) {
+  return String(vaultId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'default';
+}
+
 function getBridgeEmbeddingConfig() {
   const provider = (process.env.EMBEDDING_PROVIDER || 'ollama').toLowerCase();
   const model = process.env.EMBEDDING_MODEL || 'nomic-embed-text';
@@ -245,17 +249,18 @@ function effectiveRole(uid, storedRoles) {
   return adminUserIdsSet.has(uid) ? 'admin' : 'member';
 }
 
-/** Return a directory path that contains (or will contain) knowtation_vectors.db for this user. Rehydrates from Blob if needed. */
+/** Return a directory path that contains (or will contain) knowtation_vectors.db for this user and vault. Rehydrates from Blob if needed. Phase 15: keyed by (uid, vault_id). */
 async function getVectorsDirForUser(req, uid) {
   const safeUid = sanitizeUserId(uid);
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
   if (!req.blobStore) {
-    const d = path.join(DATA_DIR, 'vectors', safeUid);
+    const d = path.join(DATA_DIR, 'vectors', safeUid, vaultId);
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
     return d;
   }
-  const dir = path.join(os.tmpdir(), 'knowtation-bridge-vectors', safeUid);
+  const dir = path.join(os.tmpdir(), 'knowtation-bridge-vectors', safeUid, vaultId);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const key = 'vectors/' + safeUid;
+  const key = 'vectors/' + safeUid + '/' + vaultId;
   try {
     const data = await req.blobStore.get(key, { type: 'arrayBuffer' });
     if (data && data.byteLength > 0) {
@@ -267,12 +272,13 @@ async function getVectorsDirForUser(req, uid) {
   return dir;
 }
 
-/** Persist user's vector DB from disk to Blob (call after index). */
+/** Persist user's vector DB from disk to Blob (call after index). Phase 15: key includes vault_id. */
 async function persistVectorsToBlob(req, uid, vectorsDir) {
   if (!req.blobStore) return;
   const dbPath = path.join(vectorsDir, DB_FILENAME);
   if (!fs.existsSync(dbPath)) return;
-  const key = 'vectors/' + sanitizeUserId(uid);
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  const key = 'vectors/' + sanitizeUserId(uid) + '/' + vaultId;
   const buf = fs.readFileSync(dbPath);
   const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   await req.blobStore.set(key, arrayBuffer);
@@ -768,11 +774,12 @@ app.post('/api/v1/index', async (req, res) => {
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
+  const vaultId = req.headers['x-vault-id'] || 'default';
   let exportRes;
   try {
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
-      headers: { 'X-User-Id': uid, Accept: 'application/json' },
+      headers: { 'X-User-Id': uid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
     });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
