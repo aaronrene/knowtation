@@ -35,6 +35,17 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '7d';
 
+// Optional: comma-separated list of user IDs (e.g. google:123,github:456) who get role admin on hosted. Others get member.
+const HUB_ADMIN_USER_IDS = (process.env.HUB_ADMIN_USER_IDS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const adminUserIdsSet = new Set(HUB_ADMIN_USER_IDS);
+
+function roleForSub(sub) {
+  return sub && adminUserIdsSet.has(sub) ? 'admin' : 'member';
+}
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -75,13 +86,14 @@ function userId(user) {
 function issueToken(user) {
   const sub = userId(user);
   if (!sub) return null;
+  const role = roleForSub(sub);
   return jwt.sign(
     {
       sub,
       provider: user.provider,
       id: user.id,
       name: user.displayName ?? '',
-      role: 'member',
+      role,
     },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
@@ -274,8 +286,9 @@ app.get('/api/v1/settings', async (req, res) => {
     auto_commit: false,
     auto_push: false,
   };
+  const role = roleForSub(uid);
   res.json({
-    role: 'member',
+    role,
     user_id: uid,
     vault_id: 'default',
     vault_path_display: 'Canister',
@@ -296,42 +309,39 @@ app.get('/api/v1/setup', (req, res) => {
   });
 });
 
-// --- Parity (Phase 1): roles, invites, POST setup, import — canister does not implement these ---
-// GET /api/v1/roles — hosted stub: no role store; return empty list (Settings → Team shows no other members)
-app.get('/api/v1/roles', (req, res) => {
+// --- Parity (Phase 1): roles, invites — stubs; admin from HUB_ADMIN_USER_IDS, full Team/invites need storage (Phase 2) ---
+function requireAdmin(req, res, next) {
   const uid = getUserId(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (roleForSub(uid) !== 'admin') return res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+  next();
+}
+
+// GET /api/v1/roles — hosted stub: no role store; admin sees empty list (parity: only admins can open Team)
+app.get('/api/v1/roles', requireAdmin, (_req, res) => {
   res.json({ roles: [] });
 });
 
-// POST /api/v1/roles — no-op on hosted (role assignment not supported)
-app.post('/api/v1/roles', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+// POST /api/v1/roles — no-op on hosted (no persistent role store yet)
+app.post('/api/v1/roles', requireAdmin, (_req, res) => {
   res.json({ ok: true });
 });
 
 // GET /api/v1/invites — hosted stub: no invite store
-app.get('/api/v1/invites', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+app.get('/api/v1/invites', requireAdmin, (_req, res) => {
   res.json({ invites: [] });
 });
 
-// POST /api/v1/invites — not supported on hosted (UI can show message from error)
-app.post('/api/v1/invites', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+// POST /api/v1/invites — not supported on hosted (no invite store; full parity in Phase 2)
+app.post('/api/v1/invites', requireAdmin, (_req, res) => {
   res.status(400).json({
-    error: 'Invites are not supported on hosted. Use self-hosted Hub for team invite.',
+    error: 'Invites are not supported on hosted yet. Use self-hosted Hub for team invites, or wait for Phase 2.',
     code: 'NOT_SUPPORTED',
   });
 });
 
 // DELETE /api/v1/invites/:token — no-op on hosted
-app.delete('/api/v1/invites/:token', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+app.delete('/api/v1/invites/:token', requireAdmin, (_req, res) => {
   res.json({ ok: true });
 });
 

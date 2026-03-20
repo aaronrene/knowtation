@@ -115,7 +115,23 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 - [x] POST /api/v1/import — 501 with clear error (or defer to later phase).
 - [x] GET /api/v1/notes/facets — 200, `{ "projects": [], "tags": [], "folders": [] }`.
 - [x] All above require JWT; 401 when missing.
+- [x] **Hosted admin:** Optional env `HUB_ADMIN_USER_IDS` (comma-separated user IDs) on the gateway; users in that list get role **admin** (JWT + GET /api/v1/settings). Roles and invites routes require admin (403 for non-admins). Full Team/invites (persistent role store, invite links) are Phase 2 (see below).
 - [x] Update PARITY-PLAN and IMPLEMENTATION-PLAN when Phase 1 is done.
+
+---
+
+## Hosted roles and invites (full parity — optional)
+
+**Current state:** On hosted, **admin** is determined by **HUB_ADMIN_USER_IDS** in the gateway env (comma-separated `provider:id`). Those users get Edit, Team tab, and 200 on GET /api/v1/roles and GET /api/v1/invites (empty list). POST /api/v1/roles is a no-op; POST /api/v1/invites returns 400 "not supported yet." So: parity for **who is admin** and **who can open Team**; no parity yet for **adding/removing members** or **creating invite links**.
+
+**Full parity** (Team and invites working on hosted like self-hosted) requires **persistent storage** for roles and invites. Options:
+
+| Option | Where | Pros | Cons |
+|--------|--------|------|------|
+| **A. Canister** | Add stable storage + endpoints (or extend existing) for roles and invites; gateway proxies or calls canister for GET/POST roles and invites; on login gateway asks canister for role for this user. | Single source of truth; scales with canister. | Canister changes; migration if already deployed. |
+| **B. Bridge** | Bridge stores `hub_roles.json` and `hub_invites.json` (e.g. per vault or global); gateway proxies /api/v1/roles and /api/v1/invites to bridge; on login gateway asks bridge for role. | No canister change; bridge already has backend. | Bridge becomes stateful; need to define scope (per user? per vault?). |
+
+**Recommendation:** Finish and stabilize the **local** (self-hosted) path first. Then implement **one** of A or B so hosted has the same Team and invite flows. Doing it now would mean building storage and invite-consumption (e.g. `?invite=TOKEN` on login) on the gateway; doing it later is "retrofit" with the same contract. No change to the Hub UI — it already calls the same endpoints.
 
 ---
 
