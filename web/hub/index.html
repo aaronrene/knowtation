@@ -618,7 +618,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
               <li><strong>No OAuth secrets ship in the repo.</strong> Each self-hosted install registers its own Google/GitHub OAuth app and puts <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, and/or <code>GITHUB_CLIENT_ID</code>, <code>GITHUB_CLIENT_SECRET</code> in <code>.env</code>. Add redirect URIs in the provider’s console (e.g. <code>http://localhost:3333/api/v1/auth/callback/google</code>).</li>
               <li>If you see “OAuth is not configured”, add those variables, restart the Hub, and try again.</li>
             </ul>
-            <p class="how-to-note"><strong>Hosted users</strong> (knowtation.store) use our gateway’s OAuth — you do not add client IDs on your machine.</p>
+            <p class="how-to-note"><strong>Hosted users</strong> (knowtation.store) use our gateway's OAuth — you do not add client IDs on your machine. <strong>Admin on hosted:</strong> Operators set <code>HUB_ADMIN_USER_IDS</code> (comma-separated user IDs, e.g. <code>google:123,github:456</code>) in the gateway env; those users get role <strong>admin</strong> (Edit, Team tab). See hub/gateway/README.md and docs/DEPLOY-HOSTED.md.</p>
           </section>
 
           <section class="how-to-step">
