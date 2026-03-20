@@ -64,7 +64,7 @@ See [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md) and [NEXT-PHASE-SETUP-O
 
 ### 6. Documentation
 
-- **How to use:** Step 6 and Settings already mention Setup and “Back up now.” Add one sentence: “For push without a deploy key, use **Connect GitHub** in Settings (requires the same GitHub OAuth App with an extra callback URL).”
+- **How to use:** Step 7 and Settings already mention Setup and “Back up now.” Add one sentence: “For push without a deploy key, use **Connect GitHub** in Settings (requires the same GitHub OAuth App with an extra callback URL).”
 - **DEPLOYMENT.md:** Add a line about `data/hub_setup.yaml` and `data/github_connection.json` (do not commit; already under data/ in .gitignore).
 - **HUB-API.md:** Document GET/POST /api/v1/setup (editable setup) and the Connect GitHub routes (redirect and callback).
 

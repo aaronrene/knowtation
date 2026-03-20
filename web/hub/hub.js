@@ -279,6 +279,20 @@
   }
 
   if (token) {
+    if (params.get('invite')) {
+      (async () => {
+        try {
+          await api('/api/v1/invites/consume', { method: 'POST', body: JSON.stringify({ token: params.get('invite') }) });
+          const u = new URL(location.href);
+          u.searchParams.delete('invite');
+          u.searchParams.set('invite_accepted', '1');
+          history.replaceState({}, '', u.toString());
+          if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
+        } catch (e) {
+          if (typeof showToast === 'function') showToast(e.message || 'Invite could not be applied.', true);
+        }
+      })();
+    }
     showMain();
     loadFacets();
     loadNotes();

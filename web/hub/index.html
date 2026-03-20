@@ -435,7 +435,7 @@
             <h3 class="settings-h3">Capture (messages → inbox)</h3>
             <p class="settings-intro small">Send messages or events into the vault as notes. When the Hub is running, the capture URL is <code>POST /api/v1/capture</code> (e.g. <code>http://localhost:3333/api/v1/capture</code>). Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> in the server and send header <code>X-Webhook-Secret</code>.</p>
             <h4 class="settings-h4">How to connect capture</h4>
-            <p class="settings-intro small">Run an adapter (or Zapier/n8n) that converts platform events to the capture format, then POSTs to the Hub. Body format: <code>{"body": "text", "source": "slack", "project": "optional"}</code>. Full format: How to use → Step 4.</p>
+            <p class="settings-intro small">Run an adapter (or Zapier/n8n) that converts platform events to the capture format, then POSTs to the Hub. Body format: <code>{"body": "text", "source": "slack", "project": "optional"}</code>. Full format: How to use → Step 5 (Import).</p>
             <ul class="settings-list">
               <li><strong>Slack:</strong> Run <code>node scripts/capture-slack-adapter.mjs --port 3132</code>. Set env <code>CAPTURE_URL</code> (Hub URL), <code>SLACK_SIGNING_SECRET</code>, and optionally <code>CAPTURE_WEBHOOK_SECRET</code>. Point Slack Events API at the adapter URL.</li>
               <li><strong>Discord:</strong> Run <code>node scripts/capture-discord-adapter.mjs --port 3133</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Point your Discord webhook or bot at the adapter.</li>
@@ -539,11 +539,20 @@
             <h3 class="how-to-two-paths-title">Two paths: choose how you run Knowtation</h3>
             <ul class="how-to-two-paths-list">
               <li><strong>Hosted (beta)</strong> — Use Knowtation at <strong>knowtation.store/hub/</strong>. We store your vault in the decentralized cloud. No vault path or Hub to run; just sign in. Optional: Connect GitHub to back up your vault to your repo. Free during beta.</li>
-              <li><strong>Self-hosted</strong> — Run the Hub on your machine. You set <code>KNOWTATION_VAULT_PATH</code> and <code>HUB_JWT_SECRET</code>, run <code>npm run hub</code>, and configure OAuth. Your vault is a folder on your disk. The steps below (vault, run Hub, log in, backup) apply to self-hosted setup.</li>
+              <li><strong>Self-hosted</strong> — Run the Hub on your machine. You set <code>KNOWTATION_VAULT_PATH</code> and <code>HUB_JWT_SECRET</code>, run <code>npm run hub</code>, configure OAuth, and (for semantic search) index once with Ollama or OpenAI embeddings per <code>config/local.yaml</code>. Your vault is a folder on your disk. The steps below apply to self-hosted setup.</li>
             </ul>
             <p class="how-to-note small">In Settings → Backup, <strong>Mode</strong> shows which path you’re on: “Hosted (beta)” or “Self-hosted”.</p>
           </div>
-          <p class="how-to-intro">Follow the steps below in order (for self-hosted). Each step unlocks the next. Diagrams show how data and agents connect.</p>
+          <div class="how-to-two-paths-box" role="region" aria-label="Full documentation">
+            <h3 class="how-to-two-paths-title">More complete instructions (repo docs)</h3>
+            <p class="how-to-note small" style="margin-bottom: 0.5rem;">This modal is a short path. For clone → config → index → search → Hub in detail, use:</p>
+            <ul class="how-to-two-paths-list">
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">GETTING-STARTED.md</a> — step-by-step from install to search and optional Hub.</li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/setup.md" target="_blank" rel="noopener">setup.md</a> — full setup (vector store, embeddings, transcription, MCP, Hub).</li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/SELF-HOSTED-SETUP-CHECKLIST.md" target="_blank" rel="noopener">SELF-HOSTED-SETUP-CHECKLIST.md</a> — one-page checklist (Quick start → OAuth → backup).</li>
+            </ul>
+          </div>
+          <p class="how-to-intro"><strong>Self-hosted:</strong> follow the steps below in order. <strong>Hosted (knowtation.store):</strong> you skip vault path, Hub install, and local search setup — we run indexing for you; sign in and optional GitHub backup are enough.</p>
 
           <div class="how-to-flow" aria-hidden="true">
             <div class="flow-step"><span class="flow-num">1</span><span>Vault &amp; config</span></div>
@@ -552,32 +561,47 @@
             <span class="flow-arrow">→</span>
             <div class="flow-step"><span class="flow-num">3</span><span>Log in</span></div>
             <span class="flow-arrow">→</span>
-            <div class="flow-step"><span class="flow-num">4</span><span>Import data</span></div>
+            <div class="flow-step"><span class="flow-num">4</span><span>Index &amp; search</span></div>
             <span class="flow-arrow">→</span>
-            <div class="flow-step"><span class="flow-num">5</span><span>Use &amp; automate</span></div>
+            <div class="flow-step"><span class="flow-num">5</span><span>Import data</span></div>
             <span class="flow-arrow">→</span>
-            <div class="flow-step"><span class="flow-num">6</span><span>GitHub backup</span></div>
+            <div class="flow-step"><span class="flow-num">6</span><span>Use &amp; automate</span></div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-step"><span class="flow-num">7</span><span>GitHub backup</span></div>
           </div>
 
           <section class="how-to-step">
             <h3><span class="step-num">Step 1</span> Vault and config</h3>
-            <p class="step-what">What this does: Tells Knowtation where your notes live so the Hub and CLI can read and write them.</p>
+            <p class="step-what">What this does: Tells Knowtation where your notes live so the Hub and CLI read and write the same folder. The vault is just Markdown files — not the Knowtation source code.</p>
             <ul>
-              <li>Create or choose a folder for your Markdown notes (e.g. <code>~/knowtation-vault</code>).</li>
-              <li>In the project’s <code>config/local.yaml</code> set <code>vault_path: ./vault</code> (or a path to that folder). Or set the env var <code>KNOWTATION_VAULT_PATH</code>.</li>
+              <li>Create a folder for notes (any path you like). Example in your home directory:</li>
             </ul>
             <div class="example-block">
-              <span class="example-label">Example config</span>
-              <pre>vault_path: ./vault
-data_dir: data</pre>
+              <span class="example-label">Terminal</span>
+              <pre>mkdir -p ~/knowtation-vault</pre>
             </div>
+            <ul>
+              <li>Set <strong>the same absolute path</strong> in two places: (1) env var <code>KNOWTATION_VAULT_PATH</code> in <code>.env</code> at the project root, and (2) <code>vault_path:</code> in <code>config/local.yaml</code> (so CLI, indexer, and Hub agree).</li>
+              <li>For <strong>semantic search</strong> without a separate database server, add <code>vector_store: sqlite-vec</code> and <code>data_dir: data/</code> — vectors are stored in a local SQLite file under <code>data/</code>, not in Qdrant. (Optional: use <code>qdrant</code> + <code>qdrant_url</code> if you run Qdrant yourself.)</li>
+            </ul>
+            <div class="example-block">
+              <span class="example-label">Example <code>config/local.yaml</code> (paths must be absolute)</span>
+              <pre>vault_path: /Users/you/knowtation-vault
+data_dir: data/
+vector_store: sqlite-vec
+embedding:
+  provider: ollama
+  model: nomic-embed-text</pre>
+            </div>
+            <p class="how-to-note"><strong>Already developing Knowtation?</strong> You can skip <code>git clone</code> — use your existing repo. Create the vault folder outside the repo (e.g. <code>~/knowtation-vault</code>) so your personal notes stay separate from the app source.</p>
           </section>
           <section class="how-to-step">
             <h3><span class="step-num">Step 2</span> Run the Hub</h3>
-            <p class="step-what">What this does: Starts the web app you’re using now so you can browse, search, and approve changes.</p>
+            <p class="step-what">What this does: Starts the web app (this UI) and the API on your machine. You do <strong>not</strong> clone a separate “site” — the Hub process serves both.</p>
             <ul>
+              <li>One-time: <code>cd hub &amp;&amp; npm install &amp;&amp; cd ..</code> from the Knowtation project root.</li>
               <li>From the project root run <code>npm run hub</code>.</li>
-              <li>Open <code>http://localhost:3333</code> (or the port you set with <code>HUB_PORT</code>).</li>
+              <li>Open <code>http://localhost:3333</code> (or the port you set with <code>HUB_PORT</code>). Use <code>http://</code> — not <code>https://localhost</code>.</li>
             </ul>
             <div class="example-block">
               <span class="example-label">Example</span>
@@ -591,13 +615,32 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="step-what">What this does: Proves who you are so the Hub can show your vault and let you approve proposals.</p>
             <ul>
               <li>Click “Continue with Google” or “Continue with GitHub” on the login screen.</li>
-              <li>If you see “OAuth is not configured”: add <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> (and callback <code>http://localhost:3333/api/v1/auth/callback/google</code>) or the same for GitHub in your <code>.env</code>, then restart the Hub.</li>
+              <li><strong>No OAuth secrets ship in the repo.</strong> Each self-hosted install registers its own Google/GitHub OAuth app and puts <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, and/or <code>GITHUB_CLIENT_ID</code>, <code>GITHUB_CLIENT_SECRET</code> in <code>.env</code>. Add redirect URIs in the provider’s console (e.g. <code>http://localhost:3333/api/v1/auth/callback/google</code>).</li>
+              <li>If you see “OAuth is not configured”, add those variables, restart the Hub, and try again.</li>
             </ul>
+            <p class="how-to-note"><strong>Hosted users</strong> (knowtation.store) use our gateway's OAuth — you do not add client IDs on your machine. <strong>Admin on hosted:</strong> Operators set <code>HUB_ADMIN_USER_IDS</code> (comma-separated user IDs, e.g. <code>google:123,github:456</code>) in the gateway env; those users get role <strong>admin</strong> (Edit, Team tab). See hub/gateway/README.md and docs/DEPLOY-HOSTED.md.</p>
           </section>
 
           <section class="how-to-step">
-            <h3><span class="step-num">Step 4</span> Import data into the vault</h3>
-            <p class="step-what">What this does: Brings in notes from Slack, files, ChatGPT, or other tools so they appear in the Hub and can be searched.</p>
+            <h3><span class="step-num">Step 4</span> Index and semantic search (self-hosted)</h3>
+            <p class="step-what">What this does: Turns your notes into searchable vectors. <strong>Listing and opening notes</strong> works without this. <strong>Search vault</strong> in the Hub (and CLI <code>knowtation search</code>) needs an index.</p>
+            <p class="how-to-note"><strong>Hosted:</strong> skip this — we run indexing for you.</p>
+            <h4 class="how-to-sub">Two separate choices (simple mental model)</h4>
+            <ul>
+              <li><strong>Where vectors are stored:</strong> <code>sqlite-vec</code> (default in examples) = one SQLite file under <code>data/</code>, no extra server. <strong>Or</strong> <code>qdrant</code> + <code>qdrant_url</code> = a separate Qdrant service (Docker or cloud). Same job; different deployment.</li>
+              <li><strong>How text becomes vectors (embeddings):</strong> <strong>Ollama</strong> locally (e.g. <code>ollama pull nomic-embed-text</code>) <strong>or</strong> <strong>OpenAI</strong> (<code>OPENAI_API_KEY</code> in <code>.env</code> + <code>embedding.provider: openai</code> in config). This is not a chat “LLM” — it’s the model that encodes text for search.</li>
+            </ul>
+            <p>After <code>config/local.yaml</code> matches Step 1, run once from project root:</p>
+            <div class="example-block">
+              <span class="example-label">Terminal</span>
+              <pre>npm run index</pre>
+            </div>
+            <p>Or in the Hub: <strong>Re-index</strong> (same operation). After big imports, run index again. Full detail: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/setup.md" target="_blank" rel="noopener">setup.md</a> § Index.</p>
+          </section>
+
+          <section class="how-to-step">
+            <h3><span class="step-num">Step 5</span> Import data into the vault</h3>
+            <p class="step-what">What this does: Brings in notes from Slack, files, ChatGPT, or other tools into your <strong>vault folder</strong> as Markdown. They show up in the Hub list immediately. For <strong>semantic search</strong> to include new files, run Step 4 again (index or Re-index).</p>
             <h4 class="how-to-sub">Integrations at a glance</h4>
             <p class="how-to-note" style="margin-bottom: 0.5rem;"><strong>Capture (messages → vault):</strong> Slack, Discord, Telegram, WhatsApp (via webhook or Zapier/n8n). <strong>Import (exports → vault):</strong> ChatGPT, Claude, Mem0, Notion, Jira, NotebookLM, Google Drive, Linear, and generic Markdown/files. Expand each source below for setup steps.</p>
             <div class="diagram-box">
@@ -670,7 +713,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="how-to-note"><strong>Files / generic:</strong> <code>scripts/capture-file.mjs</code> for stdin or files. Or drop Markdown into <code>vault/inbox/</code> or <code>vault/imports/</code> with frontmatter <code>source</code>, <code>date</code>, <code>project</code>, <code>tags</code>. <code>knowtation import markdown &lt;path&gt;</code> for folders.</p>
           </section>
           <section class="how-to-step">
-            <h3><span class="step-num">Step 5</span> Use the Hub and automate with agents</h3>
+            <h3><span class="step-num">Step 6</span> Use the Hub and automate with agents</h3>
             <p class="step-what">What this does: You browse and filter notes here; agents and LLMs can read and propose changes via the API or CLI, and you approve in the Hub.</p>
             <p class="how-to-note"><strong>Vault and backup:</strong> You have one vault (your notes) and optionally one GitHub repo to back it up (Settings → Backup). Projects are folders or tags <em>inside</em> the vault so you and agents can filter—they are not separate GitHub repos. <strong>Agents</strong> read and write the vault (CLI/MCP/API); they do not push to GitHub. You approve their changes (proposals) in the Hub and you control backup (Back up now or auto-sync).</p>
             <p class="how-to-note"><strong>Projects and filters:</strong> Organize notes by project (e.g. <code>vault/projects/myapp/</code> or frontmatter <code>project: myapp</code>) and tags. Agents use <code>--project</code> and <code>--tag</code> to read only what’s relevant. See the <strong>Knowledge &amp; agents</strong> tab above for the full picture.</p>
@@ -702,10 +745,10 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <h4 class="how-to-sub">Hub UI: filters and views</h4>
             <ul>
               <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then Apply filters. Quick chips (e.g. <code>project:myproject</code>, <code>folder:inbox</code>) jump to a view. Save a view with Save view as and click a preset pill later.</li>
-              <li><strong>Search:</strong> Type in Search vault and click Search for semantic search.</li>
+              <li><strong>Search:</strong> Type in Search vault and click Search for <strong>semantic</strong> search (requires Step 4 — index — on self-hosted).</li>
               <li><strong>List / Calendar / Overview:</strong> List = filtered rows; Calendar = month grid (click a day for that day's notes); Overview = dashboard and charts.</li>
               <li><strong>+ New note:</strong> Quick capture (inbox) or full form (path, title, body, project, tags). Use "Copy path" in the detail panel to copy the note path for CLI/API use.</li>
-              <li><strong>Re-index:</strong> After importing notes or changing many files, click Re-index so semantic search reflects the latest vault. Same as running <code>knowtation index</code> from the CLI.</li>
+              <li><strong>Re-index:</strong> After importing notes or changing many files, click Re-index so semantic search reflects the latest vault (same as Step 4 / <code>npm run index</code>).</li>
               <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Enter</kbd> open selected note; <kbd>Esc</kbd> close panel or modal.</li>
             </ul>
             <h4 class="how-to-sub">Connecting agents and other tools</h4>
@@ -763,8 +806,9 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
           </section>
 
           <section class="how-to-step">
-            <h3><span class="step-num">Step 6</span> GitHub backup and version control (crucial)</h3>
+            <h3><span class="step-num">Step 7</span> GitHub backup and version control (crucial)</h3>
             <p class="step-what">What this does: Keeps your vault in a Git repo and syncs to GitHub (or another remote) for <strong>backup and version history</strong>. This is strongly recommended so your knowledge is safe and portable.</p>
+            <p class="how-to-note"><strong>Hosted vs self-hosted:</strong> On <strong>hosted</strong> (knowtation.store), you don’t run <code>git init</code> — create an empty repo on GitHub, then use Connect GitHub and Back up now; we push your vault there via the API. On <strong>self-hosted</strong>, the vault folder must be a Git repo (run <code>git init</code> inside it once if needed); then Save setup, Connect GitHub, and Back up now.</p>
             <p>Your vault can live in a Git repository and sync with a remote like GitHub. That gives you:</p>
             <ul>
               <li><strong>Backup:</strong> A copy of your notes in GitHub; if your machine is lost, you can clone the repo and point Knowtation at it again.</li>

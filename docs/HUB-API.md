@@ -104,7 +104,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "ok": true, "message": "Synced" | "Nothing to commit" }`.  
   **400** if vault.git not configured; **500** on git failure.
 
-To **set the repository**: (1) Use **Settings → Setup** in the Hub to write vault path and Git remote to `data/hub_setup.yaml` (applied immediately). (2) Or edit `config/local.yaml` (see PROVENANCE-AND-GIT.md and How to use → Step 6). **Connect GitHub** (Settings): if the Hub has GitHub OAuth configured, users can click "Connect GitHub" to authorize with `scope=repo`; the Hub stores the token in `data/github_connection.json` and uses it for push so no deploy key is needed. Add callback URL `.../api/v1/auth/callback/github-connect` to your GitHub OAuth App.
+To **set the repository**: (1) Use **Settings → Setup** in the Hub to write vault path and Git remote to `data/hub_setup.yaml` (applied immediately). (2) Or edit `config/local.yaml` (see PROVENANCE-AND-GIT.md and How to use → Step 7). **Connect GitHub** (Settings): if the Hub has GitHub OAuth configured, users can click "Connect GitHub" to authorize with `scope=repo`; the Hub stores the token in `data/github_connection.json` and uses it for push so no deploy key is needed. Add callback URL `.../api/v1/auth/callback/github-connect` to your GitHub OAuth App.
 
 - **GET /setup** — Editable setup (vault_path, vault_git) for the Setup wizard. Returns current values.  
 - **POST /setup** — Body: `{ vault_path?, vault_git?: { enabled?, remote? } }`. Writes to `data/hub_setup.yaml` and reloads config (no restart). **400** if invalid; **500** on write failure.

@@ -35,6 +35,17 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '7d';
 
+// Optional: comma-separated list of user IDs (e.g. google:123,github:456) who get role admin on hosted. Others get member.
+const HUB_ADMIN_USER_IDS = (process.env.HUB_ADMIN_USER_IDS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const adminUserIdsSet = new Set(HUB_ADMIN_USER_IDS);
+
+function roleForSub(sub) {
+  return sub && adminUserIdsSet.has(sub) ? 'admin' : 'member';
+}
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -75,13 +86,14 @@ function userId(user) {
 function issueToken(user) {
   const sub = userId(user);
   if (!sub) return null;
+  const role = roleForSub(sub);
   return jwt.sign(
     {
       sub,
       provider: user.provider,
       id: user.id,
       name: user.displayName ?? '',
-      role: 'member',
+      role,
     },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
@@ -125,6 +137,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(passport.initialize());
 
 // CORS: with credentials, browser rejects *. Use HUB_CORS_ORIGIN (single or comma-separated).
+// If users open both apex and www, list both origins (e.g. https://knowtation.store,https://www.knowtation.store).
 const corsOrigins = process.env.HUB_CORS_ORIGIN
   ? process.env.HUB_CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
@@ -156,25 +169,34 @@ app.get('/api/v1/auth/providers', (_req, res) => {
   });
 });
 
-// Auth: login redirect — plan routes GET /auth/login, GET /auth/callback/google|github
+// Auth: login redirect — plan routes GET /auth/login, GET /auth/callback/google|github. Preserve invite in state for post-login redirect.
 app.get('/auth/login', (req, res, next) => {
   const provider = (req.query.provider || 'google').toLowerCase();
+  const invite = typeof req.query.invite === 'string' ? req.query.invite.trim() : '';
+  const state = invite || undefined;
   if (provider === 'google' && process.env.GOOGLE_CLIENT_ID) {
-    return passport.authenticate('google', { scope: ['profile'] })(req, res, next);
+    return passport.authenticate('google', { scope: ['profile'], state })(req, res, next);
   }
   if (provider === 'github' && process.env.GITHUB_CLIENT_ID) {
-    return passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
+    return passport.authenticate('github', { scope: ['user:email'], state })(req, res, next);
   }
   return res.status(400).json({ error: `Unknown or disabled provider: ${provider}`, code: 'BAD_REQUEST' });
 });
+
+function postLoginRedirect(token, req) {
+  if (!token) return HUB_UI_ORIGIN + '/hub/?auth_error=1';
+  let url = `${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`;
+  const invite = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+  if (invite && invite.length > 0) url += '&invite=' + encodeURIComponent(invite);
+  return url;
+}
 
 app.get(
   '/auth/callback/google',
   passport.authenticate('google', { session: false }),
   (req, res) => {
     const token = issueToken(req.user);
-    if (!token) return res.redirect(HUB_UI_ORIGIN + '/hub/?auth_error=1');
-    res.redirect(`${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`);
+    res.redirect(postLoginRedirect(token, req));
   }
 );
 app.get(
@@ -182,15 +204,17 @@ app.get(
   passport.authenticate('github', { session: false }),
   (req, res) => {
     const token = issueToken(req.user);
-    if (!token) return res.redirect(HUB_UI_ORIGIN + '/hub/?auth_error=1');
-    res.redirect(`${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`);
+    res.redirect(postLoginRedirect(token, req));
   }
 );
 
-// Hub UI may call login under /api/v1/auth for consistency — redirect to /auth
+// Hub UI may call login under /api/v1/auth for consistency — redirect to /auth (preserve invite for post-login consume)
 app.get('/api/v1/auth/login', (req, res) => {
   const provider = (req.query.provider || 'google').toLowerCase();
-  res.redirect(`${BASE_URL}/auth/login?provider=${encodeURIComponent(provider)}`);
+  let url = `${BASE_URL}/auth/login?provider=${encodeURIComponent(provider)}`;
+  const invite = typeof req.query.invite === 'string' ? req.query.invite.trim() : '';
+  if (invite) url += '&invite=' + encodeURIComponent(invite);
+  res.redirect(url);
 });
 
 // Connect GitHub + Back up now: proxy to bridge when BRIDGE_URL is set (single origin for UI)
@@ -212,6 +236,29 @@ if (BRIDGE_URL) {
   });
   app.post('/api/v1/index', async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/index', req, res);
+  });
+  // Roles & invites: proxy to bridge (bridge has persistent storage)
+  app.get('/api/v1/roles', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + req.originalUrl, req, res);
+  });
+  app.post('/api/v1/roles', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/roles', req, res);
+  });
+  app.get('/api/v1/invites', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + req.originalUrl, req, res);
+  });
+  app.post('/api/v1/invites', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/invites', req, res);
+  });
+  app.delete('/api/v1/invites/:token', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/invites/' + encodeURIComponent(req.params.token), req, res);
+  });
+  app.post('/api/v1/invites/consume', (req, res, next) => {
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    next();
+  }, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/invites/consume', req, res);
   });
 }
 
@@ -247,6 +294,7 @@ app.get('/api/v1/settings', async (req, res) => {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   let github_connected = false;
   let github_repo = null;
+  let role = roleForSub(uid);
   if (BRIDGE_URL && req.headers.authorization) {
     try {
       const ghRes = await fetch(BRIDGE_URL + '/api/v1/vault/github-status', {
@@ -258,15 +306,20 @@ app.get('/api/v1/settings', async (req, res) => {
         github_connected = Boolean(data.github_connected);
         github_repo = data.repo || null;
       } else {
-        // 401 = bridge could not verify JWT (e.g. SESSION_SECRET differs from gateway)
         console.warn('[gateway] bridge github-status non-ok', ghRes.status);
       }
+      const roleRes = await fetch(BRIDGE_URL + '/api/v1/role', {
+        method: 'GET',
+        headers: { Authorization: req.headers.authorization, Accept: 'application/json' },
+      });
+      if (roleRes.ok) {
+        const data = await roleRes.json();
+        if (data.role) role = data.role;
+      }
     } catch (e) {
-      console.warn('[gateway] bridge github-status unreachable', e?.message || String(e));
+      console.warn('[gateway] bridge unreachable', e?.message || String(e));
     }
   }
-  // Hosted vault is the canister — there is no local git repo. Backup UX uses bridge + GitHub.
-  // Map GitHub connection + optional default repo into vault_git so Settings matches reality (was always "Not configured" before).
   const vault_git = {
     enabled: github_connected,
     has_remote: Boolean(github_repo),
@@ -274,7 +327,7 @@ app.get('/api/v1/settings', async (req, res) => {
     auto_push: false,
   };
   res.json({
-    role: 'member',
+    role,
     user_id: uid,
     vault_id: 'default',
     vault_path_display: 'Canister',
@@ -295,42 +348,39 @@ app.get('/api/v1/setup', (req, res) => {
   });
 });
 
-// --- Parity (Phase 1): roles, invites, POST setup, import — canister does not implement these ---
-// GET /api/v1/roles — hosted stub: no role store; return empty list (Settings → Team shows no other members)
-app.get('/api/v1/roles', (req, res) => {
+// --- Parity (Phase 1): roles, invites — stubs; admin from HUB_ADMIN_USER_IDS, full Team/invites need storage (Phase 2) ---
+function requireAdmin(req, res, next) {
   const uid = getUserId(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (roleForSub(uid) !== 'admin') return res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+  next();
+}
+
+// GET /api/v1/roles — hosted stub: no role store; admin sees empty list (parity: only admins can open Team)
+app.get('/api/v1/roles', requireAdmin, (_req, res) => {
   res.json({ roles: [] });
 });
 
-// POST /api/v1/roles — no-op on hosted (role assignment not supported)
-app.post('/api/v1/roles', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+// POST /api/v1/roles — no-op on hosted (no persistent role store yet)
+app.post('/api/v1/roles', requireAdmin, (_req, res) => {
   res.json({ ok: true });
 });
 
 // GET /api/v1/invites — hosted stub: no invite store
-app.get('/api/v1/invites', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+app.get('/api/v1/invites', requireAdmin, (_req, res) => {
   res.json({ invites: [] });
 });
 
-// POST /api/v1/invites — not supported on hosted (UI can show message from error)
-app.post('/api/v1/invites', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+// POST /api/v1/invites — not supported on hosted (no invite store; full parity in Phase 2)
+app.post('/api/v1/invites', requireAdmin, (_req, res) => {
   res.status(400).json({
-    error: 'Invites are not supported on hosted. Use self-hosted Hub for team invite.',
+    error: 'Invites are not supported on hosted yet. Use self-hosted Hub for team invites, or wait for Phase 2.',
     code: 'NOT_SUPPORTED',
   });
 });
 
 // DELETE /api/v1/invites/:token — no-op on hosted
-app.delete('/api/v1/invites/:token', (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+app.delete('/api/v1/invites/:token', requireAdmin, (_req, res) => {
   res.json({ ok: true });
 });
 

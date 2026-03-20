@@ -96,8 +96,8 @@ So: **human adds a note to the vault (optionally under a project or with tags) �
 
 | Priority | What | Where |
 |----------|------|--------|
-| 1 | Make “one vault, one backup repo; projects = filters” explicit | How to use (short subsection or Step 5 bullet) + optional 1–2 sentence in Settings Backup section. |
-| 2 | Make “agents use vault, not GitHub; you approve and backup” explicit | How to use Step 5 + “Knowledge & agents” content. |
+| 1 | Make “one vault, one backup repo; projects = filters” explicit | How to use (short subsection or Step 6 bullet) + optional 1–2 sentence in Settings Backup section. |
+| 2 | Make “agents use vault, not GitHub; you approve and backup” explicit | How to use Step 6 + “Knowledge & agents” content. |
 | 3 | Add **“Knowledge & agents”** menu item (modal or page) | Same place as “How to use” and “Settings” in the header. Content: how human notes become agent context, filters, proposals, link to AgentCeption. |
 | 4 | Optional: **Settings → “Local model (for agents)”** (read-only) | Show embedding provider/URL/model so users (and AgentCeption) can use the same local setup. |
 | 5 | Later | Chatbot / “Ask” tab over vault; “Copy env for AgentCeption” if you add Settings surface. |
@@ -108,7 +108,7 @@ This gives users and you a single mental model: **one vault, one GitHub backup, 
 
 ## File and UI reference (for when you implement)
 
-- **How to use:** `web/hub/index.html` — modal `#modal-how-to-use`, steps 1–6. Add a small “Projects and backup” / “Agents and GitHub” clarification.
+- **How to use:** `web/hub/index.html` — modal `#modal-how-to-use`, steps 1–7. Add a small “Projects and backup” / “Agents and GitHub” clarification.
 - **New “Knowledge & agents”:** New modal (e.g. `#modal-knowledge-agents`) and a header button “Knowledge & agents” (or “For agents”), content as in section 3 above.
 - **Settings:** `web/hub/index.html` — Settings modal; add either a third tab “Agents” or a subsection under Backup/Appearance for “Local model (for agents)” (read-only from config/env).
 - **Docs:** `docs/AGENT-INTEGRATION.md`, `docs/AGENTCEPTION-HACKATHON.md` — add one line each that “agents use the vault; Git backup is user-controlled” and “for local models, use the same Ollama (or embedding) config as Knowtation.”
@@ -120,7 +120,7 @@ No code changes in this repo beyond the plan; implement when you’re ready.
 
 ## Implemented (this phase)
 
-- **How to use:** Step 5 now includes "Vault and backup" and "Projects and filters" notes (one vault, one backup repo; agents use vault, you control backup; projects = filters). See **Knowledge & agents** for the full picture.
+- **How to use:** Step 6 now includes "Vault and backup" and "Projects and filters" notes (one vault, one backup repo; agents use vault, you control backup; projects = filters). GitHub backup detail is Step 7. See **Knowledge & agents** for the full picture.
 - **Knowledge & agents:** New header button and modal with: Giving agents context, How agents find it, Proposals and GitHub, AgentCeption and other orchestrators (with pointer to Settings → Agents).
 - **Settings → Agents tab:** Read-only "Local model (for agents)" (provider, model, Ollama URL from `embedding_display`). "Copy env for AgentCeption" button copies `OLLAMA_BASE_URL` and a comment line for the embedding model.
 - **API:** `GET /api/v1/settings` now returns `embedding_display: { provider, model, ollama_url }` (safe, no secrets).

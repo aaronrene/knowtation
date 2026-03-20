@@ -4,6 +4,19 @@ This page is the shortest path from **clone** to **using** Knowtation: CLI, sear
 
 ---
 
+## Two ways to follow the same setup
+
+| Path | Order | Best for |
+|------|--------|----------|
+| **This doc (CLI-first)** | §1 Clone → §2 Configure → §3 Index & search → §4 Hub → … | Terminal, agents, MCP |
+| **Hub UI (“How to use”)** | Seven steps in the app: vault & config → run Hub → log in → **index & search** → import → use & automate → GitHub backup | Browser-first self-hosted |
+
+Both use the **same** `config/local.yaml`, `.env`, and vault folder. **Hosted** users (knowtation.store) skip local vault, Hub install, and local indexing — we run search for you. **Self-hosted:** semantic search needs §3 (index) after config; listing notes in the Hub works without indexing.
+
+**Longer guides:** [setup.md](./setup.md) · [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted) · [SELF-HOSTED-SETUP-CHECKLIST.md](./SELF-HOSTED-SETUP-CHECKLIST.md)
+
+---
+
 ## Prerequisites
 
 - **Node.js 18+**
@@ -35,12 +48,8 @@ Edit `config/local.yaml`:
 - **vault_path** — Absolute path to the vault. From repo root you can use the repo’s vault, e.g.  
   `vault_path: /Users/you/knowtation/vault`  
   (or `$(pwd)/vault` if your shell expands it when you run commands from repo root).
-- **Vector store** — For search without running Qdrant, set:
-  ```yaml
-  vector_store: sqlite-vec
-  data_dir: data/
-  ```
-- **Embedding** — For Ollama (default):
+- **Vector store** — **`sqlite-vec`** + `data_dir: data/` stores vectors in a local SQLite file (no Qdrant server). **Or** use **`qdrant`** + `qdrant_url:` if you run Qdrant separately. Same purpose; different deployment.
+- **Embedding** — **Ollama** (local) or **OpenAI** (API key in `.env`) turns text into vectors — this is for search, not chat. For Ollama (default):
   ```yaml
   embedding:
     provider: ollama
@@ -61,7 +70,7 @@ Add keys as needed (e.g. `OPENAI_API_KEY` for transcription, `HUB_JWT_SECRET` fo
 
 ## 3. Index and search
 
-**Index once** (builds the vector store so search works). Requires Ollama running with `nomic-embed-text`, or OpenAI key if you use OpenAI embeddings:
+**Index once** (builds the vector store so **semantic search** works in the CLI and in the self-hosted Hub **Search vault**). Requires Ollama running with your chosen model, or `OPENAI_API_KEY` if you use OpenAI embeddings in config:
 
 ```bash
 npm run index
@@ -111,7 +120,7 @@ Start the Hub:
 npm run hub
 ```
 
-Open **http://localhost:3333/** in a browser. You get the Rich Hub UI (list notes, search, proposals, settings). To log in with Google or GitHub, add OAuth credentials to `.env` and callback URLs to your OAuth app; see [hub/README.md](../hub/README.md).
+Open **http://localhost:3333/** in a browser. You get the Rich Hub UI (list notes, search, proposals, settings). **OAuth:** credentials are **not** in the repo — register your own Google/GitHub OAuth app and add `GOOGLE_*` / `GITHUB_*` to `.env` plus callback URLs; see [hub/README.md](../hub/README.md). **Search in the Hub:** after §3 index (or **Re-index** in the UI), **Search vault** uses the same vector store as the CLI. In-app walkthrough: **How to use** (seven steps, matches [TWO-PATHS](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted)).
 
 ---
 
@@ -221,6 +230,7 @@ No change to AgentCeption’s core flow; Knowtation is an optional **context and
 
 ## Next steps
 
+- **Self-hosted checklist** — Quick start → config → index → OAuth → GitHub backup (How to use **Step 7**): [SELF-HOSTED-SETUP-CHECKLIST.md](./SELF-HOSTED-SETUP-CHECKLIST.md).
 - **Full setup** — Transcription, OAuth, memory, capture: [setup.md](./setup.md).
 - **Spec and CLI** — [SPEC.md](./SPEC.md), [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 - **Hub API** — [HUB-API.md](./HUB-API.md), [hub/README.md](../hub/README.md).
