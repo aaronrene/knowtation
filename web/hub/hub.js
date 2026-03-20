@@ -281,16 +281,23 @@
   if (token) {
     if (params.get('invite')) {
       (async () => {
-        try {
-          await api('/api/v1/invites/consume', { method: 'POST', body: JSON.stringify({ token: params.get('invite') }) });
-          const u = new URL(location.href);
-          u.searchParams.delete('invite');
-          u.searchParams.set('invite_accepted', '1');
-          history.replaceState({}, '', u.toString());
-          if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
-        } catch (e) {
-          if (typeof showToast === 'function') showToast(e.message || 'Invite could not be applied.', true);
+        const inviteToken = params.get('invite');
+        let lastErr;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await api('/api/v1/invites/consume', { method: 'POST', body: JSON.stringify({ token: inviteToken }) });
+            const u = new URL(location.href);
+            u.searchParams.delete('invite');
+            u.searchParams.set('invite_accepted', '1');
+            history.replaceState({}, '', u.toString());
+            if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
+            return;
+          } catch (e) {
+            lastErr = e;
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 800));
+          }
         }
+        if (typeof showToast === 'function') showToast(lastErr?.message || 'Invite could not be applied.', true);
       })();
     }
     showMain();
