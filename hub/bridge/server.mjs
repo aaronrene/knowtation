@@ -38,6 +38,17 @@ const DATA_DIR = process.env.DATA_DIR
   ? (path.isAbsolute(process.env.DATA_DIR) ? process.env.DATA_DIR : path.join(projectRoot, process.env.DATA_DIR))
   : path.join(projectRoot, 'data');
 const TOKENS_FILE = path.join(DATA_DIR, 'hub_github_tokens.json');
+const ROLES_FILE = path.join(DATA_DIR, 'hub_roles.json');
+const INVITES_FILE = path.join(DATA_DIR, 'hub_invites.json');
+const VALID_ROLES = new Set(['admin', 'editor', 'viewer']);
+const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+const adminUserIdsSet = new Set(
+  (process.env.HUB_ADMIN_USER_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
 
 function sanitizeUserId(uid) {
   return String(uid).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128) || 'default';
@@ -150,6 +161,90 @@ async function saveTokens(blobStore, tokens) {
   await blobStore.set('hub_github_tokens', str);
 }
 
+// ——— Roles & invites (hosted parity: same contract as self-hosted hub/roles.mjs, hub/invites.mjs) ———
+async function loadRoles(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(ROLES_FILE)) return {};
+    try {
+      const data = JSON.parse(fs.readFileSync(ROLES_FILE, 'utf8'));
+      const roles = data.roles != null ? data.roles : data;
+      return typeof roles === 'object' && roles !== null ? roles : {};
+    } catch (_) {
+      return {};
+    }
+  }
+  try {
+    const rawStr = await blobStore.get('hub_roles');
+    if (!rawStr) return {};
+    const data = JSON.parse(rawStr);
+    const roles = data.roles != null ? data.roles : data;
+    return typeof roles === 'object' && roles !== null ? roles : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveRoles(blobStore, roles) {
+  const obj = {};
+  for (const [sub, role] of Object.entries(roles)) {
+    if (typeof sub === 'string' && sub.trim() && VALID_ROLES.has(role)) obj[sub.trim()] = role;
+  }
+  const str = JSON.stringify({ roles: obj }, null, 2);
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(ROLES_FILE, str, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_roles', str);
+}
+
+async function loadInvites(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(INVITES_FILE)) return {};
+    try {
+      const data = JSON.parse(fs.readFileSync(INVITES_FILE, 'utf8'));
+      const invites = data.invites && typeof data.invites === 'object' ? data.invites : {};
+      return invites;
+    } catch (_) {
+      return {};
+    }
+  }
+  try {
+    const rawStr = await blobStore.get('hub_invites');
+    if (!rawStr) return {};
+    const data = JSON.parse(rawStr);
+    const invites = data.invites && typeof data.invites === 'object' ? data.invites : {};
+    return invites;
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveInvites(blobStore, invites) {
+  const obj = {};
+  for (const [token, entry] of Object.entries(invites)) {
+    if (typeof token === 'string' && token && entry && typeof entry.role === 'string' && typeof entry.created_at === 'string') {
+      obj[token] = { role: entry.role, created_at: entry.created_at };
+    }
+  }
+  const str = JSON.stringify({ invites: obj }, null, 2);
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(INVITES_FILE, str, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_invites', str);
+}
+
+function effectiveRole(uid, storedRoles) {
+  if (!uid) return 'member';
+  const stored = storedRoles && storedRoles[uid];
+  if (stored && VALID_ROLES.has(stored)) return stored;
+  return adminUserIdsSet.has(uid) ? 'admin' : 'member';
+}
+
 /** Return a directory path that contains (or will contain) knowtation_vectors.db for this user. Rehydrates from Blob if needed. */
 async function getVectorsDirForUser(req, uid) {
   const safeUid = sanitizeUserId(uid);
@@ -223,7 +318,7 @@ app.use((req, _res, next) => {
 
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
   res.set('Access-Control-Allow-Credentials', 'true');
   next();
@@ -239,6 +334,151 @@ if (inServerless) {
     next();
   });
 }
+
+// ——— Roles & invites (hosted parity) ———
+async function requireBridgeAuth(req, res, next) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const uid = token ? userIdFromJwt(token) : null;
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  req.uid = uid;
+  next();
+}
+
+async function requireBridgeAdmin(req, res, next) {
+  const roles = await loadRoles(req.blobStore);
+  const role = effectiveRole(req.uid, roles);
+  if (role !== 'admin') return res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+  next();
+}
+
+app.get('/api/v1/roles', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  try {
+    const roles = await loadRoles(req.blobStore);
+    res.json({ roles });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/roles', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/roles', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const { user_id: userId, role } = req.body || {};
+  if (!userId || typeof userId !== 'string' || !userId.trim()) {
+    return res.status(400).json({ error: 'user_id required (e.g. github:12345)', code: 'BAD_REQUEST' });
+  }
+  const r = (role || 'editor').toLowerCase();
+  if (!VALID_ROLES.has(r)) {
+    return res.status(400).json({ error: 'role must be admin, editor, or viewer', code: 'BAD_REQUEST' });
+  }
+  try {
+    const roles = await loadRoles(req.blobStore);
+    roles[userId.trim()] = r;
+    await saveRoles(req.blobStore, roles);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/roles', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.get('/api/v1/invites', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  try {
+    const invitesMap = await loadInvites(req.blobStore);
+    const now = Date.now();
+    const list = [];
+    for (const [token, entry] of Object.entries(invitesMap)) {
+      const created = new Date(entry.created_at).getTime();
+      const expires_at = new Date(created + INVITE_EXPIRY_MS).toISOString();
+      if (now - created <= INVITE_EXPIRY_MS) {
+        list.push({ token, role: entry.role, created_at: entry.created_at, expires_at });
+      }
+    }
+    list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json({ invites: list });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/invites', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/invites', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const role = (req.body?.role || 'editor').toLowerCase();
+  if (!['viewer', 'editor', 'admin'].includes(role)) {
+    return res.status(400).json({ error: 'role must be viewer, editor, or admin', code: 'BAD_REQUEST' });
+  }
+  try {
+    const token = crypto.randomBytes(24).toString('base64url');
+    const created_at = new Date().toISOString();
+    const expires_at = new Date(Date.now() + INVITE_EXPIRY_MS).toISOString();
+    const invites = await loadInvites(req.blobStore);
+    invites[token] = { role, created_at };
+    await saveInvites(req.blobStore, invites);
+    const base = (HUB_UI_ORIGIN + (HUB_UI_PATH || '/hub') + '/').replace(/(\/)+$/, '/');
+    const invite_url = base + '?invite=' + encodeURIComponent(token);
+    res.status(201).json({ invite_url, token, role, created_at, expires_at });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/invites', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.delete('/api/v1/invites/:token', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const token = req.params.token;
+  if (!token) return res.status(400).json({ error: 'token required', code: 'BAD_REQUEST' });
+  try {
+    const invites = await loadInvites(req.blobStore);
+    const had = token in invites;
+    delete invites[token];
+    await saveInvites(req.blobStore, invites);
+    res.json({ ok: true, removed: had });
+  } catch (e) {
+    console.error('[bridge] DELETE /api/v1/invites/:token', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/invites/consume', requireBridgeAuth, async (req, res) => {
+  const token = req.body?.token;
+  if (!token || typeof token !== 'string' || !token.trim()) {
+    return res.status(400).json({ error: 'token required', code: 'BAD_REQUEST' });
+  }
+  const uid = req.uid;
+  try {
+    const invites = await loadInvites(req.blobStore);
+    const entry = invites[token];
+    if (!entry) {
+      return res.status(404).json({ error: 'Invite not found or already used', code: 'NOT_FOUND' });
+    }
+    const created = new Date(entry.created_at).getTime();
+    if (Date.now() - created > INVITE_EXPIRY_MS) {
+      delete invites[token];
+      await saveInvites(req.blobStore, invites);
+      return res.status(410).json({ error: 'Invite expired', code: 'EXPIRED' });
+    }
+    const roles = await loadRoles(req.blobStore);
+    roles[uid] = entry.role;
+    await saveRoles(req.blobStore, roles);
+    delete invites[token];
+    await saveInvites(req.blobStore, invites);
+    res.json({ ok: true, role: entry.role });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/invites/consume', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+// For gateway GET /api/v1/settings: return role from bridge store so invited users get correct role
+app.get('/api/v1/role', requireBridgeAuth, async (req, res) => {
+  try {
+    const roles = await loadRoles(req.blobStore);
+    const role = effectiveRole(req.uid, roles);
+    res.json({ role });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/role', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
 
 // ——— Connect GitHub ———
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {

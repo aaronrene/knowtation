@@ -29,7 +29,7 @@ The canister proxy runs under **`app.use('/api/v1', …)`**. Express **strips** 
 | **GATEWAY_PORT** or **PORT** | No | Port (default 3340). |
 | **HUB_CORS_ORIGIN** | No | CORS Allow-Origin (default `*`). Set to Hub UI origin in production. |
 | **HUB_JWT_EXPIRY** | No | JWT expiry (default `7d`). |
-| **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted; everyone else gets **member**. Enables Edit and Team tab for designated admins. Full roles/invites persistence (add/remove members, invite links) is not yet implemented on hosted — see [PARITY-PLAN.md](../../docs/PARITY-PLAN.md) Phase 2. |
+| **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted (bootstrap); everyone else gets **member**. When **BRIDGE_URL** is set, roles and invites are stored in the bridge and proxied; full Team and invite links work. Set the same value on the bridge so Settings shows the correct role. See [PARITY-PLAN.md](../../docs/PARITY-PLAN.md) Phase 4. |
 
 ## Google OAuth — redirect URI (fixes `redirect_uri_mismatch`)
 

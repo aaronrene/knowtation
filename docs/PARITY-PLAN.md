@@ -129,9 +129,9 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 | Option | Where | Pros | Cons |
 |--------|--------|------|------|
 | **A. Canister** | Add stable storage + endpoints (or extend existing) for roles and invites; gateway proxies or calls canister for GET/POST roles and invites; on login gateway asks canister for role for this user. | Single source of truth; scales with canister. | Canister changes; migration if already deployed. |
-| **B. Bridge** | Bridge stores `hub_roles.json` and `hub_invites.json` (e.g. per vault or global); gateway proxies /api/v1/roles and /api/v1/invites to bridge; on login gateway asks bridge for role. | No canister change; bridge already has backend. | Bridge becomes stateful; need to define scope (per user? per vault?). |
+| **B. Bridge** | Bridge stores `hub_roles.json` and `hub_invites.json` (e.g. per vault or global); gateway proxies /api/v1/roles and /api/v1/invites to bridge; on login gateway asks bridge for role. | No canister change; bridge already has backend and Blobs/DATA_DIR. | Bridge becomes stateful; need to define scope (per user? per vault?). |
 
-**Recommendation:** Finish and stabilize the **local** (self-hosted) path first. Then implement **one** of A or B so hosted has the same Team and invite flows. Doing it now would mean building storage and invite-consumption (e.g. `?invite=TOKEN` on login) on the gateway; doing it later is "retrofit" with the same contract. No change to the Hub UI — it already calls the same endpoints.
+**Recommendation:** Option **B (bridge)** is the quickest path: the bridge is already deployed, has Netlify Blobs (or DATA_DIR), and the gateway already proxies to it. See **[HOSTED-ROLES-VIA-BRIDGE.md](./HOSTED-ROLES-VIA-BRIDGE.md)** for a concrete implementation outline (storage, routes, gateway proxy, optional invite-in-redirect). No change to the Hub UI — it already calls the same endpoints.
 
 ---
 
@@ -195,18 +195,18 @@ You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Net
 
 ---
 
-## Phase 4 — Optional: full hosted roles/invites (later)
+## Phase 4 — Full hosted roles/invites (bridge store)
 
-**Goal:** If we want real team behavior on hosted (assign roles, invite by link that adds user to a hosted role store), implement roles and invites in the **canister** or in a **gateway-backed store** (e.g. DB or file store behind gateway), and remove or replace the Phase 1 stubs.
+**Goal:** Real team behavior on hosted (assign roles, invite by link). Implemented via **bridge** storage (Option B): roles and invites persist in bridge Blobs/DATA_DIR; gateway proxies to bridge when `BRIDGE_URL` is set. See [HOSTED-ROLES-VIA-BRIDGE.md](./HOSTED-ROLES-VIA-BRIDGE.md).
 
-**When:** After Phase 2 (deploy) when we prioritize “team vault” on hosted. Not required for parity of “same UI works”; Phase 1 stubs are enough for that.
 
-### 4.1 Checklist (Phase 4, when implemented)
+### 4.1 Checklist (Phase 4)
 
-- [ ] Canister (or gateway store): persist roles (user_id → role); persist pending invites (token, role, created_at).
-- [ ] GET/POST /api/v1/roles and GET/POST/DELETE /api/v1/invites implemented in canister or gateway with real persistence.
-- [ ] Gateway routes for roles/invites either proxy to canister or read/write gateway store; remove stub responses.
-- [ ] Document in HUB-API and PARITY-PLAN.
+- [x] Bridge: persist roles (user_id → role) and pending invites (token, role, created_at) in Blobs or DATA_DIR.
+- [x] GET/POST /api/v1/roles, GET/POST/DELETE /api/v1/invites, POST /api/v1/invites/consume, GET /api/v1/role implemented in bridge.
+- [x] Gateway proxies roles/invites/consume to bridge when BRIDGE_URL set; GET /api/v1/settings uses bridge GET /api/v1/role for role.
+- [x] Gateway: invite in OAuth state and post-login redirect; Hub UI calls consume when URL has token + invite.
+- [x] Document in bridge README and PARITY-PLAN.
 
 ---
 
@@ -217,6 +217,6 @@ You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Net
 | **1** | API parity (gateway stubs: roles, invites, POST setup, optional import 501) | **Done.** Implemented in hub/gateway/server.mjs. |
 | **2** | Deploy hosted (canister, 4Everland, gateway, **bridge**, DNS); **bridge required** — not optional | **Next.** After Phase 1. Do not start Phase 3 until Phase 2 including bridge is complete. See [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md). |
 | **3** | Multi-vault (Phase 15) | After Phase 2 **complete** (including bridge deploy and wire); per MULTI-VAULT-AND-SCOPED-ACCESS. |
-| **4** | Full hosted roles/invites (canister or gateway store) | Optional; when we want real team behavior on hosted. |
+| **4** | Full hosted roles/invites (bridge store) | **Done.** Bridge stores roles/invites; gateway proxies; invite flow via state + consume. |
 
 **Do not start implementation** of Phase 1 until this plan (and IMPLEMENTATION-PLAN updates) are agreed. After Phase 1 is implemented, update this doc and IMPLEMENTATION-PLAN to mark parity complete and “Next” as Phase 2 (deploy).
