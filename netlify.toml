@@ -4,9 +4,6 @@
   functions = "netlify/functions"
   publish = "public"
 
-# Send all requests to the gateway (OAuth + proxy to canister). Omit publish if you only deploy the gateway.
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/gateway/:splat"
-  status = 200
-  force = true
+# Catch-all routing lives in public/_redirects (scripts/netlify-redirects.mjs). Do not add
+# [[redirects]] here: in a monorepo, root netlify.toml settings apply to every linked site
+# and would send the bridge deploy to the gateway function.

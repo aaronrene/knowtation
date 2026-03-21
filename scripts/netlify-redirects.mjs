@@ -8,7 +8,8 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const publicDir = new URL('../public', import.meta.url);
+// Base must end with / so `_redirects` is under public/ (otherwise URL resolution drops `public`).
+const publicDir = new URL('../public/', import.meta.url);
 const redirectsPath = new URL('_redirects', publicDir);
 
 const useBridge = process.env.USE_BRIDGE_FUNCTION === 'true' || process.env.USE_BRIDGE_FUNCTION === '1';

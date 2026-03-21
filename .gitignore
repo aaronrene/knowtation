@@ -34,6 +34,9 @@ hub/icp/.dfx/
 # Node
 node_modules/
 
+# Netlify — written by scripts/netlify-redirects.mjs (gateway vs bridge); do not commit
+public/_redirects
+
 # OS
 .DS_Store
 *.log

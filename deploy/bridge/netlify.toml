@@ -1,11 +1,14 @@
-# Bridge Netlify site: if the site’s **Base directory** is `deploy/bridge`, paths below
-# are relative to that folder — the build must `cd` to the repo root first.
-# Recommended: leave **Base directory empty** (repo root), set `USE_BRIDGE_FUNCTION=true`
-# in Netlify env, and use the root `netlify.toml` so you do not need this file.
+# Bridge Netlify site: set **Package directory** to `deploy/bridge` in the Netlify UI;
+# leave **Base directory** empty so it defaults to the repo root. Per Netlify monorepo
+# docs, `functions` and `publish` below are relative to the base directory (repo root),
+# not to this folder — do not use `../..` here (that escapes the repo and fails deploy).
 [build]
-  command = "cd ../.. && npm install && node scripts/netlify-redirects.mjs && cd hub/gateway && npm ci && cd ../bridge && npm ci"
-  functions = "../../netlify/functions"
-  publish = "../../public"
+  command = "npm install && node scripts/netlify-redirects.mjs && cd hub/gateway && npm ci && cd ../bridge && npm ci"
+  functions = "netlify/functions"
+  publish = "public"
+
+[build.environment]
+  USE_BRIDGE_FUNCTION = "true"
 
 # Send all requests to the bridge function with path preserved (/:splat).
 [[redirects]]
