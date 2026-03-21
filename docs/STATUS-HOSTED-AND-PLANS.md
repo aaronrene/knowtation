@@ -46,9 +46,9 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 
 ## 2. Multi-vault (split vault)
 
-**Self-hosted (Node Hub): implemented (Phase 15).** `data/hub_vaults.yaml`, `hub_vault_access.json`, optional `hub_scope.json`; vault switcher in the Hub header; `X-Vault-Id` on API calls; bridge supports `(user, vault_id)` for index/search when deployed. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 and [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
+**Self-hosted (Node Hub): implemented (Phase 15).** `data/hub_vaults.yaml`, `hub_vault_access.json`, optional `hub_scope.json`; vault switcher in the Hub header; `X-Vault-Id` on API calls; `hub/server.mjs` resolves path + access + scope; bridge uses `(uid, vault_id)` directories for sqlite-vec. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 and [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
 
-**Hosted (canister):** Still **one logical vault per user** in storage today; multi-vault in the canister is follow-up when you want parity with self-hosted switching on knowtation.store.
+**Hosted (canister): not yet true multi-vault.** The gateway **forwards** `X-Vault-Id`, but the Motoko canister **only** stores **`uid → path → note`** (see `getVault(uid)` in `hub/icp/src/hub/main.mo` — no `vault_id` dimension). The bridge **keys vector storage** by `(uid, vault_id)`, but **export** from the canister is still the **full** note map, so per–`vault_id` indexes on hosted do **not** mean separate note content until the canister partitions storage. **Parity work:** canister schema + migration + proposals/`vault_id` if needed; then re-test index/search/backup per vault. Details: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted.
 
 ---
 
@@ -64,7 +64,7 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 | **Settings → Setup / POST setup** | Writes `hub_setup.yaml` | Gateway stub (no-op); vault is canister |
 | **Import (Hub upload)** | Works | 501 stub on gateway (not yet on hosted) |
 | **Facets (filter dropdowns)** | Real data from notes | Gateway stub returns empty unless extended to aggregate from canister |
-| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id` | ❌ Single vault per user in canister; UI may show switcher only after canister + gateway support multiple vaults |
+| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id`; notes isolated per vault | ⚠️ UI/header may send `X-Vault-Id`; **canister ignores it** (one map per user). Bridge vector dirs split by `vault_id` but export is unsplit — **not** content parity until canister work (see §2 above) |
 | **Vault access JSON (admin)** | ✅ | N/A on hosted (no `hub_vault_access.json` on canister path today) |
 
 **Commits (reference):** Phase 15 multi-vault (self-hosted) merged; `b4002be` and related — hosted roles/invites via bridge; gateway proxies search/index/vault/roles/invites when `BRIDGE_URL` is set.

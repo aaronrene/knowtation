@@ -17,9 +17,20 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 - **Hub UI:** Vault switcher in the header (when multiple vaults are allowed); Settings → **Vaults** (admin): vault list, vault access, scope (JSON edit).
 - **Roles:** Unchanged: viewer / editor / admin control actions. Vault access and scope control **which vault(s)** and **which projects/folders** a user sees.
 
-### Hosted (canister)
+### Hosted (canister + gateway + bridge) — code-verified (March 2026)
 
-- The canister currently stores one logical vault per user. **X-Vault-Id** is forwarded by the gateway and bridge; the bridge keys index/search by (uid, vault_id). Canister storage keyed by (uid, vault_id) and migration of existing data to `default` is a follow-up (Phase 15.4).
+**Important:** **Self-hosted** multi-vault (this doc above) is **fully implemented**. **Hosted** is **not** the same yet.
+
+| Layer | What happens with `X-Vault-Id` today |
+|-------|--------------------------------------|
+| **Hub UI** | Sends **`X-Vault-Id`** on API calls when the vault switcher is used (same as self-hosted). |
+| **Gateway** (`hub/gateway/server.mjs`) | Forwards **`x-vault-id`** to the canister on proxy requests. CORS allows the header. |
+| **Canister** (`hub/icp/src/hub/main.mo`) | **Does not read `X-Vault-Id`.** All note reads/writes use `getVault(uid)` — **one** `HashMap` of paths per user. Export returns **every** note for that user regardless of header. |
+| **Bridge** (`hub/bridge/server.mjs`) | Index/search use **separate vector DB directories** per `(uid, vault_id)` (`getVectorsDirForUser`). The bridge **does** pass `X-Vault-Id` when calling canister export, but the canister **ignores** it, so each “vault” index is built from the **same full note set** until the canister partitions storage. **GitHub backup** export also omits vault scoping (full export). |
+
+**Conclusion:** Hosted **multi-vault parity** requires **canister work** (and stable migration): partition storage by `(user_id, vault_id)`, migrate existing rows to `vault_id = "default"`, thread `vault_id` through proposals if you want proposal parity with self-hosted, then re-verify bridge index/search and backup per vault. Until then, treat the hosted vault switcher as **UI-ready / storage-not-split** unless you hide extra vaults on hosted.
+
+**Tracking:** Treat as **Phase 15 hosted extension** (after hosted Phase 2 bridge + env are verified). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.
 
 ---
 
