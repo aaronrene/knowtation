@@ -16,7 +16,7 @@ This documents what Phase A implements and what is intentionally deferred.
 
 | Item | Phase / note |
 |------|----------------|
-| `notifications/resources/updated` on vault changes | **E** (subscriptions + watcher) |
+| `notifications/resources/updated` on vault changes | **E** — implemented; see [MCP-PHASE-E.md](./MCP-PHASE-E.md) |
 | Progress / logging for long resource reads | **H** |
 | Persist AIR ids to a file for `knowtation://air/log` | **A3 completion** — wire when `lib/air.mjs` / write path logs attestations (optional with Phase 4/8) |
 | `last_indexed` for Qdrant-only setups | **A** tweak — today uses sqlite-vec DB mtime when present; Qdrant has no local mtime in-repo |

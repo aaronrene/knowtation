@@ -48,6 +48,10 @@ function textContent(uri, mimeType, text) {
  * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
  */
 export function registerKnowtationResources(server) {
+  server.server.registerCapabilities({
+    resources: { subscribe: true },
+  });
+
   server.registerResource(
     'vault-root-listing',
     'knowtation://vault/',

@@ -22,6 +22,11 @@ import { attestBeforeWrite, attestBeforeExport } from '../lib/air.mjs';
 import { storeMemory } from '../lib/memory.mjs';
 import { registerKnowtationResources } from './resources/register.mjs';
 import { registerPhaseCTools } from './tools/phase-c.mjs';
+import {
+  registerResourceSubscriptionHandlers,
+  startVaultResourceWatcher,
+  notifyIndexMetadataResources,
+} from './resource-subscriptions.mjs';
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -169,6 +174,7 @@ server.registerTool(
   async () => {
     try {
       const result = await runIndex();
+      await notifyIndexMetadataResources(server);
       return jsonResponse({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
     } catch (e) {
       return jsonError(e.message || String(e), 'RUNTIME_ERROR');
@@ -288,10 +294,20 @@ server.registerTool(
 
 registerKnowtationResources(server);
 registerPhaseCTools(server);
+registerResourceSubscriptionHandlers(server);
 
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  let config;
+  try {
+    config = loadConfig();
+  } catch (_) {
+    config = null;
+  }
+  if (config) {
+    startVaultResourceWatcher(server, config.vault_path);
+  }
 }
 
 main().catch((err) => {
