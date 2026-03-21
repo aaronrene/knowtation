@@ -26,13 +26,13 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 | **C** | Enhanced tools — relate, backlinks, capture, transcribe, summarize, cluster, extract_tasks, tag-suggest, memory-query, vault-sync | **Done (in repo)** | See [MCP-PHASE-C.md](./MCP-PHASE-C.md) |
 | **D** | Streamable HTTP transport + Hub as MCP gateway (HTTP+SSE, OAuth 2.1, session pool) | **D1 done** (local HTTP); **D2/D3** backlog | [MCP-PHASE-D.md](./MCP-PHASE-D.md) |
 | **E** | Resource subscriptions + real-time vault watcher (fs.watch → notify clients) | **Done (local vault)** | [MCP-PHASE-E.md](./MCP-PHASE-E.md) — chokidar + subscribe; hosted N/A |
-| **F** | MCP Sampling — delegate LLM work to client (summarize, import categorization, rerank, prompt prefilling) | Backlog | After D (sampling over HTTP sessions) |
+| **F** | MCP Sampling — delegate LLM work to client | **F1 done** (`summarize`); **F2–F5** backlog | [MCP-PHASE-F.md](./MCP-PHASE-F.md) |
 | **G** | Roots / scope — `instructions` with `file://` vault + data_dir; optional client `roots/list` log | **Done** | [MCP-PHASE-G.md](./MCP-PHASE-G.md) |
 | **H** | Progress notifications + structured logging (index/import progress; log forwarding) | **Done (stdio)** | [MCP-PHASE-H.md](./MCP-PHASE-H.md) |
 
 **Recommended implementation order (from Issue #1):** A → C → E → H → B → D → F → G
 
-**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10); Resources ✅ (Phase A); Prompts ✅ (Phase B); Resource subscriptions ✅ (Phase E, self-hosted); Progress + logging ✅ (Phase H, stdio); Scope / roots alignment ✅ (Phase G: `instructions` + optional client roots log); local Streamable HTTP ✅ (D1); Sampling ❌; Hub MCP proxy + OAuth ❌ (D2/D3).
+**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10); Resources ✅ (Phase A); Prompts ✅ (Phase B); Resource subscriptions ✅ (Phase E, self-hosted); Progress + logging ✅ (Phase H, stdio); Scope / roots alignment ✅ (Phase G: `instructions` + optional client roots log); local Streamable HTTP ✅ (D1); Sampling **F1** ✅ (`summarize` via client when supported); Sampling **F2–F5** ❌; Hub MCP proxy + OAuth ❌ (D2/D3).
 
 ---
 
@@ -55,7 +55,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Current state in the repo
 
-- **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1) — [MCP-PHASE-D.md](./MCP-PHASE-D.md); base + Phase C tools; Phase A resources; Phase B prompts; Phase E; Phase H; Phase G (`instructions` + optional `roots/list` log) — [MCP-PHASE-G.md](./MCP-PHASE-G.md). No Sampling or Hub MCP proxy / OAuth (D2/D3) yet.
+- **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1) — [MCP-PHASE-D.md](./MCP-PHASE-D.md); base + Phase C tools; Phase A resources; Phase B prompts; Phase E; Phase H; Phase G — [MCP-PHASE-G.md](./MCP-PHASE-G.md); Phase **F1** sampling (`summarize`) — [MCP-PHASE-F.md](./MCP-PHASE-F.md). Hub MCP proxy / OAuth (D2/D3) not implemented; F2–F5 sampling still backlog.
 - **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](./PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
 - **IMPLEMENTATION-PLAN:** References this backlog and [BACKLOG-MCP-SUPERCHARGE](./BACKLOG-MCP-SUPERCHARGE.md); suggested prompts for agents is separate optional backlog item.
 
@@ -76,6 +76,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 - [MCP-PHASE-B.md](./MCP-PHASE-B.md) — MCP prompts (Phase B).
 - [MCP-PHASE-D.md](./MCP-PHASE-D.md) — Streamable HTTP (D1) and D2/D3 backlog.
 - [MCP-PHASE-G.md](./MCP-PHASE-G.md) — scope / roots alignment (Phase G).
+- [MCP-PHASE-F.md](./MCP-PHASE-F.md) — sampling (Phase F; F1 shipped).
 - [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — main plan; "Issues #1 and #2" points here.
 - [PARITY-PLAN.md](./PARITY-PLAN.md) — Phase 2 (deploy, bridge), Phase 3 (multi-vault).
 - [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) — current MCP/CLI usage.

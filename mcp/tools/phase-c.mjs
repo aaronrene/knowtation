@@ -26,6 +26,46 @@ function jsonError(msg, code = 'ERROR') {
   return { content: [{ type: 'text', text: JSON.stringify({ error: msg, code }) }], isError: true };
 }
 
+/** @param {unknown} result @returns {string} */
+function samplingResultToText(result) {
+  const c = result?.content;
+  if (!c) return '';
+  if (typeof c === 'object' && !Array.isArray(c) && c.type === 'text' && typeof c.text === 'string') {
+    return c.text;
+  }
+  if (Array.isArray(c)) {
+    return c
+      .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join('\n');
+  }
+  return '';
+}
+
+/**
+ * Phase F1 — delegate summarization to the MCP host LLM when `sampling` is available.
+ * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} mcpServer
+ * @param {{ system: string, user: string, maxTokens: number }} opts
+ * @returns {Promise<string | null>} trimmed text, or null to fall back to server-side LLM
+ */
+async function trySamplingSummarize(mcpServer, opts) {
+  const caps = mcpServer.server.getClientCapabilities?.();
+  if (!caps?.sampling) return null;
+  const maxTokens = Math.max(1, Math.min(8192, Math.floor(opts.maxTokens)));
+  try {
+    const result = await mcpServer.server.createMessage({
+      systemPrompt: opts.system,
+      messages: [{ role: 'user', content: { type: 'text', text: opts.user } }],
+      maxTokens,
+      includeContext: 'none',
+    });
+    const text = samplingResultToText(result).trim();
+    return text.length > 0 ? text : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
  */
@@ -152,7 +192,8 @@ export function registerPhaseCTools(server) {
   server.registerTool(
     'summarize',
     {
-      description: 'Summarize one or more notes using OpenAI or Ollama chat (OPENAI_API_KEY or Ollama + OLLAMA_CHAT_MODEL).',
+      description:
+        'Summarize one or more notes. When the MCP host supports sampling, uses the client LLM; otherwise OpenAI or Ollama on the server (OPENAI_API_KEY or Ollama + OLLAMA_CHAT_MODEL).',
       inputSchema: {
         path: z.string().optional().describe('Single vault-relative note path'),
         paths: z.array(z.string()).optional().describe('Multiple note paths'),
@@ -178,7 +219,11 @@ export function registerPhaseCTools(server) {
         const mw = args.max_words ?? (style === 'detailed' ? 400 : style === 'bullets' ? 300 : 150);
         const system = `You summarize vault notes faithfully. Output style: ${style}. Max approximately ${mw} words.`;
         const user = `Summarize the following markdown note(s):\n\n${combined}`;
-        const summary = await completeChat(config, { system, user, maxTokens: Math.min(1024, mw * 2) });
+        const maxTokens = Math.min(1024, Math.floor(mw * 2));
+        let summary = await trySamplingSummarize(server, { system, user, maxTokens });
+        if (summary == null) {
+          summary = await completeChat(config, { system, user, maxTokens });
+        }
         return jsonResponse({ summary, source_paths: paths.map((p) => p.replace(/\\/g, '/')) });
       } catch (e) {
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');

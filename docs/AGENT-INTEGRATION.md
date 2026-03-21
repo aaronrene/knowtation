@@ -43,6 +43,7 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 - **Start:** `knowtation mcp` (stdio transport).
 - **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. Same filters and JSON shapes.
 - **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant’s context matches Knowtation.
+- **Summarize (Phase F1):** The **`summarize`** tool uses the host’s LLM when the client supports **sampling**; otherwise it uses Ollama/OpenAI on the machine running Knowtation. See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
 - **Use case:** When the agent runtime speaks MCP; no need to shell out to CLI.
 
 See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
