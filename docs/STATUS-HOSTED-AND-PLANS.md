@@ -4,7 +4,11 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 
 **Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta, free** until Phase 16 (credits).
 
-**Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP features already merged for local use are fine to land on `main` first. Order and plain-language rationale: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
+**Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Order: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
+
+**Hosted multi-vault (Phase 15.1):** After bridge + env are verified, implement canister `vault_id` partitioning per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) checklist. With **little or no production data**, migration can be **minimal** (fresh deploy or default-vault upgrade).
+
+**Testing:** Run **`npm test`** regularly; fix known failing tests so CI reflects reality. Add tests alongside hub/canister changes — see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15.
 
 ---
 

@@ -18,7 +18,8 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 1. **Merge to `main`** — When the branch is ready, open a PR (or merge) so MCP improvements are not stranded; self-hosted users and Cursor clients benefit immediately.
 2. **Hosted parity first** — Follow [PARITY-PLAN.md](./PARITY-PLAN.md), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md), and [EXACT-STATE-PHASE2.md](./EXACT-STATE-PHASE2.md) (if present): bridge deployed, `BRIDGE_URL` on the gateway, pre-roll checklist, redeploys as needed.
-3. **Finish Issue #1 leftovers** — **D2/D3** (authenticated MCP via Hub), then **F2–F5** (extra sampling). That **is** finishing Issue #1; it is intentionally **after** step 2 so D2/D3 matches real hosted behavior.
+2b. **Phase 15.1 — hosted multi-vault** (if product goal is parity with local): canister partitions by `vault_id`; vault list/access on hosted; see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted multi-vault — what to build. Early deploys with almost no data: **minimal migration** (redeploy or one-shot default vault) is fine.
+3. **Finish Issue #1 leftovers** — **D2/D3** (authenticated MCP via Hub), then **F2–F5** (extra sampling). Intentionally **after** hosted behavior (including multi-vault if shipped) is stable.
 4. **Issue #2** — Only **small, explicit slices** after the above; not the full “Infinite Machine Brain” in one go.
 
 **Your understanding is correct:** commit / push / merge the current work, then **hosted parity**, then **come back to Issue #1** for D2/D3 and F2–F5. You are not abandoning Issue #1 — you are **ordering** it so the last pieces sit on **firm ground**.
