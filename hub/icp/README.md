@@ -17,7 +17,7 @@ npm run canister:preflight
 # or: bash scripts/canister-predeploy.sh
 ```
 
-This runs **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub`**. Optional JSON backup of one vault: set `KNOWTATION_CANISTER_URL` and `KNOWTATION_CANISTER_BACKUP_USER_ID` (see comments in `scripts/canister-predeploy.sh`). Exports land in `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
+This runs **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub --network ic`** (matches [canister_ids.json](./canister_ids.json); plain `dfx build hub` targets **local** and fails with “Cannot find canister id” until you run `dfx canister create hub` on a local replica). Override: **`DFX_PREFLIGHT_NETWORK=local`** after local create. Optional JSON backup of one vault: set `KNOWTATION_CANISTER_URL` and `KNOWTATION_CANISTER_BACKUP_USER_ID` (see comments in `scripts/canister-predeploy.sh`). Exports land in `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
 
 ## Build and deploy
 
