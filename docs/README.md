@@ -7,6 +7,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | Doc | Purpose |
 |-----|---------|
 | [GETTING-STARTED.md](./GETTING-STARTED.md) | Clone, config, index, search, Hub, agents |
+| [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) | Demo notes (`vault/showcase/`) — local tree + hosted seed |
 | [SPEC.md](./SPEC.md) | Data formats, CLI, config — source of truth |
 | [HUB-API.md](./HUB-API.md) | Hub REST API (self-hosted and canister-aligned) |
 | [setup.md](./setup.md) | Extended setup (OAuth, transcription, etc.) |
