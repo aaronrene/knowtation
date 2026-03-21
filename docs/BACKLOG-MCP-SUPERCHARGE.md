@@ -26,11 +26,11 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 | **E** | Resource subscriptions + real-time vault watcher (fs.watch → notify clients) | **Done (local vault)** | [MCP-PHASE-E.md](./MCP-PHASE-E.md) — chokidar + subscribe; hosted N/A |
 | **F** | MCP Sampling — delegate LLM work to client (summarize, import categorization, rerank, prompt prefilling) | Backlog | After D (sampling over HTTP sessions) |
 | **G** | Roots declaration — server declares vault/data_dir scope for clients | Backlog | Anytime |
-| **H** | Progress notifications + structured logging (index/import progress; log forwarding) | Backlog | After Phase 2 |
+| **H** | Progress notifications + structured logging (index/import progress; log forwarding) | **Done (stdio)** | [MCP-PHASE-H.md](./MCP-PHASE-H.md) |
 
 **Recommended implementation order (from Issue #1):** A → C → E → H → B → D → F → G
 
-**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10); Resources ✅ (Phase A); Resource subscriptions ✅ (Phase E, self-hosted); Prompts ❌; Sampling ❌; Roots ❌; HTTP transport ❌ (stdio only); OAuth for MCP ❌; Progress ❌; Logging ❌.
+**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10); Resources ✅ (Phase A); Resource subscriptions ✅ (Phase E, self-hosted); Progress + logging ✅ (Phase H, stdio); Prompts ❌; Sampling ❌; Roots ❌; HTTP transport ❌ (stdio only); OAuth for MCP ❌.
 
 ---
 
@@ -53,7 +53,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Current state in the repo
 
-- **MCP today (Phase 9):** Stdio transport only; base tools: search, get_note, list_notes, index, write, export, import. **Issue #1 Phase A (Resources):** `knowtation://` URIs — [MCP-RESOURCES-PHASE-A.md](./MCP-RESOURCES-PHASE-A.md). **Phase C:** [MCP-PHASE-C.md](./MCP-PHASE-C.md). **Phase E:** resource subscribe + vault watcher + index metadata pings — [MCP-PHASE-E.md](./MCP-PHASE-E.md). No Prompts, Sampling, Roots, HTTP transport, Progress, or Logging yet.
+- **MCP today (Phase 9):** Stdio transport only; base tools: search, get_note, list_notes, index, write, export, import. **Phase A:** [MCP-RESOURCES-PHASE-A.md](./MCP-RESOURCES-PHASE-A.md). **Phase C:** [MCP-PHASE-C.md](./MCP-PHASE-C.md). **Phase E:** [MCP-PHASE-E.md](./MCP-PHASE-E.md). **Phase H:** progress + logging — [MCP-PHASE-H.md](./MCP-PHASE-H.md). No Prompts, Sampling, Roots, or HTTP transport yet.
 - **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](./PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
 - **IMPLEMENTATION-PLAN:** References this backlog and [BACKLOG-MCP-SUPERCHARGE](./BACKLOG-MCP-SUPERCHARGE.md); suggested prompts for agents is separate optional backlog item.
 
@@ -61,7 +61,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Recommended timing
 
-- **Now:** Phases **A**, **C**, and **E** (local) are in-repo. Remaining Issue #1 order from here: **H → B → D → F → G**.
+- **Now:** Phases **A**, **C**, **E**, and **H** are in-repo (stdio). Remaining Issue #1 order from here: **B → D → F → G**.
 - **After Phase 2 (bridge + pre-roll):** Continue MCP supercharge in that order. Issue #2 (Infinite Machine Brain) depends on AgentCeption + Knowtation MCP features (Resources, Subscriptions); schedule after corresponding Issue #1 phases.
 - **Order vs multi-vault:** Finish Phase 2 → then Phase 3 (multi-vault) or remaining Issue #1 items (H, B, D, F, G) by priority.
 
@@ -70,6 +70,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 ## Links
 
 - [MCP-PHASE-E.md](./MCP-PHASE-E.md) — subscriptions + vault watcher (Phase E).
+- [MCP-PHASE-H.md](./MCP-PHASE-H.md) — progress + logging (Phase H).
 - [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — main plan; "Issues #1 and #2" points here.
 - [PARITY-PLAN.md](./PARITY-PLAN.md) — Phase 2 (deploy, bridge), Phase 3 (multi-vault).
 - [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) — current MCP/CLI usage.

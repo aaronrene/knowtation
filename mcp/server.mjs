@@ -27,6 +27,7 @@ import {
   startVaultResourceWatcher,
   notifyIndexMetadataResources,
 } from './resource-subscriptions.mjs';
+import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -36,7 +37,7 @@ function jsonError(msg, code = 'ERROR') {
   return { content: [{ type: 'text', text: JSON.stringify({ error: msg, code }) }], isError: true };
 }
 
-const server = new McpServer({ name: 'knowtation', version: '0.1.0' });
+const server = new McpServer({ name: 'knowtation', version: '0.1.0' }, { capabilities: { logging: {} } });
 
 server.registerTool(
   'search',
@@ -171,12 +172,26 @@ server.registerTool(
   {
     description: 'Re-run indexer: vault → chunk → embed → vector store.',
   },
-  async () => {
+  async (extra) => {
     try {
-      const result = await runIndex();
+      const result = await runIndex({
+        onProgress: async (p) => {
+          await sendMcpToolProgress(extra, {
+            progress: p.progress,
+            total: p.total,
+            message: p.message,
+          });
+        },
+      });
       await notifyIndexMetadataResources(server);
+      await sendMcpLog(server, 'info', {
+        event: 'index_complete',
+        notesProcessed: result.notesProcessed,
+        chunksIndexed: result.chunksIndexed,
+      });
       return jsonResponse({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
     } catch (e) {
+      await sendMcpLog(server, 'error', { event: 'index_failed', message: e.message || String(e) });
       return jsonError(e.message || String(e), 'RUNTIME_ERROR');
     }
   }
@@ -193,7 +208,7 @@ server.registerTool(
       append: z.boolean().optional().describe('Append body to existing'),
     },
   },
-  async (args) => {
+  async (args, _extra) => {
     try {
       const config = loadConfig();
       if (config.air?.enabled && !isInboxPath(args.path)) {
@@ -204,6 +219,13 @@ server.registerTool(
         frontmatter: args.frontmatter,
         append: args.append,
       });
+      const fm = args.frontmatter;
+      if (fm && Object.keys(fm).length > 0 && fm.title === undefined) {
+        await sendMcpLog(server, 'warning', {
+          event: 'write_missing_title',
+          path: args.path,
+        });
+      }
       return jsonResponse(result);
     } catch (e) {
       return jsonError(e.message || String(e), 'RUNTIME_ERROR');
@@ -277,16 +299,36 @@ server.registerTool(
       dry_run: z.boolean().optional(),
     },
   },
-  async (args) => {
+  async (args, extra) => {
     try {
+      await sendMcpToolProgress(extra, { progress: 0, message: `import start: ${args.source_type}` });
       const result = await runImport(args.source_type, args.input, {
         project: args.project,
         outputDir: args.output_dir,
         tags: args.tags || [],
         dryRun: args.dry_run,
+        onProgress: async (p) => {
+          await sendMcpToolProgress(extra, {
+            progress: p.progress,
+            total: p.total,
+            message: p.message,
+          });
+        },
+      });
+      const n = result.count ?? 0;
+      await sendMcpToolProgress(extra, {
+        progress: Math.max(1, n),
+        total: Math.max(1, n),
+        message: 'import complete',
+      });
+      await sendMcpLog(server, 'info', {
+        event: 'import_complete',
+        source_type: args.source_type,
+        count: result.count,
       });
       return jsonResponse({ imported: result.imported, count: result.count });
     } catch (e) {
+      await sendMcpLog(server, 'error', { event: 'import_failed', message: e.message || String(e) });
       return jsonError(e.message || String(e), 'RUNTIME_ERROR');
     }
   }
