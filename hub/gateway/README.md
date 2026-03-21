@@ -75,8 +75,9 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 
 ## Deploy (e.g. Netlify)
 
-- Build: not required (Node server).
-- For Netlify, use a Node server adapter or run the Express app as a serverless function (e.g. split routes into serverless handlers). Alternatively deploy to a small Node host (Railway, Fly, etc.) and set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
+- **This repo:** Production path is `netlify/functions/gateway.mjs` plus root `netlify.toml`. The build runs `scripts/netlify-redirects.mjs` to generate `public/_redirects` (per-site: gateway vs bridge is controlled by `USE_BRIDGE_FUNCTION` on the bridge site only). Do not add a catch-all `[[redirects]]` in root `netlify.toml` when using a second Netlify site for the bridge—see [docs/DEPLOY-HOSTED.md](../../docs/DEPLOY-HOSTED.md) §3 and [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md).
+- **Local / generic Node:** Build is not required when running `npm start` as a normal server.
+- For other hosts, use a Node adapter or deploy the Express app as you would any Node service; set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
 - Ensure **CANISTER_URL** points to the deployed canister and **SESSION_SECRET** is set in env (no secrets in repo).
 
 ## Reference
