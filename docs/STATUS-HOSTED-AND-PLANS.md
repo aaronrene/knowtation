@@ -8,7 +8,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 
 **Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Order: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
 
-**Hosted multi-vault (Phase 15.1):** Implement canister `vault_id` partitioning per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted multi-vault — what to build. Bridge + gateway can already send `X-Vault-Id`; **Motoko still stores one note map per user** (`getVault(uid)` only — see `hub/icp/src/hub/main.mo`). With **little or no production data**, migration can be **minimal**.
+**Hosted multi-vault (Phase 15.1):** **In repo:** canister `vault_id` partitioning, V1 migration, gateway vault list / scoping, bridge export+index paths—see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted. **Ops:** redeploy canister, then preflight + migration verify scripts. With **little or no production data**, migration risk stays **minimal**.
 
 **Testing:** Run **`npm test`** regularly; fix known failing tests so CI reflects reality. Add tests alongside hub/canister changes — see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15.
 
@@ -54,7 +54,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 
 **Self-hosted (Node Hub): implemented (Phase 15).** `data/hub_vaults.yaml`, `hub_vault_access.json`, optional `hub_scope.json`; vault switcher in the Hub header; `X-Vault-Id` on API calls; `hub/server.mjs` resolves path + access + scope; bridge uses `(uid, vault_id)` directories for sqlite-vec. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 and [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
 
-**Hosted (canister): UI “multi-vault” ≠ isolated note storage yet.** The Hub **vault switcher** and gateway **forward** `X-Vault-Id`, but the canister **does not read** that header for notes: **`getVault(uid)`** is a single path→note map per user ([`hub/icp/src/hub/main.mo`](../hub/icp/src/hub/main.mo)). So on hosted, **all vault IDs share the same notes** until **Phase 15.1** partitions storage by `(uid, vault_id)`. The bridge can use **separate vector dirs** per `(uid, vault_id)`, but canister **export** is still the full user map — indexes per “vault” are not separate content. Details: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted.
+**Hosted (canister): Phase 15.1 is implemented in this repo.** Notes and proposals are partitioned by `(userId, vault_id)`; requests use **`X-Vault-Id`** (default vault id `default` when omitted). V0→V1 migration and reserved billing fields are in Motoko per [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md). **Production:** until you **redeploy** `hub/icp` to ICP and run checks (`npm run canister:preflight`, `npm run canister:verify-migration` against the deployed canister), the **live** canister may still be the older single-map behavior—treat per-vault isolation as **verified only after** that deploy. Bridge index/search already uses separate vector dirs per `(uid, vault_id)` when configured. Details: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted.
 
 ---
 
@@ -70,7 +70,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 | **Settings → Setup / POST setup** | Writes `hub_setup.yaml` | Gateway stub (no-op); vault is canister |
 | **Import (Hub upload)** | Works | 501 stub on gateway (not yet on hosted) |
 | **Facets (filter dropdowns)** | Real data from notes | Gateway stub returns empty unless extended to aggregate from canister |
-| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id`; notes isolated per vault | ⚠️ UI sends `X-Vault-Id`; **canister does not scope notes by vault** (one map per user). Bridge may split vector dirs by `vault_id` but **same** exported notes — **Phase 15.1** for real isolation |
+| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id`; notes isolated per vault | ✅ **In repo:** canister + gateway + bridge respect `vault_id` / `X-Vault-Id` for notes, proposals, export, and bridge index paths. **Production:** confirm ICP canister is redeployed from current `hub/icp` before relying on isolation (see §2). |
 | **Vault access JSON (admin)** | ✅ | N/A on hosted (no `hub_vault_access.json` on canister path today) |
 
 **Commits (reference):** Phase 15 multi-vault (self-hosted) merged; `b4002be` and related — hosted roles/invites via bridge; gateway proxies search/index/vault/roles/invites when `BRIDGE_URL` is set.
