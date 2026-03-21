@@ -490,7 +490,9 @@ async function main() {
 
   if (subcommand === 'mcp') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation mcp\n  Start MCP server with stdio transport. Use with Cursor MCP config or Claude Desktop.\n  Requires config/local.yaml and KNOWTATION_VAULT_PATH.');
+      console.log(
+        'knowtation mcp\n  Start MCP server (default: stdio for Cursor / Claude Desktop).\n  Streamable HTTP: MCP_TRANSPORT=http or KNOWTATION_MCP_TRANSPORT=http (see docs/MCP-PHASE-D.md).\n  Requires config/local.yaml and KNOWTATION_VAULT_PATH.'
+      );
       process.exit(0);
     }
     const serverMod = await import('../mcp/server.mjs');

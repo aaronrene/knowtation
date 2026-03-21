@@ -12,6 +12,7 @@
     "search": "node cli/index.mjs search",
     "index": "node scripts/index-vault.mjs",
     "mcp": "node mcp/server.mjs",
+    "mcp:http": "MCP_TRANSPORT=http node mcp/server.mjs",
     "transcribe": "node scripts/transcribe.mjs",
     "test": "node --test test/*.test.mjs",
     "hub": "node hub/server.mjs"
@@ -32,6 +33,7 @@
     "better-sqlite3": "^12.8.0",
     "chokidar": "^4.0.3",
     "dotenv": "^16.4.5",
+    "express": "^4.22.1",
     "express-rate-limit": "^8.3.1",
     "js-yaml": "^4.1.0",
     "multer": "^1.4.5-lts.1",

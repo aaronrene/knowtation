@@ -56,5 +56,11 @@
 #     auto_push: false     # set true to push after each auto-commit (requires remote)
 # Proposals stay Hub-only; Git is for the vault content. See PROVENANCE-AND-GIT.md.
 
+# --- MCP Streamable HTTP (optional; default is stdio) ---
+# mcp:
+#   http_port: 3334
+#   http_host: 127.0.0.1   # use 0.0.0.0 only with auth / firewall; see docs/MCP-PHASE-D.md
+# Or env: KNOWTATION_MCP_HTTP_PORT, MCP_TRANSPORT=http
+
 # --- Reserved: Phase 12 (blockchain / agent payments) ---
 # Future config may add blockchain or payment-related keys. No keys in current schema.
