@@ -21,6 +21,7 @@ import { runImport } from '../lib/import.mjs';
 import { attestBeforeWrite, attestBeforeExport } from '../lib/air.mjs';
 import { storeMemory } from '../lib/memory.mjs';
 import { registerKnowtationResources } from './resources/register.mjs';
+import { registerPhaseCTools } from './tools/phase-c.mjs';
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -286,6 +287,7 @@ server.registerTool(
 );
 
 registerKnowtationResources(server);
+registerPhaseCTools(server);
 
 async function main() {
   const transport = new StdioServerTransport();

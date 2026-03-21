@@ -329,6 +329,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 **Implemented (Phase 9 session):**
 - `mcp/server.mjs`: MCP server with stdio transport; tools: search, get_note, list_notes, index, write, export, import. Uses `@modelcontextprotocol/sdk` and zod.
 - **Issue #1 Phase A (Resources):** `mcp/resources/*` — `knowtation://` URIs (vault listings, notes, templates, index stats/tags/projects/graph, redacted config, memory keys, AIR log placeholder). Registered via `registerKnowtationResources` from `mcp/server.mjs`. See **docs/MCP-RESOURCES-PHASE-A.md**.
+- **Issue #1 Phase C (enhanced tools):** `mcp/tools/phase-c.mjs` — relate, backlinks, capture, transcribe, vault_sync, summarize, extract_tasks, cluster, memory_query, tag_suggest; libs under `lib/` as in **docs/MCP-PHASE-C.md**.
 - `lib/list-notes.mjs`: Extracted `runListNotes(config, options)` for single backend; CLI and MCP both use it.
 - CLI `knowtation mcp`: Starts MCP server; `npm run mcp` runs `node mcp/server.mjs`.
 - Tools map to CLI args; outputs match CLI `--json` shapes. Memory and AIR hooks preserved where applicable.

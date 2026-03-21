@@ -21,7 +21,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 |-------|--------|----------|--------|
 | **A** | MCP Resources — vault as browseable knowledge graph (`knowtation://vault/...`, listings, index/stats, tags, graph) | Backlog | After Phase 2 (hosted) |
 | **B** | MCP Prompts — reusable agent workflows (daily-brief, search-and-synthesize, project-summary, write-from-capture, etc.) | Backlog | After A (embed resources in prompts) |
-| **C** | Enhanced tools — relate, backlinks, capture, transcribe, summarize, cluster, extract_tasks, tag-suggest, memory-query, vault-sync | Backlog | After Phase 2 |
+| **C** | Enhanced tools — relate, backlinks, capture, transcribe, summarize, cluster, extract_tasks, tag-suggest, memory-query, vault-sync | **Done (in repo)** | See [MCP-PHASE-C.md](./MCP-PHASE-C.md) |
 | **D** | Streamable HTTP transport + Hub as MCP gateway (HTTP+SSE, OAuth 2.1, session pool) | Backlog | After E (subscriptions need session tracking) |
 | **E** | Resource subscriptions + real-time vault watcher (fs.watch → notify clients) | Backlog | After A (resources must exist) |
 | **F** | MCP Sampling — delegate LLM work to client (summarize, import categorization, rerank, prompt prefilling) | Backlog | After D (sampling over HTTP sessions) |
@@ -30,7 +30,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 **Recommended implementation order (from Issue #1):** A → C → E → H → B → D → F → G
 
-**Gap today (from issue):** Tools ✅ (7); Resources ❌; Prompts ❌; Subscriptions ❌; Sampling ❌; Roots ❌; HTTP transport ❌ (stdio only); OAuth for MCP ❌; Progress ❌; Logging ❌.
+**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10); Resources ✅ (Phase A); Prompts ❌; Subscriptions ❌; Sampling ❌; Roots ❌; HTTP transport ❌ (stdio only); OAuth for MCP ❌; Progress ❌; Logging ❌.
 
 ---
 
@@ -53,7 +53,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Current state in the repo
 
-- **MCP today (Phase 9):** Stdio transport only; tools: search, get_note, list_notes, index, write, export, import. **Issue #1 Phase A (Resources):** implemented — `knowtation://` resource URIs; see [MCP-RESOURCES-PHASE-A.md](./MCP-RESOURCES-PHASE-A.md). No Prompts, Subscriptions, Sampling, Roots, HTTP transport, Progress, or Logging yet.
+- **MCP today (Phase 9):** Stdio transport only; base tools: search, get_note, list_notes, index, write, export, import. **Issue #1 Phase A (Resources):** `knowtation://` URIs — [MCP-RESOURCES-PHASE-A.md](./MCP-RESOURCES-PHASE-A.md). **Issue #1 Phase C:** enhanced tools — [MCP-PHASE-C.md](./MCP-PHASE-C.md). No Prompts, Subscriptions, Sampling, Roots, HTTP transport, Progress, or Logging yet.
 - **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](./PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
 - **IMPLEMENTATION-PLAN:** References this backlog and [BACKLOG-MCP-SUPERCHARGE](./BACKLOG-MCP-SUPERCHARGE.md); suggested prompts for agents is separate optional backlog item.
 
@@ -61,8 +61,8 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Recommended timing
 
-- **Now:** Issue content is in the repo; phase tables above are filled. No implementation started.
-- **After Phase 2 (bridge + pre-roll):** Start MCP supercharge (Issue #1) in recommended order: A → C → E → H → B → D → F → G. Issue #2 (Infinite Machine Brain) depends on AgentCeption + Knowtation MCP features (Resources, Subscriptions); do after corresponding Issue #1 phases.
+- **Now:** Phases **A** and **C** of Issue #1 are implemented in-repo (see MCP-RESOURCES-PHASE-A, MCP-PHASE-C). Remaining Issue #1 order from here: **E → H → B → D → F → G** (A and C done).
+- **After Phase 2 (bridge + pre-roll):** Continue MCP supercharge in that order. Issue #2 (Infinite Machine Brain) depends on AgentCeption + Knowtation MCP features (Resources, Subscriptions); schedule after corresponding Issue #1 phases.
 - **Order vs multi-vault:** Finish Phase 2 → then choose either Phase 3 (multi-vault) or MCP supercharge (Issue #1 Phase A) next, by priority.
 
 ---
