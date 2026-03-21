@@ -1,10 +1,11 @@
-# Bridge site only. Use this by setting Package directory to "deploy/bridge" in the
-# knowtation-bridge Netlify site (Build settings). Redirects live here so we do not
-# depend on public/_redirects being deployed.
+# Bridge Netlify site: if the site’s **Base directory** is `deploy/bridge`, paths below
+# are relative to that folder — the build must `cd` to the repo root first.
+# Recommended: leave **Base directory empty** (repo root), set `USE_BRIDGE_FUNCTION=true`
+# in Netlify env, and use the root `netlify.toml` so you do not need this file.
 [build]
-  command = "npm install && node scripts/netlify-redirects.mjs && cd hub/gateway && npm ci && cd ../bridge && npm ci"
-  functions = "netlify/functions"
-  publish = "public"
+  command = "cd ../.. && npm install && node scripts/netlify-redirects.mjs && cd hub/gateway && npm ci && cd ../bridge && npm ci"
+  functions = "../../netlify/functions"
+  publish = "../../public"
 
 # Send all requests to the bridge function with path preserved (/:splat).
 [[redirects]]
