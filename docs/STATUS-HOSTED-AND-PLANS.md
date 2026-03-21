@@ -29,6 +29,8 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 
 **What the bridge is:** The **bridge** is a **separate** Node app in `hub/bridge/`. It is **not** part of the Netlify gateway deploy (netlify.toml only builds the gateway). The bridge provides: Connect GitHub, Back up now (vault → GitHub), and index + search (per-user vector DB). The **gateway** proxies requests to the bridge only when **BRIDGE_URL** is set in the gateway’s env. If BRIDGE_URL is not set: Connect GitHub, Back up now, and search/index are **not available** on hosted (the gateway does not implement them; it only proxies to canister or to bridge). **“Set ENV” for bridge** means: if you deploy the bridge (e.g. separate Netlify project, or Railway, or same host as gateway), you set that service’s env (CANISTER_URL, SESSION_SECRET, GITHUB_*, EMBEDDING_*, DATA_DIR, etc.) and you set **BRIDGE_URL** in the **gateway’s** Netlify env to the bridge’s public URL. If you do not need GitHub backup or search on hosted, you can leave the bridge undeployed and BRIDGE_URL unset.
 
+**When both Netlify sites are configured (gateway + bridge + `BRIDGE_URL`):** Index/search, Connect GitHub, and **Team (roles/invites)** use the bridge — see parity table below. Embedding must be a **real** API (e.g. `EMBEDDING_PROVIDER=openai` + `OPENAI_API_KEY` on the bridge); `OLLAMA_URL=https://ollama.com` is **not** a valid Ollama API endpoint.
+
 **Remaining (redeploys and bridge — bridge is required, not optional):**
 
 - **Canister redeploy:** The merged parity branch added **Option B** canister changes (`base_state_id`, `external_ref` on proposals). To have those live, run `cd hub/icp && dfx deploy --network ic`. Same canister ID; this is a **redeploy** with new code, not a first-time deploy.
@@ -42,12 +44,28 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 
 ## 2. Multi-vault (split vault)
 
-**Status: not implemented.** *Split vault* = same feature (personal vs shared, or multiple vaults in one Hub).
+**Self-hosted (Node Hub): implemented (Phase 15).** `data/hub_vaults.yaml`, `hub_vault_access.json`, optional `hub_scope.json`; vault switcher in the Hub header; `X-Vault-Id` on API calls; bridge supports `(user, vault_id)` for index/search when deployed. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 and [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
 
-- **Current behavior:** One Hub instance = one vault (`vault_path`). Roles (viewer/editor/admin) control **actions**, not **which notes** are visible. Everyone with access sees the same vault.
-- **Design doc:** [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) — options (multiple vaults per instance, scoped visibility), what would be needed, and how to use two vaults today (two Hub instances).
-- **API:** `vault_id` (and optional `X-Vault-Id` / `vault_id` query) exist in the Node Hub and in the canister auth contract for **future** multi-vault; no UI or backend logic yet to switch or scope by vault.
-- **Next:** **Phase 15** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — implement per the design in MULTI-VAULT-AND-SCOPED-ACCESS.md (vault list or scoped visibility, backend + Hub UI).
+**Hosted (canister):** Still **one logical vault per user** in storage today; multi-vault in the canister is follow-up when you want parity with self-hosted switching on knowtation.store.
+
+---
+
+## 2.1 Parity snapshot (self-hosted vs hosted)
+
+| Area | Self-hosted (Node Hub) | Hosted (gateway + canister + bridge) |
+|------|------------------------|--------------------------------------|
+| **Notes, proposals, export** | Local vault folder | Canister |
+| **OAuth + JWT** | Your `.env` OAuth apps | Gateway OAuth |
+| **Semantic search + Re-index** | Local Ollama/OpenAI + `data/knowtation_vectors.db` (sqlite-vec) or Qdrant | Bridge: embeddings + per-user vectors (e.g. Netlify Blobs). Gateway proxies when `BRIDGE_URL` set |
+| **Connect GitHub / Back up now** | Local vault git | Bridge |
+| **Team: roles + invites** | `data/hub_roles.json`, invites on disk | **Bridge persistence** when `BRIDGE_URL` set; gateway proxies roles/invites to bridge ([HOSTED-ROLES-VIA-BRIDGE.md](./HOSTED-ROLES-VIA-BRIDGE.md), PARITY-PLAN Phase 4 ✅). Without bridge: stubs only |
+| **Settings → Setup / POST setup** | Writes `hub_setup.yaml` | Gateway stub (no-op); vault is canister |
+| **Import (Hub upload)** | Works | 501 stub on gateway (not yet on hosted) |
+| **Facets (filter dropdowns)** | Real data from notes | Gateway stub returns empty unless extended to aggregate from canister |
+| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id` | ❌ Single vault per user in canister; UI may show switcher only after canister + gateway support multiple vaults |
+| **Vault access JSON (admin)** | ✅ | N/A on hosted (no `hub_vault_access.json` on canister path today) |
+
+**Commits (reference):** Phase 15 multi-vault (self-hosted) merged; `b4002be` and related — hosted roles/invites via bridge; gateway proxies search/index/vault/roles/invites when `BRIDGE_URL` is set.
 
 ---
 
@@ -80,8 +98,9 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 
 | Priority | What |
 |----------|------|
-| **Hosted live** | Canister, 4Everland, Netlify gateway, DNS are deployed; pre-roll is not confirmed (see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md)). Next: **canister redeploy** (Option B fields), **Netlify + 4Everland rebuild** (merged parity code). **bridge deploy and wire** (required for Connect GitHub + Back up now + search). Do not start multi-vault until Phase 2 including bridge is complete. See §1 and STATUS-VERIFICATION “Remaining” for full list. |
-| **Phase 15 (multi-vault)** | When needed: implement per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md); see Phase 15 in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). |
+| **Hosted live** | Canister, 4Everland, Netlify gateway, DNS deployed. **Bridge:** deploy `knowtation-bridge`, set `BRIDGE_URL` on gateway, fix embedding env (OpenAI or reachable Ollama API — not `https://ollama.com`). Pre-roll: [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5. |
+| **Hosted multi-vault (canister)** | **Not done.** Self-hosted Phase 15 is complete; hosted needs canister (and gateway) changes to store and route by `vault_id`. See PARITY-PLAN Phase 3 and §2.1 table above. |
+| **Phase 15 (multi-vault) self-hosted** | ✅ Done in repo — `hub_vaults.yaml`, access, scope, Hub UI. |
 | **Phase 16 (hosted credits)** | When ready to monetize: balance model, deduction rules, purchase flow, Hub UI; see Phase 16 in IMPLEMENTATION-PLAN. |
 | **Phase 12 (blockchain)** | When needed: implement reserved frontmatter, CLI filters, capture/import; see [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md). |
 
@@ -89,4 +108,4 @@ See **§4** above for when to consider a separate HTTP canister (Rust) vs keepin
 
 ---
 
-**Last updated:** Phase 14 (two-path launch) done; IMPLEMENTATION-PLAN includes Phases 14, 15 (multi-vault), 16 (hosted credits). Hosting = beta, free until Phase 16.
+**Last updated:** 2026-03-20 — Added §2.1 parity snapshot; clarified Phase 15 self-hosted ✅ vs hosted multi-vault ❌; bridge operational notes (embedding URL). Phase 14 (two-path) done; hosting = beta until Phase 16.

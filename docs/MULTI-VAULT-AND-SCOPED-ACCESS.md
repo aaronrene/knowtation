@@ -12,7 +12,7 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 
 - **Config:** Self-hosted Hub supports **multiple vaults** via `data/hub_vaults.yaml` (id, path, label per vault; at least one with id `default`). If the file is absent, a single vault `default` from `vault_path` is used (backward compatible).
 - **Vault access:** `data/hub_vault_access.json` maps user IDs to allowed vault IDs. Users not listed get `["default"]` only.
-- **Scope (Option B):** `data/hub_scope.json` restricts a user to specific **projects** and **folders** within a vault. Omitted or empty = full vault.
+- **Scope (Option B):** `data/hub_scope.json` restricts a user to specific **projects** and **folders** within a vault. Omitted or empty = full vault. Projects are inferred from the note’s **path** (e.g. under `vault/projects/Launch/`) or from **frontmatter** (`project: Launch`); both are used for filters and scope. To put a note’s *file* in a project folder, use the Hub **+ New note** → “New note” tab and set Path to e.g. `projects/Launch/note.md`; Quick capture always writes to `inbox/` and can set project/tags in frontmatter only. Full detail: How to use in the Hub, Step 6 — “Notes: project, path, and tags”.
 - **API:** All vault-scoped requests accept **`X-Vault-Id`** (or query `vault_id`). The server resolves vault, checks access, applies scope for list/search/facets. Proposals are keyed by `vault_id`.
 - **Hub UI:** Vault switcher in the header (when multiple vaults are allowed); Settings → **Vaults** (admin): vault list, vault access, scope (JSON edit).
 - **Roles:** Unchanged: viewer / editor / admin control actions. Vault access and scope control **which vault(s)** and **which projects/folders** a user sees.
@@ -20,6 +20,112 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 ### Hosted (canister)
 
 - The canister currently stores one logical vault per user. **X-Vault-Id** is forwarded by the gateway and bridge; the bridge keys index/search by (uid, vault_id). Canister storage keyed by (uid, vault_id) and migration of existing data to `default` is a follow-up (Phase 15.4).
+
+---
+
+## How to configure multi-vault (Phase 15)
+
+All files below live in the Hub **data directory**, usually `data/` (relative to the project root, or the path set in `config/local.yaml` under `data_dir`). You can edit them with any text editor, or use **Settings → Vaults** in the Hub (admin) to edit vault access and scope as JSON.
+
+### 1. Find your user ID
+
+- Open the Hub → **Settings** → **Backup** tab.
+- Under **Your user ID** you’ll see a value like `google:104164334692309763642` or `github:12345678`. That is your **user ID** (format: `provider:id`). Copy it; you’ll use it in the JSON files.
+
+### 2. Vault access — who can see which vaults
+
+**File:** `data/hub_vault_access.json`
+
+- **Purpose:** Maps each user ID to the list of vault IDs they are allowed to use. Users **not** listed get access only to the vault `default`.
+- **Format:** A single JSON object. Keys = user IDs (string). Values = arrays of vault IDs (strings).
+
+**Example (you and one teammate, both with access to `default`):**
+
+```json
+{
+  "google:104164334692309763642": ["default"],
+  "github:98765432": ["default"]
+}
+```
+
+**Example (you have two vaults, teammate only the first):**
+
+```json
+{
+  "google:104164334692309763642": ["default", "work"],
+  "github:98765432": ["default"]
+}
+```
+
+- **Editing:** Create or edit `data/hub_vault_access.json` with the structure above. Use your real user ID from Settings → Backup. Save the file. The Hub reads it on each request; **no restart needed**.
+- **Optional:** You can also edit this via **Settings → Vaults** → **Vault access** (JSON textarea) → **Save vault access**.
+
+### 3. Vault list — which vaults exist (only for multiple vaults)
+
+**File:** `data/hub_vaults.yaml`
+
+- **Purpose:** Defines the set of vaults (id, path, label). If this file is **absent**, the Hub uses a single vault with id `default` and the path from `vault_path` (or `hub_setup.yaml`). Create this file only when you want **more than one** vault.
+- **Format:** YAML with a `vaults` array. At least one entry must have `id: default`. Paths can be absolute or relative to the project root.
+
+**Example (two vaults):**
+
+```yaml
+vaults:
+  - id: default
+    path: ./vault
+    label: Personal
+  - id: work
+    path: /Users/me/team-vault
+    label: Team
+```
+
+- **Editing:** Create or edit `data/hub_vaults.yaml`. Ensure each path exists and is a directory. After changing this file you must **restart the Hub** (or add/edit vaults via **Settings → Vaults** → **Vault list** and Save, which reloads config without restart).
+
+### 4. Scope — limit a user to certain projects/folders (optional)
+
+**File:** `data/hub_scope.json`
+
+- **Purpose:** Restricts a user to specific **projects** and/or **folders** within a vault. If a user has no entry (or an empty one) for a vault, they see the full vault.
+- **Format:** A JSON object: keys = user IDs; values = objects whose keys are vault IDs and whose values are `{ "projects": ["p1", "p2"], "folders": ["folder/path"] }`.
+
+**Example (user sees only project `team-project` and folder `inbox` in vault `default`):**
+
+```json
+{
+  "github:98765432": {
+    "default": {
+      "projects": ["team-project"],
+      "folders": ["inbox"]
+    }
+  }
+}
+```
+
+- **Editing:** Create or edit `data/hub_scope.json`. Save the file. The Hub reads it on each request; **no restart needed**. Or use **Settings → Vaults** → **Scope** (JSON textarea) → **Save scope**.
+
+### Quick reference
+
+| File | Purpose | Restart after edit? |
+|------|---------|---------------------|
+| `data/hub_vault_access.json` | User → allowed vault IDs | No |
+| `data/hub_vaults.yaml` | List of vaults (id, path, label) | Yes (or use Settings → Vaults to save) |
+| `data/hub_scope.json` | Per-user per-vault projects/folders limit | No |
+
+For **single-vault** setups you don’t need to create any of these: everyone gets vault `default` automatically. Add `hub_vault_access.json` only if you want to **explicitly** list users (e.g. with `["default"]`) or when you introduce a second vault and need to assign who sees which.
+
+---
+
+## User identity (Google vs GitHub) and multiple users
+
+**User ID format:** Every logged-in user has a **user ID** of the form `provider:id` — for example `google:104164334692309763642` (signed in with Google) or `github:12345678` (signed in with GitHub). The Hub does not merge identities: if you sign in with Google in one session and with GitHub in another, you have **two** user IDs and the Hub treats them as two separate users. You see your current user ID in **Settings → Backup** (“Your user ID”).
+
+**Multiple users on the same Hub:** You can have many users (many Gmail accounts, many GitHub accounts, or a mix) using the **same** Hub instance. Each person signs in with their chosen OAuth provider; that gives them one user ID. An admin adds each user ID to `data/hub_roles.json` (viewer/editor/admin) and, for multi-vault, to `data/hub_vault_access.json` (which vault IDs they can use). So the same Hub URL can serve a large number of users, each with their own role and vault access (and optional scope). The only limit is how many users you configure and how many distinct OAuth identities sign in.
+
+**Backup per user:** “Connect GitHub” and “Back up now” are tied to the **currently logged-in user**. Each user can connect their own GitHub account (one token per user). When they click Back up now, the Hub pushes **the currently selected vault’s folder** to that vault’s Git remote. So:
+
+- **Different users → different repos:** Typical case. User A connects GitHub and backs up vault “default” to repo A; user B connects their GitHub and backs up their vault to repo B.
+- **Same repo, different branches:** Possible if you configure each vault folder’s Git remote to point to the same repo with a branch (e.g. `origin main` vs `origin user-branch`). The Hub does not manage branches in the UI; you’d set that up in the vault folder’s git config.
+- **Same Hub, many vaults:** Each vault is a folder; each folder can be its own Git repo with its own remote. So one user can have access to vaults A and B and, when they switch vault and click Back up now, the Hub pushes that vault’s folder to that folder’s remote.
 
 ---
 

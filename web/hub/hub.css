@@ -356,6 +356,7 @@ button:hover { border-color: var(--accent); }
 }
 .diagram-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.5rem; }
 .diagram-svg { width: 100%; height: auto; max-height: 90px; }
+.diagram-svg-network { max-height: 200px; }
 .diagram-text { fill: var(--text); font-size: 11px; font-family: system-ui, sans-serif; }
 .diagram-text-small { fill: var(--muted); font-size: 9px; font-family: system-ui, sans-serif; }
 .how-to-sub { margin: 1rem 0 0.5rem; font-size: 0.95rem; color: var(--accent); }
@@ -436,12 +437,15 @@ button:hover { border-color: var(--accent); }
 .settings-form { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
 .settings-form label:not(.settings-checkbox-label) { font-size: 0.9rem; font-weight: 500; }
 .settings-form input[type="text"] { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.settings-input-inline, .settings-select-inline { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; }
+.scope-form-simple .settings-form-row label { font-size: 0.9rem; font-weight: 500; }
 .settings-checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: normal; cursor: pointer; }
 .settings-form-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; }
 .settings-hosted-repo-block { margin: 0.75rem 0 0.25rem; padding-top: 0.25rem; border-top: 1px solid var(--border); }
 .settings-form-compact { margin-top: 0.35rem; }
 .settings-json-textarea { font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; min-height: 6rem; }
 .settings-vaults-list { margin: 0.5rem 0; padding: 0.5rem; background: var(--bg); border-radius: 6px; font-size: 0.9rem; }
+.settings-vaults-server-view { margin: 0.5rem 0 1rem; line-height: 1.4; }
 
 .vault-switcher-label { display: inline-flex; align-items: center; gap: 0.5rem; }
 .vault-switcher-text { font-size: 0.9rem; color: var(--muted); }

@@ -157,7 +157,12 @@
     select.value = getCurrentVaultId();
     if (!allowed.includes(select.value)) select.value = allowed[0] || 'default';
     setCurrentVaultId(select.value);
-    wrap.classList.toggle('hidden', options.length <= 1);
+    wrap.classList.toggle('hidden', list.length <= 1);
+    if (list.length >= 2 && options.length === 1) {
+      select.title = 'This Hub has more vaults. To use them, copy your User ID from Settings → Backup into Vault access on Settings → Vaults, then save and refresh.';
+    } else {
+      select.title = '';
+    }
     select.onchange = () => {
       setCurrentVaultId(select.value);
       loadFacets();
@@ -1076,12 +1081,18 @@
     }
   };
 
-  function openHowToUse(tabId) {
+  function openHowToUse(tabId, scrollToId) {
     const id = tabId || 'setup';
     el('modal-how-to-use').classList.remove('hidden');
     document.querySelectorAll('.how-to-tab').forEach((t) => t.classList.toggle('active', t.dataset.howToTab === id));
     document.querySelectorAll('.how-to-tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.howToTab === id ? 'true' : 'false'));
     document.querySelectorAll('.how-to-panel').forEach((p) => p.classList.toggle('active', p.id === 'how-to-panel-' + id));
+    if (scrollToId) {
+      requestAnimationFrame(() => {
+        const target = document.getElementById(scrollToId);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
   }
   function closeHowToUse() {
     el('modal-how-to-use').classList.add('hidden');
@@ -1301,17 +1312,27 @@
 
   async function loadVaultsPanel() {
     const listContainer = el('vaults-list-container');
+    const serverView = el('vaults-server-view');
     const vaultsJson = el('vaults-json');
     const accessText = el('vault-access-json');
     const scopeText = el('scope-json');
     if (listContainer) listContainer.textContent = 'Loading…';
+    if (serverView) serverView.textContent = 'Loading…';
     try {
-      const [vRes, aRes, sRes] = await Promise.all([
+      const [vRes, aRes, sRes, settingsRes] = await Promise.all([
         api('/api/v1/vaults'),
         api('/api/v1/vault-access'),
         api('/api/v1/scope'),
+        api('/api/v1/settings'),
       ]);
       const vaults = vRes.vaults || [];
+      if (serverView) {
+        const uid = settingsRes.user_id != null ? String(settingsRes.user_id) : '—';
+        const allowed = settingsRes.allowed_vault_ids;
+        const allowedStr = Array.isArray(allowed) && allowed.length ? allowed.join(', ') : '—';
+        const dataDir = settingsRes.data_dir_display != null ? escapeHtml(String(settingsRes.data_dir_display)) : 'data';
+        serverView.innerHTML = '<strong>Server view:</strong> Your user ID: <code>' + escapeHtml(uid) + '</code>. Allowed vaults: <code>' + escapeHtml(allowedStr) + '</code>. Data dir: <code>' + dataDir + '</code>. The header Vault menu only shows vaults you’re allowed here. The Scope form lists every vault on this Hub so admins can configure rules. If a vault is missing from the header, add a Vault access key that <em>exactly</em> matches your user ID (same as Backup tab) with <code>["default", "bornfree"]</code>, save, then refresh.';
+      }
       if (listContainer) {
         listContainer.innerHTML = vaults.length === 0
           ? '<p class="muted small">No vaults (using default from vault path). Add via JSON below and Save.</p>'
@@ -1320,9 +1341,45 @@
       if (vaultsJson) vaultsJson.value = JSON.stringify(vaults, null, 2);
       if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
       if (scopeText) scopeText.value = JSON.stringify(sRes.scope || {}, null, 2);
+      const scopeVaultSelect = el('scope-form-vault-id');
+      if (scopeVaultSelect) {
+        scopeVaultSelect.innerHTML = vaults.length === 0
+          ? '<option value="default">default</option>'
+          : vaults.map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label || v.id) + '</option>').join('');
+      }
     } catch (e) {
       if (listContainer) listContainer.textContent = 'Could not load: ' + (e.message || '');
+      if (serverView) serverView.textContent = 'Could not load server view: ' + (e.message || '');
     }
+  }
+
+  const btnScopeFormApply = el('btn-scope-form-apply');
+  if (btnScopeFormApply) {
+    btnScopeFormApply.onclick = () => {
+      const userId = (el('scope-form-user-id') && el('scope-form-user-id').value || '').trim();
+      const vaultId = (el('scope-form-vault-id') && el('scope-form-vault-id').value) || 'default';
+      const projectsStr = (el('scope-form-projects') && el('scope-form-projects').value) || '';
+      const foldersStr = (el('scope-form-folders') && el('scope-form-folders').value) || '';
+      const msg = el('scope-form-msg');
+      if (!userId) {
+        if (msg) { msg.textContent = 'Enter a user ID.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      const projects = projectsStr.split(',').map((p) => p.trim()).filter(Boolean);
+      const folders = foldersStr.split(',').map((f) => f.trim()).filter(Boolean);
+      const scopeText = el('scope-json');
+      let scope = {};
+      if (scopeText && scopeText.value) {
+        try {
+          scope = JSON.parse(scopeText.value);
+          if (typeof scope !== 'object' || scope === null) scope = {};
+        } catch (_) { scope = {}; }
+      }
+      if (!scope[userId]) scope[userId] = {};
+      scope[userId][vaultId] = { projects, folders };
+      if (scopeText) scopeText.value = JSON.stringify(scope, null, 2);
+      if (msg) { msg.textContent = 'Added. Click Save scope to persist.'; msg.className = 'settings-msg ok'; }
+    };
   }
 
   const btnVaultsSave = el('btn-vaults-save');
@@ -1339,13 +1396,34 @@
       if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
     }
   };
+  function validateVaultAccess(access) {
+    if (typeof access !== 'object' || access === null) return 'Must be a JSON object (e.g. {"user_id": ["default", "work"]}).';
+    for (const [uid, arr] of Object.entries(access)) {
+      if (!Array.isArray(arr)) return 'Each value must be an array of vault IDs. Key "' + uid + '" is not.';
+      if (arr.some((v) => typeof v !== 'string' || !v.trim())) return 'Each vault ID must be a non-empty string.';
+    }
+    return null;
+  }
+  function validateScope(scope) {
+    if (typeof scope !== 'object' || scope === null) return 'Must be a JSON object.';
+    for (const [userId, perVault] of Object.entries(scope)) {
+      if (typeof perVault !== 'object' || perVault === null || Array.isArray(perVault)) return 'Scope for user "' + userId + '" must be an object (vault_id → { projects, folders }).';
+      for (const [vaultId, entry] of Object.entries(perVault)) {
+        if (typeof entry !== 'object' || entry === null) continue;
+        if (entry.projects != null && !Array.isArray(entry.projects)) return 'Scope "' + userId + '" → "' + vaultId + '": projects must be an array.';
+        if (entry.folders != null && !Array.isArray(entry.folders)) return 'Scope "' + userId + '" → "' + vaultId + '": folders must be an array.';
+      }
+    }
+    return null;
+  }
   const btnVaultAccessSave = el('btn-vault-access-save');
   if (btnVaultAccessSave) btnVaultAccessSave.onclick = async () => {
     const msg = el('vault-access-save-msg');
     const raw = (el('vault-access-json') && el('vault-access-json').value) || '{}';
     try {
       const access = JSON.parse(raw);
-      if (typeof access !== 'object' || access === null) throw new Error('Must be a JSON object');
+      const err = validateVaultAccess(access);
+      if (err) throw new Error(err);
       await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
       if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
     } catch (e) {
@@ -1358,7 +1436,8 @@
     const raw = (el('scope-json') && el('scope-json').value) || '{}';
     try {
       const scope = JSON.parse(raw);
-      if (typeof scope !== 'object' || scope === null) throw new Error('Must be a JSON object');
+      const err = validateScope(scope);
+      if (err) throw new Error(err);
       await api('/api/v1/scope', { method: 'POST', body: JSON.stringify({ scope }) });
       if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
     } catch (e) {
@@ -1891,6 +1970,13 @@
     btnIntegrationsHowToAgentception.onclick = () => {
       closeSettings();
       openHowToUse('setup');
+    };
+  }
+  const btnHowToFlexibleNetwork = el('btn-how-to-flexible-network');
+  if (btnHowToFlexibleNetwork) {
+    btnHowToFlexibleNetwork.onclick = () => {
+      closeSettings();
+      openHowToUse('setup', 'how-to-flexible-network');
     };
   }
 
