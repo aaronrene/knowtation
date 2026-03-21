@@ -1,6 +1,6 @@
 # Status: hosted product, multi-vault, Phase 12
 
-**Next session:** [NEXT-SESSION.md](./NEXT-SESSION.md). **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Next engineering focus:** **Phase 15.1** — canister-backed **true** multi-vault (partition by `vault_id`); until then the Hub vault switcher on hosted does **not** isolate notes on the canister (see §2). **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
+**Next session:** [NEXT-SESSION.md](./NEXT-SESSION.md). **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Next engineering focus:** **Phase 15.1** — canister-backed **true** multi-vault (partition by `vault_id`); use **[HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md)** so the same V1 migration **reserves** hosted **usage balance** (cents) for **Phase 16**. **Billing product:** **[HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md)** — usage-metered, USD-pegged platform credits, Stripe + optional USDC/AVAX, beta shadow metering, optional grandfathering. **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
 
 Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)**.
 
@@ -112,10 +112,11 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 | **Parity gaps (no canister)** | Hub **Import** hosted stub (501); **facets** empty unless aggregated from canister — [PARITY-PLAN.md](./PARITY-PLAN.md). |
 | **Phase 15 self-hosted** | ✅ `hub_vaults.yaml`, access, scope, Hub UI. |
 | **MCP hosted (Issue #1)** | D2/D3 etc. after stable hosted baseline — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). |
-| **Phase 16 / Phase 12** | Credits when monetizing; blockchain when needed — IMPLEMENTATION-PLAN. |
+| **Phase 16 (hosted credits)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); after beta cost analysis — IMPLEMENTATION-PLAN Phase 16. |
+| **Phase 12 (blockchain notes)** | Agent wallets / on-chain fields in notes — [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md); separate from Phase 16 ledger. |
 
 See **§4** above for when to consider a separate HTTP canister (Rust) vs keeping HTTP in Motoko.
 
 ---
 
-**Last updated:** 2026-03-21 — Corrected “deploy pending” drift: production live + smoke checks; clarified hosted vault switcher vs canister storage; next focus Phase 15.1 + §5 re-verify.
+**Last updated:** 2026-03-21 — Added HOSTED-STORAGE-BILLING-ROADMAP + HOSTED-CREDITS-DESIGN (usage credits, beta metering, Stripe); linked Phase 16 and Phase 12 separation.

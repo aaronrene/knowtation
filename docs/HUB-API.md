@@ -150,6 +150,7 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 ### 3.6 Errors
 
 - **401** — Missing or invalid JWT.
+- **402** — *(Reserved, Phase 16 hosted)* Insufficient prepaid **platform credits**; JSON may include `"code": "INSUFFICIENT_CREDITS"`. See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md). Not used until billing enforcement is enabled.
 - **403** — Forbidden (e.g. scope or vault permission).
 - **404** — Note or proposal not found.
 - **409** — Conflict (e.g. base_state_id mismatch on approve).
