@@ -8,6 +8,23 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ---
 
+## Strategic sequencing (decision)
+
+**In the simplest terms:** We finish **hosted parity** (live site: bridge, login, env, pre-roll, “does it actually work for users?”) **before** we build **MCP through the Hub with real sign-in (D2/D3)**. The big **AgentCeption / Issue #2** program waits.
+
+**Why that order?** **Hub MCP + OAuth** needs a solid picture of **who the user is** and **how requests reach the vault** in production. If we build the gateway **before** that is stable, we risk **building on sand**: wrong URLs, guessed auth, or security holes, then ripping it out when hosted wiring changes. The MCP work **already in the repo** (local stdio, local HTTP, tools, sampling on `summarize`, etc.) is **not** sand for that reason — it mostly runs on **your machine** and does not depend on the live Hub being finished.
+
+**Practical order:**
+
+1. **Merge to `main`** — When the branch is ready, open a PR (or merge) so MCP improvements are not stranded; self-hosted users and Cursor clients benefit immediately.
+2. **Hosted parity first** — Follow [PARITY-PLAN.md](./PARITY-PLAN.md), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md), and [EXACT-STATE-PHASE2.md](./EXACT-STATE-PHASE2.md) (if present): bridge deployed, `BRIDGE_URL` on the gateway, pre-roll checklist, redeploys as needed.
+3. **Finish Issue #1 leftovers** — **D2/D3** (authenticated MCP via Hub), then **F2–F5** (extra sampling). That **is** finishing Issue #1; it is intentionally **after** step 2 so D2/D3 matches real hosted behavior.
+4. **Issue #2** — Only **small, explicit slices** after the above; not the full “Infinite Machine Brain” in one go.
+
+**Your understanding is correct:** commit / push / merge the current work, then **hosted parity**, then **come back to Issue #1** for D2/D3 and F2–F5. You are not abandoning Issue #1 — you are **ordering** it so the last pieces sit on **firm ground**.
+
+---
+
 ## Issue content (in repo)
 
 | Issue | Title | Doc |
@@ -63,9 +80,9 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Recommended timing
 
-- **Now:** Phases **A–E**, **G**, **H**, and **D1** (local Streamable HTTP) are in-repo. Remaining: **D2/D3** (Hub gateway + OAuth), **F** (sampling).
+- **Now:** Phases **A–E**, **F1**, **G**, **H**, and **D1** (local Streamable HTTP) are in-repo. Remaining: **D2/D3** (Hub gateway + OAuth); **F2–F5** (more sampling use cases).
 - **After Phase 2 (bridge + pre-roll):** Continue MCP supercharge in that order. Issue #2 (Infinite Machine Brain) depends on AgentCeption + Knowtation MCP features (Resources, Subscriptions); schedule after corresponding Issue #1 phases.
-- **Order vs multi-vault:** Finish Phase 2 → then Phase 3 (multi-vault) or remaining Issue #1 items (H, B, D, F, G) by priority.
+- **Order vs multi-vault:** Finish hosted Phase 2 (bridge, pre-roll) → then product-prioritized work: multi-vault (IMPLEMENTATION-PLAN Phase 3), Issue #1 leftovers (**D2/D3**, **F2–F5**), or Issue #2 slices.
 
 ---
 
