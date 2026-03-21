@@ -1,5 +1,7 @@
 # Knowtation and agent orchestration
 
+**What this page is:** A practical guide for builders wiring Knowtation into **agent systems**—whether the agent talks over **MCP** (like Cursor) or runs **`knowtation` CLI** commands in a container. If you only want a one-page overview of CLI vs MCP vs Hub API, see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) first.
+
 Knowtation is designed as a **knowledge backend** for multi-agent orchestration systems. Orchestrators and their agents can read from and write to the vault via **CLI** or **MCP**. This doc describes both options and how to integrate with systems like [AgentCeption](https://github.com/cgcardona/agentception).
 
 ---
@@ -33,6 +35,10 @@ Recommendation: support **both**. Use MCP where the runtime already has MCP; use
    ```
 
 3. **Tools** (same semantics as CLI): `search`, `get_note`, `list_notes`, `index`, `write`, `export`, `import`. Same filters and JSON shapes as in [SPEC §4](./SPEC.md).
+
+4. **Scope (Phase G):** The server includes **`instructions`** with `file://` paths for the vault and index data directory. Hosts that support MCP **roots** may also receive a one-time structured log of the client’s `roots/list` response (for debugging alignment).
+
+5. **Sampling (Phase F1):** If the host supports MCP **sampling**, the **`summarize`** tool may run the summary in the **client’s** LLM (host approval may be required). If sampling is unavailable, Knowtation falls back to server-side Ollama/OpenAI as before. See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
 
 Use **tiered retrieval** from the SKILL: small `limit`, `--fields path` or path+snippet, then `get_note` only for chosen paths. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 

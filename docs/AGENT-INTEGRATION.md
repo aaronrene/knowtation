@@ -1,5 +1,7 @@
 # Agent integration — one page
 
+**What this page is:** Knowtation is your **note vault + search index**. This page explains the three ways software—including AI assistants—can talk to it: **command line**, **MCP** (a standard plug-in protocol many IDEs use), and **Hub REST API**. You do not need to understand all three; pick the one your tool supports.
+
 Integrate Knowtation with any agent (OpenAI, Claude, LangChain, LlamaIndex, custom runners). **Precise retrieval = fewer tokens:** use filters and limits so agents fetch only what they need; see [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) for token levers. Three entry points: **CLI**, **MCP**, **Hub API**.
 
 ---
@@ -40,6 +42,8 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 
 - **Start:** `knowtation mcp` (stdio transport).
 - **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. Same filters and JSON shapes.
+- **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant’s context matches Knowtation.
+- **Summarize (Phase F1):** The **`summarize`** tool uses the host’s LLM when the client supports **sampling**; otherwise it uses Ollama/OpenAI on the machine running Knowtation. See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
 - **Use case:** When the agent runtime speaks MCP; no need to shell out to CLI.
 
 See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
