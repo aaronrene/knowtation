@@ -2,7 +2,9 @@
 
 This doc covers production deployment: 4Everland for static UI and landing, gateway and bridge (e.g. Netlify or a Node host), and DNS/domains.
 
-**Before deploy:** Ensure [Parity Plan Phase 1](./PARITY-PLAN.md) is merged (gateway stubs for roles, invites, setup) so the Hub Settings → Team and Setup work on hosted.
+**Already live (knowtation.store)?** The stack is **in production** — see [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) for current truth and gaps. Use this file as **reference** when changing hosts or env, and use **§5** below as a **re-verification** checklist after deploys (not as proof the site was never shipped).
+
+**Before first-time deploy:** Ensure [Parity Plan Phase 1](./PARITY-PLAN.md) is merged (gateway stubs for roles, invites, setup) so the Hub Settings → Team and Setup work on hosted.
 
 ---
 
@@ -75,7 +77,7 @@ Exact records depend on 4Everland and your Node host (A/CNAME, or their provided
 
 ## 5. Pre-roll checklist (hosted)
 
-This checklist is for **hosted** production readiness. It is **not** a new site or new page — you just verify each item below. For the idea that self-hosted users get the same UI/interface as hosted users, see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md) §1 (self-hosted pre-roll). For **what pre-roll is**, **bridge deploy in detail** (including second Netlify project), and **PR/branch strategy**, see [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md).
+Use this list **before first launch** and **again after** any production env change, bridge/gateway redeploy, or incident. For “what pre-roll is” and **bridge deploy in detail**, see [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md). **Live status and parity gaps:** [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md). For self-hosted mirror checks, see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md) §1 where applicable.
 
 - [ ] Canister deployed and healthy (`GET /health`).
 - [ ] Gateway env set; OAuth callback URLs registered with Google/GitHub.
