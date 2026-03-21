@@ -1,5 +1,7 @@
 # Backlog: MCP supercharge (from GitHub Issues #1, #2)
 
+**Next session (repo-wide):** [NEXT-SESSION.md](./NEXT-SESSION.md) — tests → hosted Phase 2 → hosted multi-vault → MCP D2/D3.
+
 **What this doc is for:** If you are not deep in MCP jargon, think of it as a **roadmap checklist**: which “superpowers” (browseable resources, reusable prompts, live file updates, HTTP transport, etc.) are already in the Knowtation repo versus still planned. Engineers use it to sequence work; everyone else can skim the tables to see **done vs next**.
 
 This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://github.com/aaronrene/knowtation/issues/1) and [GitHub Issue #2](https://github.com/aaronrene/knowtation/issues/2). Full issue content is stored in the repo so the plan is not blocked on GitHub access.
@@ -83,12 +85,13 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 - **Now:** Phases **A–E**, **F1**, **G**, **H**, and **D1** (local Streamable HTTP) are in-repo. Remaining: **D2/D3** (Hub gateway + OAuth); **F2–F5** (more sampling use cases).
 - **After Phase 2 (bridge + pre-roll):** Continue MCP supercharge in that order. Issue #2 (Infinite Machine Brain) depends on AgentCeption + Knowtation MCP features (Resources, Subscriptions); schedule after corresponding Issue #1 phases.
-- **Order vs multi-vault:** Finish hosted Phase 2 (bridge, pre-roll) → then product-prioritized work: multi-vault (IMPLEMENTATION-PLAN Phase 3), Issue #1 leftovers (**D2/D3**, **F2–F5**), or Issue #2 slices.
+- **Order vs multi-vault:** Finish hosted Phase 2 (bridge, pre-roll) → **Phase 15.1** hosted multi-vault ([MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md)) → Issue #1 leftovers (**D2/D3**, **F2–F5**), or Issue #2 slices. Session order: [NEXT-SESSION.md](./NEXT-SESSION.md).
 
 ---
 
 ## Links
 
+- [NEXT-SESSION.md](./NEXT-SESSION.md) — resume prompt; tests → hosted → multi-vault.
 - [MCP-PHASE-E.md](./MCP-PHASE-E.md) — subscriptions + vault watcher (Phase E).
 - [MCP-PHASE-H.md](./MCP-PHASE-H.md) — progress + logging (Phase H).
 - [MCP-PHASE-B.md](./MCP-PHASE-B.md) — MCP prompts (Phase B).

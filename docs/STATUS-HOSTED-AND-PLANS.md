@@ -1,5 +1,7 @@
 # Status: hosted product, multi-vault, Phase 12
 
+**Next session:** [NEXT-SESSION.md](./NEXT-SESSION.md) — copy-paste prompt; **tests first**, then hosted Phase 2, then Phase 15.1 multi-vault.
+
 Short reference for where we are on **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)** so you can pick up in another session.
 
 **Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta, free** until Phase 16 (credits).
