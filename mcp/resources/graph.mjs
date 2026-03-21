@@ -97,3 +97,34 @@ export function buildKnowledgeGraph(config) {
 
   return { nodes, edges, truncated: false };
 }
+
+/**
+ * Notes whose frontmatter `causal_chain_id` matches (for MCP prompts / tooling).
+ * Sorted by `date` then path for a stable narrative order.
+ * @param {import('../../lib/config.mjs').loadConfig extends () => infer R ? R : never} config
+ * @param {string} chainId
+ * @returns {Array<{ path: string, body: string, frontmatter: object, date?: string }>}
+ */
+export function listNotesForCausalChainId(config, chainId) {
+  const k = normalizeSlug(String(chainId || ''));
+  if (!k) return [];
+  const paths = listMarkdownFiles(config.vault_path, { ignore: config.ignore });
+  const notes = [];
+  for (const p of paths) {
+    try {
+      const n = readNote(config.vault_path, p);
+      const cid = n.frontmatter?.causal_chain_id;
+      if (cid == null) continue;
+      if (normalizeSlug(String(cid)) !== k) continue;
+      notes.push(n);
+    } catch (_) {}
+  }
+  notes.sort((a, b) => {
+    const da = String(a.date || a.frontmatter?.date || '');
+    const db = String(b.date || b.frontmatter?.date || '');
+    const c = da.localeCompare(db);
+    if (c !== 0) return c;
+    return a.path.localeCompare(b.path);
+  });
+  return notes;
+}

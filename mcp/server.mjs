@@ -28,6 +28,7 @@ import {
   notifyIndexMetadataResources,
 } from './resource-subscriptions.mjs';
 import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
+import { registerKnowtationPrompts } from './prompts/register.mjs';
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -335,6 +336,7 @@ server.registerTool(
 );
 
 registerKnowtationResources(server);
+registerKnowtationPrompts(server);
 registerPhaseCTools(server);
 registerResourceSubscriptionHandlers(server);
 

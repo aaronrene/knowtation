@@ -332,6 +332,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 - **Issue #1 Phase C (enhanced tools):** `mcp/tools/phase-c.mjs` — relate, backlinks, capture, transcribe, vault_sync, summarize, extract_tasks, cluster, memory_query, tag_suggest; libs under `lib/` as in **docs/MCP-PHASE-C.md**.
 - **Issue #1 Phase E (subscriptions + watcher):** `mcp/resource-subscriptions.mjs` — `resources/subscribe` / `unsubscribe`, chokidar on `vault_path`, debounced `notifications/resources/updated` and `list_changed`; `index` tool notifies index/tags/projects/graph URIs when subscribed. **docs/MCP-PHASE-E.md**.
 - **Issue #1 Phase H (progress + logging):** `mcp/tool-telemetry.mjs`; `McpServer` with `capabilities.logging`; `index` / `import` use `_meta.progressToken` + `onProgress` in `lib/indexer.mjs` and markdown importer; structured `notifications/message` for index/import/write. **docs/MCP-PHASE-H.md**.
+- **Issue #1 Phase B (prompts):** `mcp/prompts/register.mjs` + `helpers.mjs` — ten prompts (daily-brief, search-and-synthesize, project-summary, write-from-capture, temporal-summary, extract-entities, meeting-notes, knowledge-gap, causal-chain, content-plan); `listNotesForCausalChainId` in `mcp/resources/graph.mjs`. **docs/MCP-PHASE-B.md**.
 - `lib/list-notes.mjs`: Extracted `runListNotes(config, options)` for single backend; CLI and MCP both use it.
 - CLI `knowtation mcp`: Starts MCP server; `npm run mcp` runs `node mcp/server.mjs`.
 - Tools map to CLI args; outputs match CLI `--json` shapes. Memory and AIR hooks preserved where applicable.
