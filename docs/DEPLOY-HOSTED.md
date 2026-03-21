@@ -90,8 +90,8 @@ Use this list **before first launch** and **again after** any production env cha
 
 ## 6. Reference
 
-- [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved usage balance (Phase 16).
-- [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — Usage-based credits, Stripe, beta metering, notifications.
+- [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved billing fields (Phase 16).
+- [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — **Free** tier + Stripe paid tiers, transparent per-action pricing, **`BILLING_SHADOW_LOG`**, rollover add-ons.
 - [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md) — How to run the canister; single URL (knowtation.store) and how to view the site locally.
 - [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md)
 - [hub/gateway/README.md](../hub/gateway/README.md)

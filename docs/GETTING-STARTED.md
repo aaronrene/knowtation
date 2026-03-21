@@ -214,7 +214,7 @@ knowtation search "API error handling" --project myapp --limit 3 --fields path -
 knowtation get-note vault/projects/myapp/decisions/errors.md --json
 ```
 
-This pattern (search with `--fields path` and small `--limit`, then `get-note` for 1–2 paths) keeps token cost down. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) and [AGENTCEPTION-HACKATHON.md](./AGENTCEPTION-HACKATHON.md).
+This pattern (search with `--fields path` and small `--limit`, then `get-note` for 1–2 paths) keeps token cost down. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) and [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
 
 ### AgentCeption workflow summary
 
@@ -224,7 +224,7 @@ This pattern (search with `--fields path` and small `--limit`, then `get-note` f
 4. **Write-back** — Pipe phase summaries into `knowtation write ... --stdin` with `source=agentception`, `project`, `date`; next phases can search them.
 5. **Index** — Run `knowtation index` after writes so new content is in the vector store.
 
-No change to AgentCeption’s core flow; Knowtation is an optional **context and memory layer** called via CLI or MCP. Full integration details: [AGENTCEPTION-HACKATHON.md](./AGENTCEPTION-HACKATHON.md) and [AGENTCEPTION-HACKATHON-SUBMISSION.md](./AGENTCEPTION-HACKATHON-SUBMISSION.md).
+No change to the orchestrator’s core flow; Knowtation is an optional **context and memory layer** called via CLI or MCP. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
 
 ---
 

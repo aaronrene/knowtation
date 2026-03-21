@@ -1,10 +1,10 @@
 # Status: hosted product, multi-vault, Phase 12
 
-**Next session:** [NEXT-SESSION.md](./NEXT-SESSION.md). **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Next engineering focus:** **Phase 15.1** — canister-backed **true** multi-vault (partition by `vault_id`); use **[HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md)** so the same V1 migration **reserves** hosted **usage balance** (cents) for **Phase 16**. **Billing product:** **[HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md)** — usage-metered, USD-pegged platform credits, Stripe + optional USDC/AVAX, beta shadow metering, optional grandfathering. **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
+**Roadmap:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) · **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Next engineering focus:** **Phase 15.1** — canister-backed **true** multi-vault (partition by `vault_id`); use **[HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md)** so the same V1 migration **reserves** hosted **subscription + optional top-up** fields for **Phase 16**. **Billing product:** **[HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md)** — **Free** tier + **Stripe** paid tiers + **rollover add-ons**; transparent **per-action** costs in **`billing/summary`**; **`BILLING_SHADOW_LOG`** for research; gateway **`hub/gateway/billing-*.mjs`**. **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
 
 Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)**.
 
-**Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta, free** until Phase 16 (credits).
+**Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta** with **permissive usage** for research until Phase 16 (**Stripe subscriptions**).
 
 **Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Order: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
 
@@ -29,12 +29,12 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 
 **Current deployed state**
 
-- **Automated smoke (2026-03-21):** `GET https://knowtation-gateway.netlify.app/health` → **200**. `GET https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` → **200** (use **raw** `icp0.io` for `CANISTER_URL` if `ic0.app` returns 400 — see [EXACT-STATE-PHASE2.md](./EXACT-STATE-PHASE2.md)). `https://knowtation.store/hub/` → **301** (redirect; site present).
+- **Automated smoke (2026-03-21):** `GET https://knowtation-gateway.netlify.app/health` → **200**. `GET https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` → **200** (use **raw** `icp0.io` for `CANISTER_URL` if `ic0.app` returns 400). `https://knowtation.store/hub/` → **301** (redirect; site present).
 - **Canister:** Deployed on ICP. Gateway uses `CANISTER_URL` in Netlify (must match a URL that returns 200 for `/health`).
 - **4Everland:** Full `web/` at **knowtation.store** (landing `/`, Hub `/hub/`). Custom domain set.
 - **Netlify gateway:** e.g. **knowtation-gateway.netlify.app**. `web/hub/config.js` sets `HUB_API_BASE_URL` for knowtation.store to that gateway.
 - **Bridge:** Separate deploy from `hub/bridge/`. Gateway proxies vault/sync, search, index, and some Team APIs when **`BRIDGE_URL`** is set. **Operator:** you have reported bridge + notes working in production; keep **§5 pre-roll** as the list to re-run after env or deploy changes.
-- **Pre-roll / re-verification:** Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 as a **checklist** (not “site unpublished”). Optional detail: [EXACT-STATE-PHASE2.md](./EXACT-STATE-PHASE2.md) §3.
+- **Pre-roll / re-verification:** Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 as a **checklist** (not “site unpublished”).
 
 **What the bridge is:** The **bridge** is **not** built by this repo’s main `netlify.toml` (gateway only). It provides Connect GitHub, Back up now, index + search, and bridge-persisted roles/invites when configured. Without **`BRIDGE_URL`** on the gateway, those features are not proxied (stubs or missing on gateway-only paths).
 
@@ -112,11 +112,11 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 | **Parity gaps (no canister)** | Hub **Import** hosted stub (501); **facets** empty unless aggregated from canister — [PARITY-PLAN.md](./PARITY-PLAN.md). |
 | **Phase 15 self-hosted** | ✅ `hub_vaults.yaml`, access, scope, Hub UI. |
 | **MCP hosted (Issue #1)** | D2/D3 etc. after stable hosted baseline — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). |
-| **Phase 16 (hosted credits)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); after beta cost analysis — IMPLEMENTATION-PLAN Phase 16. |
+| **Phase 16 (hosted billing)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); Stripe subscriptions + metering; future credit top-ups — IMPLEMENTATION-PLAN Phase 16. |
 | **Phase 12 (blockchain notes)** | Agent wallets / on-chain fields in notes — [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md); separate from Phase 16 ledger. |
 
 See **§4** above for when to consider a separate HTTP canister (Rust) vs keeping HTTP in Motoko.
 
 ---
 
-**Last updated:** 2026-03-21 — Added HOSTED-STORAGE-BILLING-ROADMAP + HOSTED-CREDITS-DESIGN (usage credits, beta metering, Stripe); linked Phase 16 and Phase 12 separation.
+**Last updated:** 2026-03-21 — Billing docs: **subscription-first** (Stripe card, three tiers), beta open usage, overage → upgrade, future credit top-ups; Phase 12 remains separate from hosted billing.

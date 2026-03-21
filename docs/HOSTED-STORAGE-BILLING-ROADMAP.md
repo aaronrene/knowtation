@@ -1,8 +1,10 @@
 # Hosted storage and billing — single migration roadmap
 
-**Purpose:** Decide **once** how Motoko stable storage evolves for **Phase 15.1 (multi-vault)** and **Phase 16 (usage credits)** so we do not reorganize the canister twice. This doc is the **pre-code gate** before changing [hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo) and deploying.
+**Purpose:** Decide **once** how Motoko stable storage evolves for **Phase 15.1 (multi-vault)** and **Phase 16 (billing)** so we do not reorganize the canister twice. This doc is the **pre-code gate** before changing [hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo) and deploying.
 
-**Related:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) (metering, Stripe, beta, notifications), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phases 15.1 and 16.
+**Related:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) (hybrid monthly + add-on credits, Stripe, v0 prices), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phases 15.1 and 16.
+
+**Current Phase 16 scaffold:** Billing **state and webhooks** live in the **gateway** (`hub/gateway/billing-*.mjs`) with **file** (`data/hosted_billing.json`) or **Netlify Blob** persistence. Canister V1 fields below are the **target** when billing is co-located with note data.
 
 ---
 
@@ -26,12 +28,23 @@
 
 - If note paths can repeat across vaults, add **`vault_id`** to proposal records (or document that proposals are **default-vault only** on hosted until extended).
 
-### 2.3 Phase 16 balance (reserve in V1)
+### 2.3 Phase 16 — billing fields (reserve in V1; mirror gateway when ready)
 
-- **Recommended:** `userBalanceCents : [(userId, Nat)]` (or equivalent map), **initialized to 0** for all users at migration, even before Stripe or deductions ship.
-- **Alternative:** Ledger only on **gateway/bridge** — then the canister **never** holds balance; document that choice explicitly and enforce all paid routes only through components that read the ledger.
+Per **`userId`** (or team billing owner), reserve fields aligned with [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md):
 
-**Default recommendation for this repo:** **Canister holds `balanceCents` per user** next to note data so the authoritative store for hosted content and balance stays aligned. Gateway applies Stripe **credit** via a future authenticated admin or canister update path (design in HOSTED-CREDITS-DESIGN).
+| Field (conceptual) | Purpose |
+|-------------------|---------|
+| **`tier`** | `beta` \| `free` \| `starter` \| `pro` \| `team` |
+| **`stripe_customer_id`** | Stripe Customer id |
+| **`stripe_subscription_id`** | Active subscription id (if any) |
+| **`period_start` / `period_end`** | ISO timestamps for current subscription period |
+| **`monthly_included_cents`** | Included budget this period (from tier; e.g. 1200 for 12 credits) |
+| **`monthly_used_cents`** | Consumed from monthly pool this period |
+| **`addon_cents`** | Rollover balance from **purchased** packs (consumed **after** monthly pool) |
+
+**Alternative:** Keep billing **only** in gateway/Blob (current scaffold); canister has **no** billing columns until you need canister-side enforcement without gateway round-trip. If so, document and ensure **all** metered routes pass through gateway.
+
+**Default long-term:** Canister holds note data; **either** replicate billing snapshot for enforcement **or** trust gateway middleware only — pick one when scaling.
 
 ### 2.4 Phase 12 (on-chain note fields)
 
@@ -41,8 +54,9 @@
 
 ## 3. Payment rails (product, not storage)
 
-- **Primary:** Stripe (Checkout or Payment Links) → gateway **webhook** → **idempotent** credit to `balanceCents`.
-- **Optional later:** USDC on Avalanche (Born Free stack) or other rails — still credit the **same** internal balance after verification; chain is a **funding** path, not a second ledger.
+- **Stripe Billing:** Subscriptions for **Starter / Pro / Team**; **Customer Portal**; webhooks reset **monthly** counters and set **`monthly_included_cents`** from tier.
+- **Stripe Checkout (one-time):** **Add-on credit packs** → **`addon_cents`** **idempotently** on `checkout.session.completed` (`mode: payment`).
+- **Deferred:** Crypto as a funding rail — not in the first slice.
 
 ---
 
@@ -50,7 +64,7 @@
 
 - [ ] V1 `StableStorage` type and `Migration.mo` upgrade path defined in code.
 - [ ] Local replica test: migrate sample V0 → V1; verify notes under `default` vault.
-- [ ] HOSTED-CREDITS-DESIGN: shadow metering / beta / deduction rules agreed for first paid slice.
+- [ ] HOSTED-CREDITS-DESIGN: hybrid pools + enforcement rules agreed.
 - [ ] Production backup / export plan if any real user data exists.
 
 ---
@@ -60,3 +74,6 @@
 | Date | Change |
 |------|--------|
 | 2026-03-21 | Initial roadmap: V1 notes + vault_id + reserved balance cents + Phase 12 via frontmatter. |
+| 2026-03-21 | Billing: subscription-first; `balanceCents` → **addon rollover**; crypto deferred. |
+| 2026-03-21 | **Dual pools:** `monthly_included_cents` / `monthly_used_cents` + `addon_cents`; gateway scaffold; V1 field table. |
+| 2026-03-22 | Tier list adds **`free`**; aligns with HOSTED-CREDITS-DESIGN. |

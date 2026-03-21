@@ -15,7 +15,9 @@
     "mcp:http": "MCP_TRANSPORT=http node mcp/server.mjs",
     "transcribe": "node scripts/transcribe.mjs",
     "test": "node --test test/*.test.mjs",
-    "hub": "node hub/server.mjs"
+    "hub": "node hub/server.mjs",
+    "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
+    "canister:preflight": "bash scripts/canister-predeploy.sh"
   },
   "keywords": [
     "knowledge-base",

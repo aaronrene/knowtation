@@ -20,6 +20,14 @@ test/fixtures/tmp-*/
 vault/.obsidian/workspace*
 vault/.trash/
 
+# Hub UI “New note” timestamped files (avoid dirty tree on the sample vault)
+vault/inbox/note-*.md
+
+# Editor scratch files
+Untitled
+**/Untitled
+config/Untitled
+
 # DFX local build (do not commit)
 hub/icp/.dfx/
 
@@ -30,5 +38,5 @@ node_modules/
 .DS_Store
 *.log
 
-# Development (planning, strategy, monetization — not published)
+# Development — local-only planning, scratch exports, copies of docs removed from docs/ for OSS cleanliness
 development/

@@ -89,7 +89,7 @@ When all are verified, pre-roll is complete. Then do a **rebuild** of the gatewa
 
 - **Stay on the same branch** for Phase 2: e.g. `feature/parity-phase-2-follow-up`. All Phase 2 work (parity, docs, exact state, bridge deploy instructions, and the bridge Netlify function if we add it) belongs to the same “Phase 2” scope.
 - **Do the PR now** (or as soon as your current doc/code changes are ready): open a PR from this branch to `main`. The PR should include:
-  - Doc updates (EXACT-STATE-PHASE2, DEPLOY-STEPS, IMPLEMENTATION-PLAN, STATUS-*, BRIDGE-DEPLOY-AND-PREROLL, etc.).
+  - Doc updates (DEPLOY-STEPS, IMPLEMENTATION-PLAN, STATUS-*, BRIDGE-DEPLOY-AND-PREROLL, etc.).
   - Any code added for Phase 2 (e.g. `netlify/functions/bridge.mjs` if we add it so the second Netlify site can serve the bridge).
 - **After the PR is merged:** Do the **operational** steps: deploy the bridge (second Netlify site or Railway), set env and BRIDGE_URL, run the pre-roll checklist, then trigger gateway (and 4Everland) rebuild if needed.
 - You do **not** need a separate branch for “bridge deploy” or “pre-roll” — those are things you do in Netlify/dashboards and with the checklist, not new branches. A separate branch only makes sense if you later do a different feature (e.g. Phase 3 multi-vault).

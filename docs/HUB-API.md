@@ -95,6 +95,13 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "imported": [ { "path", "source_id?" } ], "count": number }`.  
   **400** if file or source_type missing/invalid; **500** on import failure.
 
+### 3.3.0 Billing (Phase 16 hosted)
+
+- **GET /billing/summary** — JWT required. Hosted gateway only.  
+  **Response:** `{ "tier", "period_start?", "period_end?", "monthly_included_cents", "monthly_included_effective_cents", "monthly_used_cents", "addon_cents", "billing_enforced", "stripe_configured", "credit_policy", "cost_breakdown": [ { "operation", "label", "cost_cents", "cost_usd_display", "credits_display", "relates_to" } ], "usage_chart_status" }`. **Free** tier: `monthly_included_effective_cents` reflects the $0 tier allowance. See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md).
+
+- **POST /billing/webhook** — **Stripe** webhook endpoint; **no JWT**. Expects **raw JSON body** (signature verification). Not used on self-hosted Node Hub unless you expose the same route.
+
 ### 3.3.1 Settings and vault backup (JWT required)
 
 - **GET /settings** — Safe config status for the Settings UI. No secrets or full paths.  
@@ -150,7 +157,12 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 ### 3.6 Errors
 
 - **401** — Missing or invalid JWT.
-- **402** — *(Reserved, Phase 16 hosted)* Insufficient prepaid **platform credits**; JSON may include `"code": "INSUFFICIENT_CREDITS"`. See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md). Not used until billing enforcement is enabled.
+- **402** — *(Phase 16 hosted, when `BILLING_ENFORCE` is on)* Quota / billing. JSON includes `"code":`:
+  - **`QUOTA_EXHAUSTED`** — The operation would exceed **both** the **monthly included** pool and **add-on rollover** credits for this period; user should **buy add-on credits**, **upgrade** tier, or wait for period reset. Primary code for “out of credits.”
+  - **`SUBSCRIPTION_TIER_LIMIT`** — *(Optional / legacy)* Tier does not allow this operation or subscription inactive; upgrade or subscribe.
+  - **`INSUFFICIENT_CREDITS`** — *(Narrow)* Add-on wallet cannot cover the remainder after monthly pool is exhausted (synonym of exhausted state; prefer **`QUOTA_EXHAUSTED`** for new clients).
+
+See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md). When enforcement is off (beta default), gateway does not return 402 for billing.
 - **403** — Forbidden (e.g. scope or vault permission).
 - **404** — Note or proposal not found.
 - **409** — Conflict (e.g. base_state_id mismatch on approve).

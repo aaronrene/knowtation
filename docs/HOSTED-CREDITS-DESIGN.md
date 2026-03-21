@@ -1,93 +1,110 @@
-# Hosted credits — design (usage-based, USD-pegged)
+# Hosted billing — design (subscription + included credits + rollover add-ons)
 
-**Product:** Prepaid **platform credits** for **hosted Knowtation only**. **1 credit shown to the user = US $1.00.** The internal ledger uses **integer cents** (e.g. `100` = $1.00) so Stripe and deductions stay exact.
+**Product:** **Hosted Knowtation** uses a **Netlify-style hybrid**: **Stripe** credit-card **subscriptions** (paid tiers) with a **monthly included usage budget**, plus **purchasable add-on credits** that **roll over** and are consumed **after** the monthly grant is exhausted. **1 displayed credit = US $1** of **our internal metered price** for an action (ledger uses **integer cents**). Credits are **platform-only**: prepaid balance for Knowtation hosted, **not tradable**, **not redeemable elsewhere**, **not a security** — marketing and Terms should say so plainly.
 
-**Properties (product, not legal classification):**
+**Transparency:** We intentionally avoid “10,000 mystery credits.” Users see **dollar-scale numbers** (e.g. **$0.01** per search, **$0.50** per re-index at v0 placeholders) and **labels** tied to **cost drivers** (embeddings, canister, search). **`GET /api/v1/billing/summary`** returns a **`cost_breakdown`** for the Hub to render. **Future (not launch-blocking):** a **usage history** store + **chart** (meter over time by operation) so users see *why* usage moved — few competitors expose this level of clarity.
 
-- Credits are **redeemed only** against Knowtation hosted usage (notes, index, search, sync, etc.).
-- They are **not transferable** to other users or resold; there is **no secondary market** in this design.
-- **Optional top-up** via card (**Stripe**) and, later, **USDC on Avalanche** (or other Born Free–aligned rails) still **credit the same internal balance** after payment is verified.
+**Reference (market pattern):** [Netlify — how credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work).
 
-**Related:** [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) (where `balanceCents` lives in stable storage), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 16, [HUB-API.md](./HUB-API.md) (error codes when implemented).
+**Related:** [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 16, [HUB-API.md](./HUB-API.md). Gateway: `hub/gateway/billing-*.mjs`.
 
 ---
 
-## 1. Same page: what we charge for
+## 1. Two balances (consumption order)
 
-We identify **operations that drive real cost** (compute, embeddings, storage, egress, GitHub API) and attach **usage prices** in **cents** (or micro-units) per event. **Nothing is charged until** beta analysis and implementation flip **deductions** on.
+| Pool | Behavior | Funded by |
+|------|----------|-----------|
+| **Monthly included** | **Resets** each billing period (**does not roll** unused portion). Consumed **first**. | Subscription tier (or **Free** tier allowance) |
+| **Add-on balance** | **Rolls** while policy allows (typically **active paid** subscription). Consumed **after** monthly included. | Stripe **Checkout** one-time **packs** |
 
-| Meter (candidate) | Cost driver | Typical choke point |
-|-------------------|-------------|---------------------|
-| **Note write / large update** | Canister cycles + storage | Gateway → canister POST note |
-| **Re-index** | Embedding API ($) | Bridge `POST /api/v1/index` |
-| **Semantic search** | Vectors + CPU | Bridge `POST /api/v1/search` |
-| **Backup / vault sync** | Egress + GitHub | Bridge vault sync |
-| **Storage footprint (later)** | Ongoing bytes | Periodic aggregate per user |
+**Deduction:** Monthly first, then add-ons; else **`402`** + `QUOTA_EXHAUSTED` (see HUB-API).
 
-**Start simple:** meter **index**, **search**, and **note writes** first; add **storage true-up** once sizes are reliable.
+**Beta:** `BILLING_ENFORCE` off (default): **no deduction**; use **`BILLING_SHADOW_LOG=true`** for structured **research logs** (see §8).
 
 ---
 
-## 2. Beta period (free) — measure before pricing
+## 2. v0 default prices (“Early pricing” — revisable)
 
-1. **Shadow metering:** Log structured events on **gateway** and **bridge** (no balance change): `user_id`, route, approximate bytes, `vault_id` when present. Aggregate from Netlify/logs to see **who** uses **what** and rough **cost per user**.
-2. **Set internal unit economics:** Map OpenAI (or other) invoice + ICP cycles + hosting to a **cents per index / search / write** table.
-3. **Grandfathering (product decision):** Before turning on paid mode, decide:
-   - **Option A:** All users must purchase credits after go-live.
-   - **Option B:** **Grandfather** early beta users (e.g. by **account created before** date `T`, or explicit allowlist env `HUB_GRANDFATHER_USER_IDS`) with **free tier** credits or **permanent zero deduction** until revoked.
-   - Document the chosen rule in deploy notes and env reference.
+**Included credits** = USD-equivalent internal budget per month (**100 cents = 1 credit = $1** against our price table).
 
----
+| Tier | Monthly price (USD) | Included credits / month | Notes |
+|------|---------------------|---------------------------|--------|
+| **Free** | **$0** | **3** | Light use; upgrade for more. No Stripe subscription (product assigns `tier: free`). |
+| **Starter** | **$19** | **12** | Entry paid. |
+| **Pro** | **$39** | **30** | Individual power use. |
+| **Team** | **$99** (base; seats TBD) | **80** | Pooled — product choice. |
 
-## 3. Purchase flow (Stripe — primary)
+**Add-on packs (par $1 → $1 credit):**
 
-- **Stripe Checkout** or **Payment Links** for fixed packs (e.g. $10 / $25 / $100).
-- **Webhook** on **gateway** (or dedicated billing route): on `checkout.session.completed` / `payment_intent.succeeded`, **add** cents to `balanceCents` for the **Stripe customer metadata `user_id`** (or map email → Hub user once).
-- **Idempotency:** Persist processed **Stripe event ids**; ignore duplicates.
-- **Secrets:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` in gateway (or bridge) env — never in repo.
-
----
-
-## 4. Optional crypto top-up (USDC AVAX, etc.)
-
-- **v1 manual:** Operator verifies transfer → credits balance (admin tool or script).
-- **v2 automated:** Reuse Born Free patterns (listener) → same `credit(userId, cents)` path as Stripe.
-- Ledger remains **one**; chain is only **how money arrives**.
+| Pack | Price | Credits added |
+|------|-------|----------------|
+| Small | **$10** | **10** |
+| Medium | **$25** | **25** |
+| Large | **$50** | **50** |
 
 ---
 
-## 5. Deduction and enforcement
+## 3. What we meter & what users see
 
-- After beta: **middleware** (gateway and/or bridge) **after JWT**: look up `balanceCents`, subtract **priced** cost for the operation; if balance would go negative, respond **`402`** or **`403`** with body including `code: "INSUFFICIENT_CREDITS"` (document in HUB-API when implemented).
-- **Soft limit (optional):** warn but allow one more operation — product choice.
+| Operation (API key) | User-facing label (v0) | Cost driver | Choke point |
+|---------------------|------------------------|-------------|-------------|
+| `search` | Semantic search (one request) | Vectors + CPU | Bridge `POST /api/v1/search` |
+| `index` | Re-index vault (one job) | Embeddings ($) | Bridge `POST /api/v1/index` |
+| `note_write` | Create or update a note | Canister + storage | Gateway → canister |
+| `proposal_write` | Create a proposal | Canister + storage | Gateway → canister |
 
----
+**Implementation:** `hub/gateway/billing-constants.mjs` — `COST_CENTS` + **`COST_BREAKDOWN`** (labels + `cost_usd_display`). Tune after **shadow logs + real invoices**.
 
-## 6. Hub UX and notifications
-
-- **Settings / header:** Show **balance** (dollars = cents / 100).
-- **In-app:** Banner or toast when balance crosses **low thresholds** (e.g. below $2 or below 20% of last pack — tune later).
-- **Email (Resend):** Same thresholds; **debounce** (e.g. at most one email per user per tier per 24h). Env: `RESEND_API_KEY`, from-address, template ids — Born Free umbrella may share or split subproject keys.
-
----
-
-## 7. API stubs (when implemented)
-
-- `GET /api/v1/settings` (or `GET /api/v1/billing/summary`): `{ "balance_cents": N, "low_balance": true/false }`.
-- Purchase: link to Stripe Checkout (return URL back to Hub).
-
-Reserved error **code** (document in HUB-API): `INSUFFICIENT_CREDITS`.
+**Future:** persist **per-event usage rows** (timestamp, `user_id`, operation, `cost_cents`) for **graphs** and export; not required for first paid slice.
 
 ---
 
-## 8. Self-hosted
+## 4. Research & monitoring (implemented)
 
-- **Unchanged:** This design applies to **hosted** only unless you explicitly add a self-hosted billing mode later.
+- **Metering hooks:** Gateway **`runBillingGate`** classifies billable **operations** on search, index, note write, proposal create (same paths as enforcement).
+- **Shadow logging:** Set **`BILLING_SHADOW_LOG=true`** (or `1`) on the gateway. Emits one **JSON line per billable request** (with `user_id` when JWT present): `operation`, `cost_cents`, `path`, `billing_enforced`. Ship to your log aggregator to study **distribution and cost per user** before locking **402** enforcement.
+- **User-facing prep:** **`GET /api/v1/billing/summary`** returns balances + **`cost_breakdown`** + **`credit_policy`** + **`usage_chart_status`** (roadmap note).
 
 ---
 
-## 9. Revision log
+## 5. Stripe
+
+- **Stripe Billing:** Starter / Pro / Team; **Customer Portal**. **Free** tier is **not** a Stripe product — assign in product when user has no paid sub.
+- **Checkout:** Packs; `metadata.user_id`, optional `metadata.credits_cents`.
+- **Webhooks:** `POST /api/v1/billing/webhook` (raw body); idempotent `event.id` store.
+
+**Env price ids:** `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`, `STRIPE_PRICE_PACK_*`.
+
+---
+
+## 6. Storage
+
+**Gateway:** `data/hosted_billing.json` or Netlify Blob **`gateway-billing`**. Canister mirror per [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md).
+
+---
+
+## 7. API
+
+- **`GET /api/v1/billing/summary`** — JWT; pools, **`monthly_included_effective_cents`** (syncs **Free** tier), **`cost_breakdown`**, **`credit_policy`**, **`usage_chart_status`**.
+
+---
+
+## 8. Hub UX
+
+- **Now:** Show **included / used / add-on**, **tier**, and **“what costs what”** from `cost_breakdown`.
+- **Later:** **Usage chart** + history (product differentiator).
+
+---
+
+## 9. Self-hosted
+
+**Unchanged.**
+
+---
+
+## 10. Revision log
 
 | Date | Change |
 |------|--------|
-| 2026-03-21 | Initial design: USD-pegged cents ledger, Stripe primary, beta shadow metering, grandfather options, Resend, meter table. |
+| 2026-03-21 | Hybrid monthly + rollover add-ons; gateway module; v0 prices. |
+| 2026-03-22 | **Free** tier ($0 / 3 credits); **transparency** (dollar credits, per-action breakdown); **BILLING_SHADOW_LOG**; **credit_policy** / not-a-security; **usage chart** as future goal; summary **`cost_breakdown`**. |
