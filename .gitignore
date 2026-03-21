@@ -13,6 +13,7 @@ out/
 
 # Test artifacts (temp vaults and vector DB from tests)
 test/fixtures/data/
+test/fixtures/hub-setup-test-data/
 test/fixtures/tmp-*/
 
 # Obsidian

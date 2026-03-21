@@ -1,7 +1,7 @@
 /**
  * List-notes tests: runListNotes with folder, project, tag, since/until, limit, order, fields, countOnly.
  */
-import { describe, it, before } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,8 +13,28 @@ const fixturesDir = path.join(__dirname, 'fixtures');
 
 describe('runListNotes', () => {
   let config;
+  const envBackup = {
+    KNOWTATION_VAULT_PATH: process.env.KNOWTATION_VAULT_PATH,
+    KNOWTATION_DATA_DIR: process.env.KNOWTATION_DATA_DIR,
+  };
+  const fixtureVaultAbs = path.join(fixturesDir, 'vault-fs');
   before(() => {
+    // Pin vault so parallel test files or shell KNOWTATION_VAULT_PATH cannot skew this suite.
+    process.env.KNOWTATION_VAULT_PATH = fixtureVaultAbs;
+    delete process.env.KNOWTATION_DATA_DIR;
     config = loadConfig(fixturesDir);
+  });
+  after(() => {
+    if (envBackup.KNOWTATION_VAULT_PATH !== undefined) {
+      process.env.KNOWTATION_VAULT_PATH = envBackup.KNOWTATION_VAULT_PATH;
+    } else {
+      delete process.env.KNOWTATION_VAULT_PATH;
+    }
+    if (envBackup.KNOWTATION_DATA_DIR !== undefined) {
+      process.env.KNOWTATION_DATA_DIR = envBackup.KNOWTATION_DATA_DIR;
+    } else {
+      delete process.env.KNOWTATION_DATA_DIR;
+    }
   });
 
   it('returns notes with total', () => {
