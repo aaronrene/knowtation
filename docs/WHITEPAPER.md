@@ -131,7 +131,7 @@ Full detail: [ARCHITECTURE.md](../ARCHITECTURE.md), [SPEC.md](./SPEC.md), [IMPLE
 
 ## 11. Roadmap, Hub, and optional layers
 
-Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Phases 1–10 complete (config, vault, indexer, search, write, export, capture, import, transcription, memory, AIR, MCP, sqlite-vec). Phase 11: **Knowtation Hub** — hosted or self-hosted vault, proposals, review queue, web UI. Hub is **convenience**; file semantics and export remain the portability story. **AgentCeption hackathon** (March 2026): Knowtation as knowledge backend for multi-agent orchestration; see [AGENTCEPTION-HACKATHON.md](./AGENTCEPTION-HACKATHON.md).
+Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Phases 1–10 complete (config, vault, indexer, search, write, export, capture, import, transcription, memory, AIR, MCP, sqlite-vec). Phase 11: **Knowtation Hub** — hosted or self-hosted vault, proposals, review queue, web UI. Hub is **convenience**; file semantics and export remain the portability story. **Multi-agent orchestration:** Knowtation as a knowledge backend via CLI and MCP — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
 
 **Optional:** Memory layer (e.g. Mem0) for "last query + results" and provenance; AIR (intent attestation) before write/export; Phase 12 reserves blockchain/wallet frontmatter and filters for agent payments when needed. **Hosted plug-and-play:** A future offering where we host and maintain the platform; paid users get a zero-config experience (no YAML, no server setup), with optional "Connect GitHub" for backup and "Connect an agent" for API access. See [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md).
 
@@ -162,7 +162,7 @@ Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Pha
 | [HUB-API.md](./HUB-API.md) | Hub REST API and auth |
 | [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Hub API for agents |
 | [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md) | Slack, Discord, capture adapters |
-| [AGENTCEPTION-HACKATHON.md](./AGENTCEPTION-HACKATHON.md) | Hackathon integration |
+| [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Cursor — agent integration |
 
 ---
 

@@ -1,10 +1,16 @@
 # Status: hosted product, multi-vault, Phase 12
 
-Short reference for where we are on **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)** so you can pick up in another session.
+**Roadmap:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) · **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Next engineering focus:** **Phase 15.1** — canister-backed **true** multi-vault (partition by `vault_id`); use **[HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md)** so the same V1 migration **reserves** hosted **subscription + optional top-up** fields for **Phase 16**. **Billing product:** **[HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md)** — **Free** tier + **Stripe** paid tiers + **rollover add-ons**; transparent **per-action** costs in **`billing/summary`**; **`BILLING_SHADOW_LOG`** for research; gateway **`hub/gateway/billing-*.mjs`**. **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
 
-**Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta, free** until Phase 16 (credits).
+Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)**.
 
-**Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP features already merged for local use are fine to land on `main` first. Order and plain-language rationale: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
+**Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta** with **permissive usage** for research until Phase 16 (**Stripe subscriptions**).
+
+**Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Order: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
+
+**Hosted multi-vault (Phase 15.1):** Implement canister `vault_id` partitioning per [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted multi-vault — what to build. Bridge + gateway can already send `X-Vault-Id`; **Motoko still stores one note map per user** (`getVault(uid)` only — see `hub/icp/src/hub/main.mo`). With **little or no production data**, migration can be **minimal**.
+
+**Testing:** Run **`npm test`** regularly; fix known failing tests so CI reflects reality. Add tests alongside hub/canister changes — see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15.
 
 ---
 
@@ -21,24 +27,24 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 | **4** | Bridge: indexer + search (per-user sqlite-vec) | ✅ Done — bridge POST /api/v1/index, /api/v1/search |
 | **5** | 4Everland + single URL (knowtation.store), deploy docs, landing CTA | ✅ Done — docs, web/ updated |
 
-**Current deployed state (verified from repo and live checks; see [EXACT-STATE-PHASE2.md](./EXACT-STATE-PHASE2.md) for details):**
+**Current deployed state**
 
-- **Canister:** Deployed on ICP. Gateway uses `CANISTER_URL` (set in Netlify env).
-- **4Everland:** Deployed. Full `web/` at **knowtation.store** (landing `/`, Hub `/hub/`). Custom domain set.
-- **Netlify:** Gateway deployed (e.g. **knowtation-gateway.netlify.app**). `web/hub/config.js` sets `HUB_API_BASE_URL = 'https://knowtation-gateway.netlify.app'` when host is knowtation.store. Env (CANISTER_URL, SESSION_SECRET, OAuth, HUB_BASE_URL, HUB_UI_ORIGIN, etc.) is set.
-- **DNS:** knowtation.store points to 4Everland (and gateway has its own Netlify URL).
-- **Pre-roll:** **Not verified.** Pre-roll is the hosted checklist in [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5; it includes **bridge env**. Do not assume done. See [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md).
+- **Automated smoke (2026-03-21):** `GET https://knowtation-gateway.netlify.app/health` → **200**. `GET https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` → **200** (use **raw** `icp0.io` for `CANISTER_URL` if `ic0.app` returns 400). `https://knowtation.store/hub/` → **301** (redirect; site present).
+- **Canister:** Deployed on ICP. Gateway uses `CANISTER_URL` in Netlify (must match a URL that returns 200 for `/health`).
+- **4Everland:** Full `web/` at **knowtation.store** (landing `/`, Hub `/hub/`). Custom domain set.
+- **Netlify gateway:** e.g. **knowtation-gateway.netlify.app**. `web/hub/config.js` sets `HUB_API_BASE_URL` for knowtation.store to that gateway.
+- **Bridge:** Separate deploy from `hub/bridge/`. Gateway proxies vault/sync, search, index, and some Team APIs when **`BRIDGE_URL`** is set. **Operator:** you have reported bridge + notes working in production; keep **§5 pre-roll** as the list to re-run after env or deploy changes.
+- **Pre-roll / re-verification:** Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 as a **checklist** (not “site unpublished”).
 
-**What the bridge is:** The **bridge** is a **separate** Node app in `hub/bridge/`. It is **not** part of the Netlify gateway deploy (netlify.toml only builds the gateway). The bridge provides: Connect GitHub, Back up now (vault → GitHub), and index + search (per-user vector DB). The **gateway** proxies requests to the bridge only when **BRIDGE_URL** is set in the gateway’s env. If BRIDGE_URL is not set: Connect GitHub, Back up now, and search/index are **not available** on hosted (the gateway does not implement them; it only proxies to canister or to bridge). **“Set ENV” for bridge** means: if you deploy the bridge (e.g. separate Netlify project, or Railway, or same host as gateway), you set that service’s env (CANISTER_URL, SESSION_SECRET, GITHUB_*, EMBEDDING_*, DATA_DIR, etc.) and you set **BRIDGE_URL** in the **gateway’s** Netlify env to the bridge’s public URL. If you do not need GitHub backup or search on hosted, you can leave the bridge undeployed and BRIDGE_URL unset.
+**What the bridge is:** The root `netlify.toml` **build** installs gateway and bridge dependencies and emits **both** Netlify functions (`gateway` and `bridge`). The **gateway** Netlify site uses that root config, so visitors hit the gateway function. The **bridge** is a **separate Netlify site** with **Package directory** `deploy/bridge` so traffic is routed to the bridge function (see [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md)). It provides Connect GitHub, Back up now, index + search, and bridge-persisted roles/invites when configured. Without **`BRIDGE_URL`** on the gateway, those features are not proxied (stubs or missing on gateway-only paths).
 
-**When both Netlify sites are configured (gateway + bridge + `BRIDGE_URL`):** Index/search, Connect GitHub, and **Team (roles/invites)** use the bridge — see parity table below. Embedding must be a **real** API (e.g. `EMBEDDING_PROVIDER=openai` + `OPENAI_API_KEY` on the bridge); `OLLAMA_URL=https://ollama.com` is **not** a valid Ollama API endpoint.
+**When gateway + bridge + `BRIDGE_URL` are set:** Index/search, Connect GitHub, Back up now, and **Team (roles/invites)** on hosted follow [HOSTED-ROLES-VIA-BRIDGE.md](./HOSTED-ROLES-VIA-BRIDGE.md) and the parity table below. Embeddings must use a **real** API (e.g. OpenAI on the bridge); `https://ollama.com` is **not** an Ollama API base URL.
 
-**Remaining (redeploys and bridge — bridge is required, not optional):**
+**After code changes (ongoing ops, not first-time deploy):**
 
-- **Canister redeploy:** The merged parity branch added **Option B** canister changes (`base_state_id`, `external_ref` on proposals). To have those live, run `cd hub/icp && dfx deploy --network ic`. Same canister ID; this is a **redeploy** with new code, not a first-time deploy.
-- **Netlify rebuild:** So the **gateway** runs the merged code (Phase 1 stubs: roles, invites, setup, import, facets). If Netlify builds from main, trigger a deploy so the latest gateway code is live.
-- **4Everland rebuild:** So the Hub at knowtation.store serves the latest `web/` (e.g. Muse in How to use). Trigger a build if it does not auto-deploy from main.
-- **Bridge (required):** Connect GitHub, Back up now, and search on hosted **require** the bridge. Deploy `hub/bridge/` somewhere, set its env, and set **BRIDGE_URL** in the gateway’s Netlify env.
+- **Canister:** Redeploy when Motoko changes (e.g. Option B proposal fields, future Phase 15.1): `cd hub/icp && dfx deploy --network ic`.
+- **Gateway / bridge:** Redeploy Netlify (or your host) when `hub/gateway` or `hub/bridge` changes; confirm env vars still set.
+- **4Everland:** Rebuild when `web/` changes.
 
 **Docs:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md), [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md), [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md), [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md), [hub/gateway/README.md](../hub/gateway/README.md), [hub/bridge/README.md](../hub/bridge/README.md).
 
@@ -46,9 +52,9 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 
 ## 2. Multi-vault (split vault)
 
-**Self-hosted (Node Hub): implemented (Phase 15).** `data/hub_vaults.yaml`, `hub_vault_access.json`, optional `hub_scope.json`; vault switcher in the Hub header; `X-Vault-Id` on API calls; bridge supports `(user, vault_id)` for index/search when deployed. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 and [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
+**Self-hosted (Node Hub): implemented (Phase 15).** `data/hub_vaults.yaml`, `hub_vault_access.json`, optional `hub_scope.json`; vault switcher in the Hub header; `X-Vault-Id` on API calls; `hub/server.mjs` resolves path + access + scope; bridge uses `(uid, vault_id)` directories for sqlite-vec. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 and [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
 
-**Hosted (canister):** Still **one logical vault per user** in storage today; multi-vault in the canister is follow-up when you want parity with self-hosted switching on knowtation.store.
+**Hosted (canister): UI “multi-vault” ≠ isolated note storage yet.** The Hub **vault switcher** and gateway **forward** `X-Vault-Id`, but the canister **does not read** that header for notes: **`getVault(uid)`** is a single path→note map per user ([`hub/icp/src/hub/main.mo`](../hub/icp/src/hub/main.mo)). So on hosted, **all vault IDs share the same notes** until **Phase 15.1** partitions storage by `(uid, vault_id)`. The bridge can use **separate vector dirs** per `(uid, vault_id)`, but canister **export** is still the full user map — indexes per “vault” are not separate content. Details: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted.
 
 ---
 
@@ -64,7 +70,7 @@ Short reference for where we are on **canister/hosted**, **two-path launch**, **
 | **Settings → Setup / POST setup** | Writes `hub_setup.yaml` | Gateway stub (no-op); vault is canister |
 | **Import (Hub upload)** | Works | 501 stub on gateway (not yet on hosted) |
 | **Facets (filter dropdowns)** | Real data from notes | Gateway stub returns empty unless extended to aggregate from canister |
-| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id` | ❌ Single vault per user in canister; UI may show switcher only after canister + gateway support multiple vaults |
+| **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id`; notes isolated per vault | ⚠️ UI sends `X-Vault-Id`; **canister does not scope notes by vault** (one map per user). Bridge may split vector dirs by `vault_id` but **same** exported notes — **Phase 15.1** for real isolation |
 | **Vault access JSON (admin)** | ✅ | N/A on hosted (no `hub_vault_access.json` on canister path today) |
 
 **Commits (reference):** Phase 15 multi-vault (self-hosted) merged; `b4002be` and related — hosted roles/invites via bridge; gateway proxies search/index/vault/roles/invites when `BRIDGE_URL` is set.
@@ -100,14 +106,17 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 
 | Priority | What |
 |----------|------|
-| **Hosted live** | Canister, 4Everland, Netlify gateway, DNS deployed. **Bridge:** deploy `knowtation-bridge`, set `BRIDGE_URL` on gateway, fix embedding env (OpenAI or reachable Ollama API — not `https://ollama.com`). Pre-roll: [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5. |
-| **Hosted multi-vault (canister)** | **Not done.** Self-hosted Phase 15 is complete; hosted needs canister (and gateway) changes to store and route by `vault_id`. See PARITY-PLAN Phase 3 and §2.1 table above. |
-| **Phase 15 (multi-vault) self-hosted** | ✅ Done in repo — `hub_vaults.yaml`, access, scope, Hub UI. |
-| **Phase 16 (hosted credits)** | When ready to monetize: balance model, deduction rules, purchase flow, Hub UI; see Phase 16 in IMPLEMENTATION-PLAN. |
-| **Phase 12 (blockchain)** | When needed: implement reserved frontmatter, CLI filters, capture/import; see [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md). |
+| **Keep CI honest** | Run **`npm test`** on every meaningful change (root of repo). |
+| **Hosted re-verify (you)** | After any deploy or env change, walk [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + UI smoke: login, create note, search/re-index, Connect GitHub / Back up now if you use them. Optional seed: `scripts/seed-hosted-c-data.mjs` (needs `KNOWTATION_HUB_URL` + JWT from Hub — see script header). |
+| **Hosted multi-vault (canister) — Phase 15.1** | **Main product gap for parity with self-hosted.** Partition Motoko storage by `vault_id`, scoped export/list/write; then align backup and settings vault list. [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) checklist. |
+| **Parity gaps (no canister)** | Hub **Import** hosted stub (501); **facets** empty unless aggregated from canister — [PARITY-PLAN.md](./PARITY-PLAN.md). |
+| **Phase 15 self-hosted** | ✅ `hub_vaults.yaml`, access, scope, Hub UI. |
+| **MCP hosted (Issue #1)** | D2/D3 etc. after stable hosted baseline — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). |
+| **Phase 16 (hosted billing)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); Stripe subscriptions + metering; future credit top-ups — IMPLEMENTATION-PLAN Phase 16. |
+| **Phase 12 (blockchain notes)** | Agent wallets / on-chain fields in notes — [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md); separate from Phase 16 ledger. |
 
 See **§4** above for when to consider a separate HTTP canister (Rust) vs keeping HTTP in Motoko.
 
 ---
 
-**Last updated:** 2026-03-20 — Added §2.1 parity snapshot; clarified Phase 15 self-hosted ✅ vs hosted multi-vault ❌; bridge operational notes (embedding URL). Phase 14 (two-path) done; hosting = beta until Phase 16.
+**Last updated:** 2026-03-21 — Billing docs: **subscription-first** (Stripe card, three tiers), beta open usage, overage → upgrade, future credit top-ups; Phase 12 remains separate from hosted billing.

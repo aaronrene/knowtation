@@ -25,17 +25,17 @@ When every item is checked, **pre-roll is done** for the hosted stack. No new pa
 
 The bridge is the Node app in `hub/bridge/`. It provides Connect GitHub, Back up now, and index/search. The **gateway** (knowtation-gateway.netlify.app) does not run this code; it only **proxies** to the bridge when you set **BRIDGE_URL** in the gateway’s env. So you need the bridge running somewhere and its URL in the gateway.
 
-### Option A — Second Netlify project (same repo, mostly variables + one redirect)
+### Option A — Second Netlify project (same repo, different package directory + env)
 
-Yes: it’s **another Netlify site** from the **same repo**, with **different env variables** and **one different setting** (redirect target).
+Yes: it’s **another Netlify site** from the **same repo**, with **different env variables** and the bridge site’s **Package directory** pointing at `deploy/bridge`.
 
-- **Same repo, same build:** The repo has `netlify/functions/bridge.mjs` (wraps `hub/bridge/server.mjs`) and the root `netlify.toml` build installs both gateway and bridge deps (`cd hub/gateway && npm ci && cd ../bridge && npm ci`). So every build produces **both** functions (gateway and bridge). The first Netlify site sends traffic to the gateway function; the second sends traffic to the bridge function.
-- **First Netlify site (gateway):** knowtation-gateway.netlify.app. Uses the repo’s `netlify.toml`: all traffic goes to `/.netlify/functions/gateway`. Env: CANISTER_URL, SESSION_SECRET, HUB_BASE_URL, HUB_UI_ORIGIN, HUB_CORS_ORIGIN, OAuth, and optionally BRIDGE_URL.
-- **Second Netlify site (bridge):** Create a **new** site in Netlify, connect the **same** GitHub repo and branch. Use the bridge-specific config so redirects do not depend on `public/_redirects`. The only differences:
-  1. **Package directory:** In the **second** site's Netlify dashboard → **Build & deploy** → **Continuous deployment** → **Build settings** → **Configure**, set **Package directory** to `deploy/bridge`. Leave **Base directory** empty. Netlify will use [deploy/bridge/netlify.toml](../deploy/bridge/netlify.toml), which sends all traffic to `/.netlify/functions/bridge/:splat` (path preserved). No `_redirects` file or **USE_BRIDGE_FUNCTION** env var needed for routing.
-  2. **Env variables:** In the **second** site’s dashboard, set the **bridge** env vars (see below). Do **not** set BRIDGE_URL here — BRIDGE_URL goes on the **gateway** site and must be the **URL of this second site** (e.g. `https://knowtation-bridge.netlify.app`).
+- **Same repo, same build shape:** The repo has `netlify/functions/gateway.mjs` and `netlify/functions/bridge.mjs` (wrappers around the Express apps). The root `netlify.toml` runs `npm install`, `scripts/netlify-redirects.mjs`, then `npm ci` in `hub/gateway` and `hub/bridge`. Every deploy produces **both** function bundles. Which function receives HTTP traffic is determined by **routing**, not by omitting the bridge bundle.
+- **First Netlify site (gateway):** e.g. knowtation-gateway.netlify.app. Uses the repo root `netlify.toml` with **Base directory** empty (repo root). Do **not** set `USE_BRIDGE_FUNCTION`; the build writes `public/_redirects` so `/*` goes to `/.netlify/functions/gateway/:splat`. Env: CANISTER_URL, SESSION_SECRET, HUB_BASE_URL, HUB_UI_ORIGIN, HUB_CORS_ORIGIN, OAuth, and optionally BRIDGE_URL.
+- **Second Netlify site (bridge):** Create a **new** site, same repo and branch. Configure:
+  1. **Package directory:** `deploy/bridge` (so Netlify loads [deploy/bridge/netlify.toml](../deploy/bridge/netlify.toml)). Leave **Base directory** empty so installs and `functions` / `publish` paths resolve from the **repository root** (see [Netlify monorepo docs](https://docs.netlify.com/configure-builds/monorepos/)). That file sets `[build.environment] USE_BRIDGE_FUNCTION=true` so `scripts/netlify-redirects.mjs` writes `public/_redirects` for the bridge, and it includes `[[redirects]]` to `/.netlify/functions/bridge/:splat` (path preserved).
+  2. **Env variables:** On the **second** site, set the **bridge** env vars (table below). Do **not** set BRIDGE_URL here — BRIDGE_URL goes on the **gateway** site and must be the **URL of this second site** (e.g. `https://knowtation-bridge.netlify.app`).
 
-So: **two Netlify sites, one repo, one build; difference = Package directory (bridge uses deploy/bridge) + env (and BRIDGE_URL on the first site pointing to the second).**
+So: **two Netlify sites, one repo; difference = Package directory (bridge uses `deploy/bridge`) + env (and BRIDGE_URL on the gateway pointing at the bridge URL).**
 
 **Bridge env on the second Netlify site:**
 
@@ -89,7 +89,7 @@ When all are verified, pre-roll is complete. Then do a **rebuild** of the gatewa
 
 - **Stay on the same branch** for Phase 2: e.g. `feature/parity-phase-2-follow-up`. All Phase 2 work (parity, docs, exact state, bridge deploy instructions, and the bridge Netlify function if we add it) belongs to the same “Phase 2” scope.
 - **Do the PR now** (or as soon as your current doc/code changes are ready): open a PR from this branch to `main`. The PR should include:
-  - Doc updates (EXACT-STATE-PHASE2, DEPLOY-STEPS, IMPLEMENTATION-PLAN, STATUS-*, BRIDGE-DEPLOY-AND-PREROLL, etc.).
+  - Doc updates (DEPLOY-STEPS, IMPLEMENTATION-PLAN, STATUS-*, BRIDGE-DEPLOY-AND-PREROLL, etc.).
   - Any code added for Phase 2 (e.g. `netlify/functions/bridge.mjs` if we add it so the second Netlify site can serve the bridge).
 - **After the PR is merged:** Do the **operational** steps: deploy the bridge (second Netlify site or Railway), set env and BRIDGE_URL, run the pre-roll checklist, then trigger gateway (and 4Everland) rebuild if needed.
 - You do **not** need a separate branch for “bridge deploy” or “pre-roll” — those are things you do in Netlify/dashboards and with the checklist, not new branches. A separate branch only makes sense if you later do a different feature (e.g. Phase 3 multi-vault).

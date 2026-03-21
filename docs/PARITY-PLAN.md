@@ -54,6 +54,8 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. On hosted, Phase 1 is complete: the gateway now handles these with stubs, so Team tab and “Save setup” no longer 404.
 
+**Multi-vault on hosted:** API/UI may send **`X-Vault-Id`**, but **note storage in the canister is not split by vault yet** (one map per user). True parity with self-hosted multi-vault is **outside** this parity table until Motoko storage + migration ship — see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted.
+
 ---
 
 ## Phase 1 — API parity (gateway stubs)

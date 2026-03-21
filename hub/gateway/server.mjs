@@ -15,6 +15,9 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
+import { stripeWebhookHandler } from './billing-stripe.mjs';
+import { handleBillingSummary } from './billing-http.mjs';
+import { runBillingGate } from './billing-middleware.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -133,6 +136,9 @@ app.use((req, _res, next) => {
 });
 
 app.use(cookieParser());
+app.post('/api/v1/billing/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  stripeWebhookHandler(req, res);
+});
 app.use(express.json({ limit: '10mb' }));
 app.use(passport.initialize());
 
@@ -232,9 +238,11 @@ if (BRIDGE_URL) {
     await proxyTo(BRIDGE_URL, url, req, res);
   });
   app.post('/api/v1/search', async (req, res) => {
+    if (!(await runBillingGate(req, res, getUserId))) return;
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/search', req, res);
   });
   app.post('/api/v1/index', async (req, res) => {
+    if (!(await runBillingGate(req, res, getUserId))) return;
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/index', req, res);
   });
   // Roles & invites: proxy to bridge (bridge has persistent storage)
@@ -288,10 +296,37 @@ function getUserId(req) {
   return token ? verifyToken(token) : null;
 }
 
-// GET /api/v1/settings and GET /api/v1/setup — hosted stub (canister does not implement these)
+app.get('/api/v1/billing/summary', (req, res) => handleBillingSummary(req, res, getUserId));
+
+// GET /api/v1/settings and GET /api/v1/setup — hosted: vault_list from canister; bridge fields when BRIDGE_URL set
 app.get('/api/v1/settings', async (req, res) => {
   const uid = getUserId(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  let vault_list = [{ id: 'default', label: 'Default' }];
+  let allowed_vault_ids = ['default'];
+  if (CANISTER_URL) {
+    try {
+      const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
+        method: 'GET',
+        headers: { 'X-User-Id': uid, Accept: 'application/json' },
+      });
+      if (vRes.ok) {
+        const data = await vRes.json();
+        const vaults = Array.isArray(data.vaults) ? data.vaults : [];
+        if (vaults.length > 0) {
+          vault_list = vaults.map((v) => ({
+            id: String(v.id || 'default'),
+            label: String(v.label != null && v.label !== '' ? v.label : v.id || 'default'),
+          }));
+          allowed_vault_ids = vault_list.map((v) => v.id);
+        }
+      } else {
+        console.warn('[gateway] canister vaults non-ok', vRes.status);
+      }
+    } catch (e) {
+      console.warn('[gateway] canister vaults unreachable', e?.message || String(e));
+    }
+  }
   let github_connected = false;
   let github_repo = null;
   let role = roleForSub(uid);
@@ -330,6 +365,8 @@ app.get('/api/v1/settings', async (req, res) => {
     role,
     user_id: uid,
     vault_id: 'default',
+    vault_list,
+    allowed_vault_ids,
     vault_path_display: 'Canister',
     vault_git,
     github_connect_available: Boolean(BRIDGE_URL),
@@ -355,6 +392,15 @@ function requireAdmin(req, res, next) {
   if (roleForSub(uid) !== 'admin') return res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
   next();
 }
+
+// Hosted: vault list is derived from the canister; YAML vault editor is self-hosted only
+app.post('/api/v1/vaults', requireAdmin, (_req, res) => {
+  res.status(501).json({
+    error:
+      'Editing the vault list in Settings is not available on hosted. Vaults appear when you add notes; use the vault switcher or API with X-Vault-Id.',
+    code: 'NOT_AVAILABLE',
+  });
+});
 
 // GET /api/v1/roles — hosted stub: no role store; admin sees empty list (parity: only admins can open Team)
 app.get('/api/v1/roles', requireAdmin, (_req, res) => {
@@ -449,8 +495,9 @@ async function proxyToCanister(req, res) {
   }
 }
 
-app.use('/api/v1', (req, res, next) => {
+app.use('/api/v1', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
+  if (!(await runBillingGate(req, res, getUserId))) return;
   return proxyToCanister(req, res);
 });
 

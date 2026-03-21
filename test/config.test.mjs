@@ -91,4 +91,23 @@ describe('loadConfig', () => {
       try { fs.rmdirSync(dataDir); } catch (_) {}
     }
   });
+
+  it('does not apply hub_setup vault_path when KNOWTATION_VAULT_PATH is set', () => {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const vaultAbs = path.join(fixturesDir, 'vault-fs');
+    process.env.KNOWTATION_VAULT_PATH = vaultAbs;
+    fs.writeFileSync(
+      hubSetupPath,
+      'vault_path: markdown-import\nvault:\n  git:\n    enabled: false\n',
+      'utf8'
+    );
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.vault_path, vaultAbs);
+    } finally {
+      delete process.env.KNOWTATION_VAULT_PATH;
+      try { fs.unlinkSync(hubSetupPath); } catch (_) {}
+      try { fs.rmdirSync(dataDir); } catch (_) {}
+    }
+  });
 });

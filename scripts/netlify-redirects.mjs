@@ -1,14 +1,16 @@
 /**
  * Writes public/_redirects so traffic goes to gateway or bridge function.
- * Set USE_BRIDGE_FUNCTION=true on the knowtation-bridge site only.
- * We always write _redirects so both sites have explicit routing (avoids netlify.toml ambiguity).
+ * Gateway site: leave USE_BRIDGE_FUNCTION unset. Bridge site: true (set in Netlify UI
+ * or in deploy/bridge/netlify.toml [build.environment]). Root netlify.toml must not
+ * declare a catch-all [[redirects]]—it would apply to every linked site in the monorepo.
  */
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const publicDir = new URL('../public', import.meta.url);
+// Base must end with / so `_redirects` is under public/ (otherwise URL resolution drops `public`).
+const publicDir = new URL('../public/', import.meta.url);
 const redirectsPath = new URL('_redirects', publicDir);
 
 const useBridge = process.env.USE_BRIDGE_FUNCTION === 'true' || process.env.USE_BRIDGE_FUNCTION === '1';

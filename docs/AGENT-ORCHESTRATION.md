@@ -38,7 +38,7 @@ Recommendation: support **both**. Use MCP where the runtime already has MCP; use
 
 4. **Scope (Phase G):** The server includes **`instructions`** with `file://` paths for the vault and index data directory. Hosts that support MCP **roots** may also receive a one-time structured log of the client’s `roots/list` response (for debugging alignment).
 
-5. **Sampling (Phase F1):** If the host supports MCP **sampling**, the **`summarize`** tool may run the summary in the **client’s** LLM (host approval may be required). If sampling is unavailable, Knowtation falls back to server-side Ollama/OpenAI as before. See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
+5. **Sampling (Phase F1):** If the host supports MCP **sampling**, the **`summarize`** tool may run the summary in the **client’s** LLM (host approval may be required). If sampling is unavailable, Knowtation falls back to server-side Ollama/OpenAI as before. Implementation: `mcp/tools/phase-c.mjs`; roadmap: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
 
 Use **tiered retrieval** from the SKILL: small `limit`, `--fields path` or path+snippet, then `get_note` only for chosen paths. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 
@@ -79,7 +79,7 @@ Same **tiered retrieval** pattern: use `--limit`, `--fields path`, `--count-only
 
 ## AgentCeption specifically
 
-For a dedicated guide to the AgentCeption + Knowtation integration (including this weekend's hackathon implementation), see **[AGENTCEPTION-HACKATHON.md](./AGENTCEPTION-HACKATHON.md)**.
+For integration patterns with external orchestrators, see **[AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)** and **[GETTING-STARTED.md](./GETTING-STARTED.md)** (agents section).
 
 [AgentCeption](https://github.com/cgcardona/agentception) turns a brain dump into a structured plan (PlanSpec), GitHub issues, and an agent org (CTO → coordinators → engineers) that works in isolated worktrees and opens PRs.
 

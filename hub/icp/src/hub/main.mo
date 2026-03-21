@@ -1,6 +1,8 @@
 /**
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
- * Implements GET /health, GET/POST /api/v1/notes, GET /api/v1/notes/:path, GET/POST /api/v1/proposals, approve, discard.
+ * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
+ * Implements GET /health, GET/POST /api/v1/notes, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
+ * GET/POST /api/v1/proposals, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
  */
@@ -56,41 +58,72 @@ type StreamingCallbackResponse = {
 // --- Storage ---
 type NoteContent = { path : Text; frontmatter : Text; body : Text };
 type ProposalRecord = Migration.ProposalRecord;
+type BillingRecord = Migration.BillingRecord;
 type StableStorage = Migration.StableStorage;
 
-var storage : StableStorage = { vaultEntries = []; proposalEntries = [] };
+var storage : StableStorage = { vaultEntries = []; proposalEntries = []; billingByUser = [] };
 
-transient var vaults = HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>(10, Text.equal, Text.hash);
+/// userId -> vaultId -> path -> (frontmatter, body)
+transient var byUser = HashMap.HashMap<Text, HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>>(10, Text.equal, Text.hash);
 transient var proposals = HashMap.HashMap<Text, [ProposalRecord]>(10, Text.equal, Text.hash);
+transient var billingMap = HashMap.HashMap<Text, BillingRecord>(10, Text.equal, Text.hash);
 
 func loadStable() {
-  for ((uid, entries) in Array.vals(storage.vaultEntries)) {
-    let m = HashMap.HashMap<Text, (Text, Text)>(10, Text.equal, Text.hash);
-    for ((path, fmBody) in Array.vals(entries)) {
-      m.put(path, fmBody);
+  for ((uid, vaultId, entries) in Array.vals(storage.vaultEntries)) {
+    let um = switch (byUser.get(uid)) {
+      case (?m) { m };
+      case null {
+        let m = HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>(10, Text.equal, Text.hash);
+        byUser.put(uid, m);
+        m;
+      };
     };
-    vaults.put(uid, m);
+    let inner = switch (um.get(vaultId)) {
+      case (?m) { m };
+      case null {
+        let m = HashMap.HashMap<Text, (Text, Text)>(10, Text.equal, Text.hash);
+        um.put(vaultId, m);
+        m;
+      };
+    };
+    for ((path, fmBody) in Array.vals(entries)) {
+      inner.put(path, fmBody);
+    };
   };
   for ((uid, list) in Array.vals(storage.proposalEntries)) {
     proposals.put(uid, list);
   };
+  for ((uid, b) in Array.vals(storage.billingByUser)) {
+    billingMap.put(uid, b);
+  };
 };
 
 func saveStable() {
+  var vaultRows : [(Text, Text, [(Text, (Text, Text))])] = [];
+  for ((uid, um) in byUser.entries()) {
+    for ((vaultId, m) in um.entries()) {
+      vaultRows := Array.append(vaultRows, [(uid, vaultId, Iter.toArray(m.entries()))]);
+    };
+  };
   storage := {
-    vaultEntries = Iter.toArray(Iter.map<((Text, HashMap.HashMap<Text, (Text, Text)>)), (Text, [(Text, (Text, Text))])>(vaults.entries(), func((uid, m) : (Text, HashMap.HashMap<Text, (Text, Text)>)) : (Text, [(Text, (Text, Text))]) {
-      (uid, Iter.toArray(m.entries()))
-    }));
-    proposalEntries = Iter.toArray(Iter.map<((Text, [ProposalRecord])), (Text, [ProposalRecord])>(proposals.entries(), func((uid, list) : (Text, [ProposalRecord])) : (Text, [ProposalRecord]) {
-      (uid, list)
-    }));
+    vaultEntries = vaultRows;
+    proposalEntries = Iter.toArray(
+      Iter.map<((Text, [ProposalRecord])), (Text, [ProposalRecord])>(proposals.entries(), func((uid, list) : (Text, [ProposalRecord])) : (Text, [ProposalRecord]) {
+        (uid, list);
+      }),
+    );
+    billingByUser = Iter.toArray(
+      Iter.map<((Text, BillingRecord)), (Text, BillingRecord)>(billingMap.entries(), func((uid, b) : (Text, BillingRecord)) : (Text, BillingRecord) {
+        (uid, b);
+      }),
+    );
   };
 };
 
 loadStable();
 
 func charToLower(c : Char) : Char {
-  if (c >= 'A' and c <= 'Z') { Char.fromNat32(Char.toNat32(c) + 32) } else { c }
+  if (c >= 'A' and c <= 'Z') { Char.fromNat32(Char.toNat32(c) + 32) } else { c };
 };
 func getHeader(req : HttpRequest, name : Text) : ?Text {
   let lower = Text.map(name, charToLower);
@@ -110,6 +143,47 @@ func userId(req : HttpRequest) : Text {
   };
 };
 
+func isAsciiSpace(c : Char) : Bool {
+  c == ' ' or c == '\t' or c == '\n' or c == '\r';
+};
+
+func isVaultIdChar(c : Char) : Bool {
+  let n = Char.toNat32(c);
+  (n >= 48 and n <= 57) or (n >= 65 and n <= 90) or (n >= 97 and n <= 122) or c == '_' or c == '-';
+};
+
+/// Align with hub/bridge sanitizeVaultId: [a-zA-Z0-9_-], max 64; invalid chars -> '_'.
+func sanitizeVaultId(raw : Text) : Text {
+  let chars = Text.toArray(raw);
+  var out = "";
+  var count : Nat = 0;
+  var i : Nat = 0;
+  while (i < chars.size() and count < 64) {
+    let c = chars[i];
+    if (isVaultIdChar(c)) {
+      out := out # Char.toText(c);
+    } else {
+      out := out # "_";
+    };
+    count += 1;
+    i += 1;
+  };
+  let t = Text.trim(out, #predicate isAsciiSpace);
+  if (t.size() == 0) { "default" } else { t };
+};
+
+func vaultIdFromRequest(req : HttpRequest) : Text {
+  switch (getHeader(req, "X-Vault-Id")) {
+    case (?v) { sanitizeVaultId(Text.trim(v, #predicate isAsciiSpace)) };
+    case null { "default" };
+  };
+};
+
+func effectiveVaultId(stored : Text) : Text {
+  let t = Text.trim(stored, #predicate isAsciiSpace);
+  if (t.size() == 0) { "default" } else { t };
+};
+
 func corsHeaders() : [Header] {
   [
     ("Access-Control-Allow-Origin", "*"),
@@ -121,12 +195,24 @@ func corsHeaders() : [Header] {
 
 func jsonBody(s : Text) : Blob { Text.encodeUtf8(s) };
 
-func getVault(uid : Text) : HashMap.HashMap<Text, (Text, Text)> {
-  switch (vaults.get(uid)) {
+func userVaultMap(uid : Text) : HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>> {
+  switch (byUser.get(uid)) {
+    case (?m) { m };
+    case null {
+      let m = HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>(10, Text.equal, Text.hash);
+      byUser.put(uid, m);
+      m;
+    };
+  };
+};
+
+func getVault(uid : Text, vaultId : Text) : HashMap.HashMap<Text, (Text, Text)> {
+  let um = userVaultMap(uid);
+  switch (um.get(vaultId)) {
     case (?m) { m };
     case null {
       let m = HashMap.HashMap<Text, (Text, Text)>(10, Text.equal, Text.hash);
-      vaults.put(uid, m);
+      um.put(vaultId, m);
       m;
     };
   };
@@ -138,6 +224,12 @@ func getProposalsList(uid : Text) : [ProposalRecord] {
 
 func setProposalsList(uid : Text, list : [ProposalRecord]) {
   proposals.put(uid, list);
+};
+
+func proposalsForVault(uid : Text, reqVault : Text) : [ProposalRecord] {
+  let eff = effectiveVaultId(reqVault);
+  let list = getProposalsList(uid);
+  Array.filter<ProposalRecord>(list, func(p : ProposalRecord) : Bool { effectiveVaultId(p.vault_id) == eff });
 };
 
 // Helpers for text slice and find (base library has no Text.sub / Text.find returning position).
@@ -196,6 +288,8 @@ func parsePath(url : Text) : (Text, Text) {
     ("note", suffix);
   } else if (path == "/api/v1/notes" or path == "/api/v1/notes/") {
     ("notes", "");
+  } else if (path == "/api/v1/vaults" or path == "/api/v1/vaults/") {
+    ("vaults", "");
   } else if (Text.startsWith(path, #text "/api/v1/proposals/")) {
     let rest = Text.trimStart(path, #text "/api/v1/proposals/");
     let parts = Iter.toArray(Text.split(rest, #char '/'));
@@ -290,8 +384,29 @@ func escapeJson(s : Text) : Text {
   out;
 };
 
+func vaultIdsForUser(uid : Text) : [Text] {
+  switch (byUser.get(uid)) {
+    case null { ["default"] };
+    case (?um) {
+      let keys = Iter.toArray(um.keys());
+      if (keys.size() == 0) { ["default"] } else { keys };
+    };
+  };
+};
+
+func vaultListJson(uid : Text) : Text {
+  let ids = vaultIdsForUser(uid);
+  var items : Text = "";
+  for (vid in Array.vals(ids)) {
+    if (items != "") { items := items # "," };
+    items := items # "{\"id\":\"" # escapeJson(vid) # "\",\"label\":\"" # escapeJson(vid) # "\"}";
+  };
+  "{\"vaults\":[" # items # "]}";
+};
+
 public query func http_request(req : HttpRequest) : async HttpResponse {
   let uid = userId(req);
+  let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
 
   if (pathKind == "health") {
@@ -304,8 +419,18 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     };
   };
 
+  if (pathKind == "vaults" and req.method == "GET") {
+    return {
+      status_code = 200;
+      headers = corsHeaders();
+      body = jsonBody(vaultListJson(uid));
+      streaming_strategy = null;
+      upgrade = null;
+    };
+  };
+
   if (pathKind == "export" and req.method == "GET") {
-    let vault = getVault(uid);
+    let vault = getVault(uid, vid);
     let entries = Iter.toArray(vault.entries());
     var items : Text = "";
     for ((p, fmBody) in Array.vals(entries)) {
@@ -317,7 +442,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "notes" and req.method == "GET") {
-    let vault = getVault(uid);
+    let vault = getVault(uid, vid);
     let entries = Iter.toArray(vault.entries());
     var items : Text = "";
     for ((p, fmBody) in Array.vals(entries)) {
@@ -335,7 +460,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     } else {
       pathDecoded
     };
-    let vault = getVault(uid);
+    let vault = getVault(uid, vid);
     switch (vault.get(pathNormalized)) {
       case (?fmBody) {
         let json = "{\"path\":\"" # escapeJson(pathNormalized) # "\",\"frontmatter\":{},\"body\":\"" # escapeJson(fmBody.1) # "\"}";
@@ -356,21 +481,21 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "proposals" and req.method == "GET") {
-    let list = getProposalsList(uid);
+    let list = proposalsForVault(uid, vid);
     var items : Text = "";
     for (p in Array.vals(list)) {
       if (items != "") { items := items # "," };
-      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
+      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
     };
     let json = "{\"proposals\":[" # items # "],\"total\":" # Nat.toText(list.size()) # "}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
   };
 
   if (pathKind == "proposal" and req.method == "GET") {
-    let list = getProposalsList(uid);
+    let list = proposalsForVault(uid, vid);
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
@@ -402,11 +527,12 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
 
 public func http_request_update(req : HttpRequest) : async HttpResponse {
   let uid = userId(req);
+  let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
   let bodyText = if (req.body.size() > 0) { Option.get(Text.decodeUtf8(req.body), "{}") } else { "{}" };
 
   if (pathKind == "notes" and req.method == "POST") {
-    let vault = getVault(uid);
+    let vault = getVault(uid, vid);
     let path = if (pathArg.size() > 0) { pathArg } else { Option.get(extractJsonString(bodyText, "path"), "") };
     if (path.size() == 0) {
       return { status_code = 400; headers = corsHeaders(); body = jsonBody("{\"error\":\"path required\",\"code\":\"BAD_REQUEST\"}"); streaming_strategy = null; upgrade = null };
@@ -428,7 +554,19 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let proposal_id = "prop-" # Int.toText(Time.now());
     let now = "2025-01-01T00:00:00.000Z";
     var list = getProposalsList(uid);
-    let newP : ProposalRecord = { proposal_id; path; status = "proposed"; body; frontmatter; intent; base_state_id; external_ref; created_at = now; updated_at = now };
+    let newP : ProposalRecord = {
+      proposal_id;
+      path;
+      status = "proposed";
+      body;
+      frontmatter;
+      intent;
+      base_state_id;
+      external_ref;
+      vault_id = vid;
+      created_at = now;
+      updated_at = now;
+    };
     list := Array.append(list, [newP]);
     setProposalsList(uid, list);
     saveStable();
@@ -440,7 +578,8 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     var list = getProposalsList(uid);
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
-        let vault = getVault(uid);
+        let targetVid = effectiveVaultId(p.vault_id);
+        let vault = getVault(uid, targetVid);
         vault.put(p.path, (p.frontmatter, p.body));
         list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) { { x with status = "approved"; updated_at = "2025-01-01T00:00:00.000Z" } } else { x }

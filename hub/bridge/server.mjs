@@ -578,9 +578,10 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   // Fetch vault from canister (export)
   let exportRes;
   try {
+    const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
-      headers: { 'X-User-Id': uid, 'Accept': 'application/json' },
+      headers: { 'X-User-Id': uid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
     });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
@@ -774,7 +775,7 @@ app.post('/api/v1/index', async (req, res) => {
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
-  const vaultId = req.headers['x-vault-id'] || 'default';
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
   let exportRes;
   try {
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {

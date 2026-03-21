@@ -5,8 +5,19 @@ This folder contains the **ICP canister** implementation of the Knowtation Hub A
 ## Contract
 
 - **Auth:** For dev, use header `X-Test-User` or `X-User-Id`. In production the gateway sends a proof (e.g. `X-User-Id`) that the canister trusts; see [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md).
-- **Endpoints:** `GET /health`, `GET /api/v1/notes`, `GET /api/v1/notes/:path`, `POST /api/v1/notes`, `GET/POST /api/v1/proposals`, `GET /api/v1/proposals/:id`, `POST /api/v1/proposals/:id/approve`, `POST /api/v1/proposals/:id/discard`. Search and settings are not implemented in the canister (handled by gateway/bridge in hosted mode).
+- **Endpoints:** `GET /health`, `GET /api/v1/notes`, `GET /api/v1/notes/:path`, `POST /api/v1/notes`, `GET /api/v1/export`, `GET /api/v1/vaults`, `GET/POST /api/v1/proposals`, `GET /api/v1/proposals/:id`, `POST /api/v1/proposals/:id/approve`, `POST /api/v1/proposals/:id/discard`. Notes and export are scoped by **`X-Vault-Id`** (default `default`). Search and settings are not in the canister (gateway/bridge in hosted mode).
 - **Storage:** Vault (path → frontmatter/body) and proposals per user in canister stable memory.
+
+## Pre-deploy safety (recommended)
+
+Before **`dfx deploy --network ic`**, from the **repository root**:
+
+```bash
+npm run canister:preflight
+# or: bash scripts/canister-predeploy.sh
+```
+
+This runs **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub`**. Optional JSON backup of one vault: set `KNOWTATION_CANISTER_URL` and `KNOWTATION_CANISTER_BACKUP_USER_ID` (see comments in `scripts/canister-predeploy.sh`). Exports land in `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
 
 ## Build and deploy
 
@@ -28,9 +39,9 @@ This folder contains the **ICP canister** implementation of the Knowtation Hub A
 
 ## Stable memory upgrades (mainnet)
 
-If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain `ProposalRecord` shape no longer matches the source (e.g. after adding `base_state_id` / `external_ref`). The project includes **`src/hub/Migration.mo`** and `(with migration = Migration.migration)` on the hub actor so one upgrade maps **V0** proposals (without those two fields) to the current record, filling them with `""`.
+If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain stable type no longer matches the migration input type in **`Migration.mo`**. The project uses **`src/hub/Migration.mo`** and `(with migration = Migration.migration)` on the hub actor. **V0** (one note map per user) upgrades to **V1** (multi-vault `(userId, vaultId)` + `billingByUser` reservation + `vault_id` on proposals); existing notes move to vault id **`default`**.
 
-After this upgrade has run successfully on mainnet, a **later** release may drop the migration hook and module if you want a minimal actor (see Motoko compatibility docs).
+Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTED-STORAGE-BILLING-ROADMAP.md). After a one-way upgrade has run on mainnet, a **later** release may only simplify migration if Motoko compatibility allows (see [Motoko upgrades](https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility)).
 
 ## ICP HTTP gateway behavior (hosted)
 

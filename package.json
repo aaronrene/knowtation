@@ -15,7 +15,9 @@
     "mcp:http": "MCP_TRANSPORT=http node mcp/server.mjs",
     "transcribe": "node scripts/transcribe.mjs",
     "test": "node --test test/*.test.mjs",
-    "hub": "node hub/server.mjs"
+    "hub": "node hub/server.mjs",
+    "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
+    "canister:preflight": "bash scripts/canister-predeploy.sh"
   },
   "keywords": [
     "knowledge-base",
@@ -39,6 +41,7 @@
     "multer": "^1.4.5-lts.1",
     "serverless-http": "^3.2.0",
     "sqlite-vec": "^0.1.7-alpha.2",
+    "stripe": "^17.7.0",
     "zod": "^4.3.6"
   }
 }

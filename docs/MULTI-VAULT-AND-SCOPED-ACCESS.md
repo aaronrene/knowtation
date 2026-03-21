@@ -17,9 +17,41 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 - **Hub UI:** Vault switcher in the header (when multiple vaults are allowed); Settings → **Vaults** (admin): vault list, vault access, scope (JSON edit).
 - **Roles:** Unchanged: viewer / editor / admin control actions. Vault access and scope control **which vault(s)** and **which projects/folders** a user sees.
 
-### Hosted (canister)
+### Hosted (canister + gateway + bridge) — code-verified (March 2026)
 
-- The canister currently stores one logical vault per user. **X-Vault-Id** is forwarded by the gateway and bridge; the bridge keys index/search by (uid, vault_id). Canister storage keyed by (uid, vault_id) and migration of existing data to `default` is a follow-up (Phase 15.4).
+**Important:** **Self-hosted** multi-vault (this doc above) is **fully implemented**. **Hosted** is **not** the same yet.
+
+| Layer | What happens with `X-Vault-Id` today |
+|-------|--------------------------------------|
+| **Hub UI** | Sends **`X-Vault-Id`** on API calls when the vault switcher is used (same as self-hosted). |
+| **Gateway** (`hub/gateway/server.mjs`) | Forwards **`x-vault-id`** to the canister on proxy requests. CORS allows the header. |
+| **Canister** (`hub/icp/src/hub/main.mo`) | **Does not read `X-Vault-Id`.** All note reads/writes use `getVault(uid)` — **one** `HashMap` of paths per user. Export returns **every** note for that user regardless of header. |
+| **Bridge** (`hub/bridge/server.mjs`) | Index/search use **separate vector DB directories** per `(uid, vault_id)` (`getVectorsDirForUser`). The bridge **does** pass `X-Vault-Id` when calling canister export, but the canister **ignores** it, so each “vault” index is built from the **same full note set** until the canister partitions storage. **GitHub backup** export also omits vault scoping (full export). |
+
+**Conclusion:** Hosted **multi-vault parity** requires **canister work**: partition storage by `(user_id, vault_id)`, thread **`vault_id`** through **export, list, read, write**, and (if you want self-hosted parity) **proposals**. Then re-verify **bridge** index/search and **GitHub backup** per vault (bridge already keys vectors by `vault_id` once export is scoped).
+
+**Migration vs greenfield:** If production hosted has **almost no data** (a few test notes), you do **not** need a complex migration story: **redeploy** a canister with the new layout, or run a **one-shot** “copy all paths into `vault_id = default`” upgrade. Heavy migration matters when real users have large vaults; for early deploys, prefer **clear breaking upgrade + empty redeploy** if acceptable.
+
+**Tracking:** **Phase 15.1 — hosted multi-vault** (after **Phase 2 bridge + `BRIDGE_URL` + pre-roll** are verified). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.
+
+---
+
+## Hosted multi-vault — what to build (Phase 15.1 checklist)
+
+Order matters: **operational hosted baseline first**, then **canister partition**, then **product polish**.
+
+| # | Work item | Why |
+|---|-----------|-----|
+| 1 | **Hosted Phase 2** — bridge deployed, gateway **`BRIDGE_URL`**, env + pre-roll, smoke: login, note CRUD, index/search | Stable baseline so you are not debugging multi-vault on a broken pipe. |
+| 2 | **Canister — read `X-Vault-Id`** (default `default`), **partition note storage** `(uid, vault_id) → path → note` | Core fix; today header is ignored. |
+| 3 | **Canister — export / list / get / post** scoped to `vault_id` | Bridge and UI depend on export semantics. |
+| 4 | **Proposals (optional for v1)** — add `vault_id` to proposal records + filter by active vault if you need proposal parity with self-hosted | Can defer if proposals are single-vault on hosted initially. |
+| 5 | **GitHub backup** (`hub/bridge` vault/sync) — pass `X-Vault-Id` and export **that** vault only (once canister supports it) | Today backup uses full export. |
+| 6 | **Hosted vault list + access** — self-hosted uses `hub_vaults.yaml` + `hub_vault_access.json`. On hosted you need a **source of truth**: e.g. canister-stored vault registry per user, gateway env allowlist, or “create second vault” API. Without this, the UI may show vaults that do not exist server-side. | Prevents misleading switcher. |
+| 7 | **Gateway `GET /api/v1/settings`** (hosted) — return **`vault_list`** / **`allowed_vault_ids`** consistent with canister (may be stub → real as registry ships) | Hub UI uses settings for switcher state. |
+| 8 | **Tests** — see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15 (regression safety); run **`npm test`** on every meaningful change; add canister/replica checks when Motoko changes. | Catch regressions early. |
+
+**Not required for “hosted multi-vault MVP”:** Hosted **scoped folders** (`hub_scope.json` parity) can follow; **MCP D2/D3** can follow per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
 
 ---
 

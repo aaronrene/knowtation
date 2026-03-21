@@ -10,7 +10,7 @@
 - **Import from other platforms:** Bring in ChatGPT and Claude exports, Mem0, NotebookLM, Google Drive, MIF, and generic Markdown. Any audio (smart glasses, wearables, past blogs/videos) via transcription. One vault; all content searchable and usable for any project. See **[docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md)**.
 - **Use cases:** Capture from chat and tools, transcription (audio/video → vault), **import from LLMs and knowledge bases**, content creation (blog, podcast, reels, book), marketing, analysis—all with one vault and one CLI. Optional integrations (e.g. Airtable, Mem) for structured data and agent memory.
 
-**Spec:** All data formats, CLI surface, and contracts are in **[docs/SPEC.md](./docs/SPEC.md)**. The **final document that lays out all phases** is **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** (Phases 1–11). Data ownership and vendor independence are in SPEC §0. Internal planning lives in **development/** (gitignored). A **simple landing page** (intent, open source, what’s included, mock pricing) is in **[web/index.html](./web/index.html)** — open in a browser or host it.
+**Spec:** All data formats, CLI surface, and contracts are in **[docs/SPEC.md](./docs/SPEC.md)**. The **final document that lays out all phases** is **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** (Phases 1–11). Data ownership and vendor independence are in SPEC §0. Internal planning and optional archived doc copies live in **development/** (gitignored). A **simple landing page** (intent, open source, what’s included, mock pricing) is in **[web/index.html](./web/index.html)** — open in a browser or host it.
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@
 5. **Hub (optional)** — `cd hub && npm install && cd ..`, set `KNOWTATION_VAULT_PATH` and `HUB_JWT_SECRET`, `npm run hub`, open **http://localhost:3333/**. OAuth: your own Google/GitHub app + `.env` ([hub/README.md](./hub/README.md)). **Hosted (knowtation.store):** admins are set via gateway env `HUB_ADMIN_USER_IDS` ([hub/gateway/README.md](./hub/gateway/README.md), [DEPLOY-HOSTED.md](./docs/DEPLOY-HOSTED.md)). In the Hub, **How to use** = seven steps (same story as [Quick start](./docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted) / [checklist](./docs/SELF-HOSTED-SETUP-CHECKLIST.md)).
 6. **Agents** — Skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open. For **MCP**: `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md).
 
-**Step-by-step:** **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** (clone → config → index → search, plus Hub, landing, and **AgentCeption** examples).  
+**Step-by-step:** **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** (clone → config → index → search, plus Hub, landing, and multi-agent / orchestrator examples).  
 Full setup (transcription, OAuth, memory, capture): **[docs/setup.md](./docs/setup.md)**.
 
 ## Repository layout
@@ -49,7 +49,7 @@ knowtation/
 ├── docs/                 ← Spec, plan, clarifications, setup (public)
 ├── web/                  ← Landing page (index.html)
 ├── data/                 ← Generated (gitignored)
-└── development/          ← Internal planning (gitignored; not on GitHub)
+└── development/          ← Local-only planning + optional archived doc copies (gitignored)
 ```
 
 ## Message interfaces and plugins
@@ -59,7 +59,8 @@ knowtation/
 
 ## Docs
 
-- **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** — **Getting started:** clone → config → index → search; optional Hub, landing, MCP; **AgentCeption** integration with examples.
+- **[docs/README.md](./docs/README.md)** — **Documentation index** (spec, API, deploy, agents, hosted).
+- **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** — **Getting started:** clone → config → index → search; optional Hub, landing, MCP; multi-agent integration patterns.
 - **[docs/STATUS-HOSTED-AND-PLANS.md](./docs/STATUS-HOSTED-AND-PLANS.md)** — **Status:** canister/hosted (Phases 0–5 code done, deploy pending), multi-vault (not implemented), Phase 12 blockchain (reserved, separate).
 - **[docs/WHITEPAPER.md](./docs/WHITEPAPER.md)** — **Whitepaper:** why fragmented knowledge and weak retrieval motivate a portable vault; Knowtation’s thesis (data liberation, CLI/MCP, indexing); who it’s for; questions for builders. Landing page links here from [web/index.html](./web/index.html).
 - **[docs/SPEC.md](./docs/SPEC.md)** — **Spec:** frontmatter, inbox contract, CLI (all commands/flags including `import`), config, indexer, MCP, memory/AIR hooks, import sources, versioning.

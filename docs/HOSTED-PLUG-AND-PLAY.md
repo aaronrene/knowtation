@@ -107,6 +107,6 @@
 | [PROVENANCE-AND-GIT.md](./PROVENANCE-AND-GIT.md) | GitHub backup as crucial; vault sync |
 | [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | Agents use same API; we add “Hosted” section when live |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Self-hosted deployment; hosted is separate infra |
-| [NEXT-PHASE-SETUP-OPTIONS.md](./NEXT-PHASE-SETUP-OPTIONS.md) | Simple explanation: "Connect GitHub" (hosted) vs Setup wizard (self-hosted); can do both |
+| [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud (beta) vs self-hosted quick start |
 
 This document is the **template and plan** for the hosted, plug-and-play product. Implementation order and phases can be refined (e.g. start with “vault in our storage + simple login” then add “Connect GitHub” then billing).

@@ -9,7 +9,9 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 - **GET /auth/login?provider=google|github** — Redirect to OAuth (plan routes).
 - **GET /api/v1/auth/login?provider=...** — Redirects to `/auth/login` for Hub UI compatibility.
 - **GET /auth/callback/google**, **GET /auth/callback/github** — OAuth callbacks; on success redirect to `HUB_UI_ORIGIN/?token=<jwt>`.
-- **GET/POST /api/v1/*** — Proxied to canister with **X-User-Id** from JWT. Returns 401 if no valid token.
+- **GET /api/v1/billing/summary** — JWT. Hosted billing pools (tier, monthly/add-on cents). See [HOSTED-CREDITS-DESIGN.md](../../docs/HOSTED-CREDITS-DESIGN.md).
+- **POST /api/v1/billing/webhook** — Stripe webhook (**raw JSON body**). No JWT.
+- **GET/POST /api/v1/*** — Proxied to canister with **X-User-Id** from JWT. Returns 401 if no valid token. When **BILLING_ENFORCE** is on, some routes may return **402** (quota).
 
 ## Canister proxy URL (important)
 
@@ -30,6 +32,16 @@ The canister proxy runs under **`app.use('/api/v1', …)`**. Express **strips** 
 | **HUB_CORS_ORIGIN** | No | CORS Allow-Origin (default `*`). Set to Hub UI origin in production. |
 | **HUB_JWT_EXPIRY** | No | JWT expiry (default `7d`). |
 | **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted (bootstrap); everyone else gets **member**. When **BRIDGE_URL** is set, roles and invites are stored in the bridge and proxied; full Team and invite links work. Set the same value on the bridge so Settings shows the correct role. See [PARITY-PLAN.md](../../docs/PARITY-PLAN.md) Phase 4. |
+| **BILLING_ENFORCE** | No | Set to `true` to deduct credits and return **402** when monthly + add-on pools are exhausted (default off = beta open usage). |
+| **BILLING_SHADOW_LOG** | No | Set to `true` or `1` to emit **structured JSON** (`type: knowtation_billing_shadow`) per billable operation for **usage research** (works even when enforcement is off). |
+| **STRIPE_SECRET_KEY** | No | Stripe API key for webhooks and (future) Checkout sessions. |
+| **STRIPE_WEBHOOK_SECRET** | No | Signing secret for **POST /api/v1/billing/webhook**. |
+| **STRIPE_PRICE_STARTER**, **STRIPE_PRICE_PRO**, **STRIPE_PRICE_TEAM** | No | Stripe Price ids for subscription tiers → included credits/month. |
+| **STRIPE_PRICE_PACK_10**, **STRIPE_PRICE_PACK_25**, **STRIPE_PRICE_PACK_50** | No | Stripe Price ids for add-on packs (10 / 25 / 50 credits). |
+
+**Billing storage:** Local file **`data/hosted_billing.json`** (gitignored with `data/`). On **Netlify**, the gateway function uses Blob store **`gateway-billing`** (see `netlify/functions/gateway.mjs`).
+
+**Checkout metadata:** Subscription and pack Checkout Sessions should include **`metadata.user_id`** (Hub JWT `sub`). Pack sessions should include **`metadata.credits_cents`** (e.g. `1000` for $10) or use a mapped **Price** id above.
 
 ## Google OAuth — redirect URI (fixes `redirect_uri_mismatch`)
 
@@ -63,8 +75,9 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 
 ## Deploy (e.g. Netlify)
 
-- Build: not required (Node server).
-- For Netlify, use a Node server adapter or run the Express app as a serverless function (e.g. split routes into serverless handlers). Alternatively deploy to a small Node host (Railway, Fly, etc.) and set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
+- **This repo:** Production path is `netlify/functions/gateway.mjs` plus root `netlify.toml`. The build runs `scripts/netlify-redirects.mjs` to generate `public/_redirects` (per-site: gateway vs bridge is controlled by `USE_BRIDGE_FUNCTION` on the bridge site only). Do not add a catch-all `[[redirects]]` in root `netlify.toml` when using a second Netlify site for the bridge—see [docs/DEPLOY-HOSTED.md](../../docs/DEPLOY-HOSTED.md) §3 and [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md).
+- **Local / generic Node:** Build is not required when running `npm start` as a normal server.
+- For other hosts, use a Node adapter or deploy the Express app as you would any Node service; set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
 - Ensure **CANISTER_URL** points to the deployed canister and **SESSION_SECRET** is set in env (no secrets in repo).
 
 ## Reference

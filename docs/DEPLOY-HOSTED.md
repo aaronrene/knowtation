@@ -2,7 +2,9 @@
 
 This doc covers production deployment: 4Everland for static UI and landing, gateway and bridge (e.g. Netlify or a Node host), and DNS/domains.
 
-**Before deploy:** Ensure [Parity Plan Phase 1](./PARITY-PLAN.md) is merged (gateway stubs for roles, invites, setup) so the Hub Settings → Team and Setup work on hosted.
+**Already live (knowtation.store)?** The stack is **in production** — see [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) for current truth and gaps. Use this file as **reference** when changing hosts or env, and use **§5** below as a **re-verification** checklist after deploys (not as proof the site was never shipped).
+
+**Before first-time deploy:** Ensure [Parity Plan Phase 1](./PARITY-PLAN.md) is merged (gateway stubs for roles, invites, setup) so the Hub Settings → Team and Setup work on hosted.
 
 ---
 
@@ -36,7 +38,11 @@ This doc covers production deployment: 4Everland for static UI and landing, gate
 
 ## 3. Gateway + bridge
 
-**Netlify catch-all → function URL must preserve the path.** The build writes `public/_redirects` via `scripts/netlify-redirects.mjs`. The gateway line must be `/* /.netlify/functions/gateway/:splat 200` (not `.../gateway 200` without `:splat`). Without `:splat`, every browser request is rewritten to the function root, `proxyToCanister` calls the canister with the wrong path, and the canister returns JSON `{"error":"Not found","code":"NOT_FOUND"}` (404) for `/api/v1/notes` and note creation. `netlify.toml` `[[redirects]]` must match. The gateway strips `/.netlify/functions/gateway` from `req.url` when present so Express still matches `/api/v1/*` routes.
+**Netlify catch-all → function URL must preserve the path.** The build runs `scripts/netlify-redirects.mjs`, which writes `public/_redirects` (that file is gitignored—each deploy generates it). The gateway line must be `/* /.netlify/functions/gateway/:splat 200` (not `.../gateway 200` without `:splat`). Without `:splat`, every browser request is rewritten to the function root, `proxyToCanister` calls the canister with the wrong path, and the canister returns JSON `{"error":"Not found","code":"NOT_FOUND"}` (404) for `/api/v1/notes` and note creation.
+
+**Monorepo / two Netlify sites:** Do **not** add a catch-all `[[redirects]]` in the **root** `netlify.toml`. Netlify merges root file-based config into **every** site linked to the repository, which would send the **bridge** deploy to the gateway function. Catch-all routing for the gateway site comes **only** from generated `public/_redirects` with `USE_BRIDGE_FUNCTION` **unset**. The **bridge** site uses [deploy/bridge/netlify.toml](../deploy/bridge/netlify.toml) (set **Package directory** to `deploy/bridge`, **Base directory** empty): that file sets `[build.environment] USE_BRIDGE_FUNCTION=true` so the same script writes the bridge line, and it keeps a site-local `[[redirects]]` to `/.netlify/functions/bridge/:splat`. In `deploy/bridge/netlify.toml`, `functions` and `publish` are relative to the **repository root** (Netlify’s default base directory), not to the `deploy/bridge` folder.
+
+The gateway strips `/.netlify/functions/gateway` from `req.url` when present so Express still matches `/api/v1/*` routes.
 
 - **Option A — Same origin (recommended for one URL)**  
   Deploy gateway so it is served from the same origin as the site (e.g. **knowtation.store**). For example: Netlify or 4Everland serves static files from `web/` and rewrites `/api/*` to the gateway. Then `HUB_API_BASE_URL = 'https://knowtation.store'` and all API calls are same-origin.
@@ -75,7 +81,7 @@ Exact records depend on 4Everland and your Node host (A/CNAME, or their provided
 
 ## 5. Pre-roll checklist (hosted)
 
-This checklist is for **hosted** production readiness. It is **not** a new site or new page — you just verify each item below. For the idea that self-hosted users get the same UI/interface as hosted users, see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md) §1 (self-hosted pre-roll). For **what pre-roll is**, **bridge deploy in detail** (including second Netlify project), and **PR/branch strategy**, see [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md).
+Use this list **before first launch** and **again after** any production env change, bridge/gateway redeploy, or incident. For “what pre-roll is” and **bridge deploy in detail**, see [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md). **Live status and parity gaps:** [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md). For self-hosted mirror checks, see [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md) §1 where applicable.
 
 - [ ] Canister deployed and healthy (`GET /health`).
 - [ ] Gateway env set; OAuth callback URLs registered with Google/GitHub.
@@ -88,6 +94,8 @@ This checklist is for **hosted** production readiness. It is **not** a new site 
 
 ## 6. Reference
 
+- [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved billing fields (Phase 16).
+- [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — **Free** tier + Stripe paid tiers, transparent per-action pricing, **`BILLING_SHADOW_LOG`**, rollover add-ons.
 - [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md) — How to run the canister; single URL (knowtation.store) and how to view the site locally.
 - [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md)
 - [hub/gateway/README.md](../hub/gateway/README.md)

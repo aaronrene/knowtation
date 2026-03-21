@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, 'fixtures', 'data');
+// Own directory so parallel runs do not race config.test.mjs on test/fixtures/data/hub_setup.yaml.
+const dataDir = path.join(__dirname, 'fixtures', 'hub-setup-test-data');
 const hubSetupPath = path.join(dataDir, 'hub_setup.yaml');
 
 function cleanup() {

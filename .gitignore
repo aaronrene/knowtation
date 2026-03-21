@@ -13,11 +13,20 @@ out/
 
 # Test artifacts (temp vaults and vector DB from tests)
 test/fixtures/data/
+test/fixtures/hub-setup-test-data/
 test/fixtures/tmp-*/
 
 # Obsidian
 vault/.obsidian/workspace*
 vault/.trash/
+
+# Hub UI “New note” timestamped files (avoid dirty tree on the sample vault)
+vault/inbox/note-*.md
+
+# Editor scratch files
+Untitled
+**/Untitled
+config/Untitled
 
 # DFX local build (do not commit)
 hub/icp/.dfx/
@@ -25,9 +34,12 @@ hub/icp/.dfx/
 # Node
 node_modules/
 
+# Netlify — written by scripts/netlify-redirects.mjs (gateway vs bridge); do not commit
+public/_redirects
+
 # OS
 .DS_Store
 *.log
 
-# Development (planning, strategy, monetization — not published)
+# Development — local-only planning, scratch exports, copies of docs removed from docs/ for OSS cleanliness
 development/
