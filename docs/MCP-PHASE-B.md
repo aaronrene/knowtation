@@ -1,6 +1,8 @@
 # MCP Issue #1 — Phase B (prompts) — shipped
 
-Server-defined prompts live in [`mcp/prompts/`](../mcp/prompts/) and register via `registerKnowtationPrompts` from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) in [`mcp/server.mjs`](../mcp/server.mjs).
+**In plain terms:** Prompts are **saved recipes** an AI client can open—like “give me a daily brief from my notes” or “turn this search into a summary”—without you retyping the same instructions every time. They bundle vault content via MCP resources so the model starts from real notes, not an empty thread.
+
+Server-defined prompts live in [`mcp/prompts/`](../mcp/prompts/) and register via `registerKnowtationPrompts` from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) in [`mcp/create-server.mjs`](../mcp/create-server.mjs).
 
 ## Prompt names (hyphenated, `prompts/get`)
 

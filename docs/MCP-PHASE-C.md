@@ -1,10 +1,12 @@
 # MCP Issue #1 — Phase C (enhanced tools) — shipped
 
+**In plain terms:** Beyond basic search/read/write, Phase C adds **helper tools** your agent can call: capture to inbox, summarize a note, suggest tags, run git sync in the vault, transcribe audio, etc.—the same kinds of tasks you might script, exposed as MCP tools.
+
 This documents Phase C tools and intentional deviations from the issue wording.
 
 ## Implemented tools
 
-Registered from [`mcp/tools/phase-c.mjs`](../mcp/tools/phase-c.mjs) via `registerPhaseCTools` in [`mcp/server.mjs`](../mcp/server.mjs) (after base tools and Resources).
+Registered from [`mcp/tools/phase-c.mjs`](../mcp/tools/phase-c.mjs) via `registerPhaseCTools` in [`mcp/create-server.mjs`](../mcp/create-server.mjs) (after base tools and Resources).
 
 | Tool | Role |
 |------|------|

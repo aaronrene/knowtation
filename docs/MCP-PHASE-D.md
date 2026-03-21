@@ -1,5 +1,7 @@
 # MCP Issue #1 — Phase D (Streamable HTTP) — D1 shipped
 
+**In plain terms:** Besides the default “pipe” transport (stdio), Knowtation can expose MCP over **HTTP** on your machine so a client that prefers URLs can connect. This is still **local** by default (loopback only). Authenticated “hosted MCP through the Hub” remains future work (D2/D3).
+
 ## D1 — Local Streamable HTTP
 
 - **Entry:** `MCP_TRANSPORT=http` or `KNOWTATION_MCP_TRANSPORT=http` with `node mcp/server.mjs`, or `npm run mcp:http`.

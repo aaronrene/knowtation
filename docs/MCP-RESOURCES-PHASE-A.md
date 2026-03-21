@@ -1,5 +1,7 @@
 # MCP Issue #1 — Phase A (Resources) — shipped
 
+**In plain terms:** **Resources** let an MCP client **browse** your vault like a small website: folder listings, individual notes, index stats, tag lists—using stable `knowtation://…` addresses instead of raw filesystem paths in every message.
+
 This documents what Phase A implements and what is intentionally deferred.
 
 ## Implemented
@@ -10,7 +12,7 @@ This documents what Phase A implements and what is intentionally deferred.
 - **Templates:** `ResourceTemplate` `knowtation://vault/templates/{+name}` with `resources/list` for template files.
 - **Vault path:** `ResourceTemplate` `knowtation://vault/{+path}` — Markdown note if `path` ends with `.md`, else JSON folder listing (same pagination rules as fixed listings).
 - **Pagination:** JSON listings cap at **500** items per response; response may include `truncated: true` and `total` where applicable.
-- **Code:** [`mcp/resources/`](../mcp/resources/) — registered from [`mcp/server.mjs`](../mcp/server.mjs) after tools.
+- **Code:** [`mcp/resources/`](../mcp/resources/) — registered from [`mcp/create-server.mjs`](../mcp/create-server.mjs) after tools.
 
 ## Deferred / follow-ups (by phase)
 

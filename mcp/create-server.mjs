@@ -20,6 +20,7 @@ import { registerPhaseCTools } from './tools/phase-c.mjs';
 import { registerResourceSubscriptionHandlers, notifyIndexMetadataResources } from './resource-subscriptions.mjs';
 import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
 import { registerKnowtationPrompts } from './prompts/register.mjs';
+import { tryBuildKnowtationMcpInstructions } from './server-instructions.mjs';
 
 export function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -341,7 +342,24 @@ export function mountKnowtationMcp(server) {
  * @returns {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer}
  */
 export function createKnowtationMcpServer() {
-  const server = new McpServer({ name: 'knowtation', version: '0.1.0' }, { capabilities: { logging: {} } });
+  const instructions = tryBuildKnowtationMcpInstructions();
+  const server = new McpServer(
+    { name: 'knowtation', version: '0.1.0' },
+    { capabilities: { logging: {} }, instructions }
+  );
   mountKnowtationMcp(server);
+  server.server.oninitialized = async () => {
+    const caps = server.server.getClientCapabilities?.();
+    if (!caps?.roots) return;
+    try {
+      const { roots } = await server.server.listRoots();
+      await sendMcpLog(server, 'info', {
+        event: 'client_roots',
+        roots: (roots || []).map((r) => ({ uri: r.uri, name: r.name })),
+      });
+    } catch (_) {
+      /* client may not implement roots/list */
+    }
+  };
   return server;
 }

@@ -1,5 +1,7 @@
 # MCP Issue #1 — Phase E (subscriptions + vault watcher) — shipped
 
+**In plain terms:** When you edit notes on disk, **subscribed** MCP clients can get **push-style updates** instead of polling. In stdio mode, a file watcher notices changes under your vault and notifies the client. (HTTP mode does not run that watcher per session—see Phase D doc.)
+
 ## Behavior
 
 - **Capability:** Server advertises `resources.subscribe: true` (merged with `listChanged` in initialization). See [`mcp/resources/register.mjs`](../mcp/resources/register.mjs).
