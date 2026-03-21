@@ -666,14 +666,17 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (
   const githubConn = readGitHubConnection(config.data_dir);
   const emb = config.embedding || {};
   const ollamaUrl = emb.ollama_url || (emb.provider === 'ollama' ? 'http://localhost:11434' : undefined);
-  const vaultList = (config.vaultList || []).map((v) => ({ id: v.id, label: v.label || v.id }));
+  const vaultListRaw = readHubVaults(config.data_dir, projectRoot);
+  const vaultList = (vaultListRaw.length ? vaultListRaw : config.vaultList || []).map((v) => ({ id: v.id, label: v.label || v.id }));
   const allowed_vault_ids = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+  const dataDirDisplay = path.relative(projectRoot, config.data_dir);
   res.json({
     role: req.user?.role ?? 'member',
     user_id: req.user?.sub ?? '',
     vault_id: req.vault_id ?? 'default',
     vault_list: vaultList,
     allowed_vault_ids,
+    data_dir_display: dataDirDisplay || 'data',
     vault_path_display,
     vault_git: {
       enabled: !!vg?.enabled,

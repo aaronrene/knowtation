@@ -33,7 +33,7 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 | **BRIDGE_PORT** or **PORT** | No | Port (default 3341). |
 | **EMBEDDING_PROVIDER** | No | `ollama` (default) or `openai`. |
 | **EMBEDDING_MODEL** | No | Model name (default `nomic-embed-text` for Ollama). |
-| **OLLAMA_URL** | No | Ollama base URL (default `http://localhost:11434`). Use `https://ollama.com` for Ollama Cloud. |
+| **OLLAMA_URL** | No | Ollama **API** base URL (default `http://localhost:11434`). Must be reachable from this process (e.g. self-hosted Ollama on a server). `https://ollama.com` is the marketing site, not the API. |
 | **OLLAMA_API_KEY** | No | Required for Ollama Cloud; add `Authorization: Bearer` header. |
 | **OPENAI_API_KEY** | No | Required if `EMBEDDING_PROVIDER=openai`. |
 | **INDEXER_CHUNK_SIZE**, **INDEXER_CHUNK_OVERLAP** | No | Chunking params (default 2048, 256). |

@@ -361,6 +361,7 @@
             <div class="settings-actions">
               <button type="button" id="btn-settings-sync" class="btn-primary" disabled>Back up now</button>
               <span id="settings-sync-msg" class="settings-msg"></span>
+              <p class="settings-intro small" style="margin-top: 0.5rem;">Back up now backs up the <strong>currently selected vault</strong> (use the Vault dropdown in the header to switch). Each vault can have its own Git remote.</p>
             </div>
             <hr class="settings-hr" id="settings-hr-configure">
             <div id="settings-configure-backup-section">
@@ -437,6 +438,8 @@
         <div id="settings-panel-vaults" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
+            <p class="settings-intro small"><strong>Where to switch vaults:</strong> Use the <strong>Vault</strong> dropdown in the header (next to the logo). It appears when the server reports two or more vaults. If you don’t see it, check <strong>Server view</strong> below and ensure your user ID in <strong>Vault access</strong> matches and lists both vault IDs.</p>
+            <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
             <h3 class="settings-h3">Vault list</h3>
             <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
             <div id="vaults-list-container" class="settings-vaults-list"></div>
@@ -459,7 +462,22 @@
               </div>
             </div>
             <h3 class="settings-h3">Scope (per user per vault)</h3>
-            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault. Format: <code>{"user_id": {"vault_id": {"projects": ["p1"], "folders": ["f1"]}}}</code>.</p>
+            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault.</p>
+            <div class="settings-form scope-form-simple">
+              <p class="settings-intro small" style="margin-bottom: 0.5rem;"><strong>Add from form</strong> — then click Save scope below to persist.</p>
+              <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center;">
+                <label for="scope-form-user-id">User ID</label>
+                <input type="text" id="scope-form-user-id" class="settings-input-inline" placeholder="e.g. google:123" style="min-width: 12rem;">
+                <label for="scope-form-vault-id">Vault</label>
+                <select id="scope-form-vault-id" class="settings-select-inline" aria-label="Vault for scope"></select>
+                <label for="scope-form-projects">Projects (comma-separated)</label>
+                <input type="text" id="scope-form-projects" class="settings-input-inline" placeholder="Launch, Q1" style="min-width: 10rem;">
+                <label for="scope-form-folders">Folders (comma-separated)</label>
+                <input type="text" id="scope-form-folders" class="settings-input-inline" placeholder="inbox, imports" style="min-width: 10rem;">
+                <button type="button" id="btn-scope-form-apply" class="btn-secondary">Add to scope</button>
+              </div>
+              <span id="scope-form-msg" class="settings-msg"></span>
+            </div>
             <div class="settings-form">
               <label for="scope-json">Scope (JSON)</label>
               <textarea id="scope-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": {"default": {"projects": ["my-project"], "folders": ["inbox"]}}}'></textarea>

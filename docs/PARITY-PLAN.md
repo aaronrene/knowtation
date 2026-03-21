@@ -171,11 +171,13 @@ You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Net
 
 ---
 
-## Phase 3 — Multi-vault (Phase 15)
+## Phase 3 — Hosted multi-vault (canister + gateway)
 
-**Goal:** Support multiple vaults per Hub (or scoped visibility) so hosted can match self-hosted “multiple vaults” story when we add it.
+**Self-hosted Phase 15:** ✅ **Done** in repo — Node Hub, `hub_vaults.yaml`, access, scope, vault switcher, `X-Vault-Id`; bridge index/search keyed by `(user, vault_id)` when deployed.
 
-**Prerequisite:** Phase 1 and 2 done (parity + deploy). Design and dependency: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), Phase 15 in IMPLEMENTATION-PLAN.
+**Goal (this phase):** Hosted **canister** (and gateway) support multiple vaults per user so knowtation.store matches self-hosted switching. Today the canister effectively stores **one** vault per user; the Hub vault switcher on hosted will not show real second vaults until this work ships.
+
+**Prerequisite:** Phase 1 and 2 done (parity + deploy + bridge wired). Design: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), Phase 15 in IMPLEMENTATION-PLAN.
 
 ### 3.1 Scope (summary)
 
@@ -220,3 +222,5 @@ You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Net
 | **4** | Full hosted roles/invites (bridge store) | **Done.** Bridge stores roles/invites; gateway proxies; invite flow via state + consume. |
 
 **Do not start implementation** of Phase 1 until this plan (and IMPLEMENTATION-PLAN updates) are agreed. After Phase 1 is implemented, update this doc and IMPLEMENTATION-PLAN to mark parity complete and “Next” as Phase 2 (deploy).
+
+**See also:** [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 for a current **parity snapshot** table (teams/bridge, multi-vault, import, facets).
