@@ -61,12 +61,14 @@ export function getProposal(dataDir, id) {
 
 /**
  * @param {string} dataDir
- * @param {{ path?: string, body?: string, frontmatter?: object, intent?: string, base_state_id?: string, vault_id?: string }} input
- * @returns {{ proposal_id: string, path: string, status: string, vault_id?: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, created_at: string, updated_at: string }}
+ * @param {{ path?: string, body?: string, frontmatter?: object, intent?: string, base_state_id?: string, vault_id?: string, proposed_by?: string }} input
+ * @returns {{ proposal_id: string, path: string, status: string, vault_id?: string, intent?: string, base_state_id?: string, body?: string, frontmatter?: object, proposed_by?: string, created_at: string, updated_at: string }}
  */
 export function createProposal(dataDir, input) {
   const all = loadProposals(dataDir);
   const now = new Date().toISOString();
+  const proposedBy =
+    typeof input.proposed_by === 'string' && input.proposed_by.trim() ? input.proposed_by.trim() : undefined;
   const proposal = {
     proposal_id: randomUUID(),
     path: input.path || `inbox/proposal-${Date.now()}.md`,
@@ -76,6 +78,7 @@ export function createProposal(dataDir, input) {
     base_state_id: input.base_state_id ?? undefined,
     body: input.body ?? '',
     frontmatter: input.frontmatter ?? {},
+    ...(proposedBy && { proposed_by: proposedBy }),
     created_at: now,
     updated_at: now,
   };

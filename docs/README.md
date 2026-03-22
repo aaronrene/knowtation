@@ -41,6 +41,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases 1–16+ roadmap |
 | [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
+| [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Test checklist: notes to add, Hub UI checks, CLI commands |
 
 ## Manual / phase tests (local developers)
 

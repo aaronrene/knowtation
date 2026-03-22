@@ -359,9 +359,11 @@
               </div>
             </div>
             <div class="settings-actions">
-              <button type="button" id="btn-settings-sync" class="btn-primary" disabled>Back up now</button>
+              <button type="button" id="btn-settings-sync" class="btn-primary" disabled title="Self-hosted: vault folder must be a Git repo (git init). Connect GitHub stores a push token only.">Back up now</button>
+              <button type="button" id="btn-vault-git-init" class="btn-secondary hidden" title="Run git init in the current vault folder (self-hosted only)">Initialize Git in this vault</button>
               <span id="settings-sync-msg" class="settings-msg"></span>
               <p class="settings-intro small" style="margin-top: 0.5rem;">Back up now backs up the <strong>currently selected vault</strong> (use the Vault dropdown in the header to switch). Each vault can have its own Git remote.</p>
+              <p class="settings-intro small"><strong>Self-hosted:</strong> <em>Connect GitHub</em> saves a token so pushes can authenticate — it does <em>not</em> run <code>git init</code> in your vault. If backup says the folder is not a Git repo, click <strong>Initialize Git in this vault</strong> (appears after a failed backup) or run <code>git init</code> manually in that folder.</p>
             </div>
             <hr class="settings-hr" id="settings-hr-configure">
             <div id="settings-configure-backup-section">
