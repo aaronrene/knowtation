@@ -222,6 +222,12 @@
     return s;
   }
 
+  /** Align with hub/server effectiveRole: viewer read-only; member maps to editor for writes. */
+  function hubUserCanWriteNotes() {
+    const r = window.__hubUserRole;
+    return r === 'editor' || r === 'admin' || r === 'member';
+  }
+
   function showLoginChrome() {
     btnLogout.classList.add('hidden');
     userName.textContent = '';
@@ -356,6 +362,7 @@
     (async function ensureVaultAndSwitcherThenLoad() {
       try {
         const s = await api('/api/v1/settings');
+        if (s.role) window.__hubUserRole = String(s.role);
         const allowed = s.allowed_vault_ids || [];
         const current = getCurrentVaultId();
         if (allowed.length && !allowed.includes(current)) {
@@ -1153,6 +1160,7 @@
     fetchSettingsForBackupModal()
       .then((s) => {
         lastBackupSettingsPayload = s;
+        if (s.role) window.__hubUserRole = String(s.role);
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
         const userIdEl = el('settings-user-id');
@@ -1872,8 +1880,7 @@
     bodyEl.innerHTML = '';
     bodyEl.textContent = (currentOpenNote.body || '') + '\n\n---\n' + JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
     bodyEl.className = '';
-    const role = window.__hubUserRole;
-    const canEdit = role === 'editor' || role === 'admin';
+    const canEdit = hubUserCanWriteNotes();
     actionsEl.innerHTML = '';
     if (canEdit) {
       const editBtn = document.createElement('button');
@@ -1959,8 +1966,7 @@
       .then((note) => {
         currentOpenNote = { path, body: note.body || '', frontmatter: note.frontmatter || {} };
         bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
-        const role = window.__hubUserRole;
-        const canEdit = role === 'editor' || role === 'admin';
+        const canEdit = hubUserCanWriteNotes();
         if (canEdit) {
           const editBtn = document.createElement('button');
           editBtn.textContent = 'Edit';
