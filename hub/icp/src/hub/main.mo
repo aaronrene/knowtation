@@ -352,27 +352,23 @@ func extractJsonObjectSlice(body : Text, startBrace : Nat) : ?Text {
     if (esc) {
       esc := false;
       i += 1;
-      continue;
-    };
-    if (inStr) {
+    } else if (inStr) {
       if (ch == '\\') { esc := true } else if (ch == '\"') { inStr := false };
       i += 1;
-      continue;
-    };
-    if (ch == '\"') {
+    } else if (ch == '\"') {
       inStr := true;
       i += 1;
-      continue;
-    };
-    if (ch == '{') { depth += 1 };
-    if (ch == '}') {
-      depth -= 1;
-      if (depth == 0) {
-        let len = (i + 1) - startBrace;
-        return ?textSlice(body, startBrace, len);
+    } else {
+      if (ch == '{') { depth += 1 };
+      if (ch == '}') {
+        depth -= 1;
+        if (depth == 0) {
+          let len = (i + 1) - startBrace;
+          return ?textSlice(body, startBrace, len);
+        };
       };
+      i += 1;
     };
-    i += 1;
   };
   null;
 };
