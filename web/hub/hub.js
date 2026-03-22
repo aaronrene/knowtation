@@ -471,18 +471,104 @@
     return [];
   }
 
+  /** YYYY-MM-DD for calendar, overview, and range filters when `date` is unset (hosted notes often only have knowtation_edited_at). */
+  function listItemDisplayDate(n, fm) {
+    if (n.date != null && String(n.date).trim()) return String(n.date).trim().slice(0, 10);
+    if (fm.date != null && String(fm.date).trim()) return String(fm.date).trim().slice(0, 10);
+    const ke = fm.knowtation_edited_at;
+    if (ke != null && String(ke).trim()) return String(ke).trim().slice(0, 10);
+    return null;
+  }
+
+  function noteSortOrCalendarDay(n) {
+    return dateSlice(n.date || n.updated || '');
+  }
+
   function normalizeHubListItem(n) {
     if (!n || typeof n !== 'object') return n;
     const fm = materializeFrontmatter(n.frontmatter);
     const tags = Array.isArray(n.tags) && n.tags.length ? n.tags.map(String) : tagsFromFrontmatter(fm);
+    const displayDate = listItemDisplayDate(n, fm);
+    const updated =
+      n.updated != null
+        ? String(n.updated)
+        : fm.knowtation_edited_at != null
+          ? String(fm.knowtation_edited_at)
+          : null;
     return {
       ...n,
       frontmatter: fm,
       title: n.title != null ? n.title : fm.title != null ? String(fm.title) : null,
       project: n.project != null ? n.project : fm.project != null ? String(fm.project) : null,
       tags,
-      date: n.date != null ? String(n.date) : fm.date != null ? String(fm.date) : null,
+      date: displayDate,
+      updated,
     };
+  }
+
+  function facetsAreEmpty(f) {
+    if (!f || typeof f !== 'object') return true;
+    const pl = f.projects && f.projects.length;
+    const tl = f.tags && f.tags.length;
+    const fl = f.folders && f.folders.length;
+    return !pl && !tl && !fl;
+  }
+
+  async function deriveFacetsFromNotes() {
+    const out = await api('/api/v1/notes?limit=500&offset=0');
+    const projects = new Set();
+    const tags = new Set();
+    const folders = new Set();
+    for (const raw of out.notes || []) {
+      const n = normalizeHubListItem(raw);
+      if (n.path) {
+        const seg = String(n.path).split('/')[0];
+        if (seg) folders.add(seg);
+      }
+      if (n.project) projects.add(String(n.project));
+      (n.tags || []).forEach((t) => tags.add(String(t)));
+    }
+    return {
+      projects: [...projects].sort((a, b) => a.localeCompare(b)),
+      tags: [...tags].sort((a, b) => a.localeCompare(b)),
+      folders: [...folders].sort((a, b) => a.localeCompare(b)),
+    };
+  }
+
+  async function fetchFacetsResolved() {
+    let facets = await api('/api/v1/notes/facets');
+    if (facetsAreEmpty(facets)) facets = await deriveFacetsFromNotes();
+    return facets;
+  }
+
+  /** Hosted canister ignores list query filters; mirror lib/list-notes.mjs on the client after normalizeHubListItem. */
+  function applyVaultListFilters(notes, opts) {
+    let out = notes.slice();
+    if (opts.folder) {
+      const f = String(opts.folder).replace(/\\/g, '/').replace(/\/$/, '') || String(opts.folder);
+      const prefix = f + '/';
+      out = out.filter((n) => n.path === f || (n.path && String(n.path).startsWith(prefix)));
+    }
+    if (opts.project) {
+      const p = normSlug(opts.project);
+      out = out.filter(
+        (n) =>
+          normSlug(String(n.project || '')) === p || normSlug(String(n.frontmatter?.project || '')) === p,
+      );
+    }
+    if (opts.tag) {
+      const t = normSlug(opts.tag);
+      out = out.filter((n) => (n.tags || []).some((x) => normSlug(String(x)) === t));
+    }
+    if (opts.since) {
+      const s = dateSlice(opts.since);
+      if (s) out = out.filter((n) => noteSortOrCalendarDay(n) >= s);
+    }
+    if (opts.until) {
+      const u = dateSlice(opts.until);
+      if (u) out = out.filter((n) => noteSortOrCalendarDay(n) <= u);
+    }
+    return out;
   }
 
   /** Match lib/hub-provenance.mjs — strip before merge; server re-applies provenance on write. */
@@ -591,7 +677,7 @@
       const savedProject = filterProject.value;
       const savedTag = filterTag.value;
       const savedFolder = filterFolder.value;
-      const facets = await api('/api/v1/notes/facets');
+      const facets = await fetchFacetsResolved();
       filterProject.innerHTML = '<option value="">All projects</option>' + (facets.projects || []).map((p) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('');
       filterTag.innerHTML = '<option value="">All tags</option>' + (facets.tags || []).map((t) => '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>').join('');
       filterFolder.innerHTML = '<option value="">All folders</option>' + (facets.folders || []).map((f) => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join('');
@@ -627,7 +713,7 @@
           filterFolder.value = '';
           switchNotesView('list');
           loadNotes();
-          api('/api/v1/notes/facets').then(renderFilterChips);
+          renderFilterChips(null);
         };
         filterChipsEl.appendChild(b);
       });
@@ -642,7 +728,7 @@
           filterFolder.value = '';
           switchNotesView('list');
           loadNotes();
-          api('/api/v1/notes/facets').then(renderFilterChips);
+          renderFilterChips(null);
         };
         filterChipsEl.appendChild(b);
       });
@@ -656,12 +742,12 @@
         filterTag.value = '';
         switchNotesView('list');
         loadNotes();
-        api('/api/v1/notes/facets').then(renderFilterChips);
+        renderFilterChips(null);
       };
       filterChipsEl.appendChild(inboxBtn);
     };
     if (facets) apply(facets);
-    else api('/api/v1/notes/facets').then(apply).catch(() => {});
+    else fetchFacetsResolved().then(apply).catch(() => {});
   }
 
   function getPresets() {
@@ -706,7 +792,7 @@
         if (filterUntil) filterUntil.value = p.until || '';
         switchNotesView('list');
         loadNotes();
-        api('/api/v1/notes/facets').then(renderFilterChips);
+        renderFilterChips(null);
       };
       presetsListEl.appendChild(b);
     });
@@ -751,7 +837,16 @@
     notesTotal.textContent = '';
     try {
       const out = await api('/api/v1/notes?' + q.toString());
-      const notes = (out.notes || []).map(normalizeHubListItem);
+      let notes = (out.notes || []).map(normalizeHubListItem);
+      notes = applyVaultListFilters(notes, {
+        folder: filterFolder.value,
+        project: filterProject.value,
+        tag: filterTag.value,
+        since: filterSince?.value || '',
+        until: filterUntil?.value || '',
+      });
+      const totalCount = notes.length;
+      notes = notes.slice(0, 100);
       if (notes.length === 0) {
         notesList.innerHTML =
           '<div class="empty-state">No notes for this filter. <a id="empty-add">Add a note</a> or clear filters.</div>';
@@ -760,7 +855,7 @@
         notesTotal.textContent = 'Total: 0';
       } else {
         notesList.innerHTML = notes.map(renderNoteRow).join('');
-        notesTotal.textContent = 'Total: ' + (out.total ?? 0);
+        notesTotal.textContent = 'Total: ' + totalCount;
         bindNoteClicks(notesList);
         listSelectedIndex = 0;
         updateListSelection();
@@ -784,7 +879,7 @@
   btnApplyFilters.onclick = () => {
     switchNotesView('list');
     loadNotes();
-    api('/api/v1/notes/facets').then(renderFilterChips);
+    renderFilterChips(null);
   };
 
   function showToast(message, isError = false) {
@@ -984,14 +1079,19 @@
     try {
       const q = new URLSearchParams({ since, until, limit: '100' });
       const out = await api('/api/v1/notes?' + q.toString());
-      notesInMonth = (out.notes || []).map(normalizeHubListItem);
+      notesInMonth = (out.notes || [])
+        .map(normalizeHubListItem)
+        .filter((n) => {
+          const ds = noteSortOrCalendarDay(n);
+          return ds >= since && ds <= until;
+        });
     } catch (_) {
       notesInMonth = [];
     }
 
     const byDay = {};
     notesInMonth.forEach((n) => {
-      const ds = dateSlice(n.date);
+      const ds = noteSortOrCalendarDay(n);
       if (ds >= since && ds <= until) {
         byDay[ds] = (byDay[ds] || 0) + 1;
       }
@@ -1008,10 +1108,9 @@
     for (let d = 1; d <= daysInMonth; d++) {
       cells.push({ out: false, day: d, key: ymd(new Date(y, m, d)) });
     }
-    while (cells.length % 7 !== 0) cells.push({ out: true, day: cells.length, key: null });
-    while (cells.length < 42) {
-      const next = cells.length - startPad - daysInMonth + 1;
-      cells.push({ out: true, day: next, key: null });
+    let nextMonthDay = 1;
+    while (cells.length % 7 !== 0 || cells.length < 42) {
+      cells.push({ out: true, day: nextMonthDay++, key: null });
     }
 
     const today = ymd(new Date());
@@ -1054,7 +1153,7 @@
   };
 
   function showCalendarDay(dayKey, notesInMonth) {
-    const matches = notesInMonth.filter((n) => dateSlice(n.date) === dayKey);
+    const matches = notesInMonth.filter((n) => noteSortOrCalendarDay(n) === dayKey);
     el('cal-day-title').textContent = dayKey + ' (' + matches.length + ' notes)';
     el('calendar-day-notes').innerHTML = matches.length ? matches.map(renderNoteRow).join('') : '<p class="muted">No notes</p>';
     bindNoteClicks(el('calendar-day-notes'));
@@ -1100,7 +1199,7 @@
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weekStr = ymd(weekAgo);
-    const thisWeek = notes.filter((n) => dateSlice(n.date) >= weekStr).length;
+    const thisWeek = notes.filter((n) => noteSortOrCalendarDay(n) >= weekStr).length;
 
     const byProject = {};
     const byTag = {};
@@ -1110,7 +1209,7 @@
       (n.tags || []).forEach((t) => {
         byTag[t] = (byTag[t] || 0) + 1;
       });
-      const ds = dateSlice(n.date);
+      const ds = noteSortOrCalendarDay(n);
       if (ds) {
         const w = ds.slice(0, 7);
         byWeek[w] = (byWeek[w] || 0) + 1;
