@@ -304,12 +304,6 @@ func parsePath(url : Text) : (Text, Text) {
   } else { ("unknown", "") };
 };
 
-/// Stored note frontmatter is JSON object text. Embed in API JSON as a raw object (not a quoted string).
-func jsonObjectTextOrEmpty(fmStored : Text) : Text {
-  let t = Text.trim(fmStored, #predicate isAsciiSpace);
-  if (t.size() == 0) { "{}" } else { t };
-};
-
 // Minimal JSON: extract string value for key (finds "\"key\":\"...\"").
 func extractJsonString(body : Text, key : Text) : ?Text {
   let needle = "\"" # key # "\":\"";
@@ -453,7 +447,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     var items : Text = "";
     for ((p, fmBody) in Array.vals(entries)) {
       if (items != "") { items := items # "," };
-      items := items # "{\"path\":\"" # escapeJson(p) # "\",\"frontmatter\":" # jsonObjectTextOrEmpty(fmBody.0) # ",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
+      items := items # "{\"path\":\"" # escapeJson(p) # "\",\"frontmatter\":\"" # escapeJson(fmBody.0) # "\",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
     };
     let json = "{\"notes\":[" # items # "],\"total\":" # Nat.toText(entries.size()) # "}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
@@ -469,13 +463,13 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     let vault = getVault(uid, vid);
     switch (vault.get(pathNormalized)) {
       case (?fmBody) {
-        let json = "{\"path\":\"" # escapeJson(pathNormalized) # "\",\"frontmatter\":" # jsonObjectTextOrEmpty(fmBody.0) # ",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
+        let json = "{\"path\":\"" # escapeJson(pathNormalized) # "\",\"frontmatter\":\"" # escapeJson(fmBody.0) # "\",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
         switch (vault.get(pathArg)) {
           case (?fmBody) {
-            let json = "{\"path\":\"" # escapeJson(pathArg) # "\",\"frontmatter\":" # jsonObjectTextOrEmpty(fmBody.0) # ",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
+            let json = "{\"path\":\"" # escapeJson(pathArg) # "\",\"frontmatter\":\"" # escapeJson(fmBody.0) # "\",\"body\":\"" # escapeJson(fmBody.1) # "\"}";
             return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
           };
           case null {
