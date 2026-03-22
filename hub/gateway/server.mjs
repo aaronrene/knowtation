@@ -18,6 +18,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import { stripeWebhookHandler } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
+import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, pathPartNoQuery } from './apply-note-provenance.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -478,8 +479,17 @@ async function proxyToCanister(req, res) {
   delete headers.origin;
   delete headers.referer;
   const opts = { method: req.method, headers };
-  if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
-    opts.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+  let bodyOut = req.body;
+  if (
+    bodyOut !== undefined &&
+    typeof bodyOut === 'object' &&
+    !Buffer.isBuffer(bodyOut) &&
+    isPostApiV1Notes(req.method, pathPartNoQuery(req))
+  ) {
+    bodyOut = mergeHostedNoteBodyForCanister(bodyOut, uid);
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD' && bodyOut !== undefined) {
+    opts.body = typeof bodyOut === 'string' ? bodyOut : JSON.stringify(bodyOut);
   }
   try {
     const upstream = await fetch(url, opts);
