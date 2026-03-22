@@ -272,6 +272,24 @@ if (BRIDGE_URL) {
   });
 }
 
+/**
+ * Incoming headers describe the *client* body. We often re-serialize JSON (provenance merge), so
+ * length and transfer-related headers must not be forwarded: Undici can hang or mis-send if
+ * Content-Length still matches the old, shorter body.
+ */
+function stripStaleOutboundBodyHeaders(headers) {
+  for (const k of Object.keys(headers)) {
+    const l = k.toLowerCase();
+    if (
+      l === 'content-length' ||
+      l === 'transfer-encoding' ||
+      l === 'content-encoding'
+    ) {
+      delete headers[k];
+    }
+  }
+}
+
 async function proxyTo(baseUrl, url, req, res) {
   const headers = { ...req.headers, host: new URL(baseUrl).host };
   delete headers.origin;
@@ -279,6 +297,7 @@ async function proxyTo(baseUrl, url, req, res) {
   const opts = { method: req.method, headers };
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
     opts.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    stripStaleOutboundBodyHeaders(headers);
   }
   try {
     const upstream = await fetch(url, opts);
@@ -482,6 +501,7 @@ async function proxyToCanister(req, res) {
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && bodyOut !== undefined) {
     opts.body = typeof bodyOut === 'string' ? bodyOut : JSON.stringify(bodyOut);
+    stripStaleOutboundBodyHeaders(headers);
   }
   try {
     const upstream = await fetch(url, opts);
