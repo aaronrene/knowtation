@@ -485,6 +485,107 @@
     };
   }
 
+  /** Match lib/hub-provenance.mjs — strip before merge; server re-applies provenance on write. */
+  const HUB_RESERVED_FM_KEYS = new Set([
+    'knowtation_editor',
+    'knowtation_edited_at',
+    'author_kind',
+    'knowtation_proposed_by',
+    'knowtation_approved_by',
+  ]);
+
+  function stripReservedHubFm(fm) {
+    const out = {};
+    if (!fm || typeof fm !== 'object' || Array.isArray(fm)) return out;
+    for (const [k, v] of Object.entries(fm)) {
+      if (HUB_RESERVED_FM_KEYS.has(k)) continue;
+      out[k] = v;
+    }
+    return out;
+  }
+
+  /**
+   * ICP canister extractJsonString only saw `"frontmatter":"..."`; object-shaped frontmatter stored as `{}`.
+   * Nesting frontmatter as a JSON string in the outer payload is always safe; gateway still merges provenance.
+   */
+  function stringifyNotePostPayload(path, body, frontmatter) {
+    const fmStr =
+      typeof frontmatter === 'string'
+        ? frontmatter
+        : JSON.stringify(frontmatter && typeof frontmatter === 'object' && !Array.isArray(frontmatter) ? frontmatter : {});
+    return JSON.stringify({ path, body, frontmatter: fmStr });
+  }
+
+  const DETAIL_EDIT_FM_KEYS = [
+    'title',
+    'date',
+    'project',
+    'tags',
+    'causal_chain_id',
+    'entity',
+    'episode_id',
+    'follows',
+  ];
+
+  function mergedFrontmatterForDetailSave() {
+    const base = stripReservedHubFm(materializeFrontmatter(currentOpenNote.frontmatter));
+    const preserved = {};
+    for (const [k, v] of Object.entries(base)) {
+      if (!DETAIL_EDIT_FM_KEYS.includes(k)) preserved[k] = v;
+    }
+    const dateVal =
+      el('detail-edit-date') && el('detail-edit-date').value ? el('detail-edit-date').value.trim() : ymd(new Date());
+    const title = (el('detail-edit-title') && el('detail-edit-title').value) || '';
+    const tTitle = title.trim();
+    const project = ((el('detail-edit-project') && el('detail-edit-project').value) || '').trim();
+    const tags = ((el('detail-edit-tags') && el('detail-edit-tags').value) || '').trim();
+    const causalChain = el('detail-edit-causal-chain') && el('detail-edit-causal-chain').value.trim();
+    const entityRaw = el('detail-edit-entity') && el('detail-edit-entity').value.trim();
+    const entity = entityRaw ? entityRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    const episode = el('detail-edit-episode') && el('detail-edit-episode').value.trim();
+    const followsRaw = el('detail-edit-follows') && el('detail-edit-follows').value.trim();
+    const follows = followsRaw
+      ? followsRaw.includes(',')
+        ? followsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+        : followsRaw
+      : undefined;
+    const out = { ...preserved, date: dateVal };
+    if (tTitle) out.title = tTitle;
+    else delete out.title;
+    if (project) out.project = project;
+    else delete out.project;
+    if (tags) out.tags = tags;
+    else delete out.tags;
+    if (causalChain) out.causal_chain_id = causalChain;
+    else delete out.causal_chain_id;
+    if (entity.length) out.entity = entity;
+    else delete out.entity;
+    if (episode) out.episode_id = episode;
+    else delete out.episode_id;
+    if (follows) out.follows = follows;
+    else delete out.follows;
+    return out;
+  }
+
+  function fillDetailEditFieldsFromFrontmatter(fm) {
+    const f = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
+    if (el('detail-edit-title')) el('detail-edit-title').value = f.title != null ? String(f.title) : '';
+    if (el('detail-edit-body')) el('detail-edit-body').value = currentOpenNote.body || '';
+    if (el('detail-edit-date')) el('detail-edit-date').value = f.date != null ? String(f.date).slice(0, 10) : '';
+    if (el('detail-edit-project')) el('detail-edit-project').value = f.project != null ? String(f.project) : '';
+    const tags = f.tags;
+    const tagsStr = Array.isArray(tags) ? tags.join(', ') : tags != null ? String(tags) : '';
+    if (el('detail-edit-tags')) el('detail-edit-tags').value = tagsStr;
+    if (el('detail-edit-causal-chain')) el('detail-edit-causal-chain').value = f.causal_chain_id != null ? String(f.causal_chain_id) : '';
+    const ent = f.entity;
+    const entStr = Array.isArray(ent) ? ent.join(', ') : ent != null ? String(ent) : '';
+    if (el('detail-edit-entity')) el('detail-edit-entity').value = entStr;
+    if (el('detail-edit-episode')) el('detail-edit-episode').value = f.episode_id != null ? String(f.episode_id) : '';
+    const fol = f.follows;
+    const folStr = Array.isArray(fol) ? fol.join(', ') : fol != null ? String(fol) : '';
+    if (el('detail-edit-follows')) el('detail-edit-follows').value = folStr;
+  }
+
   async function loadFacets() {
     try {
       const savedProject = filterProject.value;
@@ -1866,10 +1967,11 @@
     try {
       await api('/api/v1/notes', {
         method: 'POST',
-        body: JSON.stringify({
-          path,
-          body,
-          frontmatter: { source: 'hub', date: today, title, ...(pslug && { project: pslug }) },
+        body: stringifyNotePostPayload(path, body, {
+          source: 'hub',
+          date: today,
+          title,
+          ...(pslug && { project: pslug }),
         }),
       });
       msg.textContent = 'Saved: ' + path;
@@ -1919,7 +2021,7 @@
       ...(follows && { follows }),
     };
     try {
-      await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: notePath, body, frontmatter: fm }) });
+      await api('/api/v1/notes', { method: 'POST', body: stringifyNotePostPayload(notePath, body, fm) });
       msg.textContent = 'Created: ' + notePath;
       msg.className = 'create-msg ok';
       el('full-path').value = defaultFullPath();
@@ -1982,34 +2084,53 @@
     closeCreateModal();
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
-    bodyEl.className = 'detail-edit-container';
-    bodyEl.innerHTML = '<label for="detail-edit-body">Body</label><textarea id="detail-edit-body" class="detail-edit-body" rows="12"></textarea><label for="detail-edit-fm">Frontmatter (JSON)</label><textarea id="detail-edit-fm" class="detail-edit-fm" rows="6"></textarea>';
-    const bodyTa = el('detail-edit-body');
-    const fmTa = el('detail-edit-fm');
-    if (bodyTa) bodyTa.value = currentOpenNote.body || '';
-    if (fmTa) fmTa.value = JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
+    const fm = stripReservedHubFm(materializeFrontmatter(currentOpenNote.frontmatter));
+    bodyEl.className = 'detail-edit-container create-panel';
+    bodyEl.innerHTML =
+      '<p class="muted small">Path (read-only): <code id="detail-edit-path-display"></code></p>' +
+      '<label for="detail-edit-title">Title</label>' +
+      '<input type="text" id="detail-edit-title" placeholder="Note title" />' +
+      '<label for="detail-edit-body">Body (Markdown)</label>' +
+      '<textarea id="detail-edit-body" class="detail-edit-body" rows="10" placeholder="Content…"></textarea>' +
+      '<label for="detail-edit-date">Date</label>' +
+      '<input type="date" id="detail-edit-date" />' +
+      '<label for="detail-edit-project">Project (slug)</label>' +
+      '<input type="text" id="detail-edit-project" placeholder="slug" />' +
+      '<label for="detail-edit-tags">Tags (comma-separated)</label>' +
+      '<input type="text" id="detail-edit-tags" placeholder="tag1, tag2" />' +
+      '<p class="muted small" style="margin-top:0.5rem;">Temporal and hierarchical (optional):</p>' +
+      '<label for="detail-edit-causal-chain">Causal chain ID</label>' +
+      '<input type="text" id="detail-edit-causal-chain" placeholder="e.g. auth-decisions" />' +
+      '<label for="detail-edit-entity">Entity (comma-separated)</label>' +
+      '<input type="text" id="detail-edit-entity" placeholder="e.g. alice, auth" />' +
+      '<label for="detail-edit-episode">Episode ID</label>' +
+      '<input type="text" id="detail-edit-episode" placeholder="e.g. planning-2025-03" />' +
+      '<label for="detail-edit-follows">Follows (vault path)</label>' +
+      '<input type="text" id="detail-edit-follows" placeholder="e.g. inbox/prior-note.md" />';
+    const pathDisp = el('detail-edit-path-display');
+    if (pathDisp) pathDisp.textContent = currentOpenNote.path;
+    fillDetailEditFieldsFromFrontmatter(fm);
     actionsEl.innerHTML = '';
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
+    saveBtn.className = 'btn-primary';
     saveBtn.onclick = async () => {
       closeCreateModal();
-      let frontmatter;
-      try {
-        const raw = (el('detail-edit-fm') && el('detail-edit-fm').value) || '{}';
-        frontmatter = raw.trim() ? JSON.parse(raw) : {};
-      } catch (_) {
-        if (typeof showToast === 'function') showToast('Invalid frontmatter JSON');
-        return;
-      }
       const body = (el('detail-edit-body') && el('detail-edit-body').value) || '';
+      const frontmatter = mergedFrontmatterForDetailSave();
       try {
-        await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: currentOpenNote.path, body, frontmatter }) });
-        showToast('Note saved');
-        currentOpenNote = { path: currentOpenNote.path, body, frontmatter };
+        await api('/api/v1/notes', {
+          method: 'POST',
+          body: stringifyNotePostPayload(currentOpenNote.path, body, frontmatter),
+        });
+        if (typeof showToast === 'function') showToast('Note saved');
+        const refreshed = await api('/api/v1/notes/' + encodeURIComponent(currentOpenNote.path));
+        const nfm = materializeFrontmatter(refreshed.frontmatter);
+        currentOpenNote = { path: currentOpenNote.path, body: refreshed.body || '', frontmatter: nfm };
         switchNoteToReadMode();
         if (typeof loadNotes === 'function') loadNotes();
       } catch (e) {
-        showToast('Save failed: ' + (e.message || String(e)), true);
+        if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)), true);
       }
     };
     const cancelBtn = document.createElement('button');
