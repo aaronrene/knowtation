@@ -11,7 +11,8 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 - **GET /auth/callback/google**, **GET /auth/callback/github** — OAuth callbacks; on success redirect to `HUB_UI_ORIGIN/?token=<jwt>`.
 - **GET /api/v1/billing/summary** — JWT. Hosted billing pools (tier, monthly/add-on cents). See [HOSTED-CREDITS-DESIGN.md](../../docs/HOSTED-CREDITS-DESIGN.md).
 - **POST /api/v1/billing/webhook** — Stripe webhook (**raw JSON body**). No JWT.
-- **GET/POST /api/v1/*** — Proxied to canister with **X-User-Id** from JWT. Returns 401 if no valid token. When **BILLING_ENFORCE** is on, some routes may return **402** (quota).
+- **GET /api/v1/notes/facets** — JWT + **X-Vault-Id**. Aggregates `projects`, `tags`, and `folders` from the canister note list (`hub/gateway/note-facets.mjs`); not proxied as a literal canister path.
+- **GET/POST /api/v1/*** (other) — Proxied to canister with **X-User-Id** from JWT. Returns 401 if no valid token. When **BILLING_ENFORCE** is on, some routes may return **402** (quota).
 
 ## Canister proxy URL (important)
 

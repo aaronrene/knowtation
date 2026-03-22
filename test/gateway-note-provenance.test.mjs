@@ -56,6 +56,22 @@ test('mergeHostedNoteBodyForCanister parses string frontmatter input', () => {
   assert.equal(fm.knowtation_editor, 'google:1');
 });
 
+test('mergeHostedNoteBodyForCanister preserves tags and project for canister wire', () => {
+  const out = mergeHostedNoteBodyForCanister(
+    {
+      path: 'inbox/n.md',
+      body: 'hello',
+      frontmatter: { title: 'T', tags: 'alpha, beta', project: 'my-app' },
+    },
+    'google:123'
+  );
+  const fm = JSON.parse(/** @type {string} */ (out.frontmatter));
+  assert.equal(fm.title, 'T');
+  assert.equal(fm.tags, 'alpha, beta');
+  assert.equal(fm.project, 'my-app');
+  assert.ok(fm.knowtation_edited_at);
+});
+
 test('isPostApiV1Notes matches notes collection POST only', () => {
   assert.equal(isPostApiV1Notes('POST', '/api/v1/notes'), true);
   assert.equal(isPostApiV1Notes('POST', '/api/v1/notes/'), true);
