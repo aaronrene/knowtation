@@ -1033,6 +1033,8 @@
   }
 
   function openCreateModal() {
+    const panel = el('detail-panel');
+    if (panel) panel.classList.add('hidden');
     el('modal-create').classList.remove('hidden');
     el('create-msg-quick').textContent = '';
     el('create-msg-quick').className = 'create-msg';
@@ -1047,6 +1049,9 @@
   el('modal-create-close').onclick = closeCreateModal;
 
   function openImportModal() {
+    closeCreateModal();
+    const panel = el('detail-panel');
+    if (panel) panel.classList.add('hidden');
     el('modal-import').classList.remove('hidden');
     el('import-msg').textContent = '';
     el('import-file').value = '';
@@ -1141,6 +1146,7 @@
   });
 
   function openSettings() {
+    closeCreateModal();
     el('modal-settings').classList.remove('hidden');
     document.querySelectorAll('.settings-tab').forEach((t) => t.classList.toggle('active', t.dataset.settingsTab === 'backup'));
     document.querySelectorAll('.settings-panel').forEach((p) => {
@@ -1911,6 +1917,7 @@
 
   function switchNoteToEditMode() {
     if (!currentOpenNote) return;
+    closeCreateModal();
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
     bodyEl.className = 'detail-edit-container';
@@ -1923,6 +1930,7 @@
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
     saveBtn.onclick = async () => {
+      closeCreateModal();
       let frontmatter;
       try {
         const raw = (el('detail-edit-fm') && el('detail-edit-fm').value) || '{}';
@@ -1949,6 +1957,7 @@
   }
 
   function openNote(path) {
+    closeCreateModal();
     currentNotePathForCopy = path;
     currentOpenNote = null;
     const panel = el('detail-panel');
