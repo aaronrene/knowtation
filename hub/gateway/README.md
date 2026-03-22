@@ -15,7 +15,9 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 
 ## Canister proxy URL (important)
 
-The canister proxy runs under **`app.use('/api/v1', …)`**. Express **strips** that mount from `req.url` / `req.path` inside the handler, so `req.path` is only the suffix (e.g. `/notes`), **not** `/api/v1/notes`. Building the upstream URL as `CANISTER_URL + req.path` would call the canister at **`/notes`**, which does not match the Hub API and returns **`{"error":"Not found"}`**. The gateway uses **`req.originalUrl`** (after Netlify path normalization) for pathname + query.
+The canister proxy runs under **`app.use('/api/v1', …)`**. Express sets **`req.baseUrl` + `req.path`** to the full API path (e.g. `/api/v1/notes`); **`req.originalUrl`** alone can be wrong under Netlify/serverless-http. See **`hub/gateway/request-path.mjs`** (`effectiveRequestPath`, `upstreamPathAndQuery`).
+
+When the gateway **re-serializes** the JSON body (e.g. provenance merge), it **removes** the incoming **`Content-Length`**, **`Transfer-Encoding`**, and **`Content-Encoding`** before `fetch` to the canister. Keeping the client’s **`Content-Length`** (from the shorter pre-merge body) can cause Undici to **hang** or mis-handle the write relative to the new body, so create/save appears to do nothing; the canister may also see truncated or invalid JSON.
 
 ## Environment
 
