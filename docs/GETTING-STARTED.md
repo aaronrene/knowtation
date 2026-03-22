@@ -120,7 +120,7 @@ Start the Hub:
 npm run hub
 ```
 
-Open **http://localhost:3333/** in a browser. You get the Rich Hub UI (list notes, search, proposals, settings). **OAuth:** credentials are **not** in the repo — register your own Google/GitHub OAuth app and add `GOOGLE_*` / `GITHUB_*` to `.env` plus callback URLs; see [hub/README.md](../hub/README.md). **Search in the Hub:** after §3 index (or **Re-index** in the UI), **Search vault** uses the same vector store as the CLI. In-app walkthrough: **How to use** (seven steps, matches [TWO-PATHS](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted)).
+Open **http://localhost:3333/** in a browser. You get the Rich Hub UI (list notes, search, proposals, settings). **Demo notes:** the repo includes **`vault/showcase/`** (inbox, projects, areas, tags)—visible immediately when `vault_path` points at this vault. **Hosted:** seed the same folder with `npm run seed:hosted-showcase` after login; see [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md). **OAuth:** credentials are **not** in the repo — register your own Google/GitHub OAuth app and add `GOOGLE_*` / `GITHUB_*` to `.env` plus callback URLs; see [hub/README.md](../hub/README.md). **Search in the Hub:** after §3 index (or **Re-index** in the UI), **Search vault** uses the same vector store as the CLI. In-app walkthrough: **How to use** (seven steps, matches [TWO-PATHS](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted)).
 
 ---
 

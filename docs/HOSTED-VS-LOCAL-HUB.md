@@ -43,7 +43,7 @@ Going live did **not** “break” the old app: the **browser is talking to a di
 | Header shows `google:…` | Gateway JWT had no `name` | Gateway `issueToken` adds `name`, `role` (commit) |
 | Settings: role / user ID / “Loading…” | Canister has no settings; proxy returned 404 | Gateway implements `settings` + `setup` (commit) |
 | List / Calendar / Overview / filters | Canister API ≠ full Hub API | **Next:** facets + note metadata on canister or gateway enrichment (see [PARITY-PLAN.md](./PARITY-PLAN.md)) |
-| Sample notes gone on live | Canister per-user store; not your local `vault/` folder | Seed canister or accept empty until sync/backup flows populate it |
+| Sample notes gone on live | Canister per-user store; not your local `vault/` folder | Run `npm run seed:hosted-showcase` with gateway URL + JWT after login, or see [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) |
 
 ---
 

@@ -7,6 +7,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | Doc | Purpose |
 |-----|---------|
 | [GETTING-STARTED.md](./GETTING-STARTED.md) | Clone, config, index, search, Hub, agents |
+| [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) | Demo notes (`vault/showcase/`) — local tree + hosted seed |
 | [SPEC.md](./SPEC.md) | Data formats, CLI, config — source of truth |
 | [HUB-API.md](./HUB-API.md) | Hub REST API (self-hosted and canister-aligned) |
 | [setup.md](./setup.md) | Extended setup (OAuth, transcription, etc.) |
@@ -40,6 +41,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases 1–16+ roadmap |
 | [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
+| [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Test checklist: notes to add, Hub UI checks, CLI commands |
 
 ## Manual / phase tests (local developers)
 

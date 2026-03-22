@@ -123,9 +123,19 @@
     try {
       data = text ? JSON.parse(text) : null;
     } catch (_) {
-      throw new Error(res.status + ' ' + text.slice(0, 100));
+      const t = text.trim();
+      if (/^<!DOCTYPE/i.test(t) || /<html/i.test(t)) {
+        throw new Error(
+          `Server returned a web page (${res.status}) instead of API JSON. If you just updated Knowtation, stop and restart the Hub (npm run hub) so routes like git-init are loaded.`,
+        );
+      }
+      throw new Error(res.status + ' ' + t.slice(0, 100));
     }
-    if (!res.ok) throw new Error(data?.error || res.statusText);
+    if (!res.ok) {
+      const err = new Error(data?.error || res.statusText);
+      if (data && data.code) err.code = data.code;
+      throw err;
+    }
     return data;
   }
 
@@ -210,6 +220,12 @@
     }
     sessionStorage.removeItem('knowtation_github_connect_pending');
     return s;
+  }
+
+  /** Align with hub/server effectiveRole: viewer read-only; member maps to editor for writes. */
+  function hubUserCanWriteNotes() {
+    const r = window.__hubUserRole;
+    return r === 'editor' || r === 'admin' || r === 'member';
   }
 
   function showLoginChrome() {
@@ -346,6 +362,7 @@
     (async function ensureVaultAndSwitcherThenLoad() {
       try {
         const s = await api('/api/v1/settings');
+        if (s.role) window.__hubUserRole = String(s.role);
         const allowed = s.allowed_vault_ids || [];
         const current = getCurrentVaultId();
         if (allowed.length && !allowed.includes(current)) {
@@ -1143,6 +1160,7 @@
     fetchSettingsForBackupModal()
       .then((s) => {
         lastBackupSettingsPayload = s;
+        if (s.role) window.__hubUserRole = String(s.role);
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
         const userIdEl = el('settings-user-id');
@@ -1625,6 +1643,8 @@
       }
       const result = await api('/api/v1/vault/sync', opts);
       msg.textContent = result.message || 'Done.';
+      const initBtnOk = el('btn-vault-git-init');
+      if (initBtnOk) initBtnOk.classList.add('hidden');
       if (hostedPath && s) {
         const refreshed = await api('/api/v1/settings');
         lastBackupSettingsPayload = refreshed;
@@ -1651,8 +1671,35 @@
     } catch (e) {
       msg.textContent = e.message || 'Sync failed';
       msg.className = 'settings-msg err';
+      const initBtn = el('btn-vault-git-init');
+      if (initBtn) {
+        const st = lastBackupSettingsPayload;
+        const hosted =
+          st && String(st.vault_path_display || '').toLowerCase() === 'canister';
+        const needInit =
+          e.code === 'GIT_NOT_INITIALIZED' ||
+          /not a Git repository/i.test(e.message || '');
+        initBtn.classList.toggle('hidden', hosted || !needInit);
+      }
     }
   };
+  const btnVaultGitInit = el('btn-vault-git-init');
+  if (btnVaultGitInit) {
+    btnVaultGitInit.onclick = async () => {
+      const msg = el('settings-sync-msg');
+      msg.textContent = 'Initializing Git…';
+      msg.className = 'settings-msg';
+      try {
+        const out = await api('/api/v1/vault/git-init', { method: 'POST' });
+        msg.textContent = out.message || 'Git initialized. Try Back up now.';
+        msg.className = 'settings-msg ok';
+        btnVaultGitInit.classList.add('hidden');
+      } catch (e) {
+        msg.textContent = e.message || 'Git init failed';
+        msg.className = 'settings-msg err';
+      }
+    };
+  }
   const saveSetupBtn = el('btn-settings-save');
   if (saveSetupBtn) {
     saveSetupBtn.onclick = async () => {
@@ -1833,8 +1880,7 @@
     bodyEl.innerHTML = '';
     bodyEl.textContent = (currentOpenNote.body || '') + '\n\n---\n' + JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
     bodyEl.className = '';
-    const role = window.__hubUserRole;
-    const canEdit = role === 'editor' || role === 'admin';
+    const canEdit = hubUserCanWriteNotes();
     actionsEl.innerHTML = '';
     if (canEdit) {
       const editBtn = document.createElement('button');
@@ -1920,8 +1966,7 @@
       .then((note) => {
         currentOpenNote = { path, body: note.body || '', frontmatter: note.frontmatter || {} };
         bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
-        const role = window.__hubUserRole;
-        const canEdit = role === 'editor' || role === 'admin';
+        const canEdit = hubUserCanWriteNotes();
         if (canEdit) {
           const editBtn = document.createElement('button');
           editBtn.textContent = 'Edit';

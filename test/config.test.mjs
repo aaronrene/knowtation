@@ -29,13 +29,24 @@ describe('loadConfig', () => {
   });
 
   it('loads from fixture config when cwd is fixtures', () => {
-    const config = loadConfig(fixturesDir);
-    assert.strictEqual(typeof config.vault_path, 'string');
-    assert(config.vault_path.endsWith('vault-fs') || config.vault_path.includes('vault-fs'));
-    assert.strictEqual(config.data_dir, path.resolve(fixturesDir, 'data'));
-    assert(Array.isArray(config.ignore));
-    assert(config.ignore.includes('templates'));
-    assert(config.ignore.includes('meta'));
+    const prevVault = process.env.KNOWTATION_VAULT_PATH;
+    const prevData = process.env.KNOWTATION_DATA_DIR;
+    delete process.env.KNOWTATION_VAULT_PATH;
+    delete process.env.KNOWTATION_DATA_DIR;
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(typeof config.vault_path, 'string');
+      assert(config.vault_path.endsWith('vault-fs') || config.vault_path.includes('vault-fs'));
+      assert.strictEqual(config.data_dir, path.resolve(fixturesDir, 'data'));
+      assert(Array.isArray(config.ignore));
+      assert(config.ignore.includes('templates'));
+      assert(config.ignore.includes('meta'));
+    } finally {
+      if (prevVault !== undefined) process.env.KNOWTATION_VAULT_PATH = prevVault;
+      else delete process.env.KNOWTATION_VAULT_PATH;
+      if (prevData !== undefined) process.env.KNOWTATION_DATA_DIR = prevData;
+      else delete process.env.KNOWTATION_DATA_DIR;
+    }
   });
 
   it('throws when vault_path is missing (no file, no env)', () => {

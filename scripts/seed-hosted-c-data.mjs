@@ -7,6 +7,10 @@
  *   KNOWTATION_HUB_TOKEN="<JWT from Hub after login>" \
  *   node scripts/seed-hosted-c-data.mjs
  *
+ * For repo-default demo notes (inbox / projects / areas), prefer:
+ *   npm run seed:hosted-showcase
+ * (uploads everything under vault/showcase/). See docs/SHOWCASE-VAULT.md.
+ *
  * Notes:
  * - Idempotent: writes fixed paths under seed/c-data/ (re-running overwrites).
  * - Safe: everything is namespaced under seed/c-data/ so you can delete later.

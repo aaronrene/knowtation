@@ -58,7 +58,8 @@ There is **no separate “Sign up”**. Identity is **Google or GitHub**: the fi
    `GITHUB_CLIENT_ID=...`  
    `GITHUB_CLIENT_SECRET=...`  
 3. Restart the Hub → **Continue with GitHub**.  
-   **If you use Connect GitHub:** the same OAuth App must list the `github-connect` callback above. If you see "redirect_uri is not associated with this application", add that URL to the app's callback list.  
+   **If you see GitHub’s “Be careful! … redirect_uri is not associated with this application”:** the **Authorization callback URL** in your GitHub OAuth App must match **exactly** what this server uses — for `npm run hub` that is **`http://localhost:3333/api/v1/auth/callback/github`** (note **`/api/v1/`**; not `/auth/callback/github`, which is the **gateway** path). Add both callback URLs from step 1 if anything is missing.  
+   **If you use Connect GitHub:** the same OAuth App must also list `http://localhost:3333/api/v1/auth/callback/github-connect`.  
    **Production:** set `HUB_BASE_URL=https://your-domain.com` and add `https://your-domain.com/api/v1/auth/callback/github` and `https://your-domain.com/api/v1/auth/callback/github-connect` to the GitHub app.
 
 ## Docker
@@ -124,6 +125,33 @@ On the server, create or edit `data/hub_roles.json` (see format below); restart 
 - **Admin** — Full access: everything above plus Setup and approve/discard.
 
 The Hub UI shows **Your role** and **Your user ID** in Settings so users know their role and can share their ID with an admin. A future **invite flow** (Phase 13) may allow assigning by email or invite link so you don’t have to manage the JSON file by hand.
+
+## Note provenance (self-hosted Hub)
+
+On **`POST /api/v1/notes`**, **`POST /api/v1/import`** (second pass on each imported path), **`POST /api/v1/capture`**, and **proposal approve**, the Hub merges **server-controlled** YAML frontmatter so clients cannot forge identity:
+
+| Key | When |
+|-----|------|
+| `knowtation_editor` | OAuth `sub` (`provider:id`) for the acting user, when known |
+| `knowtation_edited_at` | ISO-8601 UTC timestamp of the write |
+| `author_kind` | `human` \| `webhook` \| `agent` \| `import` |
+| `knowtation_proposed_by` | Set on **approve** from the stored proposal |
+| `knowtation_approved_by` | Set on **approve** to the admin’s `sub` |
+
+Webhook capture does **not** set `knowtation_editor` (no logged-in user). New proposals store **`proposed_by`** in `hub_proposals.json`.
+
+**Hosted (canister):** note writes through the gateway/canister do **not** use this Node Hub path. To get the same fields in hosted backups, mirror this merge where hosted notes are persisted (Motoko / bridge) using the authenticated principal or JWT `sub`.
+
+## Optional: signed Git commits (single Hub identity)
+
+Signed commits prove a **private key** possessed by the backup process signed the commit — they do **not** identify which OAuth user edited a note (use frontmatter for that). To get GitHub “Verified” on backup commits:
+
+1. Create a **dedicated** GPG or SSH signing key for the machine that runs `npm run hub`.
+2. Register the public key with GitHub; use a **verified** email for `git config user.email` in the vault (or global config for that user).
+3. In the vault directory (or globally): `git config commit.gpgsign true`, `git config user.signingkey <key-id>` (GPG) or use [SSH signing](https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key) with `gpg.format ssh` and a public key path.
+4. Ensure non-interactive signing (`gpg-agent` / `ssh-agent`) so [`lib/vault-git-sync.mjs`](../lib/vault-git-sync.mjs) commits from the Hub do not hang.
+
+All backup commits will show **one** signer (the Hub), not per-editor identities.
 
 ## API contract
 

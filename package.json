@@ -17,7 +17,8 @@
     "test": "node --test test/*.test.mjs",
     "hub": "node hub/server.mjs",
     "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
-    "canister:preflight": "bash scripts/canister-predeploy.sh"
+    "canister:preflight": "bash scripts/canister-predeploy.sh",
+    "seed:hosted-showcase": "node scripts/seed-vault-dir-to-hub.mjs"
   },
   "keywords": [
     "knowledge-base",

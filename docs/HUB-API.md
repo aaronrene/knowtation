@@ -80,6 +80,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 ### 3.3 Vault write
 
 - **POST /notes** — Write or update a note. Body: `{ "path": "...", "body?", "frontmatter?", "append?" }`. Path vault-relative.  
+  The Hub **merges server provenance** into frontmatter: `knowtation_editor` (JWT `sub`), `knowtation_edited_at`, `author_kind: human`. Client-supplied values for those keys (and other reserved `knowtation_*` fields) are **ignored**.  
   **Response:** `{ "path": "...", "written": true }`.  
   **400** if path invalid; **403** if not allowed.
 
@@ -92,6 +93,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **400** if path invalid; **404** if note not found.
 
 - **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, audio, video, notion, jira-export, notebooklm, gdrive, linear-export. If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export).  
+  After import, the Hub runs a **provenance pass** on each imported path (`author_kind: import`, editor `sub`).  
   **Response:** `{ "imported": [ { "path", "source_id?" } ], "count": number }`.  
   **400** if file or source_type missing/invalid; **500** on import failure.
 

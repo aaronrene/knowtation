@@ -6,6 +6,7 @@
 
 import path from 'path';
 import os from 'os';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -24,6 +25,7 @@ import { loadConfig } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
 import { readNote, normalizeSlug, resolveVaultRelativePath } from '../lib/vault.mjs';
 import { writeNote } from '../lib/write.mjs';
+import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
@@ -350,13 +352,14 @@ app.post('/api/v1/capture', captureAuth, (req, res) => {
   const relativePath = project
     ? `projects/${normalizeSlug(project)}/inbox/${filename}`
     : `inbox/${filename}`;
-  const frontmatter = {
+  const baseFm = {
     source,
     date: now,
     ...(sourceId && { source_id: sourceId }),
     ...(project && { project: normalizeSlug(project) }),
     ...(tags && { tags }),
   };
+  const frontmatter = mergeProvenanceFrontmatter(baseFm, { kind: 'webhook' });
   try {
     const result = writeNote(config.vault_path, relativePath, { body: body.trimEnd(), frontmatter });
     invalidateFacetsCache();
@@ -498,7 +501,11 @@ app.post('/api/v1/notes', requireRole('editor', 'admin'), (req, res) => {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
   }
   try {
-    const out = writeNote(req.vaultPath, notePath, { body, frontmatter, append });
+    const fm = mergeProvenanceFrontmatter(frontmatter, {
+      sub: req.user?.sub ?? null,
+      kind: 'human',
+    });
+    const out = writeNote(req.vaultPath, notePath, { body, frontmatter: fm, append });
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: req.vaultPath });
     res.json(out);
@@ -571,11 +578,30 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
       inputPath = extractDir;
     }
     const result = await runImport(sourceType, inputPath, { project, outputDir, tags, vaultPath: req.vaultPath });
+    const importStamp = mergeProvenanceFrontmatter({}, {
+      sub: req.user?.sub ?? null,
+      kind: 'import',
+    });
+    for (const item of result.imported || []) {
+      if (item.path && typeof item.path === 'string') {
+        try {
+          writeNote(req.vaultPath, item.path, { frontmatter: importStamp });
+        } catch (e) {
+          console.error('hub import provenance pass failed for', item.path, e.message || e);
+        }
+      }
+    }
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: req.vaultPath });
     res.json({ imported: result.imported, count: result.count });
   } catch (e) {
-    res.status(500).json({ error: e.message || String(e), code: 'RUNTIME_ERROR' });
+    const msg = e.message || String(e);
+    const clientError =
+      /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:/i.test(msg);
+    res.status(clientError ? 400 : 500).json({
+      error: msg,
+      code: clientError ? 'BAD_REQUEST' : 'RUNTIME_ERROR',
+    });
   } finally {
     if (tempDir && fs.existsSync(tempDir)) {
       try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
@@ -620,6 +646,7 @@ app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
       intent,
       base_state_id,
       vault_id: req.vault_id,
+      proposed_by: req.user?.sub ?? undefined,
     });
     res.status(201).json(proposal);
   } catch (e) {
@@ -636,9 +663,15 @@ app.post('/api/v1/proposals/:id/approve', requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: `Proposal status is ${proposal.status}`, code: 'BAD_REQUEST' });
   }
   try {
+    const fm = mergeProvenanceFrontmatter(proposal.frontmatter ?? {}, {
+      sub: req.user?.sub ?? null,
+      kind: 'agent',
+      proposedBy: proposal.proposed_by ?? null,
+      approvedBy: req.user?.sub ?? null,
+    });
     writeNote(approveVaultPath, proposal.path, {
       body: proposal.body,
-      frontmatter: proposal.frontmatter,
+      frontmatter: fm,
     });
     const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved');
     appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'approve', proposalId: req.params.id });
@@ -703,7 +736,51 @@ app.post('/api/v1/vault/sync', jwtAuth, requireVaultAccess, requireRole('editor'
     if (e.message && e.message.includes('must be set in config')) {
       return res.status(400).json({ error: e.message, code: 'NOT_CONFIGURED' });
     }
-    res.status(500).json({ error: e.message || 'Sync failed', code: 'RUNTIME_ERROR' });
+    if (e.message && /not a Git repository|Vault folder is not a Git repository/i.test(e.message)) {
+      return res.status(400).json({ error: e.message, code: 'GIT_NOT_INITIALIZED' });
+    }
+    const stderr = e.stderr != null ? (Buffer.isBuffer(e.stderr) ? e.stderr.toString('utf8') : String(e.stderr)) : '';
+    const stdout = e.stdout != null ? (Buffer.isBuffer(e.stdout) ? e.stdout.toString('utf8') : String(e.stdout)) : '';
+    const detail = [e.message, stderr, stdout].filter(Boolean).join('\n').trim();
+    res.status(500).json({ error: detail || 'Sync failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/vault/git-init — create .git in current vault (self-hosted); editor/admin
+app.post('/api/v1/vault/git-init', jwtAuth, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
+  try {
+    const vaultPath = req.vaultPath;
+    if (!vaultPath || !fs.existsSync(vaultPath)) {
+      return res.status(400).json({ error: 'Vault path not found.', code: 'BAD_REQUEST' });
+    }
+    const gitDir = path.join(vaultPath, '.git');
+    if (fs.existsSync(gitDir)) {
+      return res.status(400).json({ error: 'This vault is already a Git repository.', code: 'ALREADY_GIT' });
+    }
+    const runGit = (args) =>
+      execFileSync('git', args, { cwd: vaultPath, stdio: ['pipe', 'pipe', 'pipe'] });
+    runGit(['init']);
+    runGit(['config', 'user.email', 'hub@knowtation.local']);
+    runGit(['config', 'user.name', 'Knowtation Hub']);
+    runGit(['add', '-A']);
+    try {
+      runGit(['commit', '-m', 'Initial commit']);
+    } catch (_) {
+      const stamp = path.join(vaultPath, '.knowtation-git-init.md');
+      fs.writeFileSync(
+        stamp,
+        '# Vault\n\nGit initialized by Knowtation Hub. You can delete this file after your first real commit.\n',
+        'utf8',
+      );
+      runGit(['add', '-A']);
+      runGit(['commit', '-m', 'Initial commit']);
+    }
+    res.json({
+      ok: true,
+      message: 'Git initialized in this vault. Use Back up now to push (after Connect GitHub if needed).',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'git init failed', code: 'RUNTIME_ERROR' });
   }
 });
 
