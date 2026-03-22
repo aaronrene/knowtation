@@ -73,7 +73,9 @@ module Migration {
     };
   };
 
-  public func migration(old : { var storage : StableStorageV0 }) : { var storage : StableStorage } {
+  /// One-time V0→V1 transform (Phase 15.1). **Not** the actor upgrade hook: mainnet stable is already V1.
+  /// If you still have a V0 canister, deploy an older release that used `migration` from V0 first, or reinstall.
+  public func migrateFromV0ToV1(old : { var storage : StableStorageV0 }) : { var storage : StableStorage } {
     {
       var storage = {
         vaultEntries = Array.map<(Text, [(Text, (Text, Text))]), (Text, Text, [(Text, (Text, Text))])>(
@@ -94,5 +96,10 @@ module Migration {
         billingByUser = [];
       };
     };
+  };
+
+  /// Actor upgrade hook: stable memory is already `StableStorage` (V1). Identity allows WASM-only upgrades.
+  public func migration(old : { var storage : StableStorage }) : { var storage : StableStorage } {
+    { var storage = old.storage };
   };
 }

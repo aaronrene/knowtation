@@ -37,8 +37,12 @@ const migrationChecks = [
     ok: (s) => s.includes('external_ref : Text;\n    vault_id : Text;\n    created_at : Text;'),
   },
   {
-    name: 'migration(old : { var storage : StableStorageV0 })',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorageV0 })'),
+    name: 'migrateFromV0ToV1(old : { var storage : StableStorageV0 }) — historical V0→V1',
+    ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
+  },
+  {
+    name: 'migration(old : { var storage : StableStorage }) — V1 identity hook for mainnet upgrades',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
   },
   {
     name: 'V0 → V1 maps notes into vault "default"',

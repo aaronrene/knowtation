@@ -39,7 +39,12 @@ This runs **migration shape checks** (`npm run canister:verify-migration`), **`n
 
 ## Stable memory upgrades (mainnet)
 
-If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain stable type no longer matches the migration input type in **`Migration.mo`**. The project uses **`src/hub/Migration.mo`** and `(with migration = Migration.migration)` on the hub actor. **V0** (one note map per user) upgrades to **V1** (multi-vault `(userId, vaultId)` + `billingByUser` reservation + `vault_id` on proposals); existing notes move to vault id **`default`**.
+If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain stable type no longer matches the migration hook’s **input** type in **`Migration.mo`**. The hub actor uses `(with migration = Migration.migration)` on **`Migration.StableStorage`**.
+
+- **Production (already on V1):** `Migration.migration` is the **identity** on `StableStorage` so WASM-only upgrades succeed. The one-time **V0→V1** logic lives in **`migrateFromV0ToV1`** (not the actor hook).
+- **Stranded V0 canisters** (pre–Phase 15.1 layout only): deploy an older git revision that still migrated from `StableStorageV0`, or reinstall an empty canister.
+
+**V0** meant one note map per user; **V1** is multi-vault `(userId, vaultId)` + `billingByUser` + `vault_id` on proposals; migrated notes use vault id **`default`**.
 
 Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTED-STORAGE-BILLING-ROADMAP.md). After a one-way upgrade has run on mainnet, a **later** release may only simplify migration if Motoko compatibility allows (see [Motoko upgrades](https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility)).
 
