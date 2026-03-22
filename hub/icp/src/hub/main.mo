@@ -329,6 +329,80 @@ func extractJsonString(body : Text, key : Text) : ?Text {
   };
 };
 
+func skipWsFromCharIndex(chars : [Char], j0 : Nat) : Nat {
+  var j = j0;
+  while (j < chars.size()) {
+    let ch = chars[j];
+    if (ch == ' ' or ch == '\t' or ch == '\n' or ch == '\r') { j += 1 } else { return j };
+  };
+  j;
+};
+
+/// Balanced `{...}` starting at startBrace (must point at `{`). Respects strings and escapes.
+func extractJsonObjectSlice(body : Text, startBrace : Nat) : ?Text {
+  let chars = Text.toArray(body);
+  if (startBrace >= chars.size()) { return null };
+  if (chars[startBrace] != '{') { return null };
+  var i = startBrace;
+  var depth : Int = 0;
+  var inStr = false;
+  var esc = false;
+  while (i < chars.size()) {
+    let ch = chars[i];
+    if (esc) {
+      esc := false;
+      i += 1;
+      continue;
+    };
+    if (inStr) {
+      if (ch == '\\') { esc := true } else if (ch == '\"') { inStr := false };
+      i += 1;
+      continue;
+    };
+    if (ch == '\"') {
+      inStr := true;
+      i += 1;
+      continue;
+    };
+    if (ch == '{') { depth += 1 };
+    if (ch == '}') {
+      depth -= 1;
+      if (depth == 0) {
+        let len = (i + 1) - startBrace;
+        return ?textSlice(body, startBrace, len);
+      };
+    };
+    i += 1;
+  };
+  null;
+};
+
+/// POST bodies often use `"frontmatter":{...}` (JSON object). extractJsonString only handled a quoted string; mismatch stored `"{}"` and hid metadata in the Hub.
+func extractFrontmatterFromPostBody(body : Text) : Text {
+  switch (extractJsonString(body, "frontmatter")) {
+    case (?t) { t };
+    case null {
+      let needle = "\"frontmatter\":";
+      switch (textFind(body, needle)) {
+        case null { "{}" };
+        case (?start) {
+          let chars = Text.toArray(body);
+          let idx = skipWsFromCharIndex(chars, start + Text.size(needle));
+          if (idx >= chars.size()) { return "{}" };
+          if (chars[idx] == '\"') {
+            return Option.get(extractJsonString(body, "frontmatter"), "{}");
+          };
+          if (chars[idx] != '{') { return "{}" };
+          switch (extractJsonObjectSlice(body, idx)) {
+            case (?obj) { obj };
+            case null { "{}" };
+          };
+        };
+      };
+    };
+  };
+};
+
 /// Decode percent-encoded path segment (e.g. inbox%2Fnote.md -> inbox/note.md) so GET lookup matches POST-stored keys.
 func decodePercentEncoded(s : Text) : Text {
   var out = "";
@@ -571,7 +645,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
       return { status_code = 400; headers = corsHeaders(); body = jsonBody("{\"error\":\"path required\",\"code\":\"BAD_REQUEST\"}"); streaming_strategy = null; upgrade = null };
     };
     let noteBody = Option.get(extractJsonString(bodyText, "body"), bodyText);
-    let frontmatter = Option.get(extractJsonString(bodyText, "frontmatter"), "{}");
+    let frontmatter = extractFrontmatterFromPostBody(bodyText);
     vault.put(path, (frontmatter, noteBody));
     saveStable();
     return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"path\":\"" # escapeJson(path) # "\",\"written\":true}"); streaming_strategy = null; upgrade = null };
@@ -581,7 +655,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let path = Option.get(extractJsonString(bodyText, "path"), "inbox/proposal-" # Int.toText(Time.now()) # ".md");
     let body = Option.get(extractJsonString(bodyText, "body"), "");
     let intent = Option.get(extractJsonString(bodyText, "intent"), "");
-    let frontmatter = Option.get(extractJsonString(bodyText, "frontmatter"), "{}");
+    let frontmatter = extractFrontmatterFromPostBody(bodyText);
     let base_state_id = Option.get(extractJsonString(bodyText, "base_state_id"), "");
     let external_ref = Option.get(extractJsonString(bodyText, "external_ref"), "");
     let proposal_id = "prop-" # Int.toText(Time.now());
