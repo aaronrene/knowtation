@@ -94,6 +94,7 @@ Use this list **before first launch** and **again after** any production env cha
 
 ## 6. Reference
 
+- [HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) — Verify static Hub bundle, gateway facets, canister frontmatter (scripts + apex `www` caveat).
 - [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved billing fields (Phase 16).
 - [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — **Free** tier + Stripe paid tiers, transparent per-action pricing, **`BILLING_SHADOW_LOG`**, rollover add-ons.
 - [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md) — How to run the canister; single URL (knowtation.store) and how to view the site locally.

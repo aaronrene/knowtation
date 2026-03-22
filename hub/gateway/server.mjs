@@ -19,6 +19,7 @@ import { stripeWebhookHandler } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
+import { deriveFacetsFromCanisterNotes } from './note-facets.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery } from './request-path.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
@@ -468,11 +469,42 @@ app.post('/api/v1/import', (req, res) => {
   });
 });
 
-// GET /api/v1/notes/facets — hosted stub (canister does not implement; Hub filter dropdowns need this)
-app.get('/api/v1/notes/facets', (req, res) => {
+// GET /api/v1/notes/facets — aggregate from canister list (Hub filter dropdowns / overview parity)
+app.get('/api/v1/notes/facets', async (req, res) => {
   const uid = getUserId(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  res.json({ projects: [], tags: [], folders: [] });
+  if (!CANISTER_URL) {
+    return res.json({ projects: [], tags: [], folders: [] });
+  }
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  try {
+    const url = `${CANISTER_URL}/api/v1/notes`;
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': uid,
+        'x-vault-id': vaultId,
+      },
+    });
+    const text = await upstream.text();
+    if (!upstream.ok) {
+      console.warn('[gateway] facets canister list non-ok', upstream.status);
+      return res.json({ projects: [], tags: [], folders: [] });
+    }
+    let data;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.warn('[gateway] facets canister list JSON parse', e?.message || String(e));
+      return res.json({ projects: [], tags: [], folders: [] });
+    }
+    const facets = deriveFacetsFromCanisterNotes(Array.isArray(data.notes) ? data.notes : []);
+    res.json(facets);
+  } catch (e) {
+    console.warn('[gateway] facets error', e?.message || String(e));
+    res.json({ projects: [], tags: [], folders: [] });
+  }
 });
 
 async function proxyToCanister(req, res) {
