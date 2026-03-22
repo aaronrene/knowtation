@@ -101,10 +101,23 @@
   }
 
   async function api(path, opts = {}) {
-    const res = await fetch(apiBase + path, {
-      ...opts,
-      headers: { ...headers(), ...opts.headers },
-    });
+    let res;
+    try {
+      res = await fetch(apiBase + path, {
+        ...opts,
+        headers: { ...headers(), ...opts.headers },
+      });
+    } catch (e) {
+      const m = e && e.message ? String(e.message) : String(e);
+      if (m === 'Failed to fetch' || m.includes('NetworkError')) {
+        throw new Error(
+          'Could not reach the API (' +
+            apiBase +
+            '). Check gateway status, CORS (HUB_CORS_ORIGIN), ad blockers, and Netlify limits.',
+        );
+      }
+      throw e instanceof Error ? e : new Error(m);
+    }
     if (res.status === 401) {
       token = null;
       localStorage.removeItem('hub_token');
@@ -1942,12 +1955,12 @@
       const body = (el('detail-edit-body') && el('detail-edit-body').value) || '';
       try {
         await api('/api/v1/notes', { method: 'POST', body: JSON.stringify({ path: currentOpenNote.path, body, frontmatter }) });
-        if (typeof showToast === 'function') showToast('Note saved');
+        showToast('Note saved');
         currentOpenNote = { path: currentOpenNote.path, body, frontmatter };
         switchNoteToReadMode();
         if (typeof loadNotes === 'function') loadNotes();
       } catch (e) {
-        if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)));
+        showToast('Save failed: ' + (e.message || String(e)), true);
       }
     };
     const cancelBtn = document.createElement('button');

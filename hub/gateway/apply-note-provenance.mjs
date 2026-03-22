@@ -42,14 +42,8 @@ export function mergeHostedNoteBodyForCanister(body, userId) {
  */
 export function isPostApiV1Notes(method, pathPart) {
   if (method !== 'POST') return false;
-  return pathPart === '/api/v1/notes' || pathPart === '/api/v1/notes/';
+  const p = (pathPart || '').replace(/\/+$/, '') || '/';
+  return p === '/api/v1/notes';
 }
 
-/**
- * @param {import('express').Request} req
- */
-export function pathPartNoQuery(req) {
-  const raw = req.originalUrl || req.url || '/';
-  const q = raw.indexOf('?');
-  return q >= 0 ? raw.slice(0, q) : raw;
-}
+export { pathPartNoQuery } from './request-path.mjs';

@@ -4,14 +4,15 @@
 import { billingEnforced, billingShadowLogEnabled, COST_CENTS } from './billing-constants.mjs';
 import { tryDeduct, defaultUserRecord } from './billing-logic.mjs';
 import { loadBillingDb, saveBillingDb } from './billing-store.mjs';
+import { effectiveRequestPath } from './request-path.mjs';
 
-function operationFromRequest(method, originalUrl) {
-  const path = (originalUrl || '').split('?')[0];
+function operationFromRequest(method, req) {
+  const path = effectiveRequestPath(req);
   if (method === 'POST' && path.endsWith('/search')) return 'search';
   if (method === 'POST' && path.endsWith('/index')) return 'index';
-  if (method === 'POST' && /\/api\/v1\/notes$/.test(path)) return 'note_write';
+  if (method === 'POST' && /\/api\/v1\/notes\/?$/.test(path)) return 'note_write';
   if (method === 'PUT' && /\/api\/v1\/notes\//.test(path)) return 'note_write';
-  if (method === 'POST' && /\/api\/v1\/proposals$/.test(path)) return 'proposal_write';
+  if (method === 'POST' && /\/api\/v1\/proposals\/?$/.test(path)) return 'proposal_write';
   return null;
 }
 
@@ -22,7 +23,7 @@ function operationFromRequest(method, originalUrl) {
  * @returns {Promise<boolean>} true if request may proceed
  */
 export async function runBillingGate(req, res, getUserId) {
-  const op = operationFromRequest(req.method, req.originalUrl || req.url);
+  const op = operationFromRequest(req.method, req);
   if (!op) return true;
 
   const uid = getUserId(req);
@@ -36,7 +37,7 @@ export async function runBillingGate(req, res, getUserId) {
         user_id: uid,
         operation: op,
         cost_cents: cost,
-        path: req.originalUrl || req.url,
+        path: effectiveRequestPath(req),
         billing_enforced: billingEnforced(),
       })
     );

@@ -18,7 +18,8 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import { stripeWebhookHandler } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
-import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, pathPartNoQuery } from './apply-note-provenance.mjs';
+import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
+import { upstreamPathAndQuery, pathPartNoQuery } from './request-path.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -454,15 +455,6 @@ app.get('/api/v1/notes/facets', (req, res) => {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   res.json({ projects: [], tags: [], folders: [] });
 });
-
-/** Path + query for upstream canister. Forward raw path (no URL parsing) so percent-encoding (e.g. %2F) is preserved; canister decodes before vault lookup. Do not use req.path: Express strips the mount so req.path is only the suffix (e.g. /notes), which would call the canister at /notes and yield NOT_FOUND. */
-function upstreamPathAndQuery(req) {
-  const raw = req.originalUrl || req.url || '/';
-  const q = raw.indexOf('?');
-  const pathPart = q >= 0 ? raw.slice(0, q) : raw;
-  const search = q >= 0 ? raw.slice(q) : '';
-  return pathPart + search;
-}
 
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
