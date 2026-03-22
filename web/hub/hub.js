@@ -131,7 +131,8 @@
       showLoginChrome();
       throw new Error('Unauthorized');
     }
-    const text = await res.text();
+    let text = await res.text();
+    if (text.length > 0 && text.charCodeAt(0) === 0xfeff) text = text.slice(1);
     let data;
     try {
       data = text ? JSON.parse(text) : null;

@@ -369,17 +369,50 @@ func charToHex(c : Text) : ?Nat {
   };
 };
 
+/// 4 lowercase hex digits (JSON \\uXXXX) for BMP code points; used for U+0000..U+001F.
+func natToHex4(code : Nat32) : Text {
+  let n = Nat32.toNat(code);
+  func hd(div : Nat) : Text {
+    let d = (n / div) % 16;
+    switch (d) {
+      case 0 { "0" };
+      case 1 { "1" };
+      case 2 { "2" };
+      case 3 { "3" };
+      case 4 { "4" };
+      case 5 { "5" };
+      case 6 { "6" };
+      case 7 { "7" };
+      case 8 { "8" };
+      case 9 { "9" };
+      case 10 { "a" };
+      case 11 { "b" };
+      case 12 { "c" };
+      case 13 { "d" };
+      case 14 { "e" };
+      case 15 { "f" };
+      case _ { "0" };
+    };
+  };
+  hd(4096) # hd(256) # hd(16) # hd(1);
+};
+
+/// RFC 8259: control chars U+0000..U+001F must be escaped; pass-through broke JSON.parse in the Hub.
 func escapeJson(s : Text) : Text {
+  let chars = Text.toArray(s);
   var out = "";
-  var i : Nat = 0;
-  while (i < Text.size(s)) {
-    let c = textSlice(s, i, 1);
-    if (c == "\\") { out := out # "\\\\"; i += 1 }
-    else if (c == "\"") { out := out # "\\\""; i += 1 }
-    else if (c == "\n") { out := out # "\\n"; i += 1 }
-    else if (c == "\r") { out := out # "\\r"; i += 1 }
-    else if (c == "\t") { out := out # "\\t"; i += 1 }
-    else { out := out # c; i += 1 };
+  var idx : Nat = 0;
+  while (idx < chars.size()) {
+    let ch = chars[idx];
+    let code = Char.toNat32(ch);
+    if (code == 92) { out := out # "\\\\" }
+    else if (code == 34) { out := out # "\\\"" }
+    else if (code == 10) { out := out # "\\n" }
+    else if (code == 13) { out := out # "\\r" }
+    else if (code == 9) { out := out # "\\t" }
+    else if (code < 32) { out := out # "\\u" # natToHex4(code) }
+    else { out := out # Char.toText(ch) };
+    idx += 1;
   };
   out;
 };
