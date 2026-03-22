@@ -142,7 +142,13 @@
           `Server returned a web page (${res.status}) instead of API JSON. If you just updated Knowtation, stop and restart the Hub (npm run hub) so routes like git-init are loaded.`,
         );
       }
-      throw new Error(res.status + ' ' + t.slice(0, 100));
+      throw new Error(
+        'Response was not valid JSON (' +
+          res.status +
+          '). Start of body: ' +
+          t.slice(0, 120) +
+          (t.length > 120 ? '...' : ''),
+      );
     }
     if (!res.ok) {
       const err = new Error(data?.error || res.statusText);
@@ -436,6 +442,48 @@
     return d.trim().slice(0, 10);
   }
 
+  /** Hosted canister returns frontmatter as a JSON string; self-hosted often uses an object. List metadata (date, title, …) is flattened on self-hosted list responses — mirror that here. */
+  function materializeFrontmatter(fm) {
+    if (fm == null) return {};
+    if (typeof fm === 'object' && !Array.isArray(fm)) return fm;
+    if (typeof fm === 'string') {
+      const t = fm.trim();
+      if (!t) return {};
+      try {
+        return JSON.parse(t);
+      } catch (_) {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  function tagsFromFrontmatter(fm) {
+    const raw = fm && fm.tags;
+    if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw
+        .split(/[,\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }
+
+  function normalizeHubListItem(n) {
+    if (!n || typeof n !== 'object') return n;
+    const fm = materializeFrontmatter(n.frontmatter);
+    const tags = Array.isArray(n.tags) && n.tags.length ? n.tags.map(String) : tagsFromFrontmatter(fm);
+    return {
+      ...n,
+      frontmatter: fm,
+      title: n.title != null ? n.title : fm.title != null ? String(fm.title) : null,
+      project: n.project != null ? n.project : fm.project != null ? String(fm.project) : null,
+      tags,
+      date: n.date != null ? String(n.date) : fm.date != null ? String(fm.date) : null,
+    };
+  }
+
   async function loadFacets() {
     try {
       const savedProject = filterProject.value;
@@ -601,7 +649,7 @@
     notesTotal.textContent = '';
     try {
       const out = await api('/api/v1/notes?' + q.toString());
-      const notes = out.notes || [];
+      const notes = (out.notes || []).map(normalizeHubListItem);
       if (notes.length === 0) {
         notesList.innerHTML =
           '<div class="empty-state">No notes for this filter. <a id="empty-add">Add a note</a> or clear filters.</div>';
@@ -834,7 +882,7 @@
     try {
       const q = new URLSearchParams({ since, until, limit: '100' });
       const out = await api('/api/v1/notes?' + q.toString());
-      notesInMonth = out.notes || [];
+      notesInMonth = (out.notes || []).map(normalizeHubListItem);
     } catch (_) {
       notesInMonth = [];
     }
@@ -921,7 +969,7 @@
     while (offset < 500 && all.length < total) {
       const out = await api('/api/v1/notes?limit=' + limit + '&offset=' + offset);
       total = out.total ?? 0;
-      const batch = out.notes || [];
+      const batch = (out.notes || []).map(normalizeHubListItem);
       all.push(...batch);
       if (batch.length < limit) break;
       offset += limit;
@@ -1986,8 +2034,9 @@
     panel.classList.remove('hidden');
     api('/api/v1/notes/' + encodeURIComponent(path))
       .then((note) => {
-        currentOpenNote = { path, body: note.body || '', frontmatter: note.frontmatter || {} };
-        bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(note.frontmatter || {}, null, 2);
+        const fm = materializeFrontmatter(note.frontmatter);
+        currentOpenNote = { path, body: note.body || '', frontmatter: fm };
+        bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(fm || {}, null, 2);
         const canEdit = hubUserCanWriteNotes();
         if (canEdit) {
           const editBtn = document.createElement('button');
