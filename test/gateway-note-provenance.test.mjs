@@ -5,7 +5,7 @@ import {
   isPostApiV1Notes,
 } from '../hub/gateway/apply-note-provenance.mjs';
 
-test('mergeHostedNoteBodyForCanister stringifies frontmatter for canister wire format', () => {
+test('mergeHostedNoteBodyForCanister leaves frontmatter as object for single JSON encode (Motoko-safe)', () => {
   const out = mergeHostedNoteBodyForCanister(
     {
       path: 'inbox/a.md',
@@ -14,8 +14,8 @@ test('mergeHostedNoteBodyForCanister stringifies frontmatter for canister wire f
     },
     'google:108077705743543803349'
   );
-  assert.equal(typeof out.frontmatter, 'string');
-  const fm = JSON.parse(out.frontmatter);
+  assert.equal(typeof out.frontmatter, 'object');
+  const fm = /** @type {Record<string, string>} */ (out.frontmatter);
   assert.equal(fm.title, 'T');
   assert.equal(fm.source, 'hub');
   assert.equal(fm.knowtation_editor, 'google:108077705743543803349');
@@ -36,7 +36,7 @@ test('mergeHostedNoteBodyForCanister strips client forged reserved keys', () => 
     },
     'github:7612643'
   );
-  const fm = JSON.parse(/** @type {string} */ (out.frontmatter));
+  const fm = /** @type {Record<string, string>} */ (out.frontmatter);
   assert.equal(fm.note, 'ok');
   assert.equal(fm.knowtation_editor, 'github:7612643');
   assert.notEqual(fm.knowtation_edited_at, '1970-01-01T00:00:00.000Z');
@@ -51,7 +51,7 @@ test('mergeHostedNoteBodyForCanister parses string frontmatter input', () => {
     },
     'google:1'
   );
-  const fm = JSON.parse(/** @type {string} */ (out.frontmatter));
+  const fm = /** @type {Record<string, string>} */ (out.frontmatter);
   assert.equal(fm.project, 'p');
   assert.equal(fm.knowtation_editor, 'google:1');
 });
@@ -65,11 +65,24 @@ test('mergeHostedNoteBodyForCanister preserves tags and project for canister wir
     },
     'google:123'
   );
-  const fm = JSON.parse(/** @type {string} */ (out.frontmatter));
+  const fm = /** @type {Record<string, string>} */ (out.frontmatter);
   assert.equal(fm.title, 'T');
   assert.equal(fm.tags, 'alpha, beta');
   assert.equal(fm.project, 'my-app');
   assert.ok(fm.knowtation_edited_at);
+});
+
+test('POST wire nests frontmatter object so Motoko never uses broken string extract', () => {
+  const out = mergeHostedNoteBodyForCanister(
+    { path: 'inbox/wire.md', body: 'b', frontmatter: { title: 'Wire' } },
+    'google:9'
+  );
+  const wire = JSON.stringify(out);
+  assert.match(wire, /"frontmatter":\{/);
+  assert.doesNotMatch(wire, /"frontmatter":"\{/);
+  const parsed = JSON.parse(wire);
+  assert.equal(parsed.frontmatter.title, 'Wire');
+  assert.equal(parsed.frontmatter.author_kind, 'human');
 });
 
 test('isPostApiV1Notes matches notes collection POST only', () => {

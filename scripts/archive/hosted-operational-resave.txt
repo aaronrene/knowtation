@@ -1,0 +1,16 @@
+One-time backfill: hosted canister notes that still have empty stored frontmatter {}
+
+Goal: same JSON metadata block under --- on knowtation.store as on self-hosted Hub after data exists.
+
+Prerequisites:
+- Repo cloned; KNOWTATION_HUB_TOKEN (or HUB_JWT) in repo-root .env from browser localStorage hub_token after login.
+- Dry-run lists paths only; --execute re-POSTs each note (same body, minimal title from basename) so the gateway merges provenance.
+
+Commands (from repo root):
+
+  npm run resave:hosted-empty-fm
+  node scripts/resave-hosted-empty-frontmatter.mjs --execute
+
+Optional: KNOWTATION_HUB_API, KNOWTATION_HUB_VAULT_ID if not default.
+
+Afterward: npm run verify:hosted-api (or investigate:hosted-hub) and spot-check a note on the hosted site.
