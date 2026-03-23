@@ -1,7 +1,10 @@
 /**
  * Hosted gateway: align note POST bodies with hub/server.mjs provenance rules before proxying to the canister.
- * The canister parses JSON with extractJsonString (string values only); the Hub UI sends frontmatter as an object.
- * After merge, frontmatter is set to JSON.stringify(merged) so upstream storage receives a single JSON text blob.
+ *
+ * IMPORTANT: `frontmatter` must remain a JSON **object** on the wire (Express will stringify the whole body once).
+ * If we set `frontmatter` to JSON.stringify(merged), the POST body contains `"frontmatter":"{\"k\":...}"` and Motoko's
+ * extractJsonString copies `\\"` as two characters instead of unescaping — stored text is invalid JSON and the
+ * Hub shows `{}`. Sending a nested object lets Motoko use extractJsonObjectSlice and persist valid JSON text.
  */
 
 import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
@@ -32,7 +35,7 @@ export function mergeHostedNoteBodyForCanister(body, userId) {
       kind: 'human',
     }
   );
-  out.frontmatter = JSON.stringify(merged);
+  out.frontmatter = merged;
   return out;
 }
 
