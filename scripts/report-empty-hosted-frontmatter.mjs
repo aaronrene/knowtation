@@ -4,11 +4,24 @@
  * Read-only. Same env as verify-hosted-hub-api.mjs (KNOWTATION_HUB_TOKEN, KNOWTATION_HUB_API, KNOWTATION_HUB_VAULT_ID).
  *
  *   KNOWTATION_HUB_TOKEN='...' node scripts/report-empty-hosted-frontmatter.mjs
+ *   KNOWTATION_HUB_TOKEN_FILE=~/.config/knowtation/hub_jwt.txt node scripts/report-empty-hosted-frontmatter.mjs
  */
 
+import fs from 'fs';
+import path from 'path';
 import { materializeListFrontmatter } from '../hub/gateway/note-facets.mjs';
 
-const token = process.env.KNOWTATION_HUB_TOKEN || process.env.HUB_JWT || '';
+function resolveToken() {
+  let t = process.env.KNOWTATION_HUB_TOKEN || process.env.HUB_JWT || '';
+  const fp = (process.env.KNOWTATION_HUB_TOKEN_FILE || '').trim();
+  if (!t && fp) {
+    const expanded = fp.startsWith('~') ? path.join(process.env.HOME || '', fp.slice(1)) : fp;
+    t = fs.readFileSync(expanded, 'utf8').trim();
+  }
+  return t;
+}
+
+const token = resolveToken();
 const apiBase = (process.env.KNOWTATION_HUB_API || 'https://knowtation-gateway.netlify.app').replace(/\/$/, '');
 const vaultId = process.env.KNOWTATION_HUB_VAULT_ID || 'default';
 

@@ -20,6 +20,9 @@
     "canister:preflight": "bash scripts/canister-predeploy.sh",
     "seed:hosted-showcase": "node scripts/seed-vault-dir-to-hub.mjs",
     "verify:hosted-api": "node scripts/verify-hosted-hub-api.mjs",
+    "investigate:hosted-hub": "KNOWTATION_HUB_INVESTIGATE=1 node scripts/verify-hosted-hub-api.mjs",
+    "hosted:deploy-snapshot": "KNOWTATION_HUB_SNAPSHOT_ONLY=1 node scripts/verify-hosted-hub-api.mjs",
+    "resave:hosted-empty-fm": "node scripts/resave-hosted-empty-frontmatter.mjs --dry-run",
     "report:empty-frontmatter": "node scripts/report-empty-hosted-frontmatter.mjs",
     "check:gateway-cors": "node scripts/check-gateway-cors.mjs"
   },

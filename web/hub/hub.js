@@ -464,11 +464,21 @@
     if (typeof fm === 'string') {
       const t = fm.trim();
       if (!t) return {};
-      try {
-        return JSON.parse(t);
-      } catch (_) {
-        return {};
+      let cur = t;
+      for (let i = 0; i < 4; i++) {
+        try {
+          const o = JSON.parse(cur);
+          if (o && typeof o === 'object' && !Array.isArray(o)) return o;
+          if (typeof o === 'string') {
+            cur = o.trim();
+            continue;
+          }
+          return {};
+        } catch (_) {
+          return {};
+        }
       }
+      return {};
     }
     return {};
   }
