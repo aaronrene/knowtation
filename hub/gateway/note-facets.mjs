@@ -3,19 +3,35 @@
  * Mirrors web/hub/hub.js list normalization enough for dropdowns and Quick chips.
  */
 
-export function materializeListFrontmatter(raw) {
-  if (raw == null) return {};
-  if (typeof raw === 'object' && !Array.isArray(raw)) return /** @type {Record<string, unknown>} */ (raw);
-  if (typeof raw === 'string') {
-    const t = raw.trim();
-    if (!t) return {};
+/**
+ * Hosted canister/gateway chain sometimes persists frontmatter as a JSON-encoded string twice
+ * (outer parse yields a string that is itself JSON text). Unwrap up to a few layers.
+ * @param {string} t
+ * @returns {Record<string, unknown>}
+ */
+export function parseFrontmatterJsonText(t) {
+  let cur = t.trim();
+  if (!cur) return {};
+  for (let i = 0; i < 4; i++) {
     try {
-      const o = JSON.parse(t);
-      return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+      const o = JSON.parse(cur);
+      if (o && typeof o === 'object' && !Array.isArray(o)) return /** @type {Record<string, unknown>} */ (o);
+      if (typeof o === 'string') {
+        cur = o.trim();
+        continue;
+      }
+      return {};
     } catch {
       return {};
     }
   }
+  return {};
+}
+
+export function materializeListFrontmatter(raw) {
+  if (raw == null) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) return /** @type {Record<string, unknown>} */ (raw);
+  if (typeof raw === 'string') return parseFrontmatterJsonText(raw);
   return {};
 }
 

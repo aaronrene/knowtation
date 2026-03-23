@@ -49,6 +49,22 @@ export KNOWTATION_HUB_TOKEN='…'
 node scripts/verify-hosted-hub-api.mjs
 ```
 
+JWT from a file (no shell history): `KNOWTATION_HUB_TOKEN_FILE=/path/to/jwt.txt node scripts/verify-hosted-hub-api.mjs`.
+
+**Full investigation (A1 + auto detail path + write probe):** runs list, facets, GET on `inbox/note-hello-world.md` if present (else first note), POST/GET probe note, then prints a line `__INVESTIGATION_JSON__ {…}` for logs/CI.
+
+```bash
+export KNOWTATION_HUB_INVESTIGATE=1
+export KNOWTATION_HUB_TOKEN='…'
+node scripts/verify-hosted-hub-api.mjs
+```
+
+**Deploy snapshot without JWT** (repo `canister_ids.json`, git HEAD, live gateway + raw canister `/health`):
+
+```bash
+KNOWTATION_HUB_SNAPSHOT_ONLY=1 node scripts/verify-hosted-hub-api.mjs
+```
+
 Optional: inspect one note and print frontmatter key summary:
 
 ```bash
@@ -75,7 +91,15 @@ node scripts/report-empty-hosted-frontmatter.mjs
 - If POST (probe) sends a rich `frontmatter` string but GET still shows **no keys**, fix **gateway + canister** deploy alignment, not the Hub UI alone.
 - If list shows **empty frontmatter** for every note but probe **succeeds**, older notes may need **re-save** or migration.
 
-npm scripts: `npm run verify:hosted-api`, `npm run report:empty-frontmatter`, `npm run check:gateway-cors`.
+**Legacy empty rows (only if write probe shows keys on GET after POST):** minimal re-save via gateway merge (adds provenance):
+
+```bash
+export KNOWTATION_HUB_TOKEN='…'
+node scripts/resave-hosted-empty-frontmatter.mjs --dry-run
+node scripts/resave-hosted-empty-frontmatter.mjs --execute
+```
+
+npm scripts: `npm run verify:hosted-api`, `npm run report:empty-frontmatter`, `npm run check:gateway-cors`, `npm run investigate:hosted-hub`, `npm run hosted:deploy-snapshot`, `npm run resave:hosted-empty-fm`.
 
 ## 6. After CORS works: still `{}` under the note?
 
