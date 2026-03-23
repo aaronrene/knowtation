@@ -8,7 +8,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 **Build status (update at end of each session):** Phases 1–10 complete. Phase 11 (Hub) implemented; Phase 11 Hub UX done (How to use on login, tagline, OAuth note, empty states). **Phase 11.1 Hub first screen** done: login panel has hero (title, tagline, intent), primary CTA (sign in above), secondary (How to use); `login-screen` class on app when shown. **Phase 13 (Teams — roles)** implemented: role store (`data/hub_roles.json`), JWT role from store, requireRole middleware; viewer/editor/admin restrict Setup, approve/discard, write, propose; Hub UI shows role in Settings; **Back up now** disabled for non-admins; **Save setup** always clickable—shows clear error + toast for non-admins, success toast + inline message for admins. **Backup (Git):** How to use and Settings document creating backup repo (empty, HTTPS), vault `git init`, Connect GitHub, Back up now; loadingHtml TDZ fix. **Phase 13 invite** implemented: create invite link (Settings → Team), invitee signs in via link and is added to role; pending list and revoke. **Landing (web/)** refreshed and enhanced (ecosystem, token savings, dual CTA, #hosted, knowtation.store). **Guided Setup in Hub** and **Help in Settings** done. **Hosted (canister) product — code complete:** Phase 0 (vault_id, canister auth doc, Hub API URL config); Phase 1 canister (`hub/icp/` Motoko: vault, proposals, export); Phase 2 gateway (`hub/gateway/`: OAuth, proxy to canister with X-User-Id); Phase 3 bridge (`hub/bridge/`: Connect GitHub, Back up now); Phase 4 bridge (index + search); Phase 5 docs (DEPLOY-HOSTED, CANISTER-AND-SINGLE-URL, single URL knowtation.store). **Production (hosted):** knowtation.store + Hub + Netlify gateway + ICP canister are **live**; bridge when **`BRIDGE_URL`** is set — see [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md). Ongoing: redeploy when code changes; **Phase 15.1** canister work for true multi-vault. **Phase 14 (Two-path launch):** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in TWO-PATHS-HOSTED-AND-SELF-HOSTED.md); beta disclaimer on landing and Hub. Hosting = beta, permissive usage for research until Phase 16 (subscriptions). **Hosted parity (Phase 1):** Done. Gateway stubs for roles, invites, POST setup, import, and facets are in `hub/gateway/server.mjs`; Hub UI no longer 404s on hosted for Settings → Team, Setup, or filter dropdowns. See **[PARITY-PLAN.md](./PARITY-PLAN.md)**. Phase 2 = deploy operations only (dfx, Netlify, 4Everland, DNS); no in-repo code. **Multi-vault:** **Self-hosted Phase 15 implemented** (`hub_vaults.yaml`, access, scope, `X-Vault-Id`). **Hosted:** canister still single map per user — **Phase 15.1** checklist in [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted multi-vault — what to build. **MCP Issue #1 supercharge** merged to `main` (PR); local MCP complete; Hub MCP D2/D3 after hosted stability. **Phase 12 (blockchain):** Reserved in SPEC and BLOCKCHAIN-AND-AGENT-PAYMENTS.md; implement separately when needed. **Phase 16 (hosted billing) — docs + gateway scaffold:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) (Netlify-style **monthly included + rollover add-ons**, v0 prices); [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md). **Code (gateway):** `hub/gateway/billing-*.mjs` — `GET /api/v1/billing/summary`, **Stripe webhook**, file/Blob store, **`BILLING_ENFORCE`** metering on search/index/proxy writes; **Stripe** env price ids for tiers and packs. Canister V1 billing fields still per roadmap when mirroring on-chain.
 
-**Status:** [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) · [docs/README.md](./README.md). **`npm test` green.** **Next engineering:** **Phase 15.1** hosted multi-vault — align canister V1 with [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md). **Billing rails:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) (Stripe subscriptions + **rollover add-on credits**, Netlify-style consumption order); gateway scaffold `hub/gateway/billing-*.mjs`. Parity gaps (import/facets) per [PARITY-PLAN.md](./PARITY-PLAN.md). **Then** MCP **D2/D3**, **F2–F5** — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** deferred. Re-verify production with [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 after deploys.
+**Status:** [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) · [docs/README.md](./README.md). **`npm test` green.** **Recent:** Hosted Hub **provenance parity** with self-hosted (gateway merges server provenance into note frontmatter; frontmatter JSON wire fixes; facets/list/edit parity) — e.g. **PR #40** and related gateway/Hub commits on `main`. **Active branch `index-implementation`:** Following the **Recommended path forward** below; **local semantic search** reported broken — reproduce (CLI: `knowtation index` / `knowtation search`, config, Qdrant, embeddings), fix root cause, then verify Hub + hosted bridge path. **Next engineering (ordered recommendation — see § “Recommended path forward” below):** (1) **Verify indexing + search** locally and on hosted (bridge + Qdrant/embeddings); (2) **Memory path** — exercise Phase 8 file memory and/or **Mem0** import + optional live Mem0 augmentation, measured against the same vault; (3) **Phase 15.1** hosted multi-vault — [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); (4) **Proposal evaluation stage** (lifecycle design: where “evaluate” sits vs approve/discard); (5) **Muse thin bridge** (optional config + delegated history queries; **not** Muse as required backend); (6) MCP **D2/D3**, **F2–F5** — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Billing rails:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md); `hub/gateway/billing-*.mjs`. Parity gaps per [PARITY-PLAN.md](./PARITY-PLAN.md). **Issue #2** deferred. Re-verify production with [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 after deploys.
 
 **Hosted parity (planning):** Same capabilities on the **hosted (web) service** as self-hosted — API parity, behavior parity (Connect GitHub, Back up now, search, index, proposals, Settings), and clear “coming soon” where not yet available. Brief overview and complexity: **[PLAN-ADDENDUM-HOSTED-PARITY.md](./PLAN-ADDENDUM-HOSTED-PARITY.md)**. Nuts and bolts in a dedicated session using PARITY-PLAN, DEPLOY-HOSTED, and BRIDGE-DEPLOY-AND-PREROLL.
 
@@ -18,15 +18,24 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 
 | Step | What | When |
 |------|------|------|
-| **Done** | Phase 13 invite, Landing refresh + enhancement, Help in Settings, Guided Setup. **Hosted (canister):** Phases 0–5 code and docs. **Phase 14 (Two-path launch):** Split messaging (Use in cloud beta / Run it yourself), Quick start doc, beta disclaimer; hosting = beta, permissive usage for research until Phase 16. | Done. |
-| **Next (first)** | **Option B — Muse protocol alignment:** Document the variation protocol (baseStateId, intent, lifecycle) and ensure canister proposal metadata stays extensible (optional fields for future Muse refs, e.g. muse_commit_id / external_ref). No Muse runtime; we align our contract with [Muse](https://github.com/cgcardona/muse) so we stay compatible. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2. | Do first. |
-| **Then** | **Hosted parity (Phase 1):** Gateway stubs for GET/POST /api/v1/roles, GET/POST/DELETE /api/v1/invites, POST /api/v1/setup, GET /api/v1/notes/facets so Settings → Team, Setup, and filter dropdowns don’t 404 on hosted. See [PARITY-PLAN.md](./PARITY-PLAN.md). | After Option B. |
-| **Done** | **Deploy hosted:** knowtation.store + gateway + canister **live**; bridge when `BRIDGE_URL` set. Ongoing: redeploy when code changes — [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md). | Done (ops ongoing). |
+| **Done** | Phase 13 invite, Landing refresh + enhancement, Help in Settings, Guided Setup. **Hosted (canister):** Phases 0–5 code and docs. **Phase 14 (Two-path launch).** **Option B (Muse protocol alignment):** HUB-API + canister `base_state_id` / `external_ref`; no Muse runtime. **Hosted parity (Phase 1):** Gateway stubs + real facets aggregation where implemented. **Hosted Hub provenance parity** with self-hosted (PR #40–class fixes: frontmatter as JSON object to canister, list/edit/facets parity). | Done. |
+| **Next (first)** | **Indexing + search verification:** Run `knowtation index` + `knowtation search` on a real vault; repeat via Hub (self-hosted and hosted with `BRIDGE_URL`) so embeddings, Qdrant collection, and filters match expectations. Document gaps in [HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) or a short **INDEX-SEARCH-VERIFY.md** if needed. | Before trusting memory/Mem0 or agent flows on hosted. |
+| **Then** | **Memory augmentation test:** Phase 8 **file** `data/memory.json` (`last_search`, `last_export`) and/or **Mem0** (`mem0-export` import + optional live Mem0 when configured). Decide whether “our own memory” = extend file payload, Qdrant-backed snippets, or Mem0 API — after search/index baselines are green. | After index/search verify. |
+| **Then** | **Phase 15.1 hosted multi-vault:** Canister storage by `vault_id` + settings/vault list + backup/index per vault — [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md). | Primary product gap vs self-hosted multi-vault. |
+| **Parallel (design + thin slices)** | **Proposal evaluation stage:** Add an explicit **evaluation** step in the proposal lifecycle (see **Option B+ — Proposal evaluation stage** below). **Muse thin bridge:** Optional Muse service URL; delegate **history / lineage** queries only; canonical vault + Hub unchanged — see **Option C — Muse thin bridge** below. | No blocking dependency on 15.1; specify API/UI before large build. |
+| **Done (ops)** | **Deploy hosted:** knowtation.store + gateway + canister **live**; bridge when `BRIDGE_URL` set. Ongoing: redeploy when code changes — [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md). | Done (ops ongoing). |
 | **Next (hosted)** | **Re-verify after changes:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + UI smoke; confirm `BRIDGE_URL`, embeddings, OAuth callbacks. | After any prod deploy. |
-| **Then** | **Phase 15.1 hosted multi-vault:** Canister storage by `vault_id` + settings/vault list source + backup/index per vault (see MULTI-VAULT checklist). Greenfield: minimal migration. | Primary product gap vs self-hosted multi-vault. |
-| **Later** | **Phase 16:** Hosted **Stripe subscriptions** (three tiers) + metering — [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md); storage gate [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md). **Phase 12:** Blockchain when needed. **MCP D2/D3, F2–F5** per backlog. | After 15.1 + beta metering / pricing clarity. |
+| **Later** | **Phase 16:** Hosted **Stripe subscriptions** + metering — [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md). **Phase 12:** Blockchain when needed. **MCP D2/D3, F2–F5** per backlog. | After 15.1 + beta metering / pricing clarity. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
+
+### Recommended path forward (concise)
+
+1. **Prove the core loop:** Index + search (CLI, then Hub hosted with bridge). This de-risks everything that depends on “what the agent actually retrieves.”
+2. **Memory:** Compare **file memory (Phase 8)** vs **Mem0 import/API** on the same vault; pick one primary story for docs and MCP until requirements firm up.
+3. **Multi-vault on hosted (15.1):** Largest structural gap versus self-hosted.
+4. **Evaluation stage:** Design **status transitions** and permissions (who runs evaluation, who can approve after pass/fail). Implement after the lifecycle is written down.
+5. **Muse thin bridge:** Docs + optional env and small delegation surface; **full Muse domain plugin** remains deferred until a concrete partner or DAG need appears.
 
 ### Option B (Muse protocol alignment) — do first
 
@@ -38,12 +47,57 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 
 **Upgrade note:** If the canister was deployed before Option B with existing proposals, upgrading adds the new fields; Motoko stable storage may require a migration or re-deploy depending on runtime behavior. For fresh deploys, no migration needed.
 
-### Recommended next steps (after Option B)
+### Option C — Muse thin bridge (optional; not a required backend)
 
-1. **Complete Phase 1 parity** — Add GET /api/v1/notes/facets stub in gateway if not already present; verify all Phase 1 stubs (roles, invites, POST setup, import 501) are in place. See [PARITY-PLAN.md](./PARITY-PLAN.md).
-2. **Deploy hosted** — Merge parity branch; trigger Netlify rebuild for gateway; no canister redeploy unless hub/icp code changed. See [DEPLOY-STEPS-ONE-PAGE.md](./DEPLOY-STEPS-ONE-PAGE.md) and "Already deployed" path if canister + Netlify already exist.
-3. **Suggested prompts for agents** (optional) — Add a Hub section or doc (e.g. SUGGESTED-AGENT-PROMPTS.md) with example prompts, commands, and reasoning strings for agents; backlog in IMPLEMENTATION-PLAN.
-4. **Issue #1 MCP leftovers (after hosted parity)** — **D2/D3** (Hub MCP proxy + OAuth), **F2–F5** (sampling beyond `summarize`). Requirements and phase table: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** (AgentCeption / Infinite Machine Brain): defer full program; thin slices only later. **Do not** start D2/D3 before hosted parity foundations — see BACKLOG § Strategic sequencing.
+**Positioning:** Knowtation **canonical state** stays the vault (and canister on hosted). We do **not** make Muse part of the critical path for login, writes, or search. **Option B** remains the default contract (`base_state_id`, `intent`, `external_ref`).
+
+**What “thin bridge” means:**
+
+- Run **Muse** (or connect to a Muse instance) **optionally** — e.g. bridge sidecar, gateway route, or admin-only tool — when operators want **Git-replayed, structural history** (Muse’s commit/branch/DAG model) for a repo that backs the vault.
+- Knowtation exposes **small integration points**: e.g. config `MUSE_URL` / `MUSE_API_KEY`, optional CLI `knowtation muse …` or Hub **Settings → Advanced** “Link Muse” for **read-only** history queries (branch timeline, structural diff pointers) when configured.
+- On **approve** (or after merge to canonical), optionally write **`external_ref`** = Muse commit/branch id so proposals link to Muse lineage without Muse owning the vault.
+
+**What we do *not* do in the thin bridge:** Replace the canister, require Muse for proposals, or implement the full **Knowtation domain plugin** (snapshot/diff/merge inside Muse) — that stays **Option A** / deferred until a concrete need. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2.
+
+**Tasks (when prioritized):**
+
+- [ ] Document thin bridge in [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) (new subsection): operator setup, security (Muse not on public unauthenticated path), and `external_ref` convention.
+- [ ] Optional: one gateway or bridge **proxy route** or CLI subcommand that forwards to Muse **only** when env is set; graceful **no-op** when unset.
+- [ ] Optional: MCP tool stub for “history summary” that calls the same delegate (after Muse API shape is stable).
+
+### Option B+ — Proposal evaluation stage (lifecycle extension)
+
+**Problem:** Today the Hub proposal flow is **propose → review → approve / discard**. You may want an **evaluation** step: automated or human **quality / policy / safety** checks before canonical merge.
+
+**Ordering options (pick one product story; document in HUB-API before coding):**
+
+| Pattern | Flow | Fits when |
+|--------|------|-----------|
+| **Evaluate before review** | propose → **evaluate** (auto or assigned reviewer) → *pending human review* → approve / discard | You want garbage filtered before humans see the queue. |
+| **Evaluate after review, before approve** | propose → review (triage) → **evaluate** → approve / discard | Humans skim first; evaluation is a gate on the final button. |
+| **Evaluate as part of approve** | propose → review → approve runs evaluation **inside** approve (transactional: approve fails if eval fails) | Minimal UI states; stricter coupling. |
+
+**Interplay with Muse thin bridge:**
+
+- **Independent:** Evaluation is about **whether** a proposal may merge; Muse is about **where** optional structural history lives. Neither requires the other.
+- **Complementary:** If Muse is linked, evaluation could **read** structural diff / branch context from Muse (when `external_ref` or vault Git remote is wired) to improve agent or human judgment — still **optional**.
+- **Identifiers:** Keep **`base_state_id`** for optimistic concurrency; add an **`evaluation_status`** (or equivalent) in proposal metadata **only after** the lifecycle is specified so the canister and gateway stay in sync.
+
+**Tasks (when prioritized):**
+
+- [ ] Add a short **PROPOSAL-LIFECYCLE.md** (or HUB-API §3.4 appendix): states, allowed transitions, roles (who can run evaluation vs approve).
+- [ ] Canister + gateway: extend `ProposalRecord` / API only after the doc is agreed (avoid churn).
+- [ ] Hub UI: show evaluation badge and block **Approve** until policy satisfied (if that’s the chosen pattern).
+
+### Recommended next steps (after Option B) — updated
+
+1. **Indexing + search verification** — Same as **Recommended path forward** §1; confirm CLI and Hub-hosted (bridge) paths. Remaining parity items: [PARITY-PLAN.md](./PARITY-PLAN.md) (e.g. import 501 on hosted until implemented).
+2. **Deploy / re-verify** — After merges: Netlify gateway rebuild; canister only if Motoko changed — [DEPLOY-STEPS-ONE-PAGE.md](./DEPLOY-STEPS-ONE-PAGE.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5.
+3. **Memory + Mem0** — Phase 8 file memory + `mem0-export` / optional Mem0 API; see **What we're doing next** table.
+4. **Proposal lifecycle doc** — **Option B+** before canister/UI changes for evaluation.
+5. **Muse thin bridge** — **Option C** docs and optional delegate route when Muse API is stable enough.
+6. **Suggested prompts for agents** (optional) — Hub section or SUGGESTED-AGENT-PROMPTS.md.
+7. **MCP D2/D3, F2–F5** — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) after index/search confidence on hosted. **Issue #2** deferred.
 
 ### Phase 11.1 and follow-on: order and status
 
@@ -519,7 +573,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 | **15** | **11** | **Multi-vault (optional): multiple vaults per Hub or scoped visibility. Design in MULTI-VAULT-AND-SCOPED-ACCESS.md; backend + UI vault/scope.** |
 | **16** | **11, 14, 15.1 storage** | **Hosted billing: Stripe subs + monthly included + rollover add-ons; metering; gateway store + webhooks (`hub/gateway/billing-*.mjs`). See HOSTED-CREDITS-DESIGN.md + HOSTED-STORAGE-BILLING-ROADMAP.md.** |
 
-**Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in **Phase 3.1 or Phase 4** (search and list-notes); indexer already stores `date` in metadata. Causal/entity/episode and evals remain in an optional later phase so we don’t backtrack.
+**Intention and temporal:** Optional frontmatter and filters (`--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`) are specified in **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3. Implement time-bounded filters in **Phase 3.1 or Phase 4** (search and list-notes); indexer already stores `date` in metadata. **Retrieval evals** (`knowtation eval`, golden sets per SPEC §12) remain optional after search/index baselines are verified. **Hub proposal evaluation** (Option B+ — policy/quality gate before or after review) is a separate lifecycle feature; document states before extending `ProposalRecord`.
 
 **Estimated order of implementation:** 1 → 2 → 3 → **3.1** (core loop + temporal filters); then 4 (write/export); then 5 (capture); 6 and 7 in parallel after 4; 8 after 4; 9 after core CLI is stable; 10 last; 11 optional after 10; **12 optional** (blockchain/wallets/agent payments when needed); **13 optional** (teams: roles, invite, after 11). Total scope: core in 1–10; simplified shared collaboration in 11; teams in 13; blockchain and agent payments in 12. Monetization: open source core + optional paid hosted hub (Phase 11). Internal planning may live in `development/` (gitignored) when used.
 
@@ -621,7 +675,9 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 
 - **Rate limiting:** Gateway and Hub API do not yet enforce rate limits. Add in a later phase (e.g. per-IP or per-user) for production hardening.
 - **API keys for server-to-server:** JWT from OAuth only today. Optional "Developer" or "API access" in Settings to issue long-lived API keys for scripts/agents; document in HUB-API when added.
-- **Muse Option A (Muse as backend):** Out of scope for current plan. Implement only when there is a concrete need (e.g. partner using Muse, or shared DAG with other Muse agents). See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2.
+- **Muse Option A (full domain plugin / Muse as variation backend):** Out of scope unless there is a concrete need (partner, shared DAG, structural merge ownership). See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2.
+- **Muse Option C (thin bridge):** In scope as **optional** operator integration — delegated history queries + `external_ref`; **not** required for core Hub. Tracked in **Option C** above.
+- **Proposal evaluation stage (Option B+):** In scope as a **documented lifecycle extension** first; implement canister/UI after state machine is fixed. See **Option B+** above.
 - **Canister proposal migration:** If the canister was deployed before Option B with existing proposals, upgrade to the new ProposalRecord (base_state_id, external_ref) may require migration or re-deploy; document in deploy notes when we have a procedure.
 - **Phase 2 verification:** Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 and [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) for live stack checks (gateway, canister, bridge, env).
 
