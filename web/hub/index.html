@@ -866,11 +866,11 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <h4 class="how-to-sub">Hub UI: filters and views</h4>
             <ul>
               <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then Apply filters. Quick chips (e.g. <code>project:myproject</code>, <code>folder:inbox</code>) jump to a view. Save a view with Save view as and click a preset pill later.</li>
-              <li><strong>Search:</strong> Type in Search vault and click Search for <strong>semantic</strong> search (requires Step 4 — index — on self-hosted).</li>
+              <li><strong>Search:</strong> Type in Search vault and press <kbd>Enter</kbd> or click Search for <strong>semantic</strong> search (requires Step 4 — index — on self-hosted).</li>
               <li><strong>List / Calendar / Overview:</strong> List = filtered rows; Calendar = month grid (click a day for that day's notes); Overview = dashboard and charts.</li>
               <li><strong>+ New note:</strong> Quick capture (inbox) or full form (path, title, body, project, tags). Use "Copy path" in the detail panel to copy the note path for CLI/API use.</li>
               <li><strong>Re-index:</strong> After importing notes or changing many files, click Re-index so semantic search reflects the latest vault (same as Step 4 / <code>npm run index</code>).</li>
-              <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Enter</kbd> open selected note; <kbd>Esc</kbd> close panel or modal.</li>
+              <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>Enter</kbd> in the search box runs semantic search; <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Enter</kbd> (when the list is focused) opens the selected note; <kbd>Esc</kbd> close panel or modal.</li>
             </ul>
             <h4 class="how-to-sub">Connecting agents and other tools</h4>
             <p>Give your agent or LLM a way to talk to Knowtation: either the Hub API (with a JWT) or the CLI. Agents can list notes, search, and create proposals; you review and approve in the Hub.</p>
@@ -1048,6 +1048,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260329"></script>
+  <script src="hub.js?v=20260329b"></script>
 </body>
 </html>

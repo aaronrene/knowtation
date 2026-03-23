@@ -47,6 +47,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 
 | Doc | Purpose |
 |-----|---------|
+| [INDEX-SEARCH-VERIFY.md](./INDEX-SEARCH-VERIFY.md) | CLI index/search, Qdrant vs sqlite-vec, Ollama, Hub search UX notes |
 | [PHASE4-MANUAL-TEST.md](./PHASE4-MANUAL-TEST.md) … [PHASE9-MANUAL-TEST.md](./PHASE9-MANUAL-TEST.md) | Step-by-step checks after feature work |
 
 ## Other

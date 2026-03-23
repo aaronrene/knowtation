@@ -1050,7 +1050,7 @@
     }
   }
 
-  btnSearch.onclick = async () => {
+  async function runVaultSearch() {
     const query = searchQuery.value.trim();
     if (!query) return;
     switchNotesView('list');
@@ -1093,7 +1093,18 @@
     } catch (e) {
       notesList.innerHTML = '<p class="muted">' + escapeHtml(e.message) + '</p>';
     }
+  }
+
+  btnSearch.onclick = () => {
+    void runVaultSearch();
   };
+
+  searchQuery.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void runVaultSearch();
+    }
+  });
 
   function switchNotesView(view) {
     document.querySelectorAll('.view-tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
