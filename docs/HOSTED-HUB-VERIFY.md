@@ -2,6 +2,8 @@
 
 Use this after changing the Hub UI (`web/hub/`), the Netlify **gateway**, or the ICP **canister**.
 
+**Local index/search baseline (CLI, Qdrant vs sqlite-vec, embeddings):** [INDEX-SEARCH-VERIFY.md](./INDEX-SEARCH-VERIFY.md).
+
 ## 0. CORS (Netlify gateway) — fixes “Could not reach the API”
 
 The Hub calls `https://knowtation-gateway.netlify.app` from `knowtation.store` / `www` (cross-origin). If the gateway misconfigures CORS, the browser reports **`Failed to fetch`** and the UI shows **Could not reach the API**.

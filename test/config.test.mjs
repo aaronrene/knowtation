@@ -20,12 +20,15 @@ describe('loadConfig', () => {
     process.env.KNOWTATION_VAULT_PATH = envBackup.KNOWTATION_VAULT_PATH;
     process.env.KNOWTATION_DATA_DIR = envBackup.KNOWTATION_DATA_DIR;
     process.env.KNOWTATION_VECTOR_STORE = envBackup.KNOWTATION_VECTOR_STORE;
+    process.env.OLLAMA_URL = envBackup.OLLAMA_URL;
     delete process.env.KNOWTATION_VAULT_PATH;
     delete process.env.KNOWTATION_DATA_DIR;
     delete process.env.KNOWTATION_VECTOR_STORE;
+    delete process.env.OLLAMA_URL;
     if (envBackup.KNOWTATION_VAULT_PATH !== undefined) process.env.KNOWTATION_VAULT_PATH = envBackup.KNOWTATION_VAULT_PATH;
     if (envBackup.KNOWTATION_DATA_DIR !== undefined) process.env.KNOWTATION_DATA_DIR = envBackup.KNOWTATION_DATA_DIR;
     if (envBackup.KNOWTATION_VECTOR_STORE !== undefined) process.env.KNOWTATION_VECTOR_STORE = envBackup.KNOWTATION_VECTOR_STORE;
+    if (envBackup.OLLAMA_URL !== undefined) process.env.OLLAMA_URL = envBackup.OLLAMA_URL;
   });
 
   it('loads from fixture config when cwd is fixtures', () => {
@@ -83,6 +86,20 @@ describe('loadConfig', () => {
     } finally {
       delete process.env.KNOWTATION_VAULT_PATH;
       delete process.env.KNOWTATION_VECTOR_STORE;
+    }
+  });
+
+  it('sets embedding.ollama_url from OLLAMA_URL env (overrides file)', () => {
+    const prevOllama = process.env.OLLAMA_URL;
+    process.env.KNOWTATION_VAULT_PATH = path.join(fixturesDir, 'vault-fs');
+    process.env.OLLAMA_URL = 'http://ollama.example:11434';
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.embedding.ollama_url, 'http://ollama.example:11434');
+    } finally {
+      delete process.env.KNOWTATION_VAULT_PATH;
+      if (prevOllama !== undefined) process.env.OLLAMA_URL = prevOllama;
+      else delete process.env.OLLAMA_URL;
     }
   });
 
