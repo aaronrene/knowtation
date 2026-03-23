@@ -4,10 +4,23 @@
 
 (function () {
   const params = new URLSearchParams(location.search);
-  // Build-time or deployment config: set window.HUB_API_BASE_URL (e.g. from config.js) for hosted/gateway URL
-  const apiBase = typeof window !== 'undefined' && window.HUB_API_BASE_URL
-    ? window.HUB_API_BASE_URL
-    : (params.get('api') || localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333');
+  // Build-time or deployment config: set window.HUB_API_BASE_URL (e.g. from config.js). Empty string = same origin (when static host proxies /api to the gateway).
+  const apiBase = (function resolveApiBase() {
+    if (typeof window === 'undefined') return 'http://localhost:3333';
+    if (Object.prototype.hasOwnProperty.call(window, 'HUB_API_BASE_URL')) {
+      const v = window.HUB_API_BASE_URL;
+      if (v == null) return params.get('api') || localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333';
+      const s = String(v).trim();
+      if (s === '') return (location.origin || 'http://localhost:3333').replace(/\/$/, '');
+      return s.replace(/\/$/, '');
+    }
+    return (
+      params.get('api') ||
+      localStorage.getItem('hub_api_url') ||
+      location.origin ||
+      'http://localhost:3333'
+    );
+  })();
   let token = params.get('token') || localStorage.getItem('hub_token');
   if (token) {
     localStorage.setItem('hub_token', token);

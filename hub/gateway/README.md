@@ -32,7 +32,7 @@ When the gateway **re-serializes** the JSON body (e.g. provenance merge), it **r
 | **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** | No | Google OAuth (enables "Continue with Google"). |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth (enables "Continue with GitHub"). |
 | **GATEWAY_PORT** or **PORT** | No | Port (default 3340). |
-| **HUB_CORS_ORIGIN** | No | CORS Allow-Origin (default `*`). Set to Hub UI origin in production. |
+| **HUB_CORS_ORIGIN** | **Yes (prod)** if Hub UI is on another origin | Comma-separated origins, e.g. `https://knowtation.store,https://www.knowtation.store`. Required for credentialed CORS responses; see [CORS-WWW-AND-APEX.md](../../docs/CORS-WWW-AND-APEX.md) and `hub/gateway/cors-middleware.mjs`. |
 | **HUB_JWT_EXPIRY** | No | JWT expiry (default `7d`). |
 | **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted (bootstrap); everyone else gets **member**. When **BRIDGE_URL** is set, roles and invites are stored in the bridge and proxied; full Team and invite links work. Set the same value on the bridge so Settings shows the correct role. See [PARITY-PLAN.md](../../docs/PARITY-PLAN.md) Phase 4. |
 | **BILLING_ENFORCE** | No | Set to `true` to deduct credits and return **402** when monthly + add-on pools are exhausted (default off = beta open usage). |
