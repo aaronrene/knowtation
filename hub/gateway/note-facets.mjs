@@ -8,7 +8,7 @@ import {
   materializeWireFrontmatter as materializeListFrontmatter,
 } from '../../lib/parse-frontmatter-json.mjs';
 
-export { parseFrontmatterJsonText, materializeWireFrontmatter as materializeListFrontmatter };
+export { parseFrontmatterJsonText, materializeListFrontmatter };
 
 export function tagsFromFm(fm) {
   const raw = fm && fm.tags;
