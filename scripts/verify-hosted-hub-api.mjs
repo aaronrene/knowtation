@@ -13,19 +13,31 @@
  * Repo deploy snapshot only (no JWT; Phase B facts from git + canister_ids.json + live /health):
  *   KNOWTATION_HUB_SNAPSHOT_ONLY=1 node scripts/verify-hosted-hub-api.mjs
  *
+ * Loads optional `KNOWTATION_HUB_TOKEN` / `HUB_JWT` from repo-root `.env` (dotenv) when present.
+ *
  * Optional write probe (creates/overwrites a probe note — use a throwaway path):
  *   KNOWTATION_HUB_PROBE_PATH='inbox/.hub-probe-delete-me.md' KNOWTATION_HUB_DO_PROBE=1 \
  *     KNOWTATION_HUB_TOKEN='...' node scripts/verify-hosted-hub-api.mjs
  */
 
 import { execSync } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { materializeListFrontmatter, deriveFacetsFromCanisterNotes } from '../hub/gateway/note-facets.mjs';
+
+function probeDetailPathFromNotes(notes) {
+  const list = Array.isArray(notes) ? notes : [];
+  const prefer = list.find((n) => n.path === 'inbox/note-hello-world.md');
+  const nonProbe = list.filter((n) => !String(n.path || '').includes('.hub-probe-delete-me'));
+  return prefer?.path || nonProbe[0]?.path || list[0]?.path || '';
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
+dotenv.config({ path: path.join(repoRoot, '.env') });
 
 function resolveToken() {
   let t = process.env.KNOWTATION_HUB_TOKEN || process.env.HUB_JWT || '';
@@ -86,6 +98,19 @@ function printDeploySnapshot() {
     console.log('repo git HEAD', head);
   } catch {
     /* not a git checkout */
+  }
+  const localWasm = path.join(repoRoot, 'hub', 'icp', '.dfx', 'local', 'canisters', 'hub', 'hub.wasm');
+  try {
+    if (fs.existsSync(localWasm)) {
+      const buf = fs.readFileSync(localWasm);
+      const sha = crypto.createHash('sha256').update(buf).digest('hex');
+      console.log('local hub.wasm sha256 (if built):', sha);
+      console.log('compare to Internet Computer dashboard module hash for canister', canisterId);
+    } else {
+      console.log('local hub.wasm: (not built) run: cd hub/icp && dfx build hub');
+    }
+  } catch {
+    /* ignore */
   }
   return canisterId;
 }
@@ -182,8 +207,7 @@ export async function runHostedHubVerification(opts = {}) {
   let pathForDetail =
     opts.notePath != null && String(opts.notePath).trim() !== '' ? String(opts.notePath).trim() : '';
   if (!pathForDetail && notes.length && opts.autoDetailPath) {
-    const prefer = notes.find((n) => n.path === 'inbox/note-hello-world.md');
-    pathForDetail = prefer?.path || notes[0]?.path || '';
+    pathForDetail = probeDetailPathFromNotes(notes);
   }
 
   if (pathForDetail) {
@@ -197,10 +221,18 @@ export async function runHostedHubVerification(opts = {}) {
     if (oneRes.ok) {
       try {
         const note = JSON.parse(oneText);
-        const fm = materializeListFrontmatter(note.frontmatter);
+        const raw = typeof note.frontmatter === 'string' ? note.frontmatter : JSON.stringify(note.frontmatter);
+        let fm = materializeListFrontmatter(note.frontmatter);
+        if (typeof note.frontmatter === 'string' && Object.keys(fm).length === 0 && raw.trim().length > 2) {
+          try {
+            JSON.parse(raw.replace(/^\uFEFF/, '').trim());
+          } catch (e) {
+            console.log('detail frontmatter JSON.parse error:', e && e.message ? e.message : String(e));
+            console.log('detail frontmatter first_80_codepoints', [...raw.slice(0, 80)].map((c) => c.charCodeAt(0)).join(','));
+          }
+        }
         report.detail_fm_key_count = Object.keys(fm).length;
         console.log('detail frontmatter keys', Object.keys(fm).join(', ') || '(none)');
-        const raw = typeof note.frontmatter === 'string' ? note.frontmatter : JSON.stringify(note.frontmatter);
         console.log('detail frontmatter raw length', raw.length, 'preview', raw.slice(0, 160).replace(/\n/g, ' '));
       } catch {
         console.log(oneText.slice(0, 400));
