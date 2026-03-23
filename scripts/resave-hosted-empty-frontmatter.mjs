@@ -14,9 +14,12 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { materializeListFrontmatter } from '../hub/gateway/note-facets.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '..');
+dotenv.config({ path: path.join(repoRoot, '.env') });
 
 function resolveToken() {
   let t = process.env.KNOWTATION_HUB_TOKEN || process.env.HUB_JWT || '';

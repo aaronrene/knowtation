@@ -457,24 +457,36 @@
     return d.trim().slice(0, 10);
   }
 
-  /** Hosted canister returns frontmatter as a JSON string; self-hosted often uses an object. List metadata (date, title, …) is flattened on self-hosted list responses — mirror that here. */
+  /** Hosted canister returns frontmatter as a JSON string; self-hosted often uses an object. List metadata (date, title, …) is flattened on self-hosted list responses — mirror that here. Keep in sync with lib/parse-frontmatter-json.mjs. */
   function materializeFrontmatter(fm) {
     if (fm == null) return {};
     if (typeof fm === 'object' && !Array.isArray(fm)) return fm;
     if (typeof fm === 'string') {
-      const t = fm.trim();
-      if (!t) return {};
-      let cur = t;
-      for (let i = 0; i < 4; i++) {
+      let cur = fm.replace(/^\uFEFF/, '').trim();
+      if (!cur) return {};
+      for (let i = 0; i < 8; i++) {
         try {
           const o = JSON.parse(cur);
-          if (o && typeof o === 'object' && !Array.isArray(o)) return o;
+          if (o !== null && typeof o === 'object' && !Array.isArray(o)) return o;
           if (typeof o === 'string') {
-            cur = o.trim();
+            const next = o.trim();
+            if (next === cur) return {};
+            cur = next;
             continue;
           }
           return {};
-        } catch (_) {
+        } catch {
+          if (cur.length >= 2 && cur.charCodeAt(0) === 34) {
+            try {
+              const inner = JSON.parse(cur);
+              if (typeof inner === 'string') {
+                cur = inner.trim();
+                continue;
+              }
+            } catch {
+              /* fall through */
+            }
+          }
           return {};
         }
       }
@@ -495,13 +507,34 @@
     return [];
   }
 
+  function isoDateUtcFromMs(ms) {
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return y + '-' + mo + '-' + day;
+  }
+
+  /** When frontmatter is empty, infer YYYY-MM-DD from `note-<epochMs>.md` quick-capture paths (hosted legacy rows). */
+  function inferredDisplayDateFromNotePath(notePath) {
+    if (!notePath || typeof notePath !== 'string') return null;
+    const base = notePath.split('/').pop() || '';
+    const m = /^note-(\d{10,})\.md$/i.exec(base);
+    if (!m) return null;
+    const ms = Number(m[1]);
+    if (!Number.isFinite(ms)) return null;
+    return isoDateUtcFromMs(ms);
+  }
+
   /** YYYY-MM-DD for calendar, overview, and range filters when `date` is unset (hosted notes often only have knowtation_edited_at). */
   function listItemDisplayDate(n, fm) {
     if (n.date != null && String(n.date).trim()) return String(n.date).trim().slice(0, 10);
     if (fm.date != null && String(fm.date).trim()) return String(fm.date).trim().slice(0, 10);
     const ke = fm.knowtation_edited_at;
     if (ke != null && String(ke).trim()) return String(ke).trim().slice(0, 10);
-    return null;
+    const inferred = inferredDisplayDateFromNotePath(n.path);
+    return inferred || null;
   }
 
   function noteSortOrCalendarDay(n) {

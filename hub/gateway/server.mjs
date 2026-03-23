@@ -163,7 +163,7 @@ app.use('/api/v1', (req, res, next) => {
   next();
 });
 
-// Health (no auth)
+// Health (no auth) — returns { ok: true }. If a CDN or host wrapper returns usage_exceeded, that is outside this app (check Netlify site / account limits and which commit is deployed).
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
 
