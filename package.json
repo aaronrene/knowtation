@@ -20,7 +20,8 @@
     "canister:preflight": "bash scripts/canister-predeploy.sh",
     "seed:hosted-showcase": "node scripts/seed-vault-dir-to-hub.mjs",
     "verify:hosted-api": "node scripts/verify-hosted-hub-api.mjs",
-    "report:empty-frontmatter": "node scripts/report-empty-hosted-frontmatter.mjs"
+    "report:empty-frontmatter": "node scripts/report-empty-hosted-frontmatter.mjs",
+    "check:gateway-cors": "node scripts/check-gateway-cors.mjs"
   },
   "keywords": [
     "knowledge-base",

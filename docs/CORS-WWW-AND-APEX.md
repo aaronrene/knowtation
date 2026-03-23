@@ -17,6 +17,8 @@ HUB_CORS_ORIGIN=https://knowtation.store,https://www.knowtation.store
 
 No repo deploy is required for this—only updating Netlify environment variables and redeploying or waiting for env propagation.
 
+**Gateway behavior (repo):** If `HUB_CORS_ORIGIN` is **unset**, the gateway sends `Access-Control-Allow-Origin: *` and **does not** send `Access-Control-Allow-Credentials` (browsers reject `*` + `credentials: true`, which surfaces as `Failed to fetch`). For production you should still set `HUB_CORS_ORIGIN` so responses echo your real Hub `Origin`. See `hub/gateway/cors-middleware.mjs`.
+
 **Optional:** In DNS / 4Everland, pick one canonical host (apex or www) and redirect the other so users always hit one `Origin`. You still should list both in `HUB_CORS_ORIGIN` until redirects are guaranteed for every entry path.
 
 See also [DEPLOY-STEPS-ONE-PAGE.md](./DEPLOY-STEPS-ONE-PAGE.md) §6 (CORS).

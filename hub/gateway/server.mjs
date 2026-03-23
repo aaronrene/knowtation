@@ -20,6 +20,7 @@ import { handleBillingSummary } from './billing-http.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
 import { deriveFacetsFromCanisterNotes } from './note-facets.mjs';
+import { applyGatewayCors } from './cors-middleware.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery } from './request-path.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
@@ -145,24 +146,14 @@ app.post('/api/v1/billing/webhook', express.raw({ type: 'application/json' }), (
 app.use(express.json({ limit: '10mb' }));
 app.use(passport.initialize());
 
-// CORS: with credentials, browser rejects *. Use HUB_CORS_ORIGIN (single or comma-separated).
-// If users open both apex and www, list both origins (e.g. https://knowtation.store,https://www.knowtation.store).
+// CORS: production MUST set HUB_CORS_ORIGIN (apex + www) for credentialed-style responses.
+// If unset, we use * and omit Allow-Credentials — otherwise browsers block (* + credentials = Failed to fetch).
+// See hub/gateway/cors-middleware.mjs and docs/CORS-WWW-AND-APEX.md.
 const corsOrigins = process.env.HUB_CORS_ORIGIN
   ? process.env.HUB_CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
 app.use((req, res, next) => {
-  const origin = req.get('Origin');
-  const allow =
-    origin && corsOrigins.length > 0 && corsOrigins.includes(origin)
-      ? origin
-      : corsOrigins.length > 0
-        ? corsOrigins[0]
-        : '*';
-  res.set('Access-Control-Allow-Origin', allow);
-  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
-  res.set('Access-Control-Allow-Credentials', 'true');
-  if (corsOrigins.length > 0) res.set('Vary', 'Origin');
+  applyGatewayCors(res, req.get('Origin'), corsOrigins);
   next();
 });
 

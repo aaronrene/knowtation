@@ -2,11 +2,32 @@
 
 Use this after changing the Hub UI (`web/hub/`), the Netlify **gateway**, or the ICP **canister**.
 
+## 0. CORS (Netlify gateway) — fixes “Could not reach the API”
+
+The Hub calls `https://knowtation-gateway.netlify.app` from `knowtation.store` / `www` (cross-origin). If the gateway misconfigures CORS, the browser reports **`Failed to fetch`** and the UI shows **Could not reach the API**.
+
+1. **Set `HUB_CORS_ORIGIN` on the Netlify gateway site** (comma-separated, both hosts):
+
+   `https://knowtation.store,https://www.knowtation.store`
+
+2. **Redeploy** the gateway after changing env vars.
+
+3. **Check preflight** from your machine:
+
+   ```bash
+   npm run check:gateway-cors
+   ```
+
+   You should see each origin get a **specific** `Allow-Origin` (not `*`) **with** `Allow-Credentials: true` when `HUB_CORS_ORIGIN` is set. If `HUB_CORS_ORIGIN` is unset, the gateway uses `*` **without** credentials (allowed by browsers); production should still set the env so your Hub origin matches.
+
+See [CORS-WWW-AND-APEX.md](./CORS-WWW-AND-APEX.md).
+
 ## 1. Static UI (4Everland / IPFS)
 
 - Deploy the `web/` folder so `https://www.knowtation.store/hub/hub.js` returns JavaScript (not HTML).
 - **Apex redirect:** `https://knowtation.store/hub/...` currently may 301 to `https://www.knowtation.store` **without** preserving `/hub/`. Prefer opening the Hub at **`https://www.knowtation.store/hub/`** until apex rules preserve the path.
 - Hub scripts use a **query version** (`hub.js?v=…` in `web/hub/index.html`). Bump that value when you ship Hub JS changes so CDNs do not serve an old bundle.
+- **Same-origin API (optional):** If 4Everland (or your CDN) reverse-proxies `/api/*` to the Netlify gateway, set in `web/hub/config.js` **`window.HUB_API_BASE_URL = ''`** so `hub.js` uses `location.origin` and avoids cross-origin CORS. The proxy must forward `/api/v1/*` to the gateway with path preserved.
 
 ## 2. Gateway (Netlify)
 
@@ -52,4 +73,12 @@ node scripts/report-empty-hosted-frontmatter.mjs
 - If POST (probe) sends a rich `frontmatter` string but GET still shows **no keys**, fix **gateway + canister** deploy alignment, not the Hub UI alone.
 - If list shows **empty frontmatter** for every note but probe **succeeds**, older notes may need **re-save** or migration.
 
-npm scripts: `npm run verify:hosted-api` and `npm run report:empty-frontmatter`.
+npm scripts: `npm run verify:hosted-api`, `npm run report:empty-frontmatter`, `npm run check:gateway-cors`.
+
+## 6. After CORS works: still `{}` under the note?
+
+Then the API is returning empty stored frontmatter (canister/gateway write path or legacy data). Do **not** iterate on Hub list UI alone.
+
+1. `npm run verify:hosted-api` with `KNOWTATION_HUB_TOKEN` — check `empty_frontmatter_count` and optional `KNOWTATION_HUB_DO_PROBE=1` write probe.
+2. **Redeploy** the ICP canister from current `main` if production predates `extractFrontmatterFromPostBody` object support (`hub/icp/src/hub/main.mo`).
+3. **Re-save** notes that were written when frontmatter stored as `{}`.
