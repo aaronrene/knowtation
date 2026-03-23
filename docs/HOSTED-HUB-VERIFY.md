@@ -22,6 +22,8 @@ The Hub calls `https://knowtation-gateway.netlify.app` from `knowtation.store` /
 
 See [CORS-WWW-AND-APEX.md](./CORS-WWW-AND-APEX.md).
 
+**If the Network tab shows `304` on note `fetch`:** the browser reused a cached JSON body (often still `{}` for frontmatter after you fixed the server). The Hub uses `fetch(..., { cache: 'no-store' })` for API calls; redeploy static `web/` with that build, or in DevTools enable **Disable cache** and hard-reload to confirm fresh JSON.
+
 ## 1. Static UI (4Everland / IPFS)
 
 - Deploy the `web/` folder so `https://www.knowtation.store/hub/hub.js` returns JavaScript (not HTML).

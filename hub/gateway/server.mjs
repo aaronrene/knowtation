@@ -157,6 +157,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Authenticated Hub JSON must not be cached (browser 304 / CDN reuse shows stale frontmatter).
+app.use('/api/v1', (req, res, next) => {
+  res.set('Cache-Control', 'private, no-store, must-revalidate');
+  next();
+});
+
 // Health (no auth)
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
@@ -532,7 +538,11 @@ async function proxyToCanister(req, res) {
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
     }
-    res.status(upstream.status).set(Object.fromEntries(upstream.headers.entries()));
+    const hop = [...upstream.headers.entries()].filter(
+      ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
+    );
+    res.status(upstream.status).set(Object.fromEntries(hop));
+    res.set('Cache-Control', 'private, no-store, must-revalidate');
     res.send(body);
   } catch (e) {
     console.error('Gateway proxy error:', e.message);

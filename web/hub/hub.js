@@ -118,6 +118,7 @@
     try {
       res = await fetch(apiBase + path, {
         ...opts,
+        cache: opts.cache != null ? opts.cache : 'no-store',
         headers: { ...headers(), ...opts.headers },
       });
     } catch (e) {
@@ -329,7 +330,7 @@
 
   async function initProviders() {
     try {
-      const r = await fetch(apiBase + '/api/v1/auth/providers');
+      const r = await fetch(apiBase + '/api/v1/auth/providers', { cache: 'no-store' });
       if (!r.ok) throw new Error('providers');
       providers = await r.json();
     } catch (_) {
@@ -1358,6 +1359,7 @@
     try {
       const res = await fetch(apiBase + '/api/v1/import', {
         method: 'POST',
+        cache: 'no-store',
         headers: token ? { Authorization: 'Bearer ' + token } : {},
         body: formData,
       });
