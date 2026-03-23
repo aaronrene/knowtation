@@ -789,19 +789,21 @@
         };
         filterChipsEl.appendChild(b);
       });
-      const inboxBtn = document.createElement('button');
-      inboxBtn.type = 'button';
-      inboxBtn.className = 'chip-btn' + (filterFolder.value === 'inbox' ? ' active' : '');
-      inboxBtn.textContent = 'folder:inbox';
-      inboxBtn.onclick = () => {
-        filterFolder.value = 'inbox';
-        filterProject.value = '';
-        filterTag.value = '';
-        switchNotesView('list');
-        loadNotes();
-        renderFilterChips(null);
-      };
-      filterChipsEl.appendChild(inboxBtn);
+      (f.folders || []).slice(0, 12).forEach((folder) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip-btn' + (filterFolder.value === folder ? ' active' : '');
+        b.textContent = 'folder:' + folder;
+        b.onclick = () => {
+          filterFolder.value = folder;
+          filterProject.value = '';
+          filterTag.value = '';
+          switchNotesView('list');
+          loadNotes();
+          renderFilterChips(null);
+        };
+        filterChipsEl.appendChild(b);
+      });
     };
     if (facets) apply(facets);
     else fetchFacetsResolved().then(apply).catch(() => {});
@@ -2200,12 +2202,23 @@
     }
   };
 
+  function formatDetailReadBody(body, fm) {
+    const o = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
+    const keys = Object.keys(o);
+    let text = (body || '') + '\n\n---\n' + JSON.stringify(keys.length ? o : {}, null, 2);
+    if (keys.length === 0 && hubUserCanWriteNotes()) {
+      text +=
+        '\n\n—\nNo metadata is stored for this file yet (typical for notes created before hosted frontmatter was fixed). Use Edit → Save once to write title, tags, date, and provenance. Then tags and Overview charts can use that data.';
+    }
+    return text;
+  }
+
   function switchNoteToReadMode() {
     if (!currentOpenNote) return;
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
     bodyEl.innerHTML = '';
-    bodyEl.textContent = (currentOpenNote.body || '') + '\n\n---\n' + JSON.stringify(currentOpenNote.frontmatter || {}, null, 2);
+    bodyEl.textContent = formatDetailReadBody(currentOpenNote.body, currentOpenNote.frontmatter);
     bodyEl.className = '';
     const canEdit = hubUserCanWriteNotes();
     actionsEl.innerHTML = '';
@@ -2286,6 +2299,7 @@
         currentOpenNote = { path: currentOpenNote.path, body: refreshed.body || '', frontmatter: nfm };
         switchNoteToReadMode();
         if (typeof loadNotes === 'function') loadNotes();
+        if (typeof loadFacets === 'function') loadFacets();
       } catch (e) {
         if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)), true);
       }
@@ -2315,7 +2329,7 @@
       .then((note) => {
         const fm = materializeFrontmatter(note.frontmatter);
         currentOpenNote = { path, body: note.body || '', frontmatter: fm };
-        bodyEl.textContent = (note.body || '') + '\n\n---\n' + JSON.stringify(fm || {}, null, 2);
+        bodyEl.textContent = formatDetailReadBody(note.body, fm);
         const canEdit = hubUserCanWriteNotes();
         if (canEdit) {
           const editBtn = document.createElement('button');
