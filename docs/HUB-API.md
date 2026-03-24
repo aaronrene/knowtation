@@ -129,7 +129,9 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 
 ### 3.4 Proposals
 
-**Variation protocol (Muse-aligned).** Proposals implement a variation lifecycle compatible with [Muse](https://github.com/cgcardona/muse): **identifiers** — `proposal_id` (variation id), `base_state_id` (optional, for optimistic concurrency); **intent** — human- or agent-readable reason for the change; **lifecycle** — propose → review → approve or discard. We do not run Muse; we align our API and payload so we can interoperate or adopt Muse later. Optional `external_ref` (e.g. future Muse commit id) may be added for cross-system references.
+**Variation protocol (Muse-aligned).** Proposals implement a variation lifecycle compatible with [Muse](https://github.com/cgcardona/muse): **identifiers** — `proposal_id` (variation id), `base_state_id` (optional, for optimistic concurrency); **intent** — human- or agent-readable reason for the change; **lifecycle** — propose → review → approve or discard. Default deployments **do not run Muse**; we align our API and payload so we can interoperate or adopt Muse later. Optional `external_ref` (e.g. future Muse commit id) may be added for cross-system references.
+
+**Optional Muse linkage (operators).** A deployment may configure a **read-only** connection to a Muse instance for **lineage / structural history** queries (e.g. Git-replayed history in Muse’s model). That path is **not** required for JWT login, proposal CRUD, vault writes, or search. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.3.
 
 - **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?", "external_ref?" }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
   **Response:** `{ "proposal_id": "...", "path": "...", "status": "proposed" }`.  

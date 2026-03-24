@@ -1,19 +1,40 @@
 # Muse-Style Extension — Variations, Review, and Intention
 
-The [Muse Protocol](https://github.com/cgcardona/maestro/blob/1ded36d6321347a7b3fcca4b17009b97e4d3612f/docs/protocol/muse-protocol.md) defines a **platform-neutral protocol** for music: propose changes (variations), review them, then commit only after human approval. Canonical state does not change during review. This document explores how **Muse-style concepts** could make Knowtation more powerful for **context, memory, and intention** — the "golden thread" that makes agents fully useful — without replacing the current spec.
+[Muse](https://github.com/cgcardona/muse) is a **domain-agnostic version control system**: content-addressed snapshots, commits as deltas in a DAG, branches, merge, and **domain plugins** (e.g. music as one plugin) that implement snapshot, diff, merge, and apply. Muse can **replay an existing Git repository** into that model—commit by commit, branch by branch—so history becomes **typed structural state** (commits as transitions, branches as timelines, artifacts as first-class) rather than only line-oriented text diffs. Details and APIs belong in Muse’s own docs; Knowtation stays responsible for **vault + Hub proposals** as canonical integration points.
+
+The older [Muse Protocol (Maestro)](https://github.com/cgcardona/maestro/blob/1ded36d6321347a7b3fcca4b17009b97e4d3612f/docs/protocol/muse-protocol.md) document describes a **streaming variation** shape (meta event, then region events, then done) oriented to **music editing**. It is still useful **background** for “variation as a structured proposal stream,” but it is **not** the whole story for current Muse: the **lead** mental model is the **VCS + Git replay + plugins** described above.
+
+This document explores how **Muse-style concepts** could make Knowtation stronger for **context, memory, and intention** — the "golden thread" that makes agents useful — without replacing the current spec.
+
+**Terminology (this doc vs [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md)):**
+
+| Implementation plan | Where in this doc |
+|---------------------|-------------------|
+| **Option B** — Muse protocol alignment (`base_state_id`, `intent`, `external_ref`; no Muse runtime) | [§6.2 — Protocol alignment only](#62-muse-v2-domain-agnostic-integration-depth); [HUB-API.md](./HUB-API.md) §3.4 |
+| **Option C** — Muse thin bridge (optional read-only lineage / linked Muse) | [§6.3 — Thin bridge (optional)](#63-thin-bridge-optional-implementation-plan-option-c) |
+| **Full Knowtation domain plugin / deferred Muse backend** | [§6.2 — Full domain plugin](#full-domain-plugin-muse-as-backend-for-variations) |
+| **Variation storage only in Knowtation** vs **shared variation protocol spec** | [§6 — Path 1 / Path 2](#6-extract-muse-vs-knowtation-only-and-github-as-an-alternative) |
 
 ---
 
 ## 1. What Muse introduces (summary)
 
-- **Variation:** A structured *proposal* to change the project (in Muse: musical edits). It is ephemeral until approved.
+**Structural history and Git replay (current Muse VCS):**
+
+- **Replay from Git:** An existing Git history can be imported so each commit becomes a **real state transition**, each branch a **semantic timeline**, with authorship and timestamps preserved as Muse models them.
+- **Structural vs purely textual:** Diffs and merges are expressed in the **domain plugin’s** model (dimensions, artifacts), not only as line patches—so agents and tools can reason about **history as data**, not only as text files.
+- **Plugins:** Concrete domains (e.g. music) are **plugins** on top of the same core; Knowtation’s “domain” would be **notes / vault state** only if someone implements that plugin.
+
+**Variation lifecycle (pattern shared with Maestro-style docs and with Knowtation proposals):**
+
+- **Variation:** A structured *proposal* to change the project. It is ephemeral until approved.
 - **Review before commit:** Humans (or a policy) approve or discard. **Canonical state does not change** while a variation is in review.
-- **Identifiers:** `projectId`, `variationId`, `baseStateId` support optimistic concurrency (reject commit if state moved on).
+- **Identifiers:** `projectId`, `variationId`, `baseStateId` (or Hub `proposal_id` / `base_state_id`) support optimistic concurrency (reject commit if state moved on).
 - **Execution modes:** e.g. COMPOSING (proposal, needs review), EDITING (apply immediately), REASONING (chat only). The backend classifies intent; frontend does not override.
-- **Streaming:** Meta event first (what the variation is), then phrase/region events, then done. Single undo boundary on commit.
+- **Streaming (Maestro protocol):** Meta event first (what the variation is), then payload events, then done. Single undo boundary on commit.
 - **Philosophy:** "AI proposes. Humans curate."
 
-Muse is built for music (phrases, notes, beats) but the **pattern** — propose → review → commit, with clear canonical vs proposed state — is domain-agnostic.
+**Knowtation mapping (one paragraph):** In Knowtation, **canonical knowledge** lives in the **vault** (and hosted canister). **Proposals** (propose → review → approve/discard) are **your** review layer, with fields aligned to the variation protocol. **Muse** is **optional**: you do not need it for Hub login, writes, or search. If you **link** a Muse instance ([§6.3](#63-thin-bridge-optional-implementation-plan-option-c)), you can use it for **structural lineage** and cross-system references (`external_ref`), while the vault remains canonical.
 
 ---
 
@@ -37,14 +58,14 @@ Muse is built for music (phrases, notes, beats) but the **pattern** — propose 
 
 ---
 
-## 3. How this could apply to Knowtation (notation, not music)
+## 3. How this could apply to Knowtation (vault and notation)
 
 Knowtation’s "project" is the **vault**: notes, frontmatter, and optionally the vector index. Today, `write` and capture **mutate the vault directly**. A Muse-style extension would add:
 
 - **Proposed changes (variations):** Instead of writing directly to `vault/projects/foo/note.md`, an agent (or user) could create a **variation**: "here is a proposed new note" or "here are proposed edits to these notes." The variation is stored in a **proposal area** (e.g. `vault/.proposals/<variationId>/` or a sidecar store), not in the canonical vault.
 - **Review then commit:** A human (or an automated policy) reviews the variation — e.g. diff view, side-by-side — and either **accepts** (variation is applied to the vault, one commit) or **discards**. Until then, canonical vault is unchanged.
 - **Intention and context:** Each variation could carry **intent** (e.g. "summarize these three notes into one") and **baseStateId** (e.g. git commit hash or index version). On commit, we record that this change was approved and from which base state, giving a clear thread: intention → proposal → approval → canonical state.
-- **Hub-style / multi-actor:** Like "Muse Hub" (GitHub for music), a **Knowtation Hub** could be a place where:
+- **Hub-style / multi-actor:** Like a **hosted collaboration product for Muse-backed projects** (e.g. [MuseHub](https://musehub.ai)) or “GitHub for knowledge,” a **Knowtation Hub** could be a place where:
   - Multiple agents or users propose variations to a shared vault (or to a branch).
   - Review and merge are first-class (approve/discard, optional branching).
   - History is not just linear: you can have branches, pull requests, or "variation threads" that capture context and intention before they become canonical.
@@ -81,9 +102,9 @@ The **existing spec** (inbox, capture, write, export, provenance, vault under Gi
 
 **Extract Muse vs our own implementation:**
 
-- Muse’s *data model* is music-specific (phrases, notes, beats, tracks). Knowtation is notes/text. We’d reuse the **pattern** (variation → review → commit, baseStateId), not the music schema.
-- **Option A — Knowtation-only:** Implement a variation layer in Knowtation (e.g. `.proposals/`, `propose` / `commit` / `discard`). No dependency on the Muse repo; we adopt the same ideas. Simpler, nothing shared.
-- **Option B — Shared protocol:** With the Muse creator, extract a **domain-agnostic “variation protocol”** (propose → stream/review → commit/discard, identifiers, execution modes) into its own repo/spec. Muse (music) and Knowtation (notation) both implement it; different payloads, same lifecycle. Both projects benefit; one protocol to maintain.
+- **Two layers:** (1) The **Maestro muse-protocol** doc emphasizes **music-shaped streaming variations**. (2) **Current Muse** is a **domain-agnostic VCS** with **Git replay** and **plugins**. Knowtation is **notes/text + Hub proposals**. We reuse **lifecycle and identifiers** (`base_state_id`, `intent`, `proposal_id`, optional `external_ref`), not a music payload schema.
+- **Path 1 — Knowtation-only:** Implement a variation layer in Knowtation (e.g. `.proposals/`, `propose` / `commit` / `discard`). No dependency on the Muse repo; we adopt the same ideas. Simpler, nothing shared.
+- **Path 2 — Shared protocol:** With the Muse ecosystem, keep a **domain-agnostic “variation protocol”** (propose → stream/review → commit/discard, identifiers, execution modes) documented so **Muse (any domain)** and **Knowtation (notation)** can align on lifecycle; payloads differ, lifecycle matches.
 
 **Can GitHub already do this?**
 
@@ -100,7 +121,7 @@ The **existing spec** (inbox, capture, write, export, provenance, vault under Gi
 **What “dedicated shared vault” means:**
 
 - **Shared vault** = one vault that **multiple people and/or agents** can use. They all see the same canonical content (or the same view of it) and can propose changes. It’s “shared” in the sense that it’s not only “my local folder” — it’s a common knowledge base (e.g. a Git repo several people have access to, or a hosted service that stores the vault and exposes it via API/web).
-- **Dedicated** = a **product or service built for that purpose**: a place to host the vault, have multiple contributors, run review flows, and optionally enforce roles/permissions. Think “Muse Hub for music” or “GitHub for knowledge” — a hub where the vault lives and where propose/review/commit is the main experience, rather than “everyone just uses the same Git repo and does PRs in GitHub.”
+- **Dedicated** = a **product or service built for that purpose**: a place to host the vault, have multiple contributors, run review flows, and optionally enforce roles/permissions. Think **MuseHub-style hosting for Muse-backed repos**, or **“GitHub for knowledge”** — a hub where the vault lives and where propose/review/commit is the main experience, rather than “everyone just uses the same Git repo and does PRs in GitHub.”
 
 So a **dedicated shared vault** is a hosted or central “home” for the vault where:
 
@@ -129,11 +150,15 @@ So a **shared vault** (in any form) is what lets **multiple actors** — humans 
 
 ---
 
-## 6.2 Muse v2 (domain-agnostic): two integration options
+## 6.2 Muse v2 (domain-agnostic): integration depth
 
-[Muse](https://github.com/cgcardona/muse) is now a **domain-agnostic** version control system: State = content-addressed snapshot, Commit = named delta in a DAG, Branch / Merge / Drift / Checkout. A **domain plugin** implements snapshot, diff, merge, drift, and apply; music is the first plugin. Muse is built for **agent collaboration** over a shared DAG. Below are two ways Knowtation could relate to Muse.
+[Muse](https://github.com/cgcardona/muse) is a **domain-agnostic** version control system: state as content-addressed snapshot, commit as named delta in a DAG, branch / merge / drift / checkout. A **domain plugin** implements snapshot, diff, merge, drift, and apply for a concrete domain; music is an example plugin, not the definition of Muse.
 
-### Option A — Muse as backend for variations
+Muse can **replay Git history** into that model: commits and branches become **first-class structural history** (authorship and timestamps as Muse represents them), so tools and agents can work with **history as typed transitions** rather than only flat text diffs. **Per-dimension merge** and **structural** diffs are properties of the **plugin and core**, not something Knowtation implements by default.
+
+Below are two **depths** of Knowtation↔Muse integration. They are **not** the same as §6 **Path 1 / Path 2** (how we store variations inside Knowtation).
+
+### Full domain plugin (Muse as backend for variations)
 
 **What it is:** Implement a **Knowtation domain plugin for Muse** where "state" = vault (snapshot = vault snapshot, diff = note-level deltas, merge = three-way note merge). Our propose/review/commit flow would be **powered by Muse's DAG**: proposals become Muse commits or branches; the Hub (or bridge) talks to a Muse service that holds the variation history.
 
@@ -147,7 +172,7 @@ So a **shared vault** (in any form) is what lets **multiple actors** — humans 
 
 **Costs:**
 
-- **Operational:** We run and maintain a Muse runtime (Python) somewhere (bridge or new service).
+- **Operational:** We run and maintain a Muse runtime (e.g. Python) somewhere (bridge or new service).
 - **Dependency:** We depend on Muse's roadmap and stability; Muse v2 is still early.
 - **Scope:** Implementing a full domain plugin (snapshot, diff, merge, drift, apply for vault state) is non-trivial.
 
@@ -155,16 +180,16 @@ So a **shared vault** (in any form) is what lets **multiple actors** — humans 
 
 ---
 
-### Option B — Protocol alignment only
+### Protocol alignment only
 
-**What it is:** Keep our **current proposal store** (canister + Node). Define (or adopt) a **variation protocol** that matches Muse's concepts: identifiers (baseStateId, variationId), intent, lifecycle (propose → review → commit/discard). No Muse runtime; we just align our API and data so that, later, a Muse client could talk to our Hub or we could export/import to Muse.
+**What it is:** Keep our **current proposal store** (canister + Node). Define (or adopt) a **variation protocol** that matches Muse's concepts: identifiers (`base_state_id`, variation / `proposal_id`), `intent`, lifecycle (propose → review → commit/discard). No Muse runtime; we align our API and data so that, later, a Muse client could talk to our Hub or we could export/import to Muse.
 
 **In simple terms:** We don't run Muse. We keep full control of our stack. We document and shape our proposal contract so it matches Muse's *protocol* — same names and lifecycle — so we're compatible if we or others want to plug in Muse later.
 
 **Benefits:**
 
-- **Low risk:** No new runtime, no new dependency. We already have `baseStateId` and `intent`; we add documentation and optional fields (e.g. `muse_commit_id` or `external_ref`) if we ever need to point at a Muse commit.
-- **Future-proof:** If we later adopt Option A, our proposal format is already aligned; we don't have to redesign the canister or Hub API.
+- **Low risk:** No new runtime, no new dependency. We already have `base_state_id` and `intent`; we add documentation and optional fields (e.g. `muse_commit_id` or `external_ref`) if we ever need to point at a Muse commit.
+- **Future-proof:** If we later adopt a **full domain plugin**, our proposal format is already aligned; we don't have to redesign the canister or Hub API.
 - **Interop-ready:** Third parties (or we) could build a Muse client that talks to our Hub, or we could export proposals to Muse format, without running Muse ourselves.
 
 **Costs:**
@@ -175,18 +200,38 @@ So a **shared vault** (in any form) is what lets **multiple actors** — humans 
 
 ---
 
+## 6.3 Thin bridge (optional; implementation plan Option C)
+
+**Positioning:** Knowtation **canonical state** remains the vault (and canister on hosted). **Login, writes, and search** do **not** depend on Muse. [Implementation plan Option B](./IMPLEMENTATION-PLAN.md) (`base_state_id`, `intent`, `external_ref`) stays the default **contract**.
+
+**What the thin bridge is:** Operators **may** run or subscribe to a **Muse instance** and connect it **read-only** for **lineage and structural history** (e.g. Git-replayed history in Muse’s model): branch timelines, structural diff pointers, or other queries Muse exposes. Knowtation adds **small integration points** only— for example documented env such as `MUSE_URL` / `MUSE_API_KEY`, a future CLI subcommand, gateway proxy route, or Hub **Settings → Advanced** “Link Muse”—all **no-op** when unset.
+
+**`external_ref`:** On **approve** (or after merge to canonical), optionally set **`external_ref`** to a Muse commit id, branch id, or other stable id Muse provides, so a proposal **links** to Muse lineage without Muse owning the vault.
+
+**Security:**
+
+- Muse must **not** sit on an **unauthenticated public** path for Hub users; treat it as an **operator/backend** integration with normal secret handling.
+- Do not require Muse for JWT, OAuth, or proposal CRUD.
+
+**Out of scope for the thin bridge:** Replacing the canister, requiring Muse for proposals, or implementing the **full domain plugin** ([§6.2 — Full domain plugin](#full-domain-plugin-muse-as-backend-for-variations))—that remains deferred until a concrete need.
+
+**Concrete code** (proxy route, CLI, MCP stub) is tracked in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Option C; this section is the **documentation** anchor.
+
+---
+
 ### Recommendation
 
-- **Do Option B now (or soon).** It's low effort, keeps our options open, and avoids dependency on Muse's roadmap. Document the variation protocol (baseStateId, intent, lifecycle) and ensure the canister keeps optional extensibility (e.g. for `muse_commit_id` or `external_ref`) so we don't backtrack if we later integrate Muse.
-- **Consider Option A only when there's a clear use case** — e.g. a partner or product using Muse, or a need for shared DAG with other Muse-using agents — or when Muse's tooling and ecosystem make running it straightforward. Until then, Option B gives us protocol compatibility without the operational cost.
+- **Do protocol alignment (implementation plan Option B) now** — already reflected in Hub API and proposals; keep optional `external_ref` extensible.
+- **Prefer the thin bridge (Option C) over the full plugin** when you want **deeper** Muse integration without making Muse the backend: optional linked Muse for **history only**, plus `external_ref` on approve.
+- **Consider the full domain plugin only when there's a clear use case** — e.g. a partner or product using Muse, or a need for shared DAG with other Muse-using agents — or when Muse's tooling and ecosystem make running it straightforward.
 
-**Is it worthwhile?** Option B is worthwhile: it's cheap and keeps the door open. Option A is worthwhile only when the benefit (shared DAG, Muse ecosystem, or partner requirement) justifies running and maintaining Muse.
+**Is it worthwhile?** Protocol alignment is cheap and keeps the door open. The thin bridge is worthwhile when operators want **structural Git-backed history** in Muse without re-architecting Knowtation. The full domain plugin is worthwhile only when the benefit (shared DAG, Muse ecosystem, or partner requirement) justifies running and maintaining Muse as the variation engine.
 
 ---
 
 ## 7. Next steps (for the spec)
 
 - **Short term:** Keep the current spec as-is. Document this as an **extension idea** (this file) and add a pointer in SPEC §12 (extension points): "Optional: Muse-style variation/review/commit layer for proposed vault changes; see docs/MUSE-STYLE-EXTENSION.md."
-- **Later:** If we implement it, add a small **proposal/variation** contract (where proposals live, format, and how commit/discard work) and optional CLI commands. A "Muse Hub–style" service (shared vault, multiple proposers, review UI) would be a separate product or service that consumes this contract.
+- **Later:** If we implement it, add a small **proposal/variation** contract (where proposals live, format, and how commit/discard work) and optional CLI commands. A hosted **shared vault + review UI** service would be a separate product or layer that consumes this contract.
 
 This way we keep notation simple and compatible for everyone, while leaving a clear path to a GitHub-style, intention-preserving, review-before-commit workflow for power users and teams.

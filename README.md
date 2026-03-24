@@ -74,7 +74,7 @@ knowtation/
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — High-level design; points to SPEC for details.
 - **[docs/STANDALONE-PLAN.md](./docs/STANDALONE-PLAN.md)** — Product plan (CLI-first, SKILL.md, memory, AIR, scenarios).
 - **[docs/PROVENANCE-AND-GIT.md](./docs/PROVENANCE-AND-GIT.md)** — What “provenance” and “vault under git” mean (traceability of outputs vs version history); inbox stays file-based.
-- **[docs/MUSE-STYLE-EXTENSION.md](./docs/MUSE-STYLE-EXTENSION.md)** — Optional Muse-style variation/review/commit layer for context, intention, and hub-style workflows. Phase 11 (shared vault / hub) for simple agent-to-agent and agent-to-human without GitHub.
+- **[docs/MUSE-STYLE-EXTENSION.md](./docs/MUSE-STYLE-EXTENSION.md)** — Optional Muse-style variation/review/commit layer for context, intention, and hub-style workflows; Hub proposals are Muse-<em>protocol</em>-aligned; optional Muse linkage (thin bridge) is documented there. Phase 11 (shared vault / hub) for simple agent-to-agent and agent-to-human without GitHub.
 - **[docs/setup.md](./docs/setup.md)** — Setup steps.
 - **[web/index.html](./web/index.html)** — Landing page: intent, open source, GitHub link, what’s included, phases summary, mock pricing. **To view locally:** run <code>npx -y serve web -p 8888</code> (or <code>python3 -m http.server 8888 --directory web</code>), then open **http://localhost:8888**. See [web/README.md](./web/README.md).
 - **[COPY-TO-REPO.md](./COPY-TO-REPO.md)** — Use when creating a new repo from this seed.

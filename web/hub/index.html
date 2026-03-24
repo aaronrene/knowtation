@@ -493,7 +493,7 @@
               </div>
             </div>
             <hr class="settings-hr">
-            <p class="settings-intro small"><strong>Hub as a flexible network:</strong> Many users, many vaults, many repos, and agents (MCP, AgentCeption, Muse) from one Hub. <button type="button" id="btn-how-to-flexible-network" class="btn-link btn-link-small">How to use → Hub as a flexible network</button></p>
+            <p class="settings-intro small"><strong>Hub as a flexible network:</strong> Many users, many vaults, many repos, and agents (MCP, AgentCeption, and <em>optionally</em> linked tools such as Muse) from one Hub—Knowtation does not require Muse to be running. <button type="button" id="btn-how-to-flexible-network" class="btn-link btn-link-small">How to use → Hub as a flexible network</button></p>
           </div>
         </div>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
@@ -803,7 +803,10 @@ Knowtation Hub listening on http://localhost:3333</pre>
               <p><strong>Examples:</strong> A planner agent uses vault A for product context while engineer agents use vault B for technical decisions. Or one vault for personal notes and another for the team, with scope so each identity sees only the right one. Or one vault with projects "Launch" and "Q1 roadmap," and agents filtered by <code>--project</code> so they only read what's relevant.</p>
 
               <p style="margin-top: 1.25rem;"><strong>AgentCeption and Muse</strong></p>
-              <p>They can be used together in various ways on top of this. For example: AgentCeption's planner and engineer agents read from one vault and write proposals, with Muse tracking versioned state (branches, DAG) for that vault or others. Or point different AgentCeption agents at different vaults for different issues—all through the same Hub. One Hub URL, one coordination layer: you can point planner agents at vault A, engineer agents at vault B, and Muse at the vaults you version; all connect through the same Hub so you don’t run separate systems per vault or per tool.</p>
+              <p><strong>Today:</strong> AgentCeption’s planner and engineer agents use the same Hub API and proposals as other clients; proposal payloads use Muse-<em>aligned</em> fields (<code>base_state_id</code>, <code>intent</code>, optional <code>external_ref</code>) without running Muse on the Hub.</p>
+              <p><strong>Optional:</strong> If you operate a Muse instance, you can use a <em>thin bridge</em> (documented in <code>docs/MUSE-STYLE-EXTENSION.md</code> §6.3) for read-only structural / Git-replayed history and set <code>external_ref</code> when approving proposals—canonical vault and login still live in Knowtation.</p>
+              <p><strong>Advanced / deferred:</strong> A full Knowtation domain plugin inside Muse (Muse as the variation backend) is a separate, heavy integration; see the same doc §6.2.</p>
+              <p>Point different AgentCeption agents at different vaults for different issues—all through the same Hub. One Hub URL, one coordination layer so you don’t run separate systems per vault or per tool.</p>
               <div class="diagram-box">
                 <div class="diagram-title">Many users, many vaults, many repos, many agents</div>
                 <svg class="diagram-svg diagram-svg-network" viewBox="0 0 380 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -831,7 +834,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
                   <rect x="0" y="84" width="100" height="56" rx="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
                   <text x="50" y="104" class="diagram-text" text-anchor="middle">Agents</text>
                   <text x="50" y="118" class="diagram-text-small" text-anchor="middle">MCP, CLI</text>
-                  <text x="50" y="132" class="diagram-text-small" text-anchor="middle">AgentCeption, Muse</text>
+                  <text x="50" y="132" class="diagram-text-small" text-anchor="middle">AgentCeption, Muse (opt.)</text>
                   <path d="M 100 112 L 126 112" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-flex)"/>
                 </svg>
               </div>
@@ -920,10 +923,11 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
               </details>
             </div>
             <div class="integration-card">
-              <h5>Muse (extending notation with versioned state)</h5>
-              <p><a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">Muse</a> is a domain-agnostic version control system for multidimensional state: commit, branch, merge, and a shared DAG that multiple agents can use. Knowtation’s proposal flow (propose → review → approve/discard) is already aligned with Muse’s variation protocol (Option B): same lifecycle and identifiers (<code>base_state_id</code>, <code>intent</code>).</p>
-              <p><strong>How you might use it:</strong> To extend Knowtation with full Muse semantics (branches, three-way merge, shared DAG across tools), a developer can implement a <strong>Knowtation domain plugin for Muse</strong>: treat the vault as Muse “state,” proposals as commits, and use Muse’s engine for merge and history. Today you get protocol alignment and optional <code>external_ref</code> for future cross-links; running Muse as a backend is optional and documented in the repo.</p>
-              <p class="how-to-note">See <code>docs/MUSE-STYLE-EXTENSION.md</code> for the full pattern, Option A vs B, and when to adopt Muse as a backend.</p>
+              <h5>Muse (protocol alignment and optional linkage)</h5>
+              <p><a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">Muse</a> is a domain-agnostic version control system: snapshots, DAG history, domain plugins, and Git replay into structural history. <strong>Default Knowtation Hub:</strong> proposals follow the same <em>lifecycle and identifiers</em> as the Muse-aligned variation protocol (<code>base_state_id</code>, <code>intent</code>, optional <code>external_ref</code>)—no Muse runtime required.</p>
+              <p><strong>Optional thin bridge:</strong> Operators can link a Muse instance for read-only lineage queries and set <code>external_ref</code> on approve; see <code>docs/MUSE-STYLE-EXTENSION.md</code> §6.3.</p>
+              <p><strong>Full plugin (deferred):</strong> Implementing a Knowtation domain plugin so Muse powers merges and variation storage is a large step; see §6.2 in the same doc.</p>
+              <p class="how-to-note">See <code>docs/MUSE-STYLE-EXTENSION.md</code> for terminology vs <code>docs/IMPLEMENTATION-PLAN.md</code> Options B/C and when to adopt deeper Muse integration.</p>
             </div>
             <p class="how-to-note"><strong>MCP (e.g. Cursor):</strong> If your environment supports MCP, enable the Knowtation MCP server to search and read notes. For writes, combine with the Hub and proposals as above.</p>
           </section>
