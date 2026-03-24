@@ -93,7 +93,7 @@
 
     <main id="main" class="hidden">
       <section class="search-section">
-        <input type="text" id="search-query" placeholder="Search vault…" autocomplete="off">
+        <input type="text" id="search-query" placeholder="Search by meaning (not exact words)…" autocomplete="off" aria-label="Semantic search query" aria-describedby="search-semantic-hint">
         <select id="filter-project">
           <option value="">All projects</option>
         </select>
@@ -107,9 +107,11 @@
         <input type="date" id="filter-since" aria-label="Filter notes from this date">
         <label for="filter-until" class="filter-date-label">Until</label>
         <input type="date" id="filter-until" aria-label="Filter notes until this date">
-        <button id="btn-search" type="button">Search</button>
+        <button id="btn-search" type="button" class="btn-primary" title="Semantic search: closest meanings in the indexed vault. Respects project/tag/folder/date above. Enter also runs search." aria-label="Semantic search">Search</button>
+        <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear semantic search">Clear</button>
         <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
         <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
+        <p id="search-semantic-hint" class="search-hint muted small">Quick chips update the dropdowns and reload the <strong>list</strong> (exact tags/projects). Green <strong>Search</strong> uses the <strong>same dropdowns</strong> to narrow meaning-search on the <strong>indexed</strong> current vault — it is not Google-style keywords; unrelated words can still rank if they are the “least far” in embedding space. <strong>Clear</strong> empties the box and shows the list again.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
@@ -865,12 +867,12 @@ Knowtation Hub listening on http://localhost:3333</pre>
 
             <h4 class="how-to-sub">Hub UI: filters and views</h4>
             <ul>
-              <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then Apply filters. Quick chips (e.g. <code>project:myproject</code>, <code>folder:inbox</code>) jump to a view. Save a view with Save view as and click a preset pill later.</li>
-              <li><strong>Search:</strong> Type in Search vault and press <kbd>Enter</kbd> or click Search for <strong>semantic</strong> search (requires Step 4 — index — on self-hosted).</li>
+              <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then <strong>Apply filters</strong>. <strong>Quick</strong> chips (e.g. <code>project:launch</code>) load a <em>filtered list</em> from the server — not the same as green <strong>Search</strong> (semantic / meaning). Quick chips clear the semantic search field so the two modes don’t fight. Save a view with Save view as and click a preset pill later.</li>
+              <li><strong>Semantic search:</strong> Type a phrase, then green <strong>Search</strong> or <kbd>Enter</kbd>. It searches the <strong>indexed</strong> <strong>current vault</strong> by <em>meaning</em> (embeddings), not keyword match — you can get results that don’t contain your word. The project/tag/folder/date <strong>dropdowns</strong> narrow semantic search when set. <strong>Clear</strong> empties the box and returns to the list. Requires indexing (Step 4) on self-hosted.</li>
               <li><strong>List / Calendar / Overview:</strong> List = filtered rows; Calendar = month grid (click a day for that day's notes); Overview = dashboard and charts.</li>
               <li><strong>+ New note:</strong> Quick capture (inbox) or full form (path, title, body, project, tags). Use "Copy path" in the detail panel to copy the note path for CLI/API use.</li>
               <li><strong>Re-index:</strong> After importing notes or changing many files, click Re-index so semantic search reflects the latest vault (same as Step 4 / <code>npm run index</code>).</li>
-              <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>Enter</kbd> in the search box runs semantic search; <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Enter</kbd> (when the list is focused) opens the selected note; <kbd>Esc</kbd> close panel or modal.</li>
+              <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>Enter</kbd> runs semantic search when the search field has text (otherwise <kbd>Enter</kbd> opens the selected note in the list); <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Esc</kbd> close panel or modal.</li>
             </ul>
             <h4 class="how-to-sub">Connecting agents and other tools</h4>
             <p>Give your agent or LLM a way to talk to Knowtation: either the Hub API (with a JWT) or the CLI. Agents can list notes, search, and create proposals; you review and approve in the Hub.</p>
@@ -1048,6 +1050,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260329b"></script>
+  <script src="hub.js?v=20260330b"></script>
 </body>
 </html>

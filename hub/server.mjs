@@ -23,7 +23,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 
 import { loadConfig } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
-import { readNote, normalizeSlug, resolveVaultRelativePath } from '../lib/vault.mjs';
+import { readNote, normalizeSlug, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
 import { writeNote } from '../lib/write.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
@@ -485,6 +485,12 @@ app.post('/api/v1/search', async (req, res) => {
     };
     const vaultConfig = { ...config, vault_path: req.vaultPath };
     let out = await runSearch(query, opts, vaultConfig);
+    if (out.results && req.vaultPath) {
+      out = {
+        ...out,
+        results: out.results.filter((r) => r && noteFileExistsInVault(req.vaultPath, r.path)),
+      };
+    }
     if ((req.scope?.projects?.length || req.scope?.folders?.length) && out.results) {
       out = { ...out, results: applyScopeFilter(out.results, req.scope) };
     }
