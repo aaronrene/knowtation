@@ -303,6 +303,18 @@ function stripStaleOutboundBodyHeaders(headers) {
   }
 }
 
+/** After fetch().text(), the body is decoded; never forward wire encoding headers or stale length. */
+const STRIP_FROM_UPSTREAM_DECODED_BODY = new Set([
+  'content-encoding',
+  'content-length',
+  'transfer-encoding',
+  'connection',
+]);
+
+function filterUpstreamResponseHeaders(entries) {
+  return entries.filter(([k]) => !STRIP_FROM_UPSTREAM_DECODED_BODY.has(k.toLowerCase()));
+}
+
 async function proxyTo(baseUrl, url, req, res) {
   const headers = { ...req.headers, host: new URL(baseUrl).host };
   delete headers.origin;
@@ -315,7 +327,8 @@ async function proxyTo(baseUrl, url, req, res) {
   try {
     const upstream = await fetch(url, opts);
     const body = await upstream.text();
-    res.status(upstream.status).set(Object.fromEntries(upstream.headers.entries()));
+    const hop = filterUpstreamResponseHeaders([...upstream.headers.entries()]);
+    res.status(upstream.status).set(Object.fromEntries(hop));
     res.send(body);
   } catch (e) {
     console.error('Gateway proxy (bridge) error:', e.message);
@@ -553,7 +566,7 @@ async function proxyToCanister(req, res) {
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
     }
-    const hop = [...upstream.headers.entries()].filter(
+    const hop = filterUpstreamResponseHeaders([...upstream.headers.entries()]).filter(
       ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
     );
     res.status(upstream.status).set(Object.fromEntries(hop));
