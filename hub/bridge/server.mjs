@@ -840,10 +840,11 @@ app.post('/api/v1/index', async (req, res) => {
     for (let i = 0; i < allChunks.length; i += BATCH_UPSERT) {
       const batch = allChunks.slice(i, i + BATCH_UPSERT);
       const points = batch.map((chunk, j) => ({
-        id: chunk.id,
+        id: `${vaultId}::${chunk.id}`,
         vector: vectors[i + j] || [],
         text: chunk.text,
         path: chunk.path,
+        vault_id: vaultId,
         project: chunk.project,
         tags: chunk.tags,
         date: chunk.date,
@@ -890,12 +891,14 @@ app.post('/api/v1/search', async (req, res) => {
     const vectorsDir = await getVectorsDirForUser(req, uid);
     const storeConfig = getBridgeStoreConfig(uid, vectorsDir);
     const store = await createVectorStore(storeConfig);
+    const bridgeVaultId = sanitizeVaultId(req.headers['x-vault-id']);
     const [queryVector] = await embed([query], storeConfig.embedding);
     if (!queryVector) {
       return res.status(500).json({ error: 'Embedding failed', code: 'INTERNAL_ERROR' });
     }
     const hits = await store.search(queryVector, {
       limit,
+      vault_id: bridgeVaultId,
       project: req.body?.project,
       tag: req.body?.tag,
       folder: req.body?.folder,

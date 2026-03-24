@@ -57,6 +57,7 @@
   const filterSince = el('filter-since');
   const filterUntil = el('filter-until');
   const btnSearch = el('btn-search');
+  const btnClearSearch = el('btn-clear-search');
   const btnApplyFilters = el('btn-apply-filters');
   const btnReindex = el('btn-reindex');
   const notesList = el('notes-list');
@@ -166,7 +167,10 @@
       );
     }
     if (!res.ok) {
-      const err = new Error(data?.error || res.statusText);
+      const label = data?.error || res.statusText;
+      const detail = data?.message != null && String(data.message).trim() ? String(data.message).trim() : '';
+      const combined = detail ? `${label}: ${detail}` : label;
+      const err = new Error(combined);
       if (data && data.code) err.code = data.code;
       throw err;
     }
@@ -765,6 +769,7 @@
         b.className = 'chip-btn' + (filterProject.value === p ? ' active' : '');
         b.textContent = 'project:' + p;
         b.onclick = () => {
+          searchQuery.value = '';
           filterProject.value = p;
           filterTag.value = '';
           filterFolder.value = '';
@@ -780,6 +785,7 @@
         b.className = 'chip-btn' + (filterTag.value === t ? ' active' : '');
         b.textContent = 'tag:' + t;
         b.onclick = () => {
+          searchQuery.value = '';
           filterTag.value = t;
           filterProject.value = '';
           filterFolder.value = '';
@@ -795,6 +801,7 @@
         b.className = 'chip-btn' + (filterFolder.value === folder ? ' active' : '');
         b.textContent = 'folder:' + folder;
         b.onclick = () => {
+          searchQuery.value = '';
           filterFolder.value = folder;
           filterProject.value = '';
           filterTag.value = '';
@@ -941,6 +948,37 @@
     renderFilterChips(null);
   };
 
+  function formatSearchScopeSummary() {
+    const parts = [];
+    if (filterProject.value) parts.push('project: ' + filterProject.value);
+    if (filterTag.value) parts.push('tag: ' + filterTag.value);
+    if (filterFolder.value) parts.push('folder: ' + filterFolder.value);
+    if (filterSince && filterSince.value) parts.push('since ' + filterSince.value);
+    if (filterUntil && filterUntil.value) parts.push('until ' + filterUntil.value);
+    return parts.length ? parts.join(' · ') : '';
+  }
+
+  function semanticMatchStrengthLabel(score) {
+    if (score == null || typeof score !== 'number' || Number.isNaN(score)) return '';
+    const pct = Math.round(Math.min(1, Math.max(0, score)) * 100);
+    return 'Match strength ~' + pct + '% (higher = closer in meaning)';
+  }
+
+  if (btnClearSearch) {
+    btnClearSearch.onclick = () => {
+      searchQuery.value = '';
+      switchNotesView('list');
+      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+      const notesTab = document.querySelector('[data-tab="notes"]');
+      if (notesTab) notesTab.classList.add('active');
+      const tabNotes = el('tab-notes');
+      if (tabNotes) tabNotes.classList.remove('hidden');
+      loadNotes();
+      renderFilterChips(null);
+    };
+  }
+
   function showToast(message, isError = false) {
     const toast = document.createElement('div');
     toast.className = 'toast' + (isError ? ' toast-err' : '');
@@ -1061,11 +1099,18 @@
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
     try {
-      const out = await api('/api/v1/search', { method: 'POST', body: JSON.stringify({ query, limit: 20 }) });
+      const body = { query, limit: 20 };
+      if (filterProject.value) body.project = filterProject.value;
+      if (filterTag.value) body.tag = filterTag.value;
+      if (filterFolder.value) body.folder = filterFolder.value;
+      if (filterSince && filterSince.value) body.since = filterSince.value;
+      if (filterUntil && filterUntil.value) body.until = filterUntil.value;
+      const out = await api('/api/v1/search', { method: 'POST', body: JSON.stringify(body) });
       const results = out.results || [];
       if (results.length === 0) {
-        notesList.innerHTML = '<div class="empty-state">No results for this query. Try different words or clear search.</div>';
-        notesTotal.textContent = '0 results';
+        notesList.innerHTML =
+          '<div class="empty-state">No notes matched this query under the current filters. Semantic search finds <em>similar meaning</em>, not exact words — try other phrases, clear filters, or use Quick chips + Apply filters for exact tags/projects.</div>';
+        notesTotal.textContent = '0 semantic results';
         return;
       }
       notesList.innerHTML = results
@@ -1073,6 +1118,7 @@
           const chips = [];
           if (r.project) chips.push('<span class="chip chip-project">' + escapeHtml(r.project) + '</span>');
           (r.tags || []).slice(0, 3).forEach((t) => chips.push('<span class="chip chip-tag">' + escapeHtml(t) + '</span>'));
+          const strength = semanticMatchStrengthLabel(r.score);
           return (
             '<div class="list-item" data-path="' +
             escapeHtml(r.path) +
@@ -1081,12 +1127,18 @@
             '</span><div class="row-chips">' +
             chips.join('') +
             '</div>' +
+            (strength ? '<div class="status muted small">' + escapeHtml(strength) + '</div>' : '') +
             (r.snippet ? '<div class="status">' + escapeHtml(r.snippet.slice(0, 120)) + '…</div>' : '') +
             '</div>'
           );
         })
         .join('');
-      notesTotal.textContent = results.length + ' results';
+      const scope = formatSearchScopeSummary();
+      notesTotal.textContent =
+        results.length +
+        ' semantic result' +
+        (results.length === 1 ? '' : 's') +
+        (scope ? ' · scope: ' + scope : ' · scope: entire vault (use dropdowns to narrow)');
       bindNoteClicks(notesList);
       listSelectedIndex = 0;
       updateListSelection();
@@ -2491,6 +2543,16 @@
       searchQuery.focus();
       e.preventDefault();
       return;
+    }
+    // Enter: if the search box has text but focus is elsewhere (e.g. after clicking the list),
+    // run semantic search instead of opening the selected row (avoids "second search does nothing").
+    if (e.key === 'Enter') {
+      const q = (searchQuery.value || '').trim();
+      if (q) {
+        e.preventDefault();
+        void runVaultSearch();
+        return;
+      }
     }
     const notesTabActive = document.querySelector('[data-tab="notes"]')?.classList.contains('active');
     const listViewVisible = !el('notes-view-list').classList.contains('hidden');

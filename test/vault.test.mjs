@@ -1,5 +1,5 @@
 /**
- * Vault tests: listMarkdownFiles, readNote, parseFrontmatterAndBody, resolveVaultRelativePath, normalizeSlug, normalizeTags.
+ * Vault tests: listMarkdownFiles, readNote, parseFrontmatterAndBody, resolveVaultRelativePath, noteFileExistsInVault, normalizeSlug, normalizeTags.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
@@ -12,6 +12,7 @@ import {
   resolveVaultRelativePath,
   normalizeSlug,
   normalizeTags,
+  noteFileExistsInVault,
 } from '../lib/vault.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -96,6 +97,26 @@ describe('vault', () => {
         () => resolveVaultRelativePath(vaultPath, '/tmp/foo.md'),
         /Invalid path/
       );
+    });
+  });
+
+  describe('noteFileExistsInVault', () => {
+    it('returns true for an existing note path', () => {
+      assert.strictEqual(noteFileExistsInVault(vaultPath, 'inbox/one.md'), true);
+    });
+
+    it('returns false for missing file', () => {
+      assert.strictEqual(noteFileExistsInVault(vaultPath, 'inbox/ghost.md'), false);
+    });
+
+    it('returns false for empty or invalid input', () => {
+      assert.strictEqual(noteFileExistsInVault(vaultPath, ''), false);
+      assert.strictEqual(noteFileExistsInVault(vaultPath, '   '), false);
+      assert.strictEqual(noteFileExistsInVault(vaultPath, null), false);
+    });
+
+    it('returns false for escape paths without throwing', () => {
+      assert.strictEqual(noteFileExistsInVault(vaultPath, '../../../etc/passwd'), false);
     });
   });
 
