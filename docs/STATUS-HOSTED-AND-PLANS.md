@@ -24,7 +24,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 | **1** | Canister: vault + proposals API (Motoko), `dfx` deploy, CORS, GET /export | ✅ Done — `hub/icp/` |
 | **2** | Gateway: OAuth (Google/GitHub), JWT, proxy to canister with X-User-Id | ✅ Done — `hub/gateway/` |
 | **3** | Bridge: Connect GitHub, store token, Back up now (canister → GitHub) | ✅ Done — `hub/bridge/` |
-| **4** | Bridge: indexer + search (per-user sqlite-vec) | ✅ Done — bridge POST /api/v1/index, /api/v1/search |
+| **4** | Bridge: indexer + search (per-user sqlite-vec) | ✅ Done — bridge POST /api/v1/index, /api/v1/search. **Production hardening (2026-03):** Netlify **`[functions].external_node_modules`** for **sqlite-vec** + **better-sqlite3** (bundler broke `import.meta.url` → Invalid URL); gateway **must not** forward **Content-Encoding** after `fetch().text()` when proxying to bridge (PRs **#44**, **#45**). Meaning-search + Re-index **smoke-tested OK** on knowtation.store after those deploys. |
 | **5** | 4Everland + single URL (knowtation.store), deploy docs, landing CTA | ✅ Done — docs, web/ updated |
 
 **Current deployed state**
@@ -64,7 +64,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 |------|------------------------|--------------------------------------|
 | **Notes, proposals, export** | Local vault folder | Canister |
 | **OAuth + JWT** | Your `.env` OAuth apps | Gateway OAuth |
-| **Semantic search + Re-index** | Local Ollama/OpenAI + `data/knowtation_vectors.db` (sqlite-vec) or Qdrant | Bridge: embeddings + per-user vectors (e.g. Netlify Blobs). Gateway proxies when `BRIDGE_URL` set |
+| **Semantic search + Re-index** | Local Ollama/OpenAI + `data/knowtation_vectors.db` (sqlite-vec) or Qdrant | Bridge: embeddings + per-user vectors (e.g. Netlify Blobs). Gateway proxies when `BRIDGE_URL` set — **verified working** in prod after gateway header + Netlify native-module config (see §1 Phase 4 row). |
 | **Connect GitHub / Back up now** | Local vault git | Bridge |
 | **Team: roles + invites** | `data/hub_roles.json`, invites on disk | **Bridge persistence** when `BRIDGE_URL` set; gateway proxies roles/invites to bridge ([HOSTED-ROLES-VIA-BRIDGE.md](./HOSTED-ROLES-VIA-BRIDGE.md), PARITY-PLAN Phase 4 ✅). Without bridge: stubs only |
 | **Settings → Setup / POST setup** | Writes `hub_setup.yaml` | Gateway stub (no-op); vault is canister |
