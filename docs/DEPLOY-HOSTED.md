@@ -70,7 +70,7 @@ The gateway strips `/.netlify/functions/gateway` from `req.url` when present so 
 
 ### Bridge: semantic index/search (Netlify / serverless)
 
-Hub **Re-index** and **Search** call the gateway, which proxies to the **bridge**. Embeddings run **inside the bridge** process. Without a valid embedding configuration, the Hub may show **`Index failed: …`** or **`Search failed: …`** (including misleading **Invalid URL** if `OLLAMA_URL` is malformed).
+Hub **Re-index** and **Search** call the gateway, which proxies to the **bridge**. Embeddings and **sqlite-vec** run **inside the bridge** function. Failures may show **`Index failed: …`** or **`Search failed: …`**; a bare **Invalid URL** may be **sqlite-vec** native load on Netlify (see troubleshooting below) or a malformed **`OLLAMA_URL`** when using Ollama.
 
 **Recommended on Netlify:** set on the **bridge** site (not only the gateway):
 
@@ -89,7 +89,11 @@ Hub **Re-index** and **Search** call the gateway, which proxies to the **bridge*
 
 #### Troubleshooting: "Index failed: Invalid URL" or "Search failed: Invalid URL"
 
-That message is returned when the embedding layer would call `fetch()` with an invalid URL (common causes: `OLLAMA_URL` set to a host **without** `https://`, whitespace-only value, or wrong paste). Fix the bridge env as above. If it still fails, open **Netlify → bridge site → Functions → logs** for the `bridge` function, trigger **Re-index** once, and capture the stack trace / `console.error` line (search for `Bridge index error`).
+**1. sqlite-vec on Netlify (common with OpenAI configured):** If function logs show **`getLoadablePath`**, **`sqlite-vec`**, or **`input: '.'`**, the bridge bundle broke **`import.meta.url`** inside `sqlite-vec`. The repo root **`netlify.toml`** and **`deploy/bridge/netlify.toml`** declare **`[functions].external_node_modules`** for **`sqlite-vec`**, **`better-sqlite3`**, and **`sqlite-vec-*`** platform packages so native files load from real `node_modules`. Redeploy the **bridge** site after pulling that config.
+
+**2. Ollama URL shape:** When `EMBEDDING_PROVIDER=ollama`, a bad **`OLLAMA_URL`** (host without `https://`, whitespace-only) can also surface as Invalid URL. Fix env as above.
+
+If it still fails, open **Netlify → bridge site → Functions → logs**, trigger **Re-index** once, and capture **`Bridge index error`** (full stack).
 
 ---
 

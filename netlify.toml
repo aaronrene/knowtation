@@ -4,6 +4,21 @@
   functions = "netlify/functions"
   publish = "public"
 
+# sqlite-vec uses `new URL('.', import.meta.url)` to find vec0.{so,dylib,dll}. Esbuild bundling
+# breaks import.meta.url → TypeError Invalid URL (input '.'). Keep these external so Node loads
+# real package files from node_modules (see sqlite-vec index.mjs getLoadablePath).
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = [
+    "better-sqlite3",
+    "sqlite-vec",
+    "sqlite-vec-linux-x64",
+    "sqlite-vec-linux-arm64",
+    "sqlite-vec-darwin-x64",
+    "sqlite-vec-darwin-arm64",
+    "sqlite-vec-windows-x64"
+  ]
+
 # Catch-all routing lives in public/_redirects (scripts/netlify-redirects.mjs). Do not add
 # [[redirects]] here: in a monorepo, root netlify.toml settings apply to every linked site
 # and would send the bridge deploy to the gateway function.
