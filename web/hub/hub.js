@@ -1922,8 +1922,7 @@
         } catch (e) {
           setCreateVaultMsg(e.message || 'Could not create vault', true);
         }
-      });
-    };
+      });    };
   }
 
   const btnScopeFormApply = el('btn-scope-form-apply');
