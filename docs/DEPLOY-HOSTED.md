@@ -114,6 +114,7 @@ Use this list **before first launch** and **again after** any production env cha
 - [ ] Gateway env set; OAuth callback URLs registered with Google/GitHub.
 - [ ] Bridge env set; GitHub OAuth callback for Connect GitHub registered.
 - [ ] Bridge: **`EMBEDDING_PROVIDER=openai`** + **`OPENAI_API_KEY`** (and model), **or** a reachable **`OLLAMA_URL`** with a full `http://` / `https://` base (not localhost on Netlify).
+- [ ] Hub (logged in): **Re-index** completes, then **meaning-search** (green Search) returns results; Network tab shows **no** `ERR_CONTENT_DECODING_FAILED` on `/api/v1/index` or `/api/v1/search` (gateway must strip upstream **Content-Encoding** when proxying decoded bodies — see repo `hub/gateway/upstream-response-headers.mjs`).
 - [ ] Hub UI deployed with correct `HUB_API_BASE_URL`.
 - [ ] Landing deployed; "Open Knowtation Hub" points to Hub URL.
 - [ ] No secrets or credentials in repo or client bundle.
