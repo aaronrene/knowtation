@@ -1725,36 +1725,80 @@
     const vaultsJson = el('vaults-json');
     const accessText = el('vault-access-json');
     const scopeText = el('scope-json');
+    const helpHosted = el('vaults-help-hosted');
+    const helpSelf = el('vaults-help-self-hosted');
+    const selfHostedEditors = el('vaults-self-hosted-editors');
     if (listContainer) listContainer.textContent = 'Loading…';
     if (serverView) serverView.textContent = 'Loading…';
     try {
-      const [vRes, aRes, sRes, settingsRes] = await Promise.all([
-        api('/api/v1/vaults'),
-        api('/api/v1/vault-access'),
-        api('/api/v1/scope'),
-        api('/api/v1/settings'),
-      ]);
+      const settingsRes = await api('/api/v1/settings');
+      const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
+      if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
+      if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
+      if (selfHostedEditors) selfHostedEditors.classList.toggle('hidden', isHosted);
+
+      let vRes;
+      let aRes = { access: {} };
+      let sRes = { scope: {} };
+      if (isHosted) {
+        vRes = await api('/api/v1/vaults');
+      } else {
+        const out = await Promise.all([
+          api('/api/v1/vaults'),
+          api('/api/v1/vault-access'),
+          api('/api/v1/scope'),
+        ]);
+        vRes = out[0];
+        aRes = out[1];
+        sRes = out[2];
+      }
       const vaults = vRes.vaults || [];
       if (serverView) {
         const uid = settingsRes.user_id != null ? String(settingsRes.user_id) : '—';
         const allowed = settingsRes.allowed_vault_ids;
         const allowedStr = Array.isArray(allowed) && allowed.length ? allowed.join(', ') : '—';
-        const dataDir = settingsRes.data_dir_display != null ? escapeHtml(String(settingsRes.data_dir_display)) : 'data';
-        serverView.innerHTML = '<strong>Server view:</strong> Your user ID: <code>' + escapeHtml(uid) + '</code>. Allowed vaults: <code>' + escapeHtml(allowedStr) + '</code>. Data dir: <code>' + dataDir + '</code>. The header Vault menu only shows vaults you’re allowed here. The Scope form lists every vault on this Hub so admins can configure rules. If a vault is missing from the header, add a Vault access key that <em>exactly</em> matches your user ID (same as Backup tab) with <code>["default", "bornfree"]</code>, save, then refresh.';
+        if (isHosted) {
+          serverView.innerHTML =
+            '<strong>Server view (hosted):</strong> Your user ID: <code>' +
+            escapeHtml(uid) +
+            '</code>. Vault IDs reported for your account: <code>' +
+            escapeHtml(allowedStr) +
+            '</code>. Storage is the canister (not a local folder). The header <strong>Vault</strong> menu lists these ids when there are two or more.';
+        } else {
+          const dataDir =
+            settingsRes.data_dir_display != null ? escapeHtml(String(settingsRes.data_dir_display)) : 'data';
+          serverView.innerHTML =
+            '<strong>Server view:</strong> Your user ID: <code>' +
+            escapeHtml(uid) +
+            '</code>. Allowed vaults: <code>' +
+            escapeHtml(allowedStr) +
+            '</code>. Data dir: <code>' +
+            dataDir +
+            '</code>. The header Vault menu only shows vaults you’re allowed here. The Scope form lists every vault on this Hub so admins can configure rules. If a vault is missing from the header, add a Vault access key that <em>exactly</em> matches your user ID (same as Backup tab) with <code>["default", "bornfree"]</code>, save, then refresh.';
+        }
       }
       if (listContainer) {
-        listContainer.innerHTML = vaults.length === 0
-          ? '<p class="muted small">No vaults (using default from vault path). Add via JSON below and Save.</p>'
-          : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
+        if (isHosted) {
+          listContainer.innerHTML =
+            vaults.length === 0
+              ? '<p class="muted small">No extra vaults yet — only <code>default</code> until you add a note under another vault id (see note above).</p>'
+              : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
+        } else {
+          listContainer.innerHTML =
+            vaults.length === 0
+              ? '<p class="muted small">No vaults (using default from vault path). Add via JSON below and Save.</p>'
+              : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
+        }
       }
       if (vaultsJson) vaultsJson.value = JSON.stringify(vaults, null, 2);
       if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
       if (scopeText) scopeText.value = JSON.stringify(sRes.scope || {}, null, 2);
       const scopeVaultSelect = el('scope-form-vault-id');
       if (scopeVaultSelect) {
-        scopeVaultSelect.innerHTML = vaults.length === 0
-          ? '<option value="default">default</option>'
-          : vaults.map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label || v.id) + '</option>').join('');
+        scopeVaultSelect.innerHTML =
+          vaults.length === 0
+            ? '<option value="default">default</option>'
+            : vaults.map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label || v.id) + '</option>').join('');
       }
     } catch (e) {
       if (listContainer) listContainer.textContent = 'Could not load: ' + (e.message || '');
@@ -1791,9 +1835,22 @@
     };
   }
 
+  function isHostedHubFromSettings() {
+    const s = lastBackupSettingsPayload;
+    return s && String(s.vault_path_display || '').toLowerCase() === 'canister';
+  }
+
   const btnVaultsSave = el('btn-vaults-save');
   if (btnVaultsSave) btnVaultsSave.onclick = async () => {
     const msg = el('vaults-save-msg');
+    if (isHostedHubFromSettings()) {
+      if (msg) {
+        msg.textContent =
+          'Vault list editing is not available on hosted. Use the canister-backed vault ids and X-Vault-Id (see Settings → Vaults intro).';
+        msg.className = 'settings-msg err';
+      }
+      return;
+    }
     const raw = (el('vaults-json') && el('vaults-json').value) || '[]';
     try {
       const vaults = JSON.parse(raw);
@@ -1828,6 +1885,13 @@
   const btnVaultAccessSave = el('btn-vault-access-save');
   if (btnVaultAccessSave) btnVaultAccessSave.onclick = async () => {
     const msg = el('vault-access-save-msg');
+    if (isHostedHubFromSettings()) {
+      if (msg) {
+        msg.textContent = 'Vault access JSON is for self-hosted Hub only (file-backed).';
+        msg.className = 'settings-msg err';
+      }
+      return;
+    }
     const raw = (el('vault-access-json') && el('vault-access-json').value) || '{}';
     try {
       const access = JSON.parse(raw);
@@ -1842,6 +1906,13 @@
   const btnScopeSave = el('btn-scope-save');
   if (btnScopeSave) btnScopeSave.onclick = async () => {
     const msg = el('scope-save-msg');
+    if (isHostedHubFromSettings()) {
+      if (msg) {
+        msg.textContent = 'Per-user scope is not available on hosted yet.';
+        msg.className = 'settings-msg err';
+      }
+      return;
+    }
     const raw = (el('scope-json') && el('scope-json').value) || '{}';
     try {
       const scope = JSON.parse(raw);

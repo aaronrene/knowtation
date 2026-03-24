@@ -69,7 +69,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 | **Team: roles + invites** | `data/hub_roles.json`, invites on disk | **Bridge persistence** when `BRIDGE_URL` set; gateway proxies roles/invites to bridge ([HOSTED-ROLES-VIA-BRIDGE.md](./HOSTED-ROLES-VIA-BRIDGE.md), PARITY-PLAN Phase 4 ✅). Without bridge: stubs only |
 | **Settings → Setup / POST setup** | Writes `hub_setup.yaml` | Gateway stub (no-op); vault is canister |
 | **Import (Hub upload)** | Works | 501 stub on gateway (not yet on hosted) |
-| **Facets (filter dropdowns)** | Real data from notes | Gateway stub returns empty unless extended to aggregate from canister |
+| **Facets (filter dropdowns)** | Real data from notes | Gateway aggregates from canister note list per **`X-Vault-Id`** ([hub/gateway/note-facets.mjs](../hub/gateway/note-facets.mjs), [hub/gateway/server.mjs](../hub/gateway/server.mjs) `GET /api/v1/notes/facets`) |
 | **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id`; notes isolated per vault | ✅ **In repo:** canister + gateway + bridge respect `vault_id` / `X-Vault-Id` for notes, proposals, export, and bridge index paths. **Production:** confirm ICP canister is redeployed from current `hub/icp` before relying on isolation (see §2). |
 | **Vault access JSON (admin)** | ✅ | N/A on hosted (no `hub_vault_access.json` on canister path today) |
 

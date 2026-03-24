@@ -119,6 +119,22 @@ Use this list **before first launch** and **again after** any production env cha
 - [ ] Landing deployed; "Open Knowtation Hub" points to Hub URL.
 - [ ] No secrets or credentials in repo or client bundle.
 
+### 5.1 Multi-vault (Phase 15.1) — after canister deploy
+
+Run these **after** `hub/icp` is deployed from the current repo (partitioned storage + V1 migration). Use your **gateway** origin for JWT-authenticated calls; for **direct canister** checks in dev only, some setups allow `X-Test-User` — **production** may require the gateway.
+
+**Record** status codes and a short note (pass/fail) for your runbook.
+
+1. **Vault list** — `GET …/api/v1/vaults` with the same identity you use in the Hub. Expect at least `{ "id": "default", … }`. After you **POST** a note with header **`X-Vault-Id: second`** (or another safe id), the list should include that id.
+2. **Isolation** — With the same **path** (e.g. `inbox/parity-test.md`), **POST** body A in vault `default` and body B in vault `second`; **GET** each note with the matching **`X-Vault-Id`** and confirm bodies differ.
+3. **Export** — `GET …/api/v1/export` with **`X-Vault-Id: default`** must not return notes that exist only in `second` (and vice versa).
+4. **Bridge** — With **`BRIDGE_URL`** set: **Back up now** / `POST /api/v1/vault/sync` while the Hub sends **`X-Vault-Id`** for the active vault should export **only** that vault’s notes to GitHub (see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted).
+5. **Index / search** — **Re-index** then **Search** in the Hub for vault A and vault B; results should not mix content across vaults (bridge vectors are keyed by `(uid, vault_id)`).
+
+**Automation (optional):** `npm run smoke:hosted-multi-vault` with **`CANISTER_URL`** (and **`X_TEST_USER`** or **`HUB_GATEWAY_URL` + `HUB_SMOKE_TOKEN`**) — see [scripts/smoke-hosted-multi-vault.mjs](../scripts/smoke-hosted-multi-vault.mjs).
+
+**Recorded read-only sample (2026-03-24):** `GET https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` → **200**, `{"ok":true}` (same canister id as in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §1). Mutation checks (§5.1 steps 1–5) must be run by an operator after each relevant deploy; do not point **`smoke:hosted-multi-vault`** at production unless you intend to write test notes.
+
 ---
 
 ## 6. Reference

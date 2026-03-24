@@ -24,7 +24,8 @@
     "hosted:deploy-snapshot": "KNOWTATION_HUB_SNAPSHOT_ONLY=1 node scripts/verify-hosted-hub-api.mjs",
     "resave:hosted-empty-fm": "node scripts/resave-hosted-empty-frontmatter.mjs --dry-run",
     "report:empty-frontmatter": "node scripts/report-empty-hosted-frontmatter.mjs",
-    "check:gateway-cors": "node scripts/check-gateway-cors.mjs"
+    "check:gateway-cors": "node scripts/check-gateway-cors.mjs",
+    "smoke:hosted-multi-vault": "node scripts/smoke-hosted-multi-vault.mjs"
   },
   "keywords": [
     "knowledge-base",
