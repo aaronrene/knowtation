@@ -109,9 +109,10 @@ function bridgeEmbedFailureMessage(err, kind) {
     process.env.OPENAI_API_KEY && String(process.env.OPENAI_API_KEY).trim(),
   );
   return (
-    `${raw} (${kind}: check bridge env). Resolved EMBEDDING_PROVIDER="${c.provider}"; ` +
-    `OPENAI_API_KEY ${hasOpenAiKey ? 'is set' : 'is missing'} for this function. ` +
-    'If provider is ollama, OLLAMA_URL must be a full http(s) URL. Remove or fix HTTP_PROXY/HTTPS_PROXY if set. ' +
+    `${raw} (${kind}). On Netlify, Invalid URL often means sqlite-vec was esbuild-bundled ` +
+    '(stack: getLoadablePath / input ".") — set [functions].external_node_modules for sqlite-vec and better-sqlite3 in netlify.toml. ' +
+    `Resolved EMBEDDING_PROVIDER="${c.provider}"; OPENAI_API_KEY ${hasOpenAiKey ? 'is set' : 'is missing'}. ` +
+    'If provider is ollama, OLLAMA_URL must be a full http(s) URL. Remove bad HTTP_PROXY/HTTPS_PROXY if set. ' +
     'See docs/DEPLOY-HOSTED.md (bridge semantic index/search).'
   );
 }

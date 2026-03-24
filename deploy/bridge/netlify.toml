@@ -10,6 +10,20 @@
 [build.environment]
   USE_BRIDGE_FUNCTION = "true"
 
+# Bridge index/search loads sqlite-vec + better-sqlite3 native code; must not be esbuild-bundled
+# (sqlite-vec getLoadablePath uses import.meta.url — bundling yields Invalid URL input '.').
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = [
+    "better-sqlite3",
+    "sqlite-vec",
+    "sqlite-vec-linux-x64",
+    "sqlite-vec-linux-arm64",
+    "sqlite-vec-darwin-x64",
+    "sqlite-vec-darwin-arm64",
+    "sqlite-vec-windows-x64"
+  ]
+
 # Send all requests to the bridge function with path preserved (/:splat).
 [[redirects]]
   from = "/*"
