@@ -177,6 +177,39 @@
     return data;
   }
 
+  /** Busy state for buttons during slow API calls (clear feedback on hosted). */
+  function setButtonBusy(btn, busy, labelWhenBusy) {
+    if (!btn || btn.nodeType !== 1) return;
+    const busyText = labelWhenBusy || 'Working…';
+    if (busy) {
+      if (btn.dataset.knowtationBtnRestLabel == null) {
+        btn.dataset.knowtationBtnRestLabel = btn.textContent;
+      }
+      btn.textContent = busyText;
+      btn.disabled = true;
+      btn.classList.add('btn-busy');
+      btn.setAttribute('aria-busy', 'true');
+    } else {
+      if (btn.dataset.knowtationBtnRestLabel != null) {
+        btn.textContent = btn.dataset.knowtationBtnRestLabel;
+        delete btn.dataset.knowtationBtnRestLabel;
+      }
+      btn.classList.remove('btn-busy');
+      btn.removeAttribute('aria-busy');
+      btn.disabled = false;
+    }
+  }
+
+  async function withButtonBusy(btn, labelWhenBusy, fn) {
+    if (!btn) return fn();
+    setButtonBusy(btn, true, labelWhenBusy);
+    try {
+      return await fn();
+    } finally {
+      setButtonBusy(btn, false);
+    }
+  }
+
   const HOSTED_BACKUP_REPO_LS = 'knowtation_hosted_backup_repo';
   const VAULT_ID_LS = 'hub_vault_id';
 
@@ -994,21 +1027,18 @@
 
   if (btnReindex) {
     btnReindex.onclick = async () => {
-      btnReindex.disabled = true;
-      btnReindex.textContent = 'Indexing…';
-      try {
-        const out = await api('/api/v1/index', { method: 'POST' });
-        const n = out.notesProcessed ?? 0;
-        const c = out.chunksIndexed ?? 0;
-        showToast('Indexed ' + n + ' notes, ' + c + ' chunks.');
-        loadFacets();
-        loadNotes();
-      } catch (e) {
-        showToast(e.message || 'Re-index failed', true);
-      } finally {
-        btnReindex.disabled = false;
-        btnReindex.textContent = 'Re-index';
-      }
+      await withButtonBusy(btnReindex, 'Indexing…', async () => {
+        try {
+          const out = await api('/api/v1/index', { method: 'POST' });
+          const n = out.notesProcessed ?? 0;
+          const c = out.chunksIndexed ?? 0;
+          showToast('Indexed ' + n + ' notes, ' + c + ' chunks.');
+          loadFacets();
+          loadNotes();
+        } catch (e) {
+          showToast(e.message || 'Re-index failed', true);
+        }
+      });
     };
   }
 
@@ -1447,6 +1477,7 @@
   el('modal-import-backdrop').onclick = closeImportModal;
   el('modal-import-close').onclick = closeImportModal;
   el('btn-import-submit').onclick = async () => {
+    const importSubmitBtn = el('btn-import-submit');
     const sourceType = el('import-source-type').value;
     const fileInput = el('import-file');
     const msgEl = el('import-msg');
@@ -1464,28 +1495,30 @@
     if (tags) formData.append('tags', tags);
     msgEl.textContent = 'Importing…';
     msgEl.className = 'create-msg';
-    try {
-      const res = await fetch(apiBase + '/api/v1/import', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: token ? { Authorization: 'Bearer ' + token } : {},
-        body: formData,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        msgEl.textContent = data.error || res.statusText || 'Import failed';
+    await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
+      try {
+        const res = await fetch(apiBase + '/api/v1/import', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: token ? { Authorization: 'Bearer ' + token } : {},
+          body: formData,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          msgEl.textContent = data.error || res.statusText || 'Import failed';
+          msgEl.className = 'create-msg err';
+          return;
+        }
+        msgEl.textContent = 'Imported ' + (data.count ?? data.imported?.length ?? 0) + ' note(s).';
+        msgEl.className = 'create-msg ok';
+        if (typeof loadNotes === 'function') loadNotes();
+        if (typeof loadFacets === 'function') loadFacets();
+        if (typeof showToast === 'function') showToast('Import complete');
+      } catch (e) {
+        msgEl.textContent = e.message || 'Import failed';
         msgEl.className = 'create-msg err';
-        return;
       }
-      msgEl.textContent = 'Imported ' + (data.count ?? data.imported?.length ?? 0) + ' note(s).';
-      msgEl.className = 'create-msg ok';
-      if (typeof loadNotes === 'function') loadNotes();
-      if (typeof loadFacets === 'function') loadFacets();
-      if (typeof showToast === 'function') showToast('Import complete');
-    } catch (e) {
-      msgEl.textContent = e.message || 'Import failed';
-      msgEl.className = 'create-msg err';
-    }
+    });
   };
 
   function openHowToUse(tabId, scrollToId) {
@@ -1725,17 +1758,24 @@
     const vaultsJson = el('vaults-json');
     const accessText = el('vault-access-json');
     const scopeText = el('scope-json');
-    const helpHosted = el('vaults-help-hosted');
-    const helpSelf = el('vaults-help-self-hosted');
-    const selfHostedEditors = el('vaults-self-hosted-editors');
-    if (listContainer) listContainer.textContent = 'Loading…';
-    if (serverView) serverView.textContent = 'Loading…';
-    try {
-      const settingsRes = await api('/api/v1/settings');
-      const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
-      if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
-      if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
-      if (selfHostedEditors) selfHostedEditors.classList.toggle('hidden', isHosted);
+      const helpHosted = el('vaults-help-hosted');
+      const helpSelf = el('vaults-help-self-hosted');
+      const selfHostedEditors = el('vaults-self-hosted-editors');
+      const hostedCreate = el('vaults-hosted-create');
+      if (listContainer) listContainer.textContent = 'Loading…';
+      if (serverView) serverView.textContent = 'Loading…';
+      try {
+        const settingsRes = await api('/api/v1/settings');
+        const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
+        if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
+        if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
+        if (selfHostedEditors) selfHostedEditors.classList.toggle('hidden', isHosted);
+        if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted);
+        const hostedCreateMsg = el('vaults-hosted-create-msg');
+        if (hostedCreateMsg && isHosted) {
+          hostedCreateMsg.textContent = '';
+          hostedCreateMsg.className = 'settings-msg';
+        }
 
       let vRes;
       let aRes = { access: {} };
@@ -1806,6 +1846,86 @@
     }
   }
 
+  /** Align with bridge/canister: [a-zA-Z0-9_-], max 64; disallow default (already exists). */
+  function sanitizeNewHostedVaultId(raw) {
+    const t = String(raw || '').trim();
+    if (!t) return { error: 'Enter a vault id.' };
+    let s = t.replace(/[^a-zA-Z0-9_-]/g, '_');
+    s = s.replace(/_+/g, '_').replace(/^_|_$/g, '');
+    s = s.slice(0, 64);
+    if (!s) return { error: 'Use letters, numbers, hyphens, or underscores only.' };
+    if (s === 'default') {
+      return { error: 'The default vault already exists — pick another id (e.g. work or personal).' };
+    }
+    return { id: s };
+  }
+
+  const btnHostedVaultCreate = el('btn-vaults-hosted-create');
+  if (btnHostedVaultCreate) {
+    btnHostedVaultCreate.onclick = async () => {
+      const msgEl = el('vaults-hosted-create-msg');
+      const inp = el('vaults-hosted-new-id');
+      const setCreateVaultMsg = (text, isErr) => {
+        if (!msgEl) return;
+        msgEl.textContent = text;
+        msgEl.className = 'settings-msg' + (isErr ? ' err' : ' ok');
+      };
+      if (!isHostedHubFromSettings()) {
+        setCreateVaultMsg('This action is only available on hosted Hub.', true);
+        return;
+      }
+      if (!hubUserCanWriteNotes()) {
+        setCreateVaultMsg('Your role cannot create notes. Ask an admin to change your role.', true);
+        return;
+      }
+      const parsed = sanitizeNewHostedVaultId(inp && inp.value);
+      if (parsed.error) {
+        setCreateVaultMsg(parsed.error, true);
+        return;
+      }
+      const { id } = parsed;
+      await withButtonBusy(btnHostedVaultCreate, 'Creating vault…', async () => {
+        setCreateVaultMsg('');
+        try {
+          const fresh = await api('/api/v1/settings');
+          const allowed = fresh.allowed_vault_ids || [];
+          if (Array.isArray(allowed) && allowed.includes(id)) {
+            setCreateVaultMsg('That vault id already exists. Use the Vault dropdown in the header to switch to it.', true);
+            return;
+          }
+          const path = 'inbox/.knowtation-vault-bootstrap-' + id + '-' + Date.now() + '.md';
+          await api('/api/v1/notes', {
+            method: 'POST',
+            headers: { 'X-Vault-Id': id },
+            body: JSON.stringify({
+              path,
+              body:
+                'This note was created when you added the "' +
+                id +
+                '" vault in Knowtation Hub (hosted). You can edit or delete it.\n',
+              frontmatter: { title: 'New vault', tags: ['knowtation-setup'] },
+            }),
+          });
+          const s = await api('/api/v1/settings');
+          lastBackupSettingsPayload = s;
+          if (s.role) window.__hubUserRole = String(s.role);
+          updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+          setCurrentVaultId(id);
+          const sel = el('vault-switcher');
+          if (sel) sel.value = id;
+          loadFacets();
+          loadNotes();
+          loadProposals();
+          await loadVaultsPanel();
+          if (inp) inp.value = '';
+          setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the header to switch.', false);
+        } catch (e) {
+          setCreateVaultMsg(e.message || 'Could not create vault', true);
+        }
+      });
+    };
+  }
+
   const btnScopeFormApply = el('btn-scope-form-apply');
   if (btnScopeFormApply) {
     btnScopeFormApply.onclick = () => {
@@ -1851,16 +1971,18 @@
       }
       return;
     }
-    const raw = (el('vaults-json') && el('vaults-json').value) || '[]';
-    try {
-      const vaults = JSON.parse(raw);
-      if (!Array.isArray(vaults)) throw new Error('Must be a JSON array');
-      await api('/api/v1/vaults', { method: 'POST', body: JSON.stringify({ vaults }) });
-      if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
-      loadVaultsPanel();
-    } catch (e) {
-      if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
-    }
+    await withButtonBusy(btnVaultsSave, 'Saving…', async () => {
+      const raw = (el('vaults-json') && el('vaults-json').value) || '[]';
+      try {
+        const vaults = JSON.parse(raw);
+        if (!Array.isArray(vaults)) throw new Error('Must be a JSON array');
+        await api('/api/v1/vaults', { method: 'POST', body: JSON.stringify({ vaults }) });
+        if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+        loadVaultsPanel();
+      } catch (e) {
+        if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
+      }
+    });
   };
   function validateVaultAccess(access) {
     if (typeof access !== 'object' || access === null) return 'Must be a JSON object (e.g. {"user_id": ["default", "work"]}).';
@@ -1892,16 +2014,18 @@
       }
       return;
     }
-    const raw = (el('vault-access-json') && el('vault-access-json').value) || '{}';
-    try {
-      const access = JSON.parse(raw);
-      const err = validateVaultAccess(access);
-      if (err) throw new Error(err);
-      await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
-      if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
-    } catch (e) {
-      if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
-    }
+    await withButtonBusy(btnVaultAccessSave, 'Saving…', async () => {
+      const raw = (el('vault-access-json') && el('vault-access-json').value) || '{}';
+      try {
+        const access = JSON.parse(raw);
+        const err = validateVaultAccess(access);
+        if (err) throw new Error(err);
+        await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
+        if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+      } catch (e) {
+        if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
+      }
+    });
   };
   const btnScopeSave = el('btn-scope-save');
   if (btnScopeSave) btnScopeSave.onclick = async () => {
@@ -1913,16 +2037,18 @@
       }
       return;
     }
-    const raw = (el('scope-json') && el('scope-json').value) || '{}';
-    try {
-      const scope = JSON.parse(raw);
-      const err = validateScope(scope);
-      if (err) throw new Error(err);
-      await api('/api/v1/scope', { method: 'POST', body: JSON.stringify({ scope }) });
-      if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
-    } catch (e) {
-      if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
-    }
+    await withButtonBusy(btnScopeSave, 'Saving…', async () => {
+      const raw = (el('scope-json') && el('scope-json').value) || '{}';
+      try {
+        const scope = JSON.parse(raw);
+        const err = validateScope(scope);
+        if (err) throw new Error(err);
+        await api('/api/v1/scope', { method: 'POST', body: JSON.stringify({ scope }) });
+        if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+      } catch (e) {
+        if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
+      }
+    });
   };
 
   async function loadInvitesList() {
@@ -1970,15 +2096,17 @@
       const roleSelect = el('invite-role');
       const role = (roleSelect && roleSelect.value) || 'editor';
       if (inviteCreateMsg) { inviteCreateMsg.textContent = ''; inviteCreateMsg.className = 'settings-msg'; }
-      try {
-        const out = await api('/api/v1/invites', { method: 'POST', body: JSON.stringify({ role }) });
-        if (inviteLinkUrl) inviteLinkUrl.value = out.invite_url || '';
-        if (inviteLinkBlock) inviteLinkBlock.classList.remove('hidden');
-        if (inviteCreateMsg) { inviteCreateMsg.textContent = 'Link created. Copy and share.'; inviteCreateMsg.className = 'settings-msg ok'; }
-        loadInvitesList();
-      } catch (e) {
-        if (inviteCreateMsg) { inviteCreateMsg.textContent = e.message || 'Failed'; inviteCreateMsg.className = 'settings-msg err'; }
-      }
+      await withButtonBusy(btnInviteCreate, 'Creating…', async () => {
+        try {
+          const out = await api('/api/v1/invites', { method: 'POST', body: JSON.stringify({ role }) });
+          if (inviteLinkUrl) inviteLinkUrl.value = out.invite_url || '';
+          if (inviteLinkBlock) inviteLinkBlock.classList.remove('hidden');
+          if (inviteCreateMsg) { inviteCreateMsg.textContent = 'Link created. Copy and share.'; inviteCreateMsg.className = 'settings-msg ok'; }
+          loadInvitesList();
+        } catch (e) {
+          if (inviteCreateMsg) { inviteCreateMsg.textContent = e.message || 'Failed'; inviteCreateMsg.className = 'settings-msg err'; }
+        }
+      });
     };
   }
   const btnInviteCopy = el('btn-invite-copy');
@@ -2024,14 +2152,16 @@
         return;
       }
       if (msgEl) msgEl.textContent = '';
-      try {
-        await api('/api/v1/roles', { method: 'POST', body: JSON.stringify({ user_id: userId, role }) });
-        if (msgEl) { msgEl.textContent = 'Saved. They have role: ' + role + '.'; msgEl.className = 'settings-msg'; }
-        userIdInput.value = '';
-        loadTeamRolesList();
-      } catch (e) {
-        if (msgEl) { msgEl.textContent = e.message || 'Failed'; msgEl.className = 'settings-msg err'; }
-      }
+      await withButtonBusy(btnTeamSave, 'Saving…', async () => {
+        try {
+          await api('/api/v1/roles', { method: 'POST', body: JSON.stringify({ user_id: userId, role }) });
+          if (msgEl) { msgEl.textContent = 'Saved. They have role: ' + role + '.'; msgEl.className = 'settings-msg'; }
+          userIdInput.value = '';
+          loadTeamRolesList();
+        } catch (e) {
+          if (msgEl) { msgEl.textContent = e.message || 'Failed'; msgEl.className = 'settings-msg err'; }
+        }
+      });
     };
   }
 
@@ -2082,27 +2212,29 @@
   });
 
   el('btn-settings-sync').onclick = async () => {
+    const syncBtn = el('btn-settings-sync');
     const msg = el('settings-sync-msg');
     msg.textContent = 'Syncing…';
     msg.className = 'settings-msg';
-    try {
-      const s = lastBackupSettingsPayload;
-      const isHosted = s && (String(s.vault_path_display || '').toLowerCase() === 'canister');
-      const hostedPath = isHosted && s.github_connect_available;
-      let opts = { method: 'POST' };
-      if (hostedPath) {
-        const slug =
-          normalizeGithubRepoSlug(el('settings-hosted-repo') && el('settings-hosted-repo').value) ||
-          normalizeGithubRepoSlug(localStorage.getItem(HOSTED_BACKUP_REPO_LS)) ||
-          normalizeGithubRepoSlug(s.repo);
-        if (!slug) {
-          msg.textContent = 'Enter backup repo as owner/repo (e.g. myuser/my-notes).';
-          msg.className = 'settings-msg err';
-          return;
-        }
-        localStorage.setItem(HOSTED_BACKUP_REPO_LS, slug);
-        opts.body = JSON.stringify({ repo: slug });
+    const s = lastBackupSettingsPayload;
+    const isHosted = s && (String(s.vault_path_display || '').toLowerCase() === 'canister');
+    const hostedPath = isHosted && s.github_connect_available;
+    let opts = { method: 'POST' };
+    if (hostedPath) {
+      const slug =
+        normalizeGithubRepoSlug(el('settings-hosted-repo') && el('settings-hosted-repo').value) ||
+        normalizeGithubRepoSlug(localStorage.getItem(HOSTED_BACKUP_REPO_LS)) ||
+        normalizeGithubRepoSlug(s.repo);
+      if (!slug) {
+        msg.textContent = 'Enter backup repo as owner/repo (e.g. myuser/my-notes).';
+        msg.className = 'settings-msg err';
+        return;
       }
+      localStorage.setItem(HOSTED_BACKUP_REPO_LS, slug);
+      opts.body = JSON.stringify({ repo: slug });
+    }
+    setButtonBusy(syncBtn, true, 'Backing up…');
+    try {
       const result = await api('/api/v1/vault/sync', opts);
       msg.textContent = result.message || 'Done.';
       const initBtnOk = el('btn-vault-git-init');
@@ -2111,10 +2243,6 @@
         const refreshed = await api('/api/v1/settings');
         lastBackupSettingsPayload = refreshed;
         const vg = refreshed.vault_git || {};
-        const vd = refreshed.vault_path_display || '';
-        const ih = (vd + '').toLowerCase() === 'canister';
-        const syncBtn = el('btn-settings-sync');
-        if (syncBtn) syncBtn.disabled = settingsSyncDisabled(refreshed, vg, ih);
         let gitText = 'Not configured';
         if (vg.enabled && vg.has_remote) {
           gitText = 'Configured';
@@ -2143,6 +2271,15 @@
           /not a Git repository/i.test(e.message || '');
         initBtn.classList.toggle('hidden', hosted || !needInit);
       }
+    } finally {
+      setButtonBusy(syncBtn, false);
+      const st = lastBackupSettingsPayload;
+      if (syncBtn && st) {
+        const vg = st.vault_git || {};
+        const vd = st.vault_path_display || '';
+        const ih = (vd + '').toLowerCase() === 'canister';
+        syncBtn.disabled = settingsSyncDisabled(st, vg, ih);
+      }
     }
   };
   const btnVaultGitInit = el('btn-vault-git-init');
@@ -2151,15 +2288,17 @@
       const msg = el('settings-sync-msg');
       msg.textContent = 'Initializing Git…';
       msg.className = 'settings-msg';
-      try {
-        const out = await api('/api/v1/vault/git-init', { method: 'POST' });
-        msg.textContent = out.message || 'Git initialized. Try Back up now.';
-        msg.className = 'settings-msg ok';
-        btnVaultGitInit.classList.add('hidden');
-      } catch (e) {
-        msg.textContent = e.message || 'Git init failed';
-        msg.className = 'settings-msg err';
-      }
+      await withButtonBusy(btnVaultGitInit, 'Initializing…', async () => {
+        try {
+          const out = await api('/api/v1/vault/git-init', { method: 'POST' });
+          msg.textContent = out.message || 'Git initialized. Try Back up now.';
+          msg.className = 'settings-msg ok';
+          btnVaultGitInit.classList.add('hidden');
+        } catch (e) {
+          msg.textContent = e.message || 'Git init failed';
+          msg.className = 'settings-msg err';
+        }
+      });
     };
   }
   const saveSetupBtn = el('btn-settings-save');
@@ -2173,55 +2312,57 @@
       const vault_path = (el('setup-vault-path') && el('setup-vault-path').value.trim()) || undefined;
       const enabled = el('setup-git-enabled') && el('setup-git-enabled').checked;
       const remote = (el('setup-git-remote') && el('setup-git-remote').value.trim()) || '';
-      try {
-        await api('/api/v1/setup', {
-          method: 'POST',
-          body: JSON.stringify({
-            vault_path: vault_path || undefined,
-            vault_git: { enabled, remote: remote || undefined },
-          }),
-        });
-        const successText = 'Saved. Config applied.' + (vault_path !== undefined ? ' If you changed the vault path, run Re-index or restart the Hub so search uses the new path.' : '');
-        if (msg) {
-          msg.textContent = successText;
-          msg.className = 'settings-msg ok';
-        }
-        if (typeof showToast === 'function') showToast('Setup saved.');
-        api('/api/v1/settings').then((s) => {
-          const vd = s.vault_path_display || '—';
-          const isHostedNow = (vd + '').toLowerCase() === 'canister';
-          if (el('settings-mode-display')) el('settings-mode-display').textContent = isHostedNow ? 'Hosted (beta)' : 'Self-hosted';
-          el('settings-vault-display').textContent = vd;
-          const configureSection = el('settings-configure-backup-section');
-          const configureHr = el('settings-hr-configure');
-          if (configureSection) configureSection.style.display = isHostedNow ? 'none' : '';
-          if (configureHr) configureHr.style.display = isHostedNow ? 'none' : '';
-          const vg = s.vault_git || {};
-          let gitText = 'Not configured';
-          if (vg.enabled && vg.has_remote) {
-            gitText = 'Configured';
-            if (vg.auto_commit) gitText += ' (auto-commit on)';
-            if (vg.auto_push) gitText += ', auto-push on';
-          } else if (vg.enabled) gitText = 'Enabled but no remote set';
-          el('settings-git-status').textContent = gitText;
-          const syncBtn = el('btn-settings-sync');
-          const isAdmin = s.role === 'admin';
-          if (syncBtn) syncBtn.disabled = settingsSyncDisabled(s, vg, isHostedNow);
+      await withButtonBusy(saveSetupBtn, 'Saving…', async () => {
+        try {
+          await api('/api/v1/setup', {
+            method: 'POST',
+            body: JSON.stringify({
+              vault_path: vault_path || undefined,
+              vault_git: { enabled, remote: remote || undefined },
+            }),
+          });
+          const successText = 'Saved. Config applied.' + (vault_path !== undefined ? ' If you changed the vault path, run Re-index or restart the Hub so search uses the new path.' : '');
           if (msg) {
             msg.textContent = successText;
             msg.className = 'settings-msg ok';
           }
-        }).catch(() => {});
-      } catch (e) {
-        const errMsg = e.message || 'Save failed';
-        if (msg) {
-          msg.textContent = errMsg.includes('different role') || errMsg.includes('FORBIDDEN')
-            ? 'Only admins can save setup. Your role is shown under Status above.'
-            : errMsg;
-          msg.className = 'settings-msg err';
+          if (typeof showToast === 'function') showToast('Setup saved.');
+          api('/api/v1/settings').then((s) => {
+            const vd = s.vault_path_display || '—';
+            const isHostedNow = (vd + '').toLowerCase() === 'canister';
+            if (el('settings-mode-display')) el('settings-mode-display').textContent = isHostedNow ? 'Hosted (beta)' : 'Self-hosted';
+            el('settings-vault-display').textContent = vd;
+            const configureSection = el('settings-configure-backup-section');
+            const configureHr = el('settings-hr-configure');
+            if (configureSection) configureSection.style.display = isHostedNow ? 'none' : '';
+            if (configureHr) configureHr.style.display = isHostedNow ? 'none' : '';
+            const vg = s.vault_git || {};
+            let gitText = 'Not configured';
+            if (vg.enabled && vg.has_remote) {
+              gitText = 'Configured';
+              if (vg.auto_commit) gitText += ' (auto-commit on)';
+              if (vg.auto_push) gitText += ', auto-push on';
+            } else if (vg.enabled) gitText = 'Enabled but no remote set';
+            el('settings-git-status').textContent = gitText;
+            const syncBtn = el('btn-settings-sync');
+            const isAdmin = s.role === 'admin';
+            if (syncBtn) syncBtn.disabled = settingsSyncDisabled(s, vg, isHostedNow);
+            if (msg) {
+              msg.textContent = successText;
+              msg.className = 'settings-msg ok';
+            }
+          }).catch(() => {});
+        } catch (e) {
+          const errMsg = e.message || 'Save failed';
+          if (msg) {
+            msg.textContent = errMsg.includes('different role') || errMsg.includes('FORBIDDEN')
+              ? 'Only admins can save setup. Your role is shown under Status above.'
+              : errMsg;
+            msg.className = 'settings-msg err';
+          }
+          if (typeof showToast === 'function') showToast(errMsg.includes('different role') || errMsg.includes('FORBIDDEN') ? 'Only admins can save setup.' : errMsg, true);
         }
-        if (typeof showToast === 'function') showToast(errMsg.includes('different role') || errMsg.includes('FORBIDDEN') ? 'Only admins can save setup.' : errMsg, true);
-      }
+      });
     };
   }
 
@@ -2244,6 +2385,7 @@
   });
 
   el('btn-quick-save').onclick = async () => {
+    const quickBtn = el('btn-quick-save');
     const body = el('quick-body').value.trim();
     const msg = el('create-msg-quick');
     if (!body) {
@@ -2257,29 +2399,32 @@
     const slug = 'hub_' + Date.now();
     const path = pslug ? 'projects/' + pslug + '/inbox/' + slug + '.md' : 'inbox/' + slug + '.md';
     const title = body.split('\n')[0].slice(0, 80) || 'Quick capture';
-    try {
-      await api('/api/v1/notes', {
-        method: 'POST',
-        body: stringifyNotePostPayload(path, body, {
-          source: 'hub',
-          date: today,
-          title,
-          ...(pslug && { project: pslug }),
-        }),
-      });
-      msg.textContent = 'Saved: ' + path;
-      msg.className = 'create-msg ok';
-      el('quick-body').value = '';
-      loadFacets();
-      loadNotes();
-      closeCreateModal();
-    } catch (e) {
-      msg.textContent = e.message;
-      msg.className = 'create-msg err';
-    }
+    await withButtonBusy(quickBtn, 'Saving…', async () => {
+      try {
+        await api('/api/v1/notes', {
+          method: 'POST',
+          body: stringifyNotePostPayload(path, body, {
+            source: 'hub',
+            date: today,
+            title,
+            ...(pslug && { project: pslug }),
+          }),
+        });
+        msg.textContent = 'Saved: ' + path;
+        msg.className = 'create-msg ok';
+        el('quick-body').value = '';
+        loadFacets();
+        loadNotes();
+        closeCreateModal();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'create-msg err';
+      }
+    });
   };
 
   el('btn-full-save').onclick = async () => {
+    const fullBtn = el('btn-full-save');
     const notePath = el('full-path').value.trim();
     const msg = el('create-msg-full');
     if (!notePath) {
@@ -2313,27 +2458,29 @@
       ...(episode && { episode_id: episode }),
       ...(follows && { follows }),
     };
-    try {
-      await api('/api/v1/notes', { method: 'POST', body: stringifyNotePostPayload(notePath, body, fm) });
-      msg.textContent = 'Created: ' + notePath;
-      msg.className = 'create-msg ok';
-      el('full-path').value = defaultFullPath();
-      el('full-title').value = '';
-      el('full-body').value = '';
-      el('full-project').value = '';
-      el('full-tags').value = '';
-      if (el('full-date')) el('full-date').value = '';
-      if (el('full-causal-chain')) el('full-causal-chain').value = '';
-      if (el('full-entity')) el('full-entity').value = '';
-      if (el('full-episode')) el('full-episode').value = '';
-      if (el('full-follows')) el('full-follows').value = '';
-      loadFacets();
-      loadNotes();
-      closeCreateModal();
-    } catch (e) {
-      msg.textContent = e.message;
-      msg.className = 'create-msg err';
-    }
+    await withButtonBusy(fullBtn, 'Creating…', async () => {
+      try {
+        await api('/api/v1/notes', { method: 'POST', body: stringifyNotePostPayload(notePath, body, fm) });
+        msg.textContent = 'Created: ' + notePath;
+        msg.className = 'create-msg ok';
+        el('full-path').value = defaultFullPath();
+        el('full-title').value = '';
+        el('full-body').value = '';
+        el('full-project').value = '';
+        el('full-tags').value = '';
+        if (el('full-date')) el('full-date').value = '';
+        if (el('full-causal-chain')) el('full-causal-chain').value = '';
+        if (el('full-entity')) el('full-entity').value = '';
+        if (el('full-episode')) el('full-episode').value = '';
+        if (el('full-follows')) el('full-follows').value = '';
+        loadFacets();
+        loadNotes();
+        closeCreateModal();
+      } catch (e) {
+        msg.textContent = e.message;
+        msg.className = 'create-msg err';
+      }
+    });
   };
 
   function formatDetailReadBody(body, fm) {
@@ -2422,21 +2569,23 @@
       closeCreateModal();
       const body = (el('detail-edit-body') && el('detail-edit-body').value) || '';
       const frontmatter = mergedFrontmatterForDetailSave();
-      try {
-        await api('/api/v1/notes', {
-          method: 'POST',
-          body: stringifyNotePostPayload(currentOpenNote.path, body, frontmatter),
-        });
-        if (typeof showToast === 'function') showToast('Note saved');
-        const refreshed = await api('/api/v1/notes/' + encodeURIComponent(currentOpenNote.path));
-        const nfm = materializeFrontmatter(refreshed.frontmatter);
-        currentOpenNote = { path: currentOpenNote.path, body: refreshed.body || '', frontmatter: nfm };
-        switchNoteToReadMode();
-        if (typeof loadNotes === 'function') loadNotes();
-        if (typeof loadFacets === 'function') loadFacets();
-      } catch (e) {
-        if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)), true);
-      }
+      await withButtonBusy(saveBtn, 'Saving…', async () => {
+        try {
+          await api('/api/v1/notes', {
+            method: 'POST',
+            body: stringifyNotePostPayload(currentOpenNote.path, body, frontmatter),
+          });
+          if (typeof showToast === 'function') showToast('Note saved');
+          const refreshed = await api('/api/v1/notes/' + encodeURIComponent(currentOpenNote.path));
+          const nfm = materializeFrontmatter(refreshed.frontmatter);
+          currentOpenNote = { path: currentOpenNote.path, body: refreshed.body || '', frontmatter: nfm };
+          switchNoteToReadMode();
+          if (typeof loadNotes === 'function') loadNotes();
+          if (typeof loadFacets === 'function') loadFacets();
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || String(e)), true);
+        }
+      });
     };
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
