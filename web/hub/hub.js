@@ -1725,17 +1725,24 @@
     const vaultsJson = el('vaults-json');
     const accessText = el('vault-access-json');
     const scopeText = el('scope-json');
-    const helpHosted = el('vaults-help-hosted');
-    const helpSelf = el('vaults-help-self-hosted');
-    const selfHostedEditors = el('vaults-self-hosted-editors');
-    if (listContainer) listContainer.textContent = 'Loading…';
-    if (serverView) serverView.textContent = 'Loading…';
-    try {
-      const settingsRes = await api('/api/v1/settings');
-      const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
-      if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
-      if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
-      if (selfHostedEditors) selfHostedEditors.classList.toggle('hidden', isHosted);
+      const helpHosted = el('vaults-help-hosted');
+      const helpSelf = el('vaults-help-self-hosted');
+      const selfHostedEditors = el('vaults-self-hosted-editors');
+      const hostedCreate = el('vaults-hosted-create');
+      if (listContainer) listContainer.textContent = 'Loading…';
+      if (serverView) serverView.textContent = 'Loading…';
+      try {
+        const settingsRes = await api('/api/v1/settings');
+        const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
+        if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
+        if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
+        if (selfHostedEditors) selfHostedEditors.classList.toggle('hidden', isHosted);
+        if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted);
+        const hostedCreateMsg = el('vaults-hosted-create-msg');
+        if (hostedCreateMsg && isHosted) {
+          hostedCreateMsg.textContent = '';
+          hostedCreateMsg.className = 'settings-msg';
+        }
 
       let vRes;
       let aRes = { access: {} };
@@ -1804,6 +1811,87 @@
       if (listContainer) listContainer.textContent = 'Could not load: ' + (e.message || '');
       if (serverView) serverView.textContent = 'Could not load server view: ' + (e.message || '');
     }
+  }
+
+  /** Align with bridge/canister: [a-zA-Z0-9_-], max 64; disallow default (already exists). */
+  function sanitizeNewHostedVaultId(raw) {
+    const t = String(raw || '').trim();
+    if (!t) return { error: 'Enter a vault id.' };
+    let s = t.replace(/[^a-zA-Z0-9_-]/g, '_');
+    s = s.replace(/_+/g, '_').replace(/^_|_$/g, '');
+    s = s.slice(0, 64);
+    if (!s) return { error: 'Use letters, numbers, hyphens, or underscores only.' };
+    if (s === 'default') {
+      return { error: 'The default vault already exists — pick another id (e.g. work or personal).' };
+    }
+    return { id: s };
+  }
+
+  const btnHostedVaultCreate = el('btn-vaults-hosted-create');
+  if (btnHostedVaultCreate) {
+    btnHostedVaultCreate.onclick = async () => {
+      const msgEl = el('vaults-hosted-create-msg');
+      const inp = el('vaults-hosted-new-id');
+      const setCreateVaultMsg = (text, isErr) => {
+        if (!msgEl) return;
+        msgEl.textContent = text;
+        msgEl.className = 'settings-msg' + (isErr ? ' err' : ' ok');
+      };
+      if (!isHostedHubFromSettings()) {
+        setCreateVaultMsg('This action is only available on hosted Hub.', true);
+        return;
+      }
+      if (!hubUserCanWriteNotes()) {
+        setCreateVaultMsg('Your role cannot create notes. Ask an admin to change your role.', true);
+        return;
+      }
+      const parsed = sanitizeNewHostedVaultId(inp && inp.value);
+      if (parsed.error) {
+        setCreateVaultMsg(parsed.error, true);
+        return;
+      }
+      const { id } = parsed;
+      btnHostedVaultCreate.disabled = true;
+      setCreateVaultMsg('');
+      try {
+        const fresh = await api('/api/v1/settings');
+        const allowed = fresh.allowed_vault_ids || [];
+        if (Array.isArray(allowed) && allowed.includes(id)) {
+          setCreateVaultMsg('That vault id already exists. Use the Vault dropdown in the header to switch to it.', true);
+          return;
+        }
+        const path = 'inbox/.knowtation-vault-bootstrap-' + id + '-' + Date.now() + '.md';
+        await api('/api/v1/notes', {
+          method: 'POST',
+          headers: { 'X-Vault-Id': id },
+          body: JSON.stringify({
+            path,
+            body:
+              'This note was created when you added the "' +
+              id +
+              '" vault in Knowtation Hub (hosted). You can edit or delete it.\n',
+            frontmatter: { title: 'New vault', tags: ['knowtation-setup'] },
+          }),
+        });
+        const s = await api('/api/v1/settings');
+        lastBackupSettingsPayload = s;
+        if (s.role) window.__hubUserRole = String(s.role);
+        updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+        setCurrentVaultId(id);
+        const sel = el('vault-switcher');
+        if (sel) sel.value = id;
+        loadFacets();
+        loadNotes();
+        loadProposals();
+        await loadVaultsPanel();
+        if (inp) inp.value = '';
+        setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the header to switch.', false);
+      } catch (e) {
+        setCreateVaultMsg(e.message || 'Could not create vault', true);
+      } finally {
+        btnHostedVaultCreate.disabled = false;
+      }
+    };
   }
 
   const btnScopeFormApply = el('btn-scope-form-apply');
