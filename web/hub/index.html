@@ -445,9 +445,22 @@
           <div class="settings-body">
             <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
             <p class="settings-intro small" id="vaults-help-switcher">Use the <strong>Vault</strong> dropdown in the header when it appears (the server must report two or more vault IDs for your account).</p>
-            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, vaults live in the canister. The list below comes from the server. To add a <em>second</em> vault, create a note with header <code>X-Vault-Id</code> set to your new id (e.g. via an agent or API). After that, refresh — the header switcher can show both. Editing YAML or vault-access JSON here is <strong>not</strong> available on hosted.</p>
+            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, each vault id is a separate note space in the canister. Use <strong>Add a vault</strong> below to create a new id (we save one small starter note so the server registers it). Then use the <strong>Vault</strong> dropdown in the header to switch. YAML / vault-access JSON editing is <strong>not</strong> on hosted yet.</p>
             <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, open <strong>Server view</strong> below and ensure your user ID appears in <strong>Vault access</strong> with every vault id you need, then save and refresh.</p>
             <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
+            <div id="vaults-hosted-create" class="hidden" style="margin: 1rem 0 1.25rem;">
+              <h3 class="settings-h3">Add a vault (hosted)</h3>
+              <p class="settings-intro small">A <strong>vault id</strong> is a separate notebook in the cloud (different from a <em>project</em> folder inside a vault). Use letters, numbers, hyphens, and underscores only. You already have <code>default</code> — pick another id (e.g. <code>work</code>).</p>
+              <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; margin-top: 0.5rem;">
+                <div>
+                  <label for="vaults-hosted-new-id">New vault id</label>
+                  <input type="text" id="vaults-hosted-new-id" class="settings-input-inline" placeholder="e.g. work" maxlength="64" autocomplete="off" spellcheck="false" style="min-width: 14rem;" aria-describedby="vaults-hosted-create-hint">
+                </div>
+                <button type="button" id="btn-vaults-hosted-create" class="btn-primary">Create vault</button>
+              </div>
+              <p id="vaults-hosted-create-hint" class="settings-intro small muted" style="margin-top: 0.35rem;">Creates one starter note under <code>inbox/</code> in the new vault. Agents can also use header <code>X-Vault-Id</code> with the same id.</p>
+              <span id="vaults-hosted-create-msg" class="settings-msg" role="status"></span>
+            </div>
             <div id="vaults-self-hosted-editors">
             <h3 class="settings-h3">Vault list</h3>
             <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
