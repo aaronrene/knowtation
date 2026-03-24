@@ -444,8 +444,11 @@
         <div id="settings-panel-vaults" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
-            <p class="settings-intro small"><strong>Where to switch vaults:</strong> Use the <strong>Vault</strong> dropdown in the header (next to the logo). It appears when the server reports two or more vaults. If you don’t see it, check <strong>Server view</strong> below and ensure your user ID in <strong>Vault access</strong> matches and lists both vault IDs.</p>
+            <p class="settings-intro small" id="vaults-help-switcher">Use the <strong>Vault</strong> dropdown in the header when it appears (the server must report two or more vault IDs for your account).</p>
+            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, vaults live in the canister. The list below comes from the server. To add a <em>second</em> vault, create a note with header <code>X-Vault-Id</code> set to your new id (e.g. via an agent or API). After that, refresh — the header switcher can show both. Editing YAML or vault-access JSON here is <strong>not</strong> available on hosted.</p>
+            <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, open <strong>Server view</strong> below and ensure your user ID appears in <strong>Vault access</strong> with every vault id you need, then save and refresh.</p>
             <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
+            <div id="vaults-self-hosted-editors">
             <h3 class="settings-h3">Vault list</h3>
             <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
             <div id="vaults-list-container" class="settings-vaults-list"></div>
@@ -491,6 +494,7 @@
                 <button type="button" id="btn-scope-save" class="btn-primary">Save scope</button>
                 <span id="scope-save-msg" class="settings-msg"></span>
               </div>
+            </div>
             </div>
             <hr class="settings-hr">
             <p class="settings-intro small"><strong>Hub as a flexible network:</strong> Many users, many vaults, many repos, and agents (MCP, AgentCeption, and <em>optionally</em> linked tools such as Muse) from one Hub—Knowtation does not require Muse to be running. <button type="button" id="btn-how-to-flexible-network" class="btn-link btn-link-small">How to use → Hub as a flexible network</button></p>
