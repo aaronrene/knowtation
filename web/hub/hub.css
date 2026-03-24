@@ -28,6 +28,29 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
 .hidden { display: none !important; }
 button { cursor: pointer; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 button:hover { border-color: var(--accent); }
+/* Long-running API actions (hosted latency): in-progress label + spinner */
+button.btn-busy,
+button.btn-busy:hover {
+  cursor: wait;
+  opacity: 0.92;
+}
+button.btn-busy::after {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 0.4em;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  vertical-align: -0.12em;
+  animation: spin 0.65s linear infinite;
+}
+button.btn-primary.btn-busy::after,
+button.btn-new-note.btn-busy::after {
+  border-color: rgba(0, 0, 0, 0.22);
+  border-top-color: rgba(0, 0, 0, 0.75);
+}
 .btn-provider, #btn-logout { background: var(--accent); color: #000; border-color: var(--accent); }
 .login-buttons-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .oauth-setup { margin-top: 1.25rem; padding: 1rem 1.25rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
