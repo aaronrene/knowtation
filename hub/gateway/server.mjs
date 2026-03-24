@@ -38,6 +38,21 @@ const PORT = parseInt(process.env.GATEWAY_PORT || process.env.PORT || '3340', 10
 const BASE_URL = process.env.HUB_BASE_URL || `http://localhost:${PORT}`;
 const CANISTER_URL = (process.env.CANISTER_URL || '').replace(/\/$/, '');
 const BRIDGE_URL = (process.env.BRIDGE_URL || '').replace(/\/$/, '');
+if (BRIDGE_URL) {
+  try {
+    const u = new URL(BRIDGE_URL);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+      throw new Error('BRIDGE_URL must use http: or https:');
+    }
+  } catch (e) {
+    console.error(
+      '[gateway] BRIDGE_URL must be an absolute URL with scheme (no path after host), e.g. https://your-bridge.netlify.app. Got:',
+      JSON.stringify(BRIDGE_URL),
+      e.message || e,
+    );
+    process.exit(1);
+  }
+}
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '7d';

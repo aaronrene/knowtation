@@ -58,14 +58,62 @@ function sanitizeVaultId(vaultId) {
   return String(vaultId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'default';
 }
 
+let warnedOllamaLocalhostOnNetlify = false;
+
+/** Trim + default empty env so accidental whitespace does not break provider matching or Ollama URL. */
 function getBridgeEmbeddingConfig() {
-  const provider = (process.env.EMBEDDING_PROVIDER || 'ollama').toLowerCase();
-  const model = process.env.EMBEDDING_MODEL || 'nomic-embed-text';
+  const pEnv = process.env.EMBEDDING_PROVIDER;
+  const provider = (
+    pEnv == null || String(pEnv).trim() === '' ? 'ollama' : String(pEnv).trim()
+  ).toLowerCase();
+  const mEnv = process.env.EMBEDDING_MODEL;
+  const model =
+    mEnv == null || String(mEnv).trim() === '' ? 'nomic-embed-text' : String(mEnv).trim();
+  const oEnv = process.env.OLLAMA_URL;
+  const ollama_url =
+    oEnv == null || String(oEnv).trim() === '' ? 'http://localhost:11434' : String(oEnv).trim();
+  if (inServerless && provider === 'ollama' && !warnedOllamaLocalhostOnNetlify) {
+    warnedOllamaLocalhostOnNetlify = true;
+    const t = String(ollama_url).trim() || 'http://localhost:11434';
+    try {
+      if (/^https?:\/\//i.test(t)) {
+        const u = new URL(t);
+        if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+          console.warn(
+            '[bridge] EMBEDDING_PROVIDER=ollama with localhost OLLAMA_URL cannot reach your machine from Netlify. ' +
+              'Set EMBEDDING_PROVIDER=openai and OPENAI_API_KEY, or OLLAMA_URL to a public https:// Ollama API base.',
+          );
+        }
+      }
+    } catch (_) {
+      /* embed path will throw a clearer error via normalizeOllamaEmbedBaseUrl */
+    }
+  }
   return {
     provider,
     model,
-    ollama_url: process.env.OLLAMA_URL || 'http://localhost:11434',
+    ollama_url,
   };
+}
+
+/**
+ * Undici/fetch often throws TypeError with message "Invalid URL" only — map to actionable text for operators.
+ * @param {unknown} err
+ * @param {'index'|'search'} kind
+ */
+function bridgeEmbedFailureMessage(err, kind) {
+  const raw = err && typeof err.message === 'string' ? err.message : String(err);
+  if (raw !== 'Invalid URL' && !raw.includes('Invalid URL')) return raw;
+  const c = getBridgeEmbeddingConfig();
+  const hasOpenAiKey = Boolean(
+    process.env.OPENAI_API_KEY && String(process.env.OPENAI_API_KEY).trim(),
+  );
+  return (
+    `${raw} (${kind}: check bridge env). Resolved EMBEDDING_PROVIDER="${c.provider}"; ` +
+    `OPENAI_API_KEY ${hasOpenAiKey ? 'is set' : 'is missing'} for this function. ` +
+    'If provider is ollama, OLLAMA_URL must be a full http(s) URL. Remove or fix HTTP_PROXY/HTTPS_PROXY if set. ' +
+    'See docs/DEPLOY-HOSTED.md (bridge semantic index/search).'
+  );
 }
 
 const DB_FILENAME = 'knowtation_vectors.db';
@@ -796,6 +844,22 @@ app.post('/api/v1/index', async (req, res) => {
   }
   const notes = vault.notes || [];
   try {
+    if (!globalThis.__knowtation_bridge_embed_logged) {
+      globalThis.__knowtation_bridge_embed_logged = true;
+      const c = getBridgeEmbeddingConfig();
+      const hasOpenAiKey = Boolean(
+        process.env.OPENAI_API_KEY && String(process.env.OPENAI_API_KEY).trim(),
+      );
+      console.log(
+        '[bridge] embedding (no secrets):',
+        JSON.stringify({
+          provider: c.provider,
+          model: c.model,
+          ollama_url_set: Boolean(process.env.OLLAMA_URL && String(process.env.OLLAMA_URL).trim()),
+          openai_key_set: hasOpenAiKey,
+        }),
+      );
+    }
     const { chunkNote } = await import('../../lib/chunk.mjs');
     const { embed, embeddingDimension } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
@@ -858,7 +922,11 @@ app.post('/api/v1/index', async (req, res) => {
     return res.json({ ok: true, notesProcessed: notes.length, chunksIndexed: allChunks.length });
   } catch (e) {
     console.error('Bridge index error:', e);
-    return res.status(500).json({ error: 'Index failed', code: 'INTERNAL_ERROR', message: e.message });
+    return res.status(500).json({
+      error: 'Index failed',
+      code: 'INTERNAL_ERROR',
+      message: bridgeEmbedFailureMessage(e, 'index'),
+    });
   }
 });
 
@@ -919,7 +987,11 @@ app.post('/api/v1/search', async (req, res) => {
     return res.json({ results, query });
   } catch (e) {
     console.error('Bridge search error:', e);
-    return res.status(500).json({ error: 'Search failed', code: 'INTERNAL_ERROR', message: e.message });
+    return res.status(500).json({
+      error: 'Search failed',
+      code: 'INTERNAL_ERROR',
+      message: bridgeEmbedFailureMessage(e, 'search'),
+    });
   }
 });
 
