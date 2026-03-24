@@ -57,11 +57,11 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 - Knowtation exposes **small integration points**: e.g. config `MUSE_URL` / `MUSE_API_KEY`, optional CLI `knowtation muse …` or Hub **Settings → Advanced** “Link Muse” for **read-only** history queries (branch timeline, structural diff pointers) when configured.
 - On **approve** (or after merge to canonical), optionally write **`external_ref`** = Muse commit/branch id so proposals link to Muse lineage without Muse owning the vault.
 
-**What we do *not* do in the thin bridge:** Replace the canister, require Muse for proposals, or implement the full **Knowtation domain plugin** (snapshot/diff/merge inside Muse) — that stays **Option A** / deferred until a concrete need. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2.
+**What we do *not* do in the thin bridge:** Replace the canister, require Muse for proposals, or implement the full **Knowtation domain plugin** (snapshot/diff/merge inside Muse) — that stays **Option A** / deferred until a concrete need. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.2 (full plugin) and §6.3 (thin bridge).
 
 **Tasks (when prioritized):**
 
-- [ ] Document thin bridge in [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) (new subsection): operator setup, security (Muse not on public unauthenticated path), and `external_ref` convention.
+- [x] Document thin bridge in [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) (new subsection): operator setup, security (Muse not on public unauthenticated path), and `external_ref` convention.
 - [ ] Optional: one gateway or bridge **proxy route** or CLI subcommand that forwards to Muse **only** when env is set; graceful **no-op** when unset.
 - [ ] Optional: MCP tool stub for “history summary” that calls the same delegate (after Muse API shape is stable).
 

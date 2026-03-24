@@ -31,11 +31,11 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 | **DATA_DIR** | No | Directory for tokens, per-user vector DBs, and roles/invites (default: repo `data/`). Ignored on Netlify when Blobs are used. |
 | **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who are **admin** on hosted (bootstrap; can also add admins via POST /api/v1/roles). Should match gateway's `HUB_ADMIN_USER_IDS` so Settings shows the correct role. |
 | **BRIDGE_PORT** or **PORT** | No | Port (default 3341). |
-| **EMBEDDING_PROVIDER** | No | `ollama` (default) or `openai`. |
-| **EMBEDDING_MODEL** | No | Model name (default `nomic-embed-text` for Ollama). |
-| **OLLAMA_URL** | No | Ollama **API** base URL (default `http://localhost:11434`). Must be reachable from this process (e.g. self-hosted Ollama on a server). `https://ollama.com` is the marketing site, not the API. |
+| **EMBEDDING_PROVIDER** | No | `ollama` (default) or `openai`. **On Netlify/serverless, prefer `openai`** — the default Ollama URL is `http://localhost:11434`, which the function cannot reach. |
+| **EMBEDDING_MODEL** | No | Model name (default `nomic-embed-text` for Ollama; e.g. `text-embedding-3-small` for OpenAI). |
+| **OLLAMA_URL** | No | Ollama **API** base URL (default `http://localhost:11434`). Must include **`http://` or `https://`**. Must be reachable from this process. On **Netlify**, use a **public** Ollama endpoint or switch to OpenAI. `https://ollama.com` is the marketing site, not the API. |
 | **OLLAMA_API_KEY** | No | Required for Ollama Cloud; add `Authorization: Bearer` header. |
-| **OPENAI_API_KEY** | No | Required if `EMBEDDING_PROVIDER=openai`. |
+| **OPENAI_API_KEY** | No | Required if `EMBEDDING_PROVIDER=openai`. **Set this on the bridge site** for hosted Hub Re-index / Search. |
 | **INDEXER_CHUNK_SIZE**, **INDEXER_CHUNK_OVERLAP** | No | Chunking params (default 2048, 256). |
 
 ## Run locally
