@@ -714,6 +714,8 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (
     },
     github_connect_available: Boolean(process.env.GITHUB_CLIENT_ID),
     github_connected: Boolean(githubConn?.access_token),
+    workspace_owner_id: null,
+    hosted_delegating: false,
     embedding_display: {
       provider: emb.provider || 'ollama',
       model: emb.model || 'nomic-embed-text',
