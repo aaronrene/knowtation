@@ -445,7 +445,7 @@
           <div class="settings-body">
             <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
             <p class="settings-intro small" id="vaults-help-switcher">Use the <strong>Vault</strong> dropdown in the header when it appears (the server must report two or more vault IDs for your account).</p>
-            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, each vault id is a separate note space in the canister. Use <strong>Add a vault</strong> below to create a new id (we save one small starter note so the server registers it). Then use the <strong>Vault</strong> dropdown in the header to switch. YAML / vault-access JSON editing is <strong>not</strong> on hosted yet.</p>
+            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, think of each <strong>vault id</strong> as a separate cloud notebook. Use <strong>Add a vault</strong> to create another id, then pick it from the <strong>Vault</strong> menu in the header. For a <strong>team</strong>: (1) set <strong>Shared workspace owner</strong> below to the lead person’s User ID, (2) invite people under <strong>Settings → Team</strong>, (3) use <strong>Vault access</strong> to say which vaults each person may open, (4) optionally use <strong>Scope</strong> to limit them to certain folders or projects. Requires the <strong>bridge</strong> to be connected in production.</p>
             <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, open <strong>Server view</strong> below and ensure your user ID appears in <strong>Vault access</strong> with every vault id you need, then save and refresh.</p>
             <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
             <div id="vaults-hosted-create" class="hidden" style="margin: 1rem 0 1.25rem;">
@@ -461,7 +461,21 @@
               <p id="vaults-hosted-create-hint" class="settings-intro small muted" style="margin-top: 0.35rem;">Creates one starter note under <code>inbox/</code> in the new vault. Agents can also use header <code>X-Vault-Id</code> with the same id.</p>
               <span id="vaults-hosted-create-msg" class="settings-msg" role="status"></span>
             </div>
+            <div id="vaults-hosted-workspace" class="hidden" style="margin: 1.25rem 0; padding: 1rem 0; border-top: 1px solid var(--border, #333); border-bottom: 1px solid var(--border, #333);">
+              <h3 class="settings-h3">Shared workspace owner (hosted teams)</h3>
+              <p class="settings-intro small">Imagine one shared filing cabinet in the cloud. The <strong>workspace owner</strong> is whose cabinet everyone opens when they’re on the team. Paste the owner’s User ID (same format as <strong>Settings → Backup → Your user ID</strong>—usually <em>your</em> ID if you’re the lead). Until this is set, each person only sees their <em>own</em> empty cloud space. After you set it, invited teammates (with roles from <strong>Team</strong>) read and write <strong>that</strong> owner’s notes.</p>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="workspace-owner-input">Workspace owner user ID</label>
+                <input type="text" id="workspace-owner-input" class="settings-input-inline" placeholder="e.g. google:104164334692309763642" autocomplete="off" spellcheck="false" style="min-width: 20rem; max-width: 100%; display: block; margin: 0.35rem 0 0.5rem;">
+                <div class="settings-form-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                  <button type="button" id="btn-workspace-save" class="btn-primary">Save workspace owner</button>
+                  <button type="button" id="btn-workspace-clear" class="btn-secondary">Clear — solo mode</button>
+                </div>
+                <span id="workspace-save-msg" class="settings-msg" role="status"></span>
+              </div>
+            </div>
             <div id="vaults-self-hosted-editors">
+            <div id="vaults-hub-yaml-only">
             <h3 class="settings-h3">Vault list</h3>
             <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
             <div id="vaults-list-container" class="settings-vaults-list"></div>
@@ -472,6 +486,7 @@
             <div class="settings-form-actions" style="margin-top: 0.5rem;">
               <button type="button" id="btn-vaults-save" class="btn-primary">Save vault list</button>
               <span id="vaults-save-msg" class="settings-msg"></span>
+            </div>
             </div>
             <h3 class="settings-h3">Vault access</h3>
             <p class="settings-intro small">Map user IDs to allowed vault IDs. Users not listed get <code>default</code> only. Format: <code>{"user_id": ["vault_id1", "vault_id2"]}</code>.</p>

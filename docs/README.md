@@ -31,6 +31,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [PARITY-PLAN.md](./PARITY-PLAN.md) | Self-hosted vs hosted capability matrix |
 | [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md) | Gateway ↔ canister auth |
 | [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) | Multi-vault (self-hosted + hosted) |
+| [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) | Hosted team: workspace owner, vault access, scope, gateway headers |
 | [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) | Stable storage + billing migration |
 | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) | Hosted billing design |
 

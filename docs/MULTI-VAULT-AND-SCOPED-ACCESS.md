@@ -19,7 +19,7 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 
 ### Hosted (canister + gateway + bridge) — Phase 15.1 (repo vs production)
 
-**Self-hosted** multi-vault (above) is **fully implemented**. **Hosted** matches **data partitioning** for a **single signed-in identity** in this repository; **team** vault allowlists (`hub_vault_access.json`) and **scope** (`hub_scope.json`) are **not** mirrored on the canister path (see [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1).
+**Self-hosted** multi-vault (above) is **fully implemented**. **Hosted** partitions notes by **`(userId, vault_id)`** on the canister. **Team** vault allowlists and **scope** are enforced via the **bridge** + gateway (**[HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)**): set **`POST /api/v1/workspace`** `owner_user_id` so invited teammates use the owner’s canister partition; vault-access and scope JSON match self-hosted semantics.
 
 **Repository behavior (current code):**
 
@@ -47,7 +47,7 @@ Order was: **operational hosted baseline** → **canister partition** → **veri
 | 3 | Canister: export / list / get / post scoped to `vault_id` | **Done** | Same |
 | 4 | Proposals: **`vault_id`** + filter by vault | **Done** | Same |
 | 5 | Bridge vault/sync + export scoped by **`X-Vault-Id`** | **Done** | [hub/bridge/server.mjs](../hub/bridge/server.mjs) |
-| 6 | Vault list source of truth on hosted | **Done (canister-derived)** | No `hub_vault_access.json` for **other users’** vault visibility on same tenant; see STATUS §2.1 |
+| 6 | Vault list source of truth on hosted | **Done (canister-derived)** | **Vault access / scope** for teammates: bridge + gateway — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) |
 | 7 | Gateway **`GET /api/v1/settings`** **`vault_list`** / **`allowed_vault_ids`** | **Done** | Fetches canister **`/api/v1/vaults`** |
 | 8 | Tests + migration static verify | Ongoing | **`npm test`**; **`npm run canister:verify-migration`** |
 | 9 | Hub **Settings → Vaults → Create vault** (hosted) | **Done** | PR **#47** — bootstrap note + **`X-Vault-Id`**; refreshes switcher and panel |
@@ -55,7 +55,7 @@ Order was: **operational hosted baseline** → **canister partition** → **veri
 
 **Optional product polish (not required for data parity):** **Second-vault bootstrap** is largely addressed by row 9 (**Create vault** in Settings); agents/CLI can still target a new vault id via **`X-Vault-Id`** as before.
 
-**Next hosted parity (not done):** **Team vault access** (which vault IDs another user may use — self-hosted **`hub_vault_access.json`** today) and **scope** (**`hub_scope.json`** — projects/folders per user per vault) on the **canister/bridge** path. Track alongside [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 and [PARITY-PLAN.md](./PARITY-PLAN.md). **Hub Import** on hosted (**501**) is a separate slice, usually **after** access/scope unless product reorders. **MCP D2/D3** per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
+**Next hosted parity:** **Hub Import** on hosted (**501**) — [PARITY-PLAN.md](./PARITY-PLAN.md). **Team vault access + scope** ship in repo via bridge + gateway — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) (operators set **`POST /api/v1/workspace`** `owner_user_id` for shared partition). **MCP D2/D3** per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
 
 ---
 

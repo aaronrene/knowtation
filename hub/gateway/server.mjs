@@ -19,9 +19,10 @@ import { stripeWebhookHandler } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
-import { deriveFacetsFromCanisterNotes } from './note-facets.mjs';
+import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './note-facets.mjs';
 import { applyGatewayCors } from './cors-middleware.mjs';
-import { upstreamPathAndQuery, pathPartNoQuery } from './request-path.mjs';
+import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './request-path.mjs';
+import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
@@ -284,6 +285,31 @@ if (BRIDGE_URL) {
   }, async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/invites/consume', req, res);
   });
+  app.get('/api/v1/workspace', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/workspace', req, res);
+  });
+  app.post('/api/v1/workspace', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/workspace', req, res);
+  });
+  app.get('/api/v1/vault-access', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/vault-access', req, res);
+  });
+  app.post('/api/v1/vault-access', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/vault-access', req, res);
+  });
+  app.get('/api/v1/scope', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/scope', req, res);
+  });
+  app.post('/api/v1/scope', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/scope', req, res);
+  });
+  app.get('/api/v1/hosted-context', async (req, res, next) => {
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    next();
+  }, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/hosted-context', req, res);
+  });
 }
 
 /**
@@ -332,6 +358,44 @@ function getUserId(req) {
   return token ? verifyToken(token) : null;
 }
 
+const hostedCtxCache = new Map();
+const HOSTED_CTX_TTL_MS = 5000;
+
+/**
+ * Bridge-hosted team context (vault allowlist + scope + effective canister user). Cached briefly per (sub, vaultId).
+ * @param {import('express').Request} req
+ * @returns {Promise<Record<string, unknown>|null>}
+ */
+async function getHostedAccessContext(req) {
+  if (!BRIDGE_URL) return null;
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  const sub = getUserId(req);
+  if (!sub) return null;
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const cacheKey = `${sub}\0${vaultId}`;
+  const now = Date.now();
+  const hit = hostedCtxCache.get(cacheKey);
+  if (hit && hit.expires > now) return hit.data;
+  try {
+    const r = await fetch(BRIDGE_URL + '/api/v1/hosted-context', {
+      method: 'GET',
+      headers: {
+        Authorization: auth,
+        Accept: 'application/json',
+        'X-Vault-Id': vaultId,
+      },
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data && data.error && !data.effective_canister_user_id) return null;
+    hostedCtxCache.set(cacheKey, { expires: now + HOSTED_CTX_TTL_MS, data });
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
+
 app.get('/api/v1/billing/summary', (req, res) => handleBillingSummary(req, res, getUserId));
 
 // GET /api/v1/settings and GET /api/v1/setup — hosted: vault_list from canister; bridge fields when BRIDGE_URL set
@@ -340,21 +404,59 @@ app.get('/api/v1/settings', async (req, res) => {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   let vault_list = [{ id: 'default', label: 'Default' }];
   let allowed_vault_ids = ['default'];
+  let canisterVaultUserId = uid;
+  /** @type {string[]|null} */
+  let allowedFromBridge = null;
+  if (BRIDGE_URL && req.headers.authorization) {
+    try {
+      const hRes = await fetch(BRIDGE_URL + '/api/v1/hosted-context', {
+        method: 'GET',
+        headers: {
+          Authorization: req.headers.authorization,
+          Accept: 'application/json',
+          'X-Vault-Id': 'default',
+        },
+      });
+      if (hRes.ok) {
+        const hc = await hRes.json();
+        if (hc.effective_canister_user_id && typeof hc.effective_canister_user_id === 'string') {
+          canisterVaultUserId = hc.effective_canister_user_id;
+        }
+        if (Array.isArray(hc.allowed_vault_ids) && hc.allowed_vault_ids.length > 0) {
+          allowedFromBridge = hc.allowed_vault_ids.map((x) => String(x));
+        }
+      }
+    } catch (_) {
+      /* use uid-only fallback */
+    }
+  }
   if (CANISTER_URL) {
     try {
       const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
         method: 'GET',
-        headers: { 'X-User-Id': uid, Accept: 'application/json' },
+        headers: { 'X-User-Id': canisterVaultUserId, Accept: 'application/json' },
       });
       if (vRes.ok) {
         const data = await vRes.json();
         const vaults = Array.isArray(data.vaults) ? data.vaults : [];
         if (vaults.length > 0) {
-          vault_list = vaults.map((v) => ({
+          const mapped = vaults.map((v) => ({
             id: String(v.id || 'default'),
             label: String(v.label != null && v.label !== '' ? v.label : v.id || 'default'),
           }));
-          allowed_vault_ids = vault_list.map((v) => v.id);
+          if (allowedFromBridge && allowedFromBridge.length > 0) {
+            allowed_vault_ids = allowedFromBridge.filter((id) => mapped.some((m) => m.id === id));
+            vault_list = allowed_vault_ids.map((id) => {
+              const m = mapped.find((x) => x.id === id);
+              return m || { id, label: id };
+            });
+          } else {
+            vault_list = mapped;
+            allowed_vault_ids = vault_list.map((v) => v.id);
+          }
+        } else if (allowedFromBridge && allowedFromBridge.length > 0) {
+          allowed_vault_ids = [...allowedFromBridge];
+          vault_list = allowedFromBridge.map((id) => ({ id, label: id }));
         }
       } else {
         console.warn('[gateway] canister vaults non-ok', vRes.status);
@@ -429,6 +531,32 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+if (!BRIDGE_URL) {
+  app.get('/api/v1/workspace', requireAdmin, (_req, res) => {
+    res.json({ owner_user_id: null });
+  });
+  app.post('/api/v1/workspace', requireAdmin, (_req, res) => {
+    res.status(503).json({ error: 'Workspace owner requires bridge (BRIDGE_URL).', code: 'NOT_AVAILABLE' });
+  });
+  app.get('/api/v1/vault-access', requireAdmin, (_req, res) => {
+    res.json({ access: {} });
+  });
+  app.post('/api/v1/vault-access', requireAdmin, (_req, res) => {
+    res.status(503).json({ error: 'Vault access requires bridge (BRIDGE_URL).', code: 'NOT_AVAILABLE' });
+  });
+  app.get('/api/v1/scope', requireAdmin, (_req, res) => {
+    res.json({ scope: {} });
+  });
+  app.post('/api/v1/scope', requireAdmin, (_req, res) => {
+    res.status(503).json({ error: 'Scope requires bridge (BRIDGE_URL).', code: 'NOT_AVAILABLE' });
+  });
+  app.get('/api/v1/hosted-context', (req, res) => {
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    res.status(503).json({ error: 'Hosted context requires bridge (BRIDGE_URL).', code: 'NOT_AVAILABLE' });
+  });
+}
+
 // Hosted: vault list is derived from the canister; YAML vault editor is self-hosted only
 app.post('/api/v1/vaults', requireAdmin, (_req, res) => {
   res.status(501).json({
@@ -491,13 +619,19 @@ app.get('/api/v1/notes/facets', async (req, res) => {
     return res.json({ projects: [], tags: [], folders: [] });
   }
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  const effective = (hctx && hctx.effective_canister_user_id) || uid;
+  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
   try {
     const url = `${CANISTER_URL}/api/v1/notes`;
     const upstream = await fetch(url, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'x-user-id': uid,
+        'x-user-id': effective,
+        'x-actor-id': uid,
         'x-vault-id': vaultId,
       },
     });
@@ -513,7 +647,19 @@ app.get('/api/v1/notes/facets', async (req, res) => {
       console.warn('[gateway] facets canister list JSON parse', e?.message || String(e));
       return res.json({ projects: [], tags: [], folders: [] });
     }
-    const facets = deriveFacetsFromCanisterNotes(Array.isArray(data.notes) ? data.notes : []);
+    const rows = Array.isArray(data.notes) ? data.notes : [];
+    let notesForFacets = rows;
+    const scope = hctx && hctx.scope && typeof hctx.scope === 'object' ? hctx.scope : null;
+    if (scope && (scope.projects?.length || scope.folders?.length)) {
+      const withProj = rows.map((n) => ({
+        path: n.path,
+        project: materializeListFrontmatter(n.frontmatter).project ?? null,
+      }));
+      const scoped = applyScopeFilterToNotes(withProj, scope);
+      const pathSet = new Set(scoped.map((n) => n.path).filter(Boolean));
+      notesForFacets = rows.filter((n) => pathSet.has(n.path));
+    }
+    const facets = deriveFacetsFromCanisterNotes(notesForFacets);
     res.json(facets);
   } catch (e) {
     console.warn('[gateway] facets error', e?.message || String(e));
@@ -521,16 +667,164 @@ app.get('/api/v1/notes/facets', async (req, res) => {
   }
 });
 
+/**
+ * @param {Record<string, unknown>|null} hctx
+ */
+function scopeActiveForGateway(hctx) {
+  const s = hctx && hctx.scope && typeof hctx.scope === 'object' ? hctx.scope : null;
+  return Boolean(s && (s.projects?.length || s.folders?.length));
+}
+
+async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const raw = upstreamPathAndQuery(req);
+  const qIdx = raw.indexOf('?');
+  const searchPart = qIdx >= 0 ? raw.slice(qIdx + 1) : '';
+  const params = new URLSearchParams(searchPart);
+  const limit = Math.min(100, Math.max(0, parseInt(params.get('limit') || '20', 10) || 20));
+  const offset = Math.max(0, parseInt(params.get('offset') || '0', 10) || 0);
+  const scope = scopeActiveForGateway(hctx) ? hctx.scope : null;
+  if (scope) {
+    params.set('limit', '10000');
+    params.set('offset', '0');
+  }
+  const fetchUrl = `${CANISTER_URL}/api/v1/notes${params.toString() ? `?${params.toString()}` : ''}`;
+  try {
+    const upstream = await fetch(fetchUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': uid,
+        'x-vault-id': vaultId,
+      },
+    });
+    const text = await upstream.text();
+    const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries()).filter(
+      ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
+    );
+    res.status(upstream.status).set(Object.fromEntries(hop));
+    res.set('Cache-Control', 'private, no-store, must-revalidate');
+    if (!upstream.ok || !text) {
+      res.send(text);
+      return;
+    }
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      res.send(text);
+      return;
+    }
+    if (scope && Array.isArray(data.notes)) {
+      const withProj = data.notes.map((n) => ({
+        path: n.path,
+        project: materializeListFrontmatter(n.frontmatter).project ?? null,
+      }));
+      const filteredIdx = new Set();
+      const kept = applyScopeFilterToNotes(withProj, scope);
+      for (const row of kept) {
+        if (row.path) filteredIdx.add(row.path);
+      }
+      const all = data.notes.filter((n) => n.path && filteredIdx.has(n.path));
+      const total = all.length;
+      const page = all.slice(offset, offset + limit);
+      res.json({ notes: page, total });
+      return;
+    }
+    res.send(text);
+  } catch (e) {
+    console.error('Gateway GET notes list error:', e.message);
+    res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
+}
+
+async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const url = CANISTER_URL + upstreamPathAndQuery(req);
+  const scope = scopeActiveForGateway(hctx) ? hctx.scope : null;
+  try {
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': uid,
+        'x-vault-id': vaultId,
+      },
+    });
+    const body = await upstream.text();
+    if (upstream.status >= 400) {
+      console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
+    }
+    const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries()).filter(
+      ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
+    );
+    res.status(upstream.status).set(Object.fromEntries(hop));
+    res.set('Cache-Control', 'private, no-store, must-revalidate');
+    if (!scope || upstream.status !== 200 || !body) {
+      res.send(body);
+      return;
+    }
+    try {
+      const note = JSON.parse(body);
+      const withProj = {
+        path: note.path,
+        project: materializeListFrontmatter(note.frontmatter).project ?? null,
+      };
+      const filtered = applyScopeFilterToNotes([withProj], scope);
+      if (filtered.length === 0) {
+        res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+        return;
+      }
+    } catch (_) {
+      res.send(body);
+      return;
+    }
+    res.send(body);
+  } catch (e) {
+    console.error('Gateway GET note error:', e.message);
+    res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
+}
+
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
+  const pathOnly = effectiveRequestPath(req);
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+
+  if (req.method === 'GET' && pathOnly === '/api/v1/notes') {
+    return gatewayProxyGetNotesList(req, res, uid, effective, hctx);
+  }
+  const noteSubPrefix = '/api/v1/notes/';
+  if (
+    req.method === 'GET' &&
+    pathOnly.startsWith(noteSubPrefix) &&
+    pathOnly !== '/api/v1/notes/facets'
+  ) {
+    const rest = pathOnly.slice(noteSubPrefix.length);
+    if (rest) {
+      return gatewayProxyGetNoteOne(req, res, uid, effective, hctx);
+    }
+  }
+
   const url = CANISTER_URL + upstreamPathAndQuery(req);
   const headers = {
     ...req.headers,
     host: new URL(CANISTER_URL).host,
-    'x-user-id': uid,
+    'x-user-id': effective,
+    'x-actor-id': uid,
     'x-vault-id': req.headers['x-vault-id'] || 'default',
   };
   delete headers.origin;

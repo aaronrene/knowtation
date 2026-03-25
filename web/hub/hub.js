@@ -1761,7 +1761,11 @@
       const helpHosted = el('vaults-help-hosted');
       const helpSelf = el('vaults-help-self-hosted');
       const selfHostedEditors = el('vaults-self-hosted-editors');
+      const yamlOnly = el('vaults-hub-yaml-only');
       const hostedCreate = el('vaults-hosted-create');
+      const workspacePanel = el('vaults-hosted-workspace');
+      const workspaceInput = el('workspace-owner-input');
+      const workspaceMsg = el('workspace-save-msg');
       if (listContainer) listContainer.textContent = 'Loading…';
       if (serverView) serverView.textContent = 'Loading…';
       try {
@@ -1769,28 +1773,57 @@
         const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
         if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
         if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
-        if (selfHostedEditors) selfHostedEditors.classList.toggle('hidden', isHosted);
+        if (selfHostedEditors) selfHostedEditors.classList.remove('hidden');
+        if (yamlOnly) yamlOnly.classList.toggle('hidden', isHosted);
         if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted);
+        if (workspacePanel) workspacePanel.classList.toggle('hidden', !isHosted);
         const hostedCreateMsg = el('vaults-hosted-create-msg');
         if (hostedCreateMsg && isHosted) {
           hostedCreateMsg.textContent = '';
           hostedCreateMsg.className = 'settings-msg';
         }
+        if (workspaceMsg) {
+          workspaceMsg.textContent = '';
+          workspaceMsg.className = 'settings-msg';
+        }
 
-      let vRes;
-      let aRes = { access: {} };
-      let sRes = { scope: {} };
-      if (isHosted) {
+      /** @type {{ vaults?: unknown[] }} */
+      let vRes = { vaults: [] };
+      try {
         vRes = await api('/api/v1/vaults');
-      } else {
-        const out = await Promise.all([
-          api('/api/v1/vaults'),
-          api('/api/v1/vault-access'),
-          api('/api/v1/scope'),
-        ]);
-        vRes = out[0];
-        aRes = out[1];
-        sRes = out[2];
+      } catch (_) {
+        vRes = { vaults: [] };
+      }
+      /** @type {{ access?: Record<string, unknown> }} */
+      let aRes = { access: {} };
+      try {
+        aRes = await api('/api/v1/vault-access');
+      } catch (_) {
+        aRes = { access: {} };
+      }
+      /** @type {{ scope?: Record<string, unknown> }} */
+      let sRes = { scope: {} };
+      try {
+        sRes = await api('/api/v1/scope');
+      } catch (_) {
+        sRes = { scope: {} };
+      }
+
+      if (isHosted && workspaceInput) {
+        try {
+          const w = await api('/api/v1/workspace');
+          workspaceInput.value = w && w.owner_user_id ? String(w.owner_user_id) : '';
+        } catch (e) {
+          workspaceInput.value = '';
+          if (workspaceMsg) {
+            workspaceMsg.textContent =
+              (e && e.message) ||
+              'Could not load workspace owner. On production this needs the bridge (BRIDGE_URL).';
+            workspaceMsg.className = 'settings-msg err';
+          }
+        }
+      } else if (workspaceInput && !isHosted) {
+        workspaceInput.value = '';
       }
       const vaults = vRes.vaults || [];
       if (serverView) {
@@ -1801,9 +1834,11 @@
           serverView.innerHTML =
             '<strong>Server view (hosted):</strong> Your user ID: <code>' +
             escapeHtml(uid) +
-            '</code>. Vault IDs reported for your account: <code>' +
+            '</code>. Vault IDs you may use: <code>' +
             escapeHtml(allowedStr) +
-            '</code>. Storage is the canister (not a local folder). The header <strong>Vault</strong> menu lists these ids when there are two or more.';
+            '</code>. Storage is in the cloud (canister), not a folder on your computer. ' +
+            '<strong>Team checklist:</strong> (1) Shared workspace owner below → (2) <strong>Team</strong> tab invites → (3) Vault access JSON → (4) optional Scope. ' +
+            'The header <strong>Vault</strong> menu lists vaults when there are two or more.';
         } else {
           const dataDir =
             settingsRes.data_dir_display != null ? escapeHtml(String(settingsRes.data_dir_display)) : 'data';
@@ -1922,7 +1957,8 @@
         } catch (e) {
           setCreateVaultMsg(e.message || 'Could not create vault', true);
         }
-      });    };
+      });
+    };
   }
 
   const btnScopeFormApply = el('btn-scope-form-apply');
@@ -2006,13 +2042,6 @@
   const btnVaultAccessSave = el('btn-vault-access-save');
   if (btnVaultAccessSave) btnVaultAccessSave.onclick = async () => {
     const msg = el('vault-access-save-msg');
-    if (isHostedHubFromSettings()) {
-      if (msg) {
-        msg.textContent = 'Vault access JSON is for self-hosted Hub only (file-backed).';
-        msg.className = 'settings-msg err';
-      }
-      return;
-    }
     await withButtonBusy(btnVaultAccessSave, 'Saving…', async () => {
       const raw = (el('vault-access-json') && el('vault-access-json').value) || '{}';
       try {
@@ -2029,13 +2058,6 @@
   const btnScopeSave = el('btn-scope-save');
   if (btnScopeSave) btnScopeSave.onclick = async () => {
     const msg = el('scope-save-msg');
-    if (isHostedHubFromSettings()) {
-      if (msg) {
-        msg.textContent = 'Per-user scope is not available on hosted yet.';
-        msg.className = 'settings-msg err';
-      }
-      return;
-    }
     await withButtonBusy(btnScopeSave, 'Saving…', async () => {
       const raw = (el('scope-json') && el('scope-json').value) || '{}';
       try {
@@ -2049,6 +2071,60 @@
       }
     });
   };
+
+  const btnWorkspaceSave = el('btn-workspace-save');
+  if (btnWorkspaceSave) {
+    btnWorkspaceSave.onclick = async () => {
+      const msg = el('workspace-save-msg');
+      const input = el('workspace-owner-input');
+      await withButtonBusy(btnWorkspaceSave, 'Saving…', async () => {
+        try {
+          const raw = (input && input.value) || '';
+          const trimmed = raw.trim();
+          const owner_user_id = trimmed === '' ? null : trimmed;
+          await api('/api/v1/workspace', {
+            method: 'POST',
+            body: JSON.stringify({ owner_user_id }),
+          });
+          if (msg) {
+            msg.textContent = 'Saved.';
+            msg.className = 'settings-msg ok';
+          }
+        } catch (e) {
+          if (msg) {
+            msg.textContent = e.message || 'Save failed';
+            msg.className = 'settings-msg err';
+          }
+        }
+      });
+    };
+  }
+
+  const btnWorkspaceClear = el('btn-workspace-clear');
+  if (btnWorkspaceClear) {
+    btnWorkspaceClear.onclick = async () => {
+      const msg = el('workspace-save-msg');
+      const input = el('workspace-owner-input');
+      await withButtonBusy(btnWorkspaceClear, 'Clearing…', async () => {
+        try {
+          await api('/api/v1/workspace', {
+            method: 'POST',
+            body: JSON.stringify({ owner_user_id: null }),
+          });
+          if (input) input.value = '';
+          if (msg) {
+            msg.textContent = 'Cleared — each person uses their own cloud space.';
+            msg.className = 'settings-msg ok';
+          }
+        } catch (e) {
+          if (msg) {
+            msg.textContent = e.message || 'Clear failed';
+            msg.className = 'settings-msg err';
+          }
+        }
+      });
+    };
+  }
 
   async function loadInvitesList() {
     const listEl = el('invites-pending-list');

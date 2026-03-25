@@ -127,6 +127,17 @@ To **set the repository**: (1) Use **Settings → Setup** in the Hub to write va
 - **GET /scope** — Per-user per-vault scope (projects/folders). **Response:** `{ "scope": { "user_id": { "vault_id": { "projects": [], "folders": [] } } } }`.
 - **POST /scope** — Body: `{ "scope": { ... } }`. Writes `data/hub_scope.json`.
 
+### 3.3.3 Hosted workspace owner and delegation (bridge + gateway)
+
+On **hosted**, vault-access and scope JSON persist in the **bridge** (same shapes as §3.3.2). The gateway proxies these routes when `BRIDGE_URL` is set. **Workspace owner** controls which canister partition is shared with the team:
+
+- **GET /workspace** — Admin. **Response:** `{ "owner_user_id": string | null }`.
+- **POST /workspace** — Admin. Body `{ "owner_user_id": string | null }`. **`null`** disables delegation (each user uses only their own canister id).
+
+**GET /hosted-context** — JWT. Returns `{ "actor_sub", "workspace_owner_id", "effective_canister_user_id", "delegating", "allowed_vault_ids", "scope": { "projects", "folders" } | null, "role" }` for the current **`X-Vault-Id`** header (default `default`). Used by the gateway and for debugging.
+
+**Gateway → canister headers:** `X-User-Id` = effective partition owner; **`X-Actor-Id`** = JWT `sub` (human/agent who performed the action). Full semantics: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md).
+
 ### 3.4 Proposals
 
 **Variation protocol (Muse-aligned).** Proposals implement a variation lifecycle compatible with [Muse](https://github.com/cgcardona/muse): **identifiers** — `proposal_id` (variation id), `base_state_id` (optional, for optimistic concurrency); **intent** — human- or agent-readable reason for the change; **lifecycle** — propose → review → approve or discard. Default deployments **do not run Muse**; we align our API and payload so we can interoperate or adopt Muse later. Optional `external_ref` (e.g. future Muse commit id) may be added for cross-system references.

@@ -44,6 +44,7 @@ import { createInvite, consumeInvite, revokeInvite, listInvites } from './invite
 import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
 import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
 import { readHubVaults, writeHubVaults } from '../lib/hub-vaults.mjs';
+import { applyScopeFilterToNotes as applyScopeFilter } from './lib/scope-filter.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -176,18 +177,6 @@ function requireVaultAccess(req, res, next) {
   req.vaultPath = vaultPath;
   req.scope = getScopeForUserVault(config.data_dir, req.user?.sub ?? '', req.vault_id);
   next();
-}
-
-function applyScopeFilter(notes, scope) {
-  if (!scope || (!scope.projects?.length && !scope.folders?.length)) return notes;
-  return notes.filter((n) => {
-    if (scope.folders?.length) {
-      const folder = n.path.includes('/') ? n.path.split('/').slice(0, -1).join('/') : '';
-      if (scope.folders.some((f) => folder === f || folder.startsWith(f + '/'))) return true;
-    }
-    if (scope.projects?.length && n.project && scope.projects.includes(n.project)) return true;
-    return false;
-  });
 }
 
 const app = express();

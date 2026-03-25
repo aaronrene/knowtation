@@ -14,6 +14,13 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import {
+  resolveEffectiveCanisterUser,
+  getAllowedVaultIdsFromAccessMap,
+  getScopeForUserVaultFromScopeMap,
+  intersectVaultIds,
+} from '../lib/hosted-workspace-resolve.mjs';
+import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
 const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
@@ -40,6 +47,9 @@ const DATA_DIR = process.env.DATA_DIR
 const TOKENS_FILE = path.join(DATA_DIR, 'hub_github_tokens.json');
 const ROLES_FILE = path.join(DATA_DIR, 'hub_roles.json');
 const INVITES_FILE = path.join(DATA_DIR, 'hub_invites.json');
+const WORKSPACE_FILE = path.join(DATA_DIR, 'hub_workspace.json');
+const VAULT_ACCESS_FILE = path.join(DATA_DIR, 'hub_vault_access.json');
+const SCOPE_FILE = path.join(DATA_DIR, 'hub_scope.json');
 const VALID_ROLES = new Set(['admin', 'editor', 'viewer']);
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -291,6 +301,203 @@ async function saveInvites(blobStore, invites) {
   await blobStore.set('hub_invites', str);
 }
 
+async function loadWorkspace(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(WORKSPACE_FILE)) return { owner_user_id: null };
+    try {
+      const data = JSON.parse(fs.readFileSync(WORKSPACE_FILE, 'utf8'));
+      const id = data?.owner_user_id;
+      return { owner_user_id: typeof id === 'string' && id.trim() ? id.trim() : null };
+    } catch (_) {
+      return { owner_user_id: null };
+    }
+  }
+  try {
+    const rawStr = await blobStore.get('hub_workspace');
+    if (!rawStr) return { owner_user_id: null };
+    const data = JSON.parse(rawStr);
+    const id = data?.owner_user_id;
+    return { owner_user_id: typeof id === 'string' && id.trim() ? id.trim() : null };
+  } catch (_) {
+    return { owner_user_id: null };
+  }
+}
+
+async function saveWorkspace(blobStore, ownerUserId) {
+  const payload = JSON.stringify(
+    { owner_user_id: ownerUserId && String(ownerUserId).trim() ? String(ownerUserId).trim() : null },
+    null,
+    2,
+  );
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(WORKSPACE_FILE, payload, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_workspace', payload);
+}
+
+async function loadVaultAccess(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(VAULT_ACCESS_FILE)) return {};
+    try {
+      const data = JSON.parse(fs.readFileSync(VAULT_ACCESS_FILE, 'utf8'));
+      const out = {};
+      if (data && typeof data === 'object') {
+        for (const [uid, arr] of Object.entries(data)) {
+          if (typeof uid === 'string' && uid.trim() && Array.isArray(arr)) {
+            out[uid.trim()] = arr.filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim());
+          }
+        }
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+  try {
+    const rawStr = await blobStore.get('hub_vault_access');
+    if (!rawStr) return {};
+    const data = JSON.parse(rawStr);
+    const out = {};
+    if (data && typeof data === 'object') {
+      for (const [uid, arr] of Object.entries(data)) {
+        if (typeof uid === 'string' && uid.trim() && Array.isArray(arr)) {
+          out[uid.trim()] = arr.filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim());
+        }
+      }
+    }
+    return out;
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveVaultAccess(blobStore, access) {
+  const obj = {};
+  for (const [uid, arr] of Object.entries(access || {})) {
+    if (typeof uid === 'string' && uid.trim() && Array.isArray(arr)) {
+      obj[uid.trim()] = arr.filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim());
+    }
+  }
+  const str = JSON.stringify(obj, null, 2);
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(VAULT_ACCESS_FILE, str, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_vault_access', str);
+}
+
+async function loadScope(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(SCOPE_FILE)) return {};
+    try {
+      const data = JSON.parse(fs.readFileSync(SCOPE_FILE, 'utf8'));
+      return data && typeof data === 'object' ? data : {};
+    } catch (_) {
+      return {};
+    }
+  }
+  try {
+    const rawStr = await blobStore.get('hub_scope');
+    if (!rawStr) return {};
+    const data = JSON.parse(rawStr);
+    return data && typeof data === 'object' ? data : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveScope(blobStore, scope) {
+  const cleaned = {};
+  for (const [uid, vaultMap] of Object.entries(scope || {})) {
+    if (typeof uid !== 'string' || !uid.trim() || !vaultMap || typeof vaultMap !== 'object') continue;
+    cleaned[uid.trim()] = {};
+    for (const [vaultId, rules] of Object.entries(vaultMap)) {
+      if (typeof vaultId !== 'string' || !vaultId.trim() || !rules || typeof rules !== 'object') continue;
+      const projects = Array.isArray(rules.projects)
+        ? rules.projects.filter((p) => typeof p === 'string' && p.trim()).map((p) => p.trim())
+        : [];
+      const folders = Array.isArray(rules.folders)
+        ? rules.folders.filter((f) => typeof f === 'string' && f.trim()).map((f) => f.trim())
+        : [];
+      if (projects.length > 0 || folders.length > 0) {
+        cleaned[uid.trim()][vaultId.trim()] = { projects, folders };
+      }
+    }
+  }
+  const str = JSON.stringify(cleaned, null, 2);
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(SCOPE_FILE, str, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_scope', str);
+}
+
+/** @returns {Promise<string[]>} */
+async function fetchCanisterVaultIdsForUser(canisterUserId) {
+  if (!CANISTER_URL || !canisterUserId) return ['default'];
+  try {
+    const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
+      method: 'GET',
+      headers: { 'X-User-Id': canisterUserId, Accept: 'application/json' },
+    });
+    if (!vRes.ok) return ['default'];
+    const data = await vRes.json();
+    const vaults = Array.isArray(data.vaults) ? data.vaults : [];
+    if (vaults.length === 0) return ['default'];
+    return vaults.map((v) => String(v.id || 'default')).filter(Boolean);
+  } catch (_) {
+    return ['default'];
+  }
+}
+
+/**
+ * @param {import('express').Request} req
+ * @param {string} actorUid
+ * @returns {Promise<{ ok: true, effectiveCanisterUid: string, actorUid: string, vaultId: string, scope: { projects: string[], folders: string[] } | null, allowedVaultIds: string[], delegating: boolean } | { ok: false, status: number, code: string, error: string }>}
+ */
+async function resolveHostedBridgeContext(req, actorUid) {
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  const workspace = await loadWorkspace(req.blobStore);
+  const roles = await loadRoles(req.blobStore);
+  const access = await loadVaultAccess(req.blobStore);
+  const scopeMap = await loadScope(req.blobStore);
+  const ownerId = workspace.owner_user_id;
+  const { effective, delegate } = resolveEffectiveCanisterUser({
+    actorSub: actorUid,
+    workspaceOwnerId: ownerId,
+    storedRoles: roles,
+    adminUserIdsSet,
+  });
+  const allowedRaw = getAllowedVaultIdsFromAccessMap(access, actorUid);
+  const canisterIds = await fetchCanisterVaultIdsForUser(effective);
+  const allowedVaultIds = intersectVaultIds(canisterIds, allowedRaw);
+  if (!allowedVaultIds.includes(vaultId)) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'FORBIDDEN',
+      error: 'Access to this vault is not allowed.',
+    };
+  }
+  const scope = getScopeForUserVaultFromScopeMap(scopeMap, actorUid, vaultId);
+  return {
+    ok: true,
+    effectiveCanisterUid: effective,
+    actorUid,
+    vaultId,
+    scope,
+    allowedVaultIds,
+    delegating: delegate,
+  };
+}
+
 function effectiveRole(uid, storedRoles) {
   if (!uid) return 'member';
   const stored = storedRoles && storedRoles[uid];
@@ -535,6 +742,109 @@ app.get('/api/v1/role', requireBridgeAuth, async (req, res) => {
   }
 });
 
+app.get('/api/v1/workspace', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  try {
+    const w = await loadWorkspace(req.blobStore);
+    res.json({ owner_user_id: w.owner_user_id });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/workspace', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/workspace', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const raw = req.body?.owner_user_id;
+  const owner_user_id =
+    raw === null || raw === undefined || raw === ''
+      ? null
+      : typeof raw === 'string' && raw.trim()
+        ? raw.trim()
+        : null;
+  try {
+    await saveWorkspace(req.blobStore, owner_user_id);
+    const w = await loadWorkspace(req.blobStore);
+    res.json({ ok: true, owner_user_id: w.owner_user_id });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/workspace', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.get('/api/v1/vault-access', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  try {
+    const access = await loadVaultAccess(req.blobStore);
+    res.json({ access });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/vault-access', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/vault-access', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const access = req.body?.access;
+  if (!access || typeof access !== 'object') {
+    return res.status(400).json({ error: 'access object required', code: 'BAD_REQUEST' });
+  }
+  try {
+    await saveVaultAccess(req.blobStore, access);
+    const out = await loadVaultAccess(req.blobStore);
+    res.json({ ok: true, access: out });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/vault-access', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.get('/api/v1/scope', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  try {
+    const scope = await loadScope(req.blobStore);
+    res.json({ scope });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/scope', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/scope', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const scope = req.body?.scope;
+  if (!scope || typeof scope !== 'object') {
+    return res.status(400).json({ error: 'scope object required', code: 'BAD_REQUEST' });
+  }
+  try {
+    await saveScope(req.blobStore, scope);
+    const out = await loadScope(req.blobStore);
+    res.json({ ok: true, scope: out });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/scope', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.get('/api/v1/hosted-context', requireBridgeAuth, async (req, res) => {
+  try {
+    const actor = req.uid;
+    const workspace = await loadWorkspace(req.blobStore);
+    const roles = await loadRoles(req.blobStore);
+    const ctx = await resolveHostedBridgeContext(req, actor);
+    if (!ctx.ok) {
+      return res.status(ctx.status).json({ error: ctx.error, code: ctx.code });
+    }
+    const role = effectiveRole(actor, roles);
+    res.json({
+      actor_sub: actor,
+      workspace_owner_id: workspace.owner_user_id,
+      effective_canister_user_id: ctx.effectiveCanisterUid,
+      delegating: ctx.delegating,
+      allowed_vault_ids: ctx.allowedVaultIds,
+      scope: ctx.scope,
+      role,
+    });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/hosted-context', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
 // ——— Connect GitHub ———
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   app.get('/auth/github-connect', (req, res) => {
@@ -609,6 +919,12 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
 
+  const hctx = await resolveHostedBridgeContext(req, uid);
+  if (!hctx.ok) {
+    return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  }
+  const canisterUid = hctx.effectiveCanisterUid;
+
   const tokensByUser = await loadTokens(req.blobStore);
   const conn = tokensByUser[uid];
   const repo = req.body?.repo || conn?.repo;
@@ -630,7 +946,7 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
-      headers: { 'X-User-Id': uid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
+      headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
     });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
@@ -644,7 +960,10 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   } catch (_) {
     return res.status(502).json({ error: 'Invalid canister response', code: 'BAD_GATEWAY' });
   }
-  const notes = vault.notes || [];
+  let notes = vault.notes || [];
+  if (hctx.scope) {
+    notes = applyScopeFilterToNotes(notes, hctx.scope);
+  }
 
   // Store repo for next time
   if (req.body?.repo && (!conn.repo || conn.repo !== repo)) {
@@ -824,12 +1143,17 @@ app.post('/api/v1/index', async (req, res) => {
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
+  const hctx = await resolveHostedBridgeContext(req, uid);
+  if (!hctx.ok) {
+    return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  }
+  const canisterUid = hctx.effectiveCanisterUid;
   const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
   let exportRes;
   try {
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
-      headers: { 'X-User-Id': uid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
+      headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
     });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
@@ -843,7 +1167,10 @@ app.post('/api/v1/index', async (req, res) => {
   } catch (_) {
     return res.status(502).json({ error: 'Invalid canister response', code: 'BAD_GATEWAY' });
   }
-  const notes = vault.notes || [];
+  let notes = vault.notes || [];
+  if (hctx.scope) {
+    notes = applyScopeFilterToNotes(notes, hctx.scope);
+  }
   try {
     if (!globalThis.__knowtation_bridge_embed_logged) {
       globalThis.__knowtation_bridge_embed_logged = true;
@@ -865,8 +1192,8 @@ app.post('/api/v1/index', async (req, res) => {
     const { embed, embeddingDimension } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
 
-    const vectorsDir = await getVectorsDirForUser(req, uid);
-    const storeConfig = getBridgeStoreConfig(uid, vectorsDir);
+    const vectorsDir = await getVectorsDirForUser(req, canisterUid);
+    const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
     const chunkOpts = {
       chunkSize: parseInt(process.env.INDEXER_CHUNK_SIZE || '2048', 10),
       chunkOverlap: parseInt(process.env.INDEXER_CHUNK_OVERLAP || '256', 10),
@@ -919,7 +1246,7 @@ app.post('/api/v1/index', async (req, res) => {
       }));
       await store.upsert(points);
     }
-    await persistVectorsToBlob(req, uid, vectorsDir);
+    await persistVectorsToBlob(req, canisterUid, vectorsDir);
     return res.json({ ok: true, notesProcessed: notes.length, chunksIndexed: allChunks.length });
   } catch (e) {
     console.error('Bridge index error:', e);
@@ -947,6 +1274,11 @@ app.post('/api/v1/search', async (req, res) => {
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
+  const hctx = await resolveHostedBridgeContext(req, uid);
+  if (!hctx.ok) {
+    return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  }
+  const canisterUid = hctx.effectiveCanisterUid;
   const query = req.body?.query;
   if (!query || typeof query !== 'string') {
     return res.status(400).json({ error: 'query required', code: 'BAD_REQUEST' });
@@ -957,8 +1289,8 @@ app.post('/api/v1/search', async (req, res) => {
     const { embed } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
 
-    const vectorsDir = await getVectorsDirForUser(req, uid);
-    const storeConfig = getBridgeStoreConfig(uid, vectorsDir);
+    const vectorsDir = await getVectorsDirForUser(req, canisterUid);
+    const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
     const store = await createVectorStore(storeConfig);
     const bridgeVaultId = sanitizeVaultId(req.headers['x-vault-id']);
     const [queryVector] = await embed([query], storeConfig.embedding);
@@ -978,13 +1310,16 @@ app.post('/api/v1/search', async (req, res) => {
       entity: req.body?.entity,
       episode: req.body?.episode,
     });
-    const results = (hits || []).map((h) => ({
+    let results = (hits || []).map((h) => ({
       path: h.path,
       score: h.score,
       project: h.project ?? null,
       tags: h.tags ?? [],
       snippet: truncateSnippet(h.text, snippetChars),
     }));
+    if (hctx.scope) {
+      results = applyScopeFilterToNotes(results, hctx.scope);
+    }
     return res.json({ results, query });
   } catch (e) {
     console.error('Bridge search error:', e);
