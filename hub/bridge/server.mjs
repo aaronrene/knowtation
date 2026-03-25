@@ -16,9 +16,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import {
   resolveEffectiveCanisterUser,
-  getAllowedVaultIdsFromAccessMap,
   getScopeForUserVaultFromScopeMap,
-  intersectVaultIds,
+  resolveAllowedVaultIdsForHostedContext,
 } from '../lib/hosted-workspace-resolve.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 
@@ -475,9 +474,13 @@ async function resolveHostedBridgeContext(req, actorUid) {
     storedRoles: roles,
     adminUserIdsSet,
   });
-  const allowedRaw = getAllowedVaultIdsFromAccessMap(access, actorUid);
   const canisterIds = await fetchCanisterVaultIdsForUser(effective);
-  const allowedVaultIds = intersectVaultIds(canisterIds, allowedRaw);
+  const allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
+    delegate,
+    actorUid,
+    accessMap: access,
+    canisterIds,
+  });
   if (!allowedVaultIds.includes(vaultId)) {
     return {
       ok: false,

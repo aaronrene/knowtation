@@ -266,16 +266,29 @@
     const wrap = el('vault-switcher-wrap');
     const select = el('vault-switcher');
     if (!wrap || !select) return;
-    const allowed = Array.isArray(allowedVaultIds) && allowedVaultIds.length ? allowedVaultIds : (vaultList.length ? vaultList.map((v) => v.id) : ['default']);
-    const list = Array.isArray(vaultList) && vaultList.length ? vaultList : [{ id: 'default', label: 'Default' }];
-    const options = list.filter((v) => allowed.includes(v.id));
-    select.innerHTML = options.map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label || v.id) + '</option>').join('');
+    const rows = Array.isArray(vaultList) ? vaultList : [];
+    const byId = new Map(rows.map((v) => [String(v.id), v]));
+    let allowed =
+      Array.isArray(allowedVaultIds) && allowedVaultIds.length
+        ? allowedVaultIds.map(String)
+        : rows.length
+          ? rows.map((v) => String(v.id))
+          : ['default'];
+    allowed = [...new Set(allowed)];
+    const options = allowed.map((id) => {
+      const v = byId.get(id);
+      return { id, label: v && (v.label || v.id) ? String(v.label || v.id) : id };
+    });
+    select.innerHTML = options
+      .map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label) + '</option>')
+      .join('');
     select.value = getCurrentVaultId();
     if (!allowed.includes(select.value)) select.value = allowed[0] || 'default';
     setCurrentVaultId(select.value);
-    wrap.classList.toggle('hidden', list.length <= 1);
-    if (list.length >= 2 && options.length === 1) {
-      select.title = 'This Hub has more vaults. To use them, copy your User ID from Settings → Backup into Vault access on Settings → Vaults, then save and refresh.';
+    wrap.classList.toggle('hidden', options.length <= 1);
+    if (allowed.length >= 2 && options.length === 1) {
+      select.title =
+        'This Hub has more vaults. To use them, copy your User ID from Settings → Backup into Vault access on Settings → Vaults, then save and refresh.';
     } else {
       select.title = '';
     }
@@ -285,6 +298,14 @@
       loadNotes();
       loadProposals();
     };
+  }
+
+  function applyHostedUiFromSettings(s) {
+    if (!s || typeof s !== 'object') return;
+    const hosted = String(s.vault_path_display || '').toLowerCase() === 'canister';
+    window.__hubIsHosted = hosted;
+    const btn = el('btn-projects-help');
+    if (btn) btn.classList.toggle('hidden', !hosted);
   }
 
   function normalizeGithubRepoSlug(raw) {
@@ -475,6 +496,7 @@
           setCurrentVaultId(allowed[0] || 'default');
         }
         updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+        applyHostedUiFromSettings(s);
       } catch (_) {}
       loadFacets();
       loadNotes();
@@ -1511,6 +1533,25 @@
   if (btnImport) btnImport.onclick = openImportModal;
   el('modal-import-backdrop').onclick = closeImportModal;
   el('modal-import-close').onclick = closeImportModal;
+
+  function closeProjectsHelpModal() {
+    const m = el('modal-projects-help');
+    if (m) m.classList.add('hidden');
+  }
+  function openProjectsHelpModal() {
+    closeCreateModal();
+    const panel = el('detail-panel');
+    if (panel) panel.classList.add('hidden');
+    const m = el('modal-projects-help');
+    if (m) m.classList.remove('hidden');
+  }
+  const btnProjectsHelp = el('btn-projects-help');
+  if (btnProjectsHelp) btnProjectsHelp.onclick = openProjectsHelpModal;
+  const modalProjectsHelpBackdrop = el('modal-projects-help-backdrop');
+  const modalProjectsHelpClose = el('modal-projects-help-close');
+  if (modalProjectsHelpBackdrop) modalProjectsHelpBackdrop.onclick = closeProjectsHelpModal;
+  if (modalProjectsHelpClose) modalProjectsHelpClose.onclick = closeProjectsHelpModal;
+
   el('btn-import-submit').onclick = async () => {
     const importSubmitBtn = el('btn-import-submit');
     const sourceType = el('import-source-type').value;
@@ -1673,6 +1714,7 @@
           setCurrentVaultId(allowedIds[0] || 'default');
         }
         updateVaultSwitcher(s.vault_list || [], allowedIds);
+        applyHostedUiFromSettings(s);
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
         if (s.github_connect_available) {
@@ -2347,6 +2389,7 @@
           lastBackupSettingsPayload = s;
           if (s.role) window.__hubUserRole = String(s.role);
           updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+          applyHostedUiFromSettings(s);
           setCurrentVaultId(id);
           const sel = el('vault-switcher');
           if (sel) sel.value = id;
@@ -3384,6 +3427,9 @@
         e.preventDefault();
       } else if (el('modal-import') && !el('modal-import').classList.contains('hidden')) {
         closeImportModal();
+        e.preventDefault();
+      } else if (el('modal-projects-help') && !el('modal-projects-help').classList.contains('hidden')) {
+        closeProjectsHelpModal();
         e.preventDefault();
       }
       return;

@@ -68,3 +68,23 @@ export function intersectVaultIds(canisterIds, allowedRaw) {
   const list = Array.isArray(canisterIds) && canisterIds.length ? canisterIds : ['default'];
   return list.filter((id) => allow.has(id));
 }
+
+/**
+ * Vault-access map restricts **delegating** team members. Users acting on their **own** canister
+ * partition (owner or solo, not delegating) get every vault returned by the canister unless they
+ * have an explicit access row (then that row applies).
+ *
+ * @param {{ delegate: boolean, actorUid: string, accessMap: Record<string, string[]>, canisterIds: string[] }} p
+ * @returns {string[]}
+ */
+export function resolveAllowedVaultIdsForHostedContext({ delegate, actorUid, accessMap, canisterIds }) {
+  const access = accessMap && typeof accessMap === 'object' ? accessMap : {};
+  const explicit = access[actorUid];
+  const explicitList =
+    explicit && Array.isArray(explicit) && explicit.length > 0
+      ? explicit.map((x) => String(x))
+      : null;
+  const ids = Array.isArray(canisterIds) && canisterIds.length ? canisterIds.map(String) : ['default'];
+  const allowedRaw = delegate ? explicitList ?? ['default'] : explicitList ?? ids;
+  return intersectVaultIds(ids, allowedRaw);
+}
