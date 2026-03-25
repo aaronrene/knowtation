@@ -87,6 +87,8 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 
 1. **CORS (Hub UI on knowtation.store / www):** From the repo root, run `npm run check:gateway-cors`. Each listed origin should get a **specific** `Allow-Origin` and `Allow-Credentials: true`. If not, set **`HUB_CORS_ORIGIN`** on this gateway site to both apex and www (see [docs/HOSTED-HUB-VERIFY.md](../../docs/HOSTED-HUB-VERIFY.md) §0 and [docs/CORS-WWW-AND-APEX.md](../../docs/CORS-WWW-AND-APEX.md)), then redeploy.
 
+   **Hosted “Back up now”:** `POST /api/v1/vault/sync` triggers a CORS **preflight** (`OPTIONS`). The gateway must answer **`OPTIONS` with 204** on that path; it must **not** forward preflight to the bridge (the bridge only implements `POST`). If preflight fails, the Hub shows *Could not reach the API* even when `GET /api/v1/settings` works.
+
 2. **`BRIDGE_URL`:** Must be the bridge **origin only** — full URL with `https://`, no path (e.g. `https://knowtation-bridge.netlify.app`). Wrong values produce malformed redirect URLs; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §2–3.
 
 3. **`SESSION_SECRET` / `HUB_JWT_SECRET`:** The **bridge** site must use the **same** secret as this gateway so JWTs verify on `/api/v1/vault/github-status` and Connect GitHub. Mismatch → Settings shows “Not connected” after OAuth; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §6.
