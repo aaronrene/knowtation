@@ -83,6 +83,14 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 - For other hosts, use a Node adapter or deploy the Express app as you would any Node service; set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
 - Ensure **CANISTER_URL** points to the deployed canister and **SESSION_SECRET** is set in env (no secrets in repo).
 
+## Post-deploy verification (GitHub backup + CORS)
+
+1. **CORS (Hub UI on knowtation.store / www):** From the repo root, run `npm run check:gateway-cors`. Each listed origin should get a **specific** `Allow-Origin` and `Allow-Credentials: true`. If not, set **`HUB_CORS_ORIGIN`** on this gateway site to both apex and www (see [docs/HOSTED-HUB-VERIFY.md](../../docs/HOSTED-HUB-VERIFY.md) §0 and [docs/CORS-WWW-AND-APEX.md](../../docs/CORS-WWW-AND-APEX.md)), then redeploy.
+
+2. **`BRIDGE_URL`:** Must be the bridge **origin only** — full URL with `https://`, no path (e.g. `https://knowtation-bridge.netlify.app`). Wrong values produce malformed redirect URLs; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §2–3.
+
+3. **`SESSION_SECRET` / `HUB_JWT_SECRET`:** The **bridge** site must use the **same** secret as this gateway so JWTs verify on `/api/v1/vault/github-status` and Connect GitHub. Mismatch → Settings shows “Not connected” after OAuth; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §6.
+
 ## Reference
 
 - [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md) — gateway/canister proof contract

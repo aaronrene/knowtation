@@ -20,7 +20,7 @@ The Hub calls `https://knowtation-gateway.netlify.app` from `knowtation.store` /
    npm run check:gateway-cors
    ```
 
-   You should see each origin get a **specific** `Allow-Origin` (not `*`) **with** `Allow-Credentials: true` when `HUB_CORS_ORIGIN` is set. If `HUB_CORS_ORIGIN` is unset, the gateway uses `*` **without** credentials (allowed by browsers); production should still set the env so your Hub origin matches.
+   You should see each origin get a **specific** `Allow-Origin` (not `*`) **with** `Allow-Credentials: true` when `HUB_CORS_ORIGIN` is set. If `HUB_CORS_ORIGIN` is unset, the gateway uses `*` **without** credentials (allowed by browsers); production should still set the env so your Hub origin matches. When the script prints **`ok`** for both `knowtation.store` and `www.knowtation.store`, credentialed cross-origin requests from the Hub to this gateway are configured correctly for those origins.
 
 See [CORS-WWW-AND-APEX.md](./CORS-WWW-AND-APEX.md).
 

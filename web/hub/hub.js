@@ -246,7 +246,74 @@
   }
 
   const HOSTED_BACKUP_REPO_LS = 'knowtation_hosted_backup_repo';
+  /** If set, `resolveApiBase` uses this instead of `location.origin` — can point local Hub UI at Netlify by mistake. */
+  const HUB_API_URL_LS = 'hub_api_url';
+
   const VAULT_ID_LS = 'hub_vault_id';
+
+  function normalizeUrlOrigin(base) {
+    try {
+      const s = String(base || '').trim().replace(/\/$/, '');
+      if (!s) return '';
+      const u = new URL(s.startsWith('http') ? s : 'https://' + s);
+      return u.origin;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function isLocalHubHostname() {
+    const h = location.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+  }
+
+  /** Local Hub tab but `apiBase` targets another origin (e.g. Netlify) — causes “Could not reach the API … knowtation-gateway…”. */
+  function localApiBaseFootgunActive() {
+    if (!isLocalHubHostname()) return false;
+    const pageO = normalizeUrlOrigin(location.origin);
+    const apiO = normalizeUrlOrigin(apiBase);
+    if (!pageO || !apiO) return false;
+    return pageO !== apiO;
+  }
+
+  function refreshApiBaseFootgunBanner() {
+    const b = el('hub-api-base-footgun-banner');
+    if (!b) return;
+    if (!localApiBaseFootgunActive()) {
+      b.classList.add('hidden');
+      b.innerHTML = '';
+      return;
+    }
+    let lsHint = false;
+    try {
+      lsHint = Boolean(localStorage.getItem(HUB_API_URL_LS));
+    } catch (_) {}
+    const qsHint = Boolean(params.get('api'));
+    b.classList.remove('hidden');
+    const hint =
+      (lsHint ? ' <code>localStorage.' + HUB_API_URL_LS + '</code> is set.' : '') +
+      (qsHint ? ' This URL has an <code>?api=</code> override.' : '');
+    b.innerHTML =
+      '<p><strong>Wrong API for this tab.</strong> This page is on <code>' +
+      escapeHtml(location.origin) +
+      '</code> but the Hub calls <code>' +
+      escapeHtml(apiBase) +
+      '</code> for requests (settings, backup, notes).' +
+      hint +
+      ' For self-hosted <code>npm run hub</code>, clear the override so the API matches this origin, then reload.</p>' +
+      '<p><button type="button" class="btn-secondary" id="hub-api-footgun-clear">Clear API override &amp; reload</button></p>';
+    const clearBtn = el('hub-api-footgun-clear');
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        try {
+          localStorage.removeItem(HUB_API_URL_LS);
+        } catch (_) {}
+        const u = new URL(location.href);
+        u.searchParams.delete('api');
+        window.location.href = u.toString();
+      };
+    }
+  }
 
   function getCurrentVaultId() {
     try {
@@ -537,6 +604,7 @@
     }
     initProviders();
   }
+  refreshApiBaseFootgunBanner();
   if (token && params.get('invite_accepted') === '1') {
     setTimeout(() => {
       if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
@@ -1640,6 +1708,7 @@
   });
 
   function openSettings() {
+    refreshApiBaseFootgunBanner();
     closeCreateModal();
     el('modal-settings').classList.remove('hidden');
     document.querySelectorAll('.settings-tab').forEach((t) => t.classList.toggle('active', t.dataset.settingsTab === 'backup'));
@@ -1768,6 +1837,17 @@
         const ollamaRow = el('agents-ollama-row');
         if (ollamaRow) ollamaRow.style.display = ed.provider === 'ollama' ? '' : 'none';
         if (el('agents-embedding-ollama-url')) el('agents-embedding-ollama-url').textContent = ed.ollama_url || '—';
+        const apiRow = el('settings-api-base-row');
+        const apiDisp = el('settings-api-base-display');
+        if (apiRow && apiDisp) {
+          if (isLocalHubHostname()) {
+            apiRow.classList.remove('hidden');
+            apiDisp.textContent = apiBase;
+          } else {
+            apiRow.classList.add('hidden');
+          }
+        }
+        refreshApiBaseFootgunBanner();
       })
       .catch(() => {
         const hostedGhHint = el('settings-hosted-connect-github-hint');
@@ -1786,6 +1866,13 @@
         const ghStatus = el('settings-github-status');
         if (ghStatus) ghStatus.textContent = '—';
         if (el('btn-settings-sync')) el('btn-settings-sync').disabled = true;
+        const apiRowErr = el('settings-api-base-row');
+        const apiDispErr = el('settings-api-base-display');
+        if (apiRowErr && apiDispErr && isLocalHubHostname()) {
+          apiRowErr.classList.remove('hidden');
+          apiDispErr.textContent = apiBase;
+        }
+        refreshApiBaseFootgunBanner();
       });
     api('/api/v1/setup')
       .then((u) => {

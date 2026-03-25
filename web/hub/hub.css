@@ -346,6 +346,21 @@ button.btn-new-note.btn-busy::after {
 #app.login-screen .hub-header .btn-provider { padding: 0.6rem 1.25rem; font-size: 1rem; font-weight: 600; }
 .login-how-to-wrap { margin-top: 1rem; }
 .login-invite-banner { margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-weight: 500; }
+
+/* Self-hosted: API base points at hosted gateway (localStorage hub_api_url or ?api=) */
+.hub-api-footgun-banner {
+  margin: 0;
+  padding: 0.65rem 1rem;
+  background: color-mix(in srgb, #d97706 24%, transparent);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.hub-api-footgun-banner code { font-size: 0.85em; word-break: break-all; }
+.hub-api-footgun-banner p { margin: 0.35rem 0; }
+.hub-api-footgun-banner p:first-child { margin-top: 0; }
+.hub-api-footgun-banner p:last-child { margin-bottom: 0; }
 .invite-link-block { margin-top: 0.75rem; }
 .invite-link-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.35rem; }
 .invite-link-input { flex: 1; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; }
