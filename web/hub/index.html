@@ -403,6 +403,9 @@
             <div class="settings-form">
               <label for="team-user-id">User ID</label>
               <input type="text" id="team-user-id" placeholder="e.g. github:12345678">
+              <div class="settings-form-actions" style="margin: 0.35rem 0 0.5rem;">
+                <button type="button" id="btn-team-user-use-me" class="btn-secondary">Use my User ID</button>
+              </div>
               <label for="team-role">Role</label>
               <select id="team-role">
                 <option value="viewer">Viewer (read only)</option>
@@ -443,10 +446,67 @@
         </div>
         <div id="settings-panel-vaults" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
-            <p class="settings-intro small" id="vaults-help-switcher">Use the <strong>Vault</strong> dropdown in the header when it appears (the server must report two or more vault IDs for your account).</p>
-            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, each vault id is a separate note space in the canister. Use <strong>Add a vault</strong> below to create a new id (we save one small starter note so the server registers it). Then use the <strong>Vault</strong> dropdown in the header to switch. YAML / vault-access JSON editing is <strong>not</strong> on hosted yet.</p>
-            <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, open <strong>Server view</strong> below and ensure your user ID appears in <strong>Vault access</strong> with every vault id you need, then save and refresh.</p>
+            <div class="settings-vaults-lead-row">
+              <p class="settings-vaults-lead">Vaults, access, and scope <span class="settings-vaults-lead-sub muted">· admin</span></p>
+              <button type="button" class="btn-settings-info" id="btn-vaults-overview-help" data-settings-info-target="vaults-overview-help" aria-label="Help: overview" aria-expanded="false" title="Explain this tab">
+                <svg class="btn-settings-info-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div id="vaults-overview-help" class="settings-info-panel hidden" role="region" aria-label="Vaults tab help">
+              <div id="vaults-help-hosted-block" class="hidden">
+                <p class="small">Each <strong>vault id</strong> is a separate cloud notebook. Use <strong>Add a vault</strong> for new ids, then the header <strong>Vault</strong> menu. Teams: set <strong>Shared workspace owner</strong>, invite under <strong>Team</strong>, then <strong>Vault access</strong> and optional <strong>Scope</strong>. Needs a connected <strong>bridge</strong> in production.</p>
+              </div>
+              <div id="vaults-help-self-block" class="hidden">
+                <p class="small">Vaults are folders on this machine (<code>data/hub_vaults.yaml</code>). Use the form under <strong>Vault list</strong> for id + path, or <strong>Advanced</strong> for raw JSON. <strong>Vault access</strong> / <strong>Scope</strong> use the simple forms; open <strong>Advanced</strong> only for JSON.</p>
+              </div>
+              <p class="small muted" style="margin-bottom: 0;">Header <strong>Vault</strong> menu appears when you have two or more vault ids you’re allowed to use.</p>
+            </div>
+            <div id="vaults-hub-yaml-only" class="hidden settings-vaults-vault-list-block">
+              <div class="settings-h3-row">
+                <h3 class="settings-h3">Vault list</h3>
+                <button type="button" class="btn-settings-info" data-settings-info-target="vault-list-help" aria-label="Help: vault list">
+                  <svg class="btn-settings-info-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div id="vault-list-help" class="settings-info-panel settings-info-panel--section hidden">Keep id <code>default</code> for your primary vault. <strong>Folder path</strong> is the note directory on disk (absolute or relative). Save after editing.</div>
+              <div id="vaults-list-container" class="settings-vaults-list"></div>
+              <div class="vault-list-simple-form" style="margin-top: 0.65rem;">
+                <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+                  <div>
+                    <label for="vault-list-form-existing">Pick vault</label>
+                    <select id="vault-list-form-existing" class="settings-select-inline" aria-label="Existing vault or new vault"></select>
+                  </div>
+                </div>
+                <p class="settings-intro small muted" style="margin: 0.35rem 0 0.45rem;"><strong>New vault:</strong> choose <em>New vault</em>, then id + path. <strong>Edit:</strong> pick a row, change path or label, then <strong>Add or update in list</strong>.</p>
+                <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+                  <div>
+                    <label for="vault-list-form-id">Vault id</label>
+                    <input type="text" id="vault-list-form-id" class="settings-input-inline" placeholder="e.g. work" autocomplete="off" spellcheck="false" style="min-width: 12rem;">
+                  </div>
+                  <div>
+                    <label for="vault-list-form-path">Folder path</label>
+                    <input type="text" id="vault-list-form-path" class="settings-input-inline" placeholder="/path/to/folder or ./vault" autocomplete="off" spellcheck="false" style="min-width: 18rem; max-width: 100%;">
+                  </div>
+                  <div>
+                    <label for="vault-list-form-label">Label <span class="muted">(optional)</span></label>
+                    <input type="text" id="vault-list-form-label" class="settings-input-inline" placeholder="Menu name" style="min-width: 10rem;">
+                  </div>
+                  <button type="button" id="btn-vault-list-form-apply" class="btn-secondary">Add or update in list</button>
+                </div>
+                <span id="vault-list-form-msg" class="settings-msg" role="status"></span>
+              </div>
+              <div class="settings-form-actions settings-vaults-save-row">
+                <button type="button" id="btn-vaults-save" class="btn-primary">Save vault list</button>
+                <span id="vaults-save-msg" class="settings-msg"></span>
+              </div>
+              <details id="vault-list-json-details" class="settings-json-details">
+                <summary class="settings-json-details-summary">Advanced: edit vault list as JSON</summary>
+                <div class="settings-form" style="margin-top: 0.75rem;">
+                  <label for="vaults-json">Vaults (JSON array)</label>
+                  <textarea id="vaults-json" class="settings-json-textarea" rows="6" placeholder='[{"id":"default","path":"./vault","label":"My vault"}]'></textarea>
+                </div>
+              </details>
+            </div>
             <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
             <div id="vaults-hosted-create" class="hidden" style="margin: 1rem 0 1.25rem;">
               <h3 class="settings-h3">Add a vault (hosted)</h3>
@@ -461,32 +521,80 @@
               <p id="vaults-hosted-create-hint" class="settings-intro small muted" style="margin-top: 0.35rem;">Creates one starter note under <code>inbox/</code> in the new vault. Agents can also use header <code>X-Vault-Id</code> with the same id.</p>
               <span id="vaults-hosted-create-msg" class="settings-msg" role="status"></span>
             </div>
-            <div id="vaults-self-hosted-editors">
-            <h3 class="settings-h3">Vault list</h3>
-            <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
-            <div id="vaults-list-container" class="settings-vaults-list"></div>
-            <div class="settings-form">
-              <label for="vaults-json">Vaults (JSON array)</label>
-              <textarea id="vaults-json" class="settings-json-textarea" rows="6" placeholder='[{"id":"default","path":"./vault","label":"My vault"}]'></textarea>
-            </div>
-            <div class="settings-form-actions" style="margin-top: 0.5rem;">
-              <button type="button" id="btn-vaults-save" class="btn-primary">Save vault list</button>
-              <span id="vaults-save-msg" class="settings-msg"></span>
-            </div>
-            <h3 class="settings-h3">Vault access</h3>
-            <p class="settings-intro small">Map user IDs to allowed vault IDs. Users not listed get <code>default</code> only. Format: <code>{"user_id": ["vault_id1", "vault_id2"]}</code>.</p>
-            <div class="settings-form">
-              <label for="vault-access-json">Access (JSON)</label>
-              <textarea id="vault-access-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": ["default", "work"]}'></textarea>
-              <div class="settings-form-actions">
-                <button type="button" id="btn-vault-access-save" class="btn-primary">Save vault access</button>
-                <span id="vault-access-save-msg" class="settings-msg"></span>
+            <div id="vaults-hosted-workspace" class="hidden" style="margin: 1.25rem 0; padding: 1rem 0; border-top: 1px solid var(--border, #333); border-bottom: 1px solid var(--border, #333);">
+              <h3 class="settings-h3">Shared workspace owner (hosted teams)</h3>
+              <p class="settings-intro small">Imagine one shared filing cabinet in the cloud. The <strong>workspace owner</strong> is whose cabinet everyone opens when they’re on the team. Paste the owner’s User ID (same format as <strong>Settings → Backup → Your user ID</strong>—usually <em>your</em> ID if you’re the lead). Until this is set, each person only sees their <em>own</em> empty cloud space. After you set it, invited teammates (with roles from <strong>Team</strong>) read and write <strong>that</strong> owner’s notes.</p>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="workspace-owner-input">Workspace owner user ID</label>
+                <input type="text" id="workspace-owner-input" class="settings-input-inline" placeholder="e.g. google:104164334692309763642" autocomplete="off" spellcheck="false" style="min-width: 20rem; max-width: 100%; display: block; margin: 0.35rem 0 0.5rem;">
+                <div class="settings-form-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                  <button type="button" id="btn-workspace-use-me" class="btn-secondary">Use my User ID</button>
+                  <button type="button" id="btn-workspace-save" class="btn-primary">Save workspace owner</button>
+                  <button type="button" id="btn-workspace-clear" class="btn-secondary">Clear — solo mode</button>
+                </div>
+                <span id="workspace-save-msg" class="settings-msg" role="status"></span>
               </div>
             </div>
-            <h3 class="settings-h3">Scope (per user per vault)</h3>
-            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault.</p>
+            <div id="vaults-self-hosted-editors">
+            <div class="settings-h3-row settings-vaults-gap-before-access">
+              <h3 class="settings-h3">Vault access</h3>
+              <button type="button" class="btn-settings-info" data-settings-info-target="vault-access-help" aria-label="Help: vault access">
+                <svg class="btn-settings-info-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div id="vault-access-help" class="settings-info-panel settings-info-panel--section hidden">People not listed only get the <code>default</code> vault. Use <strong>Team</strong> roles to fill the Person menu. Apply, then <strong>Save vault access</strong>.</div>
+            <p class="settings-intro small settings-intro-tight">Who may open which vault.</p>
+            <div id="vaults-access-simple-form">
+              <p class="settings-intro small muted" style="margin-bottom: 0.5rem;">From <strong>Team</strong> · Apply, then save below.</p>
+              <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+                <div>
+                  <label for="access-form-user-select">Person</label>
+                  <select id="access-form-user-select" class="settings-select-inline" aria-label="Teammate for vault access"></select>
+                </div>
+                <div id="access-form-user-other-wrap" class="hidden">
+                  <label for="access-form-user-other">Their User ID</label>
+                  <input type="text" id="access-form-user-other" class="settings-input-inline" placeholder="e.g. google:…" autocomplete="off" spellcheck="false" style="min-width: 16rem;">
+                </div>
+              </div>
+              <fieldset class="settings-fieldset-compact" style="margin: 0.85rem 0; padding: 0.65rem 1rem; border: 1px solid var(--border, #444); border-radius: 6px;">
+                <legend class="small" style="padding: 0 0.35rem;">Vaults they can open</legend>
+                <div id="access-form-vault-checkboxes" class="access-vault-checkboxes" role="group" aria-label="Vaults allowed for this person"></div>
+              </fieldset>
+              <div class="settings-form-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                <button type="button" id="btn-access-form-apply" class="btn-secondary">Apply to rules</button>
+                <button type="button" id="btn-access-form-remove-user" class="btn-secondary">Remove this person</button>
+              </div>
+              <span id="access-form-msg" class="settings-msg" role="status"></span>
+              <p class="settings-intro small muted" style="margin-top: 0.65rem;">Preview</p>
+              <ul id="access-rules-summary" class="settings-list small access-rules-summary"></ul>
+            </div>
+            <details id="vault-access-json-details" class="settings-json-details">
+              <summary class="settings-json-details-summary">Advanced: edit access as JSON</summary>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="vault-access-json">Access (JSON)</label>
+                <textarea id="vault-access-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": ["default", "work"]}'></textarea>
+              </div>
+            </details>
+            <div class="settings-form-actions settings-vaults-after-access-save">
+              <button type="button" id="btn-vault-access-save" class="btn-primary">Save vault access</button>
+              <span id="vault-access-save-msg" class="settings-msg"></span>
+            </div>
+            <div class="settings-h3-row settings-vaults-scope-heading">
+              <h3 class="settings-h3">Scope (per user per vault)</h3>
+              <button type="button" class="btn-settings-info" data-settings-info-target="vault-scope-help" aria-label="Help: scope">
+                <svg class="btn-settings-info-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div id="vault-scope-help" class="settings-info-panel settings-info-panel--section hidden">Optional limits inside a vault (projects / folders). Leave empty for full vault. Same person picker as access; then <strong>Save scope</strong>.</div>
+            <p class="settings-intro small settings-intro-tight">Limit folders or projects per person.</p>
             <div class="settings-form scope-form-simple">
-              <p class="settings-intro small" style="margin-bottom: 0.5rem;"><strong>Add from form</strong> — then click Save scope below to persist.</p>
+              <p class="settings-intro small muted" style="margin-bottom: 0.5rem;">Fill fields · <strong>Add to scope</strong> · then save.</p>
+              <div id="vaults-scope-user-picker" class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+                <div>
+                  <label for="scope-form-user-select">Person</label>
+                  <select id="scope-form-user-select" class="settings-select-inline" aria-label="Teammate for scope"></select>
+                </div>
+              </div>
               <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center;">
                 <label for="scope-form-user-id">User ID</label>
                 <input type="text" id="scope-form-user-id" class="settings-input-inline" placeholder="e.g. google:123" style="min-width: 12rem;">
@@ -500,13 +608,16 @@
               </div>
               <span id="scope-form-msg" class="settings-msg"></span>
             </div>
-            <div class="settings-form">
-              <label for="scope-json">Scope (JSON)</label>
-              <textarea id="scope-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": {"default": {"projects": ["my-project"], "folders": ["inbox"]}}}'></textarea>
-              <div class="settings-form-actions">
-                <button type="button" id="btn-scope-save" class="btn-primary">Save scope</button>
-                <span id="scope-save-msg" class="settings-msg"></span>
+            <details id="scope-json-details" class="settings-json-details">
+              <summary class="settings-json-details-summary">Advanced: edit scope as JSON</summary>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="scope-json">Scope (JSON)</label>
+                <textarea id="scope-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": {"default": {"projects": ["my-project"], "folders": ["inbox"]}}}'></textarea>
               </div>
+            </details>
+            <div class="settings-form-actions" style="margin-top: 0.5rem;">
+              <button type="button" id="btn-scope-save" class="btn-primary">Save scope</button>
+              <span id="scope-save-msg" class="settings-msg"></span>
             </div>
             </div>
             <hr class="settings-hr">
@@ -564,17 +675,115 @@
             <hr class="settings-hr">
             <h3 class="settings-h3">Accent color</h3>
             <p class="settings-intro small">Choose an accent for links, buttons, and highlights. Pick a preset or use the custom color picker. Saved in your browser.</p>
-            <div class="accent-presets" id="accent-presets" role="group" aria-label="Accent color presets">
-              <button type="button" class="accent-swatch" data-accent="#22d3ee" title="Cyan (default)" aria-label="Cyan default"></button>
-              <button type="button" class="accent-swatch" data-accent="#22c55e" title="Green" aria-label="Green"></button>
-              <button type="button" class="accent-swatch" data-accent="#eab308" title="Amber" aria-label="Amber"></button>
-              <button type="button" class="accent-swatch" data-accent="#f43f5e" title="Rose" aria-label="Rose"></button>
-              <button type="button" class="accent-swatch" data-accent="#a855f7" title="Violet" aria-label="Violet"></button>
-              <button type="button" class="accent-swatch" data-accent="#0ea5e9" title="Sky" aria-label="Sky"></button>
+            <div class="accent-preset-groups">
+              <div class="accent-preset-group">
+                <p class="accent-preset-group-label">Classic</p>
+                <div class="accent-presets" role="group" aria-label="Classic accent colors">
+                  <button type="button" class="accent-swatch" data-accent="#22d3ee" title="Cyan (default)" aria-label="Cyan default"></button>
+                  <button type="button" class="accent-swatch" data-accent="#22c55e" title="Green" aria-label="Green"></button>
+                  <button type="button" class="accent-swatch" data-accent="#eab308" title="Amber" aria-label="Amber"></button>
+                  <button type="button" class="accent-swatch" data-accent="#f43f5e" title="Rose" aria-label="Rose"></button>
+                  <button type="button" class="accent-swatch" data-accent="#a855f7" title="Violet" aria-label="Violet"></button>
+                  <button type="button" class="accent-swatch" data-accent="#0ea5e9" title="Sky" aria-label="Sky"></button>
+                </div>
+              </div>
+              <div class="accent-preset-group">
+                <p class="accent-preset-group-label">Pastels</p>
+                <div class="accent-presets" role="group" aria-label="Pastel accent colors">
+                  <button type="button" class="accent-swatch" data-accent="#f9a8d4" title="Pink pastel" aria-label="Pink pastel"></button>
+                  <button type="button" class="accent-swatch" data-accent="#6ee7b7" title="Mint" aria-label="Mint pastel"></button>
+                  <button type="button" class="accent-swatch" data-accent="#93c5fd" title="Baby blue" aria-label="Baby blue pastel"></button>
+                  <button type="button" class="accent-swatch" data-accent="#fcd34d" title="Butter yellow" aria-label="Butter yellow pastel"></button>
+                  <button type="button" class="accent-swatch" data-accent="#c4b5fd" title="Lilac" aria-label="Lilac pastel"></button>
+                </div>
+              </div>
+              <div class="accent-preset-group">
+                <p class="accent-preset-group-label">Earth</p>
+                <div class="accent-presets" role="group" aria-label="Earth tone accent colors">
+                  <button type="button" class="accent-swatch" data-accent="#c2410c" title="Terracotta" aria-label="Terracotta"></button>
+                  <button type="button" class="accent-swatch" data-accent="#4d7c0f" title="Moss green" aria-label="Moss green"></button>
+                  <button type="button" class="accent-swatch" data-accent="#a16207" title="Amber brown" aria-label="Amber brown"></button>
+                  <button type="button" class="accent-swatch" data-accent="#0f766e" title="Teal earth" aria-label="Teal earth"></button>
+                  <button type="button" class="accent-swatch" data-accent="#57534e" title="Stone" aria-label="Stone"></button>
+                </div>
+              </div>
+              <div class="accent-preset-group">
+                <p class="accent-preset-group-label">Vivid</p>
+                <div class="accent-presets" role="group" aria-label="Vivid accent colors">
+                  <button type="button" class="accent-swatch" data-accent="#e11d48" title="Ruby" aria-label="Ruby"></button>
+                  <button type="button" class="accent-swatch" data-accent="#84cc16" title="Lime" aria-label="Lime"></button>
+                  <button type="button" class="accent-swatch" data-accent="#2563eb" title="Royal blue" aria-label="Royal blue"></button>
+                  <button type="button" class="accent-swatch" data-accent="#ea580c" title="Tangerine" aria-label="Tangerine"></button>
+                  <button type="button" class="accent-swatch" data-accent="#d946ef" title="Fuchsia" aria-label="Fuchsia"></button>
+                </div>
+              </div>
+              <div class="accent-preset-group">
+                <p class="accent-preset-group-label">Muted</p>
+                <div class="accent-presets" role="group" aria-label="Muted accent colors">
+                  <button type="button" class="accent-swatch" data-accent="#64748b" title="Slate" aria-label="Slate muted"></button>
+                  <button type="button" class="accent-swatch" data-accent="#8b7355" title="Taupe" aria-label="Taupe muted"></button>
+                  <button type="button" class="accent-swatch" data-accent="#6b9080" title="Sage" aria-label="Sage muted"></button>
+                  <button type="button" class="accent-swatch" data-accent="#78716b" title="Warm gray" aria-label="Warm gray muted"></button>
+                  <button type="button" class="accent-swatch" data-accent="#7c6f9c" title="Dusty purple" aria-label="Dusty purple muted"></button>
+                </div>
+              </div>
             </div>
             <div class="settings-form" style="margin-top: 1rem;">
               <label for="accent-custom">Custom color</label>
               <input type="color" id="accent-custom" value="#22d3ee" aria-label="Custom accent color">
+            </div>
+            <hr class="settings-hr">
+            <h3 class="settings-h3">Dashboard color theme</h3>
+            <p class="settings-intro small">Backgrounds, panels, borders, and text tones across the hub. Your accent color above still applies to links and primary actions. Saved in your browser. Each preview is Night (left) then Day (right), four bands each: background, surface, border, secondary text—so you can see the real tint.</p>
+            <div id="dashboard-theme-grid" class="dashboard-theme-grid" role="radiogroup" aria-label="Dashboard color theme">
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="default" aria-checked="true">
+                <span class="dashboard-theme-preview dashboard-theme-preview--classic" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Classic</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="ocean" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--ocean" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Ocean</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="forest" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--forest" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Forest</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="sunset" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--sunset" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Sunset</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="lavender" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--lavender" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Lavender</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="ember" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--ember" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Ember</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="arctic" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--arctic" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Arctic</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="slate" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--slate" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Slate</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="midnight" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--midnight" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Midnight</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="sakura" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--sakura" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Sakura</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="sand" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--sand" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Sand</span>
+              </button>
+              <button type="button" class="dashboard-theme-card" role="radio" data-palette="mint" aria-checked="false">
+                <span class="dashboard-theme-preview dashboard-theme-preview--mint" aria-hidden="true"></span>
+                <span class="dashboard-theme-name">Mint</span>
+              </button>
             </div>
           </div>
         </div>

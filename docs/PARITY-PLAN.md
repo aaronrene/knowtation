@@ -10,6 +10,12 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **What we fixed (Phase 1, merged):** On hosted, the Hub UI used to 404 when opening Settings → Team (roles, invites), clicking Save setup (POST /api/v1/setup), using the filter dropdowns (GET /api/v1/notes/facets), or using Import. The canister does not implement those routes. We **fixed** this by adding **gateway stubs** in `hub/gateway/server.mjs`: each of those requests is now handled by the gateway with a valid response (empty list, no-op, or 501 for import) before the request is ever proxied to the canister. No canister changes; the fix is entirely in the gateway. Option B (Muse protocol alignment) and Muse in How to use were shipped in the same branch.
 
+**After Phase 15.1 (merged to `main`, 2026-03 — PR #46–#48):** Hosted **multi-vault data path** (canister partition by `vault_id`, gateway vault list, bridge index/backup per **`X-Vault-Id`**) and Hub UX (**Settings → Create vault**, **busy** states on slow POSTs) match the checklist in [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md).
+
+**Team vault access + scope (hosted):** Implemented in repo: bridge stores **`hub_workspace`** (owner id), **`hub_vault_access`**, **`hub_scope`**; gateway proxies **`GET/POST /api/v1/workspace`**, **`vault-access`**, **`scope`**, **`GET /api/v1/hosted-context`** when **`BRIDGE_URL`** is set; gateway sets **`X-User-Id`** to the **effective canister user** and **`X-Actor-Id`** to the JWT `sub`; notes list / single GET / facets apply **scope** in the gateway; index/search/sync on the bridge use the owner partition for delegated users. Spec: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). Operators must set **`POST /api/v1/workspace`** `{ owner_user_id }` for team sharing.
+
+**Remaining parity vs self-hosted (recommended order):** **POST /api/v1/import** on hosted — still **501** via gateway stub until a dedicated implementation. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 (update that table after deploy verification).
+
 ---
 
 ## Current state (after Phase 1)
@@ -47,14 +53,15 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
 | Settings | Gateway **stub** (GET only) | ✅ |
 | Setup | Gateway **stub** (GET only) | ✅ |
-| Roles | Gateway stub (GET 200 empty list; POST no-op) | ✅ |
-| Invites | Gateway stub (GET 200 empty; POST/DELETE no-op or clear error) | ✅ |
+| Roles | Gateway → **bridge** when `BRIDGE_URL` set; else stubs (empty / no-op) | ✅ |
+| Invites | Gateway → **bridge** when `BRIDGE_URL` set; else stubs | ✅ |
+| Workspace owner, vault-access, scope | Bridge persistence; gateway proxy when `BRIDGE_URL` | ✅ (see [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)) |
 | POST /api/v1/setup | Gateway stub (200 no-op) | ✅ |
 | Import | Gateway stub (501 not yet available on hosted) | ✅ |
 
-The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. On hosted, Phase 1 is complete: the gateway now handles these with stubs, so Team tab and “Save setup” no longer 404.
+The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. With **`BRIDGE_URL`**, roles and invites are **live** on the bridge; without it, gateway stubs apply.
 
-**Multi-vault on hosted:** API/UI may send **`X-Vault-Id`**, but **note storage in the canister is not split by vault yet** (one map per user). True parity with self-hosted multi-vault is **outside** this parity table until Motoko storage + migration ship — see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted.
+**Multi-vault on hosted:** Canister stores notes keyed by **`(userId, vault_id)`** (Phase 15.1 in repo). Production must match git after deploy — see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5.1.
 
 ---
 
@@ -179,25 +186,25 @@ You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Net
 
 **Self-hosted Phase 15:** ✅ **Done** in repo — Node Hub, `hub_vaults.yaml`, access, scope, vault switcher, `X-Vault-Id`; bridge index/search keyed by `(user, vault_id)` when deployed.
 
-**Goal (this phase):** Hosted **canister** (and gateway) support multiple vaults per user so knowtation.store matches self-hosted switching. Today the canister effectively stores **one** vault per user; the Hub vault switcher on hosted will not show real second vaults until this work ships.
+**Hosted Phase 15.1:** ✅ **Done** in repo (PR #46–#48) — canister partition by `vault_id`, gateway passes **`X-Vault-Id`**, Hub **Create vault**, bridge vectors per `(uid, vault_id)`.
+
+**Team access + scope on hosted:** ✅ **Done** in repo — bridge **`hub_workspace`**, **`hub_vault_access`**, **`hub_scope`**; gateway delegation headers and scope filtering — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md).
 
 **Prerequisite:** Phase 1 and 2 done (parity + deploy + bridge wired). Design: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), Phase 15 in IMPLEMENTATION-PLAN.
 
 ### 3.1 Scope (summary)
 
-- Choose direction: multiple vaults per instance (vault list in config/setup) or one vault with scoped visibility (project/folder allowlists per user/role).
-- Backend: config/setup vault list or scope rules; API and canister scope list/search/get-note by vault or scope; gateway and canister honor `vault_id` beyond default.
-- Hub UI: vault switcher or scope hint; Settings/Team: assign vault(s) or scope if applicable.
-- CLI/MCP (optional): `--vault <id>` or equivalent.
+- Multiple vaults per user on the canister; optional per-user **scope** (projects/folders) enforced in the gateway (hosted) and Node Hub (self-hosted).
+- Hub UI: vault switcher; Settings → Vaults: hosted **YAML vault list** remains N/A (501 POST vaults); **vault access** + **scope** JSON editable when bridge is wired.
 
 ### 3.2 Checklist (Phase 3)
 
-- [ ] Direction documented in IMPLEMENTATION-PLAN and MULTI-VAULT-AND-SCOPED-ACCESS.
-- [ ] Config/setup: vault list or scope rules.
-- [ ] Backend (Node Hub and canister): scope list, search, get-note by vault_id/scope.
-- [ ] Gateway: pass X-Vault-Id through; optional gateway-side vault list for hosted.
-- [ ] Hub UI: vault switcher or “This view: vault X”.
-- [ ] Update STATUS-HOSTED-AND-PLANS and PARITY-PLAN when done.
+- [x] Direction documented in IMPLEMENTATION-PLAN and MULTI-VAULT-AND-SCOPED-ACCESS.
+- [x] Canister + gateway: `vault_id` / `X-Vault-Id` for notes, proposals, export.
+- [x] Gateway: vault list from canister; **effective user** + allowlist + scope for delegated teammates ([HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)).
+- [x] Bridge: index/search/sync use effective owner uid for team members; scope filter on index/search/export path.
+- [x] Hub UI: vault switcher; hosted **vault access** + **scope** panels (YAML list hidden on hosted).
+- [x] Update PARITY-PLAN (this section); keep STATUS-HOSTED-AND-PLANS §2.1 in sync after production smoke.
 
 ---
 
@@ -224,6 +231,7 @@ You have: canister on ICP, web/ on 4Everland at knowtation.store, gateway on Net
 | **2** | Deploy hosted (canister, 4Everland, gateway, **bridge**, DNS); **bridge required** — not optional | **Next.** After Phase 1. Do not start Phase 3 until Phase 2 including bridge is complete. See [STATUS-VERIFICATION.md](./STATUS-VERIFICATION.md). |
 | **3** | Multi-vault (Phase 15) | After Phase 2 **complete** (including bridge deploy and wire); per MULTI-VAULT-AND-SCOPED-ACCESS. |
 | **4** | Full hosted roles/invites (bridge store) | **Done.** Bridge stores roles/invites; gateway proxies; invite flow via state + consume. |
+| **4b** | Workspace owner + vault-access + scope (bridge + gateway) | **Done.** See [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). |
 
 **Do not start implementation** of Phase 1 until this plan (and IMPLEMENTATION-PLAN updates) are agreed. After Phase 1 is implemented, update this doc and IMPLEMENTATION-PLAN to mark parity complete and “Next” as Phase 2 (deploy).
 
