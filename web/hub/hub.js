@@ -1904,15 +1904,162 @@
     });
   }
 
+  function populateVaultListExistingSelect(vaults) {
+    const sel = el('vault-list-form-existing');
+    if (!sel) return;
+    let html = '<option value="">New vault</option>';
+    (vaults || []).forEach((v) => {
+      if (v && v.id != null && String(v.id).trim()) {
+        const id = String(v.id).trim();
+        html += '<option value="' + escapeHtml(id) + '">' + escapeHtml(v.label || id) + '</option>';
+      }
+    });
+    sel.innerHTML = html;
+  }
+
+  function parseVaultsJsonArrayFromTextarea() {
+    const ta = el('vaults-json');
+    try {
+      const arr = JSON.parse((ta && ta.value) || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function fillVaultListFormFromExisting() {
+    const sel = el('vault-list-form-existing');
+    const idInp = el('vault-list-form-id');
+    const pathInp = el('vault-list-form-path');
+    const labelInp = el('vault-list-form-label');
+    if (!sel) return;
+    if (!sel.value) {
+      if (idInp) {
+        idInp.value = '';
+        idInp.readOnly = false;
+      }
+      if (pathInp) pathInp.value = '';
+      if (labelInp) labelInp.value = '';
+      return;
+    }
+    const vaults = parseVaultsJsonArrayFromTextarea();
+    if (!vaults) return;
+    const v = vaults.find((x) => x && String(x.id) === sel.value);
+    if (v) {
+      if (idInp) {
+        idInp.value = String(v.id);
+        idInp.readOnly = true;
+      }
+      if (pathInp) pathInp.value = v.path != null ? String(v.path) : '';
+      if (labelInp) labelInp.value = v.label != null ? String(v.label) : '';
+    }
+  }
+
+  function toggleVaultsInfoPanel(panelId) {
+    const panel = el(panelId);
+    const modal = el('modal-settings');
+    if (!panel || !modal) return;
+    const wasHidden = panel.classList.contains('hidden');
+    modal.querySelectorAll('.settings-info-panel').forEach((p) => p.classList.add('hidden'));
+    if (wasHidden) panel.classList.remove('hidden');
+  }
+
+  const modalSettingsForVaultsInfo = el('modal-settings');
+  if (modalSettingsForVaultsInfo) {
+    modalSettingsForVaultsInfo.addEventListener('click', (e) => {
+      const infoBtn = e.target.closest('.btn-settings-info');
+      if (infoBtn && modalSettingsForVaultsInfo.contains(infoBtn)) {
+        e.stopPropagation();
+        const tid = infoBtn.getAttribute('data-settings-info-target');
+        if (tid) toggleVaultsInfoPanel(tid);
+        return;
+      }
+      if (
+        !e.target.closest('.settings-info-panel') &&
+        !e.target.closest('.btn-settings-info')
+      ) {
+        modalSettingsForVaultsInfo.querySelectorAll('.settings-info-panel').forEach((p) => {
+          p.classList.add('hidden');
+        });
+      }
+    });
+  }
+
+  const vaultListExistingSel = el('vault-list-form-existing');
+  if (vaultListExistingSel) {
+    vaultListExistingSel.addEventListener('change', () => {
+      fillVaultListFormFromExisting();
+      const msg = el('vault-list-form-msg');
+      if (msg) msg.textContent = '';
+    });
+  }
+
+  const btnVaultListFormApply = el('btn-vault-list-form-apply');
+  if (btnVaultListFormApply) {
+    btnVaultListFormApply.onclick = () => {
+      const msg = el('vault-list-form-msg');
+      const ta = el('vaults-json');
+      const idInp = el('vault-list-form-id');
+      const pathInp = el('vault-list-form-path');
+      const labelInp = el('vault-list-form-label');
+      const vaults = parseVaultsJsonArrayFromTextarea();
+      if (!vaults) {
+        if (msg) {
+          msg.textContent = 'Fix JSON under Advanced, or reset to [] and try again.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      const id = ((idInp && idInp.value) || '').trim();
+      const path = ((pathInp && pathInp.value) || '').trim();
+      const label = ((labelInp && labelInp.value) || '').trim();
+      if (!id || !path) {
+        if (msg) {
+          msg.textContent = 'Enter vault id and folder path.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      const entry = { id, path };
+      if (label) entry.label = label;
+      const idx = vaults.findIndex((x) => x && String(x.id) === id);
+      if (idx >= 0) {
+        vaults[idx] = Object.assign({}, vaults[idx], entry);
+      } else {
+        if (idInp && idInp.readOnly) {
+          if (msg) {
+            msg.textContent = 'Pick an existing vault from the menu, or New vault for a new id.';
+            msg.className = 'settings-msg err';
+          }
+          return;
+        }
+        vaults.push(entry);
+      }
+      if (ta) ta.value = JSON.stringify(vaults, null, 2);
+      populateVaultListExistingSelect(vaults);
+      const sel = el('vault-list-form-existing');
+      if (sel) sel.value = '';
+      fillVaultListFormFromExisting();
+      const lc = el('vaults-list-container');
+      if (lc && !isHostedHubFromSettings()) {
+        lc.innerHTML =
+          '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
+      }
+      if (msg) {
+        msg.textContent = 'Updated. Click Save vault list to persist.';
+        msg.className = 'settings-msg ok';
+      }
+    };
+  }
+
   async function loadVaultsPanel() {
     const listContainer = el('vaults-list-container');
     const serverView = el('vaults-server-view');
     const vaultsJson = el('vaults-json');
     const accessText = el('vault-access-json');
     const scopeText = el('scope-json');
-      const helpHosted = el('vaults-help-hosted');
-      const helpSelf = el('vaults-help-self-hosted');
-      const selfHostedCallout = el('vaults-self-hosted-ui-callout');
+      const helpHostedBlock = el('vaults-help-hosted-block');
+      const helpSelfBlock = el('vaults-help-self-block');
       const selfHostedEditors = el('vaults-self-hosted-editors');
       const yamlOnly = el('vaults-hub-yaml-only');
       const hostedCreate = el('vaults-hosted-create');
@@ -1924,9 +2071,8 @@
       try {
         const settingsRes = await api('/api/v1/settings');
         const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
-        if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
-        if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
-        if (selfHostedCallout) selfHostedCallout.classList.toggle('hidden', isHosted);
+        if (helpHostedBlock) helpHostedBlock.classList.toggle('hidden', !isHosted);
+        if (helpSelfBlock) helpSelfBlock.classList.toggle('hidden', isHosted);
         if (selfHostedEditors) selfHostedEditors.classList.remove('hidden');
         if (yamlOnly) yamlOnly.classList.toggle('hidden', isHosted);
         if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted);
@@ -1986,24 +2132,22 @@
         const allowedStr = Array.isArray(allowed) && allowed.length ? allowed.join(', ') : '—';
         if (isHosted) {
           serverView.innerHTML =
-            '<strong>Server view (hosted):</strong> Your user ID: <code>' +
+            '<span class="settings-server-view-compact"><strong>You:</strong> <code>' +
             escapeHtml(uid) +
-            '</code>. Vault IDs you may use: <code>' +
+            '</code> · <strong>Vaults:</strong> <code>' +
             escapeHtml(allowedStr) +
-            '</code>. Storage is in the cloud (canister), not a folder on your computer. ' +
-            '<strong>Team checklist:</strong> (1) Shared workspace owner below → (2) <strong>Team</strong> tab invites → (3) Vault access (simple form or JSON) → (4) optional Scope. ' +
-            'The header <strong>Vault</strong> menu lists vaults when there are two or more.';
+            '</code> · Cloud storage. Team: workspace owner → invites → access → scope. <strong>Vault</strong> menu when ≥2 ids.</span>';
         } else {
           const dataDir =
             settingsRes.data_dir_display != null ? escapeHtml(String(settingsRes.data_dir_display)) : 'data';
           serverView.innerHTML =
-            '<strong>Server view:</strong> Your user ID: <code>' +
+            '<span class="settings-server-view-compact"><strong>You:</strong> <code>' +
             escapeHtml(uid) +
-            '</code>. Allowed vaults: <code>' +
+            '</code> · <strong>Allowed vaults:</strong> <code>' +
             escapeHtml(allowedStr) +
-            '</code>. Data dir: <code>' +
+            '</code> · <strong>Data:</strong> <code>' +
             dataDir +
-            '</code>. The header Vault menu only shows vaults you’re allowed here. The Scope form lists every vault on this Hub so admins can configure rules. If a vault is missing from the header, add a Vault access key that <em>exactly</em> matches your user ID (same as Backup tab) with <code>["default", "bornfree"]</code>, save, then refresh.';
+            '</code>. Missing a vault in the header? Fix <strong>Vault access</strong> for your user id.</span>';
         }
       }
       if (listContainer) {
@@ -2015,7 +2159,7 @@
         } else {
           listContainer.innerHTML =
             vaults.length === 0
-              ? '<p class="muted small">No vaults (using default from vault path). Add via JSON below and Save.</p>'
+              ? '<p class="muted small">No extra vaults yet — use the form (id + path) or <strong>Advanced</strong> JSON, then <strong>Save vault list</strong>.</p>'
               : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
         }
       }
@@ -2065,6 +2209,13 @@
           vaults.length === 0
             ? '<option value="default">default</option>'
             : vaults.map((v) => '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(v.label || v.id) + '</option>').join('');
+      }
+
+      if (!isHosted) {
+        populateVaultListExistingSelect(vaults);
+        const vSel = el('vault-list-form-existing');
+        if (vSel) vSel.value = '';
+        fillVaultListFormFromExisting();
       }
     } catch (e) {
       if (listContainer) listContainer.textContent = 'Could not load: ' + (e.message || '');

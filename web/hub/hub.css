@@ -495,6 +495,90 @@ button.btn-new-note.btn-busy::after {
 .toast.toast-err { border-color: #ef4444; color: #fca5a5; }
 .list-item.selected { border-color: var(--accent); background: rgba(34, 211, 238, 0.12); }
 
+/* Settings → Vaults: lead, info buttons, spacing */
+.settings-vaults-lead-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.settings-vaults-lead {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.settings-vaults-lead-sub {
+  font-weight: 400;
+}
+.settings-h3-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.35rem;
+}
+.settings-h3-row .settings-h3 {
+  margin: 0;
+}
+.btn-settings-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent);
+  line-height: 0;
+  flex-shrink: 0;
+}
+.btn-settings-info:hover {
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+.btn-settings-info-svg {
+  display: block;
+}
+.settings-info-panel {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(34, 211, 238, 0.06);
+  max-width: 42rem;
+}
+.settings-info-panel--section {
+  margin-top: 0.25rem;
+  margin-bottom: 0.65rem;
+}
+.settings-intro-tight {
+  margin-top: 0;
+  margin-bottom: 0.45rem;
+}
+.settings-server-view-compact {
+  display: block;
+  line-height: 1.45;
+}
+.settings-vaults-vault-list-block {
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.25rem;
+}
+.settings-vaults-gap-before-access {
+  margin-top: 0.25rem;
+}
+.settings-vaults-after-access-save {
+  margin-top: 0.65rem;
+  margin-bottom: 2.25rem;
+}
+.settings-vaults-scope-heading {
+  margin-top: 0.25rem;
+}
+.settings-vaults-save-row {
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
 /* Settings → Vaults: checkbox grid + collapsible JSON (self-hosted + hosted) */
 .access-vault-checkboxes { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; align-items: center; }
 .access-vault-checkboxes label { cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
