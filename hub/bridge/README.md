@@ -45,15 +45,22 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 
 ## Run locally
 
+The bridge is an **API server** (default **http://localhost:3341**), not a separate browser app. It **requires** a real **`CANISTER_URL`** and **`SESSION_SECRET`** (or **`HUB_JWT_SECRET`**) — if `npm start` exits immediately, those are missing. Copy **`hub/bridge/.env.example`** into the **repository root** `.env` (the bridge loads `../../.env` automatically) and fill in your canister URL and secret.
+
 ```bash
 cd hub/bridge
 npm install
+# Option A — vars in repo root .env (recommended; see .env.example)
+npm start
+# Option B — export in shell
 export CANISTER_URL=https://<canister-id>.ic0.app
 export SESSION_SECRET=your-secret
 export HUB_BASE_URL=http://localhost:3341
 export GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=...
 npm start
 ```
+
+**Self-hosted Hub** (`npm run hub` → usually **http://localhost:3333**) uses **`hub/server.mjs`** and local files; it does **not** use the bridge unless you run the **gateway** with **`BRIDGE_URL`** pointing at this process.
 
 Hub UI (hosted) must call this bridge for Connect GitHub and Back up now. Either set a separate bridge URL in the UI config, or run gateway and bridge on the same host and have the gateway proxy `/api/v1/vault/sync` and `/auth/github-connect` to the bridge.
 

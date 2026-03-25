@@ -1333,7 +1333,9 @@ app.post('/api/v1/search', async (req, res) => {
 
 if (!isServerless) {
   if (!CANISTER_URL || !SESSION_SECRET) {
-    console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required');
+    console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required.');
+    console.error('  Add them to the repo root .env (bridge loads ../../.env) or export in your shell.');
+    console.error('  Template: hub/bridge/.env.example');
     process.exit(1);
   }
   app.listen(PORT, () => {

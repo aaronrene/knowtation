@@ -403,6 +403,9 @@
             <div class="settings-form">
               <label for="team-user-id">User ID</label>
               <input type="text" id="team-user-id" placeholder="e.g. github:12345678">
+              <div class="settings-form-actions" style="margin: 0.35rem 0 0.5rem;">
+                <button type="button" id="btn-team-user-use-me" class="btn-secondary">Use my User ID</button>
+              </div>
               <label for="team-role">Role</label>
               <select id="team-role">
                 <option value="viewer">Viewer (read only)</option>
@@ -444,9 +447,10 @@
         <div id="settings-panel-vaults" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
+            <p class="settings-intro small hidden" id="vaults-self-hosted-ui-callout"><strong>Self-hosted (local Hub):</strong> Use the <strong>Simple form</strong> under Vault access and the <strong>Person</strong> menu under Scope — same controls as hosted, no bridge. Open <strong>Advanced</strong> only if you want raw JSON. Hard-refresh the page (<kbd>Cmd+Shift+R</kbd> / <kbd>Ctrl+Shift+R</kbd>) if you don’t see them after updating.</p>
             <p class="settings-intro small" id="vaults-help-switcher">Use the <strong>Vault</strong> dropdown in the header when it appears (the server must report two or more vault IDs for your account).</p>
             <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, think of each <strong>vault id</strong> as a separate cloud notebook. Use <strong>Add a vault</strong> to create another id, then pick it from the <strong>Vault</strong> menu in the header. For a <strong>team</strong>: (1) set <strong>Shared workspace owner</strong> below to the lead person’s User ID, (2) invite people under <strong>Settings → Team</strong>, (3) use <strong>Vault access</strong> (checkboxes or JSON) to say which vaults each person may open, (4) optionally use <strong>Scope</strong> to limit them to certain folders or projects. Requires the <strong>bridge</strong> to be connected in production.</p>
-            <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, open <strong>Server view</strong> below and ensure your user ID appears in <strong>Vault access</strong> with every vault id you need, then save and refresh.</p>
+            <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, use the <strong>Simple form</strong> or <strong>Advanced</strong> JSON under <strong>Vault access</strong> so your user ID lists every vault id you need, then save and refresh. Check <strong>Server view</strong> below.</p>
             <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
             <div id="vaults-hosted-create" class="hidden" style="margin: 1rem 0 1.25rem;">
               <h3 class="settings-h3">Add a vault (hosted)</h3>

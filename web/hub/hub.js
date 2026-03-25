@@ -1912,6 +1912,7 @@
     const scopeText = el('scope-json');
       const helpHosted = el('vaults-help-hosted');
       const helpSelf = el('vaults-help-self-hosted');
+      const selfHostedCallout = el('vaults-self-hosted-ui-callout');
       const selfHostedEditors = el('vaults-self-hosted-editors');
       const yamlOnly = el('vaults-hub-yaml-only');
       const hostedCreate = el('vaults-hosted-create');
@@ -1925,6 +1926,7 @@
         const isHosted = String(settingsRes.vault_path_display || '').toLowerCase() === 'canister';
         if (helpHosted) helpHosted.classList.toggle('hidden', !isHosted);
         if (helpSelf) helpSelf.classList.toggle('hidden', isHosted);
+        if (selfHostedCallout) selfHostedCallout.classList.toggle('hidden', isHosted);
         if (selfHostedEditors) selfHostedEditors.classList.remove('hidden');
         if (yamlOnly) yamlOnly.classList.toggle('hidden', isHosted);
         if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted);
@@ -2497,6 +2499,36 @@
     } catch (e) {
       listEl.textContent = 'Could not load: ' + (e.message || '');
     }
+  }
+
+  const btnTeamUserUseMe = el('btn-team-user-use-me');
+  if (btnTeamUserUseMe) {
+    btnTeamUserUseMe.onclick = async () => {
+      const userIdInput = el('team-user-id');
+      const msgEl = el('team-save-msg');
+      let uid =
+        lastBackupSettingsPayload && lastBackupSettingsPayload.user_id != null
+          ? String(lastBackupSettingsPayload.user_id)
+          : '';
+      if (!uid) {
+        try {
+          const s = await api('/api/v1/settings');
+          lastBackupSettingsPayload = s;
+          uid = s.user_id != null ? String(s.user_id) : '';
+        } catch (e) {
+          if (msgEl) {
+            msgEl.textContent = e.message || 'Could not load your User ID.';
+            msgEl.className = 'settings-msg err';
+          }
+          return;
+        }
+      }
+      if (userIdInput) userIdInput.value = uid;
+      if (msgEl) {
+        msgEl.textContent = 'Filled with your User ID. Pick a role, then Add / update role.';
+        msgEl.className = 'settings-msg';
+      }
+    };
   }
 
   const btnTeamSave = el('btn-team-save');
