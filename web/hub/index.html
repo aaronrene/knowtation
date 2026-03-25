@@ -490,9 +490,9 @@
             </div>
             </div>
             <h3 class="settings-h3">Vault access</h3>
-            <p class="settings-intro small">Choose which <strong>vault notebooks</strong> each person may open. Users not listed get <code>default</code> only. On <strong>hosted</strong>, use the simple form; JSON is optional.</p>
-            <div id="vaults-hosted-access-form" class="hidden">
-              <h4 class="settings-h4">Simple form (hosted)</h4>
+            <p class="settings-intro small">Choose which <strong>vault notebooks</strong> each person may open. Users not listed get <code>default</code> only. Use the <strong>simple form</strong> below (same on self-hosted and hosted); open <strong>Advanced</strong> only if you want raw JSON.</p>
+            <div id="vaults-access-simple-form">
+              <h4 class="settings-h4">Simple form</h4>
               <p class="settings-intro small">Names come from <strong>Settings → Team</strong> (roles). Pick a person, tick vaults, <strong>Apply to rules</strong>, then <strong>Save vault access</strong> below.</p>
               <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
                 <div>
@@ -528,10 +528,10 @@
               <span id="vault-access-save-msg" class="settings-msg"></span>
             </div>
             <h3 class="settings-h3">Scope (per user per vault)</h3>
-            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault. On hosted, you can pick a teammate from the list or type a User ID.</p>
+            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault. Pick a teammate from the list or type a User ID.</p>
             <div class="settings-form scope-form-simple">
               <p class="settings-intro small" style="margin-bottom: 0.5rem;"><strong>Add from form</strong> — then click <strong>Save scope</strong> below.</p>
-              <div id="vaults-hosted-scope-user-picker" class="hidden settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+              <div id="vaults-scope-user-picker" class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
                 <div>
                   <label for="scope-form-user-select">Person</label>
                   <select id="scope-form-user-select" class="settings-select-inline" aria-label="Teammate for scope"></select>

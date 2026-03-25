@@ -495,7 +495,7 @@ button.btn-new-note.btn-busy::after {
 .toast.toast-err { border-color: #ef4444; color: #fca5a5; }
 .list-item.selected { border-color: var(--accent); background: rgba(34, 211, 238, 0.12); }
 
-/* Hosted Settings → Vaults: checkbox grid + collapsible JSON */
+/* Settings → Vaults: checkbox grid + collapsible JSON (self-hosted + hosted) */
 .access-vault-checkboxes { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; align-items: center; }
 .access-vault-checkboxes label { cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
 .access-rules-summary { margin: 0.25rem 0 0; padding-left: 1.1rem; }

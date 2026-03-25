@@ -2021,45 +2021,39 @@
       if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
       if (scopeText) scopeText.value = JSON.stringify(sRes.scope || {}, null, 2);
 
-      const hostedAccessForm = el('vaults-hosted-access-form');
-      const hostedScopePicker = el('vaults-hosted-scope-user-picker');
-      if (hostedAccessForm) hostedAccessForm.classList.toggle('hidden', !isHosted);
-      if (hostedScopePicker) hostedScopePicker.classList.toggle('hidden', !isHosted);
       const vaultAccessDetails = el('vault-access-json-details');
-      if (vaultAccessDetails) vaultAccessDetails.open = !isHosted;
+      if (vaultAccessDetails) vaultAccessDetails.open = false;
       const scopeJsonDetails = el('scope-json-details');
-      if (scopeJsonDetails) scopeJsonDetails.open = !isHosted;
+      if (scopeJsonDetails) scopeJsonDetails.open = false;
 
-      if (isHosted) {
-        let roleIds = [];
-        try {
-          const ro = await api('/api/v1/roles');
-          roleIds = Object.keys(ro.roles || {});
-        } catch (_) {
-          roleIds = [];
-        }
-        populateHostedTeamUserSelect(
-          el('access-form-user-select'),
-          roleIds,
-          settingsRes.user_id,
-          '— Choose a person —',
-        );
-        populateHostedTeamUserSelect(
-          el('scope-form-user-select'),
-          roleIds,
-          settingsRes.user_id,
-          '— Choose or type User ID below —',
-        );
-        const asel = el('access-form-user-select');
-        if (asel) asel.value = '';
-        const ssel = el('scope-form-user-select');
-        if (ssel) ssel.value = '';
-        accessFormToggleOtherInput();
-        const vaultIdsForForm = collectVaultIdsForAccessForm(vaults, settingsRes);
-        renderAccessVaultCheckboxes(vaultIdsForForm);
-        accessFormSyncCheckboxesFromAccessJson();
-        refreshAccessRulesSummary(parseVaultAccessFromTextarea());
+      let roleIds = [];
+      try {
+        const ro = await api('/api/v1/roles');
+        roleIds = Object.keys(ro.roles || {});
+      } catch (_) {
+        roleIds = [];
       }
+      populateHostedTeamUserSelect(
+        el('access-form-user-select'),
+        roleIds,
+        settingsRes.user_id,
+        '— Choose a person —',
+      );
+      populateHostedTeamUserSelect(
+        el('scope-form-user-select'),
+        roleIds,
+        settingsRes.user_id,
+        '— Choose or type User ID below —',
+      );
+      const asel = el('access-form-user-select');
+      if (asel) asel.value = '';
+      const ssel = el('scope-form-user-select');
+      if (ssel) ssel.value = '';
+      accessFormToggleOtherInput();
+      const vaultIdsForForm = collectVaultIdsForAccessForm(vaults, settingsRes);
+      renderAccessVaultCheckboxes(vaultIdsForForm);
+      accessFormSyncCheckboxesFromAccessJson();
+      refreshAccessRulesSummary(parseVaultAccessFromTextarea());
 
       const scopeVaultSelect = el('scope-form-vault-id');
       if (scopeVaultSelect) {
