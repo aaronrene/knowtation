@@ -4,6 +4,21 @@ Checklist for fixing the malformed Connect GitHub URL and Unauthorized response.
 
 ---
 
+## 0. GitHub OAuth App — every callback URL (copy-paste)
+
+GitHub shows **“Be careful! … redirect_uri is not associated with this application”** when the authorize request uses a `redirect_uri` that is **not** listed on the OAuth App. **Login** and **Connect GitHub** (vault push token) use **different paths**. If you use **one** OAuth app for local Hub + hosted bridge, register **all** rows that apply.
+
+| Where you use it | Flow | Add this exact **Authorization callback URL** |
+|------------------|------|-----------------------------------------------|
+| Self-hosted `npm run hub` (default port **3333**) | Sign in with GitHub | `http://localhost:3333/api/v1/auth/callback/github` |
+| Self-hosted `npm run hub` (port **3333**) | **Connect GitHub** in Settings → Backup | `http://localhost:3333/api/v1/auth/callback/github-connect` |
+| Hosted **bridge** (Netlify or other) | **Connect GitHub** only | `https://YOUR-BRIDGE-HOST/auth/callback/github-connect` (example: `https://knowtation-bridge.netlify.app/auth/callback/github-connect`) |
+| Hosted **gateway** | Sign in with GitHub | `https://YOUR-GATEWAY-HOST/auth/callback/github` (gateway uses `/auth/callback/github`, **not** `/api/v1/...` — see [hub/gateway/README.md](../hub/gateway/README.md)) |
+
+**Self-hosted:** `HUB_BASE_URL` must match the host/port in these URLs (see [hub/README.md](../hub/README.md) § GitHub). **Hosted bridge:** `HUB_BASE_URL` on the bridge site must match the `https://…` origin used in the bridge callback row.
+
+---
+
 ## 1. Does empty Local Storage mean we need to redeploy?
 
 **No.** Empty Local Storage does **not** by itself mean you must redeploy.

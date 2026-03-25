@@ -60,7 +60,8 @@ There is **no separate “Sign up”**. Identity is **Google or GitHub**: the fi
 3. Restart the Hub → **Continue with GitHub**.  
    **If you see GitHub’s “Be careful! … redirect_uri is not associated with this application”:** the **Authorization callback URL** in your GitHub OAuth App must match **exactly** what this server uses — for `npm run hub` that is **`http://localhost:3333/api/v1/auth/callback/github`** (note **`/api/v1/`**; not `/auth/callback/github`, which is the **gateway** path). Add both callback URLs from step 1 if anything is missing.  
    **If you use Connect GitHub:** the same OAuth App must also list `http://localhost:3333/api/v1/auth/callback/github-connect`.  
-   **Production:** set `HUB_BASE_URL=https://your-domain.com` and add `https://your-domain.com/api/v1/auth/callback/github` and `https://your-domain.com/api/v1/auth/callback/github-connect` to the GitHub app.
+   **Production:** set `HUB_BASE_URL=https://your-domain.com` and add `https://your-domain.com/api/v1/auth/callback/github` and `https://your-domain.com/api/v1/auth/callback/github-connect` to the GitHub app.  
+   **Hosted product (gateway + bridge):** the **Connect GitHub** callback lives on the **bridge** (`/auth/callback/github-connect` on the bridge origin), not on the full Hub server. Copy-paste table: [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §0.
 
 ## Docker
 

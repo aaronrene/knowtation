@@ -29,6 +29,8 @@
       </div>
     </header>
 
+    <div id="hub-api-base-footgun-banner" class="hub-api-footgun-banner hidden" role="alert" aria-live="polite"></div>
+
     <div id="login-required" class="panel login-first-screen">
       <div id="login-invite-banner" class="login-invite-banner hidden" role="status"></div>
       <div class="login-hero">
@@ -84,7 +86,7 @@
         <p><strong>OAuth is not configured yet.</strong> The Hub only accepts login through Google or GitHub. Add credentials to your project <code>.env</code>, then restart the Hub.</p>
         <ul class="oauth-steps">
           <li><strong>Google:</strong> Cloud Console → OAuth client (Web) → redirect URI <code>http://localhost:3333/api/v1/auth/callback/google</code> → set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.</li>
-          <li><strong>GitHub:</strong> Settings → Developer settings → OAuth App → callback <code>http://localhost:3333/api/v1/auth/callback/github</code> → set <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code>.</li>
+          <li><strong>GitHub:</strong> OAuth App → <strong>Authorization callback URLs</strong> (add <em>both</em> for local Hub): <code>http://localhost:3333/api/v1/auth/callback/github</code> (login) and <code>http://localhost:3333/api/v1/auth/callback/github-connect</code> (<strong>Connect GitHub</strong> for backup). Set <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code> in <code>.env</code>.</li>
         </ul>
         <p class="muted">See <code>hub/README.md</code> (section “Log in (OAuth)”).</p>
         <p class="hosted-note muted">If you're on a hosted Knowtation site, the provider has already set this up—just sign in above.</p>
@@ -379,6 +381,10 @@ Your note body here.</pre>
             <div class="settings-row">
               <span class="settings-label">Git backup</span>
               <span id="settings-git-status" class="settings-value">—</span>
+            </div>
+            <div class="settings-row hidden" id="settings-api-base-row" title="Shown on localhost for self-hosted debugging">
+              <span class="settings-label">API base</span>
+              <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
             </div>
             <div class="settings-row" id="settings-github-connect-row">
               <span class="settings-label">GitHub</span>
@@ -1324,6 +1330,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260330b"></script>
+  <script src="hub.js?v=20260331a"></script>
 </body>
 </html>
