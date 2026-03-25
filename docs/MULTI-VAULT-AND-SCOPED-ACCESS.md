@@ -50,8 +50,12 @@ Order was: **operational hosted baseline** → **canister partition** → **veri
 | 6 | Vault list source of truth on hosted | **Done (canister-derived)** | No `hub_vault_access.json` for **other users’** vault visibility on same tenant; see STATUS §2.1 |
 | 7 | Gateway **`GET /api/v1/settings`** **`vault_list`** / **`allowed_vault_ids`** | **Done** | Fetches canister **`/api/v1/vaults`** |
 | 8 | Tests + migration static verify | Ongoing | **`npm test`**; **`npm run canister:verify-migration`** |
+| 9 | Hub **Settings → Vaults → Create vault** (hosted) | **Done** | PR **#47** — bootstrap note + **`X-Vault-Id`**; refreshes switcher and panel |
+| 10 | Hub **busy state** on slow POSTs (save, sync, vaults, team, …) | **Done** | PR **#48** — label + disabled + spinner (`.btn-busy`) |
 
-**Optional product polish (not required for data parity):** Hosted **scoped folders** (`hub_scope.json` parity); **second-vault bootstrap** UX (header switcher hidden until **2+** vault ids exist — first extra vault needs a **write** with that **`X-Vault-Id`**, e.g. agent/CLI, or advanced: set **`localStorage`** key **`hub_vault_id`** then create a note). **MCP D2/D3** per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
+**Optional product polish (not required for data parity):** **Second-vault bootstrap** is largely addressed by row 9 (**Create vault** in Settings); agents/CLI can still target a new vault id via **`X-Vault-Id`** as before.
+
+**Next hosted parity (not done):** **Team vault access** (which vault IDs another user may use — self-hosted **`hub_vault_access.json`** today) and **scope** (**`hub_scope.json`** — projects/folders per user per vault) on the **canister/bridge** path. Track alongside [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 and [PARITY-PLAN.md](./PARITY-PLAN.md). **Hub Import** on hosted (**501**) is a separate slice, usually **after** access/scope unless product reorders. **MCP D2/D3** per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
 
 ---
 

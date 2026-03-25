@@ -10,6 +10,8 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **What we fixed (Phase 1, merged):** On hosted, the Hub UI used to 404 when opening Settings → Team (roles, invites), clicking Save setup (POST /api/v1/setup), using the filter dropdowns (GET /api/v1/notes/facets), or using Import. The canister does not implement those routes. We **fixed** this by adding **gateway stubs** in `hub/gateway/server.mjs`: each of those requests is now handled by the gateway with a valid response (empty list, no-op, or 501 for import) before the request is ever proxied to the canister. No canister changes; the fix is entirely in the gateway. Option B (Muse protocol alignment) and Muse in How to use were shipped in the same branch.
 
+**After Phase 15.1 (merged to `main`, 2026-03 — PR #46–#48):** Hosted **multi-vault data path** (canister partition by `vault_id`, gateway vault list, bridge index/backup per **`X-Vault-Id`**) and Hub UX (**Settings → Create vault**, **busy** states on slow POSTs) match the checklist in [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md). **Remaining parity vs self-hosted (recommended order):** (1) **Vault access** + **scope** for teammates on hosted — today only file-backed JSON on Node Hub; (2) **POST /api/v1/import** on hosted — still **501** via gateway stub until a dedicated implementation. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1.
+
 ---
 
 ## Current state (after Phase 1)

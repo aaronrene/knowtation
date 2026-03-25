@@ -1,6 +1,6 @@
 # Status: hosted product, multi-vault, Phase 12
 
-**Roadmap:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) · **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Next engineering focus:** **Phase 15.1** — canister-backed **true** multi-vault (partition by `vault_id`); use **[HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md)** so the same V1 migration **reserves** hosted **subscription + optional top-up** fields for **Phase 16**. **Billing product:** **[HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md)** — **Free** tier + **Stripe** paid tiers + **rollover add-ons**; transparent **per-action** costs in **`billing/summary`**; **`BILLING_SHADOW_LOG`** for research; gateway **`hub/gateway/billing-*.mjs`**. **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
+**Roadmap:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) · **`npm test` is green** in repo. **Production is live** (landing + Hub + gateway + canister); **bridge** works when deployed and **`BRIDGE_URL`** is set on the gateway (reported operational). **Phase 15.1 (repo):** merged to **`main`** (**PR #46** partition + gateway/bridge; **#47** Hub **Create vault**; **#48** busy UI on slow actions). **Ops:** redeploy ICP canister + run §5.1 when the live canister may lag git. **Next hosted parity (product order):** (1) **Team vault access + scope** on hosted — mirror self-hosted **`hub_vault_access`** / **`hub_scope`** (see §2.1); (2) **Hub Import** (gateway **501** today). Use **[HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md)** for V1 migration fields reserved for **Phase 16**. **Billing product:** **[HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md)**. **Manual verification:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + §2.1 parity table below.
 
 Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, and **Phase 12 (blockchain)**.
 
@@ -8,7 +8,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 
 **Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Order: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
 
-**Hosted multi-vault (Phase 15.1):** **In repo:** canister `vault_id` partitioning, V1 migration, gateway vault list / scoping, bridge export+index paths—see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted. **Ops:** redeploy canister, then preflight + migration verify scripts. With **little or no production data**, migration risk stays **minimal**.
+**Hosted multi-vault (Phase 15.1):** **In repo and merged:** canister `vault_id` partitioning, V1 migration, gateway vault list, bridge export+index paths, Hub **Create vault** + busy states — [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted (**PR #46–#48**). **Ops:** redeploy canister when needed, then preflight + migration verify scripts. With **little or no production data**, migration risk stays **minimal**.
 
 **Testing:** Run **`npm test`** regularly; fix known failing tests so CI reflects reality. Add tests alongside hub/canister changes — see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 15.
 
@@ -71,7 +71,8 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 | **Import (Hub upload)** | Works | 501 stub on gateway (not yet on hosted) |
 | **Facets (filter dropdowns)** | Real data from notes | Gateway aggregates from canister note list per **`X-Vault-Id`** ([hub/gateway/note-facets.mjs](../hub/gateway/note-facets.mjs), [hub/gateway/server.mjs](../hub/gateway/server.mjs) `GET /api/v1/notes/facets`) |
 | **Multi-vault + vault switcher** | ✅ `hub_vaults.yaml`, access, scope, `X-Vault-Id`; notes isolated per vault | ✅ **In repo:** canister + gateway + bridge respect `vault_id` / `X-Vault-Id` for notes, proposals, export, and bridge index paths. **Production:** confirm ICP canister is redeployed from current `hub/icp` before relying on isolation (see §2). |
-| **Vault access JSON (admin)** | ✅ | N/A on hosted (no `hub_vault_access.json` on canister path today) |
+| **Vault access JSON (admin)** | ✅ | **Not yet** — next parity slice: team **vault allowlist** on hosted (no `hub_vault_access.json` on canister path today) |
+| **Scope JSON (admin)** | ✅ | **Not yet** — same slice as access: **`hub_scope.json`** semantics on hosted |
 
 **Commits (reference):** Phase 15 multi-vault (self-hosted) merged; `b4002be` and related — hosted roles/invites via bridge; gateway proxies search/index/vault/roles/invites when `BRIDGE_URL` is set.
 
@@ -108,8 +109,8 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 |----------|------|
 | **Keep CI honest** | Run **`npm test`** on every meaningful change (root of repo). |
 | **Hosted re-verify (you)** | After any deploy or env change, walk [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + UI smoke: login, create note, search/re-index, Connect GitHub / Back up now if you use them. Optional demo notes: `npm run seed:hosted-showcase` (see [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md)); legacy C-themed seed: `scripts/seed-hosted-c-data.mjs`. |
-| **Hosted multi-vault (canister) — Phase 15.1** | **Main product gap for parity with self-hosted.** Partition Motoko storage by `vault_id`, scoped export/list/write; then align backup and settings vault list. [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) checklist. |
-| **Parity gaps (no canister)** | Hub **Import** hosted stub (501); **facets** empty unless aggregated from canister — [PARITY-PLAN.md](./PARITY-PLAN.md). |
+| **Hosted multi-vault (canister) — Phase 15.1** | **Repo:** merged (**#46–#48**). **Production:** redeploy + §5.1 if needed. **Next gap vs self-hosted:** **vault access + scope** for teammates, then **Hub Import** (501) — [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [PARITY-PLAN.md](./PARITY-PLAN.md). |
+| **Parity gaps** | **Access/scope** on hosted (planned next). **Import:** gateway **501** until implemented. **Facets:** aggregated from canister when configured — [PARITY-PLAN.md](./PARITY-PLAN.md). |
 | **Phase 15 self-hosted** | ✅ `hub_vaults.yaml`, access, scope, Hub UI. |
 | **MCP hosted (Issue #1)** | D2/D3 etc. after stable hosted baseline — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). |
 | **Phase 16 (hosted billing)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); Stripe subscriptions + metering; future credit top-ups — IMPLEMENTATION-PLAN Phase 16. |
