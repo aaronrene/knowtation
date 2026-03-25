@@ -499,10 +499,41 @@ button.btn-new-note.btn-busy::after {
 .access-vault-checkboxes { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; align-items: center; }
 .access-vault-checkboxes label { cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
 .access-rules-summary { margin: 0.25rem 0 0; padding-left: 1.1rem; }
-.settings-json-details { margin-top: 0.35rem; }
-.settings-json-details-summary { cursor: pointer; font-weight: 600; color: var(--accent); list-style: none; }
-.settings-json-details-summary::-webkit-details-marker { display: none; }
-.settings-json-details[open] .settings-json-details-summary { margin-bottom: 0.25rem; }
+.settings-json-details { margin-top: 0.35rem; border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.65rem 0.65rem; background: var(--surface); }
+.settings-json-details-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  user-select: none;
+  padding: 0.25rem 0;
+}
+.settings-json-details-summary::-webkit-details-marker,
+.settings-json-details-summary::marker {
+  display: none;
+  content: '';
+}
+/* Custom disclosure arrow (native marker hidden above) */
+.settings-json-details-summary::before {
+  content: '';
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+  margin-top: -0.1rem;
+}
+.settings-json-details[open] > .settings-json-details-summary::before {
+  transform: rotate(45deg);
+  margin-top: -0.2rem;
+}
+.settings-json-details[open] > .settings-json-details-summary { margin-bottom: 0.35rem; }
 
 /* Loading state */
 .loading-state { padding: 2rem; text-align: center; color: var(--muted); }

@@ -2023,6 +2023,8 @@
       if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
       if (scopeText) scopeText.value = JSON.stringify(sRes.scope || {}, null, 2);
 
+      const vaultListJsonDetails = el('vault-list-json-details');
+      if (vaultListJsonDetails) vaultListJsonDetails.open = false;
       const vaultAccessDetails = el('vault-access-json-details');
       if (vaultAccessDetails) vaultAccessDetails.open = false;
       const scopeJsonDetails = el('scope-json-details');

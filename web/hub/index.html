@@ -482,16 +482,19 @@
             <div id="vaults-self-hosted-editors">
             <div id="vaults-hub-yaml-only">
             <h3 class="settings-h3">Vault list</h3>
-            <p class="settings-intro small">Vaults are defined in <code>data/hub_vaults.yaml</code>. At least one vault must have id <code>default</code>. Edit the JSON array and save.</p>
+            <p class="settings-intro small">Summary of vaults on this Hub (from <code>data/hub_vaults.yaml</code>). At least one must have id <code>default</code>. Use <strong>Advanced</strong> below only if you need to edit the raw JSON (paths on disk).</p>
             <div id="vaults-list-container" class="settings-vaults-list"></div>
-            <div class="settings-form">
-              <label for="vaults-json">Vaults (JSON array)</label>
-              <textarea id="vaults-json" class="settings-json-textarea" rows="6" placeholder='[{"id":"default","path":"./vault","label":"My vault"}]'></textarea>
-            </div>
-            <div class="settings-form-actions" style="margin-top: 0.5rem;">
-              <button type="button" id="btn-vaults-save" class="btn-primary">Save vault list</button>
-              <span id="vaults-save-msg" class="settings-msg"></span>
-            </div>
+            <details id="vault-list-json-details" class="settings-json-details">
+              <summary class="settings-json-details-summary">Advanced: edit vault list as JSON</summary>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="vaults-json">Vaults (JSON array)</label>
+                <textarea id="vaults-json" class="settings-json-textarea" rows="6" placeholder='[{"id":"default","path":"./vault","label":"My vault"}]'></textarea>
+              </div>
+              <div class="settings-form-actions" style="margin-top: 0.5rem;">
+                <button type="button" id="btn-vaults-save" class="btn-primary">Save vault list</button>
+                <span id="vaults-save-msg" class="settings-msg"></span>
+              </div>
+            </details>
             </div>
             <h3 class="settings-h3">Vault access</h3>
             <p class="settings-intro small">Choose which <strong>vault notebooks</strong> each person may open. Users not listed get <code>default</code> only. Use the <strong>simple form</strong> below (same on self-hosted and hosted); open <strong>Advanced</strong> only if you want raw JSON.</p>
