@@ -2735,6 +2735,13 @@
   }
 
   const currentAccent = () => document.documentElement.style.getPropertyValue('--accent').trim() || DEFAULT_ACCENT;
+  function paintAccentSwatches() {
+    document.querySelectorAll('.accent-swatch').forEach((btn) => {
+      const hex = btn.dataset.accent;
+      if (hex) btn.style.backgroundColor = hex;
+    });
+  }
+  paintAccentSwatches();
   document.querySelectorAll('.accent-swatch').forEach((btn) => {
     btn.addEventListener('click', () => {
       const hex = btn.dataset.accent;

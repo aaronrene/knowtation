@@ -437,10 +437,38 @@ button.btn-new-note.btn-busy::after {
 .theme-btn { padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; cursor: pointer; }
 .theme-btn:hover { border-color: var(--accent); }
 .theme-btn[aria-pressed="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+.accent-preset-groups { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.35rem; }
+.accent-preset-group-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
 .accent-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.accent-swatch { width: 2.25rem; height: 2.25rem; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; background: var(--bg); }
+/* Fill set in JS from data-accent (was var(--bg) so swatches looked all black in dark mode) */
+.accent-swatch {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
 .accent-swatch:hover { border-color: var(--text); transform: scale(1.08); }
-.accent-swatch.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface); }
+.accent-swatch.active {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 2px var(--surface), 0 0 0 3px var(--text);
+}
+[data-theme="light"] .accent-swatch {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .accent-swatch.active {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--surface), 0 0 0 3px var(--text);
+}
 #accent-custom { width: 100%; max-width: 8rem; height: 2.5rem; padding: 0.2rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
 .settings-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
 .settings-msg { font-size: 0.9rem; color: var(--muted); }
