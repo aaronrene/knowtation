@@ -1752,6 +1752,158 @@
     });
   });
 
+  function collectVaultIdsForAccessForm(vaults, settingsRes) {
+    const set = new Set(['default']);
+    const allowed =
+      settingsRes && Array.isArray(settingsRes.allowed_vault_ids) ? settingsRes.allowed_vault_ids : [];
+    allowed.forEach((id) => {
+      if (id != null && String(id).trim()) set.add(String(id).trim());
+    });
+    (vaults || []).forEach((v) => {
+      if (v && v.id != null && String(v.id).trim()) set.add(String(v.id).trim());
+    });
+    return Array.from(set).sort((a, b) => {
+      if (a === 'default') return -1;
+      if (b === 'default') return 1;
+      return a.localeCompare(b);
+    });
+  }
+
+  function populateHostedTeamUserSelect(selectEl, roleIds, currentUserId, emptyLabel) {
+    if (!selectEl) return;
+    const uids = new Set();
+    (roleIds || []).forEach((id) => {
+      if (id != null && String(id).trim()) uids.add(String(id).trim());
+    });
+    if (currentUserId != null && String(currentUserId).trim()) {
+      uids.add(String(currentUserId).trim());
+    }
+    const sorted = Array.from(uids).sort((a, b) => a.localeCompare(b));
+    let html = '<option value="">' + escapeHtml(emptyLabel || '— Choose —') + '</option>';
+    sorted.forEach((uid) => {
+      html += '<option value="' + escapeHtml(uid) + '">' + escapeHtml(uid) + '</option>';
+    });
+    html += '<option value="__other__">' + escapeHtml('Someone else (type User ID)…') + '</option>';
+    selectEl.innerHTML = html;
+  }
+
+  function renderAccessVaultCheckboxes(vaultIds) {
+    const wrap = el('access-form-vault-checkboxes');
+    if (!wrap) return;
+    if (!vaultIds.length) {
+      wrap.innerHTML =
+        '<span class="muted small">No vault ids yet — use <code>default</code> or create another vault above.</span>';
+      return;
+    }
+    wrap.innerHTML = vaultIds
+      .map((id) => {
+        const idAttr = escapeHtml(id);
+        return (
+          '<label><input type="checkbox" name="hub-access-vault" value="' +
+          idAttr +
+          '"> <code>' +
+          idAttr +
+          '</code></label>'
+        );
+      })
+      .join('');
+  }
+
+  function parseVaultAccessFromTextarea() {
+    const accessText = el('vault-access-json');
+    try {
+      const access = JSON.parse((accessText && accessText.value) || '{}');
+      return typeof access === 'object' && access !== null && !Array.isArray(access) ? access : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function refreshAccessRulesSummary(access) {
+    const wrap = el('access-rules-summary');
+    if (!wrap) return;
+    if (typeof access !== 'object' || access === null) access = {};
+    const keys = Object.keys(access);
+    if (keys.length === 0) {
+      wrap.innerHTML =
+        '<li class="muted">No custom rules. Unlisted users only get the <code>default</code> vault.</li>';
+      return;
+    }
+    wrap.innerHTML = keys
+      .sort((a, b) => a.localeCompare(b))
+      .map((uid) => {
+        const arr = access[uid];
+        const vaults =
+          Array.isArray(arr) && arr.length
+            ? arr.map((x) => escapeHtml(String(x))).join(', ')
+            : '<span class="muted">(invalid)</span>';
+        return '<li><code>' + escapeHtml(uid) + '</code> → ' + vaults + '</li>';
+      })
+      .join('');
+  }
+
+  function accessFormToggleOtherInput() {
+    const sel = el('access-form-user-select');
+    const wrap = el('access-form-user-other-wrap');
+    const other = el('access-form-user-other');
+    if (!sel || !wrap) return;
+    const show = sel.value === '__other__';
+    wrap.classList.toggle('hidden', !show);
+    if (!show && other) other.value = '';
+  }
+
+  function accessFormSyncCheckboxesFromAccessJson() {
+    const sel = el('access-form-user-select');
+    const other = el('access-form-user-other');
+    if (!sel) return;
+    let uid = '';
+    if (sel.value === '__other__') {
+      uid = ((other && other.value) || '').trim();
+    } else {
+      uid = (sel.value || '').trim();
+    }
+    const access = parseVaultAccessFromTextarea();
+    const allowed = uid && Array.isArray(access[uid]) ? access[uid] : [];
+    document.querySelectorAll('input[name="hub-access-vault"]').forEach((cb) => {
+      cb.checked = allowed.indexOf(cb.value) !== -1;
+    });
+  }
+
+  function getAccessFormResolvedUserId() {
+    const sel = el('access-form-user-select');
+    const other = el('access-form-user-other');
+    if (!sel) return '';
+    if (sel.value === '__other__') return ((other && other.value) || '').trim();
+    return (sel.value || '').trim();
+  }
+
+  const accessUserSel = el('access-form-user-select');
+  if (accessUserSel) {
+    accessUserSel.addEventListener('change', () => {
+      accessFormToggleOtherInput();
+      accessFormSyncCheckboxesFromAccessJson();
+    });
+  }
+  const accessUserOther = el('access-form-user-other');
+  if (accessUserOther) {
+    accessUserOther.addEventListener('input', () => {
+      if (el('access-form-user-select') && el('access-form-user-select').value === '__other__') {
+        accessFormSyncCheckboxesFromAccessJson();
+      }
+    });
+  }
+  const scopeUserSelInit = el('scope-form-user-select');
+  if (scopeUserSelInit) {
+    scopeUserSelInit.addEventListener('change', () => {
+      const inp = el('scope-form-user-id');
+      if (scopeUserSelInit.value === '__other__') {
+        if (inp) inp.focus();
+      } else if (scopeUserSelInit.value && inp) {
+        inp.value = scopeUserSelInit.value;
+      }
+    });
+  }
+
   async function loadVaultsPanel() {
     const listContainer = el('vaults-list-container');
     const serverView = el('vaults-server-view');
@@ -1837,7 +1989,7 @@
             '</code>. Vault IDs you may use: <code>' +
             escapeHtml(allowedStr) +
             '</code>. Storage is in the cloud (canister), not a folder on your computer. ' +
-            '<strong>Team checklist:</strong> (1) Shared workspace owner below → (2) <strong>Team</strong> tab invites → (3) Vault access JSON → (4) optional Scope. ' +
+            '<strong>Team checklist:</strong> (1) Shared workspace owner below → (2) <strong>Team</strong> tab invites → (3) Vault access (simple form or JSON) → (4) optional Scope. ' +
             'The header <strong>Vault</strong> menu lists vaults when there are two or more.';
         } else {
           const dataDir =
@@ -1868,6 +2020,47 @@
       if (vaultsJson) vaultsJson.value = JSON.stringify(vaults, null, 2);
       if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
       if (scopeText) scopeText.value = JSON.stringify(sRes.scope || {}, null, 2);
+
+      const hostedAccessForm = el('vaults-hosted-access-form');
+      const hostedScopePicker = el('vaults-hosted-scope-user-picker');
+      if (hostedAccessForm) hostedAccessForm.classList.toggle('hidden', !isHosted);
+      if (hostedScopePicker) hostedScopePicker.classList.toggle('hidden', !isHosted);
+      const vaultAccessDetails = el('vault-access-json-details');
+      if (vaultAccessDetails) vaultAccessDetails.open = !isHosted;
+      const scopeJsonDetails = el('scope-json-details');
+      if (scopeJsonDetails) scopeJsonDetails.open = !isHosted;
+
+      if (isHosted) {
+        let roleIds = [];
+        try {
+          const ro = await api('/api/v1/roles');
+          roleIds = Object.keys(ro.roles || {});
+        } catch (_) {
+          roleIds = [];
+        }
+        populateHostedTeamUserSelect(
+          el('access-form-user-select'),
+          roleIds,
+          settingsRes.user_id,
+          '— Choose a person —',
+        );
+        populateHostedTeamUserSelect(
+          el('scope-form-user-select'),
+          roleIds,
+          settingsRes.user_id,
+          '— Choose or type User ID below —',
+        );
+        const asel = el('access-form-user-select');
+        if (asel) asel.value = '';
+        const ssel = el('scope-form-user-select');
+        if (ssel) ssel.value = '';
+        accessFormToggleOtherInput();
+        const vaultIdsForForm = collectVaultIdsForAccessForm(vaults, settingsRes);
+        renderAccessVaultCheckboxes(vaultIdsForForm);
+        accessFormSyncCheckboxesFromAccessJson();
+        refreshAccessRulesSummary(parseVaultAccessFromTextarea());
+      }
+
       const scopeVaultSelect = el('scope-form-vault-id');
       if (scopeVaultSelect) {
         scopeVaultSelect.innerHTML =
@@ -2050,11 +2243,79 @@
         if (err) throw new Error(err);
         await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
         if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+        refreshAccessRulesSummary(parseVaultAccessFromTextarea());
       } catch (e) {
         if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
       }
     });
   };
+
+  const btnAccessFormApply = el('btn-access-form-apply');
+  if (btnAccessFormApply) {
+    btnAccessFormApply.onclick = () => {
+      const msg = el('access-form-msg');
+      const uid = getAccessFormResolvedUserId();
+      if (!uid) {
+        if (msg) {
+          msg.textContent = 'Choose a person or type a User ID under “Someone else”.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      const checked = Array.from(
+        document.querySelectorAll('input[name="hub-access-vault"]:checked'),
+      ).map((c) => c.value);
+      if (checked.length === 0) {
+        if (msg) {
+          msg.textContent = 'Tick at least one vault.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      const access = parseVaultAccessFromTextarea();
+      access[uid] = checked;
+      const ta = el('vault-access-json');
+      if (ta) ta.value = JSON.stringify(access, null, 2);
+      refreshAccessRulesSummary(access);
+      if (msg) {
+        msg.textContent = 'Updated. Click Save vault access to persist.';
+        msg.className = 'settings-msg ok';
+      }
+    };
+  }
+
+  const btnAccessFormRemove = el('btn-access-form-remove-user');
+  if (btnAccessFormRemove) {
+    btnAccessFormRemove.onclick = () => {
+      const msg = el('access-form-msg');
+      const uid = getAccessFormResolvedUserId();
+      if (!uid) {
+        if (msg) {
+          msg.textContent = 'Choose a person to remove.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      const access = parseVaultAccessFromTextarea();
+      if (!Object.prototype.hasOwnProperty.call(access, uid)) {
+        if (msg) {
+          msg.textContent = 'No rule for that user.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      delete access[uid];
+      const ta = el('vault-access-json');
+      if (ta) ta.value = JSON.stringify(access, null, 2);
+      refreshAccessRulesSummary(access);
+      accessFormSyncCheckboxesFromAccessJson();
+      if (msg) {
+        msg.textContent = 'Removed from rules. Save vault access to persist.';
+        msg.className = 'settings-msg ok';
+      }
+    };
+  }
+
   const btnScopeSave = el('btn-scope-save');
   if (btnScopeSave) btnScopeSave.onclick = async () => {
     const msg = el('scope-save-msg');
@@ -2071,6 +2332,36 @@
       }
     });
   };
+
+  const btnWorkspaceUseMe = el('btn-workspace-use-me');
+  if (btnWorkspaceUseMe) {
+    btnWorkspaceUseMe.onclick = async () => {
+      const input = el('workspace-owner-input');
+      const msg = el('workspace-save-msg');
+      let uid =
+        lastBackupSettingsPayload && lastBackupSettingsPayload.user_id != null
+          ? String(lastBackupSettingsPayload.user_id)
+          : '';
+      if (!uid) {
+        try {
+          const s = await api('/api/v1/settings');
+          lastBackupSettingsPayload = s;
+          uid = s.user_id != null ? String(s.user_id) : '';
+        } catch (e) {
+          if (msg) {
+            msg.textContent = e.message || 'Could not load your User ID.';
+            msg.className = 'settings-msg err';
+          }
+          return;
+        }
+      }
+      if (input) input.value = uid;
+      if (msg) {
+        msg.textContent = 'Filled with your User ID. Click Save workspace owner when ready.';
+        msg.className = 'settings-msg ok';
+      }
+    };
+  }
 
   const btnWorkspaceSave = el('btn-workspace-save');
   if (btnWorkspaceSave) {

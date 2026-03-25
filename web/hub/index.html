@@ -445,7 +445,7 @@
           <div class="settings-body">
             <p class="settings-intro">Multi-vault (Phase 15): list vaults, assign vault access to users, and set per-vault scope (projects/folders). Only admins see this tab.</p>
             <p class="settings-intro small" id="vaults-help-switcher">Use the <strong>Vault</strong> dropdown in the header when it appears (the server must report two or more vault IDs for your account).</p>
-            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, think of each <strong>vault id</strong> as a separate cloud notebook. Use <strong>Add a vault</strong> to create another id, then pick it from the <strong>Vault</strong> menu in the header. For a <strong>team</strong>: (1) set <strong>Shared workspace owner</strong> below to the lead person’s User ID, (2) invite people under <strong>Settings → Team</strong>, (3) use <strong>Vault access</strong> to say which vaults each person may open, (4) optionally use <strong>Scope</strong> to limit them to certain folders or projects. Requires the <strong>bridge</strong> to be connected in production.</p>
+            <p class="settings-intro small hidden" id="vaults-help-hosted">On <strong>hosted (beta)</strong>, think of each <strong>vault id</strong> as a separate cloud notebook. Use <strong>Add a vault</strong> to create another id, then pick it from the <strong>Vault</strong> menu in the header. For a <strong>team</strong>: (1) set <strong>Shared workspace owner</strong> below to the lead person’s User ID, (2) invite people under <strong>Settings → Team</strong>, (3) use <strong>Vault access</strong> (checkboxes or JSON) to say which vaults each person may open, (4) optionally use <strong>Scope</strong> to limit them to certain folders or projects. Requires the <strong>bridge</strong> to be connected in production.</p>
             <p class="settings-intro small hidden" id="vaults-help-self-hosted">If the header menu is missing a vault, open <strong>Server view</strong> below and ensure your user ID appears in <strong>Vault access</strong> with every vault id you need, then save and refresh.</p>
             <div id="vaults-server-view" class="settings-vaults-server-view muted small" aria-live="polite">Loading…</div>
             <div id="vaults-hosted-create" class="hidden" style="margin: 1rem 0 1.25rem;">
@@ -468,6 +468,7 @@
                 <label for="workspace-owner-input">Workspace owner user ID</label>
                 <input type="text" id="workspace-owner-input" class="settings-input-inline" placeholder="e.g. google:104164334692309763642" autocomplete="off" spellcheck="false" style="min-width: 20rem; max-width: 100%; display: block; margin: 0.35rem 0 0.5rem;">
                 <div class="settings-form-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                  <button type="button" id="btn-workspace-use-me" class="btn-secondary">Use my User ID</button>
                   <button type="button" id="btn-workspace-save" class="btn-primary">Save workspace owner</button>
                   <button type="button" id="btn-workspace-clear" class="btn-secondary">Clear — solo mode</button>
                 </div>
@@ -489,19 +490,53 @@
             </div>
             </div>
             <h3 class="settings-h3">Vault access</h3>
-            <p class="settings-intro small">Map user IDs to allowed vault IDs. Users not listed get <code>default</code> only. Format: <code>{"user_id": ["vault_id1", "vault_id2"]}</code>.</p>
-            <div class="settings-form">
-              <label for="vault-access-json">Access (JSON)</label>
-              <textarea id="vault-access-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": ["default", "work"]}'></textarea>
-              <div class="settings-form-actions">
-                <button type="button" id="btn-vault-access-save" class="btn-primary">Save vault access</button>
-                <span id="vault-access-save-msg" class="settings-msg"></span>
+            <p class="settings-intro small">Choose which <strong>vault notebooks</strong> each person may open. Users not listed get <code>default</code> only. On <strong>hosted</strong>, use the simple form; JSON is optional.</p>
+            <div id="vaults-hosted-access-form" class="hidden">
+              <h4 class="settings-h4">Simple form (hosted)</h4>
+              <p class="settings-intro small">Names come from <strong>Settings → Team</strong> (roles). Pick a person, tick vaults, <strong>Apply to rules</strong>, then <strong>Save vault access</strong> below.</p>
+              <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+                <div>
+                  <label for="access-form-user-select">Person</label>
+                  <select id="access-form-user-select" class="settings-select-inline" aria-label="Teammate for vault access"></select>
+                </div>
+                <div id="access-form-user-other-wrap" class="hidden">
+                  <label for="access-form-user-other">Their User ID</label>
+                  <input type="text" id="access-form-user-other" class="settings-input-inline" placeholder="e.g. google:…" autocomplete="off" spellcheck="false" style="min-width: 16rem;">
+                </div>
               </div>
+              <fieldset class="settings-fieldset-compact" style="margin: 0.85rem 0; padding: 0.65rem 1rem; border: 1px solid var(--border, #444); border-radius: 6px;">
+                <legend class="small" style="padding: 0 0.35rem;">Vaults they can open</legend>
+                <div id="access-form-vault-checkboxes" class="access-vault-checkboxes" role="group" aria-label="Vaults allowed for this person"></div>
+              </fieldset>
+              <div class="settings-form-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                <button type="button" id="btn-access-form-apply" class="btn-secondary">Apply to rules</button>
+                <button type="button" id="btn-access-form-remove-user" class="btn-secondary">Remove this person</button>
+              </div>
+              <span id="access-form-msg" class="settings-msg" role="status"></span>
+              <p class="settings-intro small muted" style="margin-top: 0.65rem;">Preview</p>
+              <ul id="access-rules-summary" class="settings-list small access-rules-summary"></ul>
+            </div>
+            <details id="vault-access-json-details" class="settings-json-details">
+              <summary class="settings-json-details-summary">Advanced: edit access as JSON</summary>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="vault-access-json">Access (JSON)</label>
+                <textarea id="vault-access-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": ["default", "work"]}'></textarea>
+              </div>
+            </details>
+            <div class="settings-form-actions" style="margin-top: 0.5rem;">
+              <button type="button" id="btn-vault-access-save" class="btn-primary">Save vault access</button>
+              <span id="vault-access-save-msg" class="settings-msg"></span>
             </div>
             <h3 class="settings-h3">Scope (per user per vault)</h3>
-            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault.</p>
+            <p class="settings-intro small">Restrict a user to specific projects/folders in a vault. Omitted = full vault. On hosted, you can pick a teammate from the list or type a User ID.</p>
             <div class="settings-form scope-form-simple">
-              <p class="settings-intro small" style="margin-bottom: 0.5rem;"><strong>Add from form</strong> — then click Save scope below to persist.</p>
+              <p class="settings-intro small" style="margin-bottom: 0.5rem;"><strong>Add from form</strong> — then click <strong>Save scope</strong> below.</p>
+              <div id="vaults-hosted-scope-user-picker" class="hidden settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
+                <div>
+                  <label for="scope-form-user-select">Person</label>
+                  <select id="scope-form-user-select" class="settings-select-inline" aria-label="Teammate for scope"></select>
+                </div>
+              </div>
               <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center;">
                 <label for="scope-form-user-id">User ID</label>
                 <input type="text" id="scope-form-user-id" class="settings-input-inline" placeholder="e.g. google:123" style="min-width: 12rem;">
@@ -515,13 +550,16 @@
               </div>
               <span id="scope-form-msg" class="settings-msg"></span>
             </div>
-            <div class="settings-form">
-              <label for="scope-json">Scope (JSON)</label>
-              <textarea id="scope-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": {"default": {"projects": ["my-project"], "folders": ["inbox"]}}}'></textarea>
-              <div class="settings-form-actions">
-                <button type="button" id="btn-scope-save" class="btn-primary">Save scope</button>
-                <span id="scope-save-msg" class="settings-msg"></span>
+            <details id="scope-json-details" class="settings-json-details">
+              <summary class="settings-json-details-summary">Advanced: edit scope as JSON</summary>
+              <div class="settings-form" style="margin-top: 0.75rem;">
+                <label for="scope-json">Scope (JSON)</label>
+                <textarea id="scope-json" class="settings-json-textarea" rows="8" placeholder='{"github:123": {"default": {"projects": ["my-project"], "folders": ["inbox"]}}}'></textarea>
               </div>
+            </details>
+            <div class="settings-form-actions" style="margin-top: 0.5rem;">
+              <button type="button" id="btn-scope-save" class="btn-primary">Save scope</button>
+              <span id="scope-save-msg" class="settings-msg"></span>
             </div>
             </div>
             <hr class="settings-hr">
