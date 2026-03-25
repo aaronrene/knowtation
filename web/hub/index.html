@@ -94,9 +94,14 @@
     <main id="main" class="hidden">
       <section class="search-section">
         <input type="text" id="search-query" placeholder="Search by meaning (not exact words)…" autocomplete="off" aria-label="Semantic search query" aria-describedby="search-semantic-hint">
-        <select id="filter-project">
-          <option value="">All projects</option>
-        </select>
+        <div class="filter-project-wrap">
+          <select id="filter-project">
+            <option value="">All projects</option>
+          </select>
+          <button type="button" id="btn-projects-help" class="btn-inline-field-help hidden" title="How projects work on hosted" aria-label="How projects work on hosted">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </button>
+        </div>
         <select id="filter-tag">
           <option value="">All tags</option>
         </select>
@@ -271,6 +276,27 @@
         <input type="text" id="import-tags" placeholder="tag1, tag2">
         <button type="button" id="btn-import-submit" class="btn-primary">Import</button>
         <p id="import-msg" class="create-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-projects-help" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-projects-help-title">
+      <div class="modal-backdrop" id="modal-projects-help-backdrop"></div>
+      <div class="modal-card modal-card-projects-help">
+        <div class="modal-header">
+          <h2 id="modal-projects-help-title">Projects on hosted Knowtation</h2>
+          <button type="button" id="modal-projects-help-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="modal-projects-help-body">
+          <p class="muted small" style="margin-top:0;">Unlike self-hosted (folders on disk), the cloud vault has no filesystem path per project.</p>
+          <p><strong>Create a project</strong> by setting a <code>project</code> slug in a note’s YAML frontmatter, then saving. Example:</p>
+          <pre>---
+project: my-team
+title: Kickoff
+---
+
+Your note body here.</pre>
+          <p class="small muted" style="margin-bottom:0;">The slug <code>my-team</code> then appears in the project menu and filter chips. Use <strong>+ New note</strong> or Import and include the same field on other notes to group them.</p>
         </div>
       </div>
     </div>
