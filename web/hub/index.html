@@ -288,15 +288,19 @@
           <button type="button" id="modal-projects-help-close" class="modal-close" aria-label="Close">×</button>
         </div>
         <div class="modal-projects-help-body">
-          <p class="muted small" style="margin-top:0;">Unlike self-hosted (folders on disk), the cloud vault has no filesystem path per project.</p>
-          <p><strong>Create a project</strong> by setting a <code>project</code> slug in a note’s YAML frontmatter, then saving. Example:</p>
-          <pre>---
+          <p style="margin-top:0;">On hosted Knowtation, a <strong>project</strong> is just a name you put on your notes so they stay grouped together.</p>
+          <p><strong>To start a project:</strong> create a note (for example with <strong>+ New note</strong>) and add a <strong>project name</strong> on that note. That first note starts the project. Add the same project name on other notes to keep them in the same group.</p>
+          <p class="small muted" style="margin-bottom:0;">The name then shows up in the <strong>project</strong> menu and in quick filter chips. It is not a folder path like on self-hosted.</p>
+          <details class="modal-projects-help-details">
+            <summary>Technical: YAML <code>project</code> field</summary>
+            <p class="small muted">In the note editor, the project is stored as a <code>project</code> field in the YAML block at the top of the file (frontmatter). Example:</p>
+            <pre>---
 project: my-team
 title: Kickoff
 ---
 
 Your note body here.</pre>
-          <p class="small muted" style="margin-bottom:0;">The slug <code>my-team</code> then appears in the project menu and filter chips. Use <strong>+ New note</strong> or Import and include the same field on other notes to group them.</p>
+          </details>
         </div>
       </div>
     </div>
@@ -379,8 +383,9 @@ Your note body here.</pre>
             <div class="settings-row" id="settings-github-connect-row">
               <span class="settings-label">GitHub</span>
               <span id="settings-github-status" class="settings-value">—</span>
-              <a id="btn-connect-github" class="btn-secondary hidden" href="#" target="_self">Connect GitHub</a>
+              <button type="button" id="btn-connect-github" class="btn-secondary hidden">Connect GitHub</button>
             </div>
+            <p class="settings-intro small hidden" id="settings-hosted-connect-github-hint">Connects in <strong>this browser tab</strong> (you may leave Settings). Each signed-in user authorizes their own GitHub account for pushes. You need an empty GitHub repo and its <code>owner/repo</code> in the field below before <strong>Back up now</strong>.</p>
             <div id="settings-hosted-backup-repo-section" class="settings-hosted-repo-block hidden" role="region" aria-label="Hosted backup repository">
               <p class="settings-intro small">For <strong>hosted</strong> backup, enter the GitHub repository as <code>owner/repo</code>. A <strong>brand-new empty</strong> repo (no README yet) is fine — the first <strong>Back up now</strong> creates the initial commit. This is sent with <strong>Back up now</strong>; after a successful push the repo is remembered for next time.</p>
               <div class="settings-form settings-form-compact">
@@ -480,12 +485,17 @@ Your note body here.</pre>
             </div>
             <div id="vaults-overview-help" class="settings-info-panel hidden" role="region" aria-label="Vaults tab help">
               <div id="vaults-help-hosted-block" class="hidden">
-                <p class="small">Each <strong>vault id</strong> is a separate cloud notebook. Use <strong>Add a vault</strong> for new ids, then the header <strong>Vault</strong> menu. Teams: set <strong>Shared workspace owner</strong>, invite under <strong>Team</strong>, then <strong>Vault access</strong> and optional <strong>Scope</strong>. Needs a connected <strong>bridge</strong> in production.</p>
+                <p class="small"><strong>Hosted (cloud)</strong> — A <strong>vault id</strong> is a separate cloud notebook (not a folder on your computer). The header <strong>Vault</strong> menu switches notebooks you’re allowed to open.</p>
+                <p class="small"><strong>Shared workspace</strong> — One setting: <strong>workspace owner</strong> (whose cloud notes the team uses). This deployment does not offer multiple separate “workspaces” in the UI—one owner id, many vault ids inside that cloud. Teammates: <strong>Team</strong> → roles, then <strong>Vault access</strong> (and optional <strong>Scope</strong>).</p>
+                <p class="small"><strong>Who creates vaults?</strong> If a workspace owner is set, <strong>only that person</strong> can create <em>new</em> vault ids here; admins still assign who may open which vault. Solo / no owner: you can add vaults yourself.</p>
+                <p class="small"><strong>Projects</strong> — A <strong>project</strong> is a label on notes (for filters and grouping). It is not the same as a vault. Notes still have paths like <code>inbox/…</code> in the cloud; you don’t browse a real disk—use project names and filters the same way you use tags.</p>
               </div>
               <div id="vaults-help-self-block" class="hidden">
-                <p class="small">Vaults are folders on this machine (<code>data/hub_vaults.yaml</code>). Use the form under <strong>Vault list</strong> for id + path, or <strong>Advanced</strong> for raw JSON. <strong>Vault access</strong> / <strong>Scope</strong> use the simple forms; open <strong>Advanced</strong> only for JSON.</p>
+                <p class="small"><strong>Self-hosted</strong> — Each <strong>vault</strong> is a <strong>folder on this machine</strong> (<code>data/hub_vaults.yaml</code> lists id + path). Use <strong>Vault list</strong> or <strong>Advanced</strong> JSON. There is <strong>no</strong> cloud “workspace owner” field here—this install is your environment.</p>
+                <p class="small"><strong>Who adds vaults?</strong> Any user with <strong>admin</strong> role can add or change vault folders and save the vault list.</p>
+                <p class="small"><strong>Projects</strong> — Same idea as hosted: group notes by <code>project:</code> in frontmatter <em>and/or</em> by putting files under <code>projects/&lt;name&gt;/</code> on disk. Paths are real folders you can open in the OS.</p>
               </div>
-              <p class="small muted" style="margin-bottom: 0;">Header <strong>Vault</strong> menu appears when you have two or more vault ids you’re allowed to use.</p>
+              <p class="small muted" style="margin-bottom: 0;">Header <strong>Vault</strong> menu appears when you have two or more vault ids you’re allowed to use. Another “world” entirely = another sign-in (Google/GitHub) or another Hub deployment—not a second workspace row here.</p>
             </div>
             <div id="vaults-hub-yaml-only" class="hidden settings-vaults-vault-list-block">
               <div class="settings-h3-row">
@@ -547,6 +557,9 @@ Your note body here.</pre>
               <p id="vaults-hosted-create-hint" class="settings-intro small muted" style="margin-top: 0.35rem;">Creates one starter note under <code>inbox/</code> in the new vault. Agents can also use header <code>X-Vault-Id</code> with the same id.</p>
               <span id="vaults-hosted-create-msg" class="settings-msg" role="status"></span>
             </div>
+            <div id="vaults-hosted-create-non-owner" class="settings-info-panel settings-info-panel--section hidden" role="status">
+              <p class="small" style="margin:0;">You’re using a <strong>shared workspace</strong>. Only the <strong>workspace owner</strong> can create new cloud vault ids (separate notebooks). Ask them to add the vault here, then an admin can grant access under <strong>Vault access</strong> below.</p>
+            </div>
             <div id="vaults-hosted-workspace" class="hidden" style="margin: 1.25rem 0; padding: 1rem 0; border-top: 1px solid var(--border, #333); border-bottom: 1px solid var(--border, #333);">
               <h3 class="settings-h3">Shared workspace owner (hosted teams)</h3>
               <p class="settings-intro small">Imagine one shared filing cabinet in the cloud. The <strong>workspace owner</strong> is whose cabinet everyone opens when they’re on the team. Paste the owner’s User ID (same format as <strong>Settings → Backup → Your user ID</strong>—usually <em>your</em> ID if you’re the lead). Until this is set, each person only sees their <em>own</em> empty cloud space. After you set it, invited teammates (with roles from <strong>Team</strong>) read and write <strong>that</strong> owner’s notes.</p>
@@ -568,7 +581,7 @@ Your note body here.</pre>
                 <svg class="btn-settings-info-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
-            <div id="vault-access-help" class="settings-info-panel settings-info-panel--section hidden">People not listed only get the <code>default</code> vault. Use <strong>Team</strong> roles to fill the Person menu. Apply, then <strong>Save vault access</strong>.</div>
+            <div id="vault-access-help" class="settings-info-panel settings-info-panel--section hidden">People not listed only get the <code>default</code> vault. Use <strong>Team</strong> roles to fill the Person menu. Tick vaults · <strong>Apply to rules</strong> · then click <strong>Save vault access</strong> (required — rules are not saved until then).</div>
             <p class="settings-intro small settings-intro-tight">Who may open which vault.</p>
             <div id="vaults-access-simple-form">
               <p class="settings-intro small muted" style="margin-bottom: 0.5rem;">From <strong>Team</strong> · Apply, then save below.</p>
@@ -602,7 +615,7 @@ Your note body here.</pre>
               </div>
             </details>
             <div class="settings-form-actions settings-vaults-after-access-save">
-              <button type="button" id="btn-vault-access-save" class="btn-primary">Save vault access</button>
+              <button type="button" id="btn-vault-access-save" class="btn-primary btn-vault-access-save-emphasis">Save vault access</button>
               <span id="vault-access-save-msg" class="settings-msg"></span>
             </div>
             <div class="settings-h3-row settings-vaults-scope-heading">
@@ -1045,6 +1058,11 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <h4 class="how-to-sub">Multiple vaults and multiple users</h4>
             <p>On <strong>self-hosted</strong> you can have multiple vaults (Settings → Vaults): define a vault list (<code>data/hub_vaults.yaml</code>), then map each <strong>user</strong> to the vaults they can see (<code>data/hub_vault_access.json</code>). Optionally restrict a user to certain projects or folders within a vault (<code>data/hub_scope.json</code>). See <code>docs/MULTI-VAULT-AND-SCOPED-ACCESS.md</code> for full setup.</p>
             <p><strong>User ID</strong> is <code>provider:id</code> — e.g. <code>google:104164334692309763642</code> if you signed in with Google, or <code>github:12345678</code> if you signed in with GitHub. You see yours in Settings → Backup (“Your user ID”). Each sign-in identity is one user; if you have several Gmail or GitHub accounts, each account that signs in gets its own user ID. Admins add each ID to roles and vault access as needed. So the same Hub can serve many users, each with access to their assigned vaults (and optionally scoped to certain projects/folders).</p>
+            <h4 class="how-to-sub">Hosted vs self-hosted: workspace, vaults, projects</h4>
+            <p><strong>Self-hosted</strong> — One Hub install (often one machine) with one or more <strong>vaults</strong>, each vault = a <strong>folder on disk</strong>. There is no “shared workspace owner” setting. Any <strong>admin</strong> can add or change vault folders in Settings → Vaults. <strong>Projects</strong> group notes by path (e.g. <code>projects/Launch/…</code>) and/or by <code>project:</code> in note frontmatter.</p>
+            <p><strong>Hosted (beta)</strong> — Vaults live in the <strong>cloud</strong> (vault ids like <code>default</code>, <code>work</code>), not as folders on your laptop. <strong>Workspace owner</strong> (Settings → Vaults) is optional: if set, the team shares <em>that person’s</em> cloud notes; only <strong>that owner</strong> can create <em>new</em> vault ids, while admins still control <strong>Vault access</strong> / <strong>Scope</strong> for others. This site has <strong>one</strong> workspace-owner setting—not multiple separate workspaces in the UI. A fully separate “world” = another Google/GitHub account or another deployment.</p>
+            <p><strong>Projects on hosted</strong> — Same <em>idea</em> as self-hosted (group and filter notes), but you don’t rely on OS folders: put a <strong>project name</strong> on the note (see the <strong>(i)</strong> next to the project filter). Notes still have paths like <code>inbox/note.md</code> in storage—that’s not the same as picking a separate vault.</p>
+            <p class="how-to-note"><strong>Why not identical to self-hosted?</strong> Cloud storage is keyed by user and vault id; letting every admin spawn new partitions without tying it to the account that “owns” that data would blur ownership and backups. Self-hosted is just files—any admin may point the Hub at another folder. See Settings → Vaults → <strong>(i)</strong> for the short version anytime.</p>
             <p><strong>Backup:</strong> “Connect GitHub” and “Back up now” are per <strong>logged-in user</strong>. Each user can connect their own GitHub account and push to their own repo (or to the repo configured for the vault they’re in). Different users can back up to different repositories; they could also point to the same repo if you set remotes that way (e.g. different branches), but the Hub UI stores one token per user and pushes the current vault’s folder to that vault’s remote.</p>
             <section id="how-to-flexible-network" class="how-to-step" style="margin-top: 1.5rem;">
               <h4 class="how-to-sub">Hub as a flexible network</h4>

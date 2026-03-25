@@ -1717,16 +1717,27 @@
         applyHostedUiFromSettings(s);
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
+        const hostedGhHint = el('settings-hosted-connect-github-hint');
         if (s.github_connect_available) {
           if (connectBtn) {
-            // Pass JWT so the bridge knows who is connecting (link is a full navigation; no Authorization header sent)
-            connectBtn.href = apiBase + '/api/v1/auth/github-connect' + (token ? '?token=' + encodeURIComponent(token) : '');
             connectBtn.classList.remove('hidden');
+            connectBtn.onclick = () => {
+              const base = apiBase.replace(/\/$/, '');
+              const qs = token ? '?' + new URLSearchParams({ token }).toString() : '';
+              window.location.assign(base + '/api/v1/auth/github-connect' + qs);
+            };
           }
           if (ghStatus) ghStatus.textContent = s.github_connected ? 'Connected (token stored for push)' : 'Not connected';
         } else {
-          if (connectBtn) connectBtn.classList.add('hidden');
+          if (connectBtn) {
+            connectBtn.classList.add('hidden');
+            connectBtn.onclick = null;
+          }
           if (ghStatus) ghStatus.textContent = '—';
+        }
+        if (hostedGhHint) {
+          const vd = s.vault_path_display || '';
+          hostedGhHint.classList.toggle('hidden', !(String(vd).toLowerCase() === 'canister' && s.github_connect_available));
         }
         const hostedRepoSection = el('settings-hosted-backup-repo-section');
         const hostedRepoInput = el('settings-hosted-repo');
@@ -1759,6 +1770,8 @@
         if (el('agents-embedding-ollama-url')) el('agents-embedding-ollama-url').textContent = ed.ollama_url || '—';
       })
       .catch(() => {
+        const hostedGhHint = el('settings-hosted-connect-github-hint');
+        if (hostedGhHint) hostedGhHint.classList.add('hidden');
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = '—';
         const userIdEl = el('settings-user-id');
@@ -2187,7 +2200,15 @@
         if (helpSelfBlock) helpSelfBlock.classList.toggle('hidden', isHosted);
         if (selfHostedEditors) selfHostedEditors.classList.remove('hidden');
         if (yamlOnly) yamlOnly.classList.toggle('hidden', isHosted);
-        if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted);
+        const ownerFromSettings =
+          settingsRes.workspace_owner_id != null && String(settingsRes.workspace_owner_id).trim() !== ''
+            ? String(settingsRes.workspace_owner_id).trim()
+            : '';
+        const meFromSettings = settingsRes.user_id != null ? String(settingsRes.user_id) : '';
+        const nonOwnerInSharedWorkspace = isHosted && ownerFromSettings && meFromSettings !== ownerFromSettings;
+        if (hostedCreate) hostedCreate.classList.toggle('hidden', !isHosted || nonOwnerInSharedWorkspace);
+        const hostedNonOwnerMsg = el('vaults-hosted-create-non-owner');
+        if (hostedNonOwnerMsg) hostedNonOwnerMsg.classList.toggle('hidden', !isHosted || !nonOwnerInSharedWorkspace);
         if (workspacePanel) workspacePanel.classList.toggle('hidden', !isHosted);
         const hostedCreateMsg = el('vaults-hosted-create-msg');
         if (hostedCreateMsg && isHosted) {
@@ -2355,6 +2376,19 @@
       }
       if (!hubUserCanWriteNotes()) {
         setCreateVaultMsg('Your role cannot create notes. Ask an admin to change your role.', true);
+        return;
+      }
+      const ws = lastBackupSettingsPayload;
+      const ownerId =
+        ws && ws.workspace_owner_id != null && String(ws.workspace_owner_id).trim() !== ''
+          ? String(ws.workspace_owner_id).trim()
+          : '';
+      const me = ws && ws.user_id != null ? String(ws.user_id) : '';
+      if (ownerId && me && me !== ownerId) {
+        setCreateVaultMsg(
+          'Only the workspace owner can create new cloud vaults. Ask them to create the vault id here, then an admin can grant access under Vault access.',
+          true,
+        );
         return;
       }
       const parsed = sanitizeNewHostedVaultId(inp && inp.value);
@@ -2530,7 +2564,8 @@
       if (ta) ta.value = JSON.stringify(access, null, 2);
       refreshAccessRulesSummary(access);
       if (msg) {
-        msg.textContent = 'Updated. Click Save vault access to persist.';
+        msg.textContent =
+          'Rules updated in the form only. Click the outlined Save vault access button below — nothing is stored until you do.';
         msg.className = 'settings-msg ok';
       }
     };
@@ -2562,7 +2597,8 @@
       refreshAccessRulesSummary(access);
       accessFormSyncCheckboxesFromAccessJson();
       if (msg) {
-        msg.textContent = 'Removed from rules. Save vault access to persist.';
+        msg.textContent =
+          'Removed from draft rules only. Click Save vault access below to persist (required).';
         msg.className = 'settings-msg ok';
       }
     };

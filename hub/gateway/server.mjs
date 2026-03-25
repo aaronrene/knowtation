@@ -405,6 +405,9 @@ app.get('/api/v1/settings', async (req, res) => {
   let vault_list = [{ id: 'default', label: 'Default' }];
   let allowed_vault_ids = ['default'];
   let canisterVaultUserId = uid;
+  /** @type {string|null} */
+  let workspace_owner_id = null;
+  let hosted_delegating = false;
   /** @type {string[]|null} */
   let allowedFromBridge = null;
   if (BRIDGE_URL && req.headers.authorization) {
@@ -425,6 +428,10 @@ app.get('/api/v1/settings', async (req, res) => {
         if (Array.isArray(hc.allowed_vault_ids) && hc.allowed_vault_ids.length > 0) {
           allowedFromBridge = hc.allowed_vault_ids.map((x) => String(x));
         }
+        if (hc.workspace_owner_id != null && String(hc.workspace_owner_id).trim() !== '') {
+          workspace_owner_id = String(hc.workspace_owner_id).trim();
+        }
+        if (hc.delegating === true) hosted_delegating = true;
       }
     } catch (_) {
       /* use uid-only fallback */
@@ -510,6 +517,8 @@ app.get('/api/v1/settings', async (req, res) => {
     github_connect_available: Boolean(BRIDGE_URL),
     github_connected,
     repo: github_repo,
+    workspace_owner_id,
+    hosted_delegating,
     embedding_display: { provider: '—', model: '—', ollama_url: '—' },
   });
 });
