@@ -579,6 +579,28 @@ button.btn-new-note.btn-busy::after {
   margin-bottom: 0.35rem;
 }
 
+/* Vault list summary (not raw JSON) */
+.settings-vaults-summary-list {
+  list-style: none;
+  margin: 0 0 0.35rem;
+  padding: 0;
+}
+.vaults-summary-item {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.vaults-summary-item:last-child {
+  border-bottom: none;
+}
+.vaults-summary-code {
+  font-size: 0.95em;
+}
+.vaults-summary-path {
+  margin-top: 0.2rem;
+  word-break: break-all;
+  line-height: 1.35;
+}
+
 /* Settings → Vaults: checkbox grid + collapsible JSON (self-hosted + hosted) */
 .access-vault-checkboxes { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; align-items: center; }
 .access-vault-checkboxes label { cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }

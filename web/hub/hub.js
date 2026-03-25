@@ -1752,6 +1752,41 @@
     });
   });
 
+  /** Human-readable vault list (no raw JSON) — full JSON stays under Advanced. */
+  function buildVaultListSummaryInnerHtml(vaults, isHosted) {
+    const arr = Array.isArray(vaults) ? vaults : [];
+    if (arr.length === 0) {
+      return isHosted
+        ? '<p class="muted small">No extra cloud vaults yet beyond <code>default</code> until you add another vault id.</p>'
+        : '<p class="muted small">No vaults yet — use the form below or <strong>Advanced</strong> JSON, then <strong>Save vault list</strong>.</p>';
+    }
+    const items = arr
+      .map((v) => {
+        if (!v || v.id == null) return '';
+        const id = escapeHtml(String(v.id).trim());
+        const lab =
+          v.label != null && String(v.label).trim()
+            ? ' <span class="muted">(' + escapeHtml(String(v.label).trim()) + ')</span>'
+            : '';
+        const pathRaw = v.path != null && String(v.path).trim() ? String(v.path).trim() : '';
+        const pathHtml = pathRaw
+          ? escapeHtml(pathRaw)
+          : '<span class="muted">—</span>';
+        return (
+          '<li class="vaults-summary-item"><div><code class="vaults-summary-code">' +
+          id +
+          '</code>' +
+          lab +
+          '</div><div class="vaults-summary-path muted small">' +
+          pathHtml +
+          '</div></li>'
+        );
+      })
+      .filter(Boolean)
+      .join('');
+    return '<ul class="settings-vaults-summary-list">' + items + '</ul>';
+  }
+
   function collectVaultIdsForAccessForm(vaults, settingsRes) {
     const set = new Set(['default']);
     const allowed =
@@ -2042,8 +2077,7 @@
       fillVaultListFormFromExisting();
       const lc = el('vaults-list-container');
       if (lc && !isHostedHubFromSettings()) {
-        lc.innerHTML =
-          '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
+        lc.innerHTML = buildVaultListSummaryInnerHtml(vaults, false);
       }
       if (msg) {
         msg.textContent = 'Updated. Click Save vault list to persist.';
@@ -2151,17 +2185,7 @@
         }
       }
       if (listContainer) {
-        if (isHosted) {
-          listContainer.innerHTML =
-            vaults.length === 0
-              ? '<p class="muted small">No extra vaults yet — only <code>default</code> until you add a note under another vault id (see note above).</p>'
-              : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
-        } else {
-          listContainer.innerHTML =
-            vaults.length === 0
-              ? '<p class="muted small">No extra vaults yet — use the form (id + path) or <strong>Advanced</strong> JSON, then <strong>Save vault list</strong>.</p>'
-              : '<pre class="settings-vaults-pre">' + escapeHtml(JSON.stringify(vaults, null, 2)) + '</pre>';
-        }
+        listContainer.innerHTML = buildVaultListSummaryInnerHtml(vaults, isHosted);
       }
       if (vaultsJson) vaultsJson.value = JSON.stringify(vaults, null, 2);
       if (accessText) accessText.value = JSON.stringify(aRes.access || {}, null, 2);
