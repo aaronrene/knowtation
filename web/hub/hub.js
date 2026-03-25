@@ -79,8 +79,24 @@
 
   const ACCENT_STORAGE_KEY = 'hub_accent_color';
   const THEME_STORAGE_KEY = 'hub_theme';
+  const COLOR_PALETTE_STORAGE_KEY = 'hub_color_palette';
   const DEFAULT_ACCENT = '#22d3ee';
   const DEFAULT_THEME = 'dark';
+  const DEFAULT_COLOR_PALETTE = 'default';
+  const VALID_COLOR_PALETTES = new Set([
+    'default',
+    'ocean',
+    'forest',
+    'sunset',
+    'lavender',
+    'ember',
+    'arctic',
+    'slate',
+    'midnight',
+    'sakura',
+    'sand',
+    'mint',
+  ]);
   const loadingHtml = '<div class="loading-state" aria-live="polite">Loading…</div>';
   function applyAccent(hex) {
     if (hex) {
@@ -97,12 +113,31 @@
       localStorage.setItem(THEME_STORAGE_KEY, value);
     } catch (_) {}
   }
+  function applyColorPalette(id) {
+    const p =
+      id && VALID_COLOR_PALETTES.has(String(id)) ? String(id) : DEFAULT_COLOR_PALETTE;
+    if (p === DEFAULT_COLOR_PALETTE) {
+      document.documentElement.removeAttribute('data-palette');
+    } else {
+      document.documentElement.setAttribute('data-palette', p);
+    }
+    try {
+      localStorage.setItem(COLOR_PALETTE_STORAGE_KEY, p);
+    } catch (_) {}
+  }
+  function currentColorPalette() {
+    const a = document.documentElement.getAttribute('data-palette');
+    if (a && VALID_COLOR_PALETTES.has(a) && a !== DEFAULT_COLOR_PALETTE) return a;
+    return DEFAULT_COLOR_PALETTE;
+  }
   (function initThemeAndAccent() {
     try {
       const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
       if (savedTheme === 'light') applyTheme('light');
       const savedAccent = localStorage.getItem(ACCENT_STORAGE_KEY);
       if (savedAccent) applyAccent(savedAccent);
+      const savedPalette = localStorage.getItem(COLOR_PALETTE_STORAGE_KEY);
+      if (savedPalette) applyColorPalette(savedPalette);
     } catch (_) {}
   })();
 
@@ -1572,6 +1607,7 @@
     });
     syncAccentUI();
     syncThemeUI();
+    syncColorPaletteUI();
     el('settings-sync-msg').textContent = '';
     el('settings-sync-msg').className = 'settings-msg';
     el('settings-save-msg').textContent = '';
@@ -2775,6 +2811,24 @@
     const theme = currentTheme();
     document.querySelectorAll('.theme-btn').forEach((btn) => {
       btn.setAttribute('aria-pressed', btn.dataset.theme === theme ? 'true' : 'false');
+    });
+  }
+  function syncColorPaletteUI() {
+    const p = currentColorPalette();
+    document.querySelectorAll('.dashboard-theme-card').forEach((btn) => {
+      const id = btn.dataset.palette || DEFAULT_COLOR_PALETTE;
+      btn.setAttribute('aria-checked', id === p ? 'true' : 'false');
+    });
+  }
+  const dashboardThemeGrid = el('dashboard-theme-grid');
+  if (dashboardThemeGrid) {
+    dashboardThemeGrid.addEventListener('click', (ev) => {
+      const card = ev.target && ev.target.closest && ev.target.closest('.dashboard-theme-card');
+      if (!card || !dashboardThemeGrid.contains(card)) return;
+      const pid = card.dataset.palette;
+      if (pid == null) return;
+      applyColorPalette(pid);
+      syncColorPaletteUI();
     });
   }
   document.querySelectorAll('.theme-btn').forEach((btn) => {
