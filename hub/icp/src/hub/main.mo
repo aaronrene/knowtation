@@ -238,22 +238,39 @@ func proposalsForVault(uid : Text, reqVault : Text) : [ProposalRecord] {
 // Helpers for text slice and find (base library has no Text.sub / Text.find returning position).
 func textSlice(t : Text, start : Nat, len : Nat) : Text {
   let arr = Text.toArray(t);
-  var out = "";
+  let buf = Buffer.Buffer<Char>(len);
   var i = start;
   var n : Nat = 0;
   while (n < len and i < arr.size()) {
-    out := out # Text.fromChar(arr[i]);
+    buf.add(arr[i]);
     i += 1;
     n += 1;
   };
-  out;
+  Text.fromIter(buf.vals());
 };
+/// Linear-time substring search. The previous implementation compared via `textSlice` at every
+/// index, and `textSlice` called `Text.toArray` on the full haystack each time — O(n²) on large
+/// POST bodies (e.g. `POST /api/v1/notes/batch`), exceeding the per-message instruction limit.
 func textFind(t : Text, needle : Text) : ?Nat {
+  let tarr = Text.toArray(t);
+  let narr = Text.toArray(needle);
+  let nlen = narr.size();
+  let tlen = tarr.size();
+  if (nlen == 0) { return ?0 };
+  if (nlen > tlen) { return null };
   var i : Nat = 0;
-  let nsize = Text.size(needle);
-  let tsize = Text.size(t);
-  while (i + nsize <= tsize) {
-    if (textSlice(t, i, nsize) == needle) { return ?i };
+  while (i + nlen <= tlen) {
+    var j : Nat = 0;
+    var ok = true;
+    while (j < nlen) {
+      if (tarr[i + j] != narr[j]) {
+        ok := false;
+        j := nlen;
+      } else {
+        j += 1;
+      };
+    };
+    if (ok) { return ?i };
     i += 1;
   };
   null;
@@ -499,44 +516,40 @@ func parseNotesBatch(body : Text) : ?[(Text, Text, Text)] {
   };
 };
 
+/// Single hex digit (percent-decoding); avoids allocating one-char `Text` per path byte.
+func hexDigitChar(ch : Char) : ?Nat {
+  let n = Char.toNat32(ch);
+  if (n >= 48 and n <= 57) return ?(Nat32.toNat(n - 48));
+  if (n >= 65 and n <= 70) return ?(Nat32.toNat(n - 55));
+  if (n >= 97 and n <= 102) return ?(Nat32.toNat(n - 87));
+  null;
+};
+
 /// Decode percent-encoded path segment (e.g. inbox%2Fnote.md -> inbox/note.md) so GET lookup matches POST-stored keys.
 func decodePercentEncoded(s : Text) : Text {
-  var out = "";
+  let chars = Text.toArray(s);
+  let buf = Buffer.Buffer<Char>(chars.size());
   var i : Nat = 0;
-  while (i < Text.size(s)) {
-    let c = textSlice(s, i, 1);
-    if (c == "%" and i + 2 < Text.size(s)) {
-      let h1 = textSlice(s, i + 1, 1);
-      let h2 = textSlice(s, i + 2, 1);
-      let n1 = charToHex(h1);
-      let n2 = charToHex(h2);
-      switch (n1, n2) {
+  while (i < chars.size()) {
+    let c = chars[i];
+    if (c == '%' and i + 2 < chars.size()) {
+      switch (hexDigitChar(chars[i + 1]), hexDigitChar(chars[i + 2])) {
         case (?a, ?b) {
           let code = a * 16 + b;
-          out := out # Char.toText(Char.fromNat32(Nat32.fromNat(code)));
+          buf.add(Char.fromNat32(Nat32.fromNat(code)));
           i += 3;
         };
-        case _ { out := out # c; i += 1 };
+        case _ {
+          buf.add(c);
+          i += 1;
+        };
       };
     } else {
-      out := out # c;
+      buf.add(c);
       i += 1;
     };
   };
-  out;
-};
-func charToHex(c : Text) : ?Nat {
-  if (Text.size(c) != 1) return null;
-  switch (Text.toIter(c).next()) {
-    case (?ch) {
-      let n = Char.toNat32(ch);
-      if (n >= 48 and n <= 57) return ?(Nat32.toNat(n - 48));
-      if (n >= 65 and n <= 70) return ?(Nat32.toNat(n - 55));
-      if (n >= 97 and n <= 102) return ?(Nat32.toNat(n - 87));
-      null;
-    };
-    case null { null };
-  };
+  Text.fromIter(buf.vals());
 };
 
 /// 4 lowercase hex digits (JSON \\uXXXX) for BMP code points; used for U+0000..U+001F.
