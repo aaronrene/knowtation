@@ -1,0 +1,22 @@
+[
+  {
+    "id": "fixture-conv-aa1",
+    "title": "Fixture conversation",
+    "mapping": {
+      "m1": {
+        "message": {
+          "author": { "role": "user" },
+          "content": { "parts": ["Fixture user line for import test."] },
+          "create_time": 1700000000
+        }
+      },
+      "m2": {
+        "message": {
+          "author": { "role": "assistant" },
+          "content": { "parts": ["Fixture assistant reply for import test."] },
+          "create_time": 1700000001
+        }
+      }
+    }
+  }
+]

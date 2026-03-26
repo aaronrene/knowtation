@@ -176,6 +176,7 @@
       loginRequired.classList.remove('hidden');
       browseToolbar.classList.add('hidden');
       btnNewNote.classList.add('hidden');
+      if (btnImport) btnImport.classList.add('hidden');
       if (btnHowToUse) btnHowToUse.classList.add('hidden');
       if (btnSettings) btnSettings.classList.add('hidden');
       showLoginChrome();
@@ -460,8 +461,8 @@
         if (btnImport) btnImport.classList.remove('hidden');
       }
     } else {
-      if (btnNewNote) btnNewNote.classList.remove('hidden');
-      if (btnImport) btnImport.classList.remove('hidden');
+      if (btnNewNote) btnNewNote.classList.add('hidden');
+      if (btnImport) btnImport.classList.add('hidden');
     }
   }
 
@@ -597,6 +598,8 @@
     if (app) app.classList.add('login-screen');
     main.classList.add('hidden');
     loginRequired.classList.remove('hidden');
+    btnNewNote.classList.add('hidden');
+    if (btnImport) btnImport.classList.add('hidden');
     const inviteBanner = el('login-invite-banner');
     if (inviteBanner && params.get('invite')) {
       inviteBanner.textContent = "You've been invited. Sign in to join.";
@@ -669,13 +672,29 @@
     return [];
   }
 
-  function isoDateUtcFromMs(ms) {
+  /** Local calendar YYYY-MM-DD (user's browser timezone) from epoch ms. */
+  function isoDateLocalFromMs(ms) {
     const d = new Date(ms);
     if (Number.isNaN(d.getTime())) return null;
-    const y = d.getUTCFullYear();
-    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     return y + '-' + mo + '-' + day;
+  }
+
+  /**
+   * Calendar bucket for Hub list/calendar/overview.
+   * - Plain date `YYYY-MM-DD` (no time): use as-is (civil date from frontmatter).
+   * - ISO datetimes: use the local calendar day so evening Pacific does not appear as "tomorrow" in UTC.
+   */
+  function calendarDisplayDayKey(raw) {
+    if (raw == null) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const ms = Date.parse(s);
+    if (Number.isNaN(ms)) return s.slice(0, 10);
+    return isoDateLocalFromMs(ms);
   }
 
   /** When frontmatter is empty, infer YYYY-MM-DD from `note-<epochMs>.md` quick-capture paths (hosted legacy rows). */
@@ -686,21 +705,22 @@
     if (!m) return null;
     const ms = Number(m[1]);
     if (!Number.isFinite(ms)) return null;
-    return isoDateUtcFromMs(ms);
+    return isoDateLocalFromMs(ms);
   }
 
   /** YYYY-MM-DD for calendar, overview, and range filters when `date` is unset (hosted notes often only have knowtation_edited_at). */
   function listItemDisplayDate(n, fm) {
-    if (n.date != null && String(n.date).trim()) return String(n.date).trim().slice(0, 10);
-    if (fm.date != null && String(fm.date).trim()) return String(fm.date).trim().slice(0, 10);
+    if (n.date != null && String(n.date).trim()) return calendarDisplayDayKey(n.date) || String(n.date).trim().slice(0, 10);
+    if (fm.date != null && String(fm.date).trim()) return calendarDisplayDayKey(fm.date) || String(fm.date).trim().slice(0, 10);
     const ke = fm.knowtation_edited_at;
-    if (ke != null && String(ke).trim()) return String(ke).trim().slice(0, 10);
+    if (ke != null && String(ke).trim()) return calendarDisplayDayKey(ke) || String(ke).trim().slice(0, 10);
     const inferred = inferredDisplayDateFromNotePath(n.path);
     return inferred || null;
   }
 
   function noteSortOrCalendarDay(n) {
-    return dateSlice(n.date || n.updated || '');
+    const raw = n.date || n.updated || '';
+    return calendarDisplayDayKey(raw) || dateSlice(raw);
   }
 
   function normalizeHubListItem(n) {
@@ -1588,6 +1608,10 @@
   el('modal-create-close').onclick = closeCreateModal;
 
   function openImportModal() {
+    if (!token) {
+      if (typeof showToast === 'function') showToast('Sign in to import into your vault.', true);
+      return;
+    }
     closeCreateModal();
     const panel = el('detail-panel');
     if (panel) panel.classList.add('hidden');
@@ -1625,6 +1649,11 @@
     const sourceType = el('import-source-type').value;
     const fileInput = el('import-file');
     const msgEl = el('import-msg');
+    if (!token) {
+      msgEl.textContent = 'Sign in to import.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
       msgEl.textContent = 'Choose a file or ZIP to import.';
       msgEl.className = 'create-msg err';

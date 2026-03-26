@@ -13,6 +13,7 @@ import { runIndex } from '../lib/indexer.mjs';
 import { writeNote, isInboxPath } from '../lib/write.mjs';
 import { exportNotes } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
+import { IMPORT_SOURCE_TYPES, IMPORT_SOURCE_TYPES_HELP } from '../lib/import-source-types.mjs';
 import { attestBeforeWrite, attestBeforeExport } from '../lib/air.mjs';
 import { storeMemory } from '../lib/memory.mjs';
 import { registerKnowtationResources } from './resources/register.mjs';
@@ -284,11 +285,12 @@ export function mountKnowtationMcp(server) {
   server.registerTool(
     'import',
     {
-      description:
-        'Import from external source (chatgpt-export, claude-export, mem0-export, mif, markdown, audio, video).',
+      description: `Import from external source. source_type must be one of: ${IMPORT_SOURCE_TYPES_HELP}.`,
       inputSchema: {
         source_type: z
-          .enum(['chatgpt-export', 'claude-export', 'mem0-export', 'mif', 'markdown', 'audio', 'video'])
+          .enum(
+            /** @type {[string, string, ...string[]]} */ ([...IMPORT_SOURCE_TYPES])
+          )
           .describe('Import source type'),
         input: z.string().describe('Path to file, folder, or export'),
         project: z.string().optional(),

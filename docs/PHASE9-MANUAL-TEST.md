@@ -47,6 +47,6 @@ Replace paths with your actual paths.
 4. **index** — Call (no args). Expect `ok`, `notesProcessed`, `chunksIndexed`.
 5. **write** — Call with `path`, `body`, optional `frontmatter`. Expect `path`, `written: true`.
 6. **export** — Call with `path_or_query`, `output`. Expect `exported`, `provenance`.
-7. **import** — Call with `source_type`, `input`. Expect `imported`, `count`.
+7. **import** — Call with `source_type`, `input` (path visible to the MCP server). `source_type` must be one of **lib/import-source-types.mjs** (`IMPORT_SOURCE_TYPES`). Expect `imported`, `count`.
 
 Outputs match CLI `--json` shapes per SPEC §4.2.

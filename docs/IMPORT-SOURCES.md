@@ -17,6 +17,10 @@ This document specifies how to bring data and memory **into** the Knowtation vau
 
 The CLI command **`knowtation import <source-type> <input> [options]`** accepts the following source types. Each maps an external format to vault notes.
 
+**Canonical list:** The same `source_type` strings are enforced in [`lib/import-source-types.mjs`](../lib/import-source-types.mjs) for the CLI, self-hosted Hub `POST /api/v1/import`, Hub import modal, and the MCP `import` tool. If you add an importer, update that module and the table below together.
+
+**Manual verification:** See [IMPORT-MANUAL-CHECKLIST.md](./IMPORT-MANUAL-CHECKLIST.md).
+
 | Source type       | Input (path or URI)     | Description |
 |-------------------|-------------------------|-------------|
 | `chatgpt-export`  | Path to OpenAI export ZIP or folder with `conversations.json` | ChatGPT data export (Settings → Export Data). One note per conversation or per message thread; frontmatter: `source: chatgpt`, `source_id`, `date`, optional `project`, `tags`. |

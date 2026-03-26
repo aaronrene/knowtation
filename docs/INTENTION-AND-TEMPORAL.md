@@ -81,6 +81,7 @@ So hierarchical memory is: **project → episode (optional) → note → chunk**
 - **Goal:** Measure retrieval quality and causal/temporal correctness (e.g. “for this query, we should get this chain of notes in this order”).
 - **Reserved:** (1) **Eval set format** — e.g. a file or list of `{ "query": "...", "expected_paths": ["path1", "path2"], "expected_chain_id": "..." }` or similar. (2) **CLI or script** — e.g. `knowtation eval <eval-set>` that runs queries, compares to expected, reports precision/recall or chain accuracy. Exact format and command are TBD; the **concept and a placeholder command** are reserved so we can add evals without redesign.
 - **Placeholder in spec:** “Optional: `knowtation eval` — run evaluation set against search/list; report metrics. Eval set format TBD; see docs/INTENTION-AND-TEMPORAL.md.”
+- **Import vs retrieval:** Golden tests for importer output (frontmatter/body) are **separate** from retrieval evals; see [IMPORT-EVALS.md](./IMPORT-EVALS.md).
 
 ---
 

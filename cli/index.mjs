@@ -12,6 +12,7 @@ import { loadConfig } from '../lib/config.mjs';
 import { readNote, resolveVaultRelativePath } from '../lib/vault.mjs';
 import { runListNotes as runListNotesOp } from '../lib/list-notes.mjs';
 import { exitWithError } from '../lib/errors.mjs';
+import { IMPORT_SOURCE_TYPES, IMPORT_SOURCE_TYPES_HELP } from '../lib/import-source-types.mjs';
 
 const args = process.argv.slice(2);
 const subcommand = args[0];
@@ -441,7 +442,9 @@ async function main() {
 
   if (subcommand === 'import') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json\n  Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, notion, jira-export, notebooklm, gdrive, linear-export, audio, video');
+      console.log(
+        `knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json\n  Source types: ${IMPORT_SOURCE_TYPES_HELP}`
+      );
       process.exit(0);
     }
     const sourceType = args[1];
@@ -449,9 +452,8 @@ async function main() {
     if (!sourceType || !input) {
       exitWithError('knowtation import: provide <source-type> and <input>. See docs/IMPORT-SOURCES.md.', 1, useJson);
     }
-    const validTypes = ['chatgpt-export', 'claude-export', 'mem0-export', 'notion', 'jira-export', 'notebooklm', 'gdrive', 'linear-export', 'mif', 'markdown', 'audio', 'video'];
-    if (!validTypes.includes(sourceType)) {
-      exitWithError(`Unknown source-type "${sourceType}". Valid: ${validTypes.join(', ')}.`, 1, useJson);
+    if (!IMPORT_SOURCE_TYPES.includes(sourceType)) {
+      exitWithError(`Unknown source-type "${sourceType}". Valid: ${IMPORT_SOURCE_TYPES_HELP}.`, 1, useJson);
     }
     (async () => {
       try {

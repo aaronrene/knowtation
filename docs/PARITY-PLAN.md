@@ -14,7 +14,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Team vault access + scope (hosted):** Implemented in repo: bridge stores **`hub_workspace`** (owner id), **`hub_vault_access`**, **`hub_scope`**; gateway proxies **`GET/POST /api/v1/workspace`**, **`vault-access`**, **`scope`**, **`GET /api/v1/hosted-context`** when **`BRIDGE_URL`** is set; gateway sets **`X-User-Id`** to the **effective canister user** and **`X-Actor-Id`** to the JWT `sub`; notes list / single GET / facets apply **scope** in the gateway; index/search/sync on the bridge use the owner partition for delegated users. Spec: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). Operators must set **`POST /api/v1/workspace`** `{ owner_user_id }` for team sharing.
 
-**Remaining parity vs self-hosted (recommended order):** **POST /api/v1/import** on hosted — still **501** via gateway stub until a dedicated implementation. See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 (update that table after deploy verification).
+**Remaining parity vs self-hosted (recommended order):** **POST /api/v1/import** on hosted — still **501** via gateway stub until a dedicated implementation. Design options: [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 (update that table after deploy verification).
 
 ---
 
