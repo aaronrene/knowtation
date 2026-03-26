@@ -1681,7 +1681,11 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          msgEl.textContent = data.error || res.statusText || 'Import failed';
+          msgEl.textContent =
+            data.error ||
+            (res.status ? `Import failed (HTTP ${res.status})` : '') ||
+            res.statusText ||
+            'Import failed';
           msgEl.className = 'create-msg err';
           return;
         }
