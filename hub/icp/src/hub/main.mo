@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
  * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
- * Implements GET /health, GET/POST /api/v1/notes, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
+ * Implements GET /health, GET/POST /api/v1/notes, POST /api/v1/notes/batch, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
  * GET/POST /api/v1/proposals, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
@@ -9,6 +9,7 @@
 
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
+import Buffer "mo:base/Buffer";
 import Char "mo:base/Char";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
@@ -283,6 +284,8 @@ func parsePath(url : Text) : (Text, Text) {
   let path = pathOnly(url);
   if (path == "/health" or path == "/health/") {
     ("health", "");
+  } else if (path == "/api/v1/notes/batch" or path == "/api/v1/notes/batch/") {
+    ("notes_batch", "");
   } else if (Text.startsWith(path, #text "/api/v1/notes/")) {
     let suffix = Text.trimStart(path, #text "/api/v1/notes/");
     ("note", suffix);
@@ -305,22 +308,25 @@ func parsePath(url : Text) : (Text, Text) {
 };
 
 // Minimal JSON: extract string value for key (finds "\"key\":\"...\"").
+// Linear in output size: one Text.toArray on body, Buffer for result (avoids quadratic Text #= in a loop).
 func extractJsonString(body : Text, key : Text) : ?Text {
   let needle = "\"" # key # "\":\"";
   switch (textFind(body, needle)) {
     case null { null };
     case (?start) {
+      let chars = Text.toArray(body);
       var i = start + Text.size(needle);
-      var out = "";
-      while (i < Text.size(body)) {
-        let c = textSlice(body, i, 1);
-        if (c == "\\" and i + 1 < Text.size(body)) {
-          out := out # textSlice(body, i, 2);
+      let buf = Buffer.Buffer<Char>(32);
+      while (i < chars.size()) {
+        let ch = chars[i];
+        if (ch == '\\' and i + 1 < chars.size()) {
+          buf.add(chars[i]);
+          buf.add(chars[i + 1]);
           i += 2;
-        } else if (c == "\"") {
-          return ?out;
+        } else if (ch == '\"') {
+          return ?Text.fromIter(buf.vals());
         } else {
-          out := out # c;
+          buf.add(ch);
           i += 1;
         };
       };
@@ -395,6 +401,98 @@ func extractFrontmatterFromPostBody(body : Text) : Text {
           };
         };
       };
+    };
+  };
+};
+
+func skipWsChars(chars : [Char], i0 : Nat) : Nat {
+  var i = i0;
+  while (i < chars.size()) {
+    let ch = chars[i];
+    if (ch == ' ' or ch == '\t' or ch == '\n' or ch == '\r') { i += 1 } else { return i };
+  };
+  i;
+};
+
+func sliceCharsToText(chars : [Char], start : Nat, len : Nat) : Text {
+  let buf = Buffer.Buffer<Char>(len);
+  var j : Nat = 0;
+  while (j < len) {
+    buf.add(chars[start + j]);
+    j += 1;
+  };
+  Text.fromIter(buf.vals());
+};
+
+/// `startBrace` must index `{`. Returns index of matching closing `}`.
+func findJsonObjectEndChars(chars : [Char], startBrace : Nat) : ?Nat {
+  if (startBrace >= chars.size() or chars[startBrace] != '{') { return null };
+  var i = startBrace;
+  var depth : Int = 0;
+  var inStr = false;
+  var esc = false;
+  while (i < chars.size()) {
+    let ch = chars[i];
+    if (esc) {
+      esc := false;
+      i += 1;
+    } else if (inStr) {
+      if (ch == '\\') { esc := true } else if (ch == '\"') { inStr := false };
+      i += 1;
+    } else if (ch == '\"') {
+      inStr := true;
+      i += 1;
+    } else {
+      if (ch == '{') { depth += 1 };
+      if (ch == '}') {
+        depth -= 1;
+        if (depth == 0) { return ?i };
+      };
+      i += 1;
+    };
+  };
+  null;
+};
+
+/// Parse `{"notes":[{...},...]}` into (path, frontmatterJsonText, body) per element.
+func parseNotesBatch(body : Text) : ?[(Text, Text, Text)] {
+  let chars = Text.toArray(body);
+  switch (textFind(body, "\"notes\"")) {
+    case null { null };
+    case (?nk) {
+      var i = nk + 7;
+      i := skipWsChars(chars, i);
+      if (i >= chars.size() or chars[i] != ':') { return null };
+      i += 1;
+      i := skipWsChars(chars, i);
+      if (i >= chars.size() or chars[i] != '[') { return null };
+      i += 1;
+      let out = Buffer.Buffer<(Text, Text, Text)>(8);
+      while (i < chars.size()) {
+        i := skipWsChars(chars, i);
+        if (i >= chars.size()) { return null };
+        if (chars[i] == ']') {
+          return ?Buffer.toArray(out);
+        };
+        if (out.size() >= 100) { return null };
+        if (chars[i] != '{') { return null };
+        switch (findJsonObjectEndChars(chars, i)) {
+          case null { return null };
+          case (?endIdx) {
+            let objLen = (endIdx + 1) - i;
+            let objText = sliceCharsToText(chars, i, objLen);
+            let path = Option.get(extractJsonString(objText, "path"), "");
+            if (path.size() == 0) { return null };
+            let noteBody = Option.get(extractJsonString(objText, "body"), "");
+            let frontmatter = extractFrontmatterFromPostBody(objText);
+            out.add((path, frontmatter, noteBody));
+            i := endIdx + 1;
+            i := skipWsChars(chars, i);
+            if (i < chars.size() and chars[i] == ',') { i += 1 };
+          };
+        };
+      };
+      null;
     };
   };
 };
@@ -610,7 +708,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   // ICP HTTP gateway always invokes http_request (query) first. Mutating methods must return
   // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
   if (
-    req.method == "POST" and (pathKind == "notes" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard")
+    req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard")
   ) {
     return {
       status_code = 200;
@@ -633,6 +731,39 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
   let bodyText = if (req.body.size() > 0) { Option.get(Text.decodeUtf8(req.body), "{}") } else { "{}" };
+
+  if (pathKind == "notes_batch" and req.method == "POST") {
+    switch (parseNotesBatch(bodyText)) {
+      case null {
+        return {
+          status_code = 400;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"Invalid notes batch: expect notes array, max 100 items, path and body per object\",\"code\":\"BAD_REQUEST\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case (?items) {
+        let vault = getVault(uid, vid);
+        var count : Nat = 0;
+        for (tup in Array.vals(items)) {
+          let (p, fm, nb) = tup;
+          if (p.size() > 0) {
+            vault.put(p, (fm, nb));
+            count += 1;
+          };
+        };
+        saveStable();
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody("{\"imported\":" # Nat.toText(count) # ",\"written\":true}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+    };
+  };
 
   if (pathKind == "notes" and req.method == "POST") {
     let vault = getVault(uid, vid);

@@ -84,6 +84,8 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "path": "...", "written": true }`.  
   **400** if path invalid; **403** if not allowed.
 
+- **POST /notes/batch** — Write many notes in one update (ICP canister: single `saveStable()` after all puts). Body: `{ "notes": [ { "path", "body", "frontmatter?" }, ... ] }`. Prefer **`frontmatter` as a JSON object** (same as gateway `POST /notes`). **Max 100** items per request; hosted bridge chunks larger imports. **Response:** `{ "imported": number, "written": true }`. **400** if JSON invalid or over limit.
+
 - **POST /index** — Re-run the indexer (vault → chunk → embed → vector store). Use after bulk imports or when search should reflect new or changed notes. JWT required.  
   **Response:** `{ "ok": true, "notesProcessed": number, "chunksIndexed": number }`.  
   **500** on indexer or config failure.

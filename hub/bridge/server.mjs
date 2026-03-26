@@ -20,7 +20,7 @@ import { runImport } from '../../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
 import { writeNote } from '../../lib/write.mjs';
-import { resolveVaultRelativePath } from '../../lib/vault.mjs';
+import { resolveVaultRelativePath, parseFrontmatterAndBody } from '../../lib/vault.mjs';
 import {
   resolveEffectiveCanisterUser,
   getScopeForUserVaultFromScopeMap,
@@ -1152,21 +1152,34 @@ app.get('/api/v1/vault/github-status', async (req, res) => {
   });
 });
 
-async function postNoteMarkdownToCanister(canisterUid, actorUid, vaultId, notePath, markdownBody) {
-  const r = await fetch(CANISTER_URL + '/api/v1/notes', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-User-Id': canisterUid,
-      'X-Actor-Id': actorUid,
-      'X-Vault-Id': vaultId,
-    },
-    body: JSON.stringify({ path: notePath, body: markdownBody }),
-  });
-  const text = await r.text();
-  if (!r.ok) {
-    throw new Error(`Canister note write failed (${r.status}): ${text.slice(0, 800)}`);
+/** Max notes per canister POST /api/v1/notes/batch (must match hub/icp NOTES_BATCH cap). */
+const CANISTER_NOTES_BATCH_MAX = 100;
+
+/**
+ * @param {string} canisterUid
+ * @param {string} actorUid
+ * @param {string} vaultId
+ * @param {{ path: string, body: string, frontmatter?: Record<string, unknown> }[]} notes
+ */
+async function postNotesBatchToCanister(canisterUid, actorUid, vaultId, notes) {
+  if (!notes.length) return;
+  for (let offset = 0; offset < notes.length; offset += CANISTER_NOTES_BATCH_MAX) {
+    const chunk = notes.slice(offset, offset + CANISTER_NOTES_BATCH_MAX);
+    const r = await fetch(CANISTER_URL + '/api/v1/notes/batch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-User-Id': canisterUid,
+        'X-Actor-Id': actorUid,
+        'X-Vault-Id': vaultId,
+      },
+      body: JSON.stringify({ notes: chunk }),
+    });
+    const text = await r.text();
+    if (!r.ok) {
+      throw new Error(`Canister batch note write failed (${r.status}): ${text.slice(0, 800)}`);
+    }
   }
 }
 
@@ -1225,28 +1238,47 @@ app.post(
         sub: hctx.actorUid,
         kind: 'import',
       });
+      /** @type {{ path: string, body: string, frontmatter: Record<string, unknown> }[]} */
+      const notesForCanister = [];
       for (const item of result.imported || []) {
         if (item.path && typeof item.path === 'string') {
           try {
             writeNote(vaultPath, item.path, { frontmatter: importStamp });
             const safe = resolveVaultRelativePath(vaultPath, item.path);
             const fullPath = path.join(vaultPath, safe);
-            const markdownBody = fs.readFileSync(fullPath, 'utf8');
-            await postNoteMarkdownToCanister(
-              hctx.effectiveCanisterUid,
-              hctx.actorUid,
-              hctx.vaultId,
-              safe.replace(/\\/g, '/'),
-              markdownBody,
-            );
+            const markdownFull = fs.readFileSync(fullPath, 'utf8');
+            const parsed = parseFrontmatterAndBody(markdownFull);
+            const fm =
+              parsed.frontmatter && typeof parsed.frontmatter === 'object' && !Array.isArray(parsed.frontmatter)
+                ? /** @type {Record<string, unknown>} */ ({ ...parsed.frontmatter })
+                : {};
+            notesForCanister.push({
+              path: safe.replace(/\\/g, '/'),
+              body: parsed.body || '',
+              frontmatter: fm,
+            });
           } catch (e) {
-            console.error('[bridge] import canister write failed for', item.path, e?.message || e);
+            console.error('[bridge] import prepare note for canister failed for', item.path, e?.message || e);
             return res.status(502).json({
               error: e.message || 'Canister write failed',
               code: 'BAD_GATEWAY',
             });
           }
         }
+      }
+      try {
+        await postNotesBatchToCanister(
+          hctx.effectiveCanisterUid,
+          hctx.actorUid,
+          hctx.vaultId,
+          notesForCanister,
+        );
+      } catch (e) {
+        console.error('[bridge] import canister batch write failed', e?.message || e);
+        return res.status(502).json({
+          error: e.message || 'Canister write failed',
+          code: 'BAD_GATEWAY',
+        });
       }
       return res.json({ imported: result.imported, count: result.count });
     } catch (e) {
