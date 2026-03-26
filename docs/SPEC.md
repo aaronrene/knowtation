@@ -112,7 +112,7 @@ All commands support global `--json` for machine-readable output. Paths are vaul
 | `index` | Re-run indexer: vault → chunk → embed → vector store. | (none) | Reads vault and config; writes to vector store and optional sidecar (e.g. docid → path map). |
 | `write <path> [content]` | Create or overwrite a note. | `--stdin`, `--frontmatter k=v [k2=v2 ...]`, `--append`, `--json` | If `--stdin`, body from stdin. Frontmatter merged with existing or created. Inbox writes allowed; for non-inbox, AIR may be required (see Memory and AIR). |
 | `export <path-or-query> <output-dir-or-file>` | Export note(s) to a format (e.g. Markdown, HTML) or directory. | `--format <md|html|...>`, `--project <slug>`, `--json` | Provenance (source_notes) recorded; AIR required when enabled. |
-| `import <source-type> <input>` | Ingest from external platform or file into vault. | `--project <slug>`, `--output-dir <path>`, `--tags t1,t2`, `--dry-run`, `--json` | See **docs/IMPORT-SOURCES.md**. Source types: chatgpt-export, claude-export, mem0-export, notebooklm, gdrive, mif, markdown, audio, video. |
+| `import <source-type> <input>` | Ingest from external platform or file into vault. | `--project <slug>`, `--output-dir <path>`, `--tags t1,t2`, `--dry-run`, `--json` | See **docs/IMPORT-SOURCES.md** and **docs/IMPORT-MANUAL-CHECKLIST.md**. Allowed `source_type` strings are defined in **lib/import-source-types.mjs** (CLI, Hub, MCP must stay aligned). |
 
 ### 4.2 JSON output shape (stable)
 

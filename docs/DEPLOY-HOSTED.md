@@ -141,7 +141,7 @@ Run these **after** `hub/icp` is deployed from the current repo (partitioned sto
 
 - [HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) — Verify static Hub bundle, gateway facets, canister frontmatter (scripts + apex `www` caveat).
 - [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved billing fields (Phase 16).
-- [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — **Free** tier + Stripe paid tiers, transparent per-action pricing, **`BILLING_SHADOW_LOG`**, rollover add-ons.
+- [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — **Free** + Stripe paid tiers, **indexing token** quotas (target), **`BILLING_SHADOW_LOG`**, **rollover token** packs; gateway may still expose legacy **cent** scaffold until Phase 16 completes.
 - [CANISTER-AND-SINGLE-URL.md](./CANISTER-AND-SINGLE-URL.md) — How to run the canister; single URL (knowtation.store) and how to view the site locally.
 - [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md)
 - [hub/gateway/README.md](../hub/gateway/README.md)

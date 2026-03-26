@@ -29,6 +29,7 @@ import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
+import { IMPORT_SOURCE_TYPES } from '../lib/import-source-types.mjs';
 import {
   listProposals,
   getProposal,
@@ -540,7 +541,6 @@ app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
 });
 
 // POST /api/v1/import — upload file (or zip) and run import (editor/admin). Multipart: source_type, file; optional project, output_dir, tags.
-const IMPORT_SOURCE_TYPES = ['markdown', 'chatgpt-export', 'claude-export', 'mif', 'mem0-export', 'audio', 'video', 'notion', 'jira-export', 'notebooklm', 'gdrive', 'linear-export'];
 const importTempDirMiddleware = (req, _res, next) => {
   req._importTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-import-'));
   next();
@@ -592,7 +592,9 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
   } catch (e) {
     const msg = e.message || String(e);
     const clientError =
-      /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:/i.test(msg);
+      /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:|Transcription failed|413|Payload Too Large|25MB|Whisper accepts/i.test(
+        msg
+      );
     res.status(clientError ? 400 : 500).json({
       error: msg,
       code: clientError ? 'BAD_REQUEST' : 'RUNTIME_ERROR',

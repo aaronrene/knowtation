@@ -176,6 +176,7 @@
       loginRequired.classList.remove('hidden');
       browseToolbar.classList.add('hidden');
       btnNewNote.classList.add('hidden');
+      if (btnImport) btnImport.classList.add('hidden');
       if (btnHowToUse) btnHowToUse.classList.add('hidden');
       if (btnSettings) btnSettings.classList.add('hidden');
       showLoginChrome();
@@ -460,8 +461,8 @@
         if (btnImport) btnImport.classList.remove('hidden');
       }
     } else {
-      if (btnNewNote) btnNewNote.classList.remove('hidden');
-      if (btnImport) btnImport.classList.remove('hidden');
+      if (btnNewNote) btnNewNote.classList.add('hidden');
+      if (btnImport) btnImport.classList.add('hidden');
     }
   }
 
@@ -597,6 +598,8 @@
     if (app) app.classList.add('login-screen');
     main.classList.add('hidden');
     loginRequired.classList.remove('hidden');
+    btnNewNote.classList.add('hidden');
+    if (btnImport) btnImport.classList.add('hidden');
     const inviteBanner = el('login-invite-banner');
     if (inviteBanner && params.get('invite')) {
       inviteBanner.textContent = "You've been invited. Sign in to join.";
@@ -669,13 +672,29 @@
     return [];
   }
 
-  function isoDateUtcFromMs(ms) {
+  /** Local calendar YYYY-MM-DD (user's browser timezone) from epoch ms. */
+  function isoDateLocalFromMs(ms) {
     const d = new Date(ms);
     if (Number.isNaN(d.getTime())) return null;
-    const y = d.getUTCFullYear();
-    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     return y + '-' + mo + '-' + day;
+  }
+
+  /**
+   * Calendar bucket for Hub list/calendar/overview.
+   * - Plain date `YYYY-MM-DD` (no time): use as-is (civil date from frontmatter).
+   * - ISO datetimes: use the local calendar day so evening Pacific does not appear as "tomorrow" in UTC.
+   */
+  function calendarDisplayDayKey(raw) {
+    if (raw == null) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const ms = Date.parse(s);
+    if (Number.isNaN(ms)) return s.slice(0, 10);
+    return isoDateLocalFromMs(ms);
   }
 
   /** When frontmatter is empty, infer YYYY-MM-DD from `note-<epochMs>.md` quick-capture paths (hosted legacy rows). */
@@ -686,21 +705,22 @@
     if (!m) return null;
     const ms = Number(m[1]);
     if (!Number.isFinite(ms)) return null;
-    return isoDateUtcFromMs(ms);
+    return isoDateLocalFromMs(ms);
   }
 
   /** YYYY-MM-DD for calendar, overview, and range filters when `date` is unset (hosted notes often only have knowtation_edited_at). */
   function listItemDisplayDate(n, fm) {
-    if (n.date != null && String(n.date).trim()) return String(n.date).trim().slice(0, 10);
-    if (fm.date != null && String(fm.date).trim()) return String(fm.date).trim().slice(0, 10);
+    if (n.date != null && String(n.date).trim()) return calendarDisplayDayKey(n.date) || String(n.date).trim().slice(0, 10);
+    if (fm.date != null && String(fm.date).trim()) return calendarDisplayDayKey(fm.date) || String(fm.date).trim().slice(0, 10);
     const ke = fm.knowtation_edited_at;
-    if (ke != null && String(ke).trim()) return String(ke).trim().slice(0, 10);
+    if (ke != null && String(ke).trim()) return calendarDisplayDayKey(ke) || String(ke).trim().slice(0, 10);
     const inferred = inferredDisplayDateFromNotePath(n.path);
     return inferred || null;
   }
 
   function noteSortOrCalendarDay(n) {
-    return dateSlice(n.date || n.updated || '');
+    const raw = n.date || n.updated || '';
+    return calendarDisplayDayKey(raw) || dateSlice(raw);
   }
 
   function normalizeHubListItem(n) {
@@ -1588,6 +1608,10 @@
   el('modal-create-close').onclick = closeCreateModal;
 
   function openImportModal() {
+    if (!token) {
+      if (typeof showToast === 'function') showToast('Sign in to import into your vault.', true);
+      return;
+    }
     closeCreateModal();
     const panel = el('detail-panel');
     if (panel) panel.classList.add('hidden');
@@ -1625,6 +1649,11 @@
     const sourceType = el('import-source-type').value;
     const fileInput = el('import-file');
     const msgEl = el('import-msg');
+    if (!token) {
+      msgEl.textContent = 'Sign in to import.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
       msgEl.textContent = 'Choose a file or ZIP to import.';
       msgEl.className = 'create-msg err';
@@ -1659,7 +1688,14 @@
         if (typeof loadFacets === 'function') loadFacets();
         if (typeof showToast === 'function') showToast('Import complete');
       } catch (e) {
-        msgEl.textContent = e.message || 'Import failed';
+        const raw = e && e.message ? String(e.message) : 'Import failed';
+        const isNetwork =
+          raw === 'Failed to fetch' ||
+          (e && e.name === 'TypeError' && /fetch|network|load failed/i.test(raw));
+        msgEl.textContent = isNetwork
+          ? raw +
+            ' — Often: CORS, upload too large for the gateway, or timeout. Video/audio need self-hosted Hub plus OPENAI_API_KEY. On hosted beta, Import may be unavailable; check DevTools → Network for POST /api/v1/import.'
+          : raw;
         msgEl.className = 'create-msg err';
       }
     });
@@ -1920,15 +1956,108 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'vaults' && p.id === 'settings-panel-vaults') || (id === 'integrations' && p.id === 'settings-panel-integrations') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
+        p.classList.toggle(
+          'active',
+          (id === 'backup' && p.id === 'settings-panel-backup') ||
+            (id === 'team' && p.id === 'settings-panel-team') ||
+            (id === 'vaults' && p.id === 'settings-panel-vaults') ||
+            (id === 'integrations' && p.id === 'settings-panel-integrations') ||
+            (id === 'appearance' && p.id === 'settings-panel-appearance') ||
+            (id === 'billing' && p.id === 'settings-panel-billing') ||
+            (id === 'agents' && p.id === 'settings-panel-agents'),
+        );
       });
       if (id === 'team') {
         loadTeamRolesList();
         loadInvitesList();
       }
       if (id === 'vaults') loadVaultsPanel();
+      if (id === 'billing') loadBillingPanel();
     });
   });
+
+  function formatTokenCount(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    return Number(n).toLocaleString();
+  }
+
+  async function loadBillingPanel() {
+    const msg = el('billing-panel-msg');
+    const tierEl = el('billing-tier');
+    const usedEl = el('billing-indexing-used');
+    const incEl = el('billing-indexing-included');
+    const packEl = el('billing-pack-balance');
+    const periodEl = el('billing-period');
+    const credEl = el('billing-credits-used');
+    const polEl = el('billing-indexing-policy');
+    const refreshBtn = el('btn-billing-refresh');
+    if (!tierEl || !usedEl) return;
+    if (msg) msg.textContent = '';
+    if (refreshBtn) setButtonBusy(refreshBtn, true, 'Loading…');
+    const setDash = () => {
+      tierEl.textContent = '—';
+      usedEl.textContent = '—';
+      if (incEl) incEl.textContent = '—';
+      if (packEl) packEl.textContent = '—';
+      if (periodEl) periodEl.textContent = '—';
+      if (credEl) credEl.textContent = '—';
+      if (polEl) polEl.textContent = '—';
+    };
+    if (!token) {
+      setDash();
+      if (msg) msg.textContent = 'Sign in to view billing usage.';
+      if (refreshBtn) setButtonBusy(refreshBtn, false);
+      return;
+    }
+    try {
+      const d = await api('/api/v1/billing/summary');
+      tierEl.textContent = d.tier != null ? String(d.tier) : '—';
+      usedEl.textContent = formatTokenCount(d.monthly_indexing_tokens_used);
+      const inc = d.monthly_indexing_tokens_included;
+      if (incEl) incEl.textContent = inc == null ? 'Unlimited (beta)' : formatTokenCount(inc);
+      if (packEl) packEl.textContent = formatTokenCount(d.pack_indexing_tokens_balance);
+      const ps = d.period_start;
+      const pe = d.period_end;
+      if (periodEl) {
+        periodEl.textContent =
+          ps && pe ? `${String(ps).slice(0, 10)} → ${String(pe).slice(0, 10)}` : '—';
+      }
+      const mu = d.monthly_used_cents;
+      const mi = d.monthly_included_effective_cents;
+      if (credEl) {
+        credEl.textContent =
+          mi != null && mu != null
+            ? `${(Number(mu) / 100).toFixed(2)} / ${(Number(mi) / 100).toFixed(2)} credits`
+            : '—';
+      }
+      if (polEl) {
+        polEl.textContent =
+          d.indexing_tokens_policy != null && String(d.indexing_tokens_policy).trim()
+            ? String(d.indexing_tokens_policy).trim()
+            : '—';
+      }
+      if (msg) {
+        msg.textContent = '';
+        msg.className = 'settings-intro small muted';
+      }
+    } catch (e) {
+      setDash();
+      const m = e && e.message ? String(e.message) : String(e);
+      if (msg) {
+        msg.textContent =
+          /\b404\b|Not\s*Found/i.test(m) || /cannot (GET|POST)/i.test(m)
+            ? 'Billing summary is only available on the hosted gateway (not this self-hosted Hub).'
+            : m;
+        msg.className = 'settings-intro small err';
+      }
+    }
+    if (refreshBtn) setButtonBusy(refreshBtn, false);
+  }
+
+  const btnBillingRefresh = el('btn-billing-refresh');
+  if (btnBillingRefresh) {
+    btnBillingRefresh.addEventListener('click', () => loadBillingPanel());
+  }
 
   /** Human-readable vault list (no raw JSON) — full JSON stays under Advanced. */
   function buildVaultListSummaryInnerHtml(vaults, isHosted) {

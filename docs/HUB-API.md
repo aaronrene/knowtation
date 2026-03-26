@@ -100,7 +100,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 ### 3.3.0 Billing (Phase 16 hosted)
 
 - **GET /billing/summary** — JWT required. Hosted gateway only.  
-  **Response:** `{ "tier", "period_start?", "period_end?", "monthly_included_cents", "monthly_included_effective_cents", "monthly_used_cents", "addon_cents", "billing_enforced", "stripe_configured", "credit_policy", "cost_breakdown": [ { "operation", "label", "cost_cents", "cost_usd_display", "credits_display", "relates_to" } ], "usage_chart_status" }`. **Free** tier: `monthly_included_effective_cents` reflects the $0 tier allowance. See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md).
+  **Response:** `{ "tier", "period_start?", "period_end?", "monthly_included_cents", "monthly_included_effective_cents", "monthly_used_cents", "addon_cents", "billing_enforced", "stripe_configured", "credit_policy", "monthly_indexing_tokens_included" (number or **null** for beta = unlimited display), "monthly_indexing_tokens_used", "pack_indexing_tokens_balance", "indexing_tokens_policy", "cost_breakdown": [ … ], "usage_chart_status" }`. **Free** tier: `monthly_included_effective_cents` reflects the $0 tier allowance. **`monthly_indexing_tokens_used`** increments after each successful hosted **Re-index** when the bridge returns **`embedding_input_tokens`**. See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md).
 
 - **POST /billing/webhook** — **Stripe** webhook endpoint; **no JWT**. Expects **raw JSON body** (signature verification). Not used on self-hosted Node Hub unless you expose the same route.
 

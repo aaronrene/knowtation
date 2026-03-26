@@ -29,11 +29,13 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) | Deploy checklist, re-verification (§5) |
 | [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) | Current hosted status and priorities |
 | [PARITY-PLAN.md](./PARITY-PLAN.md) | Self-hosted vs hosted capability matrix |
+| [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md) | Replace gateway **501** on import (**P0** before billing completion) |
 | [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md) | Gateway ↔ canister auth |
 | [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) | Multi-vault (self-hosted + hosted) |
 | [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) | Hosted team: workspace owner, vault access, scope, gateway headers |
 | [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) | Stable storage + billing migration |
 | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) | Hosted billing design |
+| [PRODUCT-DECISIONS-HOSTED-MVP.md](./PRODUCT-DECISIONS-HOSTED-MVP.md) | Hosted MVP: transcription vs Markdown; self-hosted audio; metering focus |
 
 ## Product and phases
 

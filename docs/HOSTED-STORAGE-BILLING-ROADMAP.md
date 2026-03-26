@@ -2,7 +2,7 @@
 
 **Purpose:** Decide **once** how Motoko stable storage evolves for **Phase 15.1 (multi-vault)** and **Phase 16 (billing)** so we do not reorganize the canister twice. This doc is the **pre-code gate** before changing [hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo) and deploying.
 
-**Related:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) (hybrid monthly + add-on credits, Stripe, v0 prices), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phases 15.1 and 16.
+**Related:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) (**indexing token** monthly grant + **rollover token** packs; Stripe), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phases 15.1 and 16.
 
 **Current Phase 16 scaffold:** Billing **state and webhooks** live in the **gateway** (`hub/gateway/billing-*.mjs`) with **file** (`data/hosted_billing.json`) or **Netlify Blob** persistence. Canister V1 fields below are the **target** when billing is co-located with note data.
 
@@ -34,13 +34,16 @@ Per **`userId`** (or team billing owner), reserve fields aligned with [HOSTED-CR
 
 | Field (conceptual) | Purpose |
 |-------------------|---------|
-| **`tier`** | `beta` \| `free` \| `starter` \| `pro` \| `team` |
+| **`tier`** | `beta` \| `free` \| `plus` \| `growth` \| `pro` \| `team` (exact enum TBD) |
 | **`stripe_customer_id`** | Stripe Customer id |
 | **`stripe_subscription_id`** | Active subscription id (if any) |
 | **`period_start` / `period_end`** | ISO timestamps for current subscription period |
-| **`monthly_included_cents`** | Included budget this period (from tier; e.g. 1200 for 12 credits) |
-| **`monthly_used_cents`** | Consumed from monthly pool this period |
-| **`addon_cents`** | Rollover balance from **purchased** packs (consumed **after** monthly pool) |
+| **`monthly_indexing_tokens_included`** | Grant this period (e.g. millions of **embedding input** tokens for index builds) |
+| **`monthly_indexing_tokens_used`** | Consumed from monthly grant this period |
+| **`pack_indexing_tokens_balance`** | Rollover from **purchased** packs (consumed **after** monthly grant) |
+| **`monthly_included_cents`** / **`monthly_used_cents`** / **`addon_cents`** | **Legacy gateway scaffold** until token ledger fully replaces cent-based index/search debits |
+
+**Note:** Gateway may ship **tokens** in Blob/JSON **before** the canister adds columns; keep **gateway authoritative** until V1 migration is coded.
 
 **Alternative:** Keep billing **only** in gateway/Blob (current scaffold); canister has **no** billing columns until you need canister-side enforcement without gateway round-trip. If so, document and ensure **all** metered routes pass through gateway.
 
@@ -54,8 +57,8 @@ Per **`userId`** (or team billing owner), reserve fields aligned with [HOSTED-CR
 
 ## 3. Payment rails (product, not storage)
 
-- **Stripe Billing:** Subscriptions for **Starter / Pro / Team**; **Customer Portal**; webhooks reset **monthly** counters and set **`monthly_included_cents`** from tier.
-- **Stripe Checkout (one-time):** **Add-on credit packs** → **`addon_cents`** **idempotently** on `checkout.session.completed` (`mode: payment`).
+- **Stripe Billing:** Subscriptions for **Plus / Growth / Pro** (see HOSTED-CREDITS-DESIGN **§2**); **Customer Portal**; webhooks reset **monthly indexing token** counters and set **`monthly_indexing_tokens_included`** from tier.
+- **Stripe Checkout (one-time):** **Indexing token packs** → **`pack_indexing_tokens_balance`** **idempotently** on `checkout.session.completed` (`mode: payment`).
 - **Deferred:** Crypto as a funding rail — not in the first slice.
 
 ---
@@ -77,3 +80,4 @@ Per **`userId`** (or team billing owner), reserve fields aligned with [HOSTED-CR
 | 2026-03-21 | Billing: subscription-first; `balanceCents` → **addon rollover**; crypto deferred. |
 | 2026-03-21 | **Dual pools:** `monthly_included_cents` / `monthly_used_cents` + `addon_cents`; gateway scaffold; V1 field table. |
 | 2026-03-22 | Tier list adds **`free`**; aligns with HOSTED-CREDITS-DESIGN. |
+| 2026-03-25 | Billing fields: **indexing token** pools + legacy **cents** note; Stripe rails = **token** packs. |

@@ -1,7 +1,36 @@
 /**
  * Deduction order: monthly included first, then add-on rollover (Netlify-style).
  */
-import { MONTHLY_INCLUDED_CENTS_BY_TIER } from './billing-constants.mjs';
+import {
+  MONTHLY_INCLUDED_CENTS_BY_TIER,
+  MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER,
+} from './billing-constants.mjs';
+
+/**
+ * @param {object} u - Billing user record
+ * @returns {number|null} null = unlimited display (beta)
+ */
+export function effectiveMonthlyIndexingTokensIncluded(u) {
+  const tier = String(u?.tier || 'beta');
+  if (tier === 'beta') return null;
+  if (tier === 'free') return MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER.free ?? 0;
+  return MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER[tier] ?? 0;
+}
+
+/** Ensure new billing fields exist on loaded JSON records. */
+export function normalizeBillingUser(u) {
+  if (!u || typeof u !== 'object') return u;
+  if (typeof u.monthly_indexing_tokens_used !== 'number' || !Number.isFinite(u.monthly_indexing_tokens_used)) {
+    u.monthly_indexing_tokens_used = 0;
+  }
+  if (
+    typeof u.pack_indexing_tokens_balance !== 'number' ||
+    !Number.isFinite(u.pack_indexing_tokens_balance)
+  ) {
+    u.pack_indexing_tokens_balance = 0;
+  }
+  return u;
+}
 
 /**
  * @param {object} user - Billing user record from store
@@ -50,5 +79,7 @@ export function defaultUserRecord(userId) {
     monthly_included_cents: 0,
     monthly_used_cents: 0,
     addon_cents: 0,
+    monthly_indexing_tokens_used: 0,
+    pack_indexing_tokens_balance: 0,
   };
 }

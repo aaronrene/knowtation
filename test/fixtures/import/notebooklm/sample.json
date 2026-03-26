@@ -1,0 +1,9 @@
+{
+  "sources": [
+    {
+      "id": "nb-fix-1",
+      "content": "Synthetic NotebookLM source body for golden test.",
+      "created_at": "2024-02-01"
+    }
+  ]
+}

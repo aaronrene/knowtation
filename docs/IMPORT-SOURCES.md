@@ -17,6 +17,10 @@ This document specifies how to bring data and memory **into** the Knowtation vau
 
 The CLI command **`knowtation import <source-type> <input> [options]`** accepts the following source types. Each maps an external format to vault notes.
 
+**Canonical list:** The same `source_type` strings are enforced in [`lib/import-source-types.mjs`](../lib/import-source-types.mjs) for the CLI, self-hosted Hub `POST /api/v1/import`, Hub import modal, and the MCP `import` tool. If you add an importer, update that module and the table below together.
+
+**Manual verification:** See [IMPORT-MANUAL-CHECKLIST.md](./IMPORT-MANUAL-CHECKLIST.md).
+
 | Source type       | Input (path or URI)     | Description |
 |-------------------|-------------------------|-------------|
 | `chatgpt-export`  | Path to OpenAI export ZIP or folder with `conversations.json` | ChatGPT data export (Settings → Export Data). One note per conversation or per message thread; frontmatter: `source: chatgpt`, `source_id`, `date`, optional `project`, `tags`. |
@@ -29,8 +33,8 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 | `linear-export`   | Path to Linear CSV file | Linear workspace export (CSV). One note per issue; `source: linear`, `source_id`, title, description. |
 | `mif`             | Path to `.memory.md` or `.memory.json` or folder of MIF files | [Memory Interchange Format](https://mif-spec.dev/). MIF is Obsidian-native; files can be copied in as-is or normalized to our frontmatter. |
 | `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. |
-| `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | Audio → transcribe → one vault note per recording. Uses transcription pipeline; frontmatter: `source: audio`, `source_id` (filename or id), `date`. |
-| `video`           | Path to video file or URL | Video → transcribe (and optionally extract chapters) → vault note(s). Same as audio; `source: video`. |
+| `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | **Primary path for in-Hub transcription** (self-hosted). OpenAI Whisper; **max ~25&nbsp;MB** per file. One note per file; frontmatter: `source: audio`, `source_id`, `date`. |
+| `video`           | Path to video file or URL | Same Whisper pipeline as audio; files are often **over 25&nbsp;MB**—export **audio** or use another service, then import Markdown. **Hub UI:** video option *coming soon*; **CLI/MCP** still support `video`. |
 
 **Options (common):** `--project <slug>`, `--output-dir <vault-path>`, `--tags tag1,tag2`, `--dry-run`, `--json`. If `--output-dir` is omitted, default is `vault/inbox/` or `vault/projects/<project>/inbox/` when `--project` is set.
 
@@ -83,9 +87,10 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 ### 3.9 Audio and video (including wearables)
 
+- **Product note:** **Audio** is the recommended path for in-app transcription (smaller files, usually under OpenAI’s **25&nbsp;MB** per-request limit). **Video** in the **self-hosted Hub** import dialog is **coming soon**; use **`knowtation import video`** from the CLI (same limit), or strip audio / transcribe elsewhere and import **Markdown**.
 - **Smart glasses / wearables:** Devices (e.g. TranscribeGlass, Omi, Ray-Ban + GlassFlow, ViveGlass) often produce transcripts via app, webhook, or export. Omi supports webhooks for real-time transcript delivery. TranscribeGlass and similar may export text or send to a URL.
-- **Importer behavior:** `import audio <file>` or `import video <file>` transcribes via OpenAI Whisper (OPENAI_API_KEY required) → one note with transcript as body; frontmatter `source: audio` or `video`, `source_id`, `date`. Formats: mp3, mp4, mpeg, mpga, m4a, wav, webm. Webhook receivers (e.g. Omi) can write transcripts directly to inbox per message-interface contract.
-- **Past blogs/videos:** User exports blog text or video transcript (or uses our transcription). Import as `markdown` or `video`/`audio` so all historical content lives in the vault.
+- **Importer behavior:** `import audio <file>` or `import video <file>` transcribes via OpenAI Whisper (`OPENAI_API_KEY` required) → one note with transcript as body; frontmatter `source: audio` or `source: video`, `source_id`, `date`. Formats: mp3, mp4, mpeg, mpga, m4a, wav, webm. The API rejects uploads over **25&nbsp;MB** (see `WHISPER_MAX_FILE_BYTES` in `lib/transcribe.mjs`). Webhook receivers (e.g. Omi) can write transcripts directly to inbox per message-interface contract.
+- **Past blogs/videos:** User exports blog text or video transcript (or uses our transcription). Import as `markdown` or `audio`/`video` so historical content lives in the vault.
 
 ---
 
@@ -99,7 +104,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 ## 5. What we're not forgetting
 
-- **Any audio:** Smart glasses, wearables, past blogs/videos, recordings → all go through transcription + vault note with `source` and `source_id`.
+- **Any audio:** Smart glasses, wearables, past blogs/videos, recordings → transcription (when under **25&nbsp;MB**) or external transcript → vault note with `source` and `source_id`.
 - **Any knowledge base:** Google Drive, NotebookLM, ChatGPT, Claude, Mem0, Evernote/Standard Notes (as Markdown), MIF → all have a defined `import` path into the vault.
 - **Any agent or business use:** Once in the vault, content is searchable, project/tag-filterable, and usable for blogs, podcasts, videos, marketing, analysis, writing. No second-class content.
 
@@ -163,10 +168,13 @@ knowtation import gdrive /path/to/docs-as-markdown --output-dir imports/gdrive -
 knowtation import linear-export ./linear-export.csv --output-dir imports/linear --project myapp
 ```
 
-**Audio / video** (transcription via OpenAI Whisper; requires OPENAI_API_KEY):
+**Audio** (transcription via OpenAI Whisper; requires `OPENAI_API_KEY`; **max ~25&nbsp;MB** per file):
 ```bash
 knowtation import audio ./recording.m4a --project born-free --output-dir media/audio
-knowtation import video ./meeting.mp4 --output-dir media/video
+```
+**Video** (same pipeline and limit; prefer exporting **audio** for long content):
+```bash
+knowtation import video ./short-clip.mp4 --output-dir media/video
 ```
 
 **Dry run** (preview without writing):

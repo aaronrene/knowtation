@@ -16,7 +16,7 @@ One codebase, same Hub UI. Users choose how they run it.
 
 You do **not** need two separate products or two codebases. The **same** repo and UI support both. The only difference is **which URL you open** and **which backend** serves the API (our gateway + canister vs your Node Hub).
 
-**Hosted beta and billing (expectations):** The **cloud** path is in **beta** with **open usage** while we **learn** (gateway **`BILLING_SHADOW_LOG`** emits structured JSON for research). When billing is on: **Free** tier ($0, small allowance) plus **paid** tiers; **1 credit = $1** of metered usage with **per-action prices** in the API (and **usage charts** planned). **Add-on credits** **roll over** (Netlify-style). See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md).
+**Hosted beta and billing (expectations):** The **cloud** path is in **beta** with **open usage** while we **learn** (gateway **`BILLING_SHADOW_LOG`** emits structured JSON for research). When billing is on: **Free** plus **paid** tiers with a **monthly indexing embedding token** allowance (**transparent** in the Hub); **packs** add **rollover** tokens; **search** included (fair use). See [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md).
 
 ---
 

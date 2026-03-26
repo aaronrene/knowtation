@@ -1,104 +1,105 @@
-# Hosted billing — design (subscription + included credits + rollover add-ons)
+# Hosted billing — design (indexing token quotas + rollover packs)
 
-**Product:** **Hosted Knowtation** uses a **Netlify-style hybrid**: **Stripe** credit-card **subscriptions** (paid tiers) with a **monthly included usage budget**, plus **purchasable add-on credits** that **roll over** and are consumed **after** the monthly grant is exhausted. **1 displayed credit = US $1** of **our internal metered price** for an action (ledger uses **integer cents**). Credits are **platform-only**: prepaid balance for Knowtation hosted, **not tradable**, **not redeemable elsewhere**, **not a security** — marketing and Terms should say so plainly.
+**Product (target):** Hosted Knowtation bills with **one clear public unit**: **indexing embedding tokens per month** (tokens your vault sends to the **embedding API** when building or updating the semantic index). **Monthly included grant resets** each billing period. **Purchased packs** add **indexing tokens that roll over** (consumed after the monthly grant is exhausted). **Semantic search** is **included** with **fair use** (not a separate sold quota in v1 — query embeddings are tiny next to full-vault re-indexes; we still **log** search volume for ops and abuse).
 
-**Transparency:** We intentionally avoid “10,000 mystery credits.” Users see **dollar-scale numbers** (e.g. **$0.01** per search, **$0.50** per re-index at v0 placeholders) and **labels** tied to **cost drivers** (embeddings, canister, search). **`GET /api/v1/billing/summary`** returns a **`cost_breakdown`** for the Hub to render. **Future (not launch-blocking):** a **usage history** store + **chart** (meter over time by operation) so users see *why* usage moved — few competitors expose this level of clarity.
+**Why tokens, not “N re-indexes”:** One re-index can embed 200k tokens or 20M tokens depending on vault size. **Job count** is a poor promise; **tokens** match cost and are **measurable** server-side and **showable** in the Hub.
 
-**Reference (market pattern):** [Netlify — how credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work).
+**Loaded planning cost (internal):** Use **λ ≈ $0.05 per 1 million indexing tokens** as a single round-number **planning** rate (≈2.5× OpenAI’s public **text-embedding-3-small** list price — confirm on [OpenAI pricing](https://platform.openai.com/docs/pricing); tune from **invoices + shadow logs**). **Included tokens per tier** can be derived from **f × subscription price / λ** where **f** is the fraction of revenue you allocate to “worst-case indexing COGS” (e.g. **f = 0.20** = 20% of list price buys tokens at λ if the user maxes indexing that month). **f** is a product knob, not physics.
 
-**Related:** [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 16, [HUB-API.md](./HUB-API.md). Gateway: `hub/gateway/billing-*.mjs`.
+**Reference (market pattern):** [Netlify — how credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work) (monthly grant + rollover add-ons).
+
+**Related:** [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 16, [HUB-API.md](./HUB-API.md), [PRODUCT-DECISIONS-HOSTED-MVP.md](./PRODUCT-DECISIONS-HOSTED-MVP.md). Gateway code: `hub/gateway/billing-*.mjs`. Bridge must **report token counts** for enforcement to match this doc.
 
 ---
 
-## 1. Two balances (consumption order)
+## 1. Two pools (consumption order)
 
 | Pool | Behavior | Funded by |
 |------|----------|-----------|
-| **Monthly included** | **Resets** each billing period (**does not roll** unused portion). Consumed **first**. | Subscription tier (or **Free** tier allowance) |
-| **Add-on balance** | **Rolls** while policy allows (typically **active paid** subscription). Consumed **after** monthly included. | Stripe **Checkout** one-time **packs** |
+| **Monthly indexing tokens** | **Resets** each billing period (unused portion **does not** roll). Consumed **first**. | Subscription tier (or **Free** allowance) |
+| **Pack indexing tokens** | **Rolls** while policy allows (typically **active paid** subscription). Consumed **after** monthly grant. | Stripe **Checkout** one-time **packs** (sold as **+N million indexing tokens**, exact SKUs TBD) |
 
-**Deduction:** Monthly first, then add-ons; else **`402`** + `QUOTA_EXHAUSTED` (see HUB-API).
+**Deduction:** On each index job, add **embedding input tokens** for that job to usage → charge **monthly pool** until exhausted, then **pack pool**; if both insufficient → **`402`** + `QUOTA_EXHAUSTED` (see HUB-API).
 
-**Beta:** `BILLING_ENFORCE` off (default): **no deduction**; use **`BILLING_SHADOW_LOG=true`** for structured **research logs** (see §8).
-
----
-
-## 2. v0 default prices (“Early pricing” — revisable)
-
-**Included credits** = USD-equivalent internal budget per month (**100 cents = 1 credit = $1** against our price table).
-
-| Tier | Monthly price (USD) | Included credits / month | Notes |
-|------|---------------------|---------------------------|--------|
-| **Free** | **$0** | **3** | Light use; upgrade for more. No Stripe subscription (product assigns `tier: free`). |
-| **Starter** | **$19** | **12** | Entry paid. |
-| **Pro** | **$39** | **30** | Individual power use. |
-| **Team** | **$99** (base; seats TBD) | **80** | Pooled — product choice. |
-
-**Add-on packs (par $1 → $1 credit):**
-
-| Pack | Price | Credits added |
-|------|-------|----------------|
-| Small | **$10** | **10** |
-| Medium | **$25** | **25** |
-| Large | **$50** | **50** |
+**Beta:** `BILLING_ENFORCE` off (default): **no block**; use **`BILLING_SHADOW_LOG=true`** and (once implemented) **token** counts in logs for COGS research.
 
 ---
 
-## 3. What we meter & what users see
+## 2. Target tiers and illustrative included tokens
 
-| Operation (API key) | User-facing label (v0) | Cost driver | Choke point |
-|---------------------|------------------------|-------------|-------------|
-| `search` | Semantic search (one request) | Vectors + CPU | Bridge `POST /api/v1/search` |
-| `index` | Re-index vault (one job) | Embeddings ($) | Bridge `POST /api/v1/index` |
-| `note_write` | Create or update a note | Canister + storage | Gateway → canister |
-| `proposal_write` | Create a proposal | Canister + storage | Gateway → canister |
+**Prices** are the current product intent (**psychological anchors**; adjust after data). **Token columns** use **λ = $0.05/M** and **f = 0.20** except **Free** (policy cap).
 
-**Implementation:** `hub/gateway/billing-constants.mjs` — `COST_CENTS` + **`COST_BREAKDOWN`** (labels + `cost_usd_display`). Tune after **shadow logs + real invoices**.
+| Tier | Monthly price (USD) | Illustrative included indexing tokens / month | Notes |
+|------|---------------------|-----------------------------------------------|--------|
+| **Free** | **$0** | **5M** | Loss-leader cap; set from policy, not f×price. |
+| **Plus** | **$9** | **~36M** | \(0.20 × 9 / 0.05\) |
+| **Growth** | **$17** | **~68M** | \(0.20 × 17 / 0.05\) |
+| **Pro** | **$25** | **~100M** | \(0.20 × 25 / 0.05\) |
 
-**Future:** persist **per-event usage rows** (timestamp, `user_id`, operation, `cost_cents`) for **graphs** and export; not required for first paid slice.
+**Tune:** After 2–4 weeks of **real `monthly_indexing_tokens_used` per user**, adjust **included M**, **λ**, or **f** — or switch to **f = 0.15** / **0.25** for more/less headroom.
 
----
+**Team / seats:** Deferred; same token model can **pool** per workspace when defined.
 
-## 4. Research & monitoring (implemented)
-
-- **Metering hooks:** Gateway **`runBillingGate`** classifies billable **operations** on search, index, note write, proposal create (same paths as enforcement).
-- **Shadow logging:** Set **`BILLING_SHADOW_LOG=true`** (or `1`) on the gateway. Emits one **JSON line per billable request** (with `user_id` when JWT present): `operation`, `cost_cents`, `path`, `billing_enforced`. Ship to your log aggregator to study **distribution and cost per user** before locking **402** enforcement.
-- **User-facing prep:** **`GET /api/v1/billing/summary`** returns balances + **`cost_breakdown`** + **`credit_policy`** + **`usage_chart_status`** (roadmap note).
+**Add-on packs (product shape):** Sell **fixed +N million indexing tokens** that credit **`pack_indexing_tokens_balance`** (rollover). Dollar price per pack = business choice (volume discounts optional). Stripe **Checkout** one-time; webhook idempotent.
 
 ---
 
-## 5. Stripe
+## 3. Transparency (user + operator)
 
-- **Stripe Billing:** Starter / Pro / Team; **Customer Portal**. **Free** tier is **not** a Stripe product — assign in product when user has no paid sub.
-- **Checkout:** Packs; `metadata.user_id`, optional `metadata.credits_cents`.
-- **Webhooks:** `POST /api/v1/billing/webhook` (raw body); idempotent `event.id` store.
-
-**Env price ids:** `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`, `STRIPE_PRICE_PACK_*`.
+- **Hub:** Show **indexing tokens used this period / included**, **pack balance**, **period end**; short copy that **search is included** (fair use).
+- **Operator:** Aggregate **tokens per index job**, **per user**, **per vault**; correlate with **OpenAI (or chosen provider) usage** bills.
 
 ---
 
-## 6. Storage
+## 4. Implementation status — current code vs target
 
-**Gateway:** `data/hosted_billing.json` or Netlify Blob **`gateway-billing`**. Canister mirror per [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md).
+| Area | Status |
+|------|--------|
+| **Bridge `POST /api/v1/index`** | **Done:** Response includes **`embedding_input_tokens`** (OpenAI: API `usage.prompt_tokens` per batch; Ollama: char/4 estimate). |
+| **Gateway after index** | **Done:** On **200** responses, adds **`embedding_input_tokens`** to **`monthly_indexing_tokens_used`** in the billing store; optional **`BILLING_SHADOW_LOG`** line with `phase: post_index`. |
+| **`GET /api/v1/billing/summary`** | **Partial:** Returns **`monthly_indexing_tokens_included`**, **`monthly_indexing_tokens_used`**, **`pack_indexing_tokens_balance`**, **`indexing_tokens_policy`** plus legacy **cents** + **`cost_breakdown`**. |
+| **Gateway store + webhooks** | **Partial:** **`monthly_*_cents`**, **`addon_cents`**; **pack indexing tokens** from Checkout **not** wired yet. |
+| **`runBillingGate` / `BILLING_ENFORCE`** | **Partial:** Still **fixed cents** per search/index job/writes — **token cap 402** not implemented (needs policy: pre-estimate or post-hoc). |
+| **Hub UI** | **Gap:** No **token** usage bar yet. |
+
+**Legacy scaffold:** `hub/gateway/billing-constants.mjs` still defines **$19 / $39 / $99**-style **included credits** and **`COST_CENTS`** (`search`, `index` job, `note_write`, `proposal_write`). Treat as **interim** until Phase 16 aligns **constants**, **summary JSON**, and **middleware** with **§1–2** of this doc.
 
 ---
 
-## 7. API
+## 5. Interim metering (until token gate ships)
 
-- **`GET /api/v1/billing/summary`** — JWT; pools, **`monthly_included_effective_cents`** (syncs **Free** tier), **`cost_breakdown`**, **`credit_policy`**, **`usage_chart_status`**.
+Until the bridge reports token totals end-to-end:
+
+- **`BILLING_SHADOW_LOG`:** Keep logging **operation + cost_cents** for rough mix analysis.
+- **`COST_CENTS`:** Remains a **placeholder** internal debit per request type — **do not** treat **50¢/index job** as the long-term user contract; the user contract is **§2** (token caps).
 
 ---
 
-## 8. Hub UX
+## 6. Stripe (target)
 
-- **Now:** Show **included / used / add-on**, **tier**, and **“what costs what”** from `cost_breakdown`.
-- **Later:** **Usage chart** + history (product differentiator).
+- **Stripe Billing:** **Plus / Growth / Pro** (names map to **$9 / $17 / $25** or adjusted prices); **Customer Portal**. **Free** = no Stripe subscription.
+- **Stripe Checkout:** **Indexing token packs**; `metadata.user_id`, **`metadata.indexing_tokens`** (or equivalent).
+- **Webhooks:** `POST /api/v1/billing/webhook`; idempotent `event.id` store.
+
+**Env price ids (rename when products exist):** e.g. `STRIPE_PRICE_PLUS`, `STRIPE_PRICE_GROWTH`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_PACK_*`.
+
+---
+
+## 7. Storage (canister / gateway)
+
+**Gateway:** Authoritative for billing until canister mirrors. See [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) for reserved fields (**token** balances should mirror **§1** when V1 billing lands on-chain).
+
+---
+
+## 8. API (evolution)
+
+- **`GET /api/v1/billing/summary`** — Today: cents pools + **`cost_breakdown`**. **Target:** add **`monthly_indexing_tokens_included`**, **`monthly_indexing_tokens_used`**, **`pack_indexing_tokens_balance`**, **`period_*`**, **`tier`**, policy blurb (**search included**). Keep or drop **`cost_breakdown`** once token UX replaces per-action cents for index/search.
 
 ---
 
 ## 9. Self-hosted
 
-**Unchanged.**
+**Unchanged** — no hosted token billing.
 
 ---
 
@@ -106,5 +107,7 @@
 
 | Date | Change |
 |------|--------|
-| 2026-03-21 | Hybrid monthly + rollover add-ons; gateway module; v0 prices. |
-| 2026-03-22 | **Free** tier ($0 / 3 credits); **transparency** (dollar credits, per-action breakdown); **BILLING_SHADOW_LOG**; **credit_policy** / not-a-security; **usage chart** as future goal; summary **`cost_breakdown`**. |
+| 2026-03-21 | Hybrid monthly + rollover add-ons; gateway module; v0 **credit** prices. |
+| 2026-03-22 | **Free** tier; transparency; **BILLING_SHADOW_LOG**; **`cost_breakdown`**. |
+| 2026-03-26 | Linked **PRODUCT-DECISIONS-HOSTED-MVP.md**. |
+| 2026-03-25 | **Major:** Indexing-token product model + **§4** updates. **Code:** bridge **`embedding_input_tokens`**; gateway accumulates **`monthly_indexing_tokens_used`**; **`billing/summary`** token fields. Legacy **cent/job** scaffold remains until Stripe/token enforcement ships. |

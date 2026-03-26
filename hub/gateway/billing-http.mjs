@@ -4,9 +4,14 @@
 import {
   billingEnforced,
   COST_BREAKDOWN,
+  INDEXING_TOKENS_POLICY,
   MONTHLY_INCLUDED_CENTS_BY_TIER,
 } from './billing-constants.mjs';
-import { defaultUserRecord } from './billing-logic.mjs';
+import {
+  defaultUserRecord,
+  effectiveMonthlyIndexingTokensIncluded,
+  normalizeBillingUser,
+} from './billing-logic.mjs';
 import { loadBillingDb } from './billing-store.mjs';
 
 function effectiveMonthlyIncludedCents(u) {
@@ -19,7 +24,7 @@ export async function handleBillingSummary(req, res, getUserId) {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
   const db = await loadBillingDb();
-  const u = db.users[uid] || defaultUserRecord(uid);
+  const u = normalizeBillingUser(db.users[uid] || defaultUserRecord(uid));
 
   return res.json({
     tier: u.tier,
@@ -33,6 +38,10 @@ export async function handleBillingSummary(req, res, getUserId) {
     stripe_configured: Boolean(process.env.STRIPE_SECRET_KEY),
     credit_policy:
       '1 credit = $1 of platform metered usage. Credits are prepaid balance for Knowtation hosted only; not tradable, not a security.',
+    monthly_indexing_tokens_included: effectiveMonthlyIndexingTokensIncluded(u),
+    monthly_indexing_tokens_used: Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0)),
+    pack_indexing_tokens_balance: Math.max(0, Math.floor(Number(u.pack_indexing_tokens_balance) || 0)),
+    indexing_tokens_policy: INDEXING_TOKENS_POLICY,
     cost_breakdown: COST_BREAKDOWN,
     usage_chart_status:
       'planned: time-series usage + chart in Hub (not required for launch); shadow logs via BILLING_SHADOW_LOG for research.',

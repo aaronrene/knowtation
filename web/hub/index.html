@@ -46,7 +46,7 @@
         </ul>
       </div>
       <div class="login-cta-block">
-        <p id="hub-beta-note" class="login-cta-label muted" style="font-size: 0.8rem; margin-top: 0;">Beta: open usage for now. Later: free tier + paid plans, dollar-clear credits (1 = $1), per-action pricing, rollover add-ons, and usage charts.</p>
+        <p id="hub-beta-note" class="login-cta-label muted" style="font-size: 0.8rem; margin-top: 0;">Beta: open usage for now. Later: free tier + paid plans, dollar-clear credits (1 = $1), metering focused on <strong>index + search + writes</strong> (no hosted transcription—bring Markdown or exports). Rollover add-ons and usage charts when billing ships.</p>
         <p class="login-how-to-wrap"><button type="button" id="btn-login-how-to-use" class="btn-link">New here? How to use</button> — setup and how agents use your vault.</p>
       </div>
       <div class="hub-ecosystem" aria-label="Knowtation at the center of your connections">
@@ -255,7 +255,7 @@
           <button type="button" id="modal-import-close" class="modal-close">×</button>
         </div>
         <div class="create-panel">
-        <p class="muted small">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder.</p>
+        <p class="muted small">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder. <strong>PDF and Word</strong> are not converted yet—export or save as Markdown. <strong>Audio (transcribe):</strong> self-hosted Hub with <code>OPENAI_API_KEY</code>; OpenAI accepts up to <strong>~25&nbsp;MB</strong> per file (use compressed M4A/MP3 for longer recordings). <strong>Video</strong> in this dialog is <strong>coming soon</strong>; export audio or use another tool, then import Markdown or use CLI <code>knowtation import video</code>. You must be signed in. <strong>Hosted:</strong> in-app import/transcription is still limited—self-hosted gives the full path today (see docs).</p>
         <label for="import-source-type">Source type</label>
         <select id="import-source-type">
           <option value="markdown">Markdown (file or folder)</option>
@@ -264,14 +264,15 @@
           <option value="mem0-export">Mem0 export (JSON)</option>
           <option value="mif">MIF (Memory Interchange Format)</option>
           <option value="notebooklm">NotebookLM</option>
+          <option value="notion">Notion (API; page IDs)</option>
           <option value="gdrive">Google Drive (Markdown folder)</option>
           <option value="jira-export">Jira CSV export</option>
           <option value="linear-export">Linear CSV export</option>
           <option value="audio">Audio (transcribe)</option>
-          <option value="video">Video (transcribe)</option>
+          <option value="video" disabled>Video (transcribe) — coming soon</option>
         </select>
         <label for="import-file">File or ZIP</label>
-        <input type="file" id="import-file" accept=".md,.json,.csv,.zip,.txt,audio/*,video/*">
+        <input type="file" id="import-file" accept=".md,.markdown,.json,.csv,.zip,.txt,.pdf,.doc,.docx,audio/*,video/*">
         <label for="import-project">Project (optional)</label>
         <input type="text" id="import-project" placeholder="e.g. myproject">
         <label for="import-tags">Tags (comma-separated, optional)</label>
@@ -323,6 +324,7 @@ Your note body here.</pre>
           <button type="button" class="settings-tab hidden" id="settings-tab-vaults" role="tab" aria-selected="false" data-settings-tab="vaults">Vaults</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="integrations">Integrations</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
+          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="billing">Billing</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="agents">Agents</button>
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
@@ -672,6 +674,7 @@ Your note body here.</pre>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents (AgentCeption). Each block below explains how to connect.</p>
+            <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
             <h3 class="settings-h3">Capture (messages → inbox)</h3>
             <p class="settings-intro small">Send messages or events into the vault as notes. When the Hub is running, the capture URL is <code>POST /api/v1/capture</code> (e.g. <code>http://localhost:3333/api/v1/capture</code>). Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> in the server and send header <code>X-Webhook-Secret</code>.</p>
             <h4 class="settings-h4">How to connect capture</h4>
@@ -690,7 +693,7 @@ Your note body here.</pre>
             <ul class="settings-list">
               <li><strong>Chats:</strong> <code>chatgpt-export</code>, <code>claude-export</code>, <code>mem0-export</code> — point at exported folder or file.</li>
               <li><strong>Platforms:</strong> <code>notion</code>, <code>jira-export</code>, <code>notebooklm</code>, <code>gdrive</code>, <code>linear-export</code> — use API keys or export files as required.</li>
-              <li><strong>Generic:</strong> <code>markdown</code>, <code>mif</code>, <code>audio</code>, <code>video</code> — folders or files.</li>
+              <li><strong>Generic:</strong> <code>markdown</code>, <code>mif</code>, <code>audio</code> (transcribe in Hub when self-hosted), <code>video</code> (CLI for now; Hub UI coming soon).</li>
             </ul>
             <p class="settings-intro small">Full list and options: How to use (Import data) or <code>docs/IMPORT-SOURCES.md</code>.</p>
             <hr class="settings-hr">
@@ -830,6 +833,42 @@ Your note body here.</pre>
                 <span class="dashboard-theme-name">Mint</span>
               </button>
             </div>
+          </div>
+        </div>
+        <div id="settings-panel-billing" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <p class="settings-intro">Indexing usage for the <strong>hosted</strong> product (embedding input tokens this billing period). After each successful <strong>Re-index</strong>, the gateway records tokens reported by the bridge. Semantic search is included (fair use).</p>
+            <p class="settings-intro small muted" id="billing-panel-msg"></p>
+            <div class="settings-form-actions" style="margin-bottom: 0.75rem;">
+              <button type="button" id="btn-billing-refresh" class="btn-secondary">Refresh</button>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Tier</span>
+              <span id="billing-tier" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Indexing tokens used</span>
+              <span id="billing-indexing-used" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Included / month</span>
+              <span id="billing-indexing-included" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Pack balance (rollover)</span>
+              <span id="billing-pack-balance" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Period</span>
+              <span id="billing-period" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Legacy credits used</span>
+              <span id="billing-credits-used" class="settings-value muted small">—</span>
+            </div>
+            <hr class="settings-hr">
+            <p class="settings-intro small" id="billing-indexing-policy">—</p>
+            <p class="settings-intro small muted">Self-hosted Hub (no gateway) does not expose this API yet — use the hosted Hub or <code>GET /api/v1/billing/summary</code> on the gateway for operators.</p>
           </div>
         </div>
         <div id="settings-panel-agents" class="settings-panel" role="tabpanel">
@@ -1049,6 +1088,14 @@ Knowtation Hub listening on http://localhost:3333</pre>
               <summary>Notion, Jira, NotebookLM, GDrive, Linear</summary>
               <div class="how-to-details-body">
                 <p>CLI: <code>knowtation import &lt;source-type&gt; &lt;input&gt;</code> with <code>notion</code>, <code>jira-export</code>, <code>notebooklm</code>, <code>gdrive</code>, <code>linear-export</code>. See <code>docs/IMPORT-SOURCES.md</code> and Settings → Integrations for full list and options (<code>--project</code>, <code>--output-dir</code>, <code>--tags</code>).</p>
+              </div>
+            </details>
+            <details class="how-to-details">
+              <summary>Transcripts, meetings, and video (bring text in)</summary>
+              <div class="how-to-details-body">
+                <p><strong>Hosted:</strong> We do not transcribe audio or video in the cloud. Get a transcript from your tool (Otter, Zoom, Granola, Descript, etc.), save as <strong>Markdown</strong> or paste into a note, then <strong>re-index</strong> so search and agents can use it.</p>
+                <p><strong>Self-hosted:</strong> You can use <code>knowtation import audio …</code> with your own <code>OPENAI_API_KEY</code> (Whisper). <code>video</code> is CLI-first; Hub UI for video is planned.</p>
+                <p><strong>Why:</strong> Fewer moving parts, predictable costs, and you keep control of where transcription happens.</p>
               </div>
             </details>
             <p class="how-to-note"><strong>Files / generic:</strong> <code>scripts/capture-file.mjs</code> for stdin or files. Or drop Markdown into <code>vault/inbox/</code> or <code>vault/imports/</code> with frontmatter <code>source</code>, <code>date</code>, <code>project</code>, <code>tags</code>. <code>knowtation import markdown &lt;path&gt;</code> for folders.</p>

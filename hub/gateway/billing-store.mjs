@@ -1,6 +1,7 @@
 /**
  * Persistent billing DB: local file data/hosted_billing.json or Netlify Blob (gateway-billing).
  */
+import { normalizeBillingUser } from './billing-logic.mjs';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -58,6 +59,9 @@ function normalizeDb(raw) {
   const db = raw && typeof raw === 'object' ? raw : emptyDb();
   if (!db.users || typeof db.users !== 'object') db.users = {};
   if (!Array.isArray(db.processed_events)) db.processed_events = [];
+  for (const uid of Object.keys(db.users)) {
+    normalizeBillingUser(db.users[uid]);
+  }
   return db;
 }
 
