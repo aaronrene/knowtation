@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import crypto from 'crypto';
 import express from 'express';
 import multer from 'multer';
+import AdmZip from 'adm-zip';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -74,10 +75,16 @@ test('bridge POST /api/v1/import: markdown upload → mock canister receives not
         'x-vault-id': headerGet(init.headers, 'x-vault-id'),
         body: bodyText,
       });
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const batch = u.includes('/notes/batch');
+      return new Response(
+        batch
+          ? JSON.stringify({ imported: JSON.parse(bodyText).notes?.length ?? 0, written: true })
+          : JSON.stringify({ ok: true }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
     }
     return origFetch(url, init);
   };
@@ -115,14 +122,170 @@ test('bridge POST /api/v1/import: markdown upload → mock canister receives not
 
   assert.equal(noteWrites.length, 1);
   const nw = noteWrites[0];
+  assert.match(nw.url, /\/api\/v1\/notes\/batch/);
   assert.equal(nw['x-user-id'], 'github:integration-tester');
   assert.equal(nw['x-actor-id'], 'github:integration-tester');
   assert.equal(nw['x-vault-id'], 'default');
   const posted = JSON.parse(nw.body);
-  assert.equal(posted.path, 'inbox/note.md');
-  assert.match(posted.body, /author_kind/);
-  assert.match(posted.body, /import/);
-  assert.match(posted.body, /Integration body/);
+  assert.ok(Array.isArray(posted.notes));
+  assert.equal(posted.notes.length, 1);
+  assert.equal(posted.notes[0].path, 'inbox/note.md');
+  assert.match(posted.notes[0].body, /Integration body/);
+  assert.equal(typeof posted.notes[0].frontmatter, 'object');
+  assert.match(JSON.stringify(posted.notes[0].frontmatter), /import/);
+});
+
+test('bridge POST /api/v1/import: ZIP with multiple .md files → one canister batch (≤100 notes)', async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-bridge-import-multi-'));
+  t.after(() => {
+    try {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    } catch (_) {}
+  });
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = 'http://mock-canister.test';
+  process.env.SESSION_SECRET = SECRET;
+  process.env.DATA_DIR = dataDir;
+
+  const noteWrites = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('/api/v1/vaults') && (init.method === undefined || init.method === 'GET')) {
+      return new Response(JSON.stringify({ vaults: [{ id: 'default' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (String(init.method || 'GET').toUpperCase() === 'POST' && u.includes('/api/v1/notes')) {
+      let bodyText = '';
+      if (typeof init.body === 'string') bodyText = init.body;
+      noteWrites.push({ url: u, body: bodyText });
+      const batch = u.includes('/notes/batch');
+      return new Response(
+        batch
+          ? JSON.stringify({ imported: JSON.parse(bodyText).notes?.length ?? 0, written: true })
+          : JSON.stringify({ ok: true }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    return origFetch(url, init);
+  };
+  t.after(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  const bridgeEntry = pathToFileURL(path.join(projectRoot, 'hub', 'bridge', 'server.mjs')).href;
+  const { app } = await import(`${bridgeEntry}?t=${Date.now()}-multi`);
+
+  const server = http.createServer(app);
+  await new Promise((resolve, reject) => {
+    server.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => server.close(() => r())));
+
+  const { port } = /** @type {import('net').AddressInfo} */ (server.address());
+  const zip = new AdmZip();
+  zip.addFile('one.md', Buffer.from('# One\n\nfirst'));
+  zip.addFile('two.md', Buffer.from('# Two\n\nsecond'));
+  const zipBuf = zip.toBuffer();
+
+  const token = signTestJwt({ sub: 'github:integration-multi' });
+  const fd = new FormData();
+  fd.set('source_type', 'markdown');
+  fd.set('file', new Blob([zipBuf], { type: 'application/zip' }), 'pair.zip');
+
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/import`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'X-Vault-Id': 'default' },
+    body: fd,
+  });
+
+  const resText = await res.text();
+  assert.equal(res.status, 200, resText);
+  const json = JSON.parse(resText);
+  assert.equal(json.count, 2);
+  assert.equal(noteWrites.length, 1);
+  assert.match(noteWrites[0].url, /\/notes\/batch/);
+  const batchBody = JSON.parse(noteWrites[0].body);
+  assert.equal(batchBody.notes.length, 2);
+});
+
+test('bridge import chunks canister batch at 100 notes (101 files → 2 POSTs)', async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-bridge-import-chunk-'));
+  t.after(() => {
+    try {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    } catch (_) {}
+  });
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = 'http://mock-canister.test';
+  process.env.SESSION_SECRET = SECRET;
+  process.env.DATA_DIR = dataDir;
+
+  const noteWrites = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('/api/v1/vaults') && (init.method === undefined || init.method === 'GET')) {
+      return new Response(JSON.stringify({ vaults: [{ id: 'default' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (String(init.method || 'GET').toUpperCase() === 'POST' && u.includes('/api/v1/notes')) {
+      let bodyText = '';
+      if (typeof init.body === 'string') bodyText = init.body;
+      noteWrites.push({ url: u, body: bodyText });
+      return new Response(
+        JSON.stringify({ imported: JSON.parse(bodyText).notes?.length ?? 0, written: true }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    return origFetch(url, init);
+  };
+  t.after(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  const bridgeEntry = pathToFileURL(path.join(projectRoot, 'hub', 'bridge', 'server.mjs')).href;
+  const { app } = await import(`${bridgeEntry}?t=${Date.now()}-chunk`);
+
+  const server = http.createServer(app);
+  await new Promise((resolve, reject) => {
+    server.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => server.close(() => r())));
+
+  const { port } = /** @type {import('net').AddressInfo} */ (server.address());
+  const zip = new AdmZip();
+  for (let i = 0; i < 101; i++) {
+    zip.addFile(`n${i}.md`, Buffer.from(`# Note ${i}\n\nbody ${i}.\n`));
+  }
+  const zipBuf = zip.toBuffer();
+
+  const token = signTestJwt({ sub: 'github:chunk-test' });
+  const fd = new FormData();
+  fd.set('source_type', 'markdown');
+  fd.set('file', new Blob([zipBuf], { type: 'application/zip' }), 'many.zip');
+
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/import`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'X-Vault-Id': 'default' },
+    body: fd,
+  });
+
+  const resText = await res.text();
+  assert.equal(res.status, 200, resText);
+  const out = JSON.parse(resText);
+  assert.equal(out.count, 101);
+  assert.equal(noteWrites.length, 2);
+  assert.match(noteWrites[0].url, /\/notes\/batch/);
+  assert.match(noteWrites[1].url, /\/notes\/batch/);
+  assert.equal(JSON.parse(noteWrites[0].body).notes.length, 100);
+  assert.equal(JSON.parse(noteWrites[1].body).notes.length, 1);
 });
 
 test('gateway POST /api/v1/import streams multipart to BRIDGE_URL (mock bridge)', async (t) => {
