@@ -398,12 +398,12 @@ async function bufferImportRequestBody(req) {
 
 /**
  * Multipart import: forward body bytes to bridge (do not use proxyTo — body is not JSON in req.body).
- * @param {string} baseUrl
+ * @param {string} _baseUrl - bridge origin (reserved for diagnostics; fetch URL is `url`)
  * @param {string} url - full URL to bridge /api/v1/import
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
-async function proxyImportToBridge(baseUrl, url, req, res) {
+async function proxyImportToBridge(_baseUrl, url, req, res) {
   let raw;
   try {
     raw = await bufferImportRequestBody(req);
@@ -414,28 +414,46 @@ async function proxyImportToBridge(baseUrl, url, req, res) {
   if (!raw.length) {
     return res.status(400).json({ error: 'Empty upload body', code: 'BAD_REQUEST' });
   }
+  // Do not set `Host` manually — undici derives it from the request URL; a wrong Host breaks some upstreams.
   const headers = {
-    host: new URL(baseUrl).host,
     authorization: req.headers.authorization || '',
     'x-vault-id': String(req.headers['x-vault-id'] || 'default'),
   };
   const ct = req.headers['content-type'];
   if (ct) headers['content-type'] = ct;
   headers['content-length'] = String(raw.length);
+  let upstream;
   try {
-    const upstream = await fetch(url, {
+    upstream = await fetch(url, {
       method: 'POST',
       headers,
       body: raw,
     });
-    const body = await upstream.text();
-    const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
-    res.status(upstream.status).set(Object.fromEntries(hop));
-    res.send(body);
   } catch (e) {
-    console.error('Gateway import proxy error:', e.message);
-    res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+    console.error('Gateway import proxy error:', e.message, e.cause);
+    const detail = e.cause?.message || e.message || String(e);
+    return res.status(502).json({
+      error: 'Bad Gateway',
+      code: 'BAD_GATEWAY',
+      detail,
+    });
   }
+  const body = await upstream.text();
+  const upstreamCt = upstream.headers.get('content-type') || '';
+  if (
+    upstream.status >= 400 &&
+    !/application\/json/i.test(upstreamCt) &&
+    body.trimStart().startsWith('<')
+  ) {
+    return res.status(upstream.status).json({
+      error: 'Import service returned a non-JSON error (check bridge Netlify function logs).',
+      code: 'BAD_GATEWAY',
+      detail: `HTTP ${upstream.status}`,
+    });
+  }
+  const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
+  res.status(upstream.status).set(Object.fromEntries(hop));
+  res.send(body);
 }
 
 // Proxy /api/* to canister with X-User-Id from JWT
@@ -978,6 +996,21 @@ app.get('/api/v1/health-canister', async (_req, res) => {
   } catch (e) {
     res.status(502).json({ ok: false, error: e.message });
   }
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  console.error('[gateway] unhandled error:', err?.stack || err?.message || err);
+  const status =
+    typeof err.status === 'number' && err.status >= 400 && err.status < 600
+      ? err.status
+      : typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600
+        ? err.statusCode
+        : 500;
+  res.status(status).json({
+    error: err.message || 'Internal error',
+    code: err.code || 'INTERNAL_ERROR',
+  });
 });
 
 // When running on Netlify, the app is imported by netlify/functions/gateway.mjs and not started here.

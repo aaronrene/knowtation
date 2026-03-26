@@ -1483,6 +1483,24 @@ app.post('/api/v1/search', async (req, res) => {
   }
 });
 
+app.use((err, req, res, _next) => {
+  if (res.headersSent) return;
+  console.error('[bridge] unhandled error:', err?.stack || err?.message || err);
+  let status = 500;
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') status = 413;
+    else status = 400;
+  } else if (typeof err.status === 'number' && err.status >= 400 && err.status < 600) {
+    status = err.status;
+  } else if (typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600) {
+    status = err.statusCode;
+  }
+  res.status(status).json({
+    error: err.message || 'Internal error',
+    code: err.code || 'INTERNAL_ERROR',
+  });
+});
+
 if (!isServerless) {
   if (!CANISTER_URL || !SESSION_SECRET) {
     console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required.');
