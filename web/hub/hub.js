@@ -1679,11 +1679,29 @@
           headers: importHeaders,
           body: formData,
         });
-        const data = await res.json().catch(() => ({}));
+        const text = await res.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (_) {
+          data = {};
+        }
         if (!res.ok) {
-          const apiErr =
-            (data && typeof data === 'object' && (data.error || data.message)) ||
-            (data && typeof data === 'string' ? data : '');
+          let apiErr = '';
+          if (data && typeof data === 'object') {
+            const parts = [data.error, data.message, data.detail].filter(
+              (x) => x != null && String(x).trim().length > 0,
+            );
+            apiErr = [...new Set(parts.map((x) => String(x).trim()))].join(' — ');
+          }
+          if (!apiErr && text) {
+            const t = text.trim();
+            if (t.startsWith('<')) {
+              apiErr = `HTTP ${res.status}: server returned an HTML error page (check gateway/bridge Netlify logs).`;
+            } else {
+              apiErr = t.slice(0, 280);
+            }
+          }
           msgEl.textContent =
             apiErr ||
             (res.status ? `Import failed (HTTP ${res.status})` : '') ||
