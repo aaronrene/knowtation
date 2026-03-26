@@ -2,6 +2,8 @@
 
 This document lists **everything** needed to bring the **hosted** product (gateway + canister + bridge) to parity with **self-hosted** (Node Hub) so the same Hub UI works on both paths. Work is split into phases; implement in order before starting Phase 15 (multi-vault) or full deploy.
 
+**Product order (2026-03):** **`POST /api/v1/import` on hosted** (replace gateway **501**) is **P0** and comes **before** **Stripe checkout, subscriptions, and billing enforcement**. Indexing-token telemetry on the gateway may ship earlier on `main`; **paid launch** assumes users can **import** into the hosted vault. Implement on branch **`feature/hosted-import-parity`**. Design: [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md). Sequencing: [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (strategic sequencing).
+
 **Reference:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (build status, Phase 11/13/14), [HUB-API.md](./HUB-API.md) (API contract), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) (canister/deploy), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (deploy steps).
 
 **Order of work:** We do **Option B (Muse protocol alignment)** first per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — document variation protocol and canister extensibility; then Phase 1 (gateway stubs) below.

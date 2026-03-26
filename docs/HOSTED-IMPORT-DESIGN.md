@@ -1,5 +1,7 @@
 # Hosted import — design (replace gateway 501)
 
+**Priority:** This is the **next hosted product gate** — ship **before** **Stripe subscriptions and billing enforcement** (users must be able to **import** into the cloud vault first). **Implementation branch:** `feature/hosted-import-parity`. **Plan:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing.
+
 Self-hosted Hub runs [`hub/server.mjs`](../hub/server.mjs) `POST /api/v1/import`: multipart upload, optional ZIP extract, `runImport`, provenance merge, facets cache invalidation. Hosted uses [`hub/gateway/server.mjs`](../hub/gateway/server.mjs), which currently returns **501** for the same route so the UI does not 404.
 
 ## Goals
