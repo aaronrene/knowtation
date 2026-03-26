@@ -255,7 +255,14 @@
           <button type="button" id="modal-import-close" class="modal-close">×</button>
         </div>
         <div class="create-panel">
-        <p class="muted small">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder. <strong>PDF and Word</strong> are not converted yet—export or save as Markdown. <strong>Audio (transcribe):</strong> self-hosted Hub with <code>OPENAI_API_KEY</code>; OpenAI accepts up to <strong>~25&nbsp;MB</strong> per file (use compressed M4A/MP3 for longer recordings). <strong>Video</strong> in this dialog is <strong>coming soon</strong>; export audio or use another tool, then import Markdown or use CLI <code>knowtation import video</code>. You must be signed in. <strong>Hosted:</strong> in-app import/transcription is still limited—self-hosted gives the full path today (see docs).</p>
+        <p class="muted small import-modal-lead">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder. The file picker may gray out types that don’t match the selected source—<strong>PDF and Word</strong> are not imported directly. <strong>Audio (transcribe):</strong> self-hosted Hub with <code>OPENAI_API_KEY</code> (OpenAI ~25&nbsp;MB per file; prefer compressed M4A/MP3). <strong>Video</strong> here is <strong>coming soon</strong>. You must be signed in.</p>
+        <details class="modal-projects-help-details import-pdf-hint">
+          <summary>PDF or Word → get Markdown first</summary>
+          <p class="small muted import-pdf-hint-p">Knowtation ingests <strong>.md</strong> / <strong>.markdown</strong> notes. For PDFs or Word docs, convert first, then import the Markdown file (or a ZIP that contains those files).</p>
+          <p class="small muted import-pdf-hint-p"><strong>Easiest:</strong> In any chat assistant (ChatGPT, Claude, Gemini, etc.), upload the PDF and ask: <em>“Convert this to clean Markdown. Use <code>#</code> headings, preserve lists and tables, keep link URLs.”</em> Copy the reply into a new <code>.md</code> file and import it here.</p>
+          <p class="small muted import-pdf-hint-p">You can also search the web for <strong>PDF to Markdown</strong> converters and pick one you trust. A future in-app assistant may offer conversion here; not available yet.</p>
+        </details>
+        <p class="muted small import-modal-hosted"><strong>Hosted (e.g. knowtation.store):</strong> If you see <em>Import is not yet available on hosted</em>, this deployment has not enabled bridge-backed import yet (operators configure <code>BRIDGE_URL</code>). Self-hosted Hub already supports the full import flow.</p>
         <label for="import-source-type">Source type</label>
         <select id="import-source-type">
           <option value="markdown">Markdown (file or folder)</option>

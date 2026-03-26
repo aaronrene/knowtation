@@ -89,4 +89,22 @@ describe('importMarkdown', () => {
       /Input not found/
     );
   });
+
+  it('discovers .markdown and case variants of .md when importing a folder (ZIP extract parity)', async () => {
+    const srcDir = path.join(testVault, 'src-mixed-md-ext');
+    fs.mkdirSync(path.join(srcDir, 'nested'), { recursive: true });
+    fs.writeFileSync(path.join(srcDir, 'nested', 'Note.MD'), '# From upper\n', 'utf8');
+    fs.writeFileSync(path.join(srcDir, 'readme.markdown'), '# Readme markdown ext\n', 'utf8');
+    const ctx = {
+      vaultPath: testVault,
+      outputBase: 'imports/mixed-ext',
+      project: null,
+      tags: [],
+      dryRun: false,
+    };
+    const result = await importMarkdown(srcDir, ctx);
+    assert.strictEqual(result.count, 2);
+    const basenames = result.imported.map((x) => path.basename(x.path)).sort();
+    assert.deepStrictEqual(basenames, ['Note.MD', 'readme.markdown']);
+  });
 });

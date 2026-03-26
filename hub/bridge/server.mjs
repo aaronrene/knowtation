@@ -14,6 +14,13 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import AdmZip from 'adm-zip';
+import { runImport } from '../../lib/import.mjs';
+import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
+import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
+import { writeNote } from '../../lib/write.mjs';
+import { resolveVaultRelativePath } from '../../lib/vault.mjs';
 import {
   resolveEffectiveCanisterUser,
   getScopeForUserVaultFromScopeMap,
@@ -584,7 +591,7 @@ app.use((req, _res, next) => {
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id');
   res.set('Access-Control-Allow-Credentials', 'true');
   next();
 });
@@ -614,6 +621,16 @@ async function requireBridgeAdmin(req, res, next) {
   const roles = await loadRoles(req.blobStore);
   const role = effectiveRole(req.uid, roles);
   if (role !== 'admin') return res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+  next();
+}
+
+/** Import / index parity: viewers cannot write; default role is member (treated like editor for hosted). */
+async function requireBridgeEditorOrAdmin(req, res, next) {
+  const roles = await loadRoles(req.blobStore);
+  const role = effectiveRole(req.uid, roles);
+  if (role === 'viewer') {
+    return res.status(403).json({ error: 'This action requires editor or admin.', code: 'FORBIDDEN' });
+  }
   next();
 }
 
@@ -1134,6 +1151,123 @@ app.get('/api/v1/vault/github-status', async (req, res) => {
     repo: conn?.repo || null,
   });
 });
+
+async function postNoteMarkdownToCanister(canisterUid, actorUid, vaultId, notePath, markdownBody) {
+  const r = await fetch(CANISTER_URL + '/api/v1/notes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-User-Id': canisterUid,
+      'X-Actor-Id': actorUid,
+      'X-Vault-Id': vaultId,
+    },
+    body: JSON.stringify({ path: notePath, body: markdownBody }),
+  });
+  const text = await r.text();
+  if (!r.ok) {
+    throw new Error(`Canister note write failed (${r.status}): ${text.slice(0, 800)}`);
+  }
+}
+
+const importTempDirMiddleware = (req, _res, next) => {
+  req._importTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-bridge-import-'));
+  next();
+};
+const bridgeImportUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => cb(null, req._importTempDir),
+    filename: (_req, file, cb) => cb(null, file.originalname || 'upload'),
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+}).single('file');
+
+app.post(
+  '/api/v1/import',
+  requireBridgeAuth,
+  requireBridgeEditorOrAdmin,
+  importTempDirMiddleware,
+  bridgeImportUpload,
+  async (req, res) => {
+    const tempDir = req._importTempDir;
+    try {
+      if (!CANISTER_URL) {
+        return res.status(503).json({ error: 'Canister not configured', code: 'SERVICE_UNAVAILABLE' });
+      }
+      if (!req.file) return res.status(400).json({ error: 'file required', code: 'BAD_REQUEST' });
+      const sourceType = req.body && req.body.source_type ? String(req.body.source_type).trim() : '';
+      if (!IMPORT_SOURCE_TYPES.includes(sourceType)) {
+        return res.status(400).json({
+          error: `source_type must be one of: ${IMPORT_SOURCE_TYPES.join(', ')}`,
+          code: 'BAD_REQUEST',
+        });
+      }
+      const project = req.body && req.body.project ? String(req.body.project).trim() : undefined;
+      const outputDir = req.body && req.body.output_dir ? String(req.body.output_dir).trim() : undefined;
+      const tagsRaw = req.body && req.body.tags ? String(req.body.tags) : '';
+      const tags = tagsRaw ? tagsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      let inputPath = req.file.path;
+      if (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.zip')) {
+        const extractDir = path.join(tempDir, 'extracted');
+        fs.mkdirSync(extractDir, { recursive: true });
+        const zip = new AdmZip(req.file.path);
+        zip.extractAllTo(extractDir, true);
+        inputPath = extractDir;
+      }
+      const hctx = await resolveHostedBridgeContext(req, req.uid);
+      if (!hctx.ok) {
+        return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+      }
+      const vaultPath = path.join(tempDir, 'vault-work');
+      fs.mkdirSync(vaultPath, { recursive: true });
+      const result = await runImport(sourceType, inputPath, { project, outputDir, tags, vaultPath });
+      const importStamp = mergeProvenanceFrontmatter({}, {
+        sub: hctx.actorUid,
+        kind: 'import',
+      });
+      for (const item of result.imported || []) {
+        if (item.path && typeof item.path === 'string') {
+          try {
+            writeNote(vaultPath, item.path, { frontmatter: importStamp });
+            const safe = resolveVaultRelativePath(vaultPath, item.path);
+            const fullPath = path.join(vaultPath, safe);
+            const markdownBody = fs.readFileSync(fullPath, 'utf8');
+            await postNoteMarkdownToCanister(
+              hctx.effectiveCanisterUid,
+              hctx.actorUid,
+              hctx.vaultId,
+              safe.replace(/\\/g, '/'),
+              markdownBody,
+            );
+          } catch (e) {
+            console.error('[bridge] import canister write failed for', item.path, e?.message || e);
+            return res.status(502).json({
+              error: e.message || 'Canister write failed',
+              code: 'BAD_GATEWAY',
+            });
+          }
+        }
+      }
+      return res.json({ imported: result.imported, count: result.count });
+    } catch (e) {
+      const msg = e.message || String(e);
+      const clientError =
+        /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:|Transcription failed|413|Payload Too Large|25MB|Whisper accepts/i.test(
+          msg,
+        );
+      res.status(clientError ? 400 : 500).json({
+        error: msg,
+        code: clientError ? 'BAD_REQUEST' : 'RUNTIME_ERROR',
+      });
+    } finally {
+      if (tempDir && fs.existsSync(tempDir)) {
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (_) {}
+      }
+    }
+  },
+);
 
 // ——— Index + Search (hosted: indexer runs in bridge, canister does not run Node) ———
 const BATCH_EMBED = 10;
