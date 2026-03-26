@@ -1688,7 +1688,14 @@
         if (typeof loadFacets === 'function') loadFacets();
         if (typeof showToast === 'function') showToast('Import complete');
       } catch (e) {
-        msgEl.textContent = e.message || 'Import failed';
+        const raw = e && e.message ? String(e.message) : 'Import failed';
+        const isNetwork =
+          raw === 'Failed to fetch' ||
+          (e && e.name === 'TypeError' && /fetch|network|load failed/i.test(raw));
+        msgEl.textContent = isNetwork
+          ? raw +
+            ' — Often: CORS, upload too large for the gateway, or timeout. Video/audio need self-hosted Hub plus OPENAI_API_KEY. On hosted beta, Import may be unavailable; check DevTools → Network for POST /api/v1/import.'
+          : raw;
         msgEl.className = 'create-msg err';
       }
     });
@@ -1949,15 +1956,108 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        p.classList.toggle('active', (id === 'backup' && p.id === 'settings-panel-backup') || (id === 'team' && p.id === 'settings-panel-team') || (id === 'vaults' && p.id === 'settings-panel-vaults') || (id === 'integrations' && p.id === 'settings-panel-integrations') || (id === 'appearance' && p.id === 'settings-panel-appearance') || (id === 'agents' && p.id === 'settings-panel-agents'));
+        p.classList.toggle(
+          'active',
+          (id === 'backup' && p.id === 'settings-panel-backup') ||
+            (id === 'team' && p.id === 'settings-panel-team') ||
+            (id === 'vaults' && p.id === 'settings-panel-vaults') ||
+            (id === 'integrations' && p.id === 'settings-panel-integrations') ||
+            (id === 'appearance' && p.id === 'settings-panel-appearance') ||
+            (id === 'billing' && p.id === 'settings-panel-billing') ||
+            (id === 'agents' && p.id === 'settings-panel-agents'),
+        );
       });
       if (id === 'team') {
         loadTeamRolesList();
         loadInvitesList();
       }
       if (id === 'vaults') loadVaultsPanel();
+      if (id === 'billing') loadBillingPanel();
     });
   });
+
+  function formatTokenCount(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    return Number(n).toLocaleString();
+  }
+
+  async function loadBillingPanel() {
+    const msg = el('billing-panel-msg');
+    const tierEl = el('billing-tier');
+    const usedEl = el('billing-indexing-used');
+    const incEl = el('billing-indexing-included');
+    const packEl = el('billing-pack-balance');
+    const periodEl = el('billing-period');
+    const credEl = el('billing-credits-used');
+    const polEl = el('billing-indexing-policy');
+    const refreshBtn = el('btn-billing-refresh');
+    if (!tierEl || !usedEl) return;
+    if (msg) msg.textContent = '';
+    if (refreshBtn) setButtonBusy(refreshBtn, true, 'Loading…');
+    const setDash = () => {
+      tierEl.textContent = '—';
+      usedEl.textContent = '—';
+      if (incEl) incEl.textContent = '—';
+      if (packEl) packEl.textContent = '—';
+      if (periodEl) periodEl.textContent = '—';
+      if (credEl) credEl.textContent = '—';
+      if (polEl) polEl.textContent = '—';
+    };
+    if (!token) {
+      setDash();
+      if (msg) msg.textContent = 'Sign in to view billing usage.';
+      if (refreshBtn) setButtonBusy(refreshBtn, false);
+      return;
+    }
+    try {
+      const d = await api('/api/v1/billing/summary');
+      tierEl.textContent = d.tier != null ? String(d.tier) : '—';
+      usedEl.textContent = formatTokenCount(d.monthly_indexing_tokens_used);
+      const inc = d.monthly_indexing_tokens_included;
+      if (incEl) incEl.textContent = inc == null ? 'Unlimited (beta)' : formatTokenCount(inc);
+      if (packEl) packEl.textContent = formatTokenCount(d.pack_indexing_tokens_balance);
+      const ps = d.period_start;
+      const pe = d.period_end;
+      if (periodEl) {
+        periodEl.textContent =
+          ps && pe ? `${String(ps).slice(0, 10)} → ${String(pe).slice(0, 10)}` : '—';
+      }
+      const mu = d.monthly_used_cents;
+      const mi = d.monthly_included_effective_cents;
+      if (credEl) {
+        credEl.textContent =
+          mi != null && mu != null
+            ? `${(Number(mu) / 100).toFixed(2)} / ${(Number(mi) / 100).toFixed(2)} credits`
+            : '—';
+      }
+      if (polEl) {
+        polEl.textContent =
+          d.indexing_tokens_policy != null && String(d.indexing_tokens_policy).trim()
+            ? String(d.indexing_tokens_policy).trim()
+            : '—';
+      }
+      if (msg) {
+        msg.textContent = '';
+        msg.className = 'settings-intro small muted';
+      }
+    } catch (e) {
+      setDash();
+      const m = e && e.message ? String(e.message) : String(e);
+      if (msg) {
+        msg.textContent =
+          /\b404\b|Not\s*Found/i.test(m) || /cannot (GET|POST)/i.test(m)
+            ? 'Billing summary is only available on the hosted gateway (not this self-hosted Hub).'
+            : m;
+        msg.className = 'settings-intro small err';
+      }
+    }
+    if (refreshBtn) setButtonBusy(refreshBtn, false);
+  }
+
+  const btnBillingRefresh = el('btn-billing-refresh');
+  if (btnBillingRefresh) {
+    btnBillingRefresh.addEventListener('click', () => loadBillingPanel());
+  }
 
   /** Human-readable vault list (no raw JSON) — full JSON stays under Advanced. */
   function buildVaultListSummaryInnerHtml(vaults, isHosted) {

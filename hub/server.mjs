@@ -592,7 +592,9 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
   } catch (e) {
     const msg = e.message || String(e);
     const clientError =
-      /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:/i.test(msg);
+      /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:|Transcription failed|413|Payload Too Large|25MB|Whisper accepts/i.test(
+        msg
+      );
     res.status(clientError ? 400 : 500).json({
       error: msg,
       code: clientError ? 'BAD_REQUEST' : 'RUNTIME_ERROR',

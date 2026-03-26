@@ -17,6 +17,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { stripeWebhookHandler } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
+import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
 import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './note-facets.mjs';
@@ -265,7 +266,28 @@ if (BRIDGE_URL) {
   });
   app.post('/api/v1/index', async (req, res) => {
     if (!(await runBillingGate(req, res, getUserId))) return;
-    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/index', req, res);
+    const uid = getUserId(req);
+    const headers = { ...req.headers, host: new URL(BRIDGE_URL).host };
+    delete headers.origin;
+    delete headers.referer;
+    const opts = { method: 'POST', headers };
+    const payload =
+      req.body === undefined ? undefined : typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    if (payload !== undefined) {
+      opts.body = payload;
+      stripStaleOutboundBodyHeaders(headers);
+    }
+    try {
+      const upstream = await fetch(BRIDGE_URL + '/api/v1/index', opts);
+      const body = await upstream.text();
+      if (uid) await recordIndexingTokensAfterBridgeIndex(uid, upstream.status, body);
+      const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
+      res.status(upstream.status).set(Object.fromEntries(hop));
+      res.send(body);
+    } catch (e) {
+      console.error('Gateway proxy (bridge) error:', e.message);
+      res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+    }
   });
   // Roles & invites: proxy to bridge (bridge has persistent storage)
   app.get('/api/v1/roles', requireAdmin, async (req, res) => {

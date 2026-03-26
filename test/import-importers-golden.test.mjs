@@ -45,6 +45,19 @@ describe('import golden fixtures', () => {
     assertIsoDate(String(note.frontmatter.date || ''));
   });
 
+  it('markdown empty file', async () => {
+    const input = path.join(fixturesRoot, 'empty.md');
+    const result = await runImport('markdown', input, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-empty-md',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 1);
+    const note = readNote(testVault, result.imported[0].path);
+    assert.strictEqual(note.frontmatter.source, 'markdown');
+    assert.strictEqual(String(note.body || '').trim(), '');
+  });
+
   it('chatgpt-export', async () => {
     const input = path.join(fixturesRoot, 'chatgpt-export');
     const result = await runImport('chatgpt-export', input, {

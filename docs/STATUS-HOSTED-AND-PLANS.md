@@ -113,7 +113,7 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 | **Parity gaps** | **Access/scope** on hosted (planned next). **Import:** gateway **501** until implemented. **Facets:** aggregated from canister when configured — [PARITY-PLAN.md](./PARITY-PLAN.md). |
 | **Phase 15 self-hosted** | ✅ `hub_vaults.yaml`, access, scope, Hub UI. |
 | **MCP hosted (Issue #1)** | D2/D3 etc. after stable hosted baseline — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). |
-| **Phase 16 (hosted billing)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); Stripe subscriptions + metering; future credit top-ups — IMPLEMENTATION-PLAN Phase 16. |
+| **Phase 16 (hosted billing)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); Stripe subscriptions + **indexing token** quotas + **rollover token** packs — IMPLEMENTATION-PLAN Phase 16 (**gateway cent scaffold** today; bridge token metering **not** done). |
 | **Phase 12 (blockchain notes)** | Agent wallets / on-chain fields in notes — [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md); separate from Phase 16 ledger. |
 
 See **§4** above for when to consider a separate HTTP canister (Rust) vs keeping HTTP in Motoko.

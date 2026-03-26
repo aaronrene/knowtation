@@ -34,6 +34,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) | Hosted team: workspace owner, vault access, scope, gateway headers |
 | [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) | Stable storage + billing migration |
 | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) | Hosted billing design |
+| [PRODUCT-DECISIONS-HOSTED-MVP.md](./PRODUCT-DECISIONS-HOSTED-MVP.md) | Hosted MVP: transcription vs Markdown; self-hosted audio; metering focus |
 
 ## Product and phases
 

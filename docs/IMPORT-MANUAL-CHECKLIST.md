@@ -26,9 +26,11 @@ Use **self-hosted Hub** or **CLI** until [hosted import](./HOSTED-IMPORT-DESIGN.
 
 ## Audio / video
 
-1. Set **`OPENAI_API_KEY`** in the environment of the process running **Hub** or **CLI**.
-2. Use a **Whisper-supported** extension: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm` (see [`lib/transcribe.mjs`](../lib/transcribe.mjs)).
-3. Import, then **index** and **search** for a phrase from the transcript.
+1. **Hub UI:** **Audio (transcribe)** is available on **self-hosted** Hub with **`OPENAI_API_KEY`**. **Video** in the import dialog is **coming soon**; use **CLI** `knowtation import video` or transcribe elsewhere and import **Markdown**.
+2. Set **`OPENAI_API_KEY`** in the environment of the process running **Hub** or **CLI**.
+3. Use a **Whisper-supported** extension: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm` (see [`lib/transcribe.mjs`](../lib/transcribe.mjs)).
+4. **File size:** OpenAI’s transcription API enforces a **25MB** maximum per file (you may see **413 Payload Too Large** when the limit is exceeded). Prefer **compressed audio** (M4A/MP3) for longer recordings; split or downsample before import.
+5. Import, then **index** and **search** for a phrase from the transcript.
 
 ## Agents (MCP)
 
@@ -43,4 +45,4 @@ Use **self-hosted Hub** or **CLI** until [hosted import](./HOSTED-IMPORT-DESIGN.
 
 ## Automated regression
 
-- `node --test test/import-importers-golden.test.mjs test/import-source-types.test.mjs test/import-markdown.test.mjs`
+- `node --test test/import-importers-golden.test.mjs test/import-source-types.test.mjs test/import-markdown.test.mjs test/embedding-usage.test.mjs`

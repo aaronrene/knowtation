@@ -12,6 +12,21 @@ export const MONTHLY_INCLUDED_CENTS_BY_TIER = {
   team: 80 * 100,
 };
 
+/**
+ * Monthly **indexing** allowance (embedding input tokens). Aligns with docs/HOSTED-CREDITS-DESIGN.md §2 (illustrative).
+ * **`beta`:** no cap in UI (`null` effective included); usage is still recorded.
+ */
+export const MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER = {
+  free: 5_000_000,
+  starter: 36_000_000,
+  pro: 100_000_000,
+  team: 400_000_000,
+};
+
+/** Shown on GET /api/v1/billing/summary and future Hub billing UI. */
+export const INDEXING_TOKENS_POLICY =
+  'Semantic search is included (fair use). Indexing is measured in embedding input tokens per billing period; add-on token packs roll over when billing is fully enabled.';
+
 /** Stripe Price id → tier (set in env per deploy). */
 export function tierFromEnvPriceId(priceId) {
   if (!priceId) return null;

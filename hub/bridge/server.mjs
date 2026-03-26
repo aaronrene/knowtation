@@ -1192,7 +1192,7 @@ app.post('/api/v1/index', async (req, res) => {
       );
     }
     const { chunkNote } = await import('../../lib/chunk.mjs');
-    const { embed, embeddingDimension } = await import('../../lib/embedding.mjs');
+    const { embedWithUsage, embeddingDimension } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
 
     const vectorsDir = await getVectorsDirForUser(req, canisterUid);
@@ -1217,14 +1217,24 @@ app.post('/api/v1/index', async (req, res) => {
       const store = await createVectorStore(storeConfig);
       const dim = embeddingDimension(storeConfig.embedding);
       await store.ensureCollection(dim);
-      return res.json({ ok: true, notesProcessed: notes.length, chunksIndexed: 0 });
+      return res.json({
+        ok: true,
+        notesProcessed: notes.length,
+        chunksIndexed: 0,
+        embedding_input_tokens: 0,
+      });
     }
     const embeddingConfig = storeConfig.embedding;
     const vectors = [];
+    let embedding_input_tokens = 0;
     for (let i = 0; i < allChunks.length; i += BATCH_EMBED) {
       const batch = allChunks.slice(i, i + BATCH_EMBED);
       const texts = batch.map((c) => c.text);
-      const batchVectors = await embed(texts, embeddingConfig);
+      const { vectors: batchVectors, embedding_input_tokens: batchTok } = await embedWithUsage(
+        texts,
+        embeddingConfig,
+      );
+      embedding_input_tokens += batchTok;
       for (let j = 0; j < batch.length; j++) {
         vectors.push(batchVectors[j] || []);
       }
@@ -1250,7 +1260,12 @@ app.post('/api/v1/index', async (req, res) => {
       await store.upsert(points);
     }
     await persistVectorsToBlob(req, canisterUid, vectorsDir);
-    return res.json({ ok: true, notesProcessed: notes.length, chunksIndexed: allChunks.length });
+    return res.json({
+      ok: true,
+      notesProcessed: notes.length,
+      chunksIndexed: allChunks.length,
+      embedding_input_tokens,
+    });
   } catch (e) {
     console.error('Bridge index error:', e);
     return res.status(500).json({
