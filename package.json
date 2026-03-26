@@ -18,6 +18,7 @@
     "hub": "node hub/server.mjs",
     "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
     "canister:preflight": "bash scripts/canister-predeploy.sh",
+    "canister:release-prep": "bash scripts/canister-release-prep.sh",
     "seed:hosted-showcase": "node scripts/seed-vault-dir-to-hub.mjs",
     "verify:hosted-api": "node scripts/verify-hosted-hub-api.mjs",
     "investigate:hosted-hub": "KNOWTATION_HUB_INVESTIGATE=1 node scripts/verify-hosted-hub-api.mjs",

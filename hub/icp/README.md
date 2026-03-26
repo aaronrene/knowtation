@@ -12,12 +12,22 @@ This folder contains the **ICP canister** implementation of the Knowtation Hub A
 
 Before **`dfx deploy --network ic`**, from the **repository root**:
 
+**All-in-one (recommended):** loads `.env` if present, can sync `main`, defaults backup URL from [canister_ids.json](./canister_ids.json) when you set only `KNOWTATION_CANISTER_BACKUP_USER_ID`:
+
+```bash
+npm run canister:release-prep
+# Include: git checkout main && git pull (requires clean working tree):
+npm run canister:release-prep -- --sync-main
+```
+
+**Lower-level (same checks, no git / .env / URL defaulting):**
+
 ```bash
 npm run canister:preflight
 # or: bash scripts/canister-predeploy.sh
 ```
 
-This runs **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub --network ic`** (matches [canister_ids.json](./canister_ids.json); plain `dfx build hub` targets **local** and fails with “Cannot find canister id” until you run `dfx canister create hub` on a local replica). Override: **`DFX_PREFLIGHT_NETWORK=local`** after local create. Optional JSON backup of one vault: set `KNOWTATION_CANISTER_URL` and `KNOWTATION_CANISTER_BACKUP_USER_ID` (see comments in `scripts/canister-predeploy.sh`). Exports land in `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
+Both run **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub --network ic`** (matches [canister_ids.json](./canister_ids.json); plain `dfx build hub` targets **local** and fails with “Cannot find canister id” until you run `dfx canister create hub` on a local replica). Override: **`DFX_PREFLIGHT_NETWORK=local`** after local create. Optional JSON backup of one vault: set `KNOWTATION_CANISTER_BACKUP_USER_ID` (and optionally `KNOWTATION_CANISTER_URL`; omitted URL is derived from `canister_ids.json` in **`canister:release-prep` only**). See `scripts/canister-predeploy.sh`. Exports land in `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
 
 ## Build and deploy
 
