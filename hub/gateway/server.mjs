@@ -246,7 +246,12 @@ if (BRIDGE_URL) {
     const q = new URLSearchParams(req.query).toString();
     res.redirect(`${BRIDGE_URL}/auth/github-connect${q ? '?' + q : ''}`);
   });
+  // Browsers send OPTIONS preflight before POST with Authorization + JSON body. The bridge only
+  // registers POST /api/v1/vault/sync, so proxying OPTIONS returns 404 and surfaces as "Failed to fetch".
   app.all('/api/v1/vault/sync', async (req, res) => {
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
     const url = BRIDGE_URL + '/api/v1/vault/sync' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
     await proxyTo(BRIDGE_URL, url, req, res);
   });
