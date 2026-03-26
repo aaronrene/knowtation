@@ -379,13 +379,41 @@ async function proxyTo(baseUrl, url, req, res) {
 }
 
 /**
- * Multipart import: forward raw body stream to bridge (do not use proxyTo — body is not in req.body).
+ * Read multipart/raw POST body for import proxy.
+ * Netlify (serverless-http) attaches the Lambda body as Buffer on `req.body` and uses a synthetic stream;
+ * `fetch(req, { duplex })` is unreliable there — always buffer then POST bytes.
+ * @param {import('express').Request} req
+ * @returns {Promise<Buffer>}
+ */
+async function bufferImportRequestBody(req) {
+  if (Buffer.isBuffer(req.body)) return req.body;
+  if (req.body instanceof Uint8Array) return Buffer.from(req.body);
+  if (typeof req.body === 'string') return Buffer.from(req.body, 'latin1');
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Multipart import: forward body bytes to bridge (do not use proxyTo — body is not JSON in req.body).
  * @param {string} baseUrl
  * @param {string} url - full URL to bridge /api/v1/import
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
 async function proxyImportToBridge(baseUrl, url, req, res) {
+  let raw;
+  try {
+    raw = await bufferImportRequestBody(req);
+  } catch (e) {
+    console.error('Gateway import proxy (read body):', e.message || e);
+    return res.status(500).json({ error: 'Could not read upload body', code: 'INTERNAL_ERROR' });
+  }
+  if (!raw.length) {
+    return res.status(400).json({ error: 'Empty upload body', code: 'BAD_REQUEST' });
+  }
   const headers = {
     host: new URL(baseUrl).host,
     authorization: req.headers.authorization || '',
@@ -393,14 +421,12 @@ async function proxyImportToBridge(baseUrl, url, req, res) {
   };
   const ct = req.headers['content-type'];
   if (ct) headers['content-type'] = ct;
-  const cl = req.headers['content-length'];
-  if (cl) headers['content-length'] = cl;
+  headers['content-length'] = String(raw.length);
   try {
     const upstream = await fetch(url, {
       method: 'POST',
       headers,
-      body: req,
-      duplex: 'half',
+      body: raw,
     });
     const body = await upstream.text();
     const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
