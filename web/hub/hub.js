@@ -1681,8 +1681,11 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
+          const apiErr =
+            (data && typeof data === 'object' && (data.error || data.message)) ||
+            (data && typeof data === 'string' ? data : '');
           msgEl.textContent =
-            data.error ||
+            apiErr ||
             (res.status ? `Import failed (HTTP ${res.status})` : '') ||
             res.statusText ||
             'Import failed';
