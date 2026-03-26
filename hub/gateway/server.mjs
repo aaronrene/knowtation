@@ -378,6 +378,40 @@ async function proxyTo(baseUrl, url, req, res) {
   }
 }
 
+/**
+ * Multipart import: forward raw body stream to bridge (do not use proxyTo — body is not in req.body).
+ * @param {string} baseUrl
+ * @param {string} url - full URL to bridge /api/v1/import
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+async function proxyImportToBridge(baseUrl, url, req, res) {
+  const headers = {
+    host: new URL(baseUrl).host,
+    authorization: req.headers.authorization || '',
+    'x-vault-id': String(req.headers['x-vault-id'] || 'default'),
+  };
+  const ct = req.headers['content-type'];
+  if (ct) headers['content-type'] = ct;
+  const cl = req.headers['content-length'];
+  if (cl) headers['content-length'] = cl;
+  try {
+    const upstream = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: req,
+      duplex: 'half',
+    });
+    const body = await upstream.text();
+    const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
+    res.status(upstream.status).set(Object.fromEntries(hop));
+    res.send(body);
+  } catch (e) {
+    console.error('Gateway import proxy error:', e.message);
+    res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
+}
+
 // Proxy /api/* to canister with X-User-Id from JWT
 function getUserId(req) {
   const auth = req.headers.authorization;
@@ -637,12 +671,18 @@ app.post('/api/v1/setup', (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/v1/import — not yet available on hosted (canister does not implement)
-app.post('/api/v1/import', (req, res) => {
+// POST /api/v1/import — bridge runs importers and writes notes to canister when BRIDGE_URL is set
+app.post('/api/v1/import', async (req, res) => {
   const uid = getUserId(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (BRIDGE_URL) {
+    if (!(await runBillingGate(req, res, getUserId))) return;
+    const q = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+    await proxyImportToBridge(BRIDGE_URL, BRIDGE_URL + '/api/v1/import' + q, req, res);
+    return;
+  }
   res.status(501).json({
-    error: 'Import is not yet available on hosted.',
+    error: 'Import is not yet available on hosted (set BRIDGE_URL for bridge-backed import).',
     code: 'NOT_AVAILABLE',
   });
 });

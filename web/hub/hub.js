@@ -1670,10 +1670,13 @@
     msgEl.className = 'create-msg';
     await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
       try {
+        const importHeaders = token ? { Authorization: 'Bearer ' + token } : {};
+        const importVaultId = getCurrentVaultId();
+        if (importVaultId) importHeaders['X-Vault-Id'] = importVaultId;
         const res = await fetch(apiBase + '/api/v1/import', {
           method: 'POST',
           cache: 'no-store',
-          headers: token ? { Authorization: 'Bearer ' + token } : {},
+          headers: importHeaders,
           body: formData,
         });
         const data = await res.json().catch(() => ({}));
@@ -1682,8 +1685,17 @@
           msgEl.className = 'create-msg err';
           return;
         }
-        msgEl.textContent = 'Imported ' + (data.count ?? data.imported?.length ?? 0) + ' note(s).';
-        msgEl.className = 'create-msg ok';
+        const count = data.count ?? data.imported?.length ?? 0;
+        if (count === 0) {
+          msgEl.textContent =
+            sourceType === 'markdown'
+              ? 'Imported 0 notes. This ZIP or folder had no Markdown files we could use—only .md / .markdown (any case). PDF, Word, and other formats are skipped. Open “PDF or Word → get Markdown first” above, or pick a different source type.'
+              : 'Imported 0 notes. Check that the file matches the selected source type (e.g. ChatGPT export needs chatgpt-export).';
+          msgEl.className = 'create-msg warn';
+        } else {
+          msgEl.textContent = 'Imported ' + count + ' note(s).';
+          msgEl.className = 'create-msg ok';
+        }
         if (typeof loadNotes === 'function') loadNotes();
         if (typeof loadFacets === 'function') loadFacets();
         if (typeof showToast === 'function') showToast('Import complete');

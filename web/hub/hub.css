@@ -278,6 +278,29 @@ button.btn-new-note.btn-busy::after {
 .modal-projects-help-details[open] summary {
   margin-bottom: 0.5rem;
 }
+.import-modal-lead {
+  margin-bottom: 0.65rem;
+}
+.import-pdf-hint {
+  margin: 0.5rem 0 0.75rem;
+}
+.import-pdf-hint-p {
+  margin: 0 0 0.5rem;
+  line-height: 1.45;
+}
+.import-pdf-hint-p:last-child {
+  margin-bottom: 0;
+}
+.import-modal-hosted {
+  margin-top: 0.65rem;
+  margin-bottom: 0;
+}
+.create-msg.warn {
+  color: #fbbf24;
+}
+[data-theme="light"] .create-msg.warn {
+  color: #b45309;
+}
 
 /* Vault access: save is easy to miss after Apply — keep a visible outline at rest */
 .btn-vault-access-save-emphasis {
