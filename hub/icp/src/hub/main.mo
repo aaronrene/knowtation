@@ -99,15 +99,17 @@ func loadStable() {
   };
 };
 
+/// Serialize transient maps into stable storage. Uses Buffer for vault rows — `Array.append` in a loop is
+/// quadratic and exceeds the per-message instruction limit (40B) on mainnet for large multi-user vaults.
 func saveStable() {
-  var vaultRows : [(Text, Text, [(Text, (Text, Text))])] = [];
+  let vaultBuf = Buffer.Buffer<(Text, Text, [(Text, (Text, Text))])>(8);
   for ((uid, um) in byUser.entries()) {
     for ((vaultId, m) in um.entries()) {
-      vaultRows := Array.append(vaultRows, [(uid, vaultId, Iter.toArray(m.entries()))]);
+      vaultBuf.add((uid, vaultId, Iter.toArray(m.entries())));
     };
   };
   storage := {
-    vaultEntries = vaultRows;
+    vaultEntries = Buffer.toArray(vaultBuf);
     proposalEntries = Iter.toArray(
       Iter.map<((Text, [ProposalRecord])), (Text, [ProposalRecord])>(proposals.entries(), func((uid, list) : (Text, [ProposalRecord])) : (Text, [ProposalRecord]) {
         (uid, list);
