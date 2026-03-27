@@ -116,3 +116,4 @@ Until the bridge reports token totals end-to-end:
 | 2026-03-26 | Linked **PRODUCT-DECISIONS-HOSTED-MVP.md**. |
 | 2026-03-25 | **Major:** Indexing-token product model + **§4** updates. **Code:** bridge **`embedding_input_tokens`**; gateway accumulates **`monthly_indexing_tokens_used`**; **`billing/summary`** token fields. Legacy **cent/job** scaffold remains until Stripe/token enforcement ships. |
 | 2026-03-27 | **§7:** Clarified canister delete/rename semantics vs billing; linked **HOSTED-PLATFORM-BACKUP-ROADMAP.md** (operator backups). |
+| 2026-03-27 | Docs: **PR #65** Hub client + redeploy note for hosted project-slug bulk (gateway + static Hub). |

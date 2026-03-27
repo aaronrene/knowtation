@@ -2,7 +2,7 @@
 
 This document lists **everything** needed to bring the **hosted** product (gateway + canister + bridge) to parity with **self-hosted** (Node Hub) so the same Hub UI works on both paths. Work is split into phases; implement in order before starting Phase 15 (multi-vault) or full deploy.
 
-**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Metadata bulk on hosted:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** are implemented on the **gateway** ([`hub/gateway/metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)); self-hosted metadata bulk remains **PR #63**. Design: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md).
+**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Metadata bulk on hosted:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** are implemented on the **gateway** ([`hub/gateway/metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)); self-hosted metadata bulk remains **PR #63**. **PR #65:** Hub Settings no longer blocks those POSTs in the browser on hosted. Design: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md).
 
 **Reference:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (build status, Phase 11/13/14), [HUB-API.md](./HUB-API.md) (API contract), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) (canister/deploy), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (deploy steps).
 
@@ -16,7 +16,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Team vault access + scope (hosted):** Implemented in repo: bridge stores **`hub_workspace`** (owner id), **`hub_vault_access`**, **`hub_scope`**; gateway proxies **`GET/POST /api/v1/workspace`**, **`vault-access`**, **`scope`**, **`GET /api/v1/hosted-context`** when **`BRIDGE_URL`** is set; gateway sets **`X-User-Id`** to the **effective canister user** and **`X-Actor-Id`** to the JWT `sub`; notes list / single GET / facets apply **scope** in the gateway; index/search/sync on the bridge use the owner partition for delegated users. Spec: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). Operators must set **`POST /api/v1/workspace`** `{ owner_user_id }` for team sharing.
 
-**Remaining parity vs self-hosted:** Track in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and this file’s tables. **Metadata bulk** — done on gateway (same routes as Node); redeploy gateway to enable in production.
+**Remaining parity vs self-hosted:** Track in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and this file’s tables. **Metadata bulk (project slug)** — done on gateway + Hub client (**PR #65**); redeploy **gateway and static Hub** to enable in production.
 
 ---
 
