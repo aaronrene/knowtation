@@ -130,3 +130,29 @@ export function discardProposalsUnderPathPrefix(dataDir, opts) {
   saveProposals(dataDir, next);
   return n;
 }
+
+/**
+ * Discard proposals in "proposed" state whose path is in the given set (exact match, vault-relative forward slashes).
+ * @param {string} dataDir
+ * @param {{ vault_id?: string, paths: string[] }} opts
+ * @returns {number} count discarded
+ */
+export function discardProposalsAtPaths(dataDir, opts) {
+  const vid = opts.vault_id != null && String(opts.vault_id).trim() ? String(opts.vault_id).trim() : 'default';
+  const set = new Set((opts.paths || []).map((p) => String(p).replace(/\\/g, '/')));
+  if (set.size === 0) return 0;
+  const all = loadProposals(dataDir);
+  const now = new Date().toISOString();
+  let n = 0;
+  const next = all.map((p) => {
+    if (p.status !== 'proposed') return p;
+    const pv = p.vault_id != null && String(p.vault_id).trim() ? String(p.vault_id).trim() : 'default';
+    if (pv !== vid) return p;
+    const normPath = String(p.path || '').replace(/\\/g, '/');
+    if (!set.has(normPath)) return p;
+    n += 1;
+    return { ...p, status: 'discarded', updated_at: now };
+  });
+  saveProposals(dataDir, next);
+  return n;
+}

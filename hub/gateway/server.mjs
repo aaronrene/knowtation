@@ -787,6 +787,21 @@ app.get('/api/v1/notes/facets', async (req, res) => {
   }
 });
 
+// GET /api/v1/vault/folders — no canister filesystem; UI falls back to inbox + custom path
+app.get('/api/v1/vault/folders', async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (!CANISTER_URL) {
+    return res.json({ folders: ['inbox'] });
+  }
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  res.json({ folders: ['inbox'] });
+});
+
 /**
  * @param {Record<string, unknown>|null} hctx
  */

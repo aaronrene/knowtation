@@ -10,6 +10,8 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) | Demo notes (`vault/showcase/`) — local tree + hosted seed |
 | [SPEC.md](./SPEC.md) | Data formats, CLI, config — source of truth |
 | [HUB-API.md](./HUB-API.md) | Hub REST API (self-hosted and canister-aligned) |
+| [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md) | Delete/rename by project slug (Node vs hosted / canister gap) |
+| [VAULT-RENAME-SPEC.md](./VAULT-RENAME-SPEC.md) | Vault id migration vs display label (planning spec) |
 | [setup.md](./setup.md) | Extended setup (OAuth, transcription, etc.) |
 
 ## Architecture and agents

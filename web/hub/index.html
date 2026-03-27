@@ -220,8 +220,11 @@
           <p id="create-msg-quick" class="create-msg"></p>
         </div>
         <div id="create-full" class="create-panel hidden">
-          <label>Path (vault-relative)</label>
-          <input type="text" id="full-path" placeholder="inbox/my-note.md">
+          <label for="full-path-folder">Folder</label>
+          <select id="full-path-folder" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-path-folder-hint"></select>
+          <p id="full-path-folder-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a folder on disk under this vault (includes empty folders). Pick <strong>Custom</strong> to type any path.</p>
+          <label for="full-path">Path (vault-relative)</label>
+          <input type="text" id="full-path" placeholder="inbox/my-note.md" autocomplete="off" spellcheck="false">
           <label>Title</label>
           <input type="text" id="full-title" placeholder="Note title">
           <label>Body (Markdown)</label>
@@ -416,20 +419,58 @@ Your note body here.</pre>
               <p class="settings-intro small"><strong>Self-hosted:</strong> <em>Connect GitHub</em> saves a token so pushes can authenticate — it does <em>not</em> run <code>git init</code> in your vault. If backup says the folder is not a Git repo, click <strong>Initialize Git in this vault</strong> (appears after a failed backup) or run <code>git init</code> manually in that folder.</p>
             </div>
             <div id="settings-delete-project-panel" class="hidden" style="margin-top: 1.25rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--err, #c44) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--err, #c44) 8%, transparent);">
-              <h3 class="settings-h3">Delete project (bulk)</h3>
-              <p class="settings-intro small">Permanently removes every <strong>.md</strong> note in the <strong>currently selected vault</strong> whose path equals the prefix or lies under <code>prefix/</code> (e.g. <code>projects/my-project</code>). Self-hosted: matching <strong>proposed</strong> proposals for this vault are discarded. <strong>Semantic search:</strong> after deleting, use toolbar <strong>Re-index</strong> (hosted) or re-run the indexer so search does not return removed paths.</p>
+              <h3 class="settings-h3">Bulk delete by path or by project slug</h3>
+              <p class="settings-intro small"><strong>Path prefix</strong> is the note’s <strong>file path</strong> in the vault (same string as in <code>POST /notes</code>), not the Hub <strong>Project</strong> filter. Example: notes in <code>inbox/foo.md</code> match prefix <code>inbox</code>, not your frontmatter <code>project:</code> slug. On hosted (canister), paths are still stored strings — there is no disk folder, but the rule is the same.</p>
+              <p class="settings-intro small"><strong>Delete by project slug</strong> removes every note whose <strong>effective project</strong> matches (frontmatter <code>project:</code> and/or path under <code>projects/&lt;slug&gt;/</code>, same as list/search). Self-hosted Node Hub only for project slug delete/rename below; hosted canister does not implement these yet — see docs.</p>
               <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; margin-top: 0.5rem;">
-                <div>
-                  <label for="settings-delete-prefix">Path prefix</label>
-                  <input type="text" id="settings-delete-prefix" class="settings-input-inline" placeholder="e.g. projects/my-project" autocomplete="off" spellcheck="false" style="min-width: 18rem; max-width: 100%;">
+                <div style="min-width: 14rem; max-width: 100%;">
+                  <label for="settings-bulk-path-prefix-preset">Path prefix</label>
+                  <select id="settings-bulk-path-prefix-preset" class="settings-input-inline" style="display: block; width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="settings-bulk-path-hint"></select>
+                  <input type="text" id="settings-delete-prefix" class="settings-input-inline" placeholder="e.g. inbox or projects/acme" autocomplete="off" spellcheck="false" style="width: 100%; max-width: 22rem;">
+                  <p id="settings-bulk-path-hint" class="muted small" style="margin: 0.25rem 0 0 0;">Pick from disk + note paths, or choose Custom and type the exact prefix.</p>
                 </div>
                 <div>
                   <label for="settings-delete-confirm">Type DELETE to confirm</label>
                   <input type="text" id="settings-delete-confirm" class="settings-input-inline" placeholder="DELETE" autocomplete="off" spellcheck="false" style="min-width: 7rem;">
                 </div>
-                <button type="button" id="btn-settings-delete-prefix" class="btn-secondary" style="border-color: var(--err, #c44); color: var(--err, #c44);">Delete all matching notes</button>
+                <button type="button" id="btn-settings-delete-prefix" class="btn-secondary" style="border-color: var(--err, #c44); color: var(--err, #c44);">Delete by path prefix</button>
               </div>
               <span id="settings-delete-prefix-msg" class="settings-msg" role="status"></span>
+              <div id="settings-bulk-metadata-self-only">
+              <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid color-mix(in srgb, var(--border, #444) 60%, transparent);">
+                <div style="min-width: 14rem; max-width: 100%;">
+                  <label for="settings-bulk-delete-project-preset">Project slug (metadata)</label>
+                  <select id="settings-bulk-delete-project-preset" class="settings-input-inline" style="display: block; width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="settings-bulk-project-delete-hint"></select>
+                  <input type="text" id="settings-delete-project-slug" class="settings-input-inline" placeholder="e.g. delete-project" autocomplete="off" spellcheck="false" style="width: 100%; max-width: 22rem;">
+                  <p id="settings-bulk-project-delete-hint" class="muted small" style="margin: 0.25rem 0 0 0;">Projects from this vault’s notes (facets). Custom if yours is not listed.</p>
+                </div>
+                <div>
+                  <label for="settings-delete-project-confirm">Type DELETE to confirm</label>
+                  <input type="text" id="settings-delete-project-confirm" class="settings-input-inline" placeholder="DELETE" autocomplete="off" spellcheck="false" style="min-width: 7rem;">
+                </div>
+                <button type="button" id="btn-settings-delete-by-project" class="btn-secondary" style="border-color: var(--err, #c44); color: var(--err, #c44);">Delete all notes in this project</button>
+              </div>
+              <span id="settings-delete-by-project-msg" class="settings-msg" role="status"></span>
+              <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid color-mix(in srgb, var(--border, #444) 60%, transparent);">
+                <div style="min-width: 14rem; max-width: 100%;">
+                  <label for="settings-bulk-rename-from-preset">Rename project: from slug</label>
+                  <select id="settings-bulk-rename-from-preset" class="settings-input-inline" style="display: block; width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="settings-bulk-rename-from-hint"></select>
+                  <input type="text" id="settings-rename-project-from" class="settings-input-inline" placeholder="old-slug" autocomplete="off" spellcheck="false" style="width: 100%; max-width: 22rem;">
+                  <p id="settings-bulk-rename-from-hint" class="muted small" style="margin: 0.25rem 0 0 0;">Same project list as above. <strong>To slug</strong> is still typed (new name).</p>
+                </div>
+                <div>
+                  <label for="settings-rename-project-to">To slug</label>
+                  <input type="text" id="settings-rename-project-to" class="settings-input-inline" placeholder="new-slug" autocomplete="off" spellcheck="false" style="min-width: 10rem;">
+                </div>
+                <div>
+                  <label for="settings-rename-project-confirm">Type RENAME to confirm</label>
+                  <input type="text" id="settings-rename-project-confirm" class="settings-input-inline" placeholder="RENAME" autocomplete="off" spellcheck="false" style="min-width: 7rem;">
+                </div>
+                <button type="button" id="btn-settings-rename-project" class="btn-secondary">Rewrite project slug (frontmatter)</button>
+              </div>
+              <span id="settings-rename-project-msg" class="settings-msg" role="status"></span>
+              <p class="settings-intro small muted" style="margin-top: 0.5rem;">Path-prefix and project-slug deletes discard matching <strong>proposed</strong> proposals (same vault). Rename-project only updates YAML frontmatter <code>project:</code>; it does not move files between folders. <strong>Hosted (canister):</strong> project slug delete/rename is hidden here — use self-hosted Hub or future bridge support (see <code>docs/HUB-METADATA-BULK-OPS.md</code>).</p>
+              </div>
             </div>
             <hr class="settings-hr" id="settings-hr-configure">
             <div id="settings-configure-backup-section">
@@ -1130,7 +1171,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="how-to-note"><strong>Projects and filters:</strong> Organize notes by project (e.g. <code>vault/projects/myapp/</code> or frontmatter <code>project: myapp</code>) and tags. Agents use <code>--project</code> and <code>--tag</code> to read only what’s relevant. See the <strong>Knowledge &amp; agents</strong> tab above for the full picture.</p>
             <h4 class="how-to-sub">Notes: project, path, and tags (two ways)</h4>
             <p><strong>Project</strong> can come from (1) <strong>path</strong> — a note under <code>vault/projects/Launch/</code> is in project “Launch”; or (2) <strong>frontmatter</strong> — <code>project: Launch</code> in the note’s YAML. Both count for filters and scope. <strong>Tags</strong> and <code>date</code>, <code>causal_chain_id</code>, <code>entity</code>, <code>episode_id</code> go in frontmatter (or are set in the Hub when you create the note).</p>
-            <p><strong>Where the file lives:</strong> <strong>Quick capture</strong> always saves to <code>inbox/</code>; you can set project and tags in the form — they’re written into frontmatter, so the note is “in” that project for filtering even though the file is in inbox. To put the <strong>file</strong> inside a project folder, use <strong>+ New note</strong> → the <strong>“New note”</strong> tab (not Quick capture) and set <strong>Path</strong> to e.g. <code>projects/Launch/my-note.md</code>. Then fill title, body, project, tags as needed. So: project from path = file under <code>projects/&lt;name&gt;/</code>; project from frontmatter = file anywhere (e.g. inbox) with <code>project: &lt;name&gt;</code> in the note.</p>
+            <p><strong>Where the file lives:</strong> <strong>Quick capture</strong> always saves to <code>inbox/</code>; you can set project and tags in the form — they’re written into frontmatter, so the note is “in” that project for filtering even though the file is in inbox. To put the <strong>file</strong> in a specific folder, use <strong>+ New note</strong> → <strong>New note</strong> (not Quick capture): choose <strong>Folder</strong> (lists directories under your vault, including empty ones) or <strong>Custom</strong> and edit the full path — e.g. <code>projects/Launch/my-note.md</code>. Then fill title, body, project, tags as needed. So: project from path = file under <code>projects/&lt;name&gt;/</code>; project from frontmatter = file anywhere (e.g. inbox) with <code>project: &lt;name&gt;</code> in the note.</p>
             <h4 class="how-to-sub">Multiple vaults and multiple users</h4>
             <p>On <strong>self-hosted</strong> you can have multiple vaults (Settings → Vaults): define a vault list (<code>data/hub_vaults.yaml</code>), then map each <strong>user</strong> to the vaults they can see (<code>data/hub_vault_access.json</code>). Optionally restrict a user to certain projects or folders within a vault (<code>data/hub_scope.json</code>). See <code>docs/MULTI-VAULT-AND-SCOPED-ACCESS.md</code> for full setup.</p>
             <p><strong>User ID</strong> is <code>provider:id</code> — e.g. <code>google:104164334692309763642</code> if you signed in with Google, or <code>github:12345678</code> if you signed in with GitHub. You see yours in Settings → Backup (“Your user ID”). Each sign-in identity is one user; if you have several Gmail or GitHub accounts, each account that signs in gets its own user ID. Admins add each ID to roles and vault access as needed. So the same Hub can serve many users, each with access to their assigned vaults (and optionally scoped to certain projects/folders).</p>

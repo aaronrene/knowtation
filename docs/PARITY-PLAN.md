@@ -29,7 +29,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Auth | OAuth (Google/GitHub), JWT, login/callback | ✅ |
 | Health | GET /health, GET /api/v1/health | ✅ |
 | Auth providers | GET /api/v1/auth/providers | ✅ |
-| Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, DELETE /api/v1/notes/:path, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/facets | ✅ |
+| Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, DELETE /api/v1/notes/:path, POST /api/v1/notes/delete-by-prefix, POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project, GET /api/v1/notes/facets | ✅ (metadata bulk: Node only; see [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
 | Search | POST /api/v1/search | ✅ |
 | Index | POST /api/v1/index | ✅ |
 | Export | POST /api/v1/export | ✅ |
@@ -49,7 +49,8 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Auth | Gateway (OAuth, JWT) | ✅ |
 | Health | Gateway (local) | ✅ |
 | Auth providers | Gateway (local) | ✅ |
-| Notes (incl. delete), proposals, export | Canister (proxy) | ✅ |
+| Notes (incl. delete-by-prefix), proposals, export | Canister (proxy) | ✅ |
+| POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project | Not on canister; gateway proxies → **404** unless future bridge handler | ❌ (documented; UI hidden on canister vault — [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
 | Notes facets (filter dropdowns) | Gateway stub (GET /api/v1/notes/facets) | ✅ |
 | Search, index | Bridge (proxy from gateway) | ✅ |
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
