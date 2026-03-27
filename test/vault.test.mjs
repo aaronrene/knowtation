@@ -3,6 +3,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -13,6 +14,7 @@ import {
   normalizeSlug,
   normalizeTags,
   noteFileExistsInVault,
+  listVaultFolderOptions,
 } from '../lib/vault.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -117,6 +119,27 @@ describe('vault', () => {
 
     it('returns false for escape paths without throwing', () => {
       assert.strictEqual(noteFileExistsInVault(vaultPath, '../../../etc/passwd'), false);
+    });
+  });
+
+  describe('listVaultFolderOptions', () => {
+    it('returns inbox first then top-level and projects/* subdirs sorted', () => {
+      const root = fs.mkdtempSync(path.join(__dirname, 'fixtures', 'tmp-vault-folders-'));
+      try {
+        fs.mkdirSync(path.join(root, 'inbox'));
+        fs.mkdirSync(path.join(root, 'media'));
+        fs.mkdirSync(path.join(root, 'projects', 'born-free'), { recursive: true });
+        const o = listVaultFolderOptions(root);
+        assert.deepStrictEqual(o, ['inbox', 'media', 'projects', 'projects/born-free']);
+      } finally {
+        try {
+          fs.rmSync(root, { recursive: true });
+        } catch (_) {}
+      }
+    });
+
+    it('returns at least inbox for missing path', () => {
+      assert.deepStrictEqual(listVaultFolderOptions('/no/such/vault/path'), ['inbox']);
     });
   });
 

@@ -7,6 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
+import { notePathMatchesPrefix, normalizePathPrefix } from '../lib/write.mjs';
+
 const FILENAME = 'hub_proposals.json';
 
 export function getProposalsPath(dataDir) {
@@ -101,4 +103,56 @@ export function updateProposalStatus(dataDir, id, status) {
   all[idx] = { ...all[idx], status, updated_at: now };
   saveProposals(dataDir, all);
   return all[idx];
+}
+
+
+/**
+ * Discard proposals in "proposed" state whose path is under path_prefix in the given vault.
+ * @param {string} dataDir
+ * @param {{ vault_id?: string, path_prefix: string }} opts
+ * @returns {number} count discarded
+ */
+export function discardProposalsUnderPathPrefix(dataDir, opts) {
+  const pathPrefixRaw = opts && opts.path_prefix != null ? String(opts.path_prefix) : '';
+  const prefixNorm = normalizePathPrefix(pathPrefixRaw);
+  const vid = opts.vault_id != null && String(opts.vault_id).trim() ? String(opts.vault_id).trim() : 'default';
+  const all = loadProposals(dataDir);
+  const now = new Date().toISOString();
+  let n = 0;
+  const next = all.map((p) => {
+    if (p.status !== 'proposed') return p;
+    const pv = p.vault_id != null && String(p.vault_id).trim() ? String(p.vault_id).trim() : 'default';
+    if (pv !== vid) return p;
+    if (!notePathMatchesPrefix(p.path, prefixNorm)) return p;
+    n += 1;
+    return { ...p, status: 'discarded', updated_at: now };
+  });
+  saveProposals(dataDir, next);
+  return n;
+}
+
+/**
+ * Discard proposals in "proposed" state whose path is in the given set (exact match, vault-relative forward slashes).
+ * @param {string} dataDir
+ * @param {{ vault_id?: string, paths: string[] }} opts
+ * @returns {number} count discarded
+ */
+export function discardProposalsAtPaths(dataDir, opts) {
+  const vid = opts.vault_id != null && String(opts.vault_id).trim() ? String(opts.vault_id).trim() : 'default';
+  const set = new Set((opts.paths || []).map((p) => String(p).replace(/\\/g, '/')));
+  if (set.size === 0) return 0;
+  const all = loadProposals(dataDir);
+  const now = new Date().toISOString();
+  let n = 0;
+  const next = all.map((p) => {
+    if (p.status !== 'proposed') return p;
+    const pv = p.vault_id != null && String(p.vault_id).trim() ? String(p.vault_id).trim() : 'default';
+    if (pv !== vid) return p;
+    const normPath = String(p.path || '').replace(/\\/g, '/');
+    if (!set.has(normPath)) return p;
+    n += 1;
+    return { ...p, status: 'discarded', updated_at: now };
+  });
+  saveProposals(dataDir, next);
+  return n;
 }

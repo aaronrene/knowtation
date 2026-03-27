@@ -23,8 +23,15 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 
 import { loadConfig } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
-import { readNote, normalizeSlug, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
-import { writeNote, deleteNote } from '../lib/write.mjs';
+import {
+  readNote,
+  normalizeSlug,
+  resolveVaultRelativePath,
+  noteFileExistsInVault,
+  listVaultFolderOptions,
+} from '../lib/vault.mjs';
+import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
+import { deleteNotesByProjectSlug, renameProjectSlugInVault } from '../lib/hub-bulk-metadata.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
@@ -35,6 +42,8 @@ import {
   getProposal,
   createProposal,
   updateProposalStatus,
+  discardProposalsUnderPathPrefix,
+  discardProposalsAtPaths,
 } from './proposals-store.mjs';
 import { appendAudit } from './audit-log.mjs';
 import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
@@ -375,6 +384,16 @@ function invalidateFacetsCache() {
   Object.keys(facetsCacheByVault).forEach((k) => delete facetsCacheByVault[k]);
 }
 
+// GET /api/v1/vault/folders — disk folders for Hub “New note” picker (self-hosted; empty on hosted gateway stub)
+app.get('/api/v1/vault/folders', jwtAuth, apiLimiter, requireVaultAccess, (req, res) => {
+  try {
+    const folders = listVaultFolderOptions(req.vaultPath);
+    res.json({ folders });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
 // GET /api/v1/notes/facets — filter dropdown values (before /:path to avoid collision)
 app.get('/api/v1/notes/facets', (req, res) => {
   try {
@@ -525,6 +544,69 @@ app.delete(/^\/api\/v1\/notes\/(.+)$/, requireRole('editor', 'admin'), (req, res
       return res.status(404).json({ error: e.message, code: 'NOT_FOUND' });
     }
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/notes/delete-by-prefix — bulk delete notes under a vault-relative prefix (editor/admin; "delete project")
+app.post('/api/v1/notes/delete-by-prefix', requireRole('editor', 'admin'), (req, res) => {
+  const raw = req.body && req.body.path_prefix != null ? String(req.body.path_prefix) : '';
+  try {
+    const { deleted, paths } = deleteNotesByPrefix(req.vaultPath, raw, { ignore: config.ignore || [] });
+    const proposals_discarded = discardProposalsUnderPathPrefix(config.data_dir, {
+      vault_id: req.vault_id ?? 'default',
+      path_prefix: raw,
+    });
+    invalidateFacetsCache();
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
+    res.json({ deleted, paths, proposals_discarded });
+  } catch (e) {
+    if (
+      e.message &&
+      (e.message.includes('path_prefix') || e.message.includes('Invalid path_prefix') || e.message.includes('Invalid path'))
+    ) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/notes/delete-by-project — bulk delete by list-notes project filter (self-hosted Node; see docs/HUB-METADATA-BULK-OPS.md)
+app.post('/api/v1/notes/delete-by-project', requireRole('editor', 'admin'), (req, res) => {
+  const raw = req.body && req.body.project != null ? String(req.body.project) : '';
+  try {
+    const { deleted, paths } = deleteNotesByProjectSlug(req.vaultPath, raw, { ignore: config.ignore || [] });
+    const proposals_discarded = discardProposalsAtPaths(config.data_dir, {
+      vault_id: req.vault_id ?? 'default',
+      paths,
+    });
+    invalidateFacetsCache();
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
+    res.json({ deleted, paths, proposals_discarded });
+  } catch (e) {
+    if (e.message && (e.message.includes('project slug required') || e.message.includes('Invalid path'))) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/notes/rename-project — rewrite frontmatter project slug (self-hosted Node; see docs/HUB-METADATA-BULK-OPS.md)
+app.post('/api/v1/notes/rename-project', requireRole('editor', 'admin'), (req, res) => {
+  const from = req.body && req.body.from != null ? String(req.body.from) : '';
+  const to = req.body && req.body.to != null ? String(req.body.to) : '';
+  try {
+    const { updated, paths } = renameProjectSlugInVault(req.vaultPath, from, to, { ignore: config.ignore || [] });
+    invalidateFacetsCache();
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
+    res.json({ updated, paths });
+  } catch (e) {
+    if (
+      e.message &&
+      (e.message.includes('from and to project') || e.message.includes('Invalid path') || e.message.includes('escapes vault'))
+    ) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });

@@ -7,19 +7,35 @@
   // Build-time or deployment config: set window.HUB_API_BASE_URL (e.g. from config.js). Empty string = same origin (when static host proxies /api to the gateway).
   const apiBase = (function resolveApiBase() {
     if (typeof window === 'undefined') return 'http://localhost:3333';
+    const paramApi = params.get('api');
+    if (paramApi != null && String(paramApi).trim()) {
+      return String(paramApi).trim().replace(/\/$/, '');
+    }
+    const hostname = location.hostname || '';
+    const isLocalDev =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '[::1]' ||
+      hostname === '::1';
+    // Self-hosted dev: always call the same origin as the page (npm run hub). Stale localStorage
+    // hub_api_url often points at a hosted gateway and causes HTML 404 for Node-only routes.
+    if (isLocalDev) {
+      return (location.origin || 'http://localhost:3333').replace(/\/$/, '');
+    }
     if (Object.prototype.hasOwnProperty.call(window, 'HUB_API_BASE_URL')) {
       const v = window.HUB_API_BASE_URL;
-      if (v == null) return params.get('api') || localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333';
+      if (v == null) {
+        return (
+          localStorage.getItem('hub_api_url') ||
+          location.origin ||
+          'http://localhost:3333'
+        ).replace(/\/$/, '');
+      }
       const s = String(v).trim();
       if (s === '') return (location.origin || 'http://localhost:3333').replace(/\/$/, '');
       return s.replace(/\/$/, '');
     }
-    return (
-      params.get('api') ||
-      localStorage.getItem('hub_api_url') ||
-      location.origin ||
-      'http://localhost:3333'
-    );
+    return (localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333').replace(/\/$/, '');
   })();
   let token = params.get('token') || localStorage.getItem('hub_token');
   if (token) {
@@ -191,7 +207,7 @@
       const t = text.trim();
       if (/^<!DOCTYPE/i.test(t) || /<html/i.test(t)) {
         throw new Error(
-          `Server returned a web page (${res.status}) instead of API JSON. If you just updated Knowtation, stop and restart the Hub (npm run hub) so routes like git-init are loaded.`,
+          `Server returned a web page (${res.status}) instead of API JSON. Restart the Hub (\`npm run hub\`) after pulling. On localhost, the UI must use the same origin as Node Hub (not a hosted gateway); use \`?api=\` only if you intentionally point at another API base.`,
         );
       }
       throw new Error(
@@ -423,6 +439,30 @@
     return r === 'editor' || r === 'admin' || r === 'member';
   }
 
+  function refreshDeleteProjectPanelVisibility() {
+    const panel = el('settings-delete-project-panel');
+    if (panel) panel.classList.toggle('hidden', !hubUserCanWriteNotes());
+  }
+
+  /** Apply GET /api/v1/settings payload to header vault switcher, hosted flag, and cached backup modal state. */
+  function applySettingsPayloadToHubChrome(s) {
+    if (!s || typeof s !== 'object') return;
+    lastBackupSettingsPayload = s;
+    if (s.role) window.__hubUserRole = String(s.role);
+    refreshDeleteProjectPanelVisibility();
+    const allowed = (s.allowed_vault_ids || []).map(String);
+    const current = String(getCurrentVaultId());
+    if (allowed.length && !allowed.includes(current)) {
+      setCurrentVaultId(allowed[0] || 'default');
+    }
+    updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+    applyHostedUiFromSettings(s);
+    const metaSelf = el('settings-bulk-metadata-self-only');
+    if (metaSelf) {
+      metaSelf.classList.toggle('hidden', String(s.vault_path_display || '').toLowerCase() === 'canister');
+    }
+  }
+
   function showLoginChrome() {
     btnLogout.classList.add('hidden');
     userName.textContent = '';
@@ -454,11 +494,13 @@
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
         if (btnImport) btnImport.classList.toggle('hidden', isViewer);
+        refreshDeleteProjectPanelVisibility();
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
         if (btnImport) btnImport.classList.remove('hidden');
+        refreshDeleteProjectPanelVisibility();
       }
     } else {
       if (btnNewNote) btnNewNote.classList.add('hidden');
@@ -557,14 +599,7 @@
     (async function ensureVaultAndSwitcherThenLoad() {
       try {
         const s = await api('/api/v1/settings');
-        if (s.role) window.__hubUserRole = String(s.role);
-        const allowed = s.allowed_vault_ids || [];
-        const current = getCurrentVaultId();
-        if (allowed.length && !allowed.includes(current)) {
-          setCurrentVaultId(allowed[0] || 'default');
-        }
-        updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
-        applyHostedUiFromSettings(s);
+        applySettingsPayloadToHubChrome(s);
       } catch (_) {}
       loadFacets();
       loadNotes();
@@ -712,7 +747,7 @@
   function listItemDisplayDate(n, fm) {
     if (n.date != null && String(n.date).trim()) return calendarDisplayDayKey(n.date) || String(n.date).trim().slice(0, 10);
     if (fm.date != null && String(fm.date).trim()) return calendarDisplayDayKey(fm.date) || String(fm.date).trim().slice(0, 10);
-    const ke = fm.knowtation_edited_at;
+    const ke = fm.knowtation_edited_at ?? n.knowtation_edited_at;
     if (ke != null && String(ke).trim()) return calendarDisplayDayKey(ke) || String(ke).trim().slice(0, 10);
     const inferred = inferredDisplayDateFromNotePath(n.path);
     return inferred || null;
@@ -1599,6 +1634,7 @@
     el('create-msg-quick').className = 'create-msg';
     el('create-msg-full').textContent = '';
     el('create-msg-full').className = 'create-msg';
+    if (token) void refreshFullPathFolderSelect();
   }
   function closeCreateModal() {
     el('modal-create').classList.add('hidden');
@@ -1802,8 +1838,7 @@
     if (ghStatus) ghStatus.textContent = 'Loading…';
     fetchSettingsForBackupModal()
       .then((s) => {
-        lastBackupSettingsPayload = s;
-        if (s.role) window.__hubUserRole = String(s.role);
+        applySettingsPayloadToHubChrome(s);
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
         const userIdEl = el('settings-user-id');
@@ -1851,12 +1886,6 @@
         if (teamTab) teamTab.classList.toggle('hidden', !isAdmin);
         const vaultsTab = el('settings-tab-vaults');
         if (vaultsTab) vaultsTab.classList.toggle('hidden', !isAdmin);
-        const allowedIds = s.allowed_vault_ids || [];
-        if (allowedIds.length && !allowedIds.includes(getCurrentVaultId())) {
-          setCurrentVaultId(allowedIds[0] || 'default');
-        }
-        updateVaultSwitcher(s.vault_list || [], allowedIds);
-        applyHostedUiFromSettings(s);
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
         const hostedGhHint = el('settings-hosted-connect-github-hint');
@@ -1921,6 +1950,7 @@
           }
         }
         refreshApiBaseFootgunBanner();
+        void refreshBulkDeletePresetDropdowns();
       })
       .catch(() => {
         const hostedGhHint = el('settings-hosted-connect-github-hint');
@@ -2010,6 +2040,7 @@
       }
       if (id === 'vaults') loadVaultsPanel();
       if (id === 'billing') loadBillingPanel();
+      if (id === 'backup') void refreshBulkDeletePresetDropdowns();
     });
   });
 
@@ -2727,6 +2758,296 @@
     return s && String(s.vault_path_display || '').toLowerCase() === 'canister';
   }
 
+  const BULK_PRESET_EMPTY = '';
+  const BULK_PRESET_CUSTOM = '__custom__';
+
+  function fillBulkPresetSelect(sel, items, includeCustom) {
+    if (!sel) return;
+    const preserve = sel.value;
+    sel.innerHTML = '';
+    const head = document.createElement('option');
+    head.value = BULK_PRESET_EMPTY;
+    head.textContent = '— Select or type below —';
+    sel.appendChild(head);
+    for (const item of items) {
+      if (item == null || item === '') continue;
+      const o = document.createElement('option');
+      o.value = item;
+      o.textContent = item;
+      sel.appendChild(o);
+    }
+    if (includeCustom) {
+      const c = document.createElement('option');
+      c.value = BULK_PRESET_CUSTOM;
+      c.textContent = 'Custom (type below)';
+      sel.appendChild(c);
+    }
+    if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
+    else sel.value = BULK_PRESET_EMPTY;
+  }
+
+  function syncBulkPathPresetSelectToInput(selectEl, inputEl) {
+    if (!selectEl || !inputEl) return;
+    const p = (inputEl.value || '').trim();
+    if (!p) {
+      selectEl.value = BULK_PRESET_EMPTY;
+      return;
+    }
+    let best = BULK_PRESET_CUSTOM;
+    let bestLen = -1;
+    for (const opt of selectEl.options) {
+      const v = opt.value;
+      if (!v || v === BULK_PRESET_EMPTY || v === BULK_PRESET_CUSTOM) continue;
+      if (p === v || p.startsWith(v + '/')) {
+        if (v.length > bestLen) {
+          best = v;
+          bestLen = v.length;
+        }
+      }
+    }
+    selectEl.value = bestLen >= 0 ? best : BULK_PRESET_CUSTOM;
+  }
+
+  function syncBulkSlugPresetSelectToInput(selectEl, inputEl) {
+    if (!selectEl || !inputEl) return;
+    const p = (inputEl.value || '').trim();
+    if (!p) {
+      selectEl.value = BULK_PRESET_EMPTY;
+      return;
+    }
+    if ([...selectEl.options].some((opt) => opt.value === p)) selectEl.value = p;
+    else selectEl.value = BULK_PRESET_CUSTOM;
+  }
+
+  function wireBulkPathPresetPair(selectEl, inputEl) {
+    if (!selectEl || !inputEl) return;
+    selectEl.addEventListener('change', () => {
+      const v = selectEl.value;
+      if (v && v !== BULK_PRESET_EMPTY && v !== BULK_PRESET_CUSTOM) inputEl.value = v;
+    });
+    inputEl.addEventListener('input', () => syncBulkPathPresetSelectToInput(selectEl, inputEl));
+  }
+
+  function wireBulkSlugPresetPair(selectEl, inputEl) {
+    if (!selectEl || !inputEl) return;
+    selectEl.addEventListener('change', () => {
+      const v = selectEl.value;
+      if (v && v !== BULK_PRESET_EMPTY && v !== BULK_PRESET_CUSTOM) inputEl.value = v;
+    });
+    inputEl.addEventListener('input', () => syncBulkSlugPresetSelectToInput(selectEl, inputEl));
+  }
+
+  let bulkPresetDropdownsToken = 0;
+  async function refreshBulkDeletePresetDropdowns() {
+    if (!token) return;
+    const pathSelect = el('settings-bulk-path-prefix-preset');
+    const delProjSelect = el('settings-bulk-delete-project-preset');
+    const renameFromSelect = el('settings-bulk-rename-from-preset');
+    const pathInput = el('settings-delete-prefix');
+    const delProjInput = el('settings-delete-project-slug');
+    const renameFromInput = el('settings-rename-project-from');
+    if (!pathSelect && !delProjSelect && !renameFromSelect) return;
+    const my = ++bulkPresetDropdownsToken;
+    let diskFolders = [];
+    let facets = { projects: [], folders: [] };
+    try {
+      const [vf, fc] = await Promise.all([
+        api('/api/v1/vault/folders'),
+        api('/api/v1/notes/facets'),
+      ]);
+      if (my !== bulkPresetDropdownsToken) return;
+      diskFolders = vf && Array.isArray(vf.folders) ? vf.folders : [];
+      facets = fc && typeof fc === 'object' ? fc : { projects: [], folders: [] };
+    } catch (_) {
+      if (my !== bulkPresetDropdownsToken) return;
+    }
+    const pathSet = new Set();
+    for (const f of diskFolders) {
+      if (f && typeof f === 'string') pathSet.add(f.replace(/\/+$/, '').trim());
+    }
+    for (const f of facets.folders || []) {
+      if (f && typeof f === 'string') pathSet.add(f.replace(/\/+$/, '').trim());
+    }
+    const rest = [...pathSet].filter((x) => x && x !== 'inbox').sort((a, b) => a.localeCompare(b));
+    const pathPrefixes = ['inbox', ...rest];
+    const projects = [
+      ...new Set((facets.projects || []).map((p) => String(p).trim()).filter(Boolean)),
+    ].sort((a, b) => a.localeCompare(b));
+
+    fillBulkPresetSelect(pathSelect, pathPrefixes, true);
+    fillBulkPresetSelect(delProjSelect, projects, true);
+    fillBulkPresetSelect(renameFromSelect, projects, true);
+
+    syncBulkPathPresetSelectToInput(pathSelect, pathInput);
+    syncBulkSlugPresetSelectToInput(delProjSelect, delProjInput);
+    syncBulkSlugPresetSelectToInput(renameFromSelect, renameFromInput);
+  }
+
+  wireBulkPathPresetPair(el('settings-bulk-path-prefix-preset'), el('settings-delete-prefix'));
+  wireBulkSlugPresetPair(el('settings-bulk-delete-project-preset'), el('settings-delete-project-slug'));
+  wireBulkSlugPresetPair(el('settings-bulk-rename-from-preset'), el('settings-rename-project-from'));
+
+  const btnDeletePrefix = el('btn-settings-delete-prefix');
+  if (btnDeletePrefix) {
+    btnDeletePrefix.onclick = async () => {
+      const msg = el('settings-delete-prefix-msg');
+      const prefixEl = el('settings-delete-prefix');
+      const confirmEl = el('settings-delete-confirm');
+      if (!hubUserCanWriteNotes()) {
+        if (msg) { msg.textContent = 'Your role cannot delete notes.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      const raw = (prefixEl && prefixEl.value) ? prefixEl.value.trim() : '';
+      const conf = (confirmEl && confirmEl.value) ? confirmEl.value.trim() : '';
+      if (!raw) {
+        if (msg) { msg.textContent = 'Enter a path prefix (vault-relative).'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      if (conf !== 'DELETE') {
+        if (msg) { msg.textContent = 'Type DELETE in the confirmation field.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      await withButtonBusy(btnDeletePrefix, 'Deleting…', async () => {
+        try {
+          const out = await api('/api/v1/notes/delete-by-prefix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path_prefix: raw }),
+          });
+          const n = out && typeof out.deleted === 'number' ? out.deleted : 0;
+          const pd = out && typeof out.proposals_discarded === 'number' ? out.proposals_discarded : 0;
+          if (confirmEl) confirmEl.value = '';
+          if (msg) {
+            msg.textContent = 'Removed ' + n + ' note(s)' + (pd ? '; ' + pd + ' proposal(s) discarded' : '') + '.';
+            msg.className = 'settings-msg ok';
+          }
+          if (typeof showToast === 'function') {
+            showToast('Deleted ' + n + ' note(s). Run Re-index if you use semantic search.', false);
+          }
+          loadNotes();
+          loadFacets();
+          if (typeof loadProposals === 'function') loadProposals();
+          void refreshBulkDeletePresetDropdowns();
+        } catch (e) {
+          const m = e && e.message ? String(e.message) : String(e);
+          if (msg) { msg.textContent = m; msg.className = 'settings-msg err'; }
+        }
+      });
+    };
+  }
+
+  const btnDeleteByProject = el('btn-settings-delete-by-project');
+  if (btnDeleteByProject) {
+    btnDeleteByProject.onclick = async () => {
+      const msg = el('settings-delete-by-project-msg');
+      const slugEl = el('settings-delete-project-slug');
+      const confirmEl = el('settings-delete-project-confirm');
+      if (isHostedHubFromSettings()) {
+        if (msg) {
+          msg.textContent = 'Delete-by-project runs on self-hosted Node Hub only. See docs/HUB-METADATA-BULK-OPS.md.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      if (!hubUserCanWriteNotes()) {
+        if (msg) { msg.textContent = 'Your role cannot delete notes.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      const slug = (slugEl && slugEl.value) ? slugEl.value.trim() : '';
+      const conf = (confirmEl && confirmEl.value) ? confirmEl.value.trim() : '';
+      if (!slug) {
+        if (msg) { msg.textContent = 'Enter a project slug (same as list/search filter).'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      if (conf !== 'DELETE') {
+        if (msg) { msg.textContent = 'Type DELETE in the confirmation field.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      await withButtonBusy(btnDeleteByProject, 'Deleting…', async () => {
+        try {
+          const out = await api('/api/v1/notes/delete-by-project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project: slug }),
+          });
+          const n = out && typeof out.deleted === 'number' ? out.deleted : 0;
+          const pd = out && typeof out.proposals_discarded === 'number' ? out.proposals_discarded : 0;
+          if (confirmEl) confirmEl.value = '';
+          if (msg) {
+            msg.textContent = 'Removed ' + n + ' note(s)' + (pd ? '; ' + pd + ' proposal(s) discarded' : '') + '.';
+            msg.className = 'settings-msg ok';
+          }
+          if (typeof showToast === 'function') {
+            showToast('Deleted ' + n + ' note(s) in project. Run Re-index if you use semantic search.', false);
+          }
+          loadNotes();
+          loadFacets();
+          if (typeof loadProposals === 'function') loadProposals();
+          void refreshBulkDeletePresetDropdowns();
+        } catch (e) {
+          const m = e && e.message ? String(e.message) : String(e);
+          if (msg) { msg.textContent = m; msg.className = 'settings-msg err'; }
+        }
+      });
+    };
+  }
+
+  const btnRenameProject = el('btn-settings-rename-project');
+  if (btnRenameProject) {
+    btnRenameProject.onclick = async () => {
+      const msg = el('settings-rename-project-msg');
+      const fromEl = el('settings-rename-project-from');
+      const toEl = el('settings-rename-project-to');
+      const confirmEl = el('settings-rename-project-confirm');
+      if (isHostedHubFromSettings()) {
+        if (msg) {
+          msg.textContent = 'Rename-project runs on self-hosted Node Hub only. See docs/HUB-METADATA-BULK-OPS.md.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      if (!hubUserCanWriteNotes()) {
+        if (msg) { msg.textContent = 'Your role cannot edit notes.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      const from = (fromEl && fromEl.value) ? fromEl.value.trim() : '';
+      const to = (toEl && toEl.value) ? toEl.value.trim() : '';
+      const conf = (confirmEl && confirmEl.value) ? confirmEl.value.trim() : '';
+      if (!from || !to) {
+        if (msg) { msg.textContent = 'Enter both from and to project slugs.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      if (conf !== 'RENAME') {
+        if (msg) { msg.textContent = 'Type RENAME in the confirmation field.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      await withButtonBusy(btnRenameProject, 'Renaming…', async () => {
+        try {
+          const out = await api('/api/v1/notes/rename-project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to }),
+          });
+          const n = out && typeof out.updated === 'number' ? out.updated : 0;
+          if (confirmEl) confirmEl.value = '';
+          if (msg) {
+            msg.textContent = 'Updated project slug on ' + n + ' note(s).';
+            msg.className = 'settings-msg ok';
+          }
+          if (typeof showToast === 'function') {
+            showToast('Renamed project on ' + n + ' note(s).', false);
+          }
+          loadNotes();
+          loadFacets();
+          void refreshBulkDeletePresetDropdowns();
+        } catch (e) {
+          const m = e && e.message ? String(e.message) : String(e);
+          if (msg) { msg.textContent = m; msg.className = 'settings-msg err'; }
+        }
+      });
+    };
+  }
+
   const btnVaultsSave = el('btn-vaults-save');
   if (btnVaultsSave) btnVaultsSave.onclick = async () => {
     const msg = el('vaults-save-msg');
@@ -2745,6 +3066,10 @@
         if (!Array.isArray(vaults)) throw new Error('Must be a JSON array');
         await api('/api/v1/vaults', { method: 'POST', body: JSON.stringify({ vaults }) });
         if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+        try {
+          const s = await api('/api/v1/settings');
+          applySettingsPayloadToHubChrome(s);
+        } catch (_) {}
         loadVaultsPanel();
       } catch (e) {
         if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
@@ -2782,6 +3107,10 @@
         if (err) throw new Error(err);
         await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
         if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+        try {
+          const s = await api('/api/v1/settings');
+          applySettingsPayloadToHubChrome(s);
+        } catch (_) {}
         refreshAccessRulesSummary(parseVaultAccessFromTextarea());
       } catch (e) {
         if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
@@ -3329,7 +3658,71 @@
   }
 
   function defaultFullPath() {
-    return 'inbox/note-' + Date.now() + '.md';
+    const sel = el('full-path-folder');
+    const folder =
+      sel && sel.value && sel.value !== '__custom__' ? sel.value : 'inbox';
+    return folder + '/note-' + Date.now() + '.md';
+  }
+
+  let fullPathFolderLoadToken = 0;
+  async function refreshFullPathFolderSelect() {
+    const sel = el('full-path-folder');
+    if (!sel || !token) return;
+    const my = ++fullPathFolderLoadToken;
+    let folders = ['inbox'];
+    try {
+      const data = await api('/api/v1/vault/folders');
+      if (my !== fullPathFolderLoadToken) return;
+      if (data && Array.isArray(data.folders) && data.folders.length) folders = data.folders;
+    } catch (_) {
+      if (my !== fullPathFolderLoadToken) return;
+    }
+    const preserve = sel.value;
+    sel.innerHTML = '';
+    for (const f of folders) {
+      const o = document.createElement('option');
+      o.value = f;
+      o.textContent = f;
+      sel.appendChild(o);
+    }
+    const custom = document.createElement('option');
+    custom.value = '__custom__';
+    custom.textContent = 'Custom (type path below)';
+    sel.appendChild(custom);
+    if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
+    else sel.value = folders[0] || 'inbox';
+  }
+
+  function syncFolderSelectToPathInput() {
+    const pathInput = el('full-path');
+    const sel = el('full-path-folder');
+    if (!pathInput || !sel) return;
+    const p = pathInput.value.trim();
+    if (!p) return;
+    let best = '__custom__';
+    let bestLen = -1;
+    for (const opt of sel.options) {
+      const v = opt.value;
+      if (v === '__custom__') continue;
+      if (p === v || p.startsWith(v + '/')) {
+        if (v.length > bestLen) {
+          best = v;
+          bestLen = v.length;
+        }
+      }
+    }
+    sel.value = bestLen >= 0 ? best : '__custom__';
+  }
+
+  const fullPathFolderEl = () => el('full-path-folder');
+  const fullPathInputEl = () => el('full-path');
+  if (fullPathFolderEl() && fullPathInputEl()) {
+    fullPathFolderEl().addEventListener('change', () => {
+      const sel = fullPathFolderEl();
+      if (!sel || sel.value === '__custom__') return;
+      fullPathInputEl().value = sel.value + '/note-' + Date.now() + '.md';
+    });
+    fullPathInputEl().addEventListener('input', () => syncFolderSelectToPathInput());
   }
 
   document.querySelectorAll('.modal-tab').forEach((t) => {
@@ -3341,7 +3734,11 @@
       el('create-full').classList.toggle('hidden', tab !== 'full');
       if (tab === 'full') {
         if (el('full-date') && !el('full-date').value) el('full-date').value = ymd(new Date());
-        if (el('full-path') && !el('full-path').value.trim()) el('full-path').value = defaultFullPath();
+        void refreshFullPathFolderSelect().then(() => {
+          const pi = el('full-path');
+          if (pi && !pi.value.trim()) pi.value = defaultFullPath();
+          else syncFolderSelectToPathInput();
+        });
       }
     };
   });
@@ -3425,7 +3822,10 @@
         await api('/api/v1/notes', { method: 'POST', body: stringifyNotePostPayload(notePath, body, fm) });
         msg.textContent = 'Created: ' + notePath;
         msg.className = 'create-msg ok';
-        el('full-path').value = defaultFullPath();
+        void refreshFullPathFolderSelect().then(() => {
+          el('full-path').value = defaultFullPath();
+          syncFolderSelectToPathInput();
+        });
         el('full-title').value = '';
         el('full-body').value = '';
         el('full-project').value = '';
