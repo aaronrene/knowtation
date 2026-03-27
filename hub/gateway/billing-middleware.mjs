@@ -12,6 +12,13 @@ function operationFromRequest(method, req) {
   if (method === 'POST' && path.endsWith('/index')) return 'index';
   if (method === 'POST' && /\/api\/v1\/notes\/?$/.test(path)) return 'note_write';
   if (method === 'PUT' && /\/api\/v1\/notes\//.test(path)) return 'note_write';
+  if (
+    method === 'DELETE' &&
+    /^\/api\/v1\/notes\/.+/.test(path) &&
+    path !== '/api/v1/notes/facets'
+  ) {
+    return 'note_write';
+  }
   if (method === 'POST' && /\/api\/v1\/proposals\/?$/.test(path)) return 'proposal_write';
   return null;
 }

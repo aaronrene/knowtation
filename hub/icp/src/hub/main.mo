@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
  * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
- * Implements GET /health, GET/POST /api/v1/notes, POST /api/v1/notes/batch, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
+ * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
  * GET/POST /api/v1/proposals, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
@@ -190,7 +190,7 @@ func effectiveVaultId(stored : Text) : Text {
 func corsHeaders() : [Header] {
   [
     ("Access-Control-Allow-Origin", "*"),
-    ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+    ("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"),
     ("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Vault-Id, X-User-Id, X-Test-User"),
     ("Content-Type", "application/json"),
   ];
@@ -552,6 +552,16 @@ func decodePercentEncoded(s : Text) : Text {
   Text.fromIter(buf.vals());
 };
 
+/// Decode URL path segment and strip a single trailing slash (matches GET note lookup).
+func normalizeNotePathFromArg(pathArg : Text) : Text {
+  let pathDecoded = decodePercentEncoded(pathArg);
+  if (Text.size(pathDecoded) > 0 and textSlice(pathDecoded, Text.size(pathDecoded) - 1, 1) == "/") {
+    textSlice(pathDecoded, 0, Text.size(pathDecoded) - 1)
+  } else {
+    pathDecoded
+  };
+};
+
 /// 4 lowercase hex digits (JSON \\uXXXX) for BMP code points; used for U+0000..U+001F.
 func natToHex4(code : Nat32) : Text {
   let n = Nat32.toNat(code);
@@ -670,12 +680,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "note" and req.method == "GET") {
-    let pathDecoded = decodePercentEncoded(pathArg);
-    let pathNormalized = if (Text.size(pathDecoded) > 0 and textSlice(pathDecoded, Text.size(pathDecoded) - 1, 1) == "/") {
-      textSlice(pathDecoded, 0, Text.size(pathDecoded) - 1)
-    } else {
-      pathDecoded
-    };
+    let pathNormalized = normalizeNotePathFromArg(pathArg);
     let vault = getVault(uid, vid);
     switch (vault.get(pathNormalized)) {
       case (?fmBody) {
@@ -723,7 +728,8 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   // ICP HTTP gateway always invokes http_request (query) first. Mutating methods must return
   // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
   if (
-    req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard")
+    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard"))
+    or (req.method == "DELETE" and pathKind == "note")
   ) {
     return {
       status_code = 200;
@@ -746,6 +752,42 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
   let bodyText = if (req.body.size() > 0) { Option.get(Text.decodeUtf8(req.body), "{}") } else { "{}" };
+
+  if (pathKind == "note" and req.method == "DELETE") {
+    let pathNormalized = normalizeNotePathFromArg(pathArg);
+    let vault = getVault(uid, vid);
+    var deletedPath : ?Text = null;
+    switch (vault.remove(pathNormalized)) {
+      case (?_) { deletedPath := ?pathNormalized };
+      case null {
+        switch (vault.remove(pathArg)) {
+          case (?_) { deletedPath := ?pathArg };
+          case null {};
+        };
+      };
+    };
+    switch (deletedPath) {
+      case (?p) {
+        saveStable();
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody("{\"path\":\"" # escapeJson(p) # "\",\"deleted\":true}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case null {
+        return {
+          status_code = 404;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+    };
+  };
 
   if (pathKind == "notes_batch" and req.method == "POST") {
     switch (parseNotesBatch(bodyText)) {

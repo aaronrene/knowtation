@@ -24,7 +24,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import { loadConfig } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
 import { readNote, normalizeSlug, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
-import { writeNote } from '../lib/write.mjs';
+import { writeNote, deleteNote } from '../lib/write.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
@@ -506,6 +506,24 @@ app.post('/api/v1/notes', requireRole('editor', 'admin'), (req, res) => {
     maybeAutoSync({ ...config, vault_path: req.vaultPath });
     res.json(out);
   } catch (e) {
+    if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// DELETE /api/v1/notes/:path — delete note (editor or admin)
+app.delete(/^\/api\/v1\/notes\/(.+)$/, requireRole('editor', 'admin'), (req, res) => {
+  const notePath = req.path.replace(/^\/api\/v1\/notes\//, '');
+  if (!notePath) return res.status(400).json({ error: 'Path required', code: 'BAD_REQUEST' });
+  try {
+    const out = deleteNote(req.vaultPath, decodeURIComponent(notePath));
+    invalidateFacetsCache();
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
+    res.json(out);
+  } catch (e) {
+    if (e.message && e.message.includes('not found')) {
+      return res.status(404).json({ error: e.message, code: 'NOT_FOUND' });
+    }
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }

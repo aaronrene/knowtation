@@ -3463,17 +3463,43 @@
     bodyEl.innerHTML = '';
     bodyEl.textContent = formatDetailReadBody(currentOpenNote.body, currentOpenNote.frontmatter);
     bodyEl.className = '';
-    const canEdit = hubUserCanWriteNotes();
     actionsEl.innerHTML = '';
-    if (canEdit) {
-      const editBtn = document.createElement('button');
-      editBtn.textContent = 'Edit';
-      editBtn.onclick = () => switchNoteToEditMode();
-      const exportBtn = document.createElement('button');
-      exportBtn.textContent = 'Export';
-      exportBtn.onclick = () => exportCurrentNote('md');
-      actionsEl.append(editBtn, exportBtn);
+    attachNoteDetailReadActions(actionsEl);
+  }
+
+  async function deleteOpenNote() {
+    if (!currentOpenNote) return;
+    if (!confirm('Permanently delete this note from the vault? This cannot be undone.')) return;
+    const p = currentOpenNote.path;
+    try {
+      await api('/api/v1/notes/' + encodeURIComponent(p), { method: 'DELETE' });
+      if (typeof showToast === 'function') showToast('Note deleted');
+      currentOpenNote = null;
+      currentNotePathForCopy = '';
+      el('detail-panel').classList.add('hidden');
+      el('btn-copy-path').classList.add('hidden');
+      loadNotes();
+      loadFacets();
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Delete failed: ' + (e.message || String(e)), true);
     }
+  }
+
+  function attachNoteDetailReadActions(actionsEl) {
+    if (!hubUserCanWriteNotes()) return;
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = () => switchNoteToEditMode();
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.textContent = 'Delete';
+    delBtn.onclick = () => deleteOpenNote();
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.textContent = 'Export';
+    exportBtn.onclick = () => exportCurrentNote('md');
+    actionsEl.append(editBtn, delBtn, exportBtn);
   }
 
   async function exportCurrentNote(format) {
@@ -3552,7 +3578,11 @@
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
     cancelBtn.onclick = () => switchNoteToReadMode();
-    actionsEl.append(saveBtn, cancelBtn);
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.textContent = 'Delete';
+    delBtn.onclick = () => deleteOpenNote();
+    actionsEl.append(saveBtn, delBtn, cancelBtn);
   }
 
   function openNote(path) {
@@ -3575,16 +3605,7 @@
         const fm = materializeFrontmatter(note.frontmatter);
         currentOpenNote = { path, body: note.body || '', frontmatter: fm };
         bodyEl.textContent = formatDetailReadBody(note.body, fm);
-        const canEdit = hubUserCanWriteNotes();
-        if (canEdit) {
-          const editBtn = document.createElement('button');
-          editBtn.textContent = 'Edit';
-          editBtn.onclick = () => switchNoteToEditMode();
-          const exportBtn = document.createElement('button');
-          exportBtn.textContent = 'Export';
-          exportBtn.onclick = () => exportCurrentNote('md');
-          actionsEl.append(editBtn, exportBtn);
-        }
+        attachNoteDetailReadActions(actionsEl);
       })
       .catch((e) => {
         bodyEl.textContent = 'Error: ' + e.message;
