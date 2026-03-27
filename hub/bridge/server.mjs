@@ -445,6 +445,50 @@ async function saveScope(blobStore, scope) {
   await blobStore.set('hub_scope', str);
 }
 
+/** Remove vault id from all hub_vault_access lists and hub_scope maps (hosted team). */
+async function stripHostedVaultFromAccessAndScope(blobStore, vaultId) {
+  const id = String(vaultId || '').trim();
+  if (!id || id === 'default') return;
+  const access = await loadVaultAccess(blobStore);
+  const nextAccess = {};
+  for (const [uid, arr] of Object.entries(access)) {
+    if (!Array.isArray(arr)) continue;
+    const filtered = arr.filter((x) => String(x).trim() !== id);
+    if (filtered.length > 0) nextAccess[uid] = filtered;
+  }
+  await saveVaultAccess(blobStore, nextAccess);
+
+  const scope = await loadScope(blobStore);
+  const nextScope = {};
+  for (const [uid, vmap] of Object.entries(scope)) {
+    if (!vmap || typeof vmap !== 'object') continue;
+    const inner = {};
+    for (const [vid, rules] of Object.entries(vmap)) {
+      if (String(vid).trim() === id) continue;
+      inner[vid] = rules;
+    }
+    if (Object.keys(inner).length > 0) nextScope[uid] = inner;
+  }
+  await saveScope(blobStore, nextScope);
+}
+
+/** Drop bridge vector store for (effective user, vault). */
+async function removeHostedVectorBlobForVault(blobStore, effectiveUid, vaultId) {
+  const safeUid = sanitizeUserId(effectiveUid);
+  const vid = sanitizeVaultId(vaultId);
+  const localDir = path.join(DATA_DIR, 'vectors', safeUid, vid);
+  if (!blobStore) {
+    if (fs.existsSync(localDir)) fs.rmSync(localDir, { recursive: true, force: true });
+    return;
+  }
+  const key = 'vectors/' + safeUid + '/' + vid;
+  try {
+    if (typeof blobStore.delete === 'function') await blobStore.delete(key);
+  } catch (_) {
+    /* Netlify Blobs may omit delete; ignore */
+  }
+}
+
 /** @returns {Promise<string[]>} */
 async function fetchCanisterVaultIdsForUser(canisterUserId) {
   if (!CANISTER_URL || !canisterUserId) return ['default'];
@@ -929,6 +973,69 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     res.redirect(302, redirectTo);
   });
 }
+
+// ——— Delete vault (canister + team access/scope + vector blob) ———
+app.delete('/api/v1/vaults/:vaultId', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  if (!CANISTER_URL) {
+    return res.status(503).json({ error: 'CANISTER_URL not configured', code: 'NOT_AVAILABLE' });
+  }
+  const vaultId = sanitizeVaultId(req.params.vaultId);
+  if (!req.params.vaultId || String(req.params.vaultId).trim() === '' || vaultId === 'default') {
+    return res.status(400).json({ error: 'Cannot delete the default vault', code: 'BAD_REQUEST' });
+  }
+
+  const prevVaultHeader = req.headers['x-vault-id'];
+  req.headers['x-vault-id'] = vaultId;
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  req.headers['x-vault-id'] = prevVaultHeader;
+
+  if (!hctx.ok) {
+    return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  }
+
+  const workspace = await loadWorkspace(req.blobStore);
+  const owner = workspace.owner_user_id && String(workspace.owner_user_id).trim();
+  if (owner && req.uid !== owner) {
+    return res.status(403).json({
+      error: 'Only the workspace owner can delete vaults.',
+      code: 'FORBIDDEN',
+    });
+  }
+
+  let canRes;
+  try {
+    canRes = await fetch(`${CANISTER_URL}/api/v1/vaults/${encodeURIComponent(vaultId)}`, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json', 'X-User-Id': hctx.effectiveCanisterUid },
+    });
+  } catch (e) {
+    console.error('[bridge] DELETE vault canister fetch', e?.message);
+    return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
+  }
+
+  const text = await canRes.text();
+  if (!canRes.ok) {
+    let errMsg = text;
+    try {
+      const j = JSON.parse(text);
+      if (j && j.error) errMsg = j.error;
+    } catch (_) {}
+    return res.status(canRes.status >= 400 ? canRes.status : 502).json({
+      error: errMsg || 'Canister error',
+      code: 'UPSTREAM_ERROR',
+    });
+  }
+
+  await stripHostedVaultFromAccessAndScope(req.blobStore, vaultId);
+  await removeHostedVectorBlobForVault(req.blobStore, hctx.effectiveCanisterUid, vaultId);
+
+  try {
+    const data = text ? JSON.parse(text) : {};
+    res.json({ ok: true, ...data });
+  } catch (_) {
+    res.json({ ok: true, deleted_vault_id: vaultId });
+  }
+});
 
 // ——— Back up now: fetch vault from canister, push to GitHub ———
 app.post('/api/v1/vault/sync', async (req, res) => {

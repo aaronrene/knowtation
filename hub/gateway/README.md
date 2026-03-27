@@ -12,7 +12,7 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 - **GET /api/v1/billing/summary** — JWT. Hosted billing pools (tier, monthly/add-on cents). See [HOSTED-CREDITS-DESIGN.md](../../docs/HOSTED-CREDITS-DESIGN.md).
 - **POST /api/v1/billing/webhook** — Stripe webhook (**raw JSON body**). No JWT.
 - **GET /api/v1/notes/facets** — JWT + **X-Vault-Id**. Aggregates `projects`, `tags`, and `folders` from the canister note list (`hub/gateway/note-facets.mjs`); not proxied as a literal canister path.
-- **POST /api/v1/notes/delete-by-project**, **POST /api/v1/notes/rename-project** — JWT + **X-Vault-Id**; **editor/admin/member** (not **viewer**). Gateway orchestrates canister list/delete/write + proposal discards (`hub/gateway/metadata-bulk-canister.mjs`). See [HUB-METADATA-BULK-OPS.md](../../docs/HUB-METADATA-BULK-OPS.md).
+- **POST /api/v1/notes/delete-by-project**, **POST /api/v1/notes/rename-project** — JWT + **X-Vault-Id**; **editor/admin/member** (not **viewer**). Gateway orchestrates canister list/delete/write + proposal discards (`hub/gateway/metadata-bulk-canister.mjs`). The **Hub** static bundle must include **PR #65** (`web/hub/hub.js`) so Settings on hosted actually calls these routes. See [HUB-METADATA-BULK-OPS.md](../../docs/HUB-METADATA-BULK-OPS.md).
 - **GET/POST/DELETE /api/v1/*** (other) — Proxied to canister with **X-User-Id** from JWT (e.g. **DELETE /api/v1/notes/:path** removes a note). Returns 401 if no valid token. When **BILLING_ENFORCE** is on, some routes may return **402** (quota).
 
 ## Canister proxy URL (important)

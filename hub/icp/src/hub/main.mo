@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
  * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
- * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
+ * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/:path, GET /api/v1/vaults, DELETE /api/v1/vaults/:id (non-default), GET /api/v1/export,
  * GET/POST /api/v1/proposals, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
@@ -364,6 +364,11 @@ func parsePath(url : Text) : (Text, Text) {
     ("note", suffix);
   } else if (path == "/api/v1/notes" or path == "/api/v1/notes/") {
     ("notes", "");
+  } else if (Text.startsWith(path, #text "/api/v1/vaults/")) {
+    let rest = Text.trimStart(path, #text "/api/v1/vaults/");
+    let parts = Iter.toArray(Text.split(rest, #char '/'));
+    let idRaw = if (parts.size() > 0) { parts[0] } else { "" };
+    ("vault_delete", idRaw);
   } else if (path == "/api/v1/vaults" or path == "/api/v1/vaults/") {
     ("vaults", "");
   } else if (Text.startsWith(path, #text "/api/v1/proposals/")) {
@@ -783,7 +788,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
   if (
     (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "notes_delete_prefix" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard"))
-    or (req.method == "DELETE" and pathKind == "note")
+    or (req.method == "DELETE" and (pathKind == "note" or pathKind == "vault_delete"))
   ) {
     return {
       status_code = 200;
@@ -806,6 +811,66 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
   let bodyText = if (req.body.size() > 0) { Option.get(Text.decodeUtf8(req.body), "{}") } else { "{}" };
+
+  if (pathKind == "vault_delete" and req.method == "DELETE") {
+    let targetVid = sanitizeVaultId(pathArg);
+    if (targetVid == "default") {
+      return {
+        status_code = 400;
+        headers = corsHeaders();
+        body = jsonBody("{\"error\":\"Cannot delete the default vault\",\"code\":\"BAD_REQUEST\"}");
+        streaming_strategy = null;
+        upgrade = null;
+      };
+    };
+    switch (byUser.get(uid)) {
+      case null {
+        return {
+          status_code = 404;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"Vault not found\",\"code\":\"NOT_FOUND\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case (?um) {
+        switch (um.get(targetVid)) {
+          case null {
+            return {
+              status_code = 404;
+              headers = corsHeaders();
+              body = jsonBody("{\"error\":\"Vault not found\",\"code\":\"NOT_FOUND\"}");
+              streaming_strategy = null;
+              upgrade = null;
+            };
+          };
+          case (?_) { };
+        };
+        let _ = um.remove(targetVid);
+        let list = getProposalsList(uid);
+        let propBuf = Buffer.Buffer<ProposalRecord>(list.size());
+        var dropped : Nat = 0;
+        for (r in Array.vals(list)) {
+          if (effectiveVaultId(r.vault_id) == targetVid) {
+            dropped += 1;
+          } else {
+            propBuf.add(r);
+          };
+        };
+        setProposalsList(uid, Buffer.toArray(propBuf));
+        saveStable();
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody(
+            "{\"ok\":true,\"deleted_vault_id\":\"" # escapeJson(targetVid) # "\",\"proposals_removed\":" # Nat.toText(dropped) # "}",
+          );
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+    };
+  };
 
   if (pathKind == "note" and req.method == "DELETE") {
     let pathNormalized = normalizeNotePathFromArg(pathArg);

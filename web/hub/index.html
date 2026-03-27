@@ -418,10 +418,13 @@ Your note body here.</pre>
               <p class="settings-intro small" style="margin-top: 0.5rem;">Back up now backs up the <strong>currently selected vault</strong> (use the Vault dropdown in the header to switch). Each vault can have its own Git remote.</p>
               <p class="settings-intro small"><strong>Self-hosted:</strong> <em>Connect GitHub</em> saves a token so pushes can authenticate — it does <em>not</em> run <code>git init</code> in your vault. If backup says the folder is not a Git repo, click <strong>Initialize Git in this vault</strong> (appears after a failed backup) or run <code>git init</code> manually in that folder.</p>
             </div>
-            <div id="settings-delete-project-panel" class="hidden" style="margin-top: 1.25rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--err, #c44) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--err, #c44) 8%, transparent);">
-              <h3 class="settings-h3">Bulk delete by path or by project slug</h3>
+            <div id="settings-danger-zone-panel" class="hidden" style="margin-top: 1.25rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--err, #c44) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--err, #c44) 8%, transparent);">
+              <h3 class="settings-h3">Danger zone</h3>
+              <p class="settings-intro small">These actions <strong>permanently remove</strong> data from Knowtation. There is no undo.</p>
+              <div id="settings-danger-zone-projects" role="region" aria-label="Project bulk operations">
+              <h4 class="settings-h4">Projects</h4>
               <p class="settings-intro small"><strong>Path prefix</strong> is the note’s <strong>file path</strong> in the vault (same string as in <code>POST /notes</code>), not the Hub <strong>Project</strong> filter. Example: notes in <code>inbox/foo.md</code> match prefix <code>inbox</code>, not your frontmatter <code>project:</code> slug. On hosted (canister), paths are still stored strings — there is no disk folder, but the rule is the same.</p>
-              <p class="settings-intro small"><strong>Delete by project slug</strong> removes every note whose <strong>effective project</strong> matches (frontmatter <code>project:</code> and/or path under <code>projects/&lt;slug&gt;/</code>, same as list/search). <strong>Rename project</strong> and delete-by-project slug run on <strong>hosted</strong> (gateway) and self-hosted Hub. <strong>Delete by path prefix</strong> above needs the Node Hub with a filesystem vault — not the hosted gateway. See <code>docs/HUB-METADATA-BULK-OPS.md</code>.</p>
+              <p class="settings-intro small"><strong>Delete by project slug</strong> removes every note whose <strong>effective project</strong> matches (frontmatter <code>project:</code> and/or path under <code>projects/&lt;slug&gt;/</code>, same as list/search). <strong>Rename project</strong> and delete-by-project slug run on <strong>hosted</strong> (gateway) and self-hosted Hub. <strong>Delete by path prefix</strong> below needs the Node Hub with a filesystem vault — not the hosted gateway. See <code>docs/HUB-METADATA-BULK-OPS.md</code>.</p>
               <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; margin-top: 0.5rem;">
                 <div style="min-width: 14rem; max-width: 100%;">
                   <label for="settings-bulk-path-prefix-preset">Path prefix</label>
@@ -470,6 +473,24 @@ Your note body here.</pre>
               </div>
               <span id="settings-rename-project-msg" class="settings-msg" role="status"></span>
               <p class="settings-intro small muted" style="margin-top: 0.5rem;">Path-prefix and project-slug deletes discard matching <strong>proposed</strong> proposals (same vault). Rename-project only updates YAML frontmatter <code>project:</code>; it does not move files between folders. On hosted, the gateway runs these against your canister vault (same effective-project rules as list/search).</p>
+              </div>
+              </div>
+              <div id="settings-danger-zone-vault" class="hidden" role="region" aria-label="Delete vault" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid color-mix(in srgb, var(--border, #444) 60%, transparent);">
+                <h4 class="settings-h4">Vault</h4>
+                <p class="settings-intro small"><strong>Deleting a vault</strong> removes <strong>everything</strong> stored in that notebook: all notes, project labels and paths, media and other files in that vault, and related Hub data (including search index entries for that vault). The <strong>default</strong> vault cannot be deleted. This does <em>not</em> delete your GitHub backup repository — only the copy Knowtation holds.</p>
+                <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; margin-top: 0.5rem;">
+                  <div style="min-width: 14rem; max-width: 100%;">
+                    <label for="settings-delete-vault-select">Vault to delete</label>
+                    <select id="settings-delete-vault-select" class="settings-input-inline" style="display: block; width: 100%; max-width: 22rem;" aria-describedby="settings-delete-vault-hint"></select>
+                    <p id="settings-delete-vault-hint" class="muted small" style="margin: 0.25rem 0 0 0;">Only non-default vaults are listed. Self-hosted: admins only. Hosted: same rules as creating a new cloud vault (workspace owner when a shared workspace is set).</p>
+                  </div>
+                  <div>
+                    <label for="settings-delete-vault-confirm">Type DELETE VAULT to confirm</label>
+                    <input type="text" id="settings-delete-vault-confirm" class="settings-input-inline" placeholder="DELETE VAULT" autocomplete="off" spellcheck="false" style="min-width: 9rem;">
+                  </div>
+                  <button type="button" id="btn-settings-delete-vault" class="btn-secondary" style="border-color: var(--err, #c44); color: var(--err, #c44);">Delete vault permanently</button>
+                </div>
+                <span id="settings-delete-vault-msg" class="settings-msg" role="status"></span>
               </div>
             </div>
             <hr class="settings-hr" id="settings-hr-configure">

@@ -439,9 +439,77 @@
     return r === 'editor' || r === 'admin' || r === 'member';
   }
 
+  function hubUserIsAdmin() {
+    return window.__hubUserRole === 'admin';
+  }
+
+  /** Delete vault: self-hosted admins only; hosted matches “create vault” (writer + workspace owner when set). */
+  function hubUserMayDeleteVault() {
+    if (!hubUserCanWriteNotes()) return false;
+    if (isHostedHubFromSettings()) {
+      const ws = lastBackupSettingsPayload;
+      const ownerId =
+        ws && ws.workspace_owner_id != null && String(ws.workspace_owner_id).trim() !== ''
+          ? String(ws.workspace_owner_id).trim()
+          : '';
+      const me = ws && ws.user_id != null ? String(ws.user_id) : '';
+      if (ownerId && me && me !== ownerId) return false;
+      return true;
+    }
+    return hubUserIsAdmin();
+  }
+
+  function populateSettingsDeleteVaultSelect(s) {
+    const sel = el('settings-delete-vault-select');
+    if (!sel) return;
+    const vaultList = (s && Array.isArray(s.vault_list) && s.vault_list) || [];
+    const allowedRaw = s && Array.isArray(s.allowed_vault_ids) ? s.allowed_vault_ids : null;
+    const allowedSet = allowedRaw && allowedRaw.length > 0 ? new Set(allowedRaw.map(String)) : null;
+    const opts = vaultList.filter((v) => {
+      if (!v || v.id == null) return false;
+      const id = String(v.id).trim();
+      if (!id || id === 'default') return false;
+      if (allowedSet && !allowedSet.has(id)) return false;
+      return true;
+    });
+    sel.innerHTML =
+      opts.length === 0
+        ? '<option value="">(no extra vaults)</option>'
+        : '<option value="">— Choose vault —</option>' +
+          opts
+            .map(
+              (v) =>
+                '<option value="' +
+                escapeHtml(String(v.id)) +
+                '">' +
+                escapeHtml(String(v.label != null && v.label !== '' ? v.label : v.id)) +
+                '</option>',
+            )
+            .join('');
+  }
+
+  function refreshVaultDeleteSubsection() {
+    const wrap = el('settings-danger-zone-vault');
+    if (!wrap) return;
+    const s = lastBackupSettingsPayload;
+    if (!s || !hubUserMayDeleteVault()) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    populateSettingsDeleteVaultSelect(s);
+    const vaultList = (s.vault_list) || [];
+    const extra = vaultList.filter((v) => v && String(v.id).trim() && String(v.id).trim() !== 'default');
+    if (extra.length === 0) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+  }
+
   function refreshDeleteProjectPanelVisibility() {
-    const panel = el('settings-delete-project-panel');
+    const panel = el('settings-danger-zone-panel');
     if (panel) panel.classList.toggle('hidden', !hubUserCanWriteNotes());
+    refreshVaultDeleteSubsection();
   }
 
   /** Apply GET /api/v1/settings payload to header vault switcher, hosted flag, and cached backup modal state. */
@@ -2717,6 +2785,68 @@
           setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the header to switch.', false);
         } catch (e) {
           setCreateVaultMsg(e.message || 'Could not create vault', true);
+        }
+      });
+    };
+  }
+
+  const btnSettingsDeleteVault = el('btn-settings-delete-vault');
+  if (btnSettingsDeleteVault) {
+    btnSettingsDeleteVault.onclick = async () => {
+      const msgEl = el('settings-delete-vault-msg');
+      const setVaultDelMsg = (text, isErr) => {
+        if (!msgEl) return;
+        msgEl.textContent = text;
+        msgEl.className = 'settings-msg' + (isErr ? ' err' : ' ok');
+      };
+      if (!hubUserMayDeleteVault()) {
+        setVaultDelMsg('You are not allowed to delete vaults.', true);
+        return;
+      }
+      const sel = el('settings-delete-vault-select');
+      const vaultId = (sel && sel.value) || '';
+      const vaultIdTrim = String(vaultId).trim();
+      if (!vaultIdTrim) {
+        setVaultDelMsg('Choose a vault to delete.', true);
+        return;
+      }
+      if (vaultIdTrim === 'default') {
+        setVaultDelMsg('The default vault cannot be deleted.', true);
+        return;
+      }
+      const confirmEl = el('settings-delete-vault-confirm');
+      const confirmVal = String((confirmEl && confirmEl.value) || '').trim();
+      if (confirmVal !== 'DELETE VAULT') {
+        setVaultDelMsg('Type DELETE VAULT exactly to confirm.', true);
+        return;
+      }
+      await withButtonBusy(btnSettingsDeleteVault, 'Deleting…', async () => {
+        setVaultDelMsg('', false);
+        try {
+          await api('/api/v1/vaults/' + encodeURIComponent(vaultIdTrim), {
+            method: 'DELETE',
+            headers: { 'X-Vault-Id': vaultIdTrim },
+          });
+          const wasCurrent = String(getCurrentVaultId()) === vaultIdTrim;
+          if (wasCurrent) {
+            setCurrentVaultId('default');
+            const vSel = el('vault-switcher');
+            if (vSel) vSel.value = 'default';
+          }
+          const s = await api('/api/v1/settings');
+          lastBackupSettingsPayload = s;
+          if (s.role) window.__hubUserRole = String(s.role);
+          updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+          applyHostedUiFromSettings(s);
+          refreshDeleteProjectPanelVisibility();
+          loadFacets();
+          loadNotes();
+          loadProposals();
+          await loadVaultsPanel();
+          if (confirmEl) confirmEl.value = '';
+          setVaultDelMsg('Vault "' + vaultIdTrim + '" was deleted.', false);
+        } catch (e) {
+          setVaultDelMsg(e.message || 'Could not delete vault', true);
         }
       });
     };

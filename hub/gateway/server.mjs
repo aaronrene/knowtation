@@ -257,6 +257,19 @@ if (BRIDGE_URL) {
     const url = BRIDGE_URL + '/api/v1/vault/sync' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
     await proxyTo(BRIDGE_URL, url, req, res);
   });
+  app.all('/api/v1/vaults/:vaultId', async (req, res) => {
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    if (req.method !== 'DELETE') {
+      return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
+    }
+    if (!(await runBillingGate(req, res, getUserId))) return;
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    const url =
+      BRIDGE_URL + '/api/v1/vaults/' + encodeURIComponent(req.params.vaultId) + q;
+    await proxyTo(BRIDGE_URL, url, req, res);
+  });
   app.get('/api/v1/vault/github-status', async (req, res) => {
     const url = BRIDGE_URL + '/api/v1/vault/github-status' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
     await proxyTo(BRIDGE_URL, url, req, res);
