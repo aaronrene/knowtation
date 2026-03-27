@@ -89,6 +89,10 @@ Until the bridge reports token totals end-to-end:
 
 **Gateway:** Authoritative for billing until canister mirrors. See [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) for reserved fields (**token** balances should mirror **§1** when V1 billing lands on-chain).
 
+**Canister note data:** Notes (path + frontmatter JSON + body) and proposals live in **stable memory** on ICP. **Deletes** (`DELETE /api/v1/notes/:path` and bulk flows that call it) **remove** entries from the vault map and persist — there is **no** application-level “deleted items folder” in current Motoko code. **Renames** of the **project slug** (metadata) rewrite stored frontmatter; **path** keys are unchanged unless the user edits paths separately.
+
+**Cost shape:** v1 customer-facing billing emphasizes **indexing embedding tokens** (and fair-use search), not a separate **gigabyte** SKU. **Operator** cost on ICP still scales with **stable memory size** and **compute (cycles)**; very large per-user vaults can justify **future** per-tier **storage caps**, **monitoring**, or **overage** once measured in production. **Platform-operated backups** (separate from user GitHub) are specified in [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md).
+
 ---
 
 ## 8. API (evolution)
@@ -111,3 +115,4 @@ Until the bridge reports token totals end-to-end:
 | 2026-03-22 | **Free** tier; transparency; **BILLING_SHADOW_LOG**; **`cost_breakdown`**. |
 | 2026-03-26 | Linked **PRODUCT-DECISIONS-HOSTED-MVP.md**. |
 | 2026-03-25 | **Major:** Indexing-token product model + **§4** updates. **Code:** bridge **`embedding_input_tokens`**; gateway accumulates **`monthly_indexing_tokens_used`**; **`billing/summary`** token fields. Legacy **cent/job** scaffold remains until Stripe/token enforcement ships. |
+| 2026-03-27 | **§7:** Clarified canister delete/rename semantics vs billing; linked **HOSTED-PLATFORM-BACKUP-ROADMAP.md** (operator backups). |

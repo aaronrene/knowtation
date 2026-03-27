@@ -68,7 +68,7 @@ Per **`userId`** (or team billing owner), reserve fields aligned with [HOSTED-CR
 - [ ] V1 `StableStorage` type and `Migration.mo` upgrade path defined in code.
 - [ ] Local replica test: migrate sample V0 → V1; verify notes under `default` vault.
 - [ ] HOSTED-CREDITS-DESIGN: hybrid pools + enforcement rules agreed.
-- [ ] Production backup / export plan if any real user data exists.
+- [ ] Production backup / export plan if any real user data exists (see [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md) — operator-level DR; user GitHub backup is separate).
 
 ---
 

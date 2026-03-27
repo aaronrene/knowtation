@@ -15,6 +15,7 @@ import {
   normalizeTags,
   noteFileExistsInVault,
   listVaultFolderOptions,
+  effectiveProjectSlug,
 } from '../lib/vault.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -156,6 +157,18 @@ describe('vault', () => {
     });
     it('accepts comma-sep string', () => {
       assert.deepStrictEqual(normalizeTags('x, Y'), ['x', 'y']);
+    });
+  });
+
+  describe('effectiveProjectSlug', () => {
+    it('uses normalized frontmatter project when set', () => {
+      assert.strictEqual(effectiveProjectSlug('inbox/x.md', { project: 'My Acme' }), 'my-acme');
+    });
+    it('infers from projects/<slug>/ when frontmatter project absent', () => {
+      assert.strictEqual(effectiveProjectSlug('projects/born-free/inbox/n.md', {}), 'born-free');
+    });
+    it('returns undefined when no fm project and path not under projects/', () => {
+      assert.strictEqual(effectiveProjectSlug('inbox/x.md', {}), undefined);
     });
   });
 });

@@ -24,6 +24,7 @@ import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './not
 import { applyGatewayCors } from './cors-middleware.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './request-path.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
+import { createMetadataBulkHandlers } from './metadata-bulk-canister.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
@@ -500,6 +501,14 @@ async function getHostedAccessContext(req) {
     return null;
   }
 }
+
+const metadataBulkHandlers = createMetadataBulkHandlers({
+  CANISTER_URL,
+  BRIDGE_URL,
+  SESSION_SECRET: SESSION_SECRET || '',
+  getUserId,
+  getHostedAccessContext,
+});
 
 app.get('/api/v1/billing/summary', (req, res) => handleBillingSummary(req, res, getUserId));
 
@@ -995,6 +1004,16 @@ async function proxyToCanister(req, res) {
     res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
   }
 }
+
+// Bulk metadata by effective project slug (canister orchestration; not a canister route)
+app.post('/api/v1/notes/delete-by-project', async (req, res) => {
+  if (!(await runBillingGate(req, res, getUserId))) return;
+  return metadataBulkHandlers.deleteByProject(req, res);
+});
+app.post('/api/v1/notes/rename-project', async (req, res) => {
+  if (!(await runBillingGate(req, res, getUserId))) return;
+  return metadataBulkHandlers.renameProject(req, res);
+});
 
 app.use('/api/v1', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
