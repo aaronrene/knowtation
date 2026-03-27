@@ -2940,13 +2940,6 @@
       const msg = el('settings-delete-by-project-msg');
       const slugEl = el('settings-delete-project-slug');
       const confirmEl = el('settings-delete-project-confirm');
-      if (isHostedHubFromSettings()) {
-        if (msg) {
-          msg.textContent = 'Delete-by-project runs on self-hosted Node Hub only. See docs/HUB-METADATA-BULK-OPS.md.';
-          msg.className = 'settings-msg err';
-        }
-        return;
-      }
       if (!hubUserCanWriteNotes()) {
         if (msg) { msg.textContent = 'Your role cannot delete notes.'; msg.className = 'settings-msg err'; }
         return;
@@ -2997,13 +2990,6 @@
       const fromEl = el('settings-rename-project-from');
       const toEl = el('settings-rename-project-to');
       const confirmEl = el('settings-rename-project-confirm');
-      if (isHostedHubFromSettings()) {
-        if (msg) {
-          msg.textContent = 'Rename-project runs on self-hosted Node Hub only. See docs/HUB-METADATA-BULK-OPS.md.';
-          msg.className = 'settings-msg err';
-        }
-        return;
-      }
       if (!hubUserCanWriteNotes()) {
         if (msg) { msg.textContent = 'Your role cannot edit notes.'; msg.className = 'settings-msg err'; }
         return;
