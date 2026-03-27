@@ -2,7 +2,7 @@
 
 This document lists **everything** needed to bring the **hosted** product (gateway + canister + bridge) to parity with **self-hosted** (Node Hub) so the same Hub UI works on both paths. Work is split into phases; implement in order before starting Phase 15 (multi-vault) or full deploy.
 
-**Product order (2026-03):** **`POST /api/v1/import` on hosted** (replace gateway **501**) is **P0** and comes **before** **Stripe checkout, subscriptions, and billing enforcement**. Indexing-token telemetry on the gateway may ship earlier on `main`; **paid launch** assumes users can **import** into the hosted vault. Implement on branch **`feature/hosted-import-parity`**. Design: [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md). Sequencing: [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (strategic sequencing).
+**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Next parity slice:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** on hosted (canister and/or bridge) — branch **`feature/hosted-delete-rename-parity`**; design [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md). Self-hosted metadata bulk shipped **PR #63**.
 
 **Reference:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (build status, Phase 11/13/14), [HUB-API.md](./HUB-API.md) (API contract), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) (canister/deploy), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (deploy steps).
 
@@ -16,7 +16,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Team vault access + scope (hosted):** Implemented in repo: bridge stores **`hub_workspace`** (owner id), **`hub_vault_access`**, **`hub_scope`**; gateway proxies **`GET/POST /api/v1/workspace`**, **`vault-access`**, **`scope`**, **`GET /api/v1/hosted-context`** when **`BRIDGE_URL`** is set; gateway sets **`X-User-Id`** to the **effective canister user** and **`X-Actor-Id`** to the JWT `sub`; notes list / single GET / facets apply **scope** in the gateway; index/search/sync on the bridge use the owner partition for delegated users. Spec: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). Operators must set **`POST /api/v1/workspace`** `{ owner_user_id }` for team sharing.
 
-**Remaining parity vs self-hosted (recommended order):** **POST /api/v1/import** on hosted — still **501** via gateway stub until a dedicated implementation. Design options: [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1 (update that table after deploy verification).
+**Remaining parity vs self-hosted (recommended order):** **Metadata bulk** — `POST /api/v1/notes/delete-by-project`, `POST /api/v1/notes/rename-project` (Node Hub only today; Hub hides UI for canister vaults). Implement on **`feature/hosted-delete-rename-parity`**. Spec: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1.
 
 ---
 

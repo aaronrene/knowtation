@@ -2,6 +2,8 @@
 
 This document records the **product decision** and **API shape** for bulk delete/rename driven by **effective project slug** (frontmatter `project:` and/or path under `projects/<slug>/`), as defined in [SPEC.md](./SPEC.md). It complements [HUB-API.md](./HUB-API.md), which also documents the HTTP routes.
 
+**Implementation status:** **Self-hosted (Node Hub)** — shipped on `main` (**PR #63**): `lib/hub-bulk-metadata.mjs`, Hub routes, tests, Settings UI (presets hidden on canister-backed vaults). **Hosted (ICP)** — `delete-by-project` / `rename-project` **not** implemented on the canister yet; active work branch: **`feature/hosted-delete-rename-parity`**. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) and [PARITY-PLAN.md](./PARITY-PLAN.md).
+
 ## Path prefix vs project slug
 
 | Mechanism | Matches | Use when |
