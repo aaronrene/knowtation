@@ -24,7 +24,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import { loadConfig } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
 import { readNote, normalizeSlug, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
-import { writeNote, deleteNote } from '../lib/write.mjs';
+import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
@@ -35,6 +35,7 @@ import {
   getProposal,
   createProposal,
   updateProposalStatus,
+  discardProposalsUnderPathPrefix,
 } from './proposals-store.mjs';
 import { appendAudit } from './audit-log.mjs';
 import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
@@ -525,6 +526,29 @@ app.delete(/^\/api\/v1\/notes\/(.+)$/, requireRole('editor', 'admin'), (req, res
       return res.status(404).json({ error: e.message, code: 'NOT_FOUND' });
     }
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/notes/delete-by-prefix — bulk delete notes under a vault-relative prefix (editor/admin; "delete project")
+app.post('/api/v1/notes/delete-by-prefix', requireRole('editor', 'admin'), (req, res) => {
+  const raw = req.body && req.body.path_prefix != null ? String(req.body.path_prefix) : '';
+  try {
+    const { deleted, paths } = deleteNotesByPrefix(req.vaultPath, raw, { ignore: config.ignore || [] });
+    const proposals_discarded = discardProposalsUnderPathPrefix(config.data_dir, {
+      vault_id: req.vault_id ?? 'default',
+      path_prefix: raw,
+    });
+    invalidateFacetsCache();
+    maybeAutoSync({ ...config, vault_path: req.vaultPath });
+    res.json({ deleted, paths, proposals_discarded });
+  } catch (e) {
+    if (
+      e.message &&
+      (e.message.includes('path_prefix') || e.message.includes('Invalid path_prefix') || e.message.includes('Invalid path'))
+    ) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });

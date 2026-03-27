@@ -41,6 +41,17 @@ describe('hub-provenance', () => {
     assert.strictEqual(merged.knowtation_editor, undefined);
   });
 
+  it('mergeProvenanceFrontmatter parses JSON string frontmatter (Hub UI / gateway wire)', () => {
+    const now = '2026-03-26T20:00:00.000Z';
+    const inner = JSON.stringify({ title: 'T', tags: 'alpha, beta', date: '2026-03-26' });
+    const merged = mergeProvenanceFrontmatter(inner, { sub: 'google:1', kind: 'human', now });
+    assert.strictEqual(merged.title, 'T');
+    assert.strictEqual(merged.tags, 'alpha, beta');
+    assert.strictEqual(merged.date, '2026-03-26');
+    assert.strictEqual(merged.knowtation_editor, 'google:1');
+    assert.strictEqual(merged.knowtation_edited_at, now);
+  });
+
   it('agent approve merge includes proposed and approved', () => {
     const merged = mergeProvenanceFrontmatter(
       { project: 'launch' },

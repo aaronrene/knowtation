@@ -423,6 +423,26 @@
     return r === 'editor' || r === 'admin' || r === 'member';
   }
 
+  function refreshDeleteProjectPanelVisibility() {
+    const panel = el('settings-delete-project-panel');
+    if (panel) panel.classList.toggle('hidden', !hubUserCanWriteNotes());
+  }
+
+  /** Apply GET /api/v1/settings payload to header vault switcher, hosted flag, and cached backup modal state. */
+  function applySettingsPayloadToHubChrome(s) {
+    if (!s || typeof s !== 'object') return;
+    lastBackupSettingsPayload = s;
+    if (s.role) window.__hubUserRole = String(s.role);
+    refreshDeleteProjectPanelVisibility();
+    const allowed = (s.allowed_vault_ids || []).map(String);
+    const current = String(getCurrentVaultId());
+    if (allowed.length && !allowed.includes(current)) {
+      setCurrentVaultId(allowed[0] || 'default');
+    }
+    updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+    applyHostedUiFromSettings(s);
+  }
+
   function showLoginChrome() {
     btnLogout.classList.add('hidden');
     userName.textContent = '';
@@ -454,11 +474,13 @@
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
         if (btnImport) btnImport.classList.toggle('hidden', isViewer);
+        refreshDeleteProjectPanelVisibility();
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
         if (btnImport) btnImport.classList.remove('hidden');
+        refreshDeleteProjectPanelVisibility();
       }
     } else {
       if (btnNewNote) btnNewNote.classList.add('hidden');
@@ -557,14 +579,7 @@
     (async function ensureVaultAndSwitcherThenLoad() {
       try {
         const s = await api('/api/v1/settings');
-        if (s.role) window.__hubUserRole = String(s.role);
-        const allowed = s.allowed_vault_ids || [];
-        const current = getCurrentVaultId();
-        if (allowed.length && !allowed.includes(current)) {
-          setCurrentVaultId(allowed[0] || 'default');
-        }
-        updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
-        applyHostedUiFromSettings(s);
+        applySettingsPayloadToHubChrome(s);
       } catch (_) {}
       loadFacets();
       loadNotes();
@@ -712,7 +727,7 @@
   function listItemDisplayDate(n, fm) {
     if (n.date != null && String(n.date).trim()) return calendarDisplayDayKey(n.date) || String(n.date).trim().slice(0, 10);
     if (fm.date != null && String(fm.date).trim()) return calendarDisplayDayKey(fm.date) || String(fm.date).trim().slice(0, 10);
-    const ke = fm.knowtation_edited_at;
+    const ke = fm.knowtation_edited_at ?? n.knowtation_edited_at;
     if (ke != null && String(ke).trim()) return calendarDisplayDayKey(ke) || String(ke).trim().slice(0, 10);
     const inferred = inferredDisplayDateFromNotePath(n.path);
     return inferred || null;
@@ -1802,8 +1817,7 @@
     if (ghStatus) ghStatus.textContent = 'Loading…';
     fetchSettingsForBackupModal()
       .then((s) => {
-        lastBackupSettingsPayload = s;
-        if (s.role) window.__hubUserRole = String(s.role);
+        applySettingsPayloadToHubChrome(s);
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
         const userIdEl = el('settings-user-id');
@@ -1851,12 +1865,6 @@
         if (teamTab) teamTab.classList.toggle('hidden', !isAdmin);
         const vaultsTab = el('settings-tab-vaults');
         if (vaultsTab) vaultsTab.classList.toggle('hidden', !isAdmin);
-        const allowedIds = s.allowed_vault_ids || [];
-        if (allowedIds.length && !allowedIds.includes(getCurrentVaultId())) {
-          setCurrentVaultId(allowedIds[0] || 'default');
-        }
-        updateVaultSwitcher(s.vault_list || [], allowedIds);
-        applyHostedUiFromSettings(s);
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
         const hostedGhHint = el('settings-hosted-connect-github-hint');
@@ -2727,6 +2735,55 @@
     return s && String(s.vault_path_display || '').toLowerCase() === 'canister';
   }
 
+
+  const btnDeletePrefix = el('btn-settings-delete-prefix');
+  if (btnDeletePrefix) {
+    btnDeletePrefix.onclick = async () => {
+      const msg = el('settings-delete-prefix-msg');
+      const prefixEl = el('settings-delete-prefix');
+      const confirmEl = el('settings-delete-confirm');
+      if (!hubUserCanWriteNotes()) {
+        if (msg) { msg.textContent = 'Your role cannot delete notes.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      const raw = (prefixEl && prefixEl.value) ? prefixEl.value.trim() : '';
+      const conf = (confirmEl && confirmEl.value) ? confirmEl.value.trim() : '';
+      if (!raw) {
+        if (msg) { msg.textContent = 'Enter a path prefix (vault-relative).'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      if (conf !== 'DELETE') {
+        if (msg) { msg.textContent = 'Type DELETE in the confirmation field.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      await withButtonBusy(btnDeletePrefix, 'Deleting…', async () => {
+        try {
+          const out = await api('/api/v1/notes/delete-by-prefix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path_prefix: raw }),
+          });
+          const n = out && typeof out.deleted === 'number' ? out.deleted : 0;
+          const pd = out && typeof out.proposals_discarded === 'number' ? out.proposals_discarded : 0;
+          if (confirmEl) confirmEl.value = '';
+          if (msg) {
+            msg.textContent = 'Removed ' + n + ' note(s)' + (pd ? '; ' + pd + ' proposal(s) discarded' : '') + '.';
+            msg.className = 'settings-msg ok';
+          }
+          if (typeof showToast === 'function') {
+            showToast('Deleted ' + n + ' note(s). Run Re-index if you use semantic search.', false);
+          }
+          loadNotes();
+          loadFacets();
+          if (typeof loadProposals === 'function') loadProposals();
+        } catch (e) {
+          const m = e && e.message ? String(e.message) : String(e);
+          if (msg) { msg.textContent = m; msg.className = 'settings-msg err'; }
+        }
+      });
+    };
+  }
+
   const btnVaultsSave = el('btn-vaults-save');
   if (btnVaultsSave) btnVaultsSave.onclick = async () => {
     const msg = el('vaults-save-msg');
@@ -2745,6 +2802,10 @@
         if (!Array.isArray(vaults)) throw new Error('Must be a JSON array');
         await api('/api/v1/vaults', { method: 'POST', body: JSON.stringify({ vaults }) });
         if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+        try {
+          const s = await api('/api/v1/settings');
+          applySettingsPayloadToHubChrome(s);
+        } catch (_) {}
         loadVaultsPanel();
       } catch (e) {
         if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }
@@ -2782,6 +2843,10 @@
         if (err) throw new Error(err);
         await api('/api/v1/vault-access', { method: 'POST', body: JSON.stringify({ access }) });
         if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+        try {
+          const s = await api('/api/v1/settings');
+          applySettingsPayloadToHubChrome(s);
+        } catch (_) {}
         refreshAccessRulesSummary(parseVaultAccessFromTextarea());
       } catch (e) {
         if (msg) { msg.textContent = e.message || 'Save failed'; msg.className = 'settings-msg err'; }

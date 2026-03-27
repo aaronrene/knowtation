@@ -88,6 +88,8 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **DELETE /notes/:path** — Remove one note by vault-relative path (URL-encoded, same as GET). **Editor or admin** only (same write gate as `POST /notes`). **Response:** `{ "path": "...", "deleted": true }`. **404** if the note does not exist; **400** if path is invalid. **Hosted semantic search:** the bridge vector index is not updated automatically; after deletes, run **Re-index** so meaning-search does not return stale hits for removed paths (see bridge indexer behavior).
 
+- **POST /notes/delete-by-prefix** — Bulk delete every markdown note whose vault-relative path equals `path_prefix` or lies under `path_prefix/` (same rule as treating `path_prefix` as a project or folder root). **Editor or admin** only. Body: `{ "path_prefix": "projects/my-project" }`. `path_prefix` is trimmed; leading/trailing slashes ignored; must not be empty or contain `.` / `..` segments. **Response:** `{ "deleted": number, "paths": string[], "proposals_discarded": number }` (self-hosted Hub also discards **proposed** proposals in the JSON store whose `path` is under that prefix for the same vault). **400** if `path_prefix` is invalid. **Hosted semantic search:** run **Re-index** after bulk delete so search does not return stale paths.
+
 - **POST /index** — Re-run the indexer (vault → chunk → embed → vector store). Use after bulk imports or when search should reflect new or changed notes. JWT required.  
   **Response:** `{ "ok": true, "notesProcessed": number, "chunksIndexed": number }`.  
   **500** on indexer or config failure.

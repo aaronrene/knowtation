@@ -5,7 +5,7 @@ This folder contains the **ICP canister** implementation of the Knowtation Hub A
 ## Contract
 
 - **Auth:** For dev, use header `X-Test-User` or `X-User-Id`. In production the gateway sends a proof (e.g. `X-User-Id`) that the canister trusts; see [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md).
-- **Endpoints:** `GET /health`, `GET /api/v1/notes`, `GET /api/v1/notes/:path`, `DELETE /api/v1/notes/:path`, `POST /api/v1/notes`, `POST /api/v1/notes/batch` (bulk write, single stable save), `GET /api/v1/export`, `GET /api/v1/vaults`, `GET/POST /api/v1/proposals`, `GET /api/v1/proposals/:id`, `POST /api/v1/proposals/:id/approve`, `POST /api/v1/proposals/:id/discard`. Notes and export are scoped by **`X-Vault-Id`** (default `default`). Search and settings are not in the canister (gateway/bridge in hosted mode).
+- **Endpoints:** `GET /health`, `GET /api/v1/notes`, `GET /api/v1/notes/:path`, `DELETE /api/v1/notes/:path`, `POST /api/v1/notes`, `POST /api/v1/notes/batch` (bulk write, single stable save), `POST /api/v1/notes/delete-by-prefix` (bulk delete by vault-relative prefix), `GET /api/v1/export`, `GET /api/v1/vaults`, `GET/POST /api/v1/proposals`, `GET /api/v1/proposals/:id`, `POST /api/v1/proposals/:id/approve`, `POST /api/v1/proposals/:id/discard`. Notes and export are scoped by **`X-Vault-Id`** (default `default`). Search and settings are not in the canister (gateway/bridge in hosted mode).
 - **Storage:** Vault (path → frontmatter/body) and proposals per user in canister stable memory.
 
 ## Pre-deploy safety (recommended)
@@ -66,7 +66,7 @@ Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTE
 
 ## Implementation status
 
-- **Implemented:** Motoko canister in `src/hub/main.mo`: vault (notes list/get/write), proposals (list/get/create/approve/discard), health, CORS. User from header; stable storage. HTTP `upgrade` for POST and URL path normalization as above.
+- **Implemented:** Motoko canister in `src/hub/main.mo`: vault (notes list/get/write/delete, bulk delete by prefix), proposals (list/get/create/approve/discard), health, CORS. User from header; stable storage. HTTP `upgrade` for POST and URL path normalization as above.
 - **Not in canister:** Search, settings, vault sync — handled by gateway/bridge in the hosted product (see plan phases 2–4).
 
 ## Reference

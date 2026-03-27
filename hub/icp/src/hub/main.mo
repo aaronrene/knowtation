@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
  * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
- * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
+ * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/:path, GET /api/v1/vaults, GET /api/v1/export,
  * GET/POST /api/v1/proposals, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
@@ -248,6 +248,58 @@ func textSlice(t : Text, start : Nat, len : Nat) : Text {
   };
   Text.fromIter(buf.vals());
 };
+
+/// Vault-relative path under prefix (exact match or prefix/...).
+func notePathUnderProjectPrefix(p : Text, base : Text) : Bool {
+  if (p == base) { true } else { Text.startsWith(p, #text (base # "/")) };
+};
+
+func stripVaultPathPrefixSlashes(s : Text) : Text {
+  var x = s;
+  while (x.size() > 0 and textSlice(x, 0, 1) == "/") {
+    x := textSlice(x, 1, x.size() - 1);
+  };
+  while (x.size() > 0 and textSlice(x, x.size() - 1, 1) == "/") {
+    x := textSlice(x, 0, x.size() - 1);
+  };
+  x;
+};
+
+func normalizeDeletePrefixRaw(raw : Text) : ?Text {
+  let t = Text.trim(raw, #predicate isAsciiSpace);
+  if (t.size() == 0) { return null };
+  if (textFind(t, "..") != null) { return null };
+  let s = stripVaultPathPrefixSlashes(t);
+  if (s.size() == 0) { return null };
+  let parts = Iter.toArray(Text.split(s, #char '/'));
+  for (seg in Array.vals(parts)) {
+    if (seg == "." or seg == "..") { return null };
+  };
+  ?s;
+};
+
+func discardProposalsUnderPrefix(uid : Text, vid : Text, base : Text) : Nat {
+  let list = getProposalsList(uid);
+  let buf = Buffer.Buffer<ProposalRecord>(list.size());
+  var disc : Nat = 0;
+  let effVid = effectiveVaultId(vid);
+  for (r in Array.vals(list)) {
+    if (
+      r.status == "proposed" and effectiveVaultId(r.vault_id) == effVid and notePathUnderProjectPrefix(r.path, base)
+    ) {
+      disc += 1;
+      buf.add({
+        r with status = "discarded";
+        updated_at = "2025-01-01T00:00:00.000Z";
+      });
+    } else {
+      buf.add(r);
+    };
+  };
+  setProposalsList(uid, Buffer.toArray(buf));
+  disc;
+};
+
 /// Linear-time substring search. The previous implementation compared via `textSlice` at every
 /// index, and `textSlice` called `Text.toArray` on the full haystack each time — O(n²) on large
 /// POST bodies (e.g. `POST /api/v1/notes/batch`), exceeding the per-message instruction limit.
@@ -305,6 +357,8 @@ func parsePath(url : Text) : (Text, Text) {
     ("health", "");
   } else if (path == "/api/v1/notes/batch" or path == "/api/v1/notes/batch/") {
     ("notes_batch", "");
+  } else if (path == "/api/v1/notes/delete-by-prefix" or path == "/api/v1/notes/delete-by-prefix/") {
+    ("notes_delete_prefix", "");
   } else if (Text.startsWith(path, #text "/api/v1/notes/")) {
     let suffix = Text.trimStart(path, #text "/api/v1/notes/");
     ("note", suffix);
@@ -728,7 +782,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   // ICP HTTP gateway always invokes http_request (query) first. Mutating methods must return
   // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
   if (
-    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard"))
+    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "notes_delete_prefix" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard"))
     or (req.method == "DELETE" and pathKind == "note")
   ) {
     return {
@@ -818,6 +872,40 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
           streaming_strategy = null;
           upgrade = null;
         };
+      };
+    };
+  };
+
+  if (pathKind == "notes_delete_prefix" and req.method == "POST") {
+    let rawPrefix = Option.get(extractJsonString(bodyText, "path_prefix"), "");
+    switch (normalizeDeletePrefixRaw(rawPrefix)) {
+      case null {
+        return {
+          status_code = 400;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"Invalid or missing path_prefix\",\"code\":\"BAD_REQUEST\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case (?base) {
+        let vault = getVault(uid, vid);
+        let entries = Iter.toArray(vault.entries());
+        let buf = Buffer.Buffer<Text>(8);
+        for ((p, _) in Array.vals(entries)) {
+          if (notePathUnderProjectPrefix(p, base)) { buf.add(p) };
+        };
+        let toRemove = Buffer.toArray(buf);
+        for (p in Array.vals(toRemove)) { ignore vault.remove(p) };
+        let propDisc = discardProposalsUnderPrefix(uid, vid, base);
+        saveStable();
+        var jsonPaths : Text = "";
+        for (p in Array.vals(toRemove)) {
+          if (jsonPaths != "") { jsonPaths := jsonPaths # "," };
+          jsonPaths := jsonPaths # "\"" # escapeJson(p) # "\"";
+        };
+        let json = "{\"deleted\":" # Nat.toText(toRemove.size()) # ",\"paths\":[" # jsonPaths # "],\"proposals_discarded\":" # Nat.toText(propDisc) # "}";
+        return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
     };
   };

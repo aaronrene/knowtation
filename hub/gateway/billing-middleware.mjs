@@ -11,6 +11,7 @@ function operationFromRequest(method, req) {
   if (method === 'POST' && path.endsWith('/search')) return 'search';
   if (method === 'POST' && path.endsWith('/index')) return 'index';
   if (method === 'POST' && /\/api\/v1\/notes\/?$/.test(path)) return 'note_write';
+  if (method === 'POST' && /\/api\/v1\/notes\/delete-by-prefix\/?$/.test(path)) return 'note_write';
   if (method === 'PUT' && /\/api\/v1\/notes\//.test(path)) return 'note_write';
   if (
     method === 'DELETE' &&

@@ -6,7 +6,14 @@ import assert from 'node:assert';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { writeNote, deleteNote, isInboxPath } from '../lib/write.mjs';
+import {
+  writeNote,
+  deleteNote,
+  isInboxPath,
+  normalizePathPrefix,
+  notePathMatchesPrefix,
+  deleteNotesByPrefix,
+} from '../lib/write.mjs';
 import { readNote } from '../lib/vault.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -95,6 +102,50 @@ describe('deleteNote', () => {
       () => deleteNote(testVault, '../../../etc/passwd'),
       /Invalid path|escapes vault/
     );
+  });
+});
+
+describe('deleteNotesByPrefix', () => {
+  before(() => {
+    if (fs.existsSync(testVault)) fs.rmSync(testVault, { recursive: true });
+    fs.mkdirSync(testVault, { recursive: true });
+  });
+
+  after(() => {
+    if (fs.existsSync(testVault)) {
+      try {
+        fs.rmSync(testVault, { recursive: true });
+      } catch (_) {}
+    }
+  });
+
+  it('normalizePathPrefix trims and rejects unsafe segments', () => {
+    assert.strictEqual(normalizePathPrefix('  projects/foo  '), 'projects/foo');
+    assert.strictEqual(normalizePathPrefix('projects/foo/'), 'projects/foo');
+    assert.throws(() => normalizePathPrefix(''), /path_prefix/);
+    assert.throws(() => normalizePathPrefix('..'), /Invalid/);
+    assert.throws(() => normalizePathPrefix('a/./b'), /Invalid/);
+  });
+
+  it('notePathMatchesPrefix matches exact path or children only', () => {
+    assert.strictEqual(notePathMatchesPrefix('projects/foo', 'projects/foo'), true);
+    assert.strictEqual(notePathMatchesPrefix('projects/foo/bar.md', 'projects/foo'), true);
+    assert.strictEqual(notePathMatchesPrefix('projects/foobar/x.md', 'projects/foo'), false);
+    assert.strictEqual(notePathMatchesPrefix('other/foo.md', 'projects/foo'), false);
+  });
+
+  it('deletes all .md under prefix and returns paths', () => {
+    writeNote(testVault, 'projects/p1/a.md', { body: 'a' });
+    writeNote(testVault, 'projects/p1/sub/b.md', { body: 'b' });
+    writeNote(testVault, 'projects/p2/keep.md', { body: 'k' });
+    const { deleted, paths } = deleteNotesByPrefix(testVault, 'projects/p1');
+    assert.strictEqual(deleted, 2);
+    assert.strictEqual(paths.length, 2);
+    assert(paths.includes('projects/p1/a.md'));
+    assert(paths.includes('projects/p1/sub/b.md'));
+    assert.throws(() => readNote(testVault, 'projects/p1/a.md'), /not found/);
+    const kept = readNote(testVault, 'projects/p2/keep.md');
+    assert.strictEqual(kept.body.trim(), 'k');
   });
 });
 
