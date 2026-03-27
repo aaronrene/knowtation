@@ -458,9 +458,7 @@
     updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
     applyHostedUiFromSettings(s);
     const metaSelf = el('settings-bulk-metadata-self-only');
-    if (metaSelf) {
-      metaSelf.classList.toggle('hidden', String(s.vault_path_display || '').toLowerCase() === 'canister');
-    }
+    if (metaSelf) metaSelf.classList.remove('hidden');
   }
 
   function showLoginChrome() {

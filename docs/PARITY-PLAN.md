@@ -2,7 +2,7 @@
 
 This document lists **everything** needed to bring the **hosted** product (gateway + canister + bridge) to parity with **self-hosted** (Node Hub) so the same Hub UI works on both paths. Work is split into phases; implement in order before starting Phase 15 (multi-vault) or full deploy.
 
-**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Next parity slice:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** on hosted (canister and/or bridge) — branch **`feature/hosted-delete-rename-parity`**; design [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md). Self-hosted metadata bulk shipped **PR #63**.
+**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Metadata bulk on hosted:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** are implemented on the **gateway** ([`hub/gateway/metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)); self-hosted metadata bulk remains **PR #63**. Design: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md).
 
 **Reference:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (build status, Phase 11/13/14), [HUB-API.md](./HUB-API.md) (API contract), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) (canister/deploy), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (deploy steps).
 
@@ -16,7 +16,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Team vault access + scope (hosted):** Implemented in repo: bridge stores **`hub_workspace`** (owner id), **`hub_vault_access`**, **`hub_scope`**; gateway proxies **`GET/POST /api/v1/workspace`**, **`vault-access`**, **`scope`**, **`GET /api/v1/hosted-context`** when **`BRIDGE_URL`** is set; gateway sets **`X-User-Id`** to the **effective canister user** and **`X-Actor-Id`** to the JWT `sub`; notes list / single GET / facets apply **scope** in the gateway; index/search/sync on the bridge use the owner partition for delegated users. Spec: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). Operators must set **`POST /api/v1/workspace`** `{ owner_user_id }` for team sharing.
 
-**Remaining parity vs self-hosted (recommended order):** **Metadata bulk** — `POST /api/v1/notes/delete-by-project`, `POST /api/v1/notes/rename-project` (Node Hub only today; Hub hides UI for canister vaults). Implement on **`feature/hosted-delete-rename-parity`**. Spec: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.1.
+**Remaining parity vs self-hosted:** Track in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and this file’s tables. **Metadata bulk** — done on gateway (same routes as Node); redeploy gateway to enable in production.
 
 ---
 
@@ -29,7 +29,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Auth | OAuth (Google/GitHub), JWT, login/callback | ✅ |
 | Health | GET /health, GET /api/v1/health | ✅ |
 | Auth providers | GET /api/v1/auth/providers | ✅ |
-| Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, DELETE /api/v1/notes/:path, POST /api/v1/notes/delete-by-prefix, POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project, GET /api/v1/notes/facets | ✅ (metadata bulk: Node only; see [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
+| Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, DELETE /api/v1/notes/:path, POST /api/v1/notes/delete-by-prefix, POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project, GET /api/v1/notes/facets | ✅ (project-slug bulk on **Node**; hosted uses **gateway** — [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
 | Search | POST /api/v1/search | ✅ |
 | Index | POST /api/v1/index | ✅ |
 | Export | POST /api/v1/export | ✅ |
@@ -50,7 +50,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Health | Gateway (local) | ✅ |
 | Auth providers | Gateway (local) | ✅ |
 | Notes (incl. delete-by-prefix), proposals, export | Canister (proxy) | ✅ |
-| POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project | Not on canister; gateway proxies → **404** unless future bridge handler | ❌ (documented; UI hidden on canister vault — [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
+| POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project | Gateway ([`metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)) — orchestrates canister list/delete/write + proposal discard; not Motoko routes | ✅ ([HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
 | Notes facets (filter dropdowns) | Gateway stub (GET /api/v1/notes/facets) | ✅ |
 | Search, index | Bridge (proxy from gateway) | ✅ |
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
@@ -60,7 +60,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Invites | Gateway → **bridge** when `BRIDGE_URL` set; else stubs | ✅ |
 | Workspace owner, vault-access, scope | Bridge persistence; gateway proxy when `BRIDGE_URL` | ✅ (see [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)) |
 | POST /api/v1/setup | Gateway stub (200 no-op) | ✅ |
-| Import | Gateway stub (501 not yet available on hosted) | ✅ |
+| Import | Gateway → **bridge** when **`BRIDGE_URL`** set (multipart to bridge → canister batch); **501** when bridge unset | ✅ |
 
 The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. With **`BRIDGE_URL`**, roles and invites are **live** on the bridge; without it, gateway stubs apply.
 

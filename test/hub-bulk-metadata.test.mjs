@@ -54,4 +54,11 @@ describe('hub-bulk-metadata', () => {
   it('deleteNotesByProjectSlug throws when project empty', () => {
     assert.throws(() => deleteNotesByProjectSlug(testVault, '   '), /project slug required/);
   });
+
+  it('deleteNotesByProjectSlug matches path-inferred project under projects/<slug>/', () => {
+    writeNote(testVault, 'projects/pathonly/inbox/z.md', { body: 'z', frontmatter: { title: 'Z' } });
+    const { deleted, paths } = deleteNotesByProjectSlug(testVault, 'pathonly');
+    assert.strictEqual(deleted, 1);
+    assert(paths.includes('projects/pathonly/inbox/z.md'));
+  });
 });

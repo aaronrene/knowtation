@@ -118,6 +118,7 @@ Use this list **before first launch** and **again after** any production env cha
 - [ ] Hub UI deployed with correct `HUB_API_BASE_URL`.
 - [ ] Landing deployed; "Open Knowtation Hub" points to Hub URL.
 - [ ] No secrets or credentials in repo or client bundle.
+- [ ] **Settings → Backup → project slug:** After gateway deploys with metadata bulk handlers, **Delete by project (metadata)** and **Rename project** work on hosted (confirm with a test vault; **Re-index** afterward if you rely on semantic search — see [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)).
 
 ### 5.1 Multi-vault (Phase 15.1) — after canister deploy
 
