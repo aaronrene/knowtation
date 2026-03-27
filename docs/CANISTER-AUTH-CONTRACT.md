@@ -33,7 +33,7 @@ The gateway must send, with every canister request, something that uniquely iden
 
 ## 3. Contract (what the canister must do)
 
-- On every authenticated request (list notes, get note, write note, proposals, etc.):
+- On every authenticated request (list notes, get note, write note, delete note, proposals, etc.):
   1. Read the proof (header or token) from the request.
   2. Verify it (if Option B: verify signature and expiry).
   3. Extract **user_id**.

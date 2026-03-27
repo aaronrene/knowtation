@@ -29,7 +29,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Auth | OAuth (Google/GitHub), JWT, login/callback | ✅ |
 | Health | GET /health, GET /api/v1/health | ✅ |
 | Auth providers | GET /api/v1/auth/providers | ✅ |
-| Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, GET /api/v1/notes/facets | ✅ |
+| Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, DELETE /api/v1/notes/:path, GET /api/v1/notes/facets | ✅ |
 | Search | POST /api/v1/search | ✅ |
 | Index | POST /api/v1/index | ✅ |
 | Export | POST /api/v1/export | ✅ |
@@ -49,7 +49,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Auth | Gateway (OAuth, JWT) | ✅ |
 | Health | Gateway (local) | ✅ |
 | Auth providers | Gateway (local) | ✅ |
-| Notes, proposals, export | Canister (proxy) | ✅ |
+| Notes (incl. delete), proposals, export | Canister (proxy) | ✅ |
 | Notes facets (filter dropdowns) | Gateway stub (GET /api/v1/notes/facets) | ✅ |
 | Search, index | Bridge (proxy from gateway) | ✅ |
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
@@ -127,6 +127,7 @@ The Hub UI calls roles, invites, and POST setup from Settings → Team and Setti
 - [x] POST /api/v1/setup — 200 no-op.
 - [x] POST /api/v1/import — 501 with clear error (or defer to later phase).
 - [x] GET /api/v1/notes/facets — 200, `{ "projects": [], "tags": [], "folders": [] }`.
+- [x] DELETE /api/v1/notes/:path — canister + gateway proxy; editor/admin; 200 `{ "path", "deleted": true }` or 404.
 - [x] All above require JWT; 401 when missing.
 - [x] **Hosted admin:** Optional env `HUB_ADMIN_USER_IDS` (comma-separated user IDs) on the gateway; users in that list get role **admin** (JWT + GET /api/v1/settings). Roles and invites routes require admin (403 for non-admins). Full Team/invites (persistent role store, invite links) are Phase 2 (see below).
 - [x] Update PARITY-PLAN and IMPLEMENTATION-PLAN when Phase 1 is done.

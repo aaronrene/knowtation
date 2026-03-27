@@ -86,6 +86,8 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **POST /notes/batch** — Write many notes in one update (ICP canister: single `saveStable()` after all puts). Body: `{ "notes": [ { "path", "body", "frontmatter?" }, ... ] }`. Prefer **`frontmatter` as a JSON object** (same as gateway `POST /notes`). **Max 100** items per request; hosted bridge chunks larger imports. **Response:** `{ "imported": number, "written": true }`. **400** if JSON invalid or over limit.
 
+- **DELETE /notes/:path** — Remove one note by vault-relative path (URL-encoded, same as GET). **Editor or admin** only (same write gate as `POST /notes`). **Response:** `{ "path": "...", "deleted": true }`. **404** if the note does not exist; **400** if path is invalid. **Hosted semantic search:** the bridge vector index is not updated automatically; after deletes, run **Re-index** so meaning-search does not return stale hits for removed paths (see bridge indexer behavior).
+
 - **POST /index** — Re-run the indexer (vault → chunk → embed → vector store). Use after bulk imports or when search should reflect new or changed notes. JWT required.  
   **Response:** `{ "ok": true, "notesProcessed": number, "chunksIndexed": number }`.  
   **500** on indexer or config failure.

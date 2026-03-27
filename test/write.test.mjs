@@ -6,7 +6,7 @@ import assert from 'node:assert';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { writeNote, isInboxPath } from '../lib/write.mjs';
+import { writeNote, deleteNote, isInboxPath } from '../lib/write.mjs';
 import { readNote } from '../lib/vault.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,6 +59,40 @@ describe('writeNote', () => {
   it('throws for path that escapes vault', () => {
     assert.throws(
       () => writeNote(testVault, '../../../etc/foo.md', { body: 'x' }),
+      /Invalid path|escapes vault/
+    );
+  });
+});
+
+describe('deleteNote', () => {
+  before(() => {
+    if (fs.existsSync(testVault)) fs.rmSync(testVault, { recursive: true });
+    fs.mkdirSync(testVault, { recursive: true });
+  });
+
+  after(() => {
+    if (fs.existsSync(testVault)) {
+      try {
+        fs.rmSync(testVault, { recursive: true });
+      } catch (_) {}
+    }
+  });
+
+  it('removes an existing file and returns path and deleted: true', () => {
+    writeNote(testVault, 'inbox/to-delete.md', { body: 'x', frontmatter: { date: '2025-01-01' } });
+    const result = deleteNote(testVault, 'inbox/to-delete.md');
+    assert.strictEqual(result.path, 'inbox/to-delete.md');
+    assert.strictEqual(result.deleted, true);
+    assert.throws(() => readNote(testVault, 'inbox/to-delete.md'), /not found/);
+  });
+
+  it('throws for missing note', () => {
+    assert.throws(() => deleteNote(testVault, 'inbox/missing.md'), /not found/);
+  });
+
+  it('throws for path that escapes vault', () => {
+    assert.throws(
+      () => deleteNote(testVault, '../../../etc/passwd'),
       /Invalid path|escapes vault/
     );
   });

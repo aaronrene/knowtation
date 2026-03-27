@@ -121,8 +121,8 @@ On the server, create or edit `data/hub_roles.json` (see format below); restart 
 }
 ```
 
-- **Viewer** — Can only read (notes, search, proposals). Cannot write, propose, approve, or change Setup.
-- **Editor** — Can read, write notes, and create proposals; cannot change Setup or approve/discard proposals.
+- **Viewer** — Can only read (notes, search, proposals). Cannot write, delete, propose, approve, or change Setup.
+- **Editor** — Can read, write and delete notes, and create proposals; cannot change Setup or approve/discard proposals.
 - **Admin** — Full access: everything above plus Setup and approve/discard.
 
 The Hub UI shows **Your role** and **Your user ID** in Settings so users know their role and can share their ID with an admin. A future **invite flow** (Phase 13) may allow assigning by email or invite link so you don’t have to manage the JSON file by hand.
