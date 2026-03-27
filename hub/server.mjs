@@ -54,6 +54,7 @@ import { createInvite, consumeInvite, revokeInvite, listInvites } from './invite
 import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
 import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
 import { readHubVaults, writeHubVaults } from '../lib/hub-vaults.mjs';
+import { deleteSelfHostedVault } from './hub-delete-vault.mjs';
 import { applyScopeFilterToNotes as applyScopeFilter } from './lib/scope-filter.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -977,6 +978,27 @@ app.post('/api/v1/vaults', jwtAuth, requireRole('admin'), (req, res) => {
       return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     }
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.delete('/api/v1/vaults/:vaultId', jwtAuth, apiLimiter, requireRole('admin'), async (req, res) => {
+  const vaultId = decodeURIComponent(String(req.params.vaultId || '').trim());
+  try {
+    const out = await deleteSelfHostedVault({
+      dataDir: config.data_dir,
+      projectRoot,
+      vaultId,
+      config,
+    });
+    config = loadConfig(projectRoot);
+    roleMap = loadRoleMap(config.data_dir);
+    invalidateFacetsCache();
+    res.json(out);
+  } catch (e) {
+    const code = e.code && typeof e.code === 'string' ? e.code : 'RUNTIME_ERROR';
+    const status =
+      code === 'BAD_REQUEST' ? 400 : code === 'FORBIDDEN' ? 403 : code === 'NOT_FOUND' ? 404 : 500;
+    res.status(status).json({ error: e.message || 'Delete vault failed', code });
   }
 });
 

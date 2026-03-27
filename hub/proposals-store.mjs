@@ -156,3 +156,22 @@ export function discardProposalsAtPaths(dataDir, opts) {
   saveProposals(dataDir, next);
   return n;
 }
+
+/**
+ * Remove all proposals for a vault id (Hub delete vault).
+ * @param {string} dataDir
+ * @param {string} vaultId
+ * @returns {number} number removed
+ */
+export function removeProposalsForVault(dataDir, vaultId) {
+  const vid = String(vaultId || '').trim();
+  if (!vid) return 0;
+  const all = loadProposals(dataDir);
+  const next = all.filter((p) => {
+    const pv = p.vault_id != null && String(p.vault_id).trim() ? String(p.vault_id).trim() : 'default';
+    return pv !== vid;
+  });
+  const removed = all.length - next.length;
+  if (removed > 0) saveProposals(dataDir, next);
+  return removed;
+}
