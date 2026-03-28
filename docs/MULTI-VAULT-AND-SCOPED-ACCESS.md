@@ -246,8 +246,8 @@ See **TEAMS-AND-COLLABORATION.md** for roles and invite flow; **SPEC.md** for si
 
 1. **Config/data:** `lib/hub-vaults.mjs`, `hub/hub_vault_access.mjs`, `hub/hub_scope.mjs`; `lib/config.mjs` loads vault list and exposes `vaultList` and `resolveVaultPath(vaultId)`. Single-vault default when `hub_vaults.yaml` is absent.
 2. **Backend:** Hub server middleware resolves `req.vault_id`, checks vault access, sets `req.vaultPath` and `req.scope`. List, search, facets, proposals, index, export, import, sync are vault-scoped. Admin routes: GET/POST `/api/v1/vaults`, `/api/v1/vault-access`, `/api/v1/scope`. GET `/api/v1/settings` returns `vault_list` and `allowed_vault_ids`.
-3. **Hub UI:** Vault switcher (header); Settings → Vaults tab (admin): vault list JSON, vault access JSON, scope JSON with Save.
-4. **Bridge:** Index and search keyed by (uid, vault_id); vectors dir and Blob key include vault_id; canister export request sends X-Vault-Id.
-5. **Gateway:** Forwards `x-vault-id` to canister.
+3. **Hub UI:** Vault switcher (header); Settings → Vaults tab (admin): vault list JSON, vault access JSON, scope JSON with Save; Settings → Backup danger zone — delete non-default vault (**PR #66**).
+4. **Bridge:** Index and search keyed by (uid, vault_id); vectors dir and Blob key include vault_id; canister export request sends X-Vault-Id; delete-vault orchestration for hosted (**PR #66**).
+5. **Gateway:** Forwards `x-vault-id` to canister; proxies `DELETE /api/v1/vaults/:vaultId` to bridge when configured (**PR #66**).
 
 **Follow-up (hosted canister):** Canister storage keyed by (uid, vault_id) and migration of existing data to vault_id `default` (Phase 15.4 in IMPLEMENTATION-PLAN).
