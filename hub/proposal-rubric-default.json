@@ -1,0 +1,9 @@
+{
+  "items": [
+    { "id": "accurate", "label": "Content appears accurate and appropriate for this vault" },
+    { "id": "no_secrets", "label": "No obvious secrets, API keys, or credentials in the body" },
+    { "id": "matches_intent", "label": "Change matches the stated intent (if any)" },
+    { "id": "pii", "label": "No unnecessary personal data (PII) unless the note is meant to store it" },
+    { "id": "tone", "label": "Tone and structure fit the rest of the vault" }
+  ]
+}

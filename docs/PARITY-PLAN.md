@@ -2,7 +2,7 @@
 
 This document lists **everything** needed to bring the **hosted** product (gateway + canister + bridge) to parity with **self-hosted** (Node Hub) so the same Hub UI works on both paths. Work is split into phases; implement in order before starting Phase 15 (multi-vault) or full deploy.
 
-**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Metadata bulk on hosted:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** are implemented on the **gateway** ([`hub/gateway/metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)); self-hosted metadata bulk remains **PR #63**. **PR #65:** Hub Settings no longer blocks those POSTs in the browser on hosted. Design: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md).
+**Product order (2026-03):** **`POST /api/v1/import` on hosted** is **live** when the gateway has **`BRIDGE_URL`** (bridge → canister batch). **Stripe checkout, subscriptions, and billing enforcement** follow per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) strategic sequencing. **Metadata bulk on hosted:** **`POST /notes/delete-by-project`** and **`POST /notes/rename-project`** are implemented on the **gateway** ([`hub/gateway/metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)); self-hosted metadata bulk remains **PR #63**. **PR #65:** Hub Settings no longer blocks those POSTs in the browser on hosted. **PR #66:** **`DELETE /api/v1/vaults/:vaultId`** (non-default vault) — self-hosted Node Hub + hosted gateway → bridge → canister; Hub Settings danger zone. Design: [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md), [HUB-API.md](./HUB-API.md) §3.3.2.
 
 **Reference:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (build status, Phase 11/13/14), [HUB-API.md](./HUB-API.md) (API contract), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) (canister/deploy), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (deploy steps).
 
@@ -16,7 +16,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Team vault access + scope (hosted):** Implemented in repo: bridge stores **`hub_workspace`** (owner id), **`hub_vault_access`**, **`hub_scope`**; gateway proxies **`GET/POST /api/v1/workspace`**, **`vault-access`**, **`scope`**, **`GET /api/v1/hosted-context`** when **`BRIDGE_URL`** is set; gateway sets **`X-User-Id`** to the **effective canister user** and **`X-Actor-Id`** to the JWT `sub`; notes list / single GET / facets apply **scope** in the gateway; index/search/sync on the bridge use the owner partition for delegated users. Spec: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md). Operators must set **`POST /api/v1/workspace`** `{ owner_user_id }` for team sharing.
 
-**Remaining parity vs self-hosted:** Track in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and this file’s tables. **Metadata bulk (project slug)** — done on gateway + Hub client (**PR #65**); redeploy **gateway and static Hub** to enable in production.
+**Remaining parity vs self-hosted:** Track in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) and this file’s tables. **Metadata bulk (project slug)** — done on gateway + Hub client (**PR #65**); redeploy **gateway and static Hub** to enable in production. **Delete vault** — done (**PR #66**); redeploy **canister + bridge + gateway + static Hub** for production.
 
 ---
 
@@ -41,6 +41,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | GitHub connect | GET /api/v1/auth/github-connect, callback; vault/github-status | ✅ |
 | Roles | GET /api/v1/roles, POST /api/v1/roles | ✅ |
 | Invites | GET /api/v1/invites, POST /api/v1/invites, DELETE /api/v1/invites/:token | ✅ |
+| Vaults (admin) | GET/POST /api/v1/vaults, DELETE /api/v1/vaults/:vaultId (non-default) | ✅ list/save Phase 15; **delete PR #66** (self-hosted: vault dir must resolve under repo root) |
 
 ### Hosted (gateway → canister / bridge)
 
@@ -61,6 +62,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Workspace owner, vault-access, scope | Bridge persistence; gateway proxy when `BRIDGE_URL` | ✅ (see [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)) |
 | POST /api/v1/setup | Gateway stub (200 no-op) | ✅ |
 | Import | Gateway → **bridge** when **`BRIDGE_URL`** set (multipart to bridge → canister batch); **501** when bridge unset | ✅ |
+| DELETE /api/v1/vaults/:vaultId | Gateway → **bridge** → canister (+ bridge access/scope/vector blob); workspace-owner rules | ✅ **PR #66** |
 
 The Hub UI calls roles, invites, and POST setup from Settings → Team and Settings → Setup. With **`BRIDGE_URL`**, roles and invites are **live** on the bridge; without it, gateway stubs apply.
 

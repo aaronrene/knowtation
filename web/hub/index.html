@@ -180,6 +180,16 @@
       </section>
       <section id="tab-suggested" class="tab-panel hidden">
         <p class="muted">Proposals needing your review. They are created by the CLI or an agent (not by a button in the Hub). Click one, then Approve (writes to vault) or Discard.</p>
+        <div class="proposal-list-filters" id="proposal-list-filters">
+          <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Path prefix <input type="text" id="proposal-filter-path-prefix" placeholder="e.g. inbox" autocomplete="off" /></label>
+          <label class="proposal-filter-label proposal-filter-checkbox"><input type="checkbox" id="proposal-filter-pending-eval" /> Pending evaluation only</label>
+          <label class="proposal-filter-label">Review queue <input type="text" id="proposal-filter-review-queue" placeholder="e.g. legal" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Severity <input type="text" id="proposal-filter-review-severity" placeholder="standard or elevated" autocomplete="off" /></label>
+          <button type="button" id="proposal-filter-apply" class="btn-secondary">Apply filters</button>
+          <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
+        </div>
         <div id="proposals-suggested" class="list"></div>
       </section>
       <section id="tab-problem" class="tab-panel hidden">
@@ -394,6 +404,19 @@ Your note body here.</pre>
               <span class="settings-label">Git backup</span>
               <span id="settings-git-status" class="settings-value">—</span>
             </div>
+            <div class="settings-row" id="settings-proposal-eval-row">
+              <span class="settings-label">Proposal evaluation gate</span>
+              <span id="settings-proposal-eval-required" class="settings-value">—</span>
+            </div>
+            <div class="settings-row" id="settings-proposal-hints-row">
+              <span class="settings-label">Review hints (LLM)</span>
+              <span id="settings-proposal-hints-enabled" class="settings-value">—</span>
+            </div>
+            <div class="settings-row" id="settings-evaluator-approve-row">
+              <span class="settings-label">Evaluator may approve</span>
+              <span id="settings-evaluator-may-approve" class="settings-value">—</span>
+            </div>
+            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Pass vs grade:</strong> <em>Outcome</em> (pass / fail / needs_changes) is what blocks or allows merge when the gate is on. <em>Grade</em> is optional (A–F, 1–5) for reporting only. <strong>Gate:</strong> <code>HUB_PROPOSAL_EVALUATION_REQUIRED=1</code> or <code>0</code>/<code>false</code> to force off; otherwise optional file <code>data/hub_proposal_policy.json</code> with <code>{"proposal_evaluation_required":true}</code>. <strong>Triggers:</strong> <code>data/hub_proposal_review_triggers.json</code> (see <code>hub/proposal-review-triggers-default.json</code>) sets <em>pending</em>, <code>review_queue</code>, and <code>review_severity</code> from phrases, path prefixes, and labels. <strong>Roles:</strong> <code>evaluator</code> may submit evaluation; approve defaults to admin; set <code>HUB_EVALUATOR_MAY_APPROVE=1</code> to allow evaluators to approve. <strong>Rubric:</strong> default <code>hub/proposal-rubric-default.json</code>; override <code>data/hub_proposal_rubric.json</code>. <strong>LLM hints:</strong> <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1</code> — async, non-authoritative; content may leave your vault to the model provider. See <code>docs/PROPOSAL-LIFECYCLE.md</code> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
             <div class="settings-row hidden" id="settings-api-base-row" title="Shown on localhost for self-hosted debugging">
               <span class="settings-label">API base</span>
               <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
@@ -521,7 +544,7 @@ Your note body here.</pre>
         </div>
         <div id="settings-panel-team" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Team lets you invite others and set roles (viewer, editor, admin). Only admins see this tab. Use User ID or invite links to connect teammates.</p>
+            <p class="settings-intro">Team lets you invite others and set roles (viewer, editor, admin, evaluator). Only admins see this tab. Use User ID or invite links to connect teammates.</p>
             <h3 class="settings-h3">How to add someone</h3>
             <p class="settings-intro small">Add a user by their <strong>User ID</strong> (e.g. <code>github:12345</code>). They find it in their own Settings → Backup under &quot;Your user ID&quot; — they copy it and send it to you.</p>
             <div class="settings-form">
@@ -534,6 +557,7 @@ Your note body here.</pre>
               <select id="team-role">
                 <option value="viewer">Viewer (read only)</option>
                 <option value="editor">Editor (read, write, propose)</option>
+                <option value="evaluator">Evaluator (evaluate proposals; approve only if Hub allows)</option>
                 <option value="admin">Admin (full access)</option>
               </select>
               <div class="settings-form-actions">
@@ -548,6 +572,7 @@ Your note body here.</pre>
               <select id="invite-role">
                 <option value="viewer">Viewer (read only)</option>
                 <option value="editor">Editor (read, write, propose)</option>
+                <option value="evaluator">Evaluator (evaluate proposals)</option>
                 <option value="admin">Admin (full access)</option>
               </select>
               <div class="settings-form-actions">
@@ -1270,11 +1295,18 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p>Proposals are <strong>not</strong> created by a button in the Hub. They are created by the CLI or by an agent/LLM calling the Hub API. The Hub is where you <strong>review</strong> them.</p>
             <ul>
               <li><strong>Create a proposal:</strong> From a terminal run <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> (with <code>KNOWTATION_HUB_TOKEN</code> set), or have an agent send <code>POST /api/v1/proposals</code> with the same kind of data. The proposal then appears in the Hub.</li>
-              <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it, then click <strong>Approve</strong> (writes the content to the vault) or <strong>Discard</strong> (rejects it).</li>
+              <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
               <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
               <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
             </ul>
             <p class="how-to-note">There is no "Add proposal" button in the Hub by design: proposals are created by tools and agents. You use the Hub to approve or discard them before anything is written to the vault.</p>
+            <h4 class="how-to-sub">Reviewing proposals (evaluation, triggers, roles)</h4>
+            <ul>
+              <li><strong>Outcome vs grade:</strong> Saving evaluation uses an <em>outcome</em> (pass / fail / needs changes) plus checklist; optional <em>grade</em> is for culture or reporting and does not replace outcome.</li>
+              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Suggested tab.</li>
+              <li><strong>Who does what:</strong> <code>evaluator</code> users can record evaluation; <code>admin</code> approves or discards unless the server sets <code>HUB_EVALUATOR_MAY_APPROVE=1</code>. Waivers on approve remain admin-side when evaluation has not passed.</li>
+              <li><strong>LLM review hints:</strong> If enabled on the Hub, short async hints may appear on a proposal. They are not a merge gate; treat them as untrusted.</li>
+            </ul>
 
             <h4 class="how-to-sub">Hub UI: filters and views</h4>
             <ul>
@@ -1461,7 +1493,9 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260331a"></script>
+  <script src="hub.js?v=20260331b"></script>
 </body>
 </html>

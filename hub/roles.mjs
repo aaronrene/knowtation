@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 
 const ROLES_FILE = 'hub_roles.json';
-const VALID_ROLES = new Set(['admin', 'editor', 'viewer']);
+const VALID_ROLES = new Set(['admin', 'editor', 'viewer', 'evaluator']);
 
 /**
  * Load role map from data_dir. Returns Map<sub, role>.

@@ -2,7 +2,7 @@
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
  * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
  * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/:path, GET /api/v1/vaults, DELETE /api/v1/vaults/:id (non-default), GET /api/v1/export,
- * GET/POST /api/v1/proposals, approve, discard.
+ * GET/POST /api/v1/proposals, evaluation, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
  */
@@ -374,7 +374,9 @@ func parsePath(url : Text) : (Text, Text) {
   } else if (Text.startsWith(path, #text "/api/v1/proposals/")) {
     let rest = Text.trimStart(path, #text "/api/v1/proposals/");
     let parts = Iter.toArray(Text.split(rest, #char '/'));
-    if (parts.size() == 1) { ("proposal", parts[0]) }
+    if (parts.size() >= 2 and parts[1] == "evaluation") { ("evaluation", parts[0]) }
+    else if (parts.size() >= 2 and parts[1] == "review-hints") { ("review_hints", parts[0]) }
+    else if (parts.size() == 1) { ("proposal", parts[0]) }
     else if (parts.size() >= 2 and parts[1] == "approve") { ("approve", parts[0]) }
     else if (parts.size() >= 2 and parts[1] == "discard") { ("discard", parts[0]) }
     else { ("unknown", "") };
@@ -649,6 +651,23 @@ func natToHex4(code : Nat32) : Text {
   hd(4096) # hd(256) # hd(16) # hd(1);
 };
 
+/// Human evaluation: approve allowed when status empty/none/passed (see docs/PROPOSAL-LIFECYCLE.md).
+func evalStatusAllowsApprove(es : Text) : Bool {
+  if (es == "" or es == "none") { true } else if (es == "passed") { true } else { false };
+};
+
+func outcomeToEvaluationStatus(out : Text) : ?Text {
+  if (out == "pass") { ?"passed" } else if (out == "fail") { ?"failed" } else if (out == "needs_changes") { ?"needs_changes" } else { null };
+};
+
+/// Best-effort: reject pass if serialized checklist contains an explicit false (full JSON parse not in canister v1).
+func checklistJsonOkForPass(checklistJson : Text) : Bool {
+  switch (textFind(checklistJson, "\"passed\":false")) {
+    case null { true };
+    case (?_) { false };
+  };
+};
+
 /// RFC 8259: control chars U+0000..U+001F must be escaped; pass-through broke JSON.parse in the Hub.
 func escapeJson(s : Text) : Text {
   let chars = Text.toArray(s);
@@ -765,7 +784,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     var items : Text = "";
     for (p in Array.vals(list)) {
       if (items != "") { items := items # "," };
-      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
+      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":" # (if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" }) # "}";
     };
     let json = "{\"proposals\":[" # items # "],\"total\":" # Nat.toText(list.size()) # "}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
@@ -775,7 +794,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     let list = proposalsForVault(uid, vid);
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\"}";
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":" # (if (Text.size(p.evaluation_checklist) > 0) { p.evaluation_checklist } else { "[]" }) # ",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"evaluation_waiver\":" # (if (Text.size(p.evaluation_waiver_json) > 0) { p.evaluation_waiver_json } else { "null" }) # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":" # (if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" }) # ",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
@@ -787,7 +806,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   // ICP HTTP gateway always invokes http_request (query) first. Mutating methods must return
   // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
   if (
-    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "notes_delete_prefix" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard"))
+    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "notes_delete_prefix" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard" or pathKind == "evaluation" or pathKind == "review_hints"))
     or (req.method == "DELETE" and (pathKind == "note" or pathKind == "vault_delete"))
   ) {
     return {
@@ -995,6 +1014,11 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let frontmatter = extractFrontmatterFromPostBody(bodyText);
     let base_state_id = Option.get(extractJsonString(bodyText, "base_state_id"), "");
     let external_ref = Option.get(extractJsonString(bodyText, "external_ref"), "");
+    let evalIn = Option.get(extractJsonString(bodyText, "evaluation_status"), "");
+    let evalInit = if (evalIn == "pending") { "pending" } else { "" };
+    let rq = Option.get(extractJsonString(bodyText, "review_queue"), "");
+    let rs = Option.get(extractJsonString(bodyText, "review_severity"), "");
+    let afr = Option.get(extractJsonString(bodyText, "auto_flag_reasons_json"), "");
     let proposal_id = "prop-" # Int.toText(Time.now());
     let now = "2025-01-01T00:00:00.000Z";
     var list = getProposalsList(uid);
@@ -1010,6 +1034,19 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
       vault_id = vid;
       created_at = now;
       updated_at = now;
+      evaluation_status = evalInit;
+      evaluation_grade = "";
+      evaluation_checklist = "";
+      evaluation_comment = "";
+      evaluated_by = "";
+      evaluated_at = "";
+      evaluation_waiver_json = "";
+      review_queue = rq;
+      review_severity = rs;
+      auto_flag_reasons_json = afr;
+      review_hints = "";
+      review_hints_at = "";
+      review_hints_model = "";
     };
     list := Array.append(list, [newP]);
     setProposalsList(uid, list);
@@ -1018,15 +1055,180 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
   };
 
+  if (pathKind == "evaluation" and req.method == "POST") {
+    let outcome = Option.get(extractJsonString(bodyText, "outcome"), "");
+    let grade = Option.get(extractJsonString(bodyText, "grade"), "");
+    let comment = Option.get(extractJsonString(bodyText, "comment"), "");
+    let checklistJson = Option.get(extractJsonString(bodyText, "evaluation_checklist_json"), "[]");
+    switch (outcomeToEvaluationStatus(outcome)) {
+      case null {
+        return {
+          status_code = 400;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"outcome must be pass, fail, or needs_changes\",\"code\":\"BAD_REQUEST\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case (?evStatus) {
+        var listEv = getProposalsList(uid);
+        switch (Array.find<ProposalRecord>(listEv, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
+          case null {
+            return {
+              status_code = 404;
+              headers = corsHeaders();
+              body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}");
+              streaming_strategy = null;
+              upgrade = null;
+            };
+          };
+          case (?pEv) {
+            if (pEv.status != "proposed") {
+              return {
+                status_code = 400;
+                headers = corsHeaders();
+                body = jsonBody("{\"error\":\"Can only evaluate proposed proposals\",\"code\":\"BAD_REQUEST\"}");
+                streaming_strategy = null;
+                upgrade = null;
+              };
+            };
+            if ((evStatus == "failed" or evStatus == "needs_changes") and Text.size(comment) == 0) {
+              return {
+                status_code = 400;
+                headers = corsHeaders();
+                body = jsonBody("{\"error\":\"comment is required for fail and needs_changes\",\"code\":\"BAD_REQUEST\"}");
+                streaming_strategy = null;
+                upgrade = null;
+              };
+            };
+            if (evStatus == "passed" and not checklistJsonOkForPass(checklistJson)) {
+              return {
+                status_code = 400;
+                headers = corsHeaders();
+                body = jsonBody("{\"error\":\"All checklist items must pass for a pass outcome\",\"code\":\"BAD_REQUEST\"}");
+                streaming_strategy = null;
+                upgrade = null;
+              };
+            };
+            let nowEv = "2025-01-01T00:00:00.000Z";
+            listEv := Array.map<ProposalRecord, ProposalRecord>(listEv, func(x : ProposalRecord) : ProposalRecord {
+              if (x.proposal_id == pathArg) {
+                {
+                  x with
+                  evaluation_status = evStatus;
+                  evaluation_grade = grade;
+                  evaluation_checklist = checklistJson;
+                  evaluation_comment = comment;
+                  evaluated_by = uid;
+                  evaluated_at = nowEv;
+                  updated_at = nowEv;
+                }
+              } else { x }
+            });
+            setProposalsList(uid, listEv);
+            saveStable();
+            return {
+              status_code = 200;
+              headers = corsHeaders();
+              body = jsonBody(
+                "{\"proposal_id\":\"" # escapeJson(pathArg) # "\",\"evaluation_status\":\"" # escapeJson(evStatus) # "\"}",
+              );
+              streaming_strategy = null;
+              upgrade = null;
+            };
+          };
+        };
+      };
+    };
+  };
+
+  if (pathKind == "review_hints" and req.method == "POST") {
+    let hints = Option.get(extractJsonString(bodyText, "review_hints"), "");
+    let model = Option.get(extractJsonString(bodyText, "review_hints_model"), "");
+    var listRh = getProposalsList(uid);
+    switch (Array.find<ProposalRecord>(listRh, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
+      case null {
+        return {
+          status_code = 404;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case (?pRh) {
+        if (pRh.status != "proposed") {
+          return {
+            status_code = 400;
+            headers = corsHeaders();
+            body = jsonBody("{\"error\":\"Can only attach hints to proposed proposals\",\"code\":\"BAD_REQUEST\"}");
+            streaming_strategy = null;
+            upgrade = null;
+          };
+        };
+        let nowRh = "2025-01-01T00:00:00.000Z";
+        listRh := Array.map<ProposalRecord, ProposalRecord>(listRh, func(x : ProposalRecord) : ProposalRecord {
+          if (x.proposal_id == pathArg) {
+            {
+              x with
+              review_hints = hints;
+              review_hints_model = model;
+              review_hints_at = nowRh;
+              updated_at = nowRh;
+            }
+          } else {
+            x
+          }
+        });
+        setProposalsList(uid, listRh);
+        saveStable();
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody("{\"proposal_id\":\"" # escapeJson(pathArg) # "\",\"ok\":true}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+    };
+  };
+
   if (pathKind == "approve" and req.method == "POST") {
+    let waiverRaw = Option.get(extractJsonString(bodyText, "waiver_reason"), "");
     var list = getProposalsList(uid);
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
+        let needsWaiver = not evalStatusAllowsApprove(p.evaluation_status);
+        if (needsWaiver and Text.size(waiverRaw) < 3) {
+          return {
+            status_code = 403;
+            headers = corsHeaders();
+            body = jsonBody(
+              "{\"error\":\"Evaluation must be passed before approve, or provide waiver_reason\",\"code\":\"EVALUATION_REQUIRED\"}",
+            );
+            streaming_strategy = null;
+            upgrade = null;
+          };
+        };
         let targetVid = effectiveVaultId(p.vault_id);
         let vault = getVault(uid, targetVid);
         vault.put(p.path, (p.frontmatter, p.body));
+        let nowAp = "2025-01-01T00:00:00.000Z";
+        let waiverJson = if (needsWaiver and Text.size(waiverRaw) >= 3) {
+          "{\"by\":\"" # escapeJson(uid) # "\",\"at\":\"" # nowAp # "\",\"reason\":\"" # escapeJson(waiverRaw) # "\"}"
+        } else {
+          ""
+        };
         list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
-          if (x.proposal_id == pathArg) { { x with status = "approved"; updated_at = "2025-01-01T00:00:00.000Z" } } else { x }
+          if (x.proposal_id == pathArg) {
+            {
+              x with status = "approved";
+              updated_at = nowAp;
+              evaluation_waiver_json = if (Text.size(waiverJson) > 0) { waiverJson } else { x.evaluation_waiver_json };
+            }
+          } else {
+            x
+          }
         });
         setProposalsList(uid, list);
         saveStable();

@@ -9,7 +9,8 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import yaml from 'js-yaml';
 import { loadConfig } from '../lib/config.mjs';
-import { readNote, resolveVaultRelativePath } from '../lib/vault.mjs';
+import { readNote, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
+import { noteStateIdFromHubNoteJson, absentNoteStateId } from '../lib/note-state-id.mjs';
 import { runListNotes as runListNotesOp } from '../lib/list-notes.mjs';
 import { exitWithError } from '../lib/errors.mjs';
 import { IMPORT_SOURCE_TYPES, IMPORT_SOURCE_TYPES_HELP } from '../lib/import-source-types.mjs';
@@ -34,7 +35,7 @@ Commands:
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
   memory query <key>             Read from memory layer (requires memory.enabled). Keys: last_search, last_export.
   hub status                    Check Hub reachability (use --hub <url>). Requires Hub API.
-  propose <path>                Create a proposal on the Hub (use --hub <url>, --intent "...").
+  propose <path>                Create a proposal from local vault note (body/frontmatter) on the Hub. Options: --hub, --intent, --vault (X-Vault-Id), --external-ref, --labels a,b, --source agent|human|import, --base-state-id, --no-fetch-base.
   vault sync                    Commit and push vault to Git (when vault.git.enabled and remote set). See config.
   mcp                           Start MCP server (stdio transport). For Cursor/Claude Desktop.
 
@@ -589,9 +590,23 @@ async function main() {
 
   if (subcommand === 'propose') {
     const pathArg = args[1];
+    if (!pathArg || pathArg.startsWith('--')) {
+      exitWithError('knowtation propose: provide a vault-relative note path (e.g. inbox/note.md).', 1, useJson);
+    }
     const hubUrl = getOpt('hub') || process.env.KNOWTATION_HUB_URL;
     if (!hubUrl) {
       exitWithError('knowtation propose: set --hub <url> or KNOWTATION_HUB_URL.', 1, useJson);
+    }
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+    try {
+      resolveVaultRelativePath(config.vault_path, pathArg);
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
     }
     const intent = getOpt('intent') || '';
     const token = process.env.KNOWTATION_HUB_TOKEN;
@@ -599,13 +614,59 @@ async function main() {
       exitWithError('knowtation propose: set KNOWTATION_HUB_TOKEN (JWT from Hub login).', 2, useJson);
     }
     const base = hubUrl.replace(/\/$/, '');
+    const vaultHdr = getOpt('vault') || process.env.KNOWTATION_HUB_VAULT_ID;
+    const labelsRaw = getOpt('labels');
+    const labels = labelsRaw
+      ? labelsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined;
+    const source = getOpt('source') || undefined;
+    const externalRef = getOpt('external-ref') || undefined;
+    const baseStateOverride = getOpt('base-state-id');
+    const skipFetchBase = hasOpt('no-fetch-base');
+
+    let bodyText = '';
+    let frontmatter = {};
+    if (noteFileExistsInVault(config.vault_path, pathArg)) {
+      const n = readNote(config.vault_path, pathArg);
+      bodyText = n.body;
+      frontmatter = n.frontmatter;
+    }
+
     (async () => {
       try {
-        const body = { path: pathArg || 'inbox/proposal.md', intent: intent || undefined };
+        const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+        if (vaultHdr) headers['X-Vault-Id'] = vaultHdr;
+
+        let baseStateId = baseStateOverride && String(baseStateOverride).trim() ? String(baseStateOverride).trim() : '';
+        if (!baseStateId && !skipFetchBase) {
+          const encPath = pathArg.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
+          const gres = await fetch(`${base}/api/v1/notes/${encPath}`, { method: 'GET', headers });
+          if (gres.status === 404) {
+            baseStateId = absentNoteStateId();
+          } else if (gres.ok) {
+            const noteJson = await gres.json();
+            baseStateId = noteStateIdFromHubNoteJson(noteJson);
+          }
+        }
+
+        const payload = {
+          path: pathArg.replace(/\\/g, '/'),
+          body: bodyText,
+          frontmatter,
+          intent: intent || undefined,
+          external_ref: externalRef || undefined,
+          labels,
+          source,
+        };
+        if (baseStateId) payload.base_state_id = baseStateId;
+
         const res = await fetch(base + '/api/v1/proposals', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify(body),
+          headers,
+          body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {

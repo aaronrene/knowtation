@@ -18,7 +18,7 @@ Keep these **separate** so work does not backtrack.
 ## 3. Governance / proposal evaluation — **later**
 
 - **Question:** Should this **proposal** merge (policy, safety, quality)?
-- **Doc:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Option B+ (proposal evaluation stage). Requires lifecycle doc and canister/gateway alignment.
+- **Doc:** [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Option B+ (proposal evaluation stage). Lifecycle and `kn1_` concurrency: [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md). Requires canister/gateway alignment for any new `evaluation_status` fields.
 - **Import today** writes **directly** to the vault (self-hosted Hub), not through the proposal queue. Agent/human grading (e.g. A–F) belongs here if imports are routed through proposals or a staging inbox—**product decision first**.
 
 ## Summary

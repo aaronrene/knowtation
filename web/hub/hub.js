@@ -525,6 +525,11 @@
     }
     updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
     applyHostedUiFromSettings(s);
+    window.__hubProposalEnrich = Boolean(s.proposal_enrich_enabled);
+    window.__hubProposalEvaluationRequired = Boolean(s.proposal_evaluation_required);
+    window.__hubProposalReviewHints = Boolean(s.proposal_review_hints_enabled);
+    window.__hubEvaluatorMayApprove = Boolean(s.hub_evaluator_may_approve);
+    window.__hubProposalRubricItems = Array.isArray(s.proposal_rubric?.items) ? s.proposal_rubric.items : [];
     const metaSelf = el('settings-bulk-metadata-self-only');
     if (metaSelf) metaSelf.classList.remove('hidden');
   }
@@ -1271,6 +1276,31 @@
     }, 3000);
   }
 
+  const proposalFilterApply = el('proposal-filter-apply');
+  if (proposalFilterApply) {
+    proposalFilterApply.onclick = () => {
+      loadProposals();
+    };
+  }
+  const proposalFilterClear = el('proposal-filter-clear');
+  if (proposalFilterClear) {
+    proposalFilterClear.onclick = () => {
+      const lf = el('proposal-filter-label');
+      const sf = el('proposal-filter-source');
+      const pf = el('proposal-filter-path-prefix');
+      const pe = el('proposal-filter-pending-eval');
+      const rq = el('proposal-filter-review-queue');
+      const rs = el('proposal-filter-review-severity');
+      if (lf) lf.value = '';
+      if (sf) sf.value = '';
+      if (pf) pf.value = '';
+      if (pe) pe.checked = false;
+      if (rq) rq.value = '';
+      if (rs) rs.value = '';
+      loadProposals();
+    };
+  }
+
   if (btnReindex) {
     btnReindex.onclick = async () => {
       await withButtonBusy(btnReindex, 'Indexing…', async () => {
@@ -1288,9 +1318,27 @@
     };
   }
 
+  function proposalFilterQuerySuffix() {
+    const params = [];
+    const lab = el('proposal-filter-label');
+    const src = el('proposal-filter-source');
+    const pre = el('proposal-filter-path-prefix');
+    if (lab && lab.value.trim()) params.push('label=' + encodeURIComponent(lab.value.trim()));
+    if (src && src.value.trim()) params.push('source=' + encodeURIComponent(src.value.trim()));
+    if (pre && pre.value.trim()) params.push('path_prefix=' + encodeURIComponent(pre.value.trim()));
+    const pe = el('proposal-filter-pending-eval');
+    if (pe && pe.checked) params.push('evaluation_status=pending');
+    const rq = el('proposal-filter-review-queue');
+    if (rq && rq.value.trim()) params.push('review_queue=' + encodeURIComponent(rq.value.trim()));
+    const rs = el('proposal-filter-review-severity');
+    if (rs && rs.value.trim()) params.push('review_severity=' + encodeURIComponent(rs.value.trim()));
+    return params.length ? '&' + params.join('&') : '';
+  }
+
   async function loadProposals() {
     const emptySuggested = '<div class="empty-state">No proposals waiting for review. Add notes with <strong>+ New note</strong> above, or have an agent or the CLI create a proposal for you to approve.</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
+    const fq = proposalFilterQuerySuffix();
     [
       { kind: 'suggested', status: 'proposed', empty: emptySuggested },
       { kind: 'problem', status: 'discarded', empty: emptyDiscarded },
@@ -1298,7 +1346,7 @@
       const container = el('proposals-' + kind);
       if (!container) return;
       container.innerHTML = loadingHtml;
-      api('/api/v1/proposals?status=' + status + '&limit=20')
+      api('/api/v1/proposals?status=' + encodeURIComponent(status) + '&limit=20' + fq)
         .then((out) => {
           const list = out.proposals || [];
           if (list.length === 0) {
@@ -1306,8 +1354,25 @@
             return;
           }
           container.innerHTML = list
-            .map(
-              (p) =>
+            .map((p) => {
+              const labelChips = (Array.isArray(p.labels) ? p.labels : [])
+                .slice(0, 4)
+                .map((x) => '<span class="proposal-chip">' + escapeHtml(String(x)) + '</span>')
+                .join('');
+              const srcChip = p.source
+                ? '<span class="proposal-chip">' + escapeHtml(String(p.source)) + '</span>'
+                : '';
+              const qChip = p.review_queue
+                ? '<span class="proposal-chip">queue:' + escapeHtml(String(p.review_queue)) + '</span>'
+                : '';
+              const sevChip =
+                p.review_severity === 'elevated'
+                  ? '<span class="proposal-chip">elevated</span>'
+                  : p.review_severity === 'standard'
+                    ? '<span class="proposal-chip">standard</span>'
+                    : '';
+              const extraChips = [labelChips, srcChip, qChip, sevChip].filter(Boolean).join('');
+              return (
                 '<div class="list-item" data-id="' +
                 escapeHtml(p.proposal_id) +
                 '"><span class="row-title">' +
@@ -1315,8 +1380,11 @@
                 '</span><div class="status">' +
                 escapeHtml(p.status) +
                 (p.updated_at ? ' · ' + p.updated_at.slice(0, 10) : '') +
+                (p.evaluation_status ? ' · eval:' + escapeHtml(String(p.evaluation_status)) : '') +
+                (extraChips ? ' · ' + extraChips : '') +
                 '</div></div>'
-            )
+              );
+            })
             .join('');
           container.querySelectorAll('.list-item').forEach((item) => {
             item.onclick = () => openProposal(item.dataset.id);
@@ -1940,6 +2008,12 @@
           if (vg.auto_push) gitText += ', auto-push on';
         } else if (vg.enabled) gitText = 'Enabled but no remote set';
         el('settings-git-status').textContent = gitText;
+        const evalReqEl = el('settings-proposal-eval-required');
+        if (evalReqEl) evalReqEl.textContent = s.proposal_evaluation_required ? 'On' : 'Off';
+        const hintsEl = el('settings-proposal-hints-enabled');
+        if (hintsEl) hintsEl.textContent = s.proposal_review_hints_enabled ? 'On' : 'Off';
+        const evApEl = el('settings-evaluator-may-approve');
+        if (evApEl) evApEl.textContent = s.hub_evaluator_may_approve ? 'On' : 'Off';
         const syncBtn = el('btn-settings-sync');
         const isAdmin = s.role === 'admin';
         if (syncBtn) syncBtn.disabled = settingsSyncDisabled(s, vg, isHosted);
@@ -2028,6 +2102,12 @@
         if (el('settings-mode-display')) el('settings-mode-display').textContent = '—';
         el('settings-vault-display').textContent = '—';
         el('settings-git-status').textContent = 'Could not load';
+        const evalReqErr = el('settings-proposal-eval-required');
+        if (evalReqErr) evalReqErr.textContent = '—';
+        const hintsErr = el('settings-proposal-hints-enabled');
+        if (hintsErr) hintsErr.textContent = '—';
+        const evApErr = el('settings-evaluator-may-approve');
+        if (evApErr) evApErr.textContent = '—';
         const configureSection = el('settings-configure-backup-section');
         const configureHr = el('settings-hr-configure');
         if (configureSection) configureSection.style.display = '';
@@ -4104,6 +4184,7 @@
     currentNotePathForCopy = path;
     currentOpenNote = null;
     const panel = el('detail-panel');
+    panel.classList.remove('detail-panel-proposal-wide');
     const title = el('detail-title');
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
@@ -4169,51 +4250,317 @@
     };
   }
 
+  function renderProposalMarkdownHtml(md) {
+    try {
+      if (typeof marked !== 'undefined' && marked.parse && typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(marked.parse(md || '', { breaks: true }));
+      }
+    } catch (_) {
+      /* fall through */
+    }
+    return escapeHtml(md || '');
+  }
+
   function openProposal(id) {
     currentNotePathForCopy = '';
     currentOpenNote = null;
     el('btn-copy-path').classList.add('hidden');
     const panel = el('detail-panel');
+    panel.classList.add('detail-panel-proposal-wide');
     const title = el('detail-title');
     const body = el('detail-body');
     const actions = el('detail-actions');
+    body.className = 'detail-body-proposal';
     panel.classList.remove('hidden');
+    body.innerHTML = '<p class="muted">Loading…</p>';
+    actions.innerHTML = '';
+    const pathEnc = (pth) => encodeURIComponent(String(pth || '').replace(/\\/g, '/'));
     api('/api/v1/proposals/' + encodeURIComponent(id))
-      .then((p) => {
+      .then((p) =>
+        api('/api/v1/notes/' + pathEnc(p.path)).then(
+          (note) => ({ p, note }),
+          () => ({ p, note: null }),
+        ),
+      )
+      .then(({ p, note }) => {
         title.textContent = p.path + ' (' + p.status + ')';
-        body.textContent =
-          (p.body || '') + '\n\n---\nIntent: ' + (p.intent || '—') + '\nBase state: ' + (p.base_state_id || '—');
+        const pFm = materializeFrontmatter(p.frontmatter);
+        const currentBlock = note
+          ? formatDetailReadBody(note.body || '', materializeFrontmatter(note.frontmatter))
+          : '(No note at this path in the vault yet — Approve will create or overwrite this path.)';
+        const proposedBlock = formatDetailReadBody(p.body || '', pFm);
+        const mdHtml = renderProposalMarkdownHtml(p.body || '');
+        const chips = [];
+        if (p.proposed_by) chips.push('<span class="proposal-chip">by ' + escapeHtml(String(p.proposed_by)) + '</span>');
+        if (p.source) chips.push('<span class="proposal-chip">' + escapeHtml(String(p.source)) + '</span>');
+        (Array.isArray(p.labels) ? p.labels : []).forEach((x) => {
+          chips.push('<span class="proposal-chip">' + escapeHtml(String(x)) + '</span>');
+        });
+        if (p.external_ref) {
+          chips.push('<span class="proposal-chip">ref ' + escapeHtml(String(p.external_ref).slice(0, 40)) + '</span>');
+        }
+        const role = window.__hubUserRole || 'member';
+        const isAdmin = role === 'admin';
+        const isEvaluator = role === 'evaluator';
+        const canEvaluate = isAdmin || isEvaluator;
+        const canApprove = isAdmin || (isEvaluator && window.__hubEvaluatorMayApprove);
+        const canDiscard = isAdmin;
+        const rubricItems = Array.isArray(window.__hubProposalRubricItems) ? window.__hubProposalRubricItems : [];
+        const prevChecklist = Array.isArray(p.evaluation_checklist) ? p.evaluation_checklist : [];
+        function prevEvalPassed(rid) {
+          const row = prevChecklist.find((c) => c && c.id === rid);
+          return Boolean(row && row.passed === true);
+        }
+        let evalHtml = '';
+        let waiverHtml = '';
+        if (canEvaluate && p.status === 'proposed') {
+          const es = p.evaluation_status || 'none';
+          let evalIntro = '';
+          if (es && es !== 'none' && es !== 'pending') {
+            evalIntro =
+              '<div class="proposal-eval-summary"><strong>Recorded evaluation</strong>: ' +
+              escapeHtml(es) +
+              (p.evaluation_grade ? ' · grade ' + escapeHtml(String(p.evaluation_grade)) : '') +
+              (p.evaluated_at ? ' · ' + escapeHtml(String(p.evaluated_at).slice(0, 19).replace('T', ' ')) : '') +
+              (p.evaluation_comment
+                ? '<p class="small">' + escapeHtml(String(p.evaluation_comment)) + '</p>'
+                : '') +
+              '</div>';
+          } else if (es === 'pending' || window.__hubProposalEvaluationRequired) {
+            evalIntro =
+              '<p class="small muted">Human evaluation is required before approve, unless you use an approve waiver reason below.</p>';
+          }
+          const checks = rubricItems.length
+            ? rubricItems
+                .map((it) => {
+                  const rid = String(it.id || '').trim();
+                  if (!rid) return '';
+                  const lab = String(it.label || rid);
+                  const ck = prevEvalPassed(rid) ? ' checked' : '';
+                  return (
+                    '<label class="proposal-eval-check"><input type="checkbox" data-proposal-eval-id="' +
+                    escapeHtml(rid) +
+                    '"' +
+                    ck +
+                    ' /> ' +
+                    escapeHtml(lab) +
+                    '</label>'
+                  );
+                })
+                .join('')
+            : '<p class="small muted">No rubric items loaded. Defaults ship in-repo; optional override: <code>data/hub_proposal_rubric.json</code>.</p>';
+          const gradeVal = p.evaluation_grade != null ? escapeHtml(String(p.evaluation_grade)) : '';
+          evalHtml =
+            '<div class="proposal-eval">' +
+            '<h4 class="proposal-md-heading">Evaluation</h4>' +
+            evalIntro +
+            '<label class="proposal-eval-field">Outcome <select id="proposal-eval-outcome">' +
+            '<option value="pass">Pass</option>' +
+            '<option value="fail">Fail</option>' +
+            '<option value="needs_changes">Needs changes</option>' +
+            '</select></label>' +
+            '<label class="proposal-eval-field">Grade (optional) <input type="text" id="proposal-eval-grade" maxlength="32" value="' +
+            gradeVal +
+            '" placeholder="e.g. A or 4" /></label>' +
+            '<div class="proposal-eval-checklist">' +
+            checks +
+            '</div>' +
+            '<label class="proposal-eval-field">Comment <textarea id="proposal-eval-comment" rows="3" placeholder="Required for fail / needs changes">' +
+            escapeHtml(p.evaluation_comment != null ? String(p.evaluation_comment) : '') +
+            '</textarea></label>' +
+            '<button type="button" class="btn-secondary" id="proposal-eval-save">Save evaluation</button>' +
+            '</div>';
+        }
+        if (canApprove && p.status === 'proposed') {
+          waiverHtml =
+            '<div class="proposal-eval-waiver">' +
+            '<label class="proposal-eval-field">Approve waiver reason <textarea id="proposal-waiver-reason" rows="2" placeholder="If approving without a passed evaluation, enter at least 3 characters."></textarea></label>' +
+            '</div>';
+        }
+        let autoFlagHtml = '';
+        if (Array.isArray(p.auto_flag_reasons) && p.auto_flag_reasons.length) {
+          autoFlagHtml =
+            '<p class="small muted">Auto-flagged: ' +
+            p.auto_flag_reasons.map((x) => escapeHtml(String(x))).join(', ') +
+            '</p>';
+        } else if (p.auto_flag_reasons_json != null && String(p.auto_flag_reasons_json).trim()) {
+          try {
+            const ar = JSON.parse(String(p.auto_flag_reasons_json));
+            if (Array.isArray(ar) && ar.length) {
+              autoFlagHtml =
+                '<p class="small muted">Auto-flagged: ' + ar.map((x) => escapeHtml(String(x))).join(', ') + '</p>';
+            }
+          } catch (_) {
+            /* ignore */
+          }
+        }
+        let hintsHtml = '';
+        if (p.review_hints) {
+          hintsHtml =
+            '<div class="proposal-review-hints"><strong>Review hints</strong>' +
+            (p.review_hints_model
+              ? ' <span class="muted">(' + escapeHtml(String(p.review_hints_model)) + ')</span>'
+              : '') +
+            (p.review_hints_at
+              ? ' <span class="muted">' + escapeHtml(String(p.review_hints_at).slice(0, 19)) + '</span>'
+              : '') +
+            '<pre class="proposal-pre">' +
+            escapeHtml(String(p.review_hints)) +
+            '</pre><p class="small muted">Hints are machine-generated and untrusted — humans decide evaluation outcome.</p></div>';
+        }
+        let assistantHtml = '';
+        if (p.assistant_notes) {
+          const sug = (Array.isArray(p.suggested_labels) ? p.suggested_labels : [])
+            .map((x) => '<span class="proposal-chip">' + escapeHtml(String(x)) + '</span>')
+            .join('');
+          assistantHtml =
+            '<div class="proposal-assistant"><strong>Assistant</strong>' +
+            (p.assistant_model ? ' <span class="muted">(' + escapeHtml(String(p.assistant_model)) + ')</span>' : '') +
+            (p.assistant_at ? ' <span class="muted">' + escapeHtml(String(p.assistant_at).slice(0, 19)) + '</span>' : '') +
+            '<p>' +
+            escapeHtml(String(p.assistant_notes)) +
+            '</p>' +
+            (sug ? '<div class="proposal-meta-chips">' + sug + '</div>' : '') +
+            '</div>';
+        }
+        body.innerHTML =
+          (chips.length ? '<div class="proposal-meta-chips">' + chips.join('') + '</div>' : '') +
+          autoFlagHtml +
+          '<p class="small muted">Intent: ' +
+          escapeHtml(p.intent || '—') +
+          ' · base_state_id: ' +
+          escapeHtml(p.base_state_id || '—') +
+          (p.evaluation_status ? ' · evaluation: ' + escapeHtml(String(p.evaluation_status)) : '') +
+          (p.review_queue ? ' · queue: ' + escapeHtml(String(p.review_queue)) : '') +
+          (p.review_severity ? ' · severity: ' + escapeHtml(String(p.review_severity)) : '') +
+          '</p>' +
+          '<div class="proposal-diff-grid">' +
+          '<div><h4>Current vault</h4><pre class="proposal-pre">' +
+          escapeHtml(currentBlock) +
+          '</pre></div>' +
+          '<div><h4>Proposed</h4><pre class="proposal-pre">' +
+          escapeHtml(proposedBlock) +
+          '</pre></div>' +
+          '</div>' +
+          '<h4 class="proposal-md-heading">Proposed body (rendered)</h4>' +
+          '<div class="proposal-md">' +
+          mdHtml +
+          '</div>' +
+          evalHtml +
+          waiverHtml +
+          assistantHtml +
+          hintsHtml;
         actions.innerHTML = '';
-        const isAdmin = window.__hubUserRole === 'admin';
-        if (p.status === 'proposed' && isAdmin) {
-          const approveBtn = document.createElement('button');
-          approveBtn.textContent = 'Approve';
-          approveBtn.onclick = () => approveProposal(id, panel);
-          const discardBtn = document.createElement('button');
-          discardBtn.textContent = 'Discard';
-          discardBtn.onclick = () => discardProposal(id, panel);
-          actions.append(approveBtn, discardBtn);
-        } else if (p.status === 'proposed' && !isAdmin) {
-          const hint = document.createElement('p');
-          hint.className = 'muted small';
-          hint.textContent = 'Only admins can approve or discard proposals.';
-          actions.append(hint);
+        const saveEvalBtn = body.querySelector('#proposal-eval-save');
+        if (saveEvalBtn) {
+          saveEvalBtn.onclick = async () => {
+            const outcomeEl = body.querySelector('#proposal-eval-outcome');
+            const outcome = outcomeEl ? String(outcomeEl.value || 'pass') : 'pass';
+            const gradeEl = body.querySelector('#proposal-eval-grade');
+            const grade = gradeEl ? String(gradeEl.value || '').trim() : '';
+            const commentEl = body.querySelector('#proposal-eval-comment');
+            const comment = commentEl ? String(commentEl.value || '').trim() : '';
+            const checklist = [];
+            body.querySelectorAll('input[data-proposal-eval-id]').forEach((inp) => {
+              checklist.push({ id: inp.getAttribute('data-proposal-eval-id'), passed: Boolean(inp.checked) });
+            });
+            try {
+              await api('/api/v1/proposals/' + encodeURIComponent(id) + '/evaluation', {
+                method: 'POST',
+                body: JSON.stringify({
+                  outcome,
+                  grade: grade || undefined,
+                  comment: comment || undefined,
+                  checklist,
+                }),
+              });
+              showToast('Evaluation saved.');
+              openProposal(id);
+              loadProposals();
+            } catch (err) {
+              showToast(err.message || 'Evaluation failed', true);
+            }
+          };
+        }
+        if (p.status === 'proposed') {
+          if (canApprove) {
+            const approveBtn = document.createElement('button');
+            approveBtn.textContent = 'Approve';
+            approveBtn.onclick = () => approveProposal(id, panel);
+            actions.append(approveBtn);
+          }
+          if (canDiscard) {
+            const discardBtn = document.createElement('button');
+            discardBtn.textContent = 'Discard';
+            discardBtn.onclick = () => discardProposal(id, panel);
+            actions.append(discardBtn);
+          }
+          if (canApprove && window.__hubProposalEnrich && hubUserCanWriteNotes()) {
+            const enrichBtn = document.createElement('button');
+            enrichBtn.type = 'button';
+            enrichBtn.className = 'btn-secondary';
+            enrichBtn.textContent = 'Enrich (AI)';
+            enrichBtn.onclick = () => enrichProposal(id, panel, enrichBtn);
+            actions.append(enrichBtn);
+          }
+          if (isEvaluator && !canApprove) {
+            const hintEv = document.createElement('p');
+            hintEv.className = 'muted small';
+            hintEv.textContent =
+              'You can record evaluation; approve and discard require an admin unless the Hub sets HUB_EVALUATOR_MAY_APPROVE=1.';
+            actions.append(hintEv);
+          } else if (!canEvaluate) {
+            const hint = document.createElement('p');
+            hint.className = 'muted small';
+            hint.textContent =
+              'Your role cannot record evaluation here. Admins and evaluators evaluate; approve/discard follows Hub policy.';
+            actions.append(hint);
+          }
         }
       })
       .catch((e) => {
-        body.textContent = 'Error: ' + e.message;
+        body.className = 'detail-body-proposal';
+        body.innerHTML = '<p class="muted">Error: ' + escapeHtml(e.message) + '</p>';
       });
+  }
+
+  async function enrichProposal(id, panel, btn) {
+    try {
+      await withButtonBusy(btn, 'Enriching…', async () => {
+        await api('/api/v1/proposals/' + encodeURIComponent(id) + '/enrich', { method: 'POST', body: '{}' });
+      });
+      showToast('Proposal enriched.');
+      openProposal(id);
+      loadProposals();
+    } catch (e) {
+      showToast(e.message || 'Enrich failed', true);
+    }
   }
 
   async function approveProposal(id, panel) {
     try {
-      await api('/api/v1/proposals/' + encodeURIComponent(id) + '/approve', { method: 'POST' });
+      const db = el('detail-body');
+      const waiverEl = db && db.querySelector ? db.querySelector('#proposal-waiver-reason') : null;
+      const waiver_reason = waiverEl && waiverEl.value ? String(waiverEl.value).trim() : '';
+      const approveBody = {};
+      if (waiver_reason) approveBody.waiver_reason = waiver_reason;
+      await api('/api/v1/proposals/' + encodeURIComponent(id) + '/approve', {
+        method: 'POST',
+        body: JSON.stringify(approveBody),
+      });
       panel.classList.add('hidden');
+      panel.classList.remove('detail-panel-proposal-wide');
       loadProposals();
       loadNotes();
       loadActivity();
     } catch (e) {
-      el('detail-body').textContent += '\n\nApprove failed: ' + e.message;
+      const db = el('detail-body');
+      if (db) {
+        const extra = document.createElement('p');
+        extra.className = 'muted';
+        extra.textContent = 'Approve failed: ' + (e.message || String(e));
+        db.appendChild(extra);
+      }
     }
   }
 
@@ -4221,16 +4568,25 @@
     try {
       await api('/api/v1/proposals/' + encodeURIComponent(id) + '/discard', { method: 'POST' });
       panel.classList.add('hidden');
+      panel.classList.remove('detail-panel-proposal-wide');
       loadProposals();
       loadActivity();
     } catch (e) {
-      el('detail-body').textContent += '\n\nDiscard failed: ' + e.message;
+      const db = el('detail-body');
+      if (db) {
+        const extra = document.createElement('p');
+        extra.className = 'muted';
+        extra.textContent = 'Discard failed: ' + (e.message || String(e));
+        db.appendChild(extra);
+      }
     }
   }
 
   el('detail-close').onclick = () => {
     currentOpenNote = null;
-    el('detail-panel').classList.add('hidden');
+    const dp = el('detail-panel');
+    dp.classList.add('hidden');
+    dp.classList.remove('detail-panel-proposal-wide');
   };
 
   document.addEventListener('keydown', (e) => {
@@ -4238,7 +4594,9 @@
     if (e.key === 'Escape') {
       if (el('detail-panel') && !el('detail-panel').classList.contains('hidden')) {
         currentOpenNote = null;
-        el('detail-panel').classList.add('hidden');
+        const dpEsc = el('detail-panel');
+        dpEsc.classList.add('hidden');
+        dpEsc.classList.remove('detail-panel-proposal-wide');
         e.preventDefault();
       } else if (el('modal-create') && !el('modal-create').classList.contains('hidden')) {
         closeCreateModal();

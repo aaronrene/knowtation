@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub — REST API + OAuth + JWT. Phase 11.
  * Run from repo root: node hub/server.mjs
- * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL.
+ * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL, HUB_PROPOSAL_EVALUATION_REQUIRED (see lib/hub-proposal-policy.mjs), HUB_EVALUATOR_MAY_APPROVE=1 (allow evaluator to approve), KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1 (async LLM hints; not a gate).
  */
 
 import path from 'path';
@@ -37,14 +37,24 @@ import { runSearch } from '../lib/search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../lib/import-source-types.mjs';
+import { noteStateIdFromParts, absentNoteStateId } from '../lib/note-state-id.mjs';
+import { completeChat } from '../lib/llm-complete.mjs';
 import {
   listProposals,
   getProposal,
   createProposal,
   updateProposalStatus,
+  updateProposalEnrichment,
   discardProposalsUnderPathPrefix,
   discardProposalsAtPaths,
+  submitProposalEvaluation,
+  mergeEvaluationChecklist,
+  evaluationAllowsApprove,
 } from './proposals-store.mjs';
+import { loadProposalRubric } from '../lib/hub-proposal-rubric.mjs';
+import { getProposalEvaluationRequired } from '../lib/hub-proposal-policy.mjs';
+import { loadReviewTriggers, applyReviewTriggers } from '../lib/hub-proposal-review-triggers.mjs';
+import { runProposalReviewHintsJob } from '../lib/hub-proposal-review-hints-job.mjs';
 import { appendAudit } from './audit-log.mjs';
 import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
@@ -165,7 +175,7 @@ function effectiveRole(req) {
   return r === 'member' || !r ? 'editor' : r;
 }
 
-/** Phase 13: require one of the given roles (viewer, editor, admin). Must run after jwtAuth. */
+/** Phase 13: require one of the given roles (viewer, editor, admin, evaluator). Must run after jwtAuth. */
 function requireRole(...allowedRoles) {
   const set = new Set(allowedRoles);
   return (req, res, next) => {
@@ -173,6 +183,21 @@ function requireRole(...allowedRoles) {
     if (set.has(role)) return next();
     return res.status(403).json({ error: 'This action requires a different role.', code: 'FORBIDDEN' });
   };
+}
+
+function hubEvaluatorMayApprove() {
+  return process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
+}
+
+/** Approve: admin always; evaluator only when HUB_EVALUATOR_MAY_APPROVE=1. */
+function requireApproveRole(req, res, next) {
+  const role = effectiveRole(req);
+  if (role === 'admin') return next();
+  if (role === 'evaluator' && hubEvaluatorMayApprove()) return next();
+  return res.status(403).json({
+    error: 'Approve requires admin, or evaluator when HUB_EVALUATOR_MAY_APPROVE=1.',
+    code: 'FORBIDDEN',
+  });
 }
 
 /** Phase 15: resolve vault_id to path, check access, set req.vaultPath and req.scope. Must run after jwtAuth. */
@@ -717,6 +742,13 @@ app.get('/api/v1/proposals', parseQueryBounds, (req, res) => {
       vault_id: req.vault_id,
       limit,
       offset,
+      label: typeof req.query.label === 'string' ? req.query.label : undefined,
+      source: typeof req.query.source === 'string' ? req.query.source : undefined,
+      path_prefix: typeof req.query.path_prefix === 'string' ? req.query.path_prefix : undefined,
+      evaluation_status:
+        typeof req.query.evaluation_status === 'string' ? req.query.evaluation_status : undefined,
+      review_queue: typeof req.query.review_queue === 'string' ? req.query.review_queue : undefined,
+      review_severity: typeof req.query.review_severity === 'string' ? req.query.review_severity : undefined,
     };
     const out = listProposals(config.data_dir, opts);
     res.json(out);
@@ -734,31 +766,145 @@ app.get('/api/v1/proposals/:id', (req, res) => {
   res.json(proposal);
 });
 
+app.post('/api/v1/proposals/:id/evaluation', requireRole('admin', 'evaluator'), (req, res) => {
+  const proposal = getProposal(config.data_dir, req.params.id);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  const allowed = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+  const vid = proposal.vault_id ?? 'default';
+  if (!allowed.includes(vid)) {
+    return res.status(403).json({ error: 'Access to this proposal is not allowed.', code: 'FORBIDDEN' });
+  }
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const rubric = loadProposalRubric(config.data_dir);
+  const merged = mergeEvaluationChecklist(rubric.items, body.checklist);
+  const result = submitProposalEvaluation(config.data_dir, req.params.id, {
+    outcome: body.outcome,
+    evaluation_checklist: merged,
+    evaluation_grade: body.grade,
+    evaluation_comment: body.comment,
+    evaluated_by: req.user?.sub ?? 'unknown',
+  });
+  if (!result.ok) {
+    const st = result.code === 'NOT_FOUND' ? 404 : 400;
+    return res.status(st).json({ error: result.error, code: result.code });
+  }
+  appendAudit(config.data_dir, {
+    userId: req.user?.sub ?? 'unknown',
+    action: 'evaluation_submitted',
+    proposalId: req.params.id,
+    detail: { evaluation_status: result.proposal.evaluation_status },
+  });
+  res.json(result.proposal);
+});
+
 app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
-  const { path: notePath, body, frontmatter, intent, base_state_id } = req.body || {};
+  const {
+    path: notePath,
+    body,
+    frontmatter,
+    intent,
+    base_state_id,
+    external_ref,
+    labels,
+    source,
+  } = req.body || {};
   try {
+    const policyPending = getProposalEvaluationRequired(config.data_dir);
+    const triggers = loadReviewTriggers(config.data_dir);
+    const labelArr = Array.isArray(labels) ? labels : [];
+    const applied = applyReviewTriggers(triggers, {
+      path: String(notePath || ''),
+      body: String(body || ''),
+      intent: String(intent || ''),
+      labels: labelArr,
+    });
     const proposal = createProposal(config.data_dir, {
       path: notePath,
       body,
       frontmatter,
       intent,
       base_state_id,
+      external_ref,
+      labels,
+      source,
       vault_id: req.vault_id,
       proposed_by: req.user?.sub ?? undefined,
+      evaluationRequired: policyPending,
+      evaluationForcedPending: applied.forcePending,
+      review_queue: applied.review_queue,
+      review_severity: applied.review_severity,
+      auto_flag_reasons: applied.auto_flag_reasons,
     });
+    if (applied.auto_flag_reasons.length) {
+      appendAudit(config.data_dir, {
+        userId: req.user?.sub ?? 'unknown',
+        action: 'proposal_auto_flagged',
+        proposalId: proposal.proposal_id,
+        detail: { reasons: applied.auto_flag_reasons },
+      });
+    }
+    if (process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1') {
+      setImmediate(() => {
+        runProposalReviewHintsJob(config, proposal.proposal_id).catch(() => {});
+      });
+    }
     res.status(201).json(proposal);
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });
 
-app.post('/api/v1/proposals/:id/approve', requireRole('admin'), (req, res) => {
+app.post('/api/v1/proposals/:id/approve', requireApproveRole, (req, res) => {
   const proposal = getProposal(config.data_dir, req.params.id);
   if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
   const approveVaultPath = config.resolveVaultPath(proposal.vault_id ?? 'default');
   if (!approveVaultPath) return res.status(400).json({ error: 'Proposal vault not found.', code: 'BAD_REQUEST' });
   if (proposal.status !== 'proposed') {
     return res.status(400).json({ error: `Proposal status is ${proposal.status}`, code: 'BAD_REQUEST' });
+  }
+  const approveBody = req.body && typeof req.body === 'object' ? req.body : {};
+  const waiverReason =
+    approveBody.waiver_reason != null && String(approveBody.waiver_reason).trim()
+      ? String(approveBody.waiver_reason).trim()
+      : '';
+  if (!evaluationAllowsApprove(proposal)) {
+    if (waiverReason.length < 3) {
+      return res.status(403).json({
+        error: 'Evaluation must be passed before approve, or provide waiver_reason (admin override).',
+        code: 'EVALUATION_REQUIRED',
+      });
+    }
+  }
+  const fromReq =
+    approveBody.base_state_id != null && String(approveBody.base_state_id).trim() !== ''
+      ? String(approveBody.base_state_id).trim()
+      : '';
+  const fromProposal =
+    proposal.base_state_id != null && String(proposal.base_state_id).trim() !== ''
+      ? String(proposal.base_state_id).trim()
+      : '';
+  const expectedBase = fromReq || fromProposal;
+  if (expectedBase) {
+    let currentId;
+    if (noteFileExistsInVault(approveVaultPath, proposal.path)) {
+      try {
+        const n = readNote(approveVaultPath, proposal.path);
+        currentId = noteStateIdFromParts(n.frontmatter, n.body);
+      } catch (_) {
+        return res.status(409).json({
+          error: 'base_state_id mismatch; vault note changed or path state differs',
+          code: 'CONFLICT',
+        });
+      }
+    } else {
+      currentId = absentNoteStateId();
+    }
+    if (currentId !== expectedBase) {
+      return res.status(409).json({
+        error: 'base_state_id mismatch; vault note changed or path state differs',
+        code: 'CONFLICT',
+      });
+    }
   }
   try {
     const fm = mergeProvenanceFrontmatter(proposal.frontmatter ?? {}, {
@@ -771,8 +917,23 @@ app.post('/api/v1/proposals/:id/approve', requireRole('admin'), (req, res) => {
       body: proposal.body,
       frontmatter: fm,
     });
-    const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved');
-    appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'approve', proposalId: req.params.id });
+    let evaluation_waiver;
+    if (!evaluationAllowsApprove(proposal) && waiverReason.length >= 3) {
+      evaluation_waiver = {
+        by: req.user?.sub ?? 'unknown',
+        at: new Date().toISOString(),
+        reason: waiverReason.slice(0, 2000),
+      };
+    }
+    const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved', {
+      ...(evaluation_waiver ? { evaluation_waiver } : {}),
+    });
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: evaluation_waiver ? 'approve_waiver' : 'approve',
+      proposalId: req.params.id,
+      ...(evaluation_waiver ? { detail: { reason_len: waiverReason.length } } : {}),
+    });
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: approveVaultPath });
     res.json(updated);
@@ -789,8 +950,53 @@ app.post('/api/v1/proposals/:id/discard', requireRole('admin'), (req, res) => {
   res.json(updated);
 });
 
+// Optional Tier-2: LLM summary + suggested labels (KNOWTATION_HUB_PROPOSAL_ENRICH=1; see docs/PROPOSAL-LIFECYCLE.md)
+app.post('/api/v1/proposals/:id/enrich', requireRole('editor', 'admin'), async (req, res) => {
+  if (process.env.KNOWTATION_HUB_PROPOSAL_ENRICH !== '1') {
+    return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+  }
+  const proposal = getProposal(config.data_dir, req.params.id);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+  const allowed = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+  const vid = proposal.vault_id ?? 'default';
+  if (!allowed.includes(vid)) {
+    return res.status(403).json({ error: 'Access to this proposal is not allowed.', code: 'FORBIDDEN' });
+  }
+  if (proposal.status !== 'proposed') {
+    return res.status(400).json({ error: 'Can only enrich proposed proposals', code: 'BAD_REQUEST' });
+  }
+  try {
+    const system =
+      'Reply with ONLY valid JSON: {"summary":"one short paragraph","suggested_labels":["lowercase-short-tag"]}. At most 5 labels. No markdown fences.';
+    const user = `Path: ${proposal.path}\nIntent: ${proposal.intent || '—'}\n---\n${String(proposal.body || '').slice(0, 12_000)}`;
+    const raw = await completeChat(config, { system, user, maxTokens: 400 });
+    let summary = raw;
+    let suggested = [];
+    try {
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim();
+      const j = JSON.parse(cleaned);
+      if (typeof j.summary === 'string') summary = j.summary;
+      if (Array.isArray(j.suggested_labels)) suggested = j.suggested_labels;
+    } catch (_) {
+      /* use raw text as summary */
+    }
+    const model = process.env.OPENAI_API_KEY
+      ? config.llm?.openai_chat_model || process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini'
+      : process.env.OLLAMA_CHAT_MODEL || config.llm?.ollama_chat_model || process.env.OLLAMA_MODEL || 'ollama';
+    const updated = updateProposalEnrichment(config.data_dir, req.params.id, {
+      assistant_notes: summary,
+      assistant_model: String(model).slice(0, 128),
+      suggested_labels: suggested,
+    });
+    appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'enrich', proposalId: req.params.id });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
 // GET /api/v1/settings — safe config status for Settings UI (Phase 13 + Phase 15 multi-vault)
-app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (req, res) => {
+app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
   const vg = config.vault_git;
   const vaultPath = config.vault_path || '';
   const vault_path_display = vaultPath ? '…/' + path.basename(vaultPath) : '';
@@ -824,6 +1030,11 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin'), (
       model: emb.model || 'nomic-embed-text',
       ollama_url: ollamaUrl,
     },
+    proposal_enrich_enabled: process.env.KNOWTATION_HUB_PROPOSAL_ENRICH === '1',
+    proposal_evaluation_required: getProposalEvaluationRequired(config.data_dir),
+    proposal_review_hints_enabled: process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1',
+    hub_evaluator_may_approve: hubEvaluatorMayApprove(),
+    proposal_rubric: loadProposalRubric(config.data_dir),
   });
 });
 
@@ -901,8 +1112,8 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'user_id required (e.g. github:12345)', code: 'BAD_REQUEST' });
   }
   const r = (role || '').toLowerCase();
-  if (!['admin', 'editor', 'viewer'].includes(r)) {
-    return res.status(400).json({ error: 'role must be admin, editor, or viewer', code: 'BAD_REQUEST' });
+  if (!['admin', 'editor', 'viewer', 'evaluator'].includes(r)) {
+    return res.status(400).json({ error: 'role must be admin, editor, viewer, or evaluator', code: 'BAD_REQUEST' });
   }
   try {
     const current = readRolesObject(config.data_dir);
@@ -921,8 +1132,8 @@ const baseOrigin = () => (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, 
 // POST /api/v1/invites — create invite link (admin only)
 app.post('/api/v1/invites', jwtAuth, requireRole('admin'), (req, res) => {
   const role = (req.body?.role || 'editor').toLowerCase();
-  if (!['viewer', 'editor', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'role must be viewer, editor, or admin', code: 'BAD_REQUEST' });
+  if (!['viewer', 'editor', 'admin', 'evaluator'].includes(role)) {
+    return res.status(400).json({ error: 'role must be viewer, editor, admin, or evaluator', code: 'BAD_REQUEST' });
   }
   try {
     const { token, role: r, created_at, expires_at } = createInvite(config.data_dir, role);
@@ -1043,7 +1254,7 @@ app.post('/api/v1/scope', jwtAuth, requireRole('admin'), (req, res) => {
 });
 
 // GET /api/v1/setup — editable setup (Phase 13: requires auth + viewer)
-app.get('/api/v1/setup', jwtAuth, requireRole('viewer', 'editor', 'admin'), (_req, res) => {
+app.get('/api/v1/setup', jwtAuth, requireRole('viewer', 'editor', 'admin', 'evaluator'), (_req, res) => {
   const vg = config.vault_git;
   res.json({
     vault_path: config.vault_path || '',

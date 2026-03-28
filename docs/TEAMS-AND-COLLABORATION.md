@@ -59,7 +59,7 @@ For now, **invite = share Hub URL (and repo URL if you use a shared backup repo)
 
 | Question | Answer |
 |----------|--------|
-| **Have we developed Teams?** | **Roles are built** (viewer / editor / admin via `data/hub_roles.json`). Invite by link (Settings → Team) is built. |
+| **Have we developed Teams?** | **Roles are built** (viewer / editor / admin / **evaluator** via `data/hub_roles.json`). **Evaluator** may submit proposal evaluations; approve is admin-only unless `HUB_EVALUATOR_MAY_APPROVE=1`. Invite by link (Settings → Team) is built. |
 | **How do you “invite” others today?** | Create an invite link (Settings → Team) and send it; they open and sign in. Or share the Hub URL. |
 | **Do we add them as collaborators on GitHub?** | For the **vault backup repo**, yes — add them on GitHub if you want them to push/pull the repo. That does not control Hub login or “team” in the app. |
 | **What is the phase and plan?** | **Phase 13** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): roles and **invite flow done** (see hub/README.md). Next: optional GitHub-backed access. |

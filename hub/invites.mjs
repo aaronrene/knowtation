@@ -49,12 +49,12 @@ export function writeInvites(dataDir, invites) {
 /**
  * Create a new invite. Returns token and expires_at (ISO string).
  * @param {string} dataDir
- * @param {string} role - viewer | editor | admin
+ * @param {string} role - viewer | editor | admin | evaluator
  * @returns {{ token: string, role: string, created_at: string, expires_at: string }}
  */
 export function createInvite(dataDir, role) {
   const r = (role || 'editor').toLowerCase();
-  if (!['viewer', 'editor', 'admin'].includes(r)) throw new Error('role must be viewer, editor, or admin');
+  if (!['viewer', 'editor', 'admin', 'evaluator'].includes(r)) throw new Error('role must be viewer, editor, admin, or evaluator');
   const invites = readInvites(dataDir);
   const token = crypto.randomBytes(24).toString('base64url');
   const created_at = new Date().toISOString();
