@@ -23,6 +23,7 @@ Default port: 3333. **Open `http://localhost:3333/` in a browser** for the Rich 
 | `GOOGLE_CLIENT_SECRET` | For Google login | From Google Cloud Console. |
 | `GITHUB_CLIENT_ID` | For GitHub login | From GitHub OAuth App. |
 | `GITHUB_CLIENT_SECRET` | For GitHub login | From GitHub OAuth App. |
+| `KNOWTATION_HUB_PROPOSAL_ENRICH` | No | Set to `1` to enable `POST /api/v1/proposals/:id/enrich` (LLM summary + suggested labels; needs OpenAI or Ollama chat). |
 
 ## Log in (OAuth) — required for the Hub UI
 

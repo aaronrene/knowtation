@@ -18,6 +18,7 @@ import { attestBeforeWrite, attestBeforeExport } from '../lib/air.mjs';
 import { storeMemory } from '../lib/memory.mjs';
 import { registerKnowtationResources } from './resources/register.mjs';
 import { registerPhaseCTools } from './tools/phase-c.mjs';
+import { registerHubProposalTools } from './tools/hub-proposals.mjs';
 import { registerResourceSubscriptionHandlers, notifyIndexMetadataResources } from './resource-subscriptions.mjs';
 import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
 import { registerKnowtationPrompts } from './prompts/register.mjs';
@@ -337,6 +338,7 @@ export function mountKnowtationMcp(server) {
   registerKnowtationResources(server);
   registerKnowtationPrompts(server);
   registerPhaseCTools(server);
+  registerHubProposalTools(server);
   registerResourceSubscriptionHandlers(server);
 }
 

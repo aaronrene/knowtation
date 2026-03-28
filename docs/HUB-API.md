@@ -119,7 +119,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 ### 3.3.1 Settings and vault backup (JWT required)
 
 - **GET /settings** — Safe config status for the Settings UI. No secrets or full paths.  
-  **Response:** `{ "role", "user_id", "vault_id", "vault_list": [ { "id", "label?" } ], "allowed_vault_ids": string[], "vault_path_display", "vault_git": { "enabled", "has_remote", "auto_commit", "auto_push" }, "github_connect_available", "github_connected", "embedding_display" }`. Phase 15: `vault_list` and `allowed_vault_ids` drive the vault switcher; requests use **X-Vault-Id** to scope to a vault.
+  **Response:** `{ "role", "user_id", "vault_id", "vault_list": [ { "id", "label?" } ], "allowed_vault_ids": string[], "vault_path_display", "vault_git": { "enabled", "has_remote", "auto_commit", "auto_push" }, "github_connect_available", "github_connected", "embedding_display", "proposal_enrich_enabled?", "proposal_evaluation_required?", "proposal_review_hints_enabled?", "hub_evaluator_may_approve?", "proposal_rubric?" : { "items": [ { "id", "label" } ] } }`. Phase 15: `vault_list` and `allowed_vault_ids` drive the vault switcher; requests use **X-Vault-Id** to scope to a vault. **Proposal evaluation:** `proposal_evaluation_required` follows [lib/hub-proposal-policy.mjs](../lib/hub-proposal-policy.mjs) (env or `data/hub_proposal_policy.json`); `proposal_rubric` is the merged default + optional `data/hub_proposal_rubric.json` (see [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md)).
 
 - **POST /vault/sync** — Run manual vault sync (same as `knowtation vault sync`): git add, commit, push. Use for "Back up now" in Settings.  
   **Response:** `{ "ok": true, "message": "Synced" | "Nothing to commit" }`.  
@@ -155,25 +155,35 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
 
 **Variation protocol (Muse-aligned).** Proposals implement a variation lifecycle compatible with [Muse](https://github.com/cgcardona/muse): **identifiers** — `proposal_id` (variation id), `base_state_id` (optional, for optimistic concurrency); **intent** — human- or agent-readable reason for the change; **lifecycle** — propose → review → approve or discard. Default deployments **do not run Muse**; we align our API and payload so we can interoperate or adopt Muse later. Optional `external_ref` (e.g. future Muse commit id) may be added for cross-system references.
 
+**Lifecycle reference:** [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md) (states, roles, `kn1_` / `base_state_id` semantics).
+
 **Optional Muse linkage (operators).** A deployment may configure a **read-only** connection to a Muse instance for **lineage / structural history** queries (e.g. Git-replayed history in Muse’s model). That path is **not** required for JWT login, proposal CRUD, vault writes, or search. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.3.
 
-- **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?", "external_ref?" }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
-  **Response:** `{ "proposal_id": "...", "path": "...", "status": "proposed" }`.  
-  **400** if invalid.
+- **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?", "external_ref?", "labels?" (string[]), "source?" (e.g. agent|human|import) }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
+  **Response:** `{ "proposal_id": "...", "path": "...", "status": "proposed", ... }`.  
+  **201** (Node Hub) / **200** (some proxies). **400** if invalid.  
+  **Policy + triggers:** [lib/hub-proposal-policy.mjs](../lib/hub-proposal-policy.mjs) and [lib/hub-proposal-review-triggers.mjs](../lib/hub-proposal-review-triggers.mjs) set **`evaluation_status`**, **`review_queue`**, **`review_severity`**, **`auto_flag_reasons`** on create; **`proposal_auto_flagged`** is audited when reasons are non-empty. **Hosted gateway** applies the same rules to the JSON body before the canister. See [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md).
 
-- **GET /proposals** — List proposals. Query: `status` (e.g. `proposed`, `approved`, `discarded`), `limit`, `offset`.  
-  **Response:** `{ "proposals": [ { "proposal_id", "path", "status", "intent?", "base_state_id?", "external_ref?", "created_at?", "updated_at?" } ], "total": number }`.
+- **GET /proposals** — List proposals. Query: `status` (e.g. `proposed`, `approved`, `discarded`), `limit`, `offset`, **`label`**, **`source`**, **`path_prefix`**, **`evaluation_status`**, **`review_queue`**, **`review_severity`** (`standard` \| `elevated`).  
+  **Response:** `{ "proposals": [ { …, "review_queue?", "review_severity?", "auto_flag_reasons?" (Node) or "auto_flag_reasons_json" (canister), … } ], "total": number }`.
 
 - **GET /proposals/:id** — Get one proposal (metadata + proposed content).  
-  **Response:** `{ "proposal_id", "path", "status", "intent?", "base_state_id?", "external_ref?", "body?", "frontmatter?", "created_at?", "updated_at?" }`.  
+  **Response:** includes `body`, `frontmatter`, optional **`suggested_labels`**, **`assistant_notes`**, **`assistant_model`**, **`assistant_at`** when enrichment was run; **human evaluation** fields; optional **`review_hints`**, **`review_hints_at`**, **`review_hints_model`**; **`auto_flag_reasons`** (Node) or **`auto_flag_reasons_json`** (canister).  
   **404** if not found.
 
-- **POST /proposals/:id/approve** — Apply proposal to vault. Optional body: `{ "base_state_id?" }` for optimistic concurrency check.  
-  **Response:** `{ "proposal_id", "status": "approved" }`.  
-  **409** if base_state_id no longer matches (vault changed).
+- **POST /proposals/:id/evaluation** — **Admin** or **evaluator**. Record a human evaluation. Body: `{ "outcome": "pass" | "fail" | "needs_changes", "checklist?": [ { "id", "passed": boolean } ], "grade?": string, "comment?": string }`. Checklist ids should match **`GET /settings`** → **`proposal_rubric.items`**. **Pass** requires every rubric item **`passed: true`** when the rubric is non-empty. **Fail** / **needs_changes** require non-empty **`comment`**.  
+  **Response:** full proposal object (Node). **400** on validation errors; **404** if not found.
 
-- **POST /proposals/:id/discard** — Discard proposal (do not apply).  
+- **POST /proposals/:id/approve** — Apply proposal to vault. **Admin**, or **evaluator** when **`HUB_EVALUATOR_MAY_APPROVE=1`**. Optional body: `{ "base_state_id?", "waiver_reason?" }`. **`waiver_reason`** (trimmed length ≥ 3) allows approve when **`evaluation_status`** is **`pending`**, **`failed`**, or **`needs_changes`** without a prior pass; stored as **`evaluation_waiver`** and audited. If the effective **`base_state_id`** is non-empty, the **self-hosted Node Hub** recomputes the current note fingerprint (`kn1_` per [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md)) and returns **409** `CONFLICT` when it does not match. Empty `base_state_id` skips the check (backward compatible).  
+  **Response:** `{ "proposal_id", "status": "approved", ... }`.  
+  **403** `EVALUATION_REQUIRED` when evaluation blocks approve and waiver is missing/short. **409** if fingerprint mismatch.
+
+- **POST /proposals/:id/review-hints** — *(ICP canister)* Internal/async: body `{ "review_hints", "review_hints_model" }` stores non-authoritative hint text when **`KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1`** on the gateway schedules a follow-up. Not a merge gate.
+
+- **POST /proposals/:id/discard** — Discard proposal (do not apply). **Admin** (Node Hub).  
   **Response:** `{ "proposal_id", "status": "discarded" }`.
+
+- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When `KNOWTATION_HUB_PROPOSAL_ENRICH=1` on the Hub, **editor** or **admin** may request a short LLM summary and suggested labels; results are stored on the proposal. **404** if the feature is disabled (`NOT_FOUND` body). Requires configured OpenAI or Ollama chat per [lib/llm-complete.mjs](../lib/llm-complete.mjs).
 
 ### 3.5 Capture (webhook, no JWT)
 

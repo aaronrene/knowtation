@@ -335,6 +335,28 @@ paths:
         - name: offset
           in: query
           schema: { type: integer }
+        - name: label
+          in: query
+          description: Match if proposal labels include this string (case-insensitive)
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string }
+        - name: path_prefix
+          in: query
+          schema: { type: string }
+        - name: evaluation_status
+          in: query
+          description: Filter by evaluation_status (none, pending, passed, failed, needs_changes)
+          schema: { type: string }
+        - name: review_queue
+          in: query
+          description: Exact match on proposal review_queue
+          schema: { type: string }
+        - name: review_severity
+          in: query
+          description: standard or elevated
+          schema: { type: string }
       responses:
         '200':
           content:
@@ -358,8 +380,11 @@ paths:
                 frontmatter: { type: object }
                 intent: { type: string }
                 base_state_id: { type: string }
+                external_ref: { type: string }
+                labels: { type: array, items: { type: string } }
+                source: { type: string }
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
@@ -386,6 +411,69 @@ paths:
               schema: { $ref: '#/components/schemas/ProposalDetail' }
         '404':
 
+  /proposals/{id}/review-hints:
+    post:
+      tags: [Proposals]
+      summary: Store async LLM review hints (canister; not a merge gate)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                review_hints: { type: string }
+                review_hints_model: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposal_id: { type: string }
+                  ok: { type: boolean }
+
+  /proposals/{id}/evaluation:
+    post:
+      tags: [Proposals]
+      summary: Submit human evaluation (admin or evaluator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome]
+              properties:
+                outcome:
+                  type: string
+                  enum: [pass, fail, needs_changes]
+                checklist:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      passed: { type: boolean }
+                grade: { type: string }
+                comment: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProposalDetail' }
+        '400':
+        '404':
+
   /proposals/{id}/approve:
     post:
       tags: [Proposals]
@@ -402,6 +490,9 @@ paths:
               type: object
               properties:
                 base_state_id: { type: string }
+                waiver_reason:
+                  type: string
+                  description: Admin override when evaluation is not passed (min length 3 after trim)
       responses:
         '200':
           content:
@@ -411,7 +502,26 @@ paths:
                 properties:
                   proposal_id: { type: string }
                   status: { type: string, enum: [approved] }
+        '403':
+          description: EVALUATION_REQUIRED — pass evaluation or provide waiver_reason
         '409':
+          description: base_state_id mismatch (CONFLICT)
+
+  /proposals/{id}/enrich:
+    post:
+      tags: [Proposals]
+      summary: Optional LLM summary and suggested labels (KNOWTATION_HUB_PROPOSAL_ENRICH=1)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProposalDetail' }
+        '404':
 
   /proposals/{id}/discard:
     post:
@@ -504,8 +614,40 @@ components:
         status: { type: string }
         intent: { type: string }
         base_state_id: { type: string }
+        external_ref: { type: string }
+        vault_id: { type: string }
+        proposed_by: { type: string }
+        labels: { type: array, items: { type: string } }
+        source: { type: string }
+        suggested_labels: { type: array, items: { type: string } }
+        assistant_notes: { type: string }
+        assistant_model: { type: string }
+        assistant_at: { type: string }
         created_at: { type: string }
         updated_at: { type: string }
+        evaluation_status:
+          type: string
+          enum: [none, pending, passed, failed, needs_changes]
+        evaluation_grade: { type: string }
+        evaluation_comment: { type: string }
+        evaluated_by: { type: string }
+        evaluated_at: { type: string }
+        evaluation_waiver:
+          type: object
+          nullable: true
+          properties:
+            by: { type: string }
+            at: { type: string }
+            reason: { type: string }
+        review_queue: { type: string }
+        review_severity: { type: string, enum: [standard, elevated] }
+        auto_flag_reasons:
+          type: array
+          items: { type: string }
+        auto_flag_reasons_json: { type: string, description: JSON array string on canister }
+        review_hints: { type: string }
+        review_hints_at: { type: string }
+        review_hints_model: { type: string }
 
     ProposalDetail:
       allOf:
@@ -514,3 +656,11 @@ components:
           properties:
             body: { type: string }
             frontmatter: { type: object }
+            evaluation_checklist:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  passed: { type: boolean }

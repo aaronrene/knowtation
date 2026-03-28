@@ -49,12 +49,12 @@ Both run **migration shape checks** (`npm run canister:verify-migration`), **`np
 
 ## Stable memory upgrades (mainnet)
 
-If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain stable type no longer matches the migration hook’s **input** type in **`Migration.mo`**. The hub actor uses `(with migration = Migration.migration)` on **`Migration.StableStorage`**.
+If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` is not compatible”, the on-chain stable type no longer matches the migration hook’s **input** type in **`Migration.mo`**. The hub actor uses `(with migration = Migration.migration)`; the hook’s **parameter** type is the **previous** on-chain `StableStorage` shape.
 
-- **Production (already on V1):** `Migration.migration` is the **identity** on `StableStorage` so WASM-only upgrades succeed. The one-time **V0→V1** logic lives in **`migrateFromV0ToV1`** (not the actor hook).
+- **Production (V2 → V3):** `Migration.migration` maps **`StableStorageV2`** → **`StableStorage`**, adding empty **`review_queue`**, **`review_severity`**, **`auto_flag_reasons_json`**, **`review_hints`**, **`review_hints_at`**, **`review_hints_model`** on every proposal. Historical **V1 → V2eval** is preserved as **`migrateFromV1ToV2Eval`** (not the actor hook) for reference only.
 - **Stranded V0 canisters** (pre–Phase 15.1 layout only): deploy an older git revision that still migrated from `StableStorageV0`, or reinstall an empty canister.
 
-**V0** meant one note map per user; **V1** is multi-vault `(userId, vaultId)` + `billingByUser` + `vault_id` on proposals; migrated notes use vault id **`default`**.
+**V0** meant one note map per user; **V1** is multi-vault `(userId, vaultId)` + `billingByUser` + `vault_id` on proposals; migrated notes use vault id **`default`**. **V2** adds human **evaluation** fields on each proposal. **V3** adds review-routing and optional hint fields; see [PROPOSAL-LIFECYCLE.md](../../docs/PROPOSAL-LIFECYCLE.md).
 
 Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTED-STORAGE-BILLING-ROADMAP.md). After a one-way upgrade has run on mainnet, a **later** release may only simplify migration if Motoko compatibility allows (see [Motoko upgrades](https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility)).
 
@@ -66,7 +66,7 @@ Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTE
 
 ## Implementation status
 
-- **Implemented:** Motoko canister in `src/hub/main.mo`: vault (notes list/get/write/delete, bulk delete by prefix), proposals (list/get/create/approve/discard), health, CORS. User from header; stable storage. HTTP `upgrade` for POST and URL path normalization as above.
+- **Implemented:** Motoko canister in `src/hub/main.mo`: vault (notes list/get/write/delete, bulk delete by prefix), proposals (list/get/create/**evaluation**/**review-hints**/approve/discard with evaluation gate + waiver on approve), health, CORS. User from header; stable storage. HTTP `upgrade` for POST and URL path normalization as above. **Hosted gateway** adds **`evaluation_checklist_json`** from the UI **`checklist`** array before proxying **`POST …/evaluation`** to the canister, and merges **policy + review triggers** on **`POST …/proposals`**.
 - **Not in canister:** Search, settings, vault sync — handled by gateway/bridge in the hosted product (see plan phases 2–4). **`POST /api/v1/notes/delete-by-project`** and **`POST /api/v1/notes/rename-project`** (bulk ops by frontmatter/path-inferred project slug) are **Node Hub only** in-repo; see [HUB-METADATA-BULK-OPS.md](../../docs/HUB-METADATA-BULK-OPS.md) for the hosted strategy and parity notes.
 
 ## Reference

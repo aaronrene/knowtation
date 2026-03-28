@@ -33,16 +33,20 @@ const migrationChecks = [
     ok: (s) => s.includes('billingByUser : [(Text, BillingRecord)];'),
   },
   {
-    name: 'ProposalRecord includes vault_id field',
+    name: 'ProposalRecordV1 includes vault_id field (pre–evaluation)',
     ok: (s) => s.includes('external_ref : Text;\n    vault_id : Text;\n    created_at : Text;'),
+  },
+  {
+    name: 'ProposalRecord (V2) includes evaluation_status',
+    ok: (s) => s.includes('evaluation_status : Text;') && s.includes('evaluation_waiver_json : Text;'),
   },
   {
     name: 'migrateFromV0ToV1(old : { var storage : StableStorageV0 }) — historical V0→V1',
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorage }) — V1 identity hook for mainnet upgrades',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
+    name: 'migration(old : { var storage : StableStorageV1 }) — V1→V2 proposal evaluation upgrade',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorageV1 })'),
   },
   {
     name: 'V0 → V1 maps notes into vault "default"',
@@ -50,7 +54,7 @@ const migrationChecks = [
   },
   {
     name: 'V0 proposals gain vault_id "default"',
-    ok: (s) => s.includes('vault_id = "default"') && s.includes('v0ToProposal'),
+    ok: (s) => s.includes('vault_id = "default"') && s.includes('v0ToProposalV1'),
   },
 ];
 

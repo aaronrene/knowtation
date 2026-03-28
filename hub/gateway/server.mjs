@@ -26,6 +26,11 @@ import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './r
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 import { createMetadataBulkHandlers } from './metadata-bulk-canister.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
+import { loadProposalRubric } from '../../lib/hub-proposal-rubric.mjs';
+import { getProposalEvaluationRequired } from '../../lib/hub-proposal-policy.mjs';
+import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
+import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
+import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -647,6 +652,11 @@ app.get('/api/v1/settings', async (req, res) => {
     workspace_owner_id,
     hosted_delegating,
     embedding_display: { provider: '—', model: '—', ollama_url: '—' },
+    proposal_enrich_enabled: process.env.KNOWTATION_HUB_PROPOSAL_ENRICH === '1',
+    proposal_evaluation_required: getProposalEvaluationRequired(path.join(projectRoot, 'data')),
+    proposal_review_hints_enabled: process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1',
+    hub_evaluator_may_approve: process.env.HUB_EVALUATOR_MAY_APPROVE === '1',
+    proposal_rubric: loadProposalRubric(path.join(projectRoot, 'data')),
   });
 });
 
@@ -988,13 +998,18 @@ async function proxyToCanister(req, res) {
   delete headers.referer;
   const opts = { method: req.method, headers };
   let bodyOut = req.body;
+  const pathOnlyForBody = pathPartNoQuery(req);
   if (
     bodyOut !== undefined &&
     typeof bodyOut === 'object' &&
     !Buffer.isBuffer(bodyOut) &&
-    isPostApiV1Notes(req.method, pathPartNoQuery(req))
+    isPostApiV1Notes(req.method, pathOnlyForBody)
   ) {
     bodyOut = mergeHostedNoteBodyForCanister(bodyOut, uid);
+  }
+  if (bodyOut !== undefined && typeof bodyOut === 'object' && !Buffer.isBuffer(bodyOut)) {
+    bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);
+    bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, path.join(projectRoot, 'data'));
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && bodyOut !== undefined) {
     opts.body = typeof bodyOut === 'string' ? bodyOut : JSON.stringify(bodyOut);
@@ -1003,6 +1018,16 @@ async function proxyToCanister(req, res) {
   try {
     const upstream = await fetch(url, opts);
     const body = await upstream.text();
+    maybeScheduleHostedProposalReviewHints({
+      method: req.method,
+      pathOnly: pathOnlyForBody,
+      upstreamStatus: upstream.status,
+      responseText: body,
+      canisterUrl: CANISTER_URL,
+      effectiveUserId: effective,
+      actorUserId: uid,
+      vaultId,
+    });
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
     }
