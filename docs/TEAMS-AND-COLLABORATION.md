@@ -66,6 +66,8 @@ For now, **invite = share Hub URL (and repo URL if you use a shared backup repo)
 
 **Invite API:** POST /api/v1/invites body “{ role }” → invite_url; GET /api/v1/invites lists pending; DELETE /api/v1/invites/:token revokes. Invitee opens link and signs in; they are added to roles.
 
+**Stale `?invite=` in the URL:** After an invite is consumed, the token is removed from bridge storage. If the user bookmarks or revisits the same invite URL, `POST /api/v1/invites/consume` returns **404** (“not found or already used”). The Hub strips the `invite` query param without showing an error toast so returning users are not alarmed; **EXPIRED** (410) still shows a clear message.
+
 ---
 
 ## Sharing only part of the vault / multiple vaults
