@@ -52,9 +52,21 @@ See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
 
 ## 3. Hub API (REST)
 
-- **Base URL:** e.g. `https://hub.example.com/api/v1`.
-- **Auth:** JWT via OAuth (Google/GitHub). Header: `Authorization: Bearer <token>`.
-- **Obtain token:** User logs in via Hub UI or OAuth flow; store token in env (e.g. `KNOWTATION_HUB_TOKEN`) for CLI/agents.
+- **Base URL:** e.g. `https://hub.example.com` (REST paths are under `/api/v1/...`).
+- **Auth:** JWT via OAuth (Google/GitHub). Header on every protected request: `Authorization: Bearer <token>`.
+- **Vault:** For vault-scoped routes, send header `X-Vault-Id` (e.g. `default` or the id shown in the Hub header). Match the vault you intend to act on.
+- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That copies `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID` as lines you can paste into a shell or agent config. The JWT expires; re-login and re-copy when the API returns 401.
+- **Not the same button:** **Settings → Agents → Copy embedding env** copies only embedding-related lines (e.g. Ollama URL / model comment) so local indexers match the Hub—it does **not** copy the Hub JWT.
+
+**Example `curl` (create proposal):** `.env` alone does not attach headers; you must pass the bearer token explicitly.
+
+```bash
+curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
+  -H "Authorization: Bearer ${KNOWTATION_HUB_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -H "X-Vault-Id: ${KNOWTATION_HUB_VAULT_ID:-default}" \
+  -d '{"path":"inbox/example.md","body":"# Proposed content","intent":"optional"}'
+```
 
 **Endpoints (same contract as CLI where applicable):**
 
@@ -79,7 +91,7 @@ See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
 
 ## 4. Proposals (review-before-commit)
 
-- **Create:** CLI `knowtation propose` or Hub `POST /proposals`. There is no "Add proposal" button in the Hub UI — proposals are created by agents or CLI.
+- **Create:** CLI `knowtation propose`, Hub `POST /api/v1/proposals`, or the Hub UI (**Suggested → New proposal**, or open a note and **Propose change**). Agents use the same API contract.
 - **Review:** In Hub UI: **Suggested** = proposals to review; **Discarded** = rejected; **Activity** = timeline.
 - **Apply:** Approve in Hub (or API `POST /proposals/:id/approve`); content is written to vault.
 
