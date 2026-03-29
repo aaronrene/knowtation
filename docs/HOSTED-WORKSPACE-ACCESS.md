@@ -21,7 +21,7 @@ For JWT actor `sub = A`:
 1. If **no** `owner_user_id` is configured → **effective** canister user = `A`.
 2. If `owner_user_id = O` and `A === O` → effective = `O` (owner uses their own partition).
 3. If `A !== O` and **either**:
-   - `A` has an explicit row in **bridge `hub_roles`** with role `admin` | `editor` | `viewer`, **or**
+   - `A` has an explicit row in **bridge `hub_roles`** with role `admin` | `editor` | `viewer` | `evaluator`, **or**
    - `A` is listed in **`HUB_ADMIN_USER_IDS`** on the bridge/gateway  
    → effective = `O` (**delegation**). Team members and env-listed admins work against the owner’s notes.
 4. Otherwise → effective = `A` (solo signup: separate canister partition).
