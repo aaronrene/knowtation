@@ -160,35 +160,6 @@ module Migration {
     };
   };
 
-  func v2ToV3(p : ProposalRecordV2) : ProposalRecord {
-    {
-      proposal_id = p.proposal_id;
-      path = p.path;
-      status = p.status;
-      body = p.body;
-      frontmatter = p.frontmatter;
-      intent = p.intent;
-      base_state_id = p.base_state_id;
-      external_ref = p.external_ref;
-      vault_id = p.vault_id;
-      created_at = p.created_at;
-      updated_at = p.updated_at;
-      evaluation_status = p.evaluation_status;
-      evaluation_grade = p.evaluation_grade;
-      evaluation_checklist = p.evaluation_checklist;
-      evaluation_comment = p.evaluation_comment;
-      evaluated_by = p.evaluated_by;
-      evaluated_at = p.evaluated_at;
-      evaluation_waiver_json = p.evaluation_waiver_json;
-      review_queue = "";
-      review_severity = "";
-      auto_flag_reasons_json = "";
-      review_hints = "";
-      review_hints_at = "";
-      review_hints_model = "";
-    };
-  };
-
   /// One-time V0→V1 transform (Phase 15.1). **Not** the actor upgrade hook: mainnet stable is already V1.
   /// If you still have a V0 canister, deploy an older release that used `migration` from V0 first, or reinstall.
   public func migrateFromV0ToV1(old : { var storage : StableStorageV0 }) : { var storage : StableStorageV1 } {
@@ -227,19 +198,11 @@ module Migration {
     };
   };
 
-  /// V2 → V3: add review routing + optional LLM hint fields on each proposal.
-  public func migration(old : { var storage : StableStorageV2 }) : { var storage : StableStorage } {
-    {
-      var storage = {
-        vaultEntries = old.storage.vaultEntries;
-        billingByUser = old.storage.billingByUser;
-        proposalEntries = Array.map<(Text, [ProposalRecordV2]), (Text, [ProposalRecord])>(
-          old.storage.proposalEntries,
-          func(e : (Text, [ProposalRecordV2])) : (Text, [ProposalRecord]) {
-            (e.0, Array.map<ProposalRecordV2, ProposalRecord>(e.1, v2ToV3));
-          },
-        );
-      };
-    };
+  /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
+  /// Mainnet has already run **V1 → current** (see git history for the prior `migration` that chained
+  /// `migrateFromV1ToV2Eval` with V3 field defaults). Stranded **V1** canisters must deploy an older revision that still migrates
+  /// from `StableStorageV1` first, then upgrade to this identity hook.
+  public func migration(old : { var storage : StableStorage }) : { var storage : StableStorage } {
+    { var storage = old.storage };
   };
 }

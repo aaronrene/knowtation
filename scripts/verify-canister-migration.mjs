@@ -45,8 +45,8 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorageV1 }) — V1→V2 proposal evaluation upgrade',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorageV1 })'),
+    name: 'migration(old : { var storage : StableStorage }) — identity (post–V1 mainnet)',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
   },
   {
     name: 'V0 → V1 maps notes into vault "default"',

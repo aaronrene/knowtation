@@ -4430,6 +4430,78 @@
     return escapeHtml(md || '');
   }
 
+  /** Canister stores checklist as JSON text; Node may return an array. */
+  function parseProposalEvaluationChecklist(raw) {
+    if (Array.isArray(raw)) return raw;
+    if (raw == null || raw === '') return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    try {
+      const j = JSON.parse(s);
+      return Array.isArray(j) ? j : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /**
+   * Shown when reopening approved/discarded proposals (editable eval UI only exists for proposed).
+   */
+  function buildProposalEvaluationRecordHtml(p, rubricItems) {
+    const st = p.status;
+    if (st !== 'approved' && st !== 'discarded') return '';
+    const checklist = parseProposalEvaluationChecklist(p.evaluation_checklist);
+    const es = p.evaluation_status != null ? String(p.evaluation_status).trim() : '';
+    const comment = p.evaluation_comment != null ? String(p.evaluation_comment).trim() : '';
+    const grade = p.evaluation_grade != null ? String(p.evaluation_grade).trim() : '';
+    const meaningfulStatus = es && es !== 'none';
+    let waiverText = '';
+    const w = p.evaluation_waiver;
+    if (w != null && w !== '') {
+      try {
+        const o = typeof w === 'object' && w !== null ? w : JSON.parse(String(w));
+        if (o && typeof o === 'object') {
+          const r1 = o.reason != null ? String(o.reason).trim() : '';
+          const r2 = o.waiver_reason != null ? String(o.waiver_reason).trim() : '';
+          waiverText = r1 || r2;
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (!meaningfulStatus && !comment && !grade && checklist.length === 0 && !waiverText) return '';
+    const rubricById = new Map(
+      (Array.isArray(rubricItems) ? rubricItems : []).map((it) => [
+        String(it.id || '').trim(),
+        String(it.label || it.id || '').trim(),
+      ]),
+    );
+    const rows = checklist
+      .map((c) => {
+        const rid = c && c.id != null ? String(c.id) : '';
+        const lab = (rubricById.get(rid) || rid || 'item').trim() || 'item';
+        const pass = c && c.passed === true;
+        return '<li class="small">' + escapeHtml(lab) + ': <strong>' + (pass ? 'pass' : 'not pass') + '</strong></li>';
+      })
+      .join('');
+    return (
+      '<div class="proposal-eval proposal-eval-readonly">' +
+      '<h4 class="proposal-md-heading">Evaluation record</h4>' +
+      '<p class="small">' +
+      (meaningfulStatus ? '<strong>Outcome</strong>: ' + escapeHtml(es) : '<strong>Outcome</strong>: —') +
+      (grade ? ' · <strong>Grade</strong>: ' + escapeHtml(grade) : '') +
+      (p.evaluated_by ? ' · <strong>By</strong>: ' + escapeHtml(String(p.evaluated_by)) : '') +
+      (p.evaluated_at
+        ? ' · <span class="muted">' + escapeHtml(String(p.evaluated_at).slice(0, 19).replace('T', ' ')) + '</span>'
+        : '') +
+      '</p>' +
+      (comment ? '<p class="small proposal-eval-record-comment">' + escapeHtml(comment) + '</p>' : '') +
+      (rows ? '<ul class="proposal-eval-readonly-list">' + rows + '</ul>' : '') +
+      (waiverText ? '<p class="small"><strong>Approve waiver</strong>: ' + escapeHtml(waiverText) + '</p>' : '') +
+      '</div>'
+    );
+  }
+
   function openProposal(id) {
     currentNotePathForCopy = '';
     currentOpenNote = null;
@@ -4475,7 +4547,8 @@
         const canApprove = isAdmin || (isEvaluator && window.__hubEvaluatorMayApprove);
         const canDiscard = isAdmin;
         const rubricItems = Array.isArray(window.__hubProposalRubricItems) ? window.__hubProposalRubricItems : [];
-        const prevChecklist = Array.isArray(p.evaluation_checklist) ? p.evaluation_checklist : [];
+        const prevChecklist = parseProposalEvaluationChecklist(p.evaluation_checklist);
+        const evalRecordHtml = buildProposalEvaluationRecordHtml(p, rubricItems);
         function prevEvalPassed(rid) {
           const row = prevChecklist.find((c) => c && c.id === rid);
           return Boolean(row && row.passed === true);
@@ -4615,6 +4688,7 @@
           '<div class="proposal-md">' +
           mdHtml +
           '</div>' +
+          evalRecordHtml +
           evalHtml +
           waiverHtml +
           assistantHtml +
