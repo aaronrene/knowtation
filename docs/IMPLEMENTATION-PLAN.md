@@ -717,3 +717,24 @@ Rule of thumb: start a **new session** at the start of Phase 2, 6, 7, 8, 9, 10, 
 - **Phase 2 verification:** Use [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 and [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) for live stack checks (gateway, canister, bridge, env).
 
 You can implement phases in sequence (1 → 2 → … → 11) or parallelize 5, 6, 7 after 4. Phases 11 and 12 are optional. This plan ensures the full product is built with no scope left unspecified; Phase 12 reserves blockchain/wallets/agent payments so we don’t backtrack when agents adopt wallets and on-chain activity.
+
+---
+
+## Follow-up: Canister JSON export backup + daily schedule (post-deploy / pre-launch)
+
+**Goal:** Before risky canister upgrades and ongoing in production, keep retrievable backups of vault data via the canister HTTP export (`GET …/api/v1/export`).
+
+**Environment (same for preflight backup and for a scheduled job):**
+
+- `KNOWTATION_CANISTER_URL` — Base URL, no trailing slash (e.g. `https://<canister-id>.icp0.io` or `.raw.icp0.io` if that is what you use for direct canister HTTP).
+- `KNOWTATION_CANISTER_BACKUP_USER_ID` — Value sent as `X-User-Id` for export (the stable user id string the gateway uses for that partition, e.g. `google:…`). Not the same thing as a Hub JWT unless you deliberately align them.
+- `KNOWTATION_CANISTER_BACKUP_VAULT_ID` — Optional; defaults to `default` in `scripts/canister-predeploy.sh`.
+
+**Repo behavior:** `npm run canister:preflight` runs `scripts/canister-predeploy.sh`, which loads repo-root `.env` when present and can default `KNOWTATION_CANISTER_URL` from `hub/icp/canister_ids.json` if `KNOWTATION_CANISTER_BACKUP_USER_ID` is set but URL is not (parity with `canister:release-prep`). Backups land in `./backups/canister-export-<UTC-stamp>.json` (gitignored).
+
+**Daily backup (do after deploy, before or right after launch):**
+
+- **Option A — Cron on a trusted host:** `cd` to the repo (or a deploy directory), ensure `.env` exists with the three variables (or export them in the crontab wrapper), run the same export the predeploy script uses (e.g. thin `scripts/canister-export-backup.sh` that only curls export → `backups/`) on a fixed schedule; rotate or archive old files off-machine as policy requires.
+- **Option B — Scheduled CI:** GitHub Actions (or similar) on a schedule with repository secrets mirroring the same variable names; workflow runs `curl` or the thin script and uploads artifacts / pushes to encrypted storage — choose based on where secrets should live and retention needs.
+
+**Track:** Implement the dedicated export-only script and wire cron or Actions when operations are ready; credentials are the export headers above, not necessarily the same as other Hub gateway secrets.

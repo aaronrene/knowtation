@@ -10,9 +10,11 @@
 # What it does NOT do: run deploy or upgrade. You still run `dfx deploy --network ic` yourself.
 #
 # Optional backup (recommended before mainnet upgrade if you have real user data):
-#   export KNOWTATION_CANISTER_URL='https://<canister-id>.icp0.io'   # no trailing slash
-#   export KNOWTATION_CANISTER_BACKUP_USER_ID='google:123'           # sub you use on hosted
-#   export KNOWTATION_CANISTER_BACKUP_VAULT_ID='default'             # optional, default default
+#   KNOWTATION_CANISTER_URL='https://<canister-id>.icp0.io'   # no trailing slash; .raw.icp0.io also OK
+#   KNOWTATION_CANISTER_BACKUP_USER_ID='google:…'             # same X-User-Id the gateway would send
+#   KNOWTATION_CANISTER_BACKUP_VAULT_ID='default'             # optional
+# Repo-root .env is loaded automatically (set -a source). If URL is unset but BACKUP_USER_ID is set,
+# URL defaults from hub/icp/canister_ids.json (same as npm run canister:release-prep).
 #
 # If dfx crashes on "ColorOutOfRange", upgrade dfx or try another terminal; or run checks only:
 #   SKIP_DFX_BUILD=1 ./scripts/canister-predeploy.sh
@@ -30,6 +32,30 @@ cd "$REPO_ROOT"
 export NO_COLOR="${NO_COLOR:-}"
 export CI="${CI:-}"
 export TERM="${TERM:-}"
+
+if [[ -f "$REPO_ROOT/.env" ]]; then
+  echo "==> Loading repo-root .env (backup env + tools)"
+  set -a
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/.env"
+  set +a
+fi
+
+# Same default as canister-release-prep: export needs only BACKUP_USER_ID for preflight backups.
+if [[ -n "${KNOWTATION_CANISTER_BACKUP_USER_ID:-}" && -z "${KNOWTATION_CANISTER_URL:-}" ]]; then
+  echo "==> Defaulting KNOWTATION_CANISTER_URL from hub/icp/canister_ids.json (set KNOWTATION_CANISTER_URL to override)"
+  KNOWTATION_CANISTER_URL="$(
+    node -e "
+      const fs = require('fs');
+      const j = JSON.parse(fs.readFileSync('hub/icp/canister_ids.json', 'utf8'));
+      const id = j.hub && j.hub.ic;
+      if (!id) throw new Error('Missing hub.ic in canister_ids.json');
+      process.stdout.write('https://' + id + '.icp0.io');
+    "
+  )"
+  export KNOWTATION_CANISTER_URL
+  echo "    Using: $KNOWTATION_CANISTER_URL"
+fi
 
 echo "==> [1/4] Migration / stable-shape contract (Node)"
 node "$REPO_ROOT/scripts/verify-canister-migration.mjs"
