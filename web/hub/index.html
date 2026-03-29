@@ -175,11 +175,11 @@
         </div>
       </section>
       <section id="tab-activity" class="tab-panel hidden">
-        <p class="muted">Proposal timeline: created → approved/discarded. Proposals are created by the CLI (<code>knowtation propose --hub ...</code>) or by an agent; you review them here.</p>
+        <p class="muted">Proposal timeline: created → approved/discarded. Sources include the Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), the CLI (<code>knowtation propose --hub …</code>), and agents via the API.</p>
         <div id="proposals-activity" class="list activity-timeline"></div>
       </section>
       <section id="tab-suggested" class="tab-panel hidden">
-        <p class="muted">Proposals needing your review. They are created by the CLI or an agent (not by a button in the Hub). Click one, then Approve (writes to vault) or Discard.</p>
+        <p class="muted">Proposals needing your review. Create one with <strong>New proposal</strong> or from a note (<strong>Propose change</strong> in the detail panel); the CLI and agents can still create them via the API. Open a row, then Approve (writes to vault) or Discard.</p>
         <div class="proposal-list-filters" id="proposal-list-filters">
           <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
           <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
@@ -189,6 +189,7 @@
           <label class="proposal-filter-label">Severity <input type="text" id="proposal-filter-review-severity" placeholder="standard or elevated" autocomplete="off" /></label>
           <button type="button" id="proposal-filter-apply" class="btn-secondary">Apply filters</button>
           <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
+          <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
         </div>
         <div id="proposals-suggested" class="list"></div>
       </section>
@@ -256,6 +257,27 @@
           <input type="text" id="full-follows" placeholder="e.g. inbox/prior-note.md">
           <button type="button" id="btn-full-save" class="btn-primary">Create note</button>
           <p id="create-msg-full" class="create-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-create-proposal" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-create-proposal-title">
+      <div class="modal-backdrop" id="modal-create-proposal-backdrop"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="modal-create-proposal-title">New proposal</h2>
+          <button type="button" id="modal-create-proposal-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="create-panel">
+          <p class="muted small" id="modal-create-proposal-hint">Submit a proposed file change for review (same as <code>POST /api/v1/proposals</code>). Admins approve in this tab.</p>
+          <label for="proposal-create-path">Path (vault-relative)</label>
+          <input type="text" id="proposal-create-path" placeholder="inbox/my-change.md" autocomplete="off" spellcheck="false" />
+          <label for="proposal-create-intent">Intent (optional)</label>
+          <input type="text" id="proposal-create-intent" placeholder="e.g. Add section on rollout" autocomplete="off" />
+          <label for="proposal-create-body">Proposed body (Markdown)</label>
+          <textarea id="proposal-create-body" rows="12" placeholder="Proposed note content…"></textarea>
+          <button type="button" id="btn-proposal-create-submit" class="btn-primary">Submit proposal</button>
+          <p id="proposal-create-msg" class="create-msg"></p>
         </div>
       </div>
     </div>
@@ -785,6 +807,14 @@ Your note body here.</pre>
           <div class="settings-body">
             <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents (AgentCeption). Each block below explains how to connect.</p>
             <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
+            <h3 class="settings-h3">Hub API (agents, CLI, curl)</h3>
+            <p class="settings-intro small">Agents and scripts use the <strong>same sign-in as this Hub</strong>—no separate API account. After you log in, use the button below to copy <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (JWT), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. The JWT expires; if requests return 401, sign in again and re-copy. Every REST call must send <code>Authorization: Bearer …</code> and, for vault-scoped routes, <code>X-Vault-Id</code> (match the copied vault id unless you use <code>default</code>).</p>
+            <div class="settings-actions" style="margin-top: 0.5rem;">
+              <button type="button" id="btn-copy-hub-api-env" class="btn-secondary">Copy Hub URL, token &amp; vault</button>
+              <span id="integrations-hub-api-copy-msg" class="settings-msg"></span>
+            </div>
+            <p class="settings-intro small">Full agent reference (CLI, MCP, Hub API, no separate signup): <code>docs/AGENT-INTEGRATION.md</code>.</p>
+            <hr class="settings-hr">
             <h3 class="settings-h3">Capture (messages → inbox)</h3>
             <p class="settings-intro small">Send messages or events into the vault as notes. When the Hub is running, the capture URL is <code>POST /api/v1/capture</code> (e.g. <code>http://localhost:3333/api/v1/capture</code>). Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> in the server and send header <code>X-Webhook-Secret</code>.</p>
             <h4 class="settings-h4">How to connect capture</h4>
@@ -999,9 +1029,9 @@ Your note body here.</pre>
               <span id="agents-embedding-ollama-url" class="settings-value">—</span>
             </div>
             <h4 class="settings-h4">How to connect agents</h4>
-            <p class="settings-intro small">In your orchestrator or agent config: set <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code> (get the token after logging in to the Hub). Use &quot;Copy env for orchestrators&quot; below to copy a full env snippet. For AgentCeption and MCP, see Integrations → AgentCeption and How to use.</p>
+            <p class="settings-intro small">Use <strong>Integrations → Hub API → Copy Hub URL, token &amp; vault</strong> for <code>KNOWTATION_HUB_URL</code>, JWT, and vault id. The button below copies <em>only</em> embedding-related lines (e.g. Ollama base URL and a model comment) so indexers match this Hub—<strong>not</strong> the Hub JWT. For AgentCeption paths and MCP, see Integrations → AgentCeption and How to use.</p>
             <div class="settings-actions" style="margin-top: 1rem;">
-              <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy env for orchestrators</button>
+              <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy embedding env</button>
               <span id="agents-copy-msg" class="settings-msg"></span>
             </div>
           </div>
@@ -1292,14 +1322,14 @@ Knowtation Hub listening on http://localhost:3333</pre>
               </svg>
             </div>
             <h4 class="how-to-sub">Proposals: where they come from and where to see them</h4>
-            <p>Proposals are <strong>not</strong> created by a button in the Hub. They are created by the CLI or by an agent/LLM calling the Hub API. The Hub is where you <strong>review</strong> them.</p>
+            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Suggested</strong> tab actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
             <ul>
-              <li><strong>Create a proposal:</strong> From a terminal run <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> (with <code>KNOWTATION_HUB_TOKEN</code> set), or have an agent send <code>POST /api/v1/proposals</code> with the same kind of data. The proposal then appears in the Hub.</li>
+              <li><strong>Create a proposal:</strong> In the Hub: <strong>Suggested → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
               <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
               <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
               <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
             </ul>
-            <p class="how-to-note">There is no "Add proposal" button in the Hub by design: proposals are created by tools and agents. You use the Hub to approve or discard them before anything is written to the vault.</p>
+            <p class="how-to-note">Nothing is written to the vault until you <strong>Approve</strong> (or an admin does). Human-created proposals use the same queue as CLI and agent proposals.</p>
             <h4 class="how-to-sub">Reviewing proposals (evaluation, triggers, roles)</h4>
             <ul>
               <li><strong>Outcome vs grade:</strong> Saving evaluation uses an <em>outcome</em> (pass / fail / needs changes) plus checklist; optional <em>grade</em> is for culture or reporting and does not replace outcome.</li>
@@ -1323,7 +1353,9 @@ Knowtation Hub listening on http://localhost:3333</pre>
               <h5>Open CLAW</h5>
               <p>Open CLAW can call tools. Configure it with the Knowtation Hub as a tool endpoint: set the Hub base URL and a JWT (from this Hub after login). It can then call <code>GET /api/v1/notes</code>, <code>POST /api/v1/search</code>, and <code>POST /api/v1/proposals</code>. For writes, use proposals and approve them here.</p>
               <div class="example-block"><span class="example-label">Example env</span><pre>KNOWTATION_HUB_URL=http://localhost:3333
-KNOWTATION_HUB_TOKEN=&lt;paste JWT from Hub after login&gt;</pre></div>
+KNOWTATION_HUB_TOKEN=&lt;JWT after login&gt;
+KNOWTATION_HUB_VAULT_ID=default
+# Or use Settings → Integrations → "Copy Hub URL, token &amp; vault" (one click)</pre></div>
             </div>
             <div class="integration-card">
               <h5>Abacus</h5>
@@ -1439,7 +1471,7 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <details class="how-to-details">
               <summary>Where is the JWT for agents?</summary>
               <div class="how-to-details-body">
-                <p>Log in to the Hub; the app can provide a token for API access (see Settings → Agents or Integrations for "Copy env" or token instructions). Use <code>KNOWTATION_HUB_URL</code> and <code>KNOWTATION_HUB_TOKEN</code> in your agent or orchestrator config.</p>
+                <p>Log in to the Hub, then open <strong>Settings → Integrations → Hub API</strong> and click <strong>Copy Hub URL, token &amp; vault</strong>. That copies <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code>, and <code>KNOWTATION_HUB_VAULT_ID</code> for curl and orchestrators. <strong>Settings → Agents → Copy embedding env</strong> is separate: it only copies Ollama/embedding lines, not the JWT. See <code>docs/AGENT-INTEGRATION.md</code> for CLI and MCP.</p>
               </div>
             </details>
           </div>

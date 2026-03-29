@@ -518,6 +518,8 @@
     lastBackupSettingsPayload = s;
     if (s.role) window.__hubUserRole = String(s.role);
     refreshDeleteProjectPanelVisibility();
+    const btnNewProposal = el('btn-new-proposal');
+    if (btnNewProposal) btnNewProposal.classList.toggle('hidden', !hubUserCanWriteNotes());
     const allowed = (s.allowed_vault_ids || []).map(String);
     const current = String(getCurrentVaultId());
     if (allowed.length && !allowed.includes(current)) {
@@ -1336,7 +1338,8 @@
   }
 
   async function loadProposals() {
-    const emptySuggested = '<div class="empty-state">No proposals waiting for review. Add notes with <strong>+ New note</strong> above, or have an agent or the CLI create a proposal for you to approve.</div>';
+    const emptySuggested =
+      '<div class="empty-state">No proposals waiting for review. Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
     [
@@ -1761,6 +1764,7 @@
   }
 
   function openCreateModal() {
+    closeCreateProposalModal();
     const panel = el('detail-panel');
     if (panel) panel.classList.add('hidden');
     el('modal-create').classList.remove('hidden');
@@ -1773,9 +1777,114 @@
   function closeCreateModal() {
     el('modal-create').classList.add('hidden');
   }
+  function closeCreateProposalModal() {
+    const m = el('modal-create-proposal');
+    if (m) m.classList.add('hidden');
+    const pathInput = el('proposal-create-path');
+    if (pathInput) pathInput.readOnly = false;
+  }
+  /** @param {{ path?: string, body?: string, intent?: string, fromNote?: boolean }} [opts] */
+  function openCreateProposalModal(opts) {
+    if (!token) {
+      if (typeof showToast === 'function') showToast('Sign in to create a proposal.', true);
+      return;
+    }
+    if (!hubUserCanWriteNotes()) {
+      if (typeof showToast === 'function') showToast('Your role cannot create proposals.', true);
+      return;
+    }
+    closeCreateModal();
+    closeImportModal();
+    const panel = el('detail-panel');
+    if (panel) panel.classList.add('hidden');
+    const modal = el('modal-create-proposal');
+    const pathInput = el('proposal-create-path');
+    const hint = el('modal-create-proposal-hint');
+    const bodyEl = el('proposal-create-body');
+    const intentEl = el('proposal-create-intent');
+    const msgEl = el('proposal-create-msg');
+    if (!modal || !pathInput || !bodyEl || !intentEl) return;
+    if (opts && opts.fromNote) {
+      pathInput.readOnly = true;
+      pathInput.value = opts.path || '';
+      if (hint)
+        hint.textContent =
+          'You are proposing a new version of this note. Edit the body below; the path matches the open note.';
+    } else {
+      pathInput.readOnly = false;
+      pathInput.value = (opts && opts.path) || '';
+      if (hint)
+        hint.textContent =
+          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Suggested tab.';
+    }
+    bodyEl.value = (opts && opts.body) || '';
+    intentEl.value = (opts && opts.intent) || '';
+    if (msgEl) {
+      msgEl.textContent = '';
+      msgEl.className = 'create-msg';
+    }
+    modal.classList.remove('hidden');
+  }
   btnNewNote.onclick = openCreateModal;
   el('modal-create-backdrop').onclick = closeCreateModal;
   el('modal-create-close').onclick = closeCreateModal;
+
+  const modalCreateProposalBackdrop = el('modal-create-proposal-backdrop');
+  const modalCreateProposalClose = el('modal-create-proposal-close');
+  if (modalCreateProposalBackdrop) modalCreateProposalBackdrop.onclick = closeCreateProposalModal;
+  if (modalCreateProposalClose) modalCreateProposalClose.onclick = closeCreateProposalModal;
+
+  const btnNewProposal = el('btn-new-proposal');
+  if (btnNewProposal) {
+    btnNewProposal.onclick = () => openCreateProposalModal({});
+  }
+
+  const btnProposalCreateSubmit = el('btn-proposal-create-submit');
+  if (btnProposalCreateSubmit) {
+    btnProposalCreateSubmit.onclick = async () => {
+      const pathInput = el('proposal-create-path');
+      const bodyInput = el('proposal-create-body');
+      const intentInput = el('proposal-create-intent');
+      const msgEl = el('proposal-create-msg');
+      const rawPath = pathInput && pathInput.value != null ? String(pathInput.value).trim() : '';
+      if (!rawPath) {
+        if (msgEl) {
+          msgEl.textContent = 'Path is required.';
+          msgEl.className = 'create-msg err';
+        }
+        return;
+      }
+      const body = bodyInput && bodyInput.value != null ? String(bodyInput.value) : '';
+      const intent = intentInput && intentInput.value != null ? String(intentInput.value).trim() : '';
+      await withButtonBusy(btnProposalCreateSubmit, 'Submitting…', async () => {
+        try {
+          await api('/api/v1/proposals', {
+            method: 'POST',
+            body: JSON.stringify({
+              path: rawPath,
+              body,
+              ...(intent ? { intent } : {}),
+              source: 'hub_ui',
+            }),
+          });
+          closeCreateProposalModal();
+          if (typeof showToast === 'function') showToast('Proposal submitted');
+          document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+          const suggestedTab = document.querySelector('[data-tab="suggested"]');
+          const suggestedPanel = el('tab-suggested');
+          if (suggestedTab) suggestedTab.classList.add('active');
+          if (suggestedPanel) suggestedPanel.classList.remove('hidden');
+          loadProposals();
+        } catch (e) {
+          if (msgEl) {
+            msgEl.textContent = e.message || 'Proposal failed';
+            msgEl.className = 'create-msg err';
+          }
+        }
+      });
+    };
+  }
 
   function openImportModal() {
     if (!token) {
@@ -1783,6 +1892,7 @@
       return;
     }
     closeCreateModal();
+    closeCreateProposalModal();
     const panel = el('detail-panel');
     if (panel) panel.classList.add('hidden');
     el('modal-import').classList.remove('hidden');
@@ -1802,6 +1912,7 @@
   }
   function openProjectsHelpModal() {
     closeCreateModal();
+    closeCreateProposalModal();
     const panel = el('detail-panel');
     if (panel) panel.classList.add('hidden');
     const m = el('modal-projects-help');
@@ -2151,7 +2262,7 @@
     const msg = el('agents-copy-msg');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(snippet).then(() => {
-        if (msg) { msg.textContent = 'Copied.'; msg.className = 'settings-msg'; }
+        if (msg) { msg.textContent = 'Embedding env copied.'; msg.className = 'settings-msg'; }
         setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
       }).catch(() => {
         if (msg) { msg.textContent = 'Copy failed'; msg.className = 'settings-msg err'; }
@@ -2160,6 +2271,53 @@
       if (msg) { msg.textContent = 'Clipboard not available'; msg.className = 'settings-msg err'; }
     }
   };
+
+  const btnCopyHubApiEnv = el('btn-copy-hub-api-env');
+  if (btnCopyHubApiEnv) {
+    btnCopyHubApiEnv.onclick = () => {
+      const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
+      const vaultId = getCurrentVaultId() || 'default';
+      const base = String(apiBase || '').replace(/\/$/, '');
+      const msg = el('integrations-hub-api-copy-msg');
+      if (!hubTok) {
+        if (msg) {
+          msg.textContent = 'Sign in first, then copy again.';
+          msg.className = 'settings-msg err';
+        }
+        return;
+      }
+      const snippet =
+        'KNOWTATION_HUB_URL=' +
+        base +
+        '\n' +
+        'KNOWTATION_HUB_TOKEN=' +
+        hubTok +
+        '\n' +
+        'KNOWTATION_HUB_VAULT_ID=' +
+        vaultId +
+        '\n' +
+        '# curl: add -H "Authorization: Bearer $KNOWTATION_HUB_TOKEN" -H "Content-Type: application/json" -H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(snippet).then(() => {
+          if (msg) {
+            msg.textContent = 'Copied URL, token, and vault id.';
+            msg.className = 'settings-msg';
+          }
+          setTimeout(() => {
+            if (msg) msg.textContent = '';
+          }, 2500);
+        }).catch(() => {
+          if (msg) {
+            msg.textContent = 'Copy failed';
+            msg.className = 'settings-msg err';
+          }
+        });
+      } else if (msg) {
+        msg.textContent = 'Clipboard not available';
+        msg.className = 'settings-msg err';
+      }
+    };
+  }
 
   document.querySelectorAll('.settings-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
@@ -4085,6 +4243,17 @@
     editBtn.type = 'button';
     editBtn.textContent = 'Edit';
     editBtn.onclick = () => switchNoteToEditMode();
+    const proposeBtn = document.createElement('button');
+    proposeBtn.type = 'button';
+    proposeBtn.textContent = 'Propose change';
+    proposeBtn.onclick = () => {
+      if (!currentOpenNote) return;
+      openCreateProposalModal({
+        path: currentOpenNote.path,
+        body: currentOpenNote.body || '',
+        fromNote: true,
+      });
+    };
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.textContent = 'Delete';
@@ -4093,7 +4262,7 @@
     exportBtn.type = 'button';
     exportBtn.textContent = 'Export';
     exportBtn.onclick = () => exportCurrentNote('md');
-    actionsEl.append(editBtn, delBtn, exportBtn);
+    actionsEl.append(editBtn, proposeBtn, delBtn, exportBtn);
   }
 
   async function exportCurrentNote(format) {
@@ -4662,6 +4831,7 @@
       const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'suggested' ? 'suggested' : 'problem'));
       if (panel) panel.classList.remove('hidden');
       if (name === 'activity') loadActivity();
+      if (name === 'suggested' || name === 'problem') loadProposals();
     };
   });
 
