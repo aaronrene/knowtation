@@ -1516,6 +1516,16 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             </section>
 
             <section class="how-to-step">
+              <h3>Proposal review hints and Enrich (optional AI)</h3>
+              <p class="step-what">These are <strong>optional</strong> helpers for <strong>proposals</strong> only. They are <strong>not</strong> merge gates and they do <strong>not</strong> auto-shape imports or note JSON. Full operator detail: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-PROPOSAL-LLM-FEATURES.md" target="_blank" rel="noopener"><code>docs/HUB-PROPOSAL-LLM-FEATURES.md</code></a>.</p>
+              <ul>
+                <li><strong>Review hints:</strong> Plain-text bullet-style reminders for human reviewers, shown <strong>inside the proposal panel</strong> (Activity → open a proposal) when hints exist—there is <strong>no separate modal</strong>. On <strong>self-hosted</strong> Node Hub, set <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1</code> and configure Ollama or OpenAI chat in the same environment as <code>npm run hub</code>; hints run <strong>after</strong> you create a proposal, asynchronously—refresh the proposal after a few seconds.</li>
+                <li><strong>Hosted (knowtation.store):</strong> The canister can <strong>store</strong> hints if something POSTs to <code>/api/v1/proposals/&lt;id&gt;/review-hints</code>, but the gateway does <strong>not</strong> run the LLM job yet, so Settings may show “On” if the env flag is set while <strong>no hints are generated</strong> unless you add an operator worker.</li>
+                <li><strong>Enrich (AI):</strong> Optional button on a proposal (when enabled) calls the Hub to get a short <strong>summary</strong> and <strong>suggested_labels</strong> (JSON from the model). Requires <code>KNOWTATION_HUB_PROPOSAL_ENRICH=1</code> on the <strong>Node Hub</strong>. The hosted canister does <strong>not</strong> implement enrich yet, so enrich is <strong>self-hosted only</strong> today.</li>
+              </ul>
+            </section>
+
+            <section class="how-to-step">
               <h3>Orchestrators</h3>
               <p>Point any orchestrator at this vault and the same project slugs. Use CLI in worktrees or MCP where available. For local models (e.g. Ollama), use the same embedding URL and model as Knowtation—see <strong>Settings → Agents</strong> for the current config and a copyable env snippet.</p>
             </section>

@@ -14,6 +14,7 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 - **GET /api/v1/notes/facets** — JWT + **X-Vault-Id**. Aggregates `projects`, `tags`, and `folders` from the canister note list (`hub/gateway/note-facets.mjs`); not proxied as a literal canister path.
 - **POST /api/v1/notes/delete-by-project**, **POST /api/v1/notes/rename-project** — JWT + **X-Vault-Id**; **editor/admin/member** (not **viewer**). Gateway orchestrates canister list/delete/write + proposal discards (`hub/gateway/metadata-bulk-canister.mjs`). The **Hub** static bundle must include **PR #65** (`web/hub/hub.js`) so Settings on hosted actually calls these routes. See [HUB-METADATA-BULK-OPS.md](../../docs/HUB-METADATA-BULK-OPS.md).
 - **GET/POST/DELETE /api/v1/*** (other) — Proxied to canister with **X-User-Id** from JWT (e.g. **DELETE /api/v1/notes/:path** removes a note). Returns 401 if no valid token. When **BILLING_ENFORCE** is on, some routes may return **402** (quota).
+- **LLM proposal helpers:** Optional **review hints** and **Enrich** jobs run on the **Node Hub** (`hub/server.mjs`), not inside this gateway. The canister stores **review hints** if a trusted service **POST**s `/api/v1/proposals/:id/review-hints`. See **[docs/HUB-PROPOSAL-LLM-FEATURES.md](../../docs/HUB-PROPOSAL-LLM-FEATURES.md)** for local vs hosted behavior (Settings “On” alone does not imply hints are generated on hosted).
 
 ## Canister proxy URL (important)
 
