@@ -662,6 +662,21 @@
             return;
           } catch (e) {
             lastErr = e;
+            const code = e && e.code;
+            const msg = String(e && e.message ? e.message : e || '');
+            const staleInvite =
+              code === 'NOT_FOUND' ||
+              code === 'EXPIRED' ||
+              /not found|already used|expired/i.test(msg);
+            if (staleInvite) {
+              const u = new URL(location.href);
+              u.searchParams.delete('invite');
+              history.replaceState({}, '', u.toString());
+              if (code === 'EXPIRED' && typeof showToast === 'function') {
+                showToast('This invite link has expired. Ask an admin for a new one if you need access.', true);
+              }
+              return;
+            }
             if (attempt < 2) await new Promise((r) => setTimeout(r, 800));
           }
         }
