@@ -56,7 +56,7 @@ const INVITES_FILE = path.join(DATA_DIR, 'hub_invites.json');
 const WORKSPACE_FILE = path.join(DATA_DIR, 'hub_workspace.json');
 const VAULT_ACCESS_FILE = path.join(DATA_DIR, 'hub_vault_access.json');
 const SCOPE_FILE = path.join(DATA_DIR, 'hub_scope.json');
-const VALID_ROLES = new Set(['admin', 'editor', 'viewer']);
+const VALID_ROLES = new Set(['admin', 'editor', 'viewer', 'evaluator']);
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 const adminUserIdsSet = new Set(
@@ -695,7 +695,7 @@ app.post('/api/v1/roles', requireBridgeAuth, requireBridgeAdmin, async (req, res
   }
   const r = (role || 'editor').toLowerCase();
   if (!VALID_ROLES.has(r)) {
-    return res.status(400).json({ error: 'role must be admin, editor, or viewer', code: 'BAD_REQUEST' });
+    return res.status(400).json({ error: 'role must be admin, editor, viewer, or evaluator', code: 'BAD_REQUEST' });
   }
   try {
     const roles = await loadRoles(req.blobStore);
@@ -730,8 +730,8 @@ app.get('/api/v1/invites', requireBridgeAuth, requireBridgeAdmin, async (req, re
 
 app.post('/api/v1/invites', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
   const role = (req.body?.role || 'editor').toLowerCase();
-  if (!['viewer', 'editor', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'role must be viewer, editor, or admin', code: 'BAD_REQUEST' });
+  if (!['viewer', 'editor', 'admin', 'evaluator'].includes(role)) {
+    return res.status(400).json({ error: 'role must be viewer, editor, admin, or evaluator', code: 'BAD_REQUEST' });
   }
   try {
     const token = crypto.randomBytes(24).toString('base64url');
