@@ -283,6 +283,7 @@ func discardProposalsUnderPrefix(uid : Text, vid : Text, base : Text) : Nat {
   let buf = Buffer.Buffer<ProposalRecord>(list.size());
   var disc : Nat = 0;
   let effVid = effectiveVaultId(vid);
+  let ts = nowIsoUtc();
   for (r in Array.vals(list)) {
     if (
       r.status == "proposed" and effectiveVaultId(r.vault_id) == effVid and notePathUnderProjectPrefix(r.path, base)
@@ -290,7 +291,7 @@ func discardProposalsUnderPrefix(uid : Text, vid : Text, base : Text) : Nat {
       disc += 1;
       buf.add({
         r with status = "discarded";
-        updated_at = "2025-01-01T00:00:00.000Z";
+        updated_at = ts;
       });
     } else {
       buf.add(r);
@@ -681,6 +682,119 @@ func checklistJsonOkForPass(checklistJson : Text) : Bool {
   };
 };
 
+/// Non-negative `Int` → `Nat` for calendar math (rejects negative / parse failure → 0).
+func intToNatSafe(i : Int) : Nat {
+  if (i < 0) {
+    return 0;
+  };
+  switch (Nat.fromText(Int.toText(i))) {
+    case null { 0 };
+    case (?n) { n };
+  };
+};
+
+func isLeapYear(y : Nat) : Bool {
+  (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0);
+};
+
+func daysInMonth(y : Nat, m : Nat) : Nat {
+  switch (m) {
+    case 1 { 31 };
+    case 2 { if (isLeapYear(y)) { 29 } else { 28 } };
+    case 3 { 31 };
+    case 4 { 30 };
+    case 5 { 31 };
+    case 6 { 30 };
+    case 7 { 31 };
+    case 8 { 31 };
+    case 9 { 30 };
+    case 10 { 31 };
+    case 11 { 30 };
+    case 12 { 31 };
+    case _ { 31 };
+  };
+};
+
+func pad2(n : Nat) : Text {
+  if (n < 10) {
+    "0" # Nat.toText(n);
+  } else {
+    Nat.toText(n);
+  };
+};
+
+func pad3(n : Nat) : Text {
+  if (n < 10) {
+    "00" # Nat.toText(n);
+  } else if (n < 100) {
+    "0" # Nat.toText(n);
+  } else {
+    Nat.toText(n);
+  };
+};
+
+func pad4(n : Nat) : Text {
+  let t = Nat.toText(n);
+  let len = Text.size(t);
+  if (len >= 4) {
+    t;
+  } else if (len == 3) {
+    "0" # t;
+  } else if (len == 2) {
+    "00" # t;
+  } else if (len == 1) {
+    "000" # t;
+  } else {
+    "0000";
+  };
+};
+
+/// UTC ISO-8601 with milliseconds, e.g. `2026-03-29T16:47:13.042Z` (replaces former fixed placeholder).
+func iso8601UtcFromUnixSeconds(secNat : Nat, msNat : Nat) : Text {
+  let secsPerDay = 86400;
+  let totalDays = secNat / secsPerDay;
+  var sod = secNat % secsPerDay;
+  var hour = sod / 3600;
+  sod := sod % 3600;
+  var minute = sod / 60;
+  var second = sod % 60;
+  var y : Nat = 1970;
+  var d = totalDays;
+  label yearLoop loop {
+    let diy = if (isLeapYear(y)) { 366 } else { 365 };
+    if (d >= diy) {
+      d -= diy;
+      y += 1;
+    } else {
+      break yearLoop;
+    };
+  };
+  var m : Nat = 1;
+  label monthLoop loop {
+    let dim = daysInMonth(y, m);
+    if (d >= dim) {
+      d -= dim;
+      m += 1;
+    } else {
+      break monthLoop;
+    };
+  };
+  let day = d + 1;
+  pad4(y) # "-" # pad2(m) # "-" # pad2(day) # "T" # pad2(hour) # ":" # pad2(minute) # ":" # pad2(second) # "." # pad3(msNat % 1000) # "Z";
+};
+
+func nowIsoUtc() : Text {
+  let ns = Time.now();
+  if (ns < 0) {
+    return "1970-01-01T00:00:00.000Z";
+  };
+  let secInt = ns / 1_000_000_000;
+  let remNs = ns % 1_000_000_000;
+  let secNat = intToNatSafe(secInt);
+  let msNat = intToNatSafe(remNs / 1_000_000);
+  iso8601UtcFromUnixSeconds(secNat, msNat);
+};
+
 /// RFC 8259: control chars U+0000..U+001F must be escaped; pass-through broke JSON.parse in the Hub.
 func escapeJson(s : Text) : Text {
   let chars = Text.toArray(s);
@@ -1041,7 +1155,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let rs = Option.get(extractJsonString(bodyText, "review_severity"), "");
     let afr = Option.get(extractJsonString(bodyText, "auto_flag_reasons_json"), "");
     let proposal_id = "prop-" # Int.toText(Time.now());
-    let now = "2025-01-01T00:00:00.000Z";
+    let now = nowIsoUtc();
     var list = getProposalsList(uid);
     let newP : ProposalRecord = {
       proposal_id;
@@ -1131,7 +1245,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
                 upgrade = null;
               };
             };
-            let nowEv = "2025-01-01T00:00:00.000Z";
+            let nowEv = nowIsoUtc();
             listEv := Array.map<ProposalRecord, ProposalRecord>(listEv, func(x : ProposalRecord) : ProposalRecord {
               if (x.proposal_id == pathArg) {
                 {
@@ -1187,7 +1301,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
             upgrade = null;
           };
         };
-        let nowRh = "2025-01-01T00:00:00.000Z";
+        let nowRh = nowIsoUtc();
         listRh := Array.map<ProposalRecord, ProposalRecord>(listRh, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) {
             {
@@ -1234,7 +1348,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         let targetVid = effectiveVaultId(p.vault_id);
         let vault = getVault(uid, targetVid);
         vault.put(p.path, (p.frontmatter, p.body));
-        let nowAp = "2025-01-01T00:00:00.000Z";
+        let nowAp = nowIsoUtc();
         let waiverJson = if (needsWaiver and Text.size(waiverRaw) >= 3) {
           "{\"by\":\"" # escapeJson(uid) # "\",\"at\":\"" # nowAp # "\",\"reason\":\"" # escapeJson(waiverRaw) # "\"}"
         } else {
@@ -1262,9 +1376,10 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "discard" and req.method == "POST") {
+    let tsDisc = nowIsoUtc();
     var list = getProposalsList(uid);
     list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
-      if (x.proposal_id == pathArg) { { x with status = "discarded"; updated_at = "2025-01-01T00:00:00.000Z" } } else { x }
+      if (x.proposal_id == pathArg) { { x with status = "discarded"; updated_at = tsDisc } } else { x }
     });
     setProposalsList(uid, list);
     saveStable();
