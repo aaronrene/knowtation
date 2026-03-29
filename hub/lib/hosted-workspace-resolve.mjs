@@ -3,7 +3,8 @@
  * Shared by bridge (hosted-context, index/search/sync) and documented in docs/HOSTED-WORKSPACE-ACCESS.md.
  */
 
-export const HOSTED_VALID_ROLES = new Set(['admin', 'editor', 'viewer']);
+/** Roles that participate in workspace delegation (read owner's canister partition). Must match bridge VALID_ROLES. */
+export const HOSTED_VALID_ROLES = new Set(['admin', 'editor', 'viewer', 'evaluator']);
 
 /**
  * @param {object} p

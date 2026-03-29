@@ -43,6 +43,17 @@ describe('hosted-workspace-resolve', () => {
     assert.equal(r.delegate, true);
   });
 
+  it('evaluator delegates to owner like editor', () => {
+    const r = resolveEffectiveCanisterUser({
+      actorSub: 'google:eval',
+      workspaceOwnerId: 'google:owner',
+      storedRoles: { 'google:eval': 'evaluator' },
+      adminUserIdsSet: new Set(),
+    });
+    assert.equal(r.effective, 'google:owner');
+    assert.equal(r.delegate, true);
+  });
+
   it('env admin delegates when not owner', () => {
     const r = resolveEffectiveCanisterUser({
       actorSub: 'google:admin',
