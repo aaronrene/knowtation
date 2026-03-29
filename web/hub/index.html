@@ -118,7 +118,7 @@
         <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear semantic search">Clear</button>
         <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
         <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
-        <p id="search-semantic-hint" class="search-hint muted small">Quick chips update the dropdowns and reload the <strong>list</strong> (exact tags/projects). Green <strong>Search</strong> uses the <strong>same dropdowns</strong> to narrow meaning-search on the <strong>indexed</strong> current vault — it is not Google-style keywords; unrelated words can still rank if they are the “least far” in embedding space. <strong>Clear</strong> empties the box and shows the list again.</p>
+        <p id="search-semantic-hint" class="search-hint muted small"><strong>Quick</strong> chips filter the note list by tag or project. Green <strong>Search</strong> runs meaning-based search over your <strong>indexed</strong> vault (re-index after big imports). <strong>Clear</strong> resets the search field.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
@@ -413,7 +413,7 @@ Your note body here.</pre>
                 <button type="button" id="btn-copy-user-id" class="btn-copy-small" title="Copy">Copy</button>
               </span>
             </div>
-            <p class="settings-intro small" id="settings-user-id-hint">Admins add this to <code>data/hub_roles.json</code> to assign you a role (viewer / editor / admin). It is <em>provider:id</em> (e.g. github:12345), not your email or username.</p>
+            <p class="settings-intro small" id="settings-user-id-hint">Admins assign roles in <strong>Team</strong> (or, when self-hosted, <code>data/hub_roles.json</code>): viewer, editor, admin, or evaluator. Your ID is <em>provider:id</em> (e.g. <code>google:…</code>), not your email.</p>
             <div class="settings-row">
               <span class="settings-label">Mode</span>
               <span id="settings-mode-display" class="settings-value">—</span>
@@ -438,7 +438,7 @@ Your note body here.</pre>
               <span class="settings-label">Evaluator may approve</span>
               <span id="settings-evaluator-may-approve" class="settings-value">—</span>
             </div>
-            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Pass vs grade:</strong> <em>Outcome</em> (pass / fail / needs_changes) is what blocks or allows merge when the gate is on. <em>Grade</em> is optional (A–F, 1–5) for reporting only. <strong>Gate:</strong> <code>HUB_PROPOSAL_EVALUATION_REQUIRED=1</code> or <code>0</code>/<code>false</code> to force off; otherwise optional file <code>data/hub_proposal_policy.json</code> with <code>{"proposal_evaluation_required":true}</code>. <strong>Triggers:</strong> <code>data/hub_proposal_review_triggers.json</code> (see <code>hub/proposal-review-triggers-default.json</code>) sets <em>pending</em>, <code>review_queue</code>, and <code>review_severity</code> from phrases, path prefixes, and labels. <strong>Roles:</strong> <code>evaluator</code> may submit evaluation; approve defaults to admin; set <code>HUB_EVALUATOR_MAY_APPROVE=1</code> to allow evaluators to approve. <strong>Rubric:</strong> default <code>hub/proposal-rubric-default.json</code>; override <code>data/hub_proposal_rubric.json</code>. <strong>LLM hints:</strong> <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1</code> — async, non-authoritative; content may leave your vault to the model provider. See <code>docs/PROPOSAL-LIFECYCLE.md</code> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
+            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Proposal evaluation:</strong> When the gate is <strong>On</strong>, new proposals may need a recorded pass/fail (or needs changes) before an admin can approve. <strong>Grade</strong> is optional labels for your records only. <strong>Review hints (LLM)</strong> — when <strong>On</strong>, the Hub can show optional AI-generated suggestions in the proposal panel; they are not authoritative and your host may send proposal text to an external model—use only if that fits your policy. <strong>Evaluator may approve</strong> is a host setting; otherwise evaluators record outcomes and admins approve. Self-hosted operators configure gates and rubrics via env and data files — see <strong>How to use</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
             <div class="settings-row hidden" id="settings-api-base-row" title="Shown on localhost for self-hosted debugging">
               <span class="settings-label">API base</span>
               <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
