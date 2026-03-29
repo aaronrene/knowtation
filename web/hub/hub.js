@@ -4708,14 +4708,16 @@
               checklist.push({ id: inp.getAttribute('data-proposal-eval-id'), passed: Boolean(inp.checked) });
             });
             try {
-              await api('/api/v1/proposals/' + encodeURIComponent(id) + '/evaluation', {
-                method: 'POST',
-                body: JSON.stringify({
-                  outcome,
-                  grade: grade || undefined,
-                  comment: comment || undefined,
-                  checklist,
-                }),
+              await withButtonBusy(saveEvalBtn, 'Saving…', async () => {
+                await api('/api/v1/proposals/' + encodeURIComponent(id) + '/evaluation', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    outcome,
+                    grade: grade || undefined,
+                    comment: comment || undefined,
+                    checklist,
+                  }),
+                });
               });
               showToast('Evaluation saved.');
               openProposal(id);
@@ -4729,13 +4731,13 @@
           if (canApprove) {
             const approveBtn = document.createElement('button');
             approveBtn.textContent = 'Approve';
-            approveBtn.onclick = () => approveProposal(id, panel);
+            approveBtn.onclick = () => approveProposal(id, panel, approveBtn);
             actions.append(approveBtn);
           }
           if (canDiscard) {
             const discardBtn = document.createElement('button');
             discardBtn.textContent = 'Discard';
-            discardBtn.onclick = () => discardProposal(id, panel);
+            discardBtn.onclick = () => discardProposal(id, panel, discardBtn);
             actions.append(discardBtn);
           }
           if (canApprove && window.__hubProposalEnrich && hubUserCanWriteNotes()) {
@@ -4780,16 +4782,18 @@
     }
   }
 
-  async function approveProposal(id, panel) {
+  async function approveProposal(id, panel, btn) {
     try {
       const db = el('detail-body');
       const waiverEl = db && db.querySelector ? db.querySelector('#proposal-waiver-reason') : null;
       const waiver_reason = waiverEl && waiverEl.value ? String(waiverEl.value).trim() : '';
       const approveBody = {};
       if (waiver_reason) approveBody.waiver_reason = waiver_reason;
-      await api('/api/v1/proposals/' + encodeURIComponent(id) + '/approve', {
-        method: 'POST',
-        body: JSON.stringify(approveBody),
+      await withButtonBusy(btn, 'Approving…', async () => {
+        await api('/api/v1/proposals/' + encodeURIComponent(id) + '/approve', {
+          method: 'POST',
+          body: JSON.stringify(approveBody),
+        });
       });
       panel.classList.add('hidden');
       panel.classList.remove('detail-panel-proposal-wide');
@@ -4807,9 +4811,11 @@
     }
   }
 
-  async function discardProposal(id, panel) {
+  async function discardProposal(id, panel, btn) {
     try {
-      await api('/api/v1/proposals/' + encodeURIComponent(id) + '/discard', { method: 'POST' });
+      await withButtonBusy(btn, 'Discarding…', async () => {
+        await api('/api/v1/proposals/' + encodeURIComponent(id) + '/discard', { method: 'POST' });
+      });
       panel.classList.add('hidden');
       panel.classList.remove('detail-panel-proposal-wide');
       loadProposals();
