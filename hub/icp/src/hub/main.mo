@@ -335,11 +335,20 @@ func pathOnly(rawUrl : Text) : Text {
   switch (textFind(path, "://")) {
     case (?k) {
       let startAuth = k + 3;
-      if (startAuth < Text.size(path)) {
-        let afterLen = Text.size(path) - startAuth;
+      let pathLen = Text.size(path);
+      // Avoid Nat underflow (M0155): only subtract when startAuth < pathLen.
+      if (startAuth < pathLen) {
+        let afterLen = pathLen - startAuth;
         let after = textSlice(path, startAuth, afterLen);
         switch (textFind(after, "/")) {
-          case (?m) { path := textSlice(after, m, Text.size(after) - m) };
+          case (?m) {
+            let afterSz = Text.size(after);
+            if (m < afterSz) {
+              path := textSlice(after, m, afterSz - m);
+            } else {
+              path := "/";
+            };
+          };
           case null { path := "/" };
         };
       } else {
@@ -446,10 +455,12 @@ func extractJsonObjectSlice(body : Text, startBrace : Nat) : ?Text {
       i += 1;
     } else {
       if (ch == '{') { depth += 1 };
-      if (ch == '}') {
+        if (ch == '}') {
         depth -= 1;
         if (depth == 0) {
-          let len = (i + 1) - startBrace;
+          let endExclusive = i + 1;
+          if (endExclusive < startBrace) { return null };
+          let len = endExclusive - startBrace;
           return ?textSlice(body, startBrace, len);
         };
       };
@@ -559,7 +570,9 @@ func parseNotesBatch(body : Text) : ?[(Text, Text, Text)] {
         switch (findJsonObjectEndChars(chars, i)) {
           case null { return null };
           case (?endIdx) {
-            let objLen = (endIdx + 1) - i;
+            let endExclusive = endIdx + 1;
+            if (endExclusive < i) { return null };
+            let objLen = endExclusive - i;
             let objText = sliceCharsToText(chars, i, objLen);
             let path = Option.get(extractJsonString(objText, "path"), "");
             if (path.size() == 0) { return null };
@@ -784,7 +797,8 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     var items : Text = "";
     for (p in Array.vals(list)) {
       if (items != "") { items := items # "," };
-      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":" # (if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" }) # "}";
+      let afrList = if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" };
+      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # escapeJson(afrList) # "\"}";
     };
     let json = "{\"proposals\":[" # items # "],\"total\":" # Nat.toText(list.size()) # "}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
@@ -794,7 +808,14 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     let list = proposalsForVault(uid, vid);
     switch (Array.find<ProposalRecord>(list, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case (?p) {
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":" # (if (Text.size(p.evaluation_checklist) > 0) { p.evaluation_checklist } else { "[]" }) # ",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"evaluation_waiver\":" # (if (Text.size(p.evaluation_waiver_json) > 0) { p.evaluation_waiver_json } else { "null" }) # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":" # (if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" }) # ",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\"}";
+        let clEnc = escapeJson(if (Text.size(p.evaluation_checklist) > 0) { p.evaluation_checklist } else { "[]" });
+        let afrEnc = escapeJson(if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" });
+        let waiPart = if (Text.size(p.evaluation_waiver_json) > 0) {
+          "\"evaluation_waiver\":\"" # escapeJson(p.evaluation_waiver_json) # "\"";
+        } else {
+          "\"evaluation_waiver\":null";
+        };
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\"}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {

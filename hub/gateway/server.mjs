@@ -1031,6 +1031,15 @@ async function proxyToCanister(req, res) {
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
     }
+    if (
+      upstream.status === 404 &&
+      req.method === 'POST' &&
+      /\/api\/v1\/proposals\/[^/]+\/evaluation\/?(\?|$)/.test(pathOnlyForBody)
+    ) {
+      console.warn(
+        '[gateway] canister returned 404 for POST …/evaluation. If the body is {"error":"Not found","code":"NOT_FOUND"}, the hub canister on mainnet likely predates the evaluation route or HTTP upgrade for it — redeploy `hub` from this repo (`hub/icp/README.md` §ICP HTTP gateway behavior).',
+      );
+    }
     const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries()).filter(
       ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
     );
