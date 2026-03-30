@@ -63,7 +63,9 @@ async function runHostedProposalReviewHints({ canisterUrl, effectiveUserId, acto
   const raw = await completeChat(miniConfig, { system, user, maxTokens: 400 });
   const model = process.env.OPENAI_API_KEY
     ? process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini'
-    : process.env.OLLAMA_CHAT_MODEL || process.env.OLLAMA_MODEL || 'ollama';
+    : process.env.ANTHROPIC_API_KEY
+      ? process.env.ANTHROPIC_CHAT_MODEL || 'claude-3-5-haiku-20241022'
+      : process.env.OLLAMA_CHAT_MODEL || process.env.OLLAMA_MODEL || 'ollama';
   await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}/review-hints`, {
     method: 'POST',
     headers: { ...h, 'Content-Type': 'application/json' },

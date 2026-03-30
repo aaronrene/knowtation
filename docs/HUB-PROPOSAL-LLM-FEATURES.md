@@ -31,7 +31,11 @@ Two **optional** features use a chat-capable model (Ollama or OpenAI) for **prop
 
 **Self-hosted:** Set **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`** on the Node Hub; same Ollama/OpenAI chat config as above. Route is implemented in **`hub/server.mjs`**.
 
-**Hosted:** The **canister has no `/enrich` route**. If the UI calls enrich against the gateway, the proxied request will **not** succeed until enrich is implemented for hosted (e.g. gateway handler that calls LLM then updates canister fields—**not** present today).
+**Hosted:** The **gateway** implements **`POST /api/v1/proposals/:id/enrich`** when **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`**: it runs **`completeChat()`** ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `assistant_notes`, `assistant_model`, and **`suggested_labels_json`** (JSON array string) to the **canister** at the same path. The canister stores fields on the proposal; **deploy the hub canister** from this repo so stable storage includes enrich columns (V4 migration). **Chat env** on the gateway: typically **OpenAI** or **Anthropic** on Netlify (localhost **Ollama** is not reachable from serverless).
+
+### Privacy (operators)
+
+Proposal **body** (and path/intent) are sent to the configured chat API when hints or Enrich run. That content **leaves your deployment** to the provider unless you use **local Ollama** on self-hosted with no cloud API keys. There is no way to get cloud-model quality with zero data egress to the vendor; disabling **`KNOWTATION_HUB_PROPOSAL_*`** env flags avoids LLM calls entirely.
 
 ---
 

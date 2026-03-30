@@ -386,6 +386,7 @@ func parsePath(url : Text) : (Text, Text) {
     let parts = Iter.toArray(Text.split(rest, #char '/'));
     if (parts.size() >= 2 and parts[1] == "evaluation") { ("evaluation", parts[0]) }
     else if (parts.size() >= 2 and parts[1] == "review-hints") { ("review_hints", parts[0]) }
+    else if (parts.size() >= 2 and parts[1] == "enrich") { ("enrich", parts[0]) }
     else if (parts.size() == 1) { ("proposal", parts[0]) }
     else if (parts.size() >= 2 and parts[1] == "approve") { ("approve", parts[0]) }
     else if (parts.size() >= 2 and parts[1] == "discard") { ("discard", parts[0]) }
@@ -929,7 +930,8 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
         } else {
           "\"evaluation_waiver\":null";
         };
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\"}";
+        let sugJson = if (Text.size(p.suggested_labels_json) > 0) { p.suggested_labels_json } else { "[]" };
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\",\"assistant_notes\":\"" # escapeJson(p.assistant_notes) # "\",\"assistant_model\":\"" # escapeJson(p.assistant_model) # "\",\"assistant_at\":\"" # escapeJson(p.assistant_at) # "\",\"suggested_labels\":" # sugJson # "}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
@@ -941,7 +943,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   // ICP HTTP gateway always invokes http_request (query) first. Mutating methods must return
   // upgrade = ?true so the gateway re-sends the same request to http_request_update (consensus).
   if (
-    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "notes_delete_prefix" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard" or pathKind == "evaluation" or pathKind == "review_hints"))
+    (req.method == "POST" and (pathKind == "notes" or pathKind == "notes_batch" or pathKind == "notes_delete_prefix" or pathKind == "proposals" or pathKind == "approve" or pathKind == "discard" or pathKind == "evaluation" or pathKind == "review_hints" or pathKind == "enrich"))
     or (req.method == "DELETE" and (pathKind == "note" or pathKind == "vault_delete"))
   ) {
     return {
@@ -1182,6 +1184,10 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
       review_hints = "";
       review_hints_at = "";
       review_hints_model = "";
+      assistant_notes = "";
+      assistant_model = "";
+      assistant_at = "";
+      suggested_labels_json = "[]";
     };
     list := Array.append(list, [newP]);
     setProposalsList(uid, list);
@@ -1316,6 +1322,71 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
           }
         });
         setProposalsList(uid, listRh);
+        saveStable();
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody("{\"proposal_id\":\"" # escapeJson(pathArg) # "\",\"ok\":true}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+    };
+  };
+
+  if (pathKind == "enrich" and req.method == "POST") {
+    let notes = Option.get(extractJsonString(bodyText, "assistant_notes"), "");
+    let modelEn = Option.get(extractJsonString(bodyText, "assistant_model"), "");
+    let sugRaw = Option.get(extractJsonString(bodyText, "suggested_labels_json"), "[]");
+    var listEn = getProposalsList(uid);
+    switch (Array.find<ProposalRecord>(listEn, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
+      case null {
+        return {
+          status_code = 404;
+          headers = corsHeaders();
+          body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}");
+          streaming_strategy = null;
+          upgrade = null;
+        };
+      };
+      case (?pEn) {
+        if (effectiveVaultId(pEn.vault_id) != effectiveVaultId(vid)) {
+          return {
+            status_code = 403;
+            headers = corsHeaders();
+            body = jsonBody("{\"error\":\"Access to this proposal is not allowed.\",\"code\":\"FORBIDDEN\"}");
+            streaming_strategy = null;
+            upgrade = null;
+          };
+        };
+        if (pEn.status != "proposed") {
+          return {
+            status_code = 400;
+            headers = corsHeaders();
+            body = jsonBody("{\"error\":\"Can only enrich proposed proposals\",\"code\":\"BAD_REQUEST\"}");
+            streaming_strategy = null;
+            upgrade = null;
+          };
+        };
+        let nowEn = nowIsoUtc();
+        let notesTrim = if (Text.size(notes) > 16_000) { textSlice(notes, 0, 16_000) } else { notes };
+        let modelTrim = if (Text.size(modelEn) > 128) { textSlice(modelEn, 0, 128) } else { modelEn };
+        let sugTrim = if (Text.size(sugRaw) > 4000) { textSlice(sugRaw, 0, 4000) } else { sugRaw };
+        listEn := Array.map<ProposalRecord, ProposalRecord>(listEn, func(x : ProposalRecord) : ProposalRecord {
+          if (x.proposal_id == pathArg) {
+            {
+              x with
+              assistant_notes = notesTrim;
+              assistant_model = modelTrim;
+              suggested_labels_json = sugTrim;
+              assistant_at = nowEn;
+              updated_at = nowEn;
+            }
+          } else {
+            x
+          }
+        });
+        setProposalsList(uid, listEn);
         saveStable();
         return {
           status_code = 200;

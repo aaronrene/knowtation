@@ -183,7 +183,7 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
 - **POST /proposals/:id/discard** — Discard proposal (do not apply). **Admin** (Node Hub).  
   **Response:** `{ "proposal_id", "status": "discarded" }`.
 
-- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When `KNOWTATION_HUB_PROPOSAL_ENRICH=1` on the Hub, **editor** or **admin** may request a short LLM summary and suggested labels; results are stored on the proposal. **404** if the feature is disabled (`NOT_FOUND` body). Requires configured OpenAI or Ollama chat per [lib/llm-complete.mjs](../lib/llm-complete.mjs).
+- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`**, **editor**, **admin**, or **evaluator** may request a short LLM summary and suggested labels. **404** if the feature is disabled (`NOT_FOUND` body). **Self-hosted:** Node Hub runs the model and updates local proposal storage. **Hosted:** The **gateway** runs `completeChat` ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `{ "assistant_notes", "assistant_model", "suggested_labels_json" }` to the canister; **response** is the same shape as **GET /proposals/:id** from the canister. Chat backends: **OpenAI** (`OPENAI_API_KEY`), else **Anthropic** (`ANTHROPIC_API_KEY`), else **Ollama** (local). **Canister** route stores enrich fields only (trusted caller is the gateway with user headers).
 
 ### 3.5 Capture (webhook, no JWT)
 

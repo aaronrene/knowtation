@@ -963,7 +963,7 @@ app.post('/api/v1/proposals/:id/discard', requireRole('admin'), (req, res) => {
 });
 
 // Optional Tier-2: LLM summary + suggested labels (KNOWTATION_HUB_PROPOSAL_ENRICH=1; see docs/PROPOSAL-LIFECYCLE.md)
-app.post('/api/v1/proposals/:id/enrich', requireRole('editor', 'admin'), async (req, res) => {
+app.post('/api/v1/proposals/:id/enrich', requireRole('editor', 'admin', 'evaluator'), async (req, res) => {
   if (process.env.KNOWTATION_HUB_PROPOSAL_ENRICH !== '1') {
     return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
   }
