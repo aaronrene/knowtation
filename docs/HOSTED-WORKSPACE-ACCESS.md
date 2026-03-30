@@ -39,6 +39,7 @@ Resolution logic lives in [hub/lib/hosted-workspace-resolve.mjs](../hub/lib/host
 - **Bridge** stores the same shape as self-hosted **`hub_scope.json`**: `user_id → { vault_id → { projects[], folders[] } }`.
 - Omitted or empty rules mean **full vault** for that user/vault.
 - The **gateway** applies [hub/lib/scope-filter.mjs](../hub/lib/scope-filter.mjs) to **GET note lists**, **facets**, and **GET single note** responses when scope is active (mirrors self-hosted `applyScopeFilter`).
+- **Evaluator** role: **hub_scope** project/folder limits are **not** applied for the evaluator’s JWT (`resolveHostedBridgeContext` clears `scope` so gateway + bridge search/sync see the full vault for each **allowed** vault id). Vault allowlist still applies.
 
 ## HTTP headers (gateway → canister)
 

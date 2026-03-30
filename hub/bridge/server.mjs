@@ -540,7 +540,13 @@ async function resolveHostedBridgeContext(req, actorUid) {
       error: 'Access to this vault is not allowed.',
     };
   }
-  const scope = getScopeForUserVaultFromScopeMap(scopeMap, actorUid, vaultId);
+  let scope = getScopeForUserVaultFromScopeMap(scopeMap, actorUid, vaultId);
+  // Evaluators must see the full vault (per allowed_vault_ids) to review proposals in context;
+  // project/folder scope still applies to viewer/editor/admin delegating members.
+  const actorRole = effectiveRole(actorUid, roles);
+  if (actorRole === 'evaluator') {
+    scope = null;
+  }
   return {
     ok: true,
     effectiveCanisterUid: effective,
