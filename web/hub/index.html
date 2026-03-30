@@ -110,6 +110,11 @@
         <select id="filter-folder">
           <option value="">All folders</option>
         </select>
+        <select id="filter-content-scope" title="Filter note list and semantic search by vault file type" aria-label="Content type: all notes, exclude approval logs, or approval logs only">
+          <option value="">All content</option>
+          <option value="notes">Notes only</option>
+          <option value="approval_logs">Approval logs only</option>
+        </select>
         <label for="filter-since" class="filter-date-label">Since</label>
         <input type="date" id="filter-since" aria-label="Filter notes from this date">
         <label for="filter-until" class="filter-date-label">Until</label>
@@ -118,7 +123,7 @@
         <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear semantic search">Clear</button>
         <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
         <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
-        <p id="search-semantic-hint" class="search-hint muted small"><strong>Quick</strong> chips filter the note list by tag or project. Green <strong>Search</strong> runs meaning-based search over your <strong>indexed</strong> vault (re-index after big imports). <strong>Clear</strong> resets the search field.</p>
+        <p id="search-semantic-hint" class="search-hint muted small"><strong>Quick</strong> chips filter the note list by tag or project. Use <strong>All content</strong> to show notes only, approval logs only, or everything. Green <strong>Search</strong> runs meaning-based search over your <strong>indexed</strong> vault (re-index after approvals or big imports). <strong>Clear</strong> resets the search field and content filter.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
@@ -139,7 +144,7 @@
       <section class="tabs">
         <button type="button" data-tab="notes" class="tab active">Notes</button>
         <button type="button" data-tab="activity" class="tab">Activity</button>
-        <button type="button" data-tab="suggested" class="tab">Suggested</button>
+        <button type="button" data-tab="pending" class="tab">Pending</button>
         <button type="button" data-tab="problem" class="tab">Discarded</button>
       </section>
 
@@ -178,7 +183,7 @@
         <p class="muted">Proposal timeline: created → approved/discarded. Sources include the Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), the CLI (<code>knowtation propose --hub …</code>), and agents via the API.</p>
         <div id="proposals-activity" class="list activity-timeline"></div>
       </section>
-      <section id="tab-suggested" class="tab-panel hidden">
+      <section id="tab-pending" class="tab-panel hidden">
         <p class="muted">Proposals needing your review. Create one with <strong>New proposal</strong> or from a note (<strong>Propose change</strong> in the detail panel); the CLI and agents can still create them via the API. Open a row, then Approve (writes to vault) or Discard.</p>
         <div class="proposal-list-filters" id="proposal-list-filters">
           <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
@@ -191,7 +196,7 @@
           <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
           <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
         </div>
-        <div id="proposals-suggested" class="list"></div>
+        <div id="proposals-pending" class="list"></div>
       </section>
       <section id="tab-problem" class="tab-panel hidden">
         <p class="muted">Proposals you (or someone) discarded. They were not applied to the vault. You can still open them to read.</p>
@@ -434,11 +439,25 @@ Your note body here.</pre>
               <span class="settings-label">Review hints (LLM)</span>
               <span id="settings-proposal-hints-enabled" class="settings-value">—</span>
             </div>
+            <div class="settings-row" id="settings-proposal-enrich-row">
+              <span class="settings-label">Proposal enrich (LLM)</span>
+              <span id="settings-proposal-enrich-enabled" class="settings-value">—</span>
+            </div>
             <div class="settings-row" id="settings-evaluator-approve-row">
               <span class="settings-label">You may approve proposals</span>
               <span id="settings-evaluator-may-approve" class="settings-value">—</span>
             </div>
-            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Proposal evaluation:</strong> When the gate is <strong>On</strong>, new proposals may need a recorded pass/fail (or needs changes) before an admin can approve. <strong>Grade</strong> is optional labels for your records only. <strong>Review hints (LLM)</strong> — when <strong>On</strong>, the Hub can show optional AI-generated suggestions in the proposal panel; they are not authoritative and your host may send proposal text to an external model—use only if that fits your policy. <strong>Evaluator may approve</strong> — for <em>your</em> account: shown under Status; admins set per evaluator in <strong>Team</strong>. If unset for a user, the server may fall back to <code>HUB_EVALUATOR_MAY_APPROVE=1</code>. Self-hosted: also <code>data/hub_evaluator_may_approve.json</code>. See <strong>How to use</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
+            <div id="settings-proposal-policy-admin" class="settings-form settings-form-compact hidden" role="region" aria-label="Proposal policy (admin)">
+              <p class="settings-intro small"><strong>Admins:</strong> Turn proposal features on or off here when they are not forced by server environment variables (disabled checkboxes are env-locked on the host).</p>
+              <label class="settings-check-row" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0;"><input type="checkbox" id="settings-policy-eval" /> <span>Require evaluation before approve (gate)</span></label>
+              <label class="settings-check-row" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0;"><input type="checkbox" id="settings-policy-hints" /> <span>Review hints after new proposals (LLM)</span></label>
+              <label class="settings-check-row" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0;"><input type="checkbox" id="settings-policy-enrich" /> <span>Allow Enrich (summary + suggested labels)</span></label>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                <button type="button" id="btn-proposal-policy-save" class="btn-secondary">Save proposal policy</button>
+                <span id="settings-proposal-policy-msg" class="settings-msg" role="status"></span>
+              </div>
+            </div>
+            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Proposal evaluation:</strong> When the gate is <strong>On</strong>, new proposals may need a recorded pass/fail (or needs changes) before an admin can approve. <strong>Grade</strong> is optional labels for your records only. <strong>Review hints (LLM)</strong> — when <strong>On</strong>, the Hub can run an optional model after each new proposal and store non-authoritative suggestions in the proposal panel (proposal text may leave your host). <strong>Proposal enrich (LLM)</strong> — when <strong>On</strong>, reviewers can use <strong>Enrich</strong> on a proposal to generate a short summary and suggested labels (also non-authoritative). <strong>Evaluator may approve</strong> — for <em>your</em> account: shown under Status; admins set per evaluator in <strong>Team</strong>. If unset for a user, the server may fall back to <code>HUB_EVALUATOR_MAY_APPROVE=1</code>. Self-hosted: also <code>data/hub_evaluator_may_approve.json</code>. Policy file (self-hosted): <code>data/hub_proposal_policy.json</code>. See <strong>How to use</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
             <div class="settings-row hidden" id="settings-api-base-row" title="Shown on localhost for self-hosted debugging">
               <span class="settings-label">API base</span>
               <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
@@ -1322,14 +1341,14 @@ Knowtation Hub listening on http://localhost:3333</pre>
                 <path d="M 416 24 L 432 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
                 <rect x="434" y="8" width="92" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
                 <text x="480" y="28" class="diagram-text" text-anchor="middle">You</text>
-                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Suggested / Discarded)</text>
+                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Pending / Discarded)</text>
               </svg>
             </div>
             <h4 class="how-to-sub">Proposals: where they come from and where to see them</h4>
-            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Suggested</strong> tab actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
+            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Pending</strong> tab actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
             <ul>
-              <li><strong>Create a proposal:</strong> In the Hub: <strong>Suggested → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
-              <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
+              <li><strong>Create a proposal:</strong> In the Hub: <strong>Pending → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
+              <li><strong>Pending tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
               <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
               <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
             </ul>
@@ -1337,7 +1356,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <h4 class="how-to-sub">Reviewing proposals (evaluation, triggers, roles)</h4>
             <ul>
               <li><strong>Outcome vs grade:</strong> Saving evaluation uses an <em>outcome</em> (pass / fail / needs changes) plus checklist; optional <em>grade</em> is for culture or reporting and does not replace outcome.</li>
-              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Suggested tab.</li>
+              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Pending tab.</li>
               <li><strong>Who does what:</strong> <code>evaluator</code> users record evaluation; <code>admin</code> always approves and discards. Evaluators may approve only when an admin grants it per user in <strong>Team</strong> (or the host sets <code>HUB_EVALUATOR_MAY_APPROVE=1</code> as a fallback when no per-user entry exists). Waivers on approve remain admin-side when evaluation has not passed.</li>
               <li><strong>LLM review hints:</strong> If enabled on the Hub, short async hints may appear on a proposal. They are not a merge gate; treat them as untrusted.</li>
             </ul>
@@ -1363,7 +1382,7 @@ KNOWTATION_HUB_VAULT_ID=default
             </div>
             <div class="integration-card">
               <h5>Abacus</h5>
-              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Suggested tab and approve or discard.</p>
+              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Pending tab and approve or discard.</p>
               <div class="example-block"><span class="example-label">Example</span><pre># In your Abacus tool config, add Knowtation Hub:
 # - Hub URL + KNOWTATION_HUB_TOKEN for API calls
 # - Or shell tool: knowtation search "query" --json</pre></div>
@@ -1516,16 +1535,18 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Proposals and GitHub</h3>
-              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Suggested / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
+              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Pending / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
             </section>
 
             <section class="how-to-step">
               <h3>Proposal review hints and Enrich (optional AI)</h3>
-              <p class="step-what">These are <strong>optional</strong> helpers for <strong>proposals</strong> only. They are <strong>not</strong> merge gates and they do <strong>not</strong> auto-shape imports or note JSON. Full operator detail: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-PROPOSAL-LLM-FEATURES.md" target="_blank" rel="noopener"><code>docs/HUB-PROPOSAL-LLM-FEATURES.md</code></a>.</p>
+              <p class="step-what">These are <strong>optional</strong> helpers for <strong>proposals</strong> only. They are <strong>not</strong> merge gates and they do <strong>not</strong> auto-fill imports or note JSON on create. Full operator detail: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-PROPOSAL-LLM-FEATURES.md" target="_blank" rel="noopener"><code>docs/HUB-PROPOSAL-LLM-FEATURES.md</code></a>.</p>
               <ul>
-                <li><strong>Review hints:</strong> Plain-text bullet-style reminders for human reviewers, shown <strong>inside the proposal panel</strong> (Activity → open a proposal) when hints exist—there is <strong>no separate modal</strong>. On <strong>self-hosted</strong> Node Hub, set <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1</code> and configure Ollama or OpenAI chat in the same environment as <code>npm run hub</code>; hints run <strong>after</strong> you create a proposal, asynchronously—refresh the proposal after a few seconds.</li>
-                <li><strong>Hosted (knowtation.store):</strong> The canister can <strong>store</strong> hints if something POSTs to <code>/api/v1/proposals/&lt;id&gt;/review-hints</code>, but the gateway does <strong>not</strong> run the LLM job yet, so Settings may show “On” if the env flag is set while <strong>no hints are generated</strong> unless you add an operator worker.</li>
-                <li><strong>Enrich (AI):</strong> Optional button on a proposal (when enabled) calls the Hub to get a short <strong>summary</strong> and <strong>suggested_labels</strong> (JSON from the model). Requires <code>KNOWTATION_HUB_PROPOSAL_ENRICH=1</code> on the <strong>Node Hub</strong>. The hosted canister does <strong>not</strong> implement enrich yet, so enrich is <strong>self-hosted only</strong> today.</li>
+                <li><strong>Turning features on:</strong> <strong>Settings → Backup</strong> (admins): use <strong>Save proposal policy</strong> to enable the evaluation gate, <strong>review hints</strong>, and/or <strong>enrich</strong> without editing host env files. <strong>Self-hosted</strong> saves to <code>data/hub_proposal_policy.json</code>; <strong>hosted</strong> saves in the gateway store (e.g. Netlify Blob).</li>
+                <li><strong>When a checkbox is disabled:</strong> That flag is <strong>locked</strong> because the server set an explicit environment variable (<code>HUB_PROPOSAL_EVALUATION_REQUIRED</code>, <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS</code>, or <code>KNOWTATION_HUB_PROPOSAL_ENRICH</code> to <code>1</code>/<code>0</code> or <code>true</code>/<code>false</code>). Change or remove it on the host to control it from Settings again.</li>
+                <li><strong>Review hints:</strong> Short plain-text suggestions for human reviewers, shown <strong>in the proposal panel</strong> (Activity → open a proposal). After each <strong>new</strong> proposal, the Hub or gateway may run the model asynchronously—refresh after a few seconds. Configure chat (Ollama, OpenAI, or Anthropic) on the same host that runs the Node Hub or gateway.</li>
+                <li><strong>Enrich:</strong> Optional <strong>Enrich</strong> button on a proposal (when enabled) requests a short <strong>summary</strong> and <strong>suggested labels</strong>. Works on <strong>self-hosted</strong> Node Hub and on <strong>hosted</strong> when the gateway runs the LLM and updates the canister.</li>
+                <li><strong>Using them:</strong> Copy hint or assistant text into your <strong>evaluation comment</strong> if it helps the record. Suggested tags are hints only — add them to the note’s frontmatter after approve if you agree (use <strong>Open vault note to edit</strong> in the proposal panel when a file already exists).</li>
               </ul>
             </section>
 
@@ -1542,6 +1563,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260329c"></script>
+  <script src="hub.js?v=20260330b"></script>
 </body>
 </html>

@@ -1682,6 +1682,7 @@ app.post('/api/v1/search', async (req, res) => {
   const snippetChars = parseInt(req.body?.snippetChars, 10) || 300;
   try {
     const { embed } = await import('../../lib/embedding.mjs');
+    const { filterHitsByContentScope } = await import('../../lib/approval-log.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
 
     const vectorsDir = await getVectorsDirForUser(req, canisterUid);
@@ -1692,8 +1693,11 @@ app.post('/api/v1/search', async (req, res) => {
     if (!queryVector) {
       return res.status(500).json({ error: 'Embedding failed', code: 'INTERNAL_ERROR' });
     }
+    const scopeFetch = req.body?.content_scope;
+    const searchLimit =
+      scopeFetch && scopeFetch !== 'all' ? Math.min(300, Math.max(limit * 6, limit)) : limit;
     const hits = await store.search(queryVector, {
-      limit,
+      limit: searchLimit,
       vault_id: bridgeVaultId,
       project: req.body?.project,
       tag: req.body?.tag,
@@ -1712,6 +1716,11 @@ app.post('/api/v1/search', async (req, res) => {
       tags: h.tags ?? [],
       snippet: truncateSnippet(h.text, snippetChars),
     }));
+    const cs = req.body?.content_scope;
+    if (cs === 'notes' || cs === 'approval_logs') {
+      results = filterHitsByContentScope(results, cs);
+      results = results.slice(0, limit);
+    }
     if (hctx.scope) {
       results = applyScopeFilterToNotes(results, hctx.scope);
     }

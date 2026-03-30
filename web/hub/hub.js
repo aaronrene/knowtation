@@ -72,6 +72,7 @@
   const filterFolder = el('filter-folder');
   const filterSince = el('filter-since');
   const filterUntil = el('filter-until');
+  const filterContentScope = el('filter-content-scope');
   const btnSearch = el('btn-search');
   const btnClearSearch = el('btn-clear-search');
   const btnApplyFilters = el('btn-apply-filters');
@@ -909,6 +910,14 @@
     return facets;
   }
 
+  function hubRowIsApprovalLog(n) {
+    if (!n || !n.path) return false;
+    const path = String(n.path).replace(/\\/g, '/');
+    if (path === 'approvals' || path.startsWith('approvals/')) return true;
+    const k = n.frontmatter && n.frontmatter.kind;
+    return String(k) === 'approval_log';
+  }
+
   /** Hosted canister ignores list query filters; mirror lib/list-notes.mjs on the client after normalizeHubListItem. */
   function applyVaultListFilters(notes, opts) {
     let out = notes.slice();
@@ -935,6 +944,12 @@
     if (opts.until) {
       const u = dateSlice(opts.until);
       if (u) out = out.filter((n) => noteSortOrCalendarDay(n) <= u);
+    }
+    const cs = opts.content_scope;
+    if (cs === 'notes') {
+      out = out.filter((n) => !hubRowIsApprovalLog(n));
+    } else if (cs === 'approval_logs') {
+      out = out.filter((n) => hubRowIsApprovalLog(n));
     }
     return out;
   }
@@ -1143,6 +1158,7 @@
       folder: filterFolder.value,
       since: filterSince?.value || '',
       until: filterUntil?.value || '',
+      content_scope: filterContentScope && filterContentScope.value ? filterContentScope.value : '',
     });
     localStorage.setItem(PRESETS_KEY, JSON.stringify(presets.slice(-20)));
     presetNameInput.value = '';
@@ -1156,13 +1172,14 @@
       b.type = 'button';
       b.className = 'preset-pill';
       b.textContent = p.name;
-      b.title = [p.folder && 'folder:' + p.folder, p.project && 'project:' + p.project, p.tag && 'tag:' + p.tag, p.since && 'since:' + p.since, p.until && 'until:' + p.until].filter(Boolean).join(' ');
+      b.title = [p.folder && 'folder:' + p.folder, p.project && 'project:' + p.project, p.tag && 'tag:' + p.tag, p.since && 'since:' + p.since, p.until && 'until:' + p.until, p.content_scope && 'content:' + p.content_scope].filter(Boolean).join(' ');
       b.onclick = () => {
         filterProject.value = p.project || '';
         filterTag.value = p.tag || '';
         filterFolder.value = p.folder || '';
         if (filterSince) filterSince.value = p.since || '';
         if (filterUntil) filterUntil.value = p.until || '';
+        if (filterContentScope) filterContentScope.value = p.content_scope || '';
         switchNotesView('list');
         loadNotes();
         renderFilterChips(null);
@@ -1175,15 +1192,21 @@
 
   function renderNoteRow(n) {
     const title = n.title || n.path;
+    const isLog = hubRowIsApprovalLog(n);
     const chips = [];
     if (n.project) chips.push('<span class="chip chip-project">' + escapeHtml(n.project) + '</span>');
     (n.tags || []).slice(0, 3).forEach((t) => chips.push('<span class="chip chip-tag">' + escapeHtml(t) + '</span>'));
     const meta = [n.date].filter(Boolean).join(' · ');
+    const badge = isLog ? '<span class="badge-approval-log">Approval log</span>' : '';
+    const rowClass = 'list-item' + (isLog ? ' row-approval-log' : '');
     return (
-      '<div class="list-item" data-path="' +
+      '<div class="' +
+      rowClass +
+      '" data-path="' +
       escapeHtml(n.path) +
       '"><span class="row-title">' +
       escapeHtml(title) +
+      badge +
       '</span><div class="row-chips">' +
       chips.join('') +
       '</div>' +
@@ -1206,6 +1229,7 @@
     if (filterTag.value) q.set('tag', filterTag.value);
     if (filterSince && filterSince.value) q.set('since', filterSince.value);
     if (filterUntil && filterUntil.value) q.set('until', filterUntil.value);
+    if (filterContentScope && filterContentScope.value) q.set('content_scope', filterContentScope.value);
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
     try {
@@ -1217,6 +1241,7 @@
         tag: filterTag.value,
         since: filterSince?.value || '',
         until: filterUntil?.value || '',
+        content_scope: filterContentScope && filterContentScope.value ? filterContentScope.value : '',
       });
       const totalCount = notes.length;
       notes = notes.slice(0, 100);
@@ -1262,6 +1287,8 @@
     if (filterFolder.value) parts.push('folder: ' + filterFolder.value);
     if (filterSince && filterSince.value) parts.push('since ' + filterSince.value);
     if (filterUntil && filterUntil.value) parts.push('until ' + filterUntil.value);
+    if (filterContentScope && filterContentScope.value === 'notes') parts.push('notes only');
+    if (filterContentScope && filterContentScope.value === 'approval_logs') parts.push('approval logs only');
     return parts.length ? parts.join(' · ') : '';
   }
 
@@ -1277,6 +1304,7 @@
       switchNotesView('list');
       document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+      if (filterContentScope) filterContentScope.value = '';
       const notesTab = document.querySelector('[data-tab="notes"]');
       if (notesTab) notesTab.classList.add('active');
       const tabNotes = el('tab-notes');
@@ -1359,12 +1387,12 @@
   }
 
   async function loadProposals() {
-    const emptySuggested =
+    const emptyPending =
       '<div class="empty-state">No proposals waiting for review. Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
     [
-      { kind: 'suggested', status: 'proposed', empty: emptySuggested },
+      { kind: 'pending', status: 'proposed', empty: emptyPending },
       { kind: 'problem', status: 'discarded', empty: emptyDiscarded },
     ].forEach(({ kind, status, empty: emptyHtml }) => {
       const container = el('proposals-' + kind);
@@ -1473,6 +1501,7 @@
       if (filterFolder.value) body.folder = filterFolder.value;
       if (filterSince && filterSince.value) body.since = filterSince.value;
       if (filterUntil && filterUntil.value) body.until = filterUntil.value;
+      if (filterContentScope && filterContentScope.value) body.content_scope = filterContentScope.value;
       const out = await api('/api/v1/search', { method: 'POST', body: JSON.stringify(body) });
       const results = out.results || [];
       if (results.length === 0) {
@@ -1487,11 +1516,18 @@
           if (r.project) chips.push('<span class="chip chip-project">' + escapeHtml(r.project) + '</span>');
           (r.tags || []).slice(0, 3).forEach((t) => chips.push('<span class="chip chip-tag">' + escapeHtml(t) + '</span>'));
           const strength = semanticMatchStrengthLabel(r.score);
+          const pathStr = String(r.path || '').replace(/\\/g, '/');
+          const isLog = pathStr === 'approvals' || pathStr.startsWith('approvals/');
+          const badge = isLog ? '<span class="badge-approval-log">Approval log</span>' : '';
+          const rowClass = 'list-item' + (isLog ? ' row-approval-log' : '');
           return (
-            '<div class="list-item" data-path="' +
+            '<div class="' +
+            rowClass +
+            '" data-path="' +
             escapeHtml(r.path) +
             '"><span class="row-title">' +
             escapeHtml(r.path) +
+            badge +
             '</span><div class="row-chips">' +
             chips.join('') +
             '</div>' +
@@ -1836,7 +1872,7 @@
       pathInput.value = (opts && opts.path) || '';
       if (hint)
         hint.textContent =
-          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Suggested tab.';
+          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Pending tab.';
     }
     bodyEl.value = (opts && opts.body) || '';
     intentEl.value = (opts && opts.intent) || '';
@@ -1892,10 +1928,10 @@
           if (typeof showToast === 'function') showToast('Proposal submitted');
           document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
           document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-          const suggestedTab = document.querySelector('[data-tab="suggested"]');
-          const suggestedPanel = el('tab-suggested');
-          if (suggestedTab) suggestedTab.classList.add('active');
-          if (suggestedPanel) suggestedPanel.classList.remove('hidden');
+          const pendingTab = document.querySelector('[data-tab="pending"]');
+          const pendingPanel = el('tab-pending');
+          if (pendingTab) pendingTab.classList.add('active');
+          if (pendingPanel) pendingPanel.classList.remove('hidden');
           loadProposals();
         } catch (e) {
           if (msgEl) {
@@ -2097,6 +2133,11 @@
     el('settings-sync-msg').className = 'settings-msg';
     el('settings-save-msg').textContent = '';
     el('settings-save-msg').className = 'settings-msg';
+    const policyMsg = el('settings-proposal-policy-msg');
+    if (policyMsg) {
+      policyMsg.textContent = '';
+      policyMsg.className = 'settings-msg';
+    }
     el('settings-mode-display').textContent = 'Loading…';
     el('settings-vault-display').textContent = 'Loading…';
     el('settings-git-status').textContent = 'Loading…';
@@ -2144,6 +2185,8 @@
         if (evalReqEl) evalReqEl.textContent = s.proposal_evaluation_required ? 'On' : 'Off';
         const hintsEl = el('settings-proposal-hints-enabled');
         if (hintsEl) hintsEl.textContent = s.proposal_review_hints_enabled ? 'On' : 'Off';
+        const enrichStatusEl = el('settings-proposal-enrich-enabled');
+        if (enrichStatusEl) enrichStatusEl.textContent = s.proposal_enrich_enabled ? 'On' : 'Off';
         const evApEl = el('settings-evaluator-may-approve');
         if (evApEl) evApEl.textContent = s.hub_evaluator_may_approve ? 'Yes' : 'No';
         const syncBtn = el('btn-settings-sync');
@@ -2158,6 +2201,28 @@
         if (teamTab) teamTab.classList.toggle('hidden', !isAdmin);
         const vaultsTab = el('settings-tab-vaults');
         if (vaultsTab) vaultsTab.classList.toggle('hidden', !isAdmin);
+        const policyAdmin = el('settings-proposal-policy-admin');
+        const storedPolicy = s.proposal_policy_stored || {};
+        const policyLocks = s.proposal_policy_env_locked || {};
+        if (policyAdmin) {
+          policyAdmin.classList.toggle('hidden', !isAdmin);
+          const cEval = el('settings-policy-eval');
+          const cHints = el('settings-policy-hints');
+          const cEnrich = el('settings-policy-enrich');
+          if (cEval && cHints && cEnrich) {
+            cEval.checked = Boolean(storedPolicy.proposal_evaluation_required);
+            cHints.checked = Boolean(storedPolicy.review_hints_enabled);
+            cEnrich.checked = Boolean(storedPolicy.enrich_enabled);
+            cEval.disabled = Boolean(policyLocks.proposal_evaluation_required);
+            cHints.disabled = Boolean(policyLocks.review_hints_enabled);
+            cEnrich.disabled = Boolean(policyLocks.enrich_enabled);
+            const lockHint =
+              'Fixed by a server environment variable; change or unset it on the host to control this from here.';
+            cEval.title = policyLocks.proposal_evaluation_required ? lockHint : '';
+            cHints.title = policyLocks.review_hints_enabled ? lockHint : '';
+            cEnrich.title = policyLocks.enrich_enabled ? lockHint : '';
+          }
+        }
         const connectBtn = el('btn-connect-github');
         const ghStatus = el('settings-github-status');
         const hostedGhHint = el('settings-hosted-connect-github-hint');
@@ -2267,6 +2332,63 @@
     el('modal-settings').classList.add('hidden');
   }
   if (btnSettings) btnSettings.onclick = openSettings;
+
+  const btnProposalPolicySave = el('btn-proposal-policy-save');
+  if (btnProposalPolicySave && !btnProposalPolicySave.dataset.knowtationPolicyBound) {
+    btnProposalPolicySave.dataset.knowtationPolicyBound = '1';
+    btnProposalPolicySave.addEventListener('click', async () => {
+      const msg = el('settings-proposal-policy-msg');
+      if (msg) {
+        msg.textContent = '';
+        msg.className = 'settings-msg';
+      }
+      try {
+        await api('/api/v1/settings/proposal-policy', {
+          method: 'POST',
+          body: JSON.stringify({
+            proposal_evaluation_required: el('settings-policy-eval').checked,
+            review_hints_enabled: el('settings-policy-hints').checked,
+            enrich_enabled: el('settings-policy-enrich').checked,
+          }),
+        });
+        if (msg) {
+          msg.textContent = 'Saved.';
+          msg.className = 'settings-msg ok';
+        }
+        const fresh = await fetchSettingsForBackupModal();
+        applySettingsPayloadToHubChrome(fresh);
+        const evalReqEl = el('settings-proposal-eval-required');
+        if (evalReqEl) evalReqEl.textContent = fresh.proposal_evaluation_required ? 'On' : 'Off';
+        const hintsEl2 = el('settings-proposal-hints-enabled');
+        if (hintsEl2) hintsEl2.textContent = fresh.proposal_review_hints_enabled ? 'On' : 'Off';
+        const enrichEl2 = el('settings-proposal-enrich-enabled');
+        if (enrichEl2) enrichEl2.textContent = fresh.proposal_enrich_enabled ? 'On' : 'Off';
+        const st = fresh.proposal_policy_stored || {};
+        const lk = fresh.proposal_policy_env_locked || {};
+        const ce = el('settings-policy-eval');
+        const ch = el('settings-policy-hints');
+        const cr = el('settings-policy-enrich');
+        if (ce && ch && cr) {
+          ce.checked = Boolean(st.proposal_evaluation_required);
+          ch.checked = Boolean(st.review_hints_enabled);
+          cr.checked = Boolean(st.enrich_enabled);
+          ce.disabled = Boolean(lk.proposal_evaluation_required);
+          ch.disabled = Boolean(lk.review_hints_enabled);
+          cr.disabled = Boolean(lk.enrich_enabled);
+          const lockHint =
+            'Fixed by a server environment variable; change or unset it on the host to control this from here.';
+          ce.title = lk.proposal_evaluation_required ? lockHint : '';
+          ch.title = lk.review_hints_enabled ? lockHint : '';
+          cr.title = lk.enrich_enabled ? lockHint : '';
+        }
+      } catch (e) {
+        if (msg) {
+          msg.textContent = e && e.message ? String(e.message) : String(e);
+          msg.className = 'settings-msg err';
+        }
+      }
+    });
+  }
   el('modal-settings-backdrop').onclick = closeSettings;
   el('modal-settings-close').onclick = closeSettings;
 
@@ -4721,6 +4843,7 @@
             (p.review_hints_at
               ? ' <span class="muted">' + escapeHtml(String(p.review_hints_at).slice(0, 19)) + '</span>'
               : '') +
+            '<p class="small muted" style="margin: 0.35rem 0 0.5rem;">Use as a review checklist; copy into your comment if helpful — you still decide pass or fail.</p>' +
             '<pre class="proposal-pre">' +
             escapeHtml(String(p.review_hints)) +
             '</pre><p class="small muted">Hints are machine-generated and untrusted — humans decide evaluation outcome.</p></div>';
@@ -4734,12 +4857,16 @@
             '<div class="proposal-assistant"><strong>Assistant</strong>' +
             (p.assistant_model ? ' <span class="muted">(' + escapeHtml(String(p.assistant_model)) + ')</span>' : '') +
             (p.assistant_at ? ' <span class="muted">' + escapeHtml(String(p.assistant_at).slice(0, 19)) + '</span>' : '') +
+            '<p class="small muted" style="margin: 0.35rem 0 0.5rem;">Quick summary and label ideas from the model; verify before trusting or reusing (e.g. paste into your comment or frontmatter after approve).</p>' +
             '<p>' +
             escapeHtml(String(p.assistant_notes)) +
             '</p>' +
             (sug ? '<div class="proposal-meta-chips">' + sug + '</div>' : '') +
             '</div>';
         }
+        const openVaultNoteLine = note
+          ? '<p class="small proposal-open-note-wrap"><button type="button" class="btn-link btn-link-small" id="proposal-open-note-btn">Open vault note to edit</button> <span class="muted">— tags, episode, entity, causal chain (frontmatter); use Activity again to return to this proposal.</span></p>'
+          : '<p class="small muted">No note file at this path yet — approving creates or overwrites the file from the proposal body; then you can edit frontmatter.</p>';
         body.innerHTML =
           (chips.length ? '<div class="proposal-meta-chips">' + chips.join('') + '</div>' : '') +
           autoFlagHtml +
@@ -4751,6 +4878,7 @@
           (p.review_queue ? ' · queue: ' + escapeHtml(String(p.review_queue)) : '') +
           (p.review_severity ? ' · severity: ' + escapeHtml(String(p.review_severity)) : '') +
           '</p>' +
+          openVaultNoteLine +
           '<div class="proposal-diff-grid">' +
           '<div><h4>Current vault</h4><pre class="proposal-pre">' +
           escapeHtml(currentBlock) +
@@ -4769,6 +4897,10 @@
           assistantHtml +
           hintsHtml;
         actions.innerHTML = '';
+        const openNoteBtn = body.querySelector('#proposal-open-note-btn');
+        if (openNoteBtn && note && p.path) {
+          openNoteBtn.onclick = () => openNote(String(p.path));
+        }
         const saveEvalBtn = body.querySelector('#proposal-eval-save');
         if (saveEvalBtn) {
           saveEvalBtn.onclick = async () => {
@@ -4864,12 +4996,16 @@
       const waiver_reason = waiverEl && waiverEl.value ? String(waiverEl.value).trim() : '';
       const approveBody = {};
       if (waiver_reason) approveBody.waiver_reason = waiver_reason;
+      let approveOut = null;
       await withButtonBusy(btn, 'Approving…', async () => {
-        await api('/api/v1/proposals/' + encodeURIComponent(id) + '/approve', {
+        approveOut = await api('/api/v1/proposals/' + encodeURIComponent(id) + '/approve', {
           method: 'POST',
           body: JSON.stringify(approveBody),
         });
       });
+      if (approveOut && approveOut.approval_log_written === false) {
+        showToast('Approved, but approval log file failed to write. Check server logs. Re-index after fixing.', true);
+      }
       panel.classList.add('hidden');
       panel.classList.remove('detail-panel-proposal-wide');
       loadProposals();
@@ -4983,10 +5119,10 @@
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
       tab.classList.add('active');
       const name = tab.dataset.tab;
-      const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'suggested' ? 'suggested' : 'problem'));
+      const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'pending' ? 'pending' : 'problem'));
       if (panel) panel.classList.remove('hidden');
       if (name === 'activity') loadActivity();
-      if (name === 'suggested' || name === 'problem') loadProposals();
+      if (name === 'pending' || name === 'problem') loadProposals();
     };
   });
 
