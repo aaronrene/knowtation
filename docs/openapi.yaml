@@ -289,7 +289,7 @@ paths:
   /search:
     post:
       tags: [Search]
-      summary: Semantic search
+      summary: Vault search (semantic or keyword)
       requestBody:
         required: true
         content:
@@ -299,14 +299,23 @@ paths:
               required: [query]
               properties:
                 query: { type: string }
+                mode: { type: string, enum: [semantic, keyword], description: Omitted or semantic = vector search; keyword = substring/token match on note text }
+                match: { type: string, enum: [phrase, all_terms], description: Keyword only; phrase = full query substring; all_terms = every token must appear }
                 folder: { type: string }
                 project: { type: string }
                 tag: { type: string }
                 since: { type: string }
                 until: { type: string }
+                chain: { type: string }
+                entity: { type: string }
+                episode: { type: string }
                 limit: { type: integer }
                 order: { type: string }
                 fields: { type: string }
+                content_scope: { type: string, enum: [notes, approval_logs], description: Narrow to normal notes vs approvals/ logs }
+                snippetChars: { type: integer }
+                count_only: { type: boolean }
+                countOnly: { type: boolean }
       responses:
         '200':
           content:
@@ -316,6 +325,8 @@ paths:
                 properties:
                   results: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
                   query: { type: string }
+                  mode: { type: string, enum: [semantic, keyword] }
+                  count: { type: integer, description: Present when count_only keyword search }
         '400':
           content:
             application/json:

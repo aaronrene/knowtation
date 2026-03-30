@@ -26,7 +26,7 @@ Usage:
   knowtation <command> [options]
 
 Commands:
-  search <query>     Semantic search over vault. Use --project, --tag, --folder, --limit. --json for machine output.
+  search <query>     Semantic search over vault (default), or --keyword for literal text. Use --project, --tag, --folder, --limit. --json for machine output.
   get-note <path>   Return full content of one note by path. Use --body-only, --frontmatter-only, --json.
   list-notes        List notes. Use --folder, --project, --tag, --limit, --offset, --fields, --count-only, --json.
   index             Re-run indexer: vault → chunk → embed → vector store (Qdrant or sqlite-vec).
@@ -201,7 +201,7 @@ async function main() {
 
   if (subcommand === 'search') {
     if (hasOpt('help') || hasOpt('h')) {
-      console.log('knowtation search <query>\n  Options: --folder, --project, --tag, --since, --until, --chain, --entity, --episode, --order date|date-asc, --limit, --fields path|path+snippet|full, --snippet-chars <n>, --count-only, --json');
+      console.log('knowtation search <query>\n  Options: --keyword (substring/token search), --match phrase|all-terms (with --keyword), --folder, --project, --tag, --since, --until, --chain, --entity, --episode, --content-scope all|notes|approval_logs, --order date|date-asc, --limit, --fields path|path+snippet|full, --snippet-chars <n>, --count-only, --json');
       process.exit(0);
     }
     const query = args.slice(1).filter((a) => !a.startsWith('--')).join(' ').trim();
@@ -225,15 +225,30 @@ async function main() {
     const fields = getOpt('fields') || 'path+snippet';
     const snippetChars = getOpt('snippet-chars', 'number');
     const countOnly = hasOpt('count-only');
+    const useKeyword = hasOpt('keyword');
+    const matchRaw = getOpt('match');
+    const contentScope = getOpt('content-scope');
     const validFields = ['path', 'path+snippet', 'full'];
     if (fields && !validFields.includes(fields)) {
       exitWithError(`knowtation search: --fields must be one of ${validFields.join(', ')}.`, 1, useJson);
     }
+    if (matchRaw && !useKeyword) {
+      exitWithError('knowtation search: --match is only valid with --keyword.', 1, useJson);
+    }
+    let match = 'phrase';
+    if (matchRaw) {
+      if (matchRaw === 'all-terms' || matchRaw === 'all_terms') match = 'all_terms';
+      else if (matchRaw === 'phrase') match = 'phrase';
+      else exitWithError('knowtation search: --match must be phrase or all-terms.', 1, useJson);
+    }
+    const validScopes = ['all', 'notes', 'approval_logs'];
+    if (contentScope && !validScopes.includes(contentScope)) {
+      exitWithError(`knowtation search: --content-scope must be one of ${validScopes.join(', ')}.`, 1, useJson);
+    }
     (async () => {
       try {
         const config = loadConfig();
-        const { runSearch } = await import('../lib/search.mjs');
-        const out = await runSearch(query, {
+        const baseOpts = {
           folder: folder ?? undefined,
           project: project ?? undefined,
           tag: tag ?? undefined,
@@ -247,7 +262,16 @@ async function main() {
           fields: fields || 'path+snippet',
           snippetChars: snippetChars ?? 300,
           countOnly,
-        });
+          content_scope: contentScope === 'all' ? undefined : contentScope ?? undefined,
+        };
+        let out;
+        if (useKeyword) {
+          const { runKeywordSearch } = await import('../lib/keyword-search.mjs');
+          out = await runKeywordSearch(query, { ...baseOpts, match }, config);
+        } else {
+          const { runSearch } = await import('../lib/search.mjs');
+          out = await runSearch(query, baseOpts, config);
+        }
         if (config.memory?.enabled) {
           try {
             const { storeMemory } = await import('../lib/memory.mjs');

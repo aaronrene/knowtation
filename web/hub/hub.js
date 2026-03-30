@@ -73,6 +73,7 @@
   const filterSince = el('filter-since');
   const filterUntil = el('filter-until');
   const filterContentScope = el('filter-content-scope');
+  const searchMode = el('search-mode');
   const btnSearch = el('btn-search');
   const btnClearSearch = el('btn-clear-search');
   const btnApplyFilters = el('btn-apply-filters');
@@ -1307,6 +1308,12 @@
     return 'Match strength ~' + pct + '% (higher = closer in meaning)';
   }
 
+  function keywordMatchStrengthLabel(score) {
+    if (score == null || typeof score !== 'number' || Number.isNaN(score)) return '';
+    const pct = Math.round(Math.min(1, Math.max(0, score)) * 100);
+    return 'Keyword match ~' + pct + '% (text overlap)';
+  }
+
   if (btnClearSearch) {
     btnClearSearch.onclick = () => {
       searchQuery.value = '';
@@ -1497,8 +1504,9 @@
     const query = searchQuery.value.trim();
     if (!query) return;
     const activeMainTab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const useKeyword = searchMode && searchMode.value === 'keyword';
     if (activeMainTab && activeMainTab !== 'notes') {
-      showToast('Semantic results are shown under the Notes tab.');
+      showToast(useKeyword ? 'Keyword results are shown under the Notes tab.' : 'Semantic results are shown under the Notes tab.');
     }
     switchNotesView('list');
     document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
@@ -1513,6 +1521,7 @@
       : ' · scope: entire vault (use dropdowns to narrow)';
     try {
       const body = { query, limit: 20 };
+      if (useKeyword) body.mode = 'keyword';
       if (filterProject.value) body.project = filterProject.value;
       if (filterTag.value) body.tag = filterTag.value;
       if (filterFolder.value) body.folder = filterFolder.value;
@@ -1522,9 +1531,10 @@
       const out = await api('/api/v1/search', { method: 'POST', body: JSON.stringify(body) });
       const results = out.results || [];
       if (results.length === 0) {
-        notesList.innerHTML =
-          '<div class="empty-state">No notes matched this query under the current filters. Semantic search finds <em>similar meaning</em>, not exact words — try other phrases, clear filters, or use Quick chips + Apply filters for exact tags/projects.</div>';
-        notesTotal.textContent = '0 semantic results' + scopeSuffix;
+        notesList.innerHTML = useKeyword
+          ? '<div class="empty-state">No notes contained this text under the current filters. Try different words, clear filters, or switch to <strong>Meaning</strong> for similarity search.</div>'
+          : '<div class="empty-state">No notes matched this query under the current filters. Semantic search finds <em>similar meaning</em>, not exact words — try other phrases, clear filters, use <strong>Keyword</strong> for literal text, or use Quick chips + Apply filters for exact tags/projects.</div>';
+        notesTotal.textContent = (useKeyword ? '0 keyword' : '0 semantic') + ' results' + scopeSuffix;
         return;
       }
       notesList.innerHTML = results
@@ -1532,7 +1542,7 @@
           const chips = [];
           if (r.project) chips.push('<span class="chip chip-project">' + escapeHtml(r.project) + '</span>');
           (r.tags || []).slice(0, 3).forEach((t) => chips.push('<span class="chip chip-tag">' + escapeHtml(t) + '</span>'));
-          const strength = semanticMatchStrengthLabel(r.score);
+          const strength = useKeyword ? keywordMatchStrengthLabel(r.score) : semanticMatchStrengthLabel(r.score);
           const pathStr = String(r.path || '').replace(/\\/g, '/');
           const isLog = pathStr === 'approvals' || pathStr.startsWith('approvals/');
           const badge = isLog ? '<span class="badge-approval-log">Approval log</span>' : '';
@@ -1555,7 +1565,11 @@
         })
         .join('');
       notesTotal.textContent =
-        results.length + ' semantic result' + (results.length === 1 ? '' : 's') + scopeSuffix;
+        results.length +
+        (useKeyword ? ' keyword' : ' semantic') +
+        ' result' +
+        (results.length === 1 ? '' : 's') +
+        scopeSuffix;
       bindNoteClicks(notesList);
       listSelectedIndex = 0;
       updateListSelection();

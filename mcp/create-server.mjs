@@ -9,6 +9,7 @@ import { loadConfig } from '../lib/config.mjs';
 import { readNote, resolveVaultRelativePath } from '../lib/vault.mjs';
 import { runListNotes } from '../lib/list-notes.mjs';
 import { runSearch } from '../lib/search.mjs';
+import { runKeywordSearch } from '../lib/keyword-search.mjs';
 import { runIndex } from '../lib/indexer.mjs';
 import { writeNote, isInboxPath } from '../lib/write.mjs';
 import { exportNotes } from '../lib/export.mjs';
@@ -39,9 +40,12 @@ export function mountKnowtationMcp(server) {
   server.registerTool(
     'search',
     {
-      description: 'Semantic search over the indexed vault. Returns ranked results.',
+      description:
+        'Search the vault: semantic (vector similarity, default) or keyword (substring / all-terms over path, body, and key frontmatter). Same filters as list-notes where applicable.',
       inputSchema: {
         query: z.string().describe('Search query string'),
+        mode: z.enum(['semantic', 'keyword']).optional().describe('semantic = meaning (indexed); keyword = literal text'),
+        match: z.enum(['phrase', 'all_terms']).optional().describe('Keyword only: phrase = whole query substring; all_terms = every token must appear (AND)'),
         folder: z.string().optional().describe('Filter by folder path prefix'),
         project: z.string().optional().describe('Filter by project slug'),
         tag: z.string().optional().describe('Filter by tag'),
@@ -55,12 +59,13 @@ export function mountKnowtationMcp(server) {
         chain: z.string().optional().describe('Causal chain filter'),
         entity: z.string().optional().describe('Entity filter'),
         episode: z.string().optional().describe('Episode filter'),
+        content_scope: z.enum(['all', 'notes', 'approval_logs']).optional().describe('Restrict to note files vs approval logs'),
       },
     },
     async (args) => {
       try {
         const config = loadConfig();
-        const out = await runSearch(args.query, {
+        const base = {
           folder: args.folder,
           project: args.project,
           tag: args.tag,
@@ -74,7 +79,12 @@ export function mountKnowtationMcp(server) {
           chain: args.chain,
           entity: args.entity,
           episode: args.episode,
-        });
+          content_scope: args.content_scope === 'all' ? undefined : args.content_scope,
+        };
+        const out =
+          args.mode === 'keyword'
+            ? await runKeywordSearch(args.query, { ...base, match: args.match === 'all_terms' ? 'all_terms' : 'phrase' }, config)
+            : await runSearch(args.query, base, config);
         if (config.memory?.enabled) {
           try {
             storeMemory(config.data_dir, 'last_search', {

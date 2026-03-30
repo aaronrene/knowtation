@@ -34,6 +34,7 @@ import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
 import { deleteNotesByProjectSlug, renameProjectSlugInVault } from '../lib/hub-bulk-metadata.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
+import { runKeywordSearch } from '../lib/keyword-search.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../lib/import-source-types.mjs';
@@ -519,7 +520,7 @@ app.get(/^\/api\/v1\/notes\/(.+)$/, (req, res) => {
   }
 });
 
-// POST /api/v1/search — semantic search
+// POST /api/v1/search — semantic (default) or keyword
 app.post('/api/v1/search', async (req, res) => {
   const query = req.body?.query;
   if (!query || typeof query !== 'string') {
@@ -527,21 +528,37 @@ app.post('/api/v1/search', async (req, res) => {
   }
   const rawLimit = req.body?.limit;
   const limit = rawLimit != null ? Math.min(100, Math.max(0, parseInt(rawLimit, 10) || 20)) : 20;
+  const mode = req.body?.mode === 'keyword' ? 'keyword' : 'semantic';
   try {
     const opts = {
       folder: req.body.folder,
       project: req.body.project,
       tag: req.body.tag,
-      limit,
       since: req.body.since,
       until: req.body.until,
       order: req.body.order,
       fields: req.body.fields,
       vault_id: req.vault_id,
       content_scope: req.body.content_scope,
+      chain: req.body.chain,
+      entity: req.body.entity,
+      episode: req.body.episode,
     };
     const vaultConfig = { ...config, vault_path: req.vaultPath };
-    let out = await runSearch(query, opts, vaultConfig);
+    let out;
+    if (mode === 'keyword') {
+      const kwLimit = Math.max(1, Math.min(100, limit || 20));
+      const kwOpts = {
+        ...opts,
+        limit: kwLimit,
+        snippetChars: req.body.snippetChars != null ? parseInt(req.body.snippetChars, 10) || 300 : undefined,
+        countOnly: req.body.count_only === true || req.body.countOnly === true,
+        match: req.body.match === 'all_terms' ? 'all_terms' : 'phrase',
+      };
+      out = await runKeywordSearch(query, kwOpts, vaultConfig);
+    } else {
+      out = { ...(await runSearch(query, { ...opts, limit }, vaultConfig)), mode: 'semantic' };
+    }
     if (out.results && req.vaultPath) {
       out = {
         ...out,

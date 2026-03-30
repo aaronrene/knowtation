@@ -1681,23 +1681,79 @@ app.post('/api/v1/search', async (req, res) => {
   const limit = Math.max(1, Math.min(parseInt(req.body?.limit, 10) || 20, 100));
   const snippetChars = parseInt(req.body?.snippetChars, 10) || 300;
   try {
+    const mode = req.body?.mode === 'keyword' ? 'keyword' : 'semantic';
+    const bridgeVaultId = sanitizeVaultId(req.headers['x-vault-id']);
+
+    if (mode === 'keyword') {
+      let exportRes;
+      try {
+        exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
+          method: 'GET',
+          headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': bridgeVaultId, Accept: 'application/json' },
+        });
+      } catch (_e) {
+        return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
+      }
+      if (!exportRes.ok) {
+        return res.status(502).json({ error: 'Canister export failed', code: 'BAD_GATEWAY', status: exportRes.status });
+      }
+      let vault;
+      try {
+        vault = await exportRes.json();
+      } catch (_e) {
+        return res.status(502).json({ error: 'Invalid canister response', code: 'BAD_GATEWAY' });
+      }
+      let rawNotes = vault.notes || [];
+      if (hctx.scope) {
+        rawNotes = applyScopeFilterToNotes(rawNotes, hctx.scope);
+      }
+      const { noteRecordFromExportPayload, keywordSearchNotesArray } = await import('../../lib/keyword-search.mjs');
+      const { filterNotesByListOptions } = await import('../../lib/list-notes.mjs');
+      let shaped = rawNotes.map((n) => noteRecordFromExportPayload(n));
+      shaped = filterNotesByListOptions(shaped, {
+        folder: req.body?.folder,
+        project: req.body?.project,
+        tag: req.body?.tag,
+        since: req.body?.since,
+        until: req.body?.until,
+        chain: req.body?.chain,
+        entity: req.body?.entity,
+        episode: req.body?.episode,
+        content_scope: req.body?.content_scope,
+      });
+      const fields =
+        req.body?.fields === 'path' || req.body?.fields === 'full' ? req.body.fields : 'path+snippet';
+      const out = keywordSearchNotesArray(shaped, query, {
+        limit,
+        order: req.body?.order,
+        fields,
+        snippetChars,
+        match: req.body?.match === 'all_terms' ? 'all_terms' : 'phrase',
+        countOnly: req.body?.count_only === true || req.body?.countOnly === true,
+      });
+      if (out.results && hctx.scope) {
+        return res.json({ ...out, results: applyScopeFilterToNotes(out.results, hctx.scope) });
+      }
+      return res.json(out);
+    }
+
     const { embed } = await import('../../lib/embedding.mjs');
-    const { filterHitsByContentScope, resolveSearchFolderForContentScope } = await import('../../lib/approval-log.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
+    const { filterHitsByContentScope, resolveSearchFolderForContentScope } = await import('../../lib/approval-log.mjs');
+    const { MAX_VECTOR_KNN } = await import('../../lib/vector-knn-limit.mjs');
 
     const vectorsDir = await getVectorsDirForUser(req, canisterUid);
     const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
     const store = await createVectorStore(storeConfig);
-    const bridgeVaultId = sanitizeVaultId(req.headers['x-vault-id']);
     const [queryVector] = await embed([query], storeConfig.embedding);
     if (!queryVector) {
       return res.status(500).json({ error: 'Embedding failed', code: 'INTERNAL_ERROR' });
     }
     const cs = req.body?.content_scope || 'all';
-    const userFolder = req.body?.folder != null && String(req.body.folder).trim() ? req.body.folder : undefined;
+    const userFolder = req.body?.folder;
     const resolved = resolveSearchFolderForContentScope(cs, userFolder);
     if (resolved.impossible) {
-      return res.json({ results: [], query });
+      return res.json({ results: [], query, mode: 'semantic' });
     }
     let searchLimit = limit;
     if (resolved.wideNotesFetch) {
@@ -1705,6 +1761,7 @@ app.post('/api/v1/search', async (req, res) => {
     } else if (cs !== 'all') {
       searchLimit = Math.min(10000, Math.max(limit * 40, 800));
     }
+    searchLimit = Math.min(searchLimit, MAX_VECTOR_KNN);
     const hits = await store.search(queryVector, {
       limit: searchLimit,
       vault_id: bridgeVaultId,
@@ -1718,21 +1775,19 @@ app.post('/api/v1/search', async (req, res) => {
       entity: req.body?.entity,
       episode: req.body?.episode,
     });
-    let results = (hits || []).map((h) => ({
+    let scopedHits = filterHitsByContentScope(hits || [], cs);
+    scopedHits = scopedHits.slice(0, limit);
+    let results = scopedHits.map((h) => ({
       path: h.path,
       score: h.score,
       project: h.project ?? null,
       tags: h.tags ?? [],
       snippet: truncateSnippet(h.text, snippetChars),
     }));
-    if (cs === 'notes' || cs === 'approval_logs') {
-      results = filterHitsByContentScope(results, cs);
-      results = results.slice(0, limit);
-    }
     if (hctx.scope) {
       results = applyScopeFilterToNotes(results, hctx.scope);
     }
-    return res.json({ results, query });
+    return res.json({ results, query, mode: 'semantic' });
   } catch (e) {
     console.error('Bridge search error:', e);
     return res.status(500).json({
