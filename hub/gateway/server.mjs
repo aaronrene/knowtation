@@ -315,6 +315,9 @@ if (BRIDGE_URL) {
   app.post('/api/v1/roles', requireAdmin, async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/roles', req, res);
   });
+  app.post('/api/v1/roles/evaluator-may-approve', requireAdmin, async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/roles/evaluator-may-approve', req, res);
+  });
   app.get('/api/v1/invites', requireAdmin, async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + req.originalUrl, req, res);
   });
