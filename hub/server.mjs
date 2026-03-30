@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub — REST API + OAuth + JWT. Phase 11.
  * Run from repo root: node hub/server.mjs
- * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL, HUB_PROPOSAL_EVALUATION_REQUIRED (see lib/hub-proposal-policy.mjs), HUB_EVALUATOR_MAY_APPROVE=1 (fallback when no per-user row in data/hub_evaluator_may_approve.json), KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1 (async LLM hints; not a gate).
+ * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL, HUB_PROPOSAL_EVALUATION_REQUIRED, KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS, KNOWTATION_HUB_PROPOSAL_ENRICH (see lib/hub-proposal-policy.mjs; explicit 0/1 or false/true overrides data/hub_proposal_policy.json), HUB_EVALUATOR_MAY_APPROVE=1 (fallback when no per-user row in data/hub_evaluator_may_approve.json).
  */
 
 import path from 'path';
@@ -34,6 +34,7 @@ import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
 import { deleteNotesByProjectSlug, renameProjectSlugInVault } from '../lib/hub-bulk-metadata.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
+import { buildApprovalLogWrite } from '../lib/approval-log.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../lib/import-source-types.mjs';
@@ -52,7 +53,14 @@ import {
   evaluationAllowsApprove,
 } from './proposals-store.mjs';
 import { loadProposalRubric } from '../lib/hub-proposal-rubric.mjs';
-import { getProposalEvaluationRequired } from '../lib/hub-proposal-policy.mjs';
+import {
+  getProposalEvaluationRequired,
+  getProposalReviewHintsEnabled,
+  getProposalEnrichEnabled,
+  proposalPolicyEnvLocked,
+  readProposalPolicyFile,
+  writeProposalPolicyMerge,
+} from '../lib/hub-proposal-policy.mjs';
 import { loadReviewTriggers, applyReviewTriggers } from '../lib/hub-proposal-review-triggers.mjs';
 import { runProposalReviewHintsJob } from '../lib/hub-proposal-review-hints-job.mjs';
 import { appendAudit } from './audit-log.mjs';
@@ -482,6 +490,7 @@ app.get('/api/v1/notes', parseQueryBounds, (req, res) => {
       order: req.query.order,
       fields: req.query.fields || 'path+metadata',
       countOnly: req.query.count_only === 'true',
+      content_scope: req.query.content_scope,
     };
     const vaultConfig = { ...config, vault_path: req.vaultPath };
     const out = (req.scope?.projects?.length || req.scope?.folders?.length)
@@ -529,6 +538,7 @@ app.post('/api/v1/search', async (req, res) => {
       order: req.body.order,
       fields: req.body.fields,
       vault_id: req.vault_id,
+      content_scope: req.body.content_scope,
     };
     const vaultConfig = { ...config, vault_path: req.vaultPath };
     let out = await runSearch(query, opts, vaultConfig);
@@ -855,7 +865,7 @@ app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
         detail: { reasons: applied.auto_flag_reasons },
       });
     }
-    if (process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1') {
+    if (getProposalReviewHintsEnabled(config.data_dir)) {
       setImmediate(() => {
         runProposalReviewHintsJob(config, proposal.proposal_id).catch(() => {});
       });
@@ -929,6 +939,30 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, (req, res) => {
       body: proposal.body,
       frontmatter: fm,
     });
+    const approvedAt = new Date().toISOString();
+    let approval_log_written = true;
+    let approval_log_error;
+    let approval_log_path;
+    try {
+      const al = buildApprovalLogWrite({
+        proposalId: proposal.proposal_id,
+        targetPath: proposal.path,
+        approvedAt,
+        approvedBy: req.user?.sub ?? '',
+        proposedBy: proposal.proposed_by,
+        intent: proposal.intent,
+        source: proposal.source,
+      });
+      writeNote(approveVaultPath, al.relativePath, {
+        body: al.body,
+        frontmatter: al.frontmatter,
+      });
+      approval_log_path = al.relativePath;
+    } catch (logErr) {
+      approval_log_written = false;
+      approval_log_error = logErr && logErr.message ? String(logErr.message) : 'approval_log_write_failed';
+      console.error('[hub] approval log write failed:', logErr);
+    }
     let evaluation_waiver;
     if (!evaluationAllowsApprove(proposal) && waiverReason.length >= 3) {
       evaluation_waiver = {
@@ -940,15 +974,24 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, (req, res) => {
     const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved', {
       ...(evaluation_waiver ? { evaluation_waiver } : {}),
     });
+    const auditDetail = {
+      ...(evaluation_waiver ? { reason_len: waiverReason.length } : {}),
+      ...(!approval_log_written && approval_log_error ? { approval_log_error } : {}),
+    };
     appendAudit(config.data_dir, {
       userId: req.user?.sub ?? 'unknown',
       action: evaluation_waiver ? 'approve_waiver' : 'approve',
       proposalId: req.params.id,
-      ...(evaluation_waiver ? { detail: { reason_len: waiverReason.length } } : {}),
+      ...(Object.keys(auditDetail).length ? { detail: auditDetail } : {}),
     });
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: approveVaultPath });
-    res.json(updated);
+    res.json({
+      ...updated,
+      approval_log_written,
+      ...(approval_log_path ? { approval_log_path } : {}),
+      ...(approval_log_error ? { approval_log_error } : {}),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
@@ -964,7 +1007,7 @@ app.post('/api/v1/proposals/:id/discard', requireRole('admin'), (req, res) => {
 
 // Optional Tier-2: LLM summary + suggested labels (KNOWTATION_HUB_PROPOSAL_ENRICH=1; see docs/PROPOSAL-LIFECYCLE.md)
 app.post('/api/v1/proposals/:id/enrich', requireRole('editor', 'admin', 'evaluator'), async (req, res) => {
-  if (process.env.KNOWTATION_HUB_PROPOSAL_ENRICH !== '1') {
+  if (!getProposalEnrichEnabled(config.data_dir)) {
     return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
   }
   const proposal = getProposal(config.data_dir, req.params.id);
@@ -1019,6 +1062,7 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
   const vaultList = (vaultListRaw.length ? vaultListRaw : config.vaultList || []).map((v) => ({ id: v.id, label: v.label || v.id }));
   const allowed_vault_ids = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
   const dataDirDisplay = path.relative(projectRoot, config.data_dir);
+  const storedPolicy = readProposalPolicyFile(config.data_dir);
   res.json({
     role: effectiveRole(req),
     user_id: req.user?.sub ?? '',
@@ -1042,9 +1086,15 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
       model: emb.model || 'nomic-embed-text',
       ollama_url: ollamaUrl,
     },
-    proposal_enrich_enabled: process.env.KNOWTATION_HUB_PROPOSAL_ENRICH === '1',
+    proposal_enrich_enabled: getProposalEnrichEnabled(config.data_dir),
     proposal_evaluation_required: getProposalEvaluationRequired(config.data_dir),
-    proposal_review_hints_enabled: process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1',
+    proposal_review_hints_enabled: getProposalReviewHintsEnabled(config.data_dir),
+    proposal_policy_stored: {
+      proposal_evaluation_required: storedPolicy.proposal_evaluation_required === true,
+      review_hints_enabled: storedPolicy.review_hints_enabled === true,
+      enrich_enabled: storedPolicy.enrich_enabled === true,
+    },
+    proposal_policy_env_locked: proposalPolicyEnvLocked(),
     hub_evaluator_may_approve: actorMayApproveProposals(
       req.user?.sub ?? '',
       effectiveRole(req),
@@ -1054,6 +1104,26 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
     proposal_rubric: loadProposalRubric(config.data_dir),
   });
 });
+
+app.post(
+  '/api/v1/settings/proposal-policy',
+  jwtAuth,
+  apiLimiter,
+  requireRole('admin'),
+  (req, res) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      writeProposalPolicyMerge(config.data_dir, {
+        proposal_evaluation_required: body.proposal_evaluation_required,
+        review_hints_enabled: body.review_hints_enabled,
+        enrich_enabled: body.enrich_enabled,
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+    }
+  },
+);
 
 // POST /api/v1/vault/sync — manual "Back up now" (Phase 13: editor or admin; Phase 15: vault-scoped)
 app.post('/api/v1/vault/sync', jwtAuth, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {

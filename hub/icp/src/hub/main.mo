@@ -1420,6 +1420,15 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         let vault = getVault(uid, targetVid);
         vault.put(p.path, (p.frontmatter, p.body));
         let nowAp = nowIsoUtc();
+        let datePart = textSlice(nowAp, 0, 10);
+        let logPath = "approvals/" # datePart # "-" # pathArg # ".md";
+        var logFm = "kind: approval_log\nproposal_id: " # pathArg # "\ntarget_path: \"" # escapeJson(p.path) # "\"\napproved_at: \"" # escapeJson(nowAp) # "\"\napproved_by: \"" # escapeJson(uid) # "\"\n";
+        if (Text.size(p.intent) > 0) {
+          let it0 = if (Text.size(p.intent) > 400) { textSlice(p.intent, 0, 400) } else { p.intent };
+          logFm := logFm # "intent: \"" # escapeJson(it0) # "\"\n";
+        };
+        let logBody = "Approved vault change applied to `" # p.path # "`.\n\n- **Proposal ID:** " # pathArg # "\n- **Approved at:** " # nowAp # "\n";
+        vault.put(logPath, (logFm, logBody));
         let waiverJson = if (needsWaiver and Text.size(waiverRaw) >= 3) {
           "{\"by\":\"" # escapeJson(uid) # "\",\"at\":\"" # nowAp # "\",\"reason\":\"" # escapeJson(waiverRaw) # "\"}"
         } else {
@@ -1438,7 +1447,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         });
         setProposalsList(uid, list);
         saveStable();
-        return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"approved\"}"); streaming_strategy = null; upgrade = null };
+        return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"approved\",\"approval_log_path\":\"" # escapeJson(logPath) # "\",\"approval_log_written\":true}"); streaming_strategy = null; upgrade = null };
       };
       case null {
         return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };

@@ -68,14 +68,14 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **GET /vault/folders** — Self-hosted: returns `{ "folders": string[] }` of vault-relative directory prefixes for the active vault (`inbox` first, then other top-level dirs and each `projects/<name>`). Hidden directories (names starting with `.`) are omitted. Used by the Hub **New note** folder picker; includes empty folders. Hosted gateway returns `{ "folders": ["inbox"] }` (no canister filesystem). JWT and vault access required.
 
-- **GET /notes** — List notes. Query params: `folder`, `project`, `tag`, `since`, `until`, `chain`, `entity`, `episode`, `limit`, `offset`, `order` (`date` \| `date-asc`), `fields` (`path` \| `path+metadata` \| `full`), `count_only`.  
+- **GET /notes** — List notes. Query params: `folder`, `project`, `tag`, `since`, `until`, `chain`, `entity`, `episode`, `limit`, `offset`, `order` (`date` \| `date-asc`), `fields` (`path` \| `path+metadata` \| `full`), `count_only`, **`content_scope`** (`all` implicit \| `notes` \| `approval_logs`) — narrow to normal notes vs materialized approval logs under `approvals/` (see approve response).  
   **Response:** `{ "notes": [ ... ], "total": number }` or `{ "total": number }` if `count_only=true`. Per-note shape per SPEC §4.2 list-notes.
 
 - **GET /notes/:path** — Get one note by vault-relative path. Path must be URL-encoded.  
   **Response:** `{ "path": "...", "frontmatter": { ... }, "body": "..." }` per SPEC §4.2 get-note.  
   **404** if not found.
 
-- **POST /search** — Semantic search. Body: `{ "query": "...", "folder?", "project?", "tag?", "limit?", "since?", "until?", "order?", "fields?" }`.  
+- **POST /search** — Semantic search. Body: `{ "query": "...", "folder?", "project?", "tag?", "limit?", "since?", "until?", "order?", "fields?", "content_scope?" }`. Optional **`content_scope`**: `notes` (exclude `approvals/…` hits) or `approval_logs` (only those paths).  
   **Response:** `{ "results": [ { "path", "snippet?", "score", "project", "tags" } ], "query": "..." }` per SPEC §4.2 search.  
   **400** if query missing.
 
@@ -119,7 +119,9 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 ### 3.3.1 Settings and vault backup (JWT required)
 
 - **GET /settings** — Safe config status for the Settings UI. No secrets or full paths.  
-  **Response:** `{ "role", "user_id", "vault_id", "vault_list": [ { "id", "label?" } ], "allowed_vault_ids": string[], "vault_path_display", "vault_git": { "enabled", "has_remote", "auto_commit", "auto_push" }, "github_connect_available", "github_connected", "embedding_display", "proposal_enrich_enabled?", "proposal_evaluation_required?", "proposal_review_hints_enabled?", "hub_evaluator_may_approve?", "proposal_rubric?" : { "items": [ { "id", "label" } ] } }`. Phase 15: `vault_list` and `allowed_vault_ids` drive the vault switcher; requests use **X-Vault-Id** to scope to a vault. **Proposal evaluation:** `proposal_evaluation_required` follows [lib/hub-proposal-policy.mjs](../lib/hub-proposal-policy.mjs) (env or `data/hub_proposal_policy.json`); `proposal_rubric` is the merged default + optional `data/hub_proposal_rubric.json` (see [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md)).
+  **Response:** adds **`proposal_policy_stored`** `{ "proposal_evaluation_required", "review_hints_enabled", "enrich_enabled" }` (values saved for the admin checkboxes) and **`proposal_policy_env_locked`** with the same keys (`true` where an explicit host env value overrides the file/prefs). Other fields unchanged: `"role", "user_id", "vault_id", "vault_list": [ { "id", "label?" } ], "allowed_vault_ids", "vault_path_display", "vault_git", "github_connect_available", "github_connected", "embedding_display", "proposal_enrich_enabled", "proposal_evaluation_required", "proposal_review_hints_enabled", "hub_evaluator_may_approve", "proposal_rubric": { "items": [ { "id", "label" } ] } }`. Phase 15: `vault_list` and `allowed_vault_ids` drive the vault switcher; requests use **X-Vault-Id** to scope to a vault. **Proposal LLM + gate:** effective `proposal_*_enabled` / `proposal_evaluation_required` follow [lib/hub-proposal-policy.mjs](../lib/hub-proposal-policy.mjs) on **self-hosted** (env overrides `data/hub_proposal_policy.json`). **Hosted gateway:** same env keys override persisted prefs in `data/hosted_proposal_llm_prefs.json` or Netlify Blob (`hub/gateway/proposal-llm-store.mjs`). `proposal_rubric` is the merged default + optional `data/hub_proposal_rubric.json` (see [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md)).
+
+- **POST /settings/proposal-policy** — **Admin** only. On the **hosted gateway**, “admin” means JWT from **`HUB_ADMIN_USER_IDS`** **or** bridge **`GET /api/v1/role`** returning **`role: admin`** (Team tab). Body: `{ "proposal_evaluation_required"?: boolean, "review_hints_enabled"?: boolean, "enrich_enabled"?: boolean }`. Merges into `data/hub_proposal_policy.json` (Node Hub) or hosted prefs store (gateway). Fields locked by explicit env on the host are ignored. **Response:** `{ "ok": true }`.
 
 - **POST /vault/sync** — Run manual vault sync (same as `knowtation vault sync`): git add, commit, push. Use for "Back up now" in Settings.  
   **Response:** `{ "ok": true, "message": "Synced" | "Nothing to commit" }`.  
@@ -175,15 +177,15 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
   **Response:** full proposal object (Node). **400** on validation errors; **404** if not found.
 
 - **POST /proposals/:id/approve** — Apply proposal to vault. **Admin**, or **evaluator** when **`HUB_EVALUATOR_MAY_APPROVE=1`**. Optional body: `{ "base_state_id?", "waiver_reason?" }`. **`waiver_reason`** (trimmed length ≥ 3) allows approve when **`evaluation_status`** is **`pending`**, **`failed`**, or **`needs_changes`** without a prior pass; stored as **`evaluation_waiver`** and audited. If the effective **`base_state_id`** is non-empty, the **self-hosted Node Hub** recomputes the current note fingerprint (`kn1_` per [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md)) and returns **409** `CONFLICT` when it does not match. Empty `base_state_id` skips the check (backward compatible).  
-  **Response:** `{ "proposal_id", "status": "approved", ... }`.  
+  **Response:** full proposal JSON plus **`approval_log_written`** (boolean), optional **`approval_log_path`** (vault-relative `approvals/YYYY-MM-DD-<proposal_id>.md`), and **`approval_log_error`** when the log file could not be written (approve still completes). **Hosted canister:** also returns `approval_log_path` and `approval_log_written: true` when the second vault put succeeds.  
   **403** `EVALUATION_REQUIRED` when evaluation blocks approve and waiver is missing/short. **409** if fingerprint mismatch.
 
-- **POST /proposals/:id/review-hints** — *(ICP canister)* Internal/async: body `{ "review_hints", "review_hints_model" }` stores non-authoritative hint text when **`KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1`** on the gateway schedules a follow-up. Not a merge gate.
+- **POST /proposals/:id/review-hints** — *(ICP canister)* Internal/async: body `{ "review_hints", "review_hints_model" }` stores non-authoritative hint text when review hints are **enabled** on the gateway (env `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS` or admin-saved prefs; see **GET /settings**) and the gateway schedules a follow-up after **POST /proposals**. Not a merge gate.
 
 - **POST /proposals/:id/discard** — Discard proposal (do not apply). **Admin** (Node Hub).  
   **Response:** `{ "proposal_id", "status": "discarded" }`.
 
-- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`**, **editor**, **admin**, or **evaluator** may request a short LLM summary and suggested labels. **404** if the feature is disabled (`NOT_FOUND` body). **Self-hosted:** Node Hub runs the model and updates local proposal storage. **Hosted:** The **gateway** runs `completeChat` ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `{ "assistant_notes", "assistant_model", "suggested_labels_json" }` to the canister; **response** is the same shape as **GET /proposals/:id** from the canister. Chat backends: **OpenAI** (`OPENAI_API_KEY`), else **Anthropic** (`ANTHROPIC_API_KEY`), else **Ollama** (local). **Canister** route stores enrich fields only (trusted caller is the gateway with user headers).
+- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When **enrich** is enabled (env `KNOWTATION_HUB_PROPOSAL_ENRICH` or admin-saved prefs; see **GET /settings**), **editor**, **admin**, or **evaluator** may request a short LLM summary and suggested labels. **404** if the feature is disabled (`NOT_FOUND` body). **Self-hosted:** Node Hub runs the model and updates local proposal storage. **Hosted:** The **gateway** runs `completeChat` ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `{ "assistant_notes", "assistant_model", "suggested_labels_json" }` to the canister; **response** is the same shape as **GET /proposals/:id** from the canister. Chat backends: **OpenAI** (`OPENAI_API_KEY`), else **Anthropic** (`ANTHROPIC_API_KEY`), else **Ollama** (local). **Canister** route stores enrich fields only (trusted caller is the gateway with user headers).
 
 ### 3.5 Capture (webhook, no JWT)
 

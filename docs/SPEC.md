@@ -170,7 +170,7 @@ No secrets in config; use env for API keys (e.g. `OPENAI_API_KEY`). Do not commi
 
 ## 5. Indexer and chunk metadata
 
-- **Input:** All Markdown under vault root (respecting optional ignore patterns, e.g. `templates/`, `meta/`).
+- **Input:** All Markdown under vault root (respecting optional ignore patterns, e.g. `templates/`, `meta/`). **Approval audit notes** written by the Hub on proposal approve live under vault-relative `approvals/` (frontmatter `kind: approval_log`) and are indexed like other notes unless a deployment adds `approvals` to `ignore`.
 - **Chunking:** Size and overlap are implementation-defined; typical 256–512 tokens with overlap. Each chunk MUST carry metadata: `path` (vault-relative), `project` (from path or frontmatter), `tags` (array from frontmatter). Optional: `date`, `source`.
 - **Embedding:** Per config (`embedding.provider`, `embedding.model`). Vectors stored in Qdrant or sqlite-vec with the same metadata so that `search --project` and `--tag` can filter at retrieval time (metadata filter or post-filter).
 - **Idempotency:** Indexer should upsert by stable chunk id (e.g. path + chunk index or content hash) so re-runs do not duplicate points.
