@@ -128,6 +128,8 @@ On the server, create or edit `data/hub_roles.json` (see format below); restart 
 
 The Hub UI shows **Your role** and **Your user ID** in Settings so users know their role and can share their ID with an admin. A future **invite flow** (Phase 13) may allow assigning by email or invite link so you don’t have to manage the JSON file by hand.
 
+**Role changes vs JWT:** The JWT still stores whatever role you had at login. For API checks and **GET /api/v1/settings**, the Hub uses **`data/hub_roles.json` (current file)** as the source of truth, so Team changes (e.g. promoting someone to evaluator or toggling **May approve**) apply on the next request without logging out.
+
 ## Note provenance (self-hosted Hub)
 
 On **`POST /api/v1/notes`**, **`POST /api/v1/import`** (second pass on each imported path), **`POST /api/v1/capture`**, and **proposal approve**, the Hub merges **server-controlled** YAML frontmatter so clients cannot forge identity:
