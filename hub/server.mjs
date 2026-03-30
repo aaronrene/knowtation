@@ -173,11 +173,16 @@ function jwtAuth(req, res, next) {
   }
 }
 
-/** Phase 13: effective role for permission checks. When no roles file, everyone is admin (backward compat). */
+/**
+ * Phase 13: effective role for permission checks and Settings UI.
+ * Always derived from hub_roles.json (roleMap), not from the JWT payload, so Team role changes
+ * apply without forcing users to log out and back in. JWT `role` is only set at login time.
+ */
 function effectiveRole(req) {
   if (roleMap.size === 0) return 'admin';
-  const r = req.user?.role;
-  return r === 'member' || !r ? 'editor' : r;
+  const sub = req.user?.sub ?? '';
+  const gr = getRole(roleMap, sub);
+  return gr === 'member' || !gr ? 'editor' : gr;
 }
 
 /** Phase 13: require one of the given roles (viewer, editor, admin, evaluator). Must run after jwtAuth. */
@@ -1015,7 +1020,7 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
   const allowed_vault_ids = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
   const dataDirDisplay = path.relative(projectRoot, config.data_dir);
   res.json({
-    role: req.user?.role ?? 'member',
+    role: effectiveRole(req),
     user_id: req.user?.sub ?? '',
     vault_id: req.vault_id ?? 'default',
     vault_list: vaultList,
