@@ -607,6 +607,7 @@ app.get('/api/v1/settings', async (req, res) => {
   let github_connected = false;
   let github_repo = null;
   let role = roleForSub(uid);
+  let hub_evaluator_may_approve = process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
   if (BRIDGE_URL && req.headers.authorization) {
     try {
       const ghRes = await fetch(BRIDGE_URL + '/api/v1/vault/github-status', {
@@ -627,6 +628,7 @@ app.get('/api/v1/settings', async (req, res) => {
       if (roleRes.ok) {
         const data = await roleRes.json();
         if (data.role) role = data.role;
+        if (typeof data.may_approve_proposals === 'boolean') hub_evaluator_may_approve = data.may_approve_proposals;
       }
     } catch (e) {
       console.warn('[gateway] bridge unreachable', e?.message || String(e));
@@ -655,7 +657,7 @@ app.get('/api/v1/settings', async (req, res) => {
     proposal_enrich_enabled: process.env.KNOWTATION_HUB_PROPOSAL_ENRICH === '1',
     proposal_evaluation_required: getProposalEvaluationRequired(path.join(projectRoot, 'data')),
     proposal_review_hints_enabled: process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1',
-    hub_evaluator_may_approve: process.env.HUB_EVALUATOR_MAY_APPROVE === '1',
+    hub_evaluator_may_approve,
     proposal_rubric: loadProposalRubric(path.join(projectRoot, 'data')),
   });
 });
@@ -955,14 +957,93 @@ async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
   }
 }
 
+const PROPOSAL_APPROVE_OR_DISCARD_RE = /^\/api\/v1\/proposals\/[^/]+\/(approve|discard)\/?$/;
+
+/**
+ * Approve/discard: enforce actor role on gateway (canister only sees effective X-User-Id).
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {string} pathNoQuery
+ * @param {string} method
+ * @param {Record<string, unknown>|null} hctx from getHostedAccessContext (null if no bridge / not delegated)
+ */
+async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method, hctx) {
+  if (method !== 'POST' || !PROPOSAL_APPROVE_OR_DISCARD_RE.test(pathNoQuery)) return true;
+
+  const uid = getUserId(req);
+  if (!uid) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return false;
+  }
+
+  const envFallback = process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
+  let role = 'member';
+  let mayApproveProposals = false;
+  if (hctx && typeof hctx.role === 'string') {
+    role = hctx.role;
+    if (typeof hctx.may_approve_proposals === 'boolean') {
+      mayApproveProposals = hctx.may_approve_proposals;
+    } else if (role === 'evaluator') {
+      mayApproveProposals = envFallback;
+    }
+  } else if (BRIDGE_URL && req.headers.authorization) {
+    try {
+      const roleRes = await fetch(BRIDGE_URL + '/api/v1/role', {
+        method: 'GET',
+        headers: { Authorization: req.headers.authorization, Accept: 'application/json' },
+      });
+      if (roleRes.ok) {
+        const data = await roleRes.json();
+        if (data.role) role = data.role;
+        if (typeof data.may_approve_proposals === 'boolean') {
+          mayApproveProposals = data.may_approve_proposals;
+        } else if (role === 'evaluator') {
+          mayApproveProposals = envFallback;
+        }
+      }
+    } catch (_) {}
+  } else {
+    try {
+      const auth = req.headers.authorization;
+      const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      if (token && SESSION_SECRET) {
+        const payload = jwt.verify(token, SESSION_SECRET);
+        role = payload.role || roleForSub(payload.sub);
+        mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
+      }
+    } catch (_) {}
+  }
+
+  if (/\/discard\/?$/.test(pathNoQuery)) {
+    if (role !== 'admin') {
+      res.status(403).json({ error: 'Discard requires admin.', code: 'FORBIDDEN' });
+      return false;
+    }
+    return true;
+  }
+
+  const canApprove = role === 'admin' || (role === 'evaluator' && mayApproveProposals);
+  if (!canApprove) {
+    res.status(403).json({
+      error:
+        'Approve requires admin, or an evaluator with approve permission (per-user in Team, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user value).',
+      code: 'FORBIDDEN',
+    });
+    return false;
+  }
+  return true;
+}
+
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
   if (!uid) {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
   const pathOnly = effectiveRequestPath(req);
+  const pathNoQuery = pathPartNoQuery(req);
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
   const hctx = await getHostedAccessContext(req);
+  if (!(await assertHostedProposalApproveDiscard(req, res, pathNoQuery, req.method, hctx))) return;
   const effective =
     hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
       ? hctx.effective_canister_user_id

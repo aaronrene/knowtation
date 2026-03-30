@@ -8,9 +8,10 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 - **GET /auth/callback/github-connect** — GitHub OAuth callback (do not call directly).
 - **POST /api/v1/vault/sync** — Back up now. Requires `Authorization: Bearer <jwt>`. Body optional: `{ "repo": "owner/name" }`. Fetches vault from canister, pushes to GitHub.
 - **GET /api/v1/vault/github-status** — Returns `{ github_connected, repo }` for the authenticated user.
-- **GET /api/v1/role** — Returns `{ role }` for the authenticated user (used by gateway for GET /api/v1/settings). Requires Bearer JWT.
-- **GET /api/v1/roles** — List roles (admin only). Returns `{ roles: { user_id: role } }`.
-- **POST /api/v1/roles** — Add or update role (admin only). Body `{ user_id, role }`.
+- **GET /api/v1/role** — Returns `{ role, may_approve_proposals }` for the authenticated user (gateway **settings** + approve gate). **may_approve_proposals** is true for **admin**; for **evaluator** it follows per-user blob **`hub_evaluator_may_approve`** and env **`HUB_EVALUATOR_MAY_APPROVE=1`** when no row exists. Requires Bearer JWT.
+- **GET /api/v1/roles** — List roles (admin only). Returns `{ roles, evaluator_may_approve }` (map of user id → boolean).
+- **POST /api/v1/roles** — Add or update role (admin only). Body `{ user_id, role, evaluator_may_approve? }`. When **role** is **evaluator**, optional **evaluator_may_approve** (boolean) sets or clears the per-user approve flag in blob **`hub_evaluator_may_approve`**. Changing a user to a non-evaluator role removes their entry from that map.
+- **POST /api/v1/roles/evaluator-may-approve** — Admin only. Body `{ user_id, evaluator_may_approve: boolean }`. Target user must already be **evaluator**.
 - **GET /api/v1/invites** — List pending invites (admin only).
 - **POST /api/v1/invites** — Create invite link (admin only). Body `{ role }`. Returns `{ invite_url, token, role, created_at, expires_at }`.
 - **DELETE /api/v1/invites/:token** — Revoke invite (admin only).
@@ -19,7 +20,7 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 - **POST /api/v1/workspace** — Body `{ owner_user_id: string | null }` (admin only). `null` disables delegation.
 - **GET /api/v1/vault-access**, **POST /api/v1/vault-access** — Same contract as Node Hub `hub_vault_access.json` (admin only).
 - **GET /api/v1/scope**, **POST /api/v1/scope** — Same contract as Node Hub `hub_scope.json` (admin only).
-- **GET /api/v1/hosted-context** — JWT. Returns effective canister user, `allowed_vault_ids`, and scope for current **`X-Vault-Id`** (used by the gateway).
+- **GET /api/v1/hosted-context** — JWT. Returns effective canister user, `allowed_vault_ids`, scope, **role**, and **may_approve_proposals** for current **`X-Vault-Id`** (used by the gateway).
 - **POST /api/v1/index** — Re-index vault (chunk → embed → sqlite-vec per **effective** user + vault). Requires Bearer JWT.
 - **POST /api/v1/search** — Semantic search. Body: `{ "query": "...", "limit?", ... }`. Requires Bearer JWT.
 
@@ -35,6 +36,7 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth for "Connect GitHub". Use a separate GitHub App or same as gateway. |
 | **DATA_DIR** | No | Directory for tokens, per-user vector DBs, and roles/invites (default: repo `data/`). Ignored on Netlify when Blobs are used. |
 | **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who are **admin** on hosted (bootstrap; can also add admins via POST /api/v1/roles). Should match gateway's `HUB_ADMIN_USER_IDS` so Settings shows the correct role. |
+| **HUB_EVALUATOR_MAY_APPROVE** | No | Set to **`1`** so **evaluators** without an explicit row in blob **`hub_evaluator_may_approve`** may **approve** proposals. Per-user **false** in the blob still denies. |
 | **BRIDGE_PORT** or **PORT** | No | Port (default 3341). |
 | **EMBEDDING_PROVIDER** | No | `ollama` (default) or `openai`. **On Netlify/serverless, prefer `openai`** — the default Ollama URL is `http://localhost:11434`, which the function cannot reach. |
 | **EMBEDDING_MODEL** | No | Model name (default `nomic-embed-text` for Ollama; e.g. `text-embedding-3-small` for OpenAI). |
@@ -66,7 +68,7 @@ Hub UI (hosted) must call this bridge for Connect GitHub and Back up now. Either
 
 ## Netlify Blobs (persistence on Netlify)
 
-When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens, per-user vector DBs, and **roles/invites** are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Use a **second Netlify site** with **Package directory** `deploy/bridge` (see [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md)). Enable **Blobs** for that site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). No extra environment variables are required; the function wrapper attaches the store per request. Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
+When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens, per-user vector DBs, **roles/invites**, and **hub_evaluator_may_approve** (per-evaluator approve permission) are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Use a **second Netlify site** with **Package directory** `deploy/bridge` (see [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md)). Enable **Blobs** for that site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). No extra environment variables are required; the function wrapper attaches the store per request. Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
 
 ## Reference
 

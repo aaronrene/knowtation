@@ -796,6 +796,9 @@ button.btn-new-note.btn-busy::after {
 .settings-h4 { margin: 1rem 0 0.5rem; font-size: 0.95rem; }
 .team-roles-list { display: flex; flex-direction: column; gap: 0.25rem; }
 .team-roles-list .team-role-row { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+.team-role-row-flex { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; justify-content: space-between; }
+.team-evaluator-approve-inline { display: inline-flex; align-items: center; gap: 0.35rem; font-family: inherit; font-size: 0.8rem; color: var(--muted); margin-left: auto; }
+.team-evaluator-approve-add { align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.88rem; color: var(--muted); }
 .settings-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 1rem; }
 .settings-tab { padding: 0.65rem 1rem; border: none; background: transparent; color: var(--muted); font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .settings-tab:hover { color: var(--text); }

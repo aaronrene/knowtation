@@ -2139,7 +2139,7 @@
         const hintsEl = el('settings-proposal-hints-enabled');
         if (hintsEl) hintsEl.textContent = s.proposal_review_hints_enabled ? 'On' : 'Off';
         const evApEl = el('settings-evaluator-may-approve');
-        if (evApEl) evApEl.textContent = s.hub_evaluator_may_approve ? 'On' : 'Off';
+        if (evApEl) evApEl.textContent = s.hub_evaluator_may_approve ? 'Yes' : 'No';
         const syncBtn = el('btn-settings-sync');
         const isAdmin = s.role === 'admin';
         if (syncBtn) syncBtn.disabled = settingsSyncDisabled(s, vg, isHosted);
@@ -3724,6 +3724,18 @@
     };
   }
 
+  function syncTeamAddEvaluatorMayApproveVisibility() {
+    const wrap = el('team-add-evaluator-may-approve-wrap');
+    const sel = el('team-role');
+    if (!wrap || !sel) return;
+    wrap.classList.toggle('hidden', sel.value !== 'evaluator');
+  }
+  const teamRoleSelect = el('team-role');
+  if (teamRoleSelect) {
+    teamRoleSelect.addEventListener('change', syncTeamAddEvaluatorMayApproveVisibility);
+    syncTeamAddEvaluatorMayApproveVisibility();
+  }
+
   async function loadTeamRolesList() {
     const listEl = el('team-roles-list');
     if (!listEl) return;
@@ -3731,11 +3743,48 @@
     try {
       const out = await api('/api/v1/roles');
       const roles = out.roles || {};
+      const mayMap = out.evaluator_may_approve && typeof out.evaluator_may_approve === 'object' ? out.evaluator_may_approve : {};
       const entries = Object.entries(roles);
+      listEl.innerHTML = '';
       if (entries.length === 0) {
-        listEl.innerHTML = 'No roles assigned yet. When you add one above, it appears here.';
-      } else {
-        listEl.innerHTML = entries.map(([uid, role]) => '<div class="team-role-row">' + escapeHtml(uid) + ' → ' + escapeHtml(role) + '</div>').join('');
+        listEl.textContent = 'No roles assigned yet. When you add one above, it appears here.';
+        return;
+      }
+      for (const [uid, role] of entries) {
+        const row = document.createElement('div');
+        row.className = 'team-role-row team-role-row-flex';
+        const label = document.createElement('span');
+        label.innerHTML = escapeHtml(uid) + ' → ' + escapeHtml(role);
+        row.appendChild(label);
+        if (role === 'evaluator') {
+          const explicit = Object.prototype.hasOwnProperty.call(mayMap, uid);
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.title = 'May approve proposals';
+          chk.checked = Boolean(mayMap[uid]);
+          chk.addEventListener('change', async () => {
+            chk.disabled = true;
+            try {
+              await api('/api/v1/roles/evaluator-may-approve', {
+                method: 'POST',
+                body: JSON.stringify({ user_id: uid, evaluator_may_approve: chk.checked }),
+              });
+            } catch (err) {
+              chk.checked = !chk.checked;
+              if (typeof showToast === 'function') showToast(err.message || 'Save failed');
+            } finally {
+              chk.disabled = false;
+            }
+          });
+          const lab = document.createElement('label');
+          lab.className = 'team-evaluator-approve-inline';
+          lab.appendChild(chk);
+          const sp = document.createElement('span');
+          sp.textContent = explicit ? ' May approve' : ' May approve (unset: host default if any)';
+          lab.appendChild(sp);
+          row.appendChild(lab);
+        }
+        listEl.appendChild(row);
       }
     } catch (e) {
       listEl.textContent = 'Could not load: ' + (e.message || '');
@@ -3787,7 +3836,12 @@
       if (msgEl) msgEl.textContent = '';
       await withButtonBusy(btnTeamSave, 'Saving…', async () => {
         try {
-          await api('/api/v1/roles', { method: 'POST', body: JSON.stringify({ user_id: userId, role }) });
+          const body = { user_id: userId, role };
+          if (role === 'evaluator') {
+            const cb = el('team-add-evaluator-may-approve');
+            body.evaluator_may_approve = Boolean(cb && cb.checked);
+          }
+          await api('/api/v1/roles', { method: 'POST', body: JSON.stringify(body) });
           if (msgEl) { msgEl.textContent = 'Saved. They have role: ' + role + '.'; msgEl.className = 'settings-msg'; }
           userIdInput.value = '';
           loadTeamRolesList();
@@ -4767,7 +4821,7 @@
             const hintEv = document.createElement('p');
             hintEv.className = 'muted small';
             hintEv.textContent =
-              'You can record evaluation; approve and discard require an admin unless the Hub sets HUB_EVALUATOR_MAY_APPROVE=1.';
+              'You can record evaluation; approve needs permission (admin, or evaluator with “may approve” in Team / host default). Discard is admin-only.';
             actions.append(hintEv);
           } else if (!canEvaluate) {
             const hint = document.createElement('p');
