@@ -435,10 +435,10 @@ Your note body here.</pre>
               <span id="settings-proposal-hints-enabled" class="settings-value">—</span>
             </div>
             <div class="settings-row" id="settings-evaluator-approve-row">
-              <span class="settings-label">Evaluator may approve</span>
+              <span class="settings-label">You may approve proposals</span>
               <span id="settings-evaluator-may-approve" class="settings-value">—</span>
             </div>
-            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Proposal evaluation:</strong> When the gate is <strong>On</strong>, new proposals may need a recorded pass/fail (or needs changes) before an admin can approve. <strong>Grade</strong> is optional labels for your records only. <strong>Review hints (LLM)</strong> — when <strong>On</strong>, the Hub can show optional AI-generated suggestions in the proposal panel; they are not authoritative and your host may send proposal text to an external model—use only if that fits your policy. <strong>Evaluator may approve</strong> is a host setting; otherwise evaluators record outcomes and admins approve. Self-hosted operators configure gates and rubrics via env and data files — see <strong>How to use</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
+            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Proposal evaluation:</strong> When the gate is <strong>On</strong>, new proposals may need a recorded pass/fail (or needs changes) before an admin can approve. <strong>Grade</strong> is optional labels for your records only. <strong>Review hints (LLM)</strong> — when <strong>On</strong>, the Hub can show optional AI-generated suggestions in the proposal panel; they are not authoritative and your host may send proposal text to an external model—use only if that fits your policy. <strong>Evaluator may approve</strong> — for <em>your</em> account: shown under Status; admins set per evaluator in <strong>Team</strong>. If unset for a user, the server may fall back to <code>HUB_EVALUATOR_MAY_APPROVE=1</code>. Self-hosted: also <code>data/hub_evaluator_may_approve.json</code>. See <strong>How to use</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
             <div class="settings-row hidden" id="settings-api-base-row" title="Shown on localhost for self-hosted debugging">
               <span class="settings-label">API base</span>
               <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
@@ -579,9 +579,13 @@ Your note body here.</pre>
               <select id="team-role">
                 <option value="viewer">Viewer (read only)</option>
                 <option value="editor">Editor (read, write, propose)</option>
-                <option value="evaluator">Evaluator (evaluate proposals; approve only if Hub allows)</option>
+                <option value="evaluator">Evaluator (evaluate proposals; optional per-user approve below)</option>
                 <option value="admin">Admin (full access)</option>
               </select>
+              <label id="team-add-evaluator-may-approve-wrap" class="hidden team-evaluator-approve-add">
+                <input type="checkbox" id="team-add-evaluator-may-approve" />
+                <span>May approve proposals (for this user when role is Evaluator)</span>
+              </label>
               <div class="settings-form-actions">
                 <button type="button" id="btn-team-save" class="btn-primary">Add / update role</button>
                 <span id="team-save-msg" class="settings-msg"></span>
@@ -1334,7 +1338,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <ul>
               <li><strong>Outcome vs grade:</strong> Saving evaluation uses an <em>outcome</em> (pass / fail / needs changes) plus checklist; optional <em>grade</em> is for culture or reporting and does not replace outcome.</li>
               <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Suggested tab.</li>
-              <li><strong>Who does what:</strong> <code>evaluator</code> users can record evaluation; <code>admin</code> approves or discards unless the server sets <code>HUB_EVALUATOR_MAY_APPROVE=1</code>. Waivers on approve remain admin-side when evaluation has not passed.</li>
+              <li><strong>Who does what:</strong> <code>evaluator</code> users record evaluation; <code>admin</code> always approves and discards. Evaluators may approve only when an admin grants it per user in <strong>Team</strong> (or the host sets <code>HUB_EVALUATOR_MAY_APPROVE=1</code> as a fallback when no per-user entry exists). Waivers on approve remain admin-side when evaluation has not passed.</li>
               <li><strong>LLM review hints:</strong> If enabled on the Hub, short async hints may appear on a proposal. They are not a merge gate; treat them as untrusted.</li>
             </ul>
 

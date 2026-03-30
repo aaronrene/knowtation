@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub — REST API + OAuth + JWT. Phase 11.
  * Run from repo root: node hub/server.mjs
- * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL, HUB_PROPOSAL_EVALUATION_REQUIRED (see lib/hub-proposal-policy.mjs), HUB_EVALUATOR_MAY_APPROVE=1 (allow evaluator to approve), KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1 (async LLM hints; not a gate).
+ * Env: KNOWTATION_VAULT_PATH, HUB_JWT_SECRET, HUB_PORT; optional HUB_CORS_ORIGIN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, HUB_BASE_URL, HUB_PROPOSAL_EVALUATION_REQUIRED (see lib/hub-proposal-policy.mjs), HUB_EVALUATOR_MAY_APPROVE=1 (fallback when no per-user row in data/hub_evaluator_may_approve.json), KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1 (async LLM hints; not a gate).
  */
 
 import path from 'path';
@@ -66,6 +66,11 @@ import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
 import { readHubVaults, writeHubVaults } from '../lib/hub-vaults.mjs';
 import { deleteSelfHostedVault } from './hub-delete-vault.mjs';
 import { applyScopeFilterToNotes as applyScopeFilter } from './lib/scope-filter.mjs';
+import {
+  readEvaluatorMayApprove,
+  writeEvaluatorMayApprove,
+  actorMayApproveProposals,
+} from './lib/hub-evaluator-may-approve.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -185,17 +190,19 @@ function requireRole(...allowedRoles) {
   };
 }
 
-function hubEvaluatorMayApprove() {
+function hubEnvEvaluatorMayApprove() {
   return process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
 }
 
-/** Approve: admin always; evaluator only when HUB_EVALUATOR_MAY_APPROVE=1. */
+/** Approve: admin always; evaluator per data/hub_evaluator_may_approve.json + env fallback. */
 function requireApproveRole(req, res, next) {
   const role = effectiveRole(req);
-  if (role === 'admin') return next();
-  if (role === 'evaluator' && hubEvaluatorMayApprove()) return next();
+  const sub = req.user?.sub ?? '';
+  const mayMap = readEvaluatorMayApprove(config.data_dir);
+  if (actorMayApproveProposals(sub, role, mayMap, hubEnvEvaluatorMayApprove())) return next();
   return res.status(403).json({
-    error: 'Approve requires admin, or evaluator when HUB_EVALUATOR_MAY_APPROVE=1.',
+    error:
+      'Approve requires admin, or an evaluator with approve permission (Team tab / data/hub_evaluator_may_approve.json, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user entry).',
     code: 'FORBIDDEN',
   });
 }
@@ -1033,7 +1040,12 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
     proposal_enrich_enabled: process.env.KNOWTATION_HUB_PROPOSAL_ENRICH === '1',
     proposal_evaluation_required: getProposalEvaluationRequired(config.data_dir),
     proposal_review_hints_enabled: process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1',
-    hub_evaluator_may_approve: hubEvaluatorMayApprove(),
+    hub_evaluator_may_approve: actorMayApproveProposals(
+      req.user?.sub ?? '',
+      effectiveRole(req),
+      readEvaluatorMayApprove(config.data_dir),
+      hubEnvEvaluatorMayApprove(),
+    ),
     proposal_rubric: loadProposalRubric(config.data_dir),
   });
 });
@@ -1099,7 +1111,8 @@ app.post('/api/v1/vault/git-init', jwtAuth, requireVaultAccess, requireRole('edi
 app.get('/api/v1/roles', jwtAuth, requireRole('admin'), (_req, res) => {
   try {
     const roles = readRolesObject(config.data_dir);
-    res.json({ roles });
+    const evaluator_may_approve = readEvaluatorMayApprove(config.data_dir);
+    res.json({ roles, evaluator_may_approve });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
@@ -1117,10 +1130,44 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
   }
   try {
     const current = readRolesObject(config.data_dir);
-    current[userId.trim()] = r;
+    const uidKey = userId.trim();
+    current[uidKey] = r;
     writeRolesFile(config.data_dir, current);
     roleMap = loadRoleMap(config.data_dir);
+    let mayMap = readEvaluatorMayApprove(config.data_dir);
+    if (r === 'evaluator' && req.body && Object.prototype.hasOwnProperty.call(req.body, 'evaluator_may_approve')) {
+      mayMap = { ...mayMap, [uidKey]: Boolean(req.body.evaluator_may_approve) };
+      writeEvaluatorMayApprove(config.data_dir, mayMap);
+    } else if (r !== 'evaluator' && Object.prototype.hasOwnProperty.call(mayMap, uidKey)) {
+      const next = { ...mayMap };
+      delete next[uidKey];
+      writeEvaluatorMayApprove(config.data_dir, next);
+    }
     res.json({ ok: true, roles: current });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/roles/evaluator-may-approve', jwtAuth, requireRole('admin'), (req, res) => {
+  const { user_id: userId, evaluator_may_approve: flag } = req.body || {};
+  if (!userId || typeof userId !== 'string' || !userId.trim()) {
+    return res.status(400).json({ error: 'user_id required', code: 'BAD_REQUEST' });
+  }
+  if (typeof flag !== 'boolean') {
+    return res.status(400).json({ error: 'evaluator_may_approve must be boolean', code: 'BAD_REQUEST' });
+  }
+  const uidKey = userId.trim();
+  const rm = loadRoleMap(config.data_dir);
+  const gr = getRole(rm, uidKey);
+  const storedRole = gr === 'member' || !gr ? (rm.size === 0 ? 'admin' : 'editor') : gr;
+  if (storedRole !== 'evaluator') {
+    return res.status(400).json({ error: 'User must have evaluator role', code: 'BAD_REQUEST' });
+  }
+  try {
+    const mayMap = { ...readEvaluatorMayApprove(config.data_dir), [uidKey]: flag };
+    writeEvaluatorMayApprove(config.data_dir, mayMap);
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }

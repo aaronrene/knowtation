@@ -27,6 +27,7 @@ import {
   resolveAllowedVaultIdsForHostedContext,
 } from '../lib/hosted-workspace-resolve.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
+import { actorMayApproveProposals } from '../lib/hub-evaluator-may-approve.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
 const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
@@ -56,6 +57,7 @@ const INVITES_FILE = path.join(DATA_DIR, 'hub_invites.json');
 const WORKSPACE_FILE = path.join(DATA_DIR, 'hub_workspace.json');
 const VAULT_ACCESS_FILE = path.join(DATA_DIR, 'hub_vault_access.json');
 const SCOPE_FILE = path.join(DATA_DIR, 'hub_scope.json');
+const EVALUATOR_MAY_APPROVE_FILE = path.join(DATA_DIR, 'hub_evaluator_may_approve.json');
 const VALID_ROLES = new Set(['admin', 'editor', 'viewer', 'evaluator']);
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -266,6 +268,63 @@ async function saveRoles(blobStore, roles) {
     return;
   }
   await blobStore.set('hub_roles', str);
+}
+
+function bridgeEnvEvaluatorMayApprove() {
+  return process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
+}
+
+async function loadEvaluatorMayApproveMap(blobStore) {
+  if (!blobStore) {
+    ensureDataDir();
+    if (!fs.existsSync(EVALUATOR_MAY_APPROVE_FILE)) return {};
+    try {
+      const data = JSON.parse(fs.readFileSync(EVALUATOR_MAY_APPROVE_FILE, 'utf8'));
+      const m = data?.evaluator_may_approve != null ? data.evaluator_may_approve : data;
+      if (typeof m !== 'object' || m === null) return {};
+      const out = {};
+      for (const [k, v] of Object.entries(m)) {
+        if (typeof k === 'string' && k.trim()) out[k.trim()] = Boolean(v);
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+  try {
+    const rawStr = await blobStore.get('hub_evaluator_may_approve');
+    if (!rawStr) return {};
+    const data = JSON.parse(rawStr);
+    const m = data?.evaluator_may_approve != null ? data.evaluator_may_approve : data;
+    if (typeof m !== 'object' || m === null) return {};
+    const out = {};
+    for (const [k, v] of Object.entries(m)) {
+      if (typeof k === 'string' && k.trim()) out[k.trim()] = Boolean(v);
+    }
+    return out;
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveEvaluatorMayApproveMap(blobStore, map) {
+  const obj = {};
+  for (const [k, v] of Object.entries(map)) {
+    if (typeof k === 'string' && k.trim()) obj[k.trim()] = Boolean(v);
+  }
+  const str = JSON.stringify({ evaluator_may_approve: obj }, null, 2);
+  if (!blobStore) {
+    ensureDataDir();
+    fs.writeFileSync(EVALUATOR_MAY_APPROVE_FILE, str, 'utf8');
+    return;
+  }
+  await blobStore.set('hub_evaluator_may_approve', str);
+}
+
+/** Effective “may approve proposals” for Hub UI and gateway (admin always; evaluator from map + env). */
+function mayApproveProposalsForUser(uid, storedRoles, mayMap) {
+  const role = effectiveRole(uid, storedRoles);
+  return actorMayApproveProposals(uid, role, mayMap, bridgeEnvEvaluatorMayApprove());
 }
 
 async function loadInvites(blobStore) {
@@ -687,7 +746,8 @@ async function requireBridgeEditorOrAdmin(req, res, next) {
 app.get('/api/v1/roles', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
   try {
     const roles = await loadRoles(req.blobStore);
-    res.json({ roles });
+    const evaluator_may_approve = await loadEvaluatorMayApproveMap(req.blobStore);
+    res.json({ roles, evaluator_may_approve });
   } catch (e) {
     console.error('[bridge] GET /api/v1/roles', e?.message);
     res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
@@ -705,11 +765,44 @@ app.post('/api/v1/roles', requireBridgeAuth, requireBridgeAdmin, async (req, res
   }
   try {
     const roles = await loadRoles(req.blobStore);
-    roles[userId.trim()] = r;
+    const uidKey = userId.trim();
+    roles[uidKey] = r;
     await saveRoles(req.blobStore, roles);
+    const mayMap = await loadEvaluatorMayApproveMap(req.blobStore);
+    if (r === 'evaluator' && req.body && Object.prototype.hasOwnProperty.call(req.body, 'evaluator_may_approve')) {
+      mayMap[uidKey] = Boolean(req.body.evaluator_may_approve);
+      await saveEvaluatorMayApproveMap(req.blobStore, mayMap);
+    } else if (r !== 'evaluator' && Object.prototype.hasOwnProperty.call(mayMap, uidKey)) {
+      delete mayMap[uidKey];
+      await saveEvaluatorMayApproveMap(req.blobStore, mayMap);
+    }
     res.json({ ok: true });
   } catch (e) {
     console.error('[bridge] POST /api/v1/roles', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/roles/evaluator-may-approve', requireBridgeAuth, requireBridgeAdmin, async (req, res) => {
+  const { user_id: userId, evaluator_may_approve: flag } = req.body || {};
+  if (!userId || typeof userId !== 'string' || !userId.trim()) {
+    return res.status(400).json({ error: 'user_id required', code: 'BAD_REQUEST' });
+  }
+  if (typeof flag !== 'boolean') {
+    return res.status(400).json({ error: 'evaluator_may_approve must be boolean', code: 'BAD_REQUEST' });
+  }
+  const uidKey = userId.trim();
+  try {
+    const roles = await loadRoles(req.blobStore);
+    if (effectiveRole(uidKey, roles) !== 'evaluator') {
+      return res.status(400).json({ error: 'User must have evaluator role', code: 'BAD_REQUEST' });
+    }
+    const mayMap = await loadEvaluatorMayApproveMap(req.blobStore);
+    mayMap[uidKey] = flag;
+    await saveEvaluatorMayApproveMap(req.blobStore, mayMap);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/roles/evaluator-may-approve', e?.message);
     res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
   }
 });
@@ -804,8 +897,10 @@ app.post('/api/v1/invites/consume', requireBridgeAuth, async (req, res) => {
 app.get('/api/v1/role', requireBridgeAuth, async (req, res) => {
   try {
     const roles = await loadRoles(req.blobStore);
+    const mayMap = await loadEvaluatorMayApproveMap(req.blobStore);
     const role = effectiveRole(req.uid, roles);
-    res.json({ role });
+    const may_approve_proposals = mayApproveProposalsForUser(req.uid, roles, mayMap);
+    res.json({ role, may_approve_proposals });
   } catch (e) {
     console.error('[bridge] GET /api/v1/role', e?.message);
     res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
@@ -900,6 +995,8 @@ app.get('/api/v1/hosted-context', requireBridgeAuth, async (req, res) => {
       return res.status(ctx.status).json({ error: ctx.error, code: ctx.code });
     }
     const role = effectiveRole(actor, roles);
+    const mayMap = await loadEvaluatorMayApproveMap(req.blobStore);
+    const may_approve_proposals = mayApproveProposalsForUser(actor, roles, mayMap);
     res.json({
       actor_sub: actor,
       workspace_owner_id: workspace.owner_user_id,
@@ -908,6 +1005,7 @@ app.get('/api/v1/hosted-context', requireBridgeAuth, async (req, res) => {
       allowed_vault_ids: ctx.allowedVaultIds,
       scope: ctx.scope,
       role,
+      may_approve_proposals,
     });
   } catch (e) {
     console.error('[bridge] GET /api/v1/hosted-context', e?.message);
