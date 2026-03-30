@@ -1427,7 +1427,18 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
           let it0 = if (Text.size(p.intent) > 400) { textSlice(p.intent, 0, 400) } else { p.intent };
           logFm := logFm # "intent: \"" # escapeJson(it0) # "\"\n";
         };
-        let logBody = "Approved vault change applied to `" # p.path # "`.\n\n- **Proposal ID:** " # pathArg # "\n- **Approved at:** " # nowAp # "\n";
+        let logBodyBase = "Approved vault change applied to `" # p.path # "`.\n\n- **Proposal ID:** " # pathArg # "\n- **Approved at:** " # nowAp # "\n";
+        let excerptCap : Nat = 4000;
+        let excerptRaw = if (Text.size(p.body) <= excerptCap) {
+          p.body;
+        } else {
+          textSlice(p.body, 0, excerptCap);
+        };
+        let logBody = if (Text.size(excerptRaw) > 0) {
+          logBodyBase # "\n\n## Proposal excerpt (for search)\n\n" # excerptRaw # "\n";
+        } else {
+          logBodyBase;
+        };
         vault.put(logPath, (logFm, logBody));
         let waiverJson = if (needsWaiver and Text.size(waiverRaw) >= 3) {
           "{\"by\":\"" # escapeJson(uid) # "\",\"at\":\"" # nowAp # "\",\"reason\":\"" # escapeJson(waiverRaw) # "\"}"

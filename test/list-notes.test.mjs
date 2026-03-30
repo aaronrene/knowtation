@@ -78,4 +78,15 @@ describe('runListNotes', () => {
     assert(typeof result.total === 'number');
     assert.strictEqual(result.notes, undefined);
   });
+
+  it('content_scope approval_logs returns only paths under approvals/', () => {
+    const result = runListNotes(config, { content_scope: 'approval_logs', limit: 100 });
+    assert(result.notes.length >= 1);
+    assert(result.notes.every((n) => n.path === 'approvals' || n.path.startsWith('approvals/')));
+  });
+
+  it('content_scope notes excludes approval log paths', () => {
+    const result = runListNotes(config, { content_scope: 'notes', limit: 100 });
+    assert(result.notes.every((n) => n.path !== 'approvals' && !n.path.startsWith('approvals/')));
+  });
 });

@@ -914,7 +914,8 @@
     if (!n || !n.path) return false;
     const path = String(n.path).replace(/\\/g, '/');
     if (path === 'approvals' || path.startsWith('approvals/')) return true;
-    const k = n.frontmatter && n.frontmatter.kind;
+    const k =
+      n.frontmatter && n.frontmatter.kind != null ? n.frontmatter.kind : n.kind != null ? n.kind : null;
     return String(k) === 'approval_log';
   }
 
@@ -1280,6 +1281,14 @@
     renderFilterChips(null);
   };
 
+  if (filterContentScope) {
+    filterContentScope.addEventListener('change', () => {
+      switchNotesView('list');
+      loadNotes();
+      renderFilterChips(null);
+    });
+  }
+
   function formatSearchScopeSummary() {
     const parts = [];
     if (filterProject.value) parts.push('project: ' + filterProject.value);
@@ -1387,12 +1396,12 @@
   }
 
   async function loadProposals() {
-    const emptyPending =
+    const emptySuggested =
       '<div class="empty-state">No proposals waiting for review. Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
     [
-      { kind: 'pending', status: 'proposed', empty: emptyPending },
+      { kind: 'suggested', status: 'proposed', empty: emptySuggested },
       { kind: 'problem', status: 'discarded', empty: emptyDiscarded },
     ].forEach(({ kind, status, empty: emptyHtml }) => {
       const container = el('proposals-' + kind);
@@ -1487,6 +1496,10 @@
   async function runVaultSearch() {
     const query = searchQuery.value.trim();
     if (!query) return;
+    const activeMainTab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    if (activeMainTab && activeMainTab !== 'notes') {
+      showToast('Semantic results are shown under the Notes tab.');
+    }
     switchNotesView('list');
     document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
@@ -1494,6 +1507,10 @@
     el('tab-notes').classList.remove('hidden');
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
+    const scopeSummary = formatSearchScopeSummary();
+    const scopeSuffix = scopeSummary
+      ? ' · scope: ' + scopeSummary
+      : ' · scope: entire vault (use dropdowns to narrow)';
     try {
       const body = { query, limit: 20 };
       if (filterProject.value) body.project = filterProject.value;
@@ -1507,7 +1524,7 @@
       if (results.length === 0) {
         notesList.innerHTML =
           '<div class="empty-state">No notes matched this query under the current filters. Semantic search finds <em>similar meaning</em>, not exact words — try other phrases, clear filters, or use Quick chips + Apply filters for exact tags/projects.</div>';
-        notesTotal.textContent = '0 semantic results';
+        notesTotal.textContent = '0 semantic results' + scopeSuffix;
         return;
       }
       notesList.innerHTML = results
@@ -1537,17 +1554,14 @@
           );
         })
         .join('');
-      const scope = formatSearchScopeSummary();
       notesTotal.textContent =
-        results.length +
-        ' semantic result' +
-        (results.length === 1 ? '' : 's') +
-        (scope ? ' · scope: ' + scope : ' · scope: entire vault (use dropdowns to narrow)');
+        results.length + ' semantic result' + (results.length === 1 ? '' : 's') + scopeSuffix;
       bindNoteClicks(notesList);
       listSelectedIndex = 0;
       updateListSelection();
     } catch (e) {
       notesList.innerHTML = '<p class="muted">' + escapeHtml(e.message) + '</p>';
+      notesTotal.textContent = '';
     }
   }
 
@@ -1872,7 +1886,7 @@
       pathInput.value = (opts && opts.path) || '';
       if (hint)
         hint.textContent =
-          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Pending tab.';
+          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Suggested tab.';
     }
     bodyEl.value = (opts && opts.body) || '';
     intentEl.value = (opts && opts.intent) || '';
@@ -1928,10 +1942,10 @@
           if (typeof showToast === 'function') showToast('Proposal submitted');
           document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
           document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-          const pendingTab = document.querySelector('[data-tab="pending"]');
-          const pendingPanel = el('tab-pending');
-          if (pendingTab) pendingTab.classList.add('active');
-          if (pendingPanel) pendingPanel.classList.remove('hidden');
+          const suggestedTab = document.querySelector('[data-tab="suggested"]');
+          const suggestedPanel = el('tab-suggested');
+          if (suggestedTab) suggestedTab.classList.add('active');
+          if (suggestedPanel) suggestedPanel.classList.remove('hidden');
           loadProposals();
         } catch (e) {
           if (msgEl) {
@@ -5004,7 +5018,12 @@
         });
       });
       if (approveOut && approveOut.approval_log_written === false) {
-        showToast('Approved, but approval log file failed to write. Check server logs. Re-index after fixing.', true);
+        showToast(
+          approveOut.approval_log_error
+            ? 'Approved, but approval log failed: ' + String(approveOut.approval_log_error).slice(0, 120)
+            : 'Approved, but approval log was not written. Check server logs and re-index.',
+          true,
+        );
       }
       panel.classList.add('hidden');
       panel.classList.remove('detail-panel-proposal-wide');
@@ -5119,10 +5138,10 @@
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
       tab.classList.add('active');
       const name = tab.dataset.tab;
-      const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'pending' ? 'pending' : 'problem'));
+      const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'suggested' ? 'suggested' : 'problem'));
       if (panel) panel.classList.remove('hidden');
       if (name === 'activity') loadActivity();
-      if (name === 'pending' || name === 'problem') loadProposals();
+      if (name === 'suggested' || name === 'problem') loadProposals();
     };
   });
 

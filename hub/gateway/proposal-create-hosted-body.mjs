@@ -9,11 +9,12 @@ import { augmentProposalCreateRequestBody } from '../../lib/hub-proposal-create-
  * @param {string} pathOnly
  * @param {unknown} body
  * @param {string} dataDir
+ * @param {{ evaluationRequired?: boolean }} [policyOptions]
  * @returns {unknown}
  */
-export function augmentProposalCreateForHosted(method, pathOnly, body, dataDir) {
+export function augmentProposalCreateForHosted(method, pathOnly, body, dataDir, policyOptions = {}) {
   if (method !== 'POST') return body;
   if (pathOnly !== '/api/v1/proposals' && pathOnly !== '/api/v1/proposals/') return body;
   if (!body || typeof body !== 'object' || Buffer.isBuffer(body)) return body;
-  return augmentProposalCreateRequestBody(body, dataDir);
+  return augmentProposalCreateRequestBody(body, dataDir, policyOptions);
 }

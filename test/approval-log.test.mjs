@@ -5,6 +5,7 @@ import {
   isApprovalLogPath,
   filterHitsByContentScope,
   buildApprovalLogWrite,
+  resolveSearchFolderForContentScope,
 } from '../lib/approval-log.mjs';
 
 test('isApprovalLogPath', () => {
@@ -36,4 +37,32 @@ test('buildApprovalLogWrite shapes frontmatter', () => {
   assert.equal(w.frontmatter.kind, 'approval_log');
   assert.equal(w.frontmatter.target_path, 'inbox/foo.md');
   assert.ok(w.body.includes('inbox/foo.md'));
+});
+
+test('buildApprovalLogWrite appends proposedBodyExcerpt for search', () => {
+  const w = buildApprovalLogWrite({
+    proposalId: 'pid-2',
+    targetPath: 'x.md',
+    approvedAt: '2026-03-30T00:00:00.000Z',
+    proposedBodyExcerpt: 'embeddings and indexing test',
+  });
+  assert.ok(w.body.includes('Proposal excerpt'));
+  assert.ok(w.body.includes('embeddings'));
+});
+
+test('resolveSearchFolderForContentScope approval_logs uses approvals prefix', () => {
+  const r = resolveSearchFolderForContentScope('approval_logs', undefined);
+  assert.equal(r.impossible, false);
+  assert.equal(r.folder, 'approvals');
+  assert.equal(r.wideNotesFetch, false);
+});
+
+test('resolveSearchFolderForContentScope approval_logs conflicts with other folder', () => {
+  const r = resolveSearchFolderForContentScope('approval_logs', 'projects/foo');
+  assert.equal(r.impossible, true);
+});
+
+test('resolveSearchFolderForContentScope notes requests wide fetch', () => {
+  const r = resolveSearchFolderForContentScope('notes', '');
+  assert.equal(r.wideNotesFetch, true);
 });

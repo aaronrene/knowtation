@@ -110,7 +110,7 @@
         <select id="filter-folder">
           <option value="">All folders</option>
         </select>
-        <select id="filter-content-scope" title="Filter note list and semantic search by vault file type" aria-label="Content type: all notes, exclude approval logs, or approval logs only">
+        <select id="filter-content-scope" title="Applies to the Notes list and to Search. Search results always open under Notes—not Activity." aria-label="Content type: all notes, exclude approval logs, or approval logs only">
           <option value="">All content</option>
           <option value="notes">Notes only</option>
           <option value="approval_logs">Approval logs only</option>
@@ -119,11 +119,11 @@
         <input type="date" id="filter-since" aria-label="Filter notes from this date">
         <label for="filter-until" class="filter-date-label">Until</label>
         <input type="date" id="filter-until" aria-label="Filter notes until this date">
-        <button id="btn-search" type="button" class="btn-primary" title="Semantic search: closest meanings in the indexed vault. Respects project/tag/folder/date above. Enter also runs search." aria-label="Semantic search">Search</button>
+        <button id="btn-search" type="button" class="btn-primary" title="Semantic search over the indexed vault (meaning, not exact keywords). Results always appear under the Notes tab. Respects filters above. Enter also runs search." aria-label="Semantic search">Search</button>
         <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear semantic search">Clear</button>
         <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
         <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
-        <p id="search-semantic-hint" class="search-hint muted small"><strong>Quick</strong> chips filter the note list by tag or project. Use <strong>All content</strong> to show notes only, approval logs only, or everything. Green <strong>Search</strong> runs meaning-based search over your <strong>indexed</strong> vault (re-index after approvals or big imports). <strong>Clear</strong> resets the search field and content filter.</p>
+        <p id="search-semantic-hint" class="search-hint muted small"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. Green <strong>Search</strong> is meaning-based (re-index after approvals). <strong>Clear</strong> resets search + content filter.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
@@ -142,10 +142,10 @@
       </section>
 
       <section class="tabs">
-        <button type="button" data-tab="notes" class="tab active">Notes</button>
-        <button type="button" data-tab="activity" class="tab">Activity</button>
-        <button type="button" data-tab="pending" class="tab">Pending</button>
-        <button type="button" data-tab="problem" class="tab">Discarded</button>
+        <button type="button" data-tab="notes" class="tab active" title="Vault markdown + approval log files; Search shows results here">Notes</button>
+        <button type="button" data-tab="activity" class="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
+        <button type="button" data-tab="suggested" class="tab" title="Proposals waiting for review">Suggested</button>
+        <button type="button" data-tab="problem" class="tab" title="Discarded proposals">Discarded</button>
       </section>
 
       <section id="tab-notes" class="tab-panel">
@@ -180,10 +180,11 @@
         </div>
       </section>
       <section id="tab-activity" class="tab-panel hidden">
-        <p class="muted">Proposal timeline: created → approved/discarded. Sources include the Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), the CLI (<code>knowtation propose --hub …</code>), and agents via the API.</p>
+        <p class="muted"><strong>Activity</strong> lists proposal records (same data as Approve/Discard)—not semantic search hits. Vault <code>approvals/*.md</code> logs: open <strong>Notes</strong>, set content to <strong>Approval logs only</strong>, Apply filters or Search.</p>
+        <p class="muted">Sources: Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), CLI, API.</p>
         <div id="proposals-activity" class="list activity-timeline"></div>
       </section>
-      <section id="tab-pending" class="tab-panel hidden">
+      <section id="tab-suggested" class="tab-panel hidden">
         <p class="muted">Proposals needing your review. Create one with <strong>New proposal</strong> or from a note (<strong>Propose change</strong> in the detail panel); the CLI and agents can still create them via the API. Open a row, then Approve (writes to vault) or Discard.</p>
         <div class="proposal-list-filters" id="proposal-list-filters">
           <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
@@ -196,7 +197,7 @@
           <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
           <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
         </div>
-        <div id="proposals-pending" class="list"></div>
+        <div id="proposals-suggested" class="list"></div>
       </section>
       <section id="tab-problem" class="tab-panel hidden">
         <p class="muted">Proposals you (or someone) discarded. They were not applied to the vault. You can still open them to read.</p>
@@ -1341,14 +1342,14 @@ Knowtation Hub listening on http://localhost:3333</pre>
                 <path d="M 416 24 L 432 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
                 <rect x="434" y="8" width="92" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
                 <text x="480" y="28" class="diagram-text" text-anchor="middle">You</text>
-                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Pending / Discarded)</text>
+                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Suggested / Discarded)</text>
               </svg>
             </div>
             <h4 class="how-to-sub">Proposals: where they come from and where to see them</h4>
-            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Pending</strong> tab actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
+            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Suggested</strong> tab actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
             <ul>
-              <li><strong>Create a proposal:</strong> In the Hub: <strong>Pending → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
-              <li><strong>Pending tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
+              <li><strong>Create a proposal:</strong> In the Hub: <strong>Suggested → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
+              <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
               <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
               <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
             </ul>
@@ -1356,7 +1357,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <h4 class="how-to-sub">Reviewing proposals (evaluation, triggers, roles)</h4>
             <ul>
               <li><strong>Outcome vs grade:</strong> Saving evaluation uses an <em>outcome</em> (pass / fail / needs changes) plus checklist; optional <em>grade</em> is for culture or reporting and does not replace outcome.</li>
-              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Pending tab.</li>
+              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Suggested tab.</li>
               <li><strong>Who does what:</strong> <code>evaluator</code> users record evaluation; <code>admin</code> always approves and discards. Evaluators may approve only when an admin grants it per user in <strong>Team</strong> (or the host sets <code>HUB_EVALUATOR_MAY_APPROVE=1</code> as a fallback when no per-user entry exists). Waivers on approve remain admin-side when evaluation has not passed.</li>
               <li><strong>LLM review hints:</strong> If enabled on the Hub, short async hints may appear on a proposal. They are not a merge gate; treat them as untrusted.</li>
             </ul>
@@ -1382,7 +1383,7 @@ KNOWTATION_HUB_VAULT_ID=default
             </div>
             <div class="integration-card">
               <h5>Abacus</h5>
-              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Pending tab and approve or discard.</p>
+              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Suggested tab and approve or discard.</p>
               <div class="example-block"><span class="example-label">Example</span><pre># In your Abacus tool config, add Knowtation Hub:
 # - Hub URL + KNOWTATION_HUB_TOKEN for API calls
 # - Or shell tool: knowtation search "query" --json</pre></div>
@@ -1535,7 +1536,7 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Proposals and GitHub</h3>
-              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Pending / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
+              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Suggested / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
             </section>
 
             <section class="how-to-step">

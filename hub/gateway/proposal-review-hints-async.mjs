@@ -15,10 +15,11 @@ import { completeChat } from '../../lib/llm-complete.mjs';
  *   effectiveUserId: string,
  *   actorUserId: string,
  *   vaultId: string,
+ *   hintsEnabled: boolean,
  * }} opts
  */
 export function maybeScheduleHostedProposalReviewHints(opts) {
-  if (process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS !== '1') return;
+  if (!opts.hintsEnabled) return;
   const { method, pathOnly, upstreamStatus, responseText, canisterUrl, effectiveUserId, actorUserId, vaultId } = opts;
   if (method !== 'POST' || (pathOnly !== '/api/v1/proposals' && pathOnly !== '/api/v1/proposals/')) return;
   if (upstreamStatus < 200 || upstreamStatus >= 300) return;
