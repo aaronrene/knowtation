@@ -70,7 +70,7 @@ import {
   readEvaluatorMayApprove,
   writeEvaluatorMayApprove,
   actorMayApproveProposals,
-} from '../lib/hub-evaluator-may-approve.mjs';
+} from './lib/hub-evaluator-may-approve.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
