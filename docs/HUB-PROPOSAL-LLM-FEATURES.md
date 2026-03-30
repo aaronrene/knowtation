@@ -17,9 +17,9 @@ Two **optional** features use a chat-capable model (Ollama or OpenAI) for **prop
 
 **Hosted (gateway + canister):**
 
-- The **canister** can **store** hints: **`POST /api/v1/proposals/:proposal_id/review-hints`** with JSON body `{"review_hints":"...","review_hints_model":"..."}` (see `hub/icp/src/hub/main.mo`).
-- The **gateway does not** run the review-hints job today. **`POST /api/v1/proposals`** on hosted goes to the canister only; there is no Netlify/Node step that calls `runProposalReviewHintsJob` and then POSTs hints back.
-- If **`KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1`** is set on the **gateway**, Settings shows **Review hints (LLM): On**, but **hints will not appear** until some **operator-owned worker** (e.g. bridge scheduled job, serverless function) implements: create proposal hook → LLM → canister `review-hints` POST. That worker is **not** shipped in this repo yet.
+- The **canister** stores hints when **`POST /api/v1/proposals/:proposal_id/review-hints`** is called with JSON body `{"review_hints":"...","review_hints_model":"..."}` (see `hub/icp/src/hub/main.mo`).
+- The **gateway** runs an **async** job after a **successful** **`POST /api/v1/proposals`**: when **`KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1`** on the gateway process, it calls `maybeScheduleHostedProposalReviewHints` (`hub/gateway/proposal-review-hints-async.mjs`), which fetches the new proposal, runs **`completeChat()`** (`lib/llm-complete.mjs`) with the same Ollama/OpenAI env as self-hosted, then **POST**s hints to the canister. Hints appear in the Hub drawer after a short delay (refresh if needed).
+- **Deploy requirement:** The **Netlify (or other) function** that runs the gateway must have a **reachable** chat backend (typically **OpenAI** in production; localhost **Ollama** is not reachable from Netlify). If the env flag is on but the model call fails, hints simply stay empty—check gateway logs.
 
 **JSON / import shaping:** Review hints are **not** JSON schema for notes or imports. They do not pre-fill frontmatter or tags.
 
@@ -31,7 +31,11 @@ Two **optional** features use a chat-capable model (Ollama or OpenAI) for **prop
 
 **Self-hosted:** Set **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`** on the Node Hub; same Ollama/OpenAI chat config as above. Route is implemented in **`hub/server.mjs`**.
 
-**Hosted:** The **canister has no `/enrich` route**. If the UI calls enrich against the gateway, the proxied request will **not** succeed until enrich is implemented for hosted (e.g. gateway handler that calls LLM then updates canister fields—**not** present today).
+**Hosted:** The **gateway** implements **`POST /api/v1/proposals/:id/enrich`** when **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`**: it runs **`completeChat()`** ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `assistant_notes`, `assistant_model`, and **`suggested_labels_json`** (JSON array string) to the **canister** at the same path. The canister stores fields on the proposal; **deploy the hub canister** from this repo so stable storage includes enrich columns (V4 migration). **Chat env** on the gateway: typically **OpenAI** or **Anthropic** on Netlify (localhost **Ollama** is not reachable from serverless).
+
+### Privacy (operators)
+
+Proposal **body** (and path/intent) are sent to the configured chat API when hints or Enrich run. That content **leaves your deployment** to the provider unless you use **local Ollama** on self-hosted with no cloud API keys. There is no way to get cloud-model quality with zero data egress to the vendor; disabling **`KNOWTATION_HUB_PROPOSAL_*`** env flags avoids LLM calls entirely.
 
 ---
 
@@ -39,7 +43,7 @@ Two **optional** features use a chat-capable model (Ollama or OpenAI) for **prop
 
 | Row | Meaning |
 |-----|--------|
-| **Review hints (LLM)** | `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1'` on the process answering **`GET /api/v1/settings`** (Node Hub or gateway). Does not prove hints are generated on hosted. |
+| **Review hints (LLM)** | `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1'` on the process answering **`GET /api/v1/settings`** (Node Hub or gateway). On **hosted**, the **gateway** must also have a working **chat** env (e.g. OpenAI) or async hint generation will no-op/fail silently. |
 | **Proposal evaluation gate** | Policy/triggers for requiring human evaluation before approve; separate from LLM hints. |
 
 ---

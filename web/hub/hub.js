@@ -439,6 +439,12 @@
     return r === 'editor' || r === 'admin' || r === 'member';
   }
 
+  /** Proposal Enrich (AI): evaluators may run it without note-write roles; editors/admins/members still qualify. */
+  function hubUserMayEnrichProposal() {
+    const r = window.__hubUserRole;
+    return r === 'editor' || r === 'admin' || r === 'member' || r === 'evaluator';
+  }
+
   function hubUserIsAdmin() {
     return window.__hubUserRole === 'admin';
   }
@@ -4809,7 +4815,7 @@
             discardBtn.onclick = () => discardProposal(id, panel, discardBtn);
             actions.append(discardBtn);
           }
-          if (canApprove && window.__hubProposalEnrich && hubUserCanWriteNotes()) {
+          if (canEvaluate && window.__hubProposalEnrich && hubUserMayEnrichProposal()) {
             const enrichBtn = document.createElement('button');
             enrichBtn.type = 'button';
             enrichBtn.className = 'btn-secondary';

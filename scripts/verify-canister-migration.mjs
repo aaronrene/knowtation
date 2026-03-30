@@ -45,8 +45,12 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorage }) — identity (post–V1 mainnet)',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
+    name: 'migration(old : { var storage : StableStorageBeforeEnrich }) — V4 enrich upgrade',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorageBeforeEnrich })'),
+  },
+  {
+    name: 'ProposalRecord includes assistant_notes (V4 enrich)',
+    ok: (s) => s.includes('assistant_notes : Text;') && s.includes('suggested_labels_json : Text;'),
   },
   {
     name: 'V0 → V1 maps notes into vault "default"',

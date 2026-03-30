@@ -3,6 +3,7 @@
  * V1 = notes keyed by (userId, vaultId, path); proposals carry vault_id; billing fields reserved per HOSTED-STORAGE-BILLING-ROADMAP.
  * V2 = ProposalRecord gains human evaluation fields (Text; checklist JSON in evaluation_checklist).
  * V3 = ProposalRecord gains review_queue, review_severity, auto_flag_reasons_json, review_hints* (Text).
+ * V4 = ProposalRecord gains assistant_notes, assistant_model, assistant_at, suggested_labels_json (LLM Enrich).
  * See https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility
  */
 import Array "mo:base/Array";
@@ -88,7 +89,8 @@ module Migration {
     billingByUser : [(Text, BillingRecord)];
   };
 
-  public type ProposalRecord = {
+  /// Proposals as persisted before LLM Enrich fields (pre-V4 upgrade).
+  public type ProposalRecordBeforeEnrich = {
     proposal_id : Text;
     path : Text;
     status : Text;
@@ -115,10 +117,80 @@ module Migration {
     review_hints_model : Text;
   };
 
+  public type ProposalRecord = {
+    proposal_id : Text;
+    path : Text;
+    status : Text;
+    body : Text;
+    frontmatter : Text;
+    intent : Text;
+    base_state_id : Text;
+    external_ref : Text;
+    vault_id : Text;
+    created_at : Text;
+    updated_at : Text;
+    evaluation_status : Text;
+    evaluation_grade : Text;
+    evaluation_checklist : Text;
+    evaluation_comment : Text;
+    evaluated_by : Text;
+    evaluated_at : Text;
+    evaluation_waiver_json : Text;
+    review_queue : Text;
+    review_severity : Text;
+    auto_flag_reasons_json : Text;
+    review_hints : Text;
+    review_hints_at : Text;
+    review_hints_model : Text;
+    assistant_notes : Text;
+    assistant_model : Text;
+    assistant_at : Text;
+    suggested_labels_json : Text;
+  };
+
+  public type StableStorageBeforeEnrich = {
+    vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
+    proposalEntries : [(Text, [ProposalRecordBeforeEnrich])];
+    billingByUser : [(Text, BillingRecord)];
+  };
+
   public type StableStorage = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
     proposalEntries : [(Text, [ProposalRecord])];
     billingByUser : [(Text, BillingRecord)];
+  };
+
+  func proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecord {
+    {
+      proposal_id = p.proposal_id;
+      path = p.path;
+      status = p.status;
+      body = p.body;
+      frontmatter = p.frontmatter;
+      intent = p.intent;
+      base_state_id = p.base_state_id;
+      external_ref = p.external_ref;
+      vault_id = p.vault_id;
+      created_at = p.created_at;
+      updated_at = p.updated_at;
+      evaluation_status = p.evaluation_status;
+      evaluation_grade = p.evaluation_grade;
+      evaluation_checklist = p.evaluation_checklist;
+      evaluation_comment = p.evaluation_comment;
+      evaluated_by = p.evaluated_by;
+      evaluated_at = p.evaluated_at;
+      evaluation_waiver_json = p.evaluation_waiver_json;
+      review_queue = p.review_queue;
+      review_severity = p.review_severity;
+      auto_flag_reasons_json = p.auto_flag_reasons_json;
+      review_hints = p.review_hints;
+      review_hints_at = p.review_hints_at;
+      review_hints_model = p.review_hints_model;
+      assistant_notes = "";
+      assistant_model = "";
+      assistant_at = "";
+      suggested_labels_json = "[]";
+    };
   };
 
   func v0ToProposalV1(p : ProposalRecordV0) : ProposalRecordV1 {
@@ -199,10 +271,22 @@ module Migration {
   };
 
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
-  /// Mainnet has already run **V1 → current** (see git history for the prior `migration` that chained
-  /// `migrateFromV1ToV2Eval` with V3 field defaults). Stranded **V1** canisters must deploy an older revision that still migrates
-  /// from `StableStorageV1` first, then upgrade to this identity hook.
-  public func migration(old : { var storage : StableStorage }) : { var storage : StableStorage } {
-    { var storage = old.storage };
+  /// V4: enrich fields default empty on upgrade from `StableStorageBeforeEnrich`.
+  public func migration(old : { var storage : StableStorageBeforeEnrich }) : { var storage : StableStorage } {
+    {
+      var storage = {
+        vaultEntries = old.storage.vaultEntries;
+        billingByUser = old.storage.billingByUser;
+        proposalEntries = Array.map<(Text, [ProposalRecordBeforeEnrich]), (Text, [ProposalRecord])>(
+          old.storage.proposalEntries,
+          func(e : (Text, [ProposalRecordBeforeEnrich])) : (Text, [ProposalRecord]) {
+            (
+              e.0,
+              Array.map<ProposalRecordBeforeEnrich, ProposalRecord>(e.1, proposalBeforeEnrichToCurrent),
+            );
+          },
+        );
+      };
+    };
   };
 }

@@ -59,6 +59,7 @@ The gateway strips `/.netlify/functions/gateway` from `req.url` when present so 
 - `BRIDGE_URL` — URL of the bridge if separate (e.g. `https://bridge.knowtation.com`); gateway then proxies vault/sync, search, index to bridge
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — OAuth (callback URLs must match `HUB_BASE_URL` and bridge callback URL)
 - `HUB_ADMIN_USER_IDS` (optional) — Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted; everyone else gets **member**. Enables Edit and Team tab for designated admins. See [hub/gateway/README.md](../hub/gateway/README.md).
+- **Proposal LLM (optional):** `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1` — async review hints after create (gateway → canister). `KNOWTATION_HUB_PROPOSAL_ENRICH=1` — **`POST /api/v1/proposals/:id/enrich`** on the gateway (LLM + canister write). Requires a **reachable** chat API on the gateway host (**`OPENAI_API_KEY`**, or **`ANTHROPIC_API_KEY`**, not localhost Ollama on Netlify). **Deploy the `hub` canister** from this repo **before** enabling hosted Enrich so stable storage includes enrich fields (V4 migration). See [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md).
 
 **Bridge env (production):**
 
@@ -119,6 +120,39 @@ Use this list **before first launch** and **again after** any production env cha
 - [ ] Landing deployed; "Open Knowtation Hub" points to Hub URL.
 - [ ] No secrets or credentials in repo or client bundle.
 - [ ] **Settings → Backup → project slug:** **Gateway** must include metadata bulk handlers; **static Hub** (`web/hub`) must include **PR #65** so the client does not block `POST /notes/delete-by-project` or `rename-project` on hosted. Then **Delete by project (metadata)** and **Rename project** work (confirm with a test vault; **Re-index** afterward if you rely on semantic search — see [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)).
+
+### 5.0 Post-merge canister upgrade (auto Netlify + 4Everland on `main`)
+
+If **merging to `main`** triggers **Netlify** (gateway) and **4Everland** (static site) automatically, the **new gateway** may go live **before** you upgrade the **ICP hub canister**. Hosted features that need new Motoko routes or stable fields (for example **proposal Enrich** after V4) will **fail until the canister is deployed**.
+
+**Operator sequence (recommended):**
+
+1. **Merge the PR** to `main` (triggers Netlify + 4Everland).
+2. **Immediately** on the machine that has **`dfx`** and your **mainnet deploy identity**, from a clean tree:
+   ```bash
+   cd /path/to/knowtation
+   npm run release:post-merge-canister -- --sync-main
+   ```
+   This runs **[scripts/post-merge-hub-canister-release.sh](../scripts/post-merge-hub-canister-release.sh)**, which calls **[scripts/canister-predeploy.sh](../scripts/canister-predeploy.sh)**:
+   - migration shape checks (`verify-canister-migration.mjs`)
+   - `npm test`
+   - `dfx build hub --network ic`
+   - optional **`GET /api/v1/export`** backup to `./backups/` when **`KNOWTATION_CANISTER_BACKUP_USER_ID`** is set in `.env` (URL defaults from [hub/icp/canister_ids.json](../hub/icp/canister_ids.json) if omitted)
+3. **Deploy the canister** (same terminal session, after preflight passes):
+   ```bash
+   cd hub/icp && dfx identity use <your-deploy-identity> && dfx deploy hub --network ic
+   ```
+   Or opt-in from repo root (if you export identity first or set `DFX_DEPLOY_IDENTITY`):
+   ```bash
+   RUN_DFX_DEPLOY=1 DFX_DEPLOY_IDENTITY=<name> npm run release:post-merge-canister
+   ```
+4. **Wait** for Netlify + 4Everland production deploys to finish; then **test flight** (read-only snapshot is safe):
+   ```bash
+   KNOWTATION_HUB_SNAPSHOT_ONLY=1 KNOWTATION_HUB_API=https://<your-gateway-public-origin> npm run verify:hosted-api
+   ```
+5. Only then enable or confirm **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`** (and chat API keys) on the gateway if you want hosted Enrich live — see [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md).
+
+**Same as always:** do not commit `.env`; confirm no secrets in the client bundle. For a fuller pre-merge dry run (optional `git pull` on `main`), you can still use `npm run canister:release-prep -- --sync-main` before opening the PR.
 
 ### 5.1 Multi-vault (Phase 15.1) — after canister deploy
 

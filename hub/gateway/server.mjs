@@ -31,6 +31,7 @@ import { getProposalEvaluationRequired } from '../../lib/hub-proposal-policy.mjs
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
+import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -963,22 +964,12 @@ async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
 const PROPOSAL_APPROVE_OR_DISCARD_RE = /^\/api\/v1\/proposals\/[^/]+\/(approve|discard)\/?$/;
 
 /**
- * Approve/discard: enforce actor role on gateway (canister only sees effective X-User-Id).
+ * Bridge / JWT actor role for proposal RBAC (canister only sees effective X-User-Id).
  * @param {import('express').Request} req
- * @param {import('express').Response} res
- * @param {string} pathNoQuery
- * @param {string} method
- * @param {Record<string, unknown>|null} hctx from getHostedAccessContext (null if no bridge / not delegated)
+ * @param {Record<string, unknown>|null} hctx
+ * @returns {Promise<{ role: string, mayApproveProposals: boolean }>}
  */
-async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method, hctx) {
-  if (method !== 'POST' || !PROPOSAL_APPROVE_OR_DISCARD_RE.test(pathNoQuery)) return true;
-
-  const uid = getUserId(req);
-  if (!uid) {
-    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-    return false;
-  }
-
+async function resolveHostedActorRole(req, hctx) {
   const envFallback = process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
   let role = 'member';
   let mayApproveProposals = false;
@@ -1016,6 +1007,27 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
       }
     } catch (_) {}
   }
+  return { role, mayApproveProposals };
+}
+
+/**
+ * Approve/discard: enforce actor role on gateway (canister only sees effective X-User-Id).
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {string} pathNoQuery
+ * @param {string} method
+ * @param {Record<string, unknown>|null} hctx from getHostedAccessContext (null if no bridge / not delegated)
+ */
+async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method, hctx) {
+  if (method !== 'POST' || !PROPOSAL_APPROVE_OR_DISCARD_RE.test(pathNoQuery)) return true;
+
+  const uid = getUserId(req);
+  if (!uid) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return false;
+  }
+
+  const { role, mayApproveProposals } = await resolveHostedActorRole(req, hctx);
 
   if (/\/discard\/?$/.test(pathNoQuery)) {
     if (role !== 'admin') {
@@ -1144,6 +1156,69 @@ app.post('/api/v1/notes/delete-by-project', async (req, res) => {
 app.post('/api/v1/notes/rename-project', async (req, res) => {
   if (!(await runBillingGate(req, res, getUserId))) return;
   return metadataBulkHandlers.renameProject(req, res);
+});
+
+/** Hosted Enrich: gateway runs LLM and POSTs to canister (not proxied as opaque POST). */
+app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
+  if (!(await runBillingGate(req, res, getUserId))) return;
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const proposalId = req.params.proposalId;
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  const { role } = await resolveHostedActorRole(req, hctx);
+  if (role === 'viewer') {
+    return res.status(403).json({ error: 'This action requires a different role.', code: 'FORBIDDEN' });
+  }
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  const out = await runHostedProposalEnrichAndPost({
+    canisterUrl: CANISTER_URL,
+    effectiveUserId: effective,
+    actorUserId: uid,
+    vaultId,
+    proposalId,
+  });
+  if (!out.ok) {
+    if (out.status === 404 && out.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (out.status === 404) {
+      return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+    }
+    if (out.status === 400) {
+      return res.status(400).json({ error: out.detail || 'Bad request', code: out.code || 'BAD_REQUEST' });
+    }
+    return res.status(out.status || 500).json({
+      error: out.detail || out.code || 'Enrich failed',
+      code: out.code || 'RUNTIME_ERROR',
+    });
+  }
+  try {
+    const base = CANISTER_URL.replace(/\/$/, '');
+    const getRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}`, {
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': uid,
+        'x-vault-id': vaultId,
+      },
+    });
+    const bodyText = await getRes.text();
+    const hop = filterUpstreamResponseHeadersForDecodedBody(getRes.headers.entries()).filter(
+      ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
+    );
+    res.status(getRes.status).set(Object.fromEntries(hop));
+    res.set('Cache-Control', 'private, no-store, must-revalidate');
+    res.send(bodyText);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
 });
 
 app.use('/api/v1', async (req, res) => {
