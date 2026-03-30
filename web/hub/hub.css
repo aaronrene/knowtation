@@ -214,12 +214,40 @@ button.btn-new-note.btn-busy::after {
 .oauth-steps { margin: 0.75rem 0; padding-left: 1.25rem; }
 .oauth-steps li { margin-bottom: 0.5rem; }
 .panel { padding: 2rem 1.5rem; max-width: 640px; }
-.search-section { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); align-items: center; }
-.search-section input[type="text"] { flex: 1; min-width: 200px; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
-.search-section select { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.search-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  align-items: stretch;
+}
+.search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.search-row-filters input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.search-section select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
 .search-section .filter-date-label { font-size: 0.8rem; color: var(--muted); margin-right: 0.2rem; }
 .search-section input[type="date"] { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
-.search-section .search-hint { flex-basis: 100%; margin: 0.25rem 0 0; line-height: 1.45; max-width: 72rem; }
+.search-section .search-hint { margin: 0.25rem 0 0; line-height: 1.45; max-width: 72rem; }
+.search-row-dates-actions { align-items: center; }
 .filter-project-wrap {
   display: inline-flex;
   align-items: center;
@@ -1269,7 +1297,7 @@ button.btn-new-note.btn-busy::after {
   .hub-auth button:not(.modal-close),
   .hub-auth .btn-provider { min-height: 44px; min-width: 44px; padding: 0.6rem 0.75rem; }
   .search-section { padding: 0.75rem 1rem; gap: 0.5rem; }
-  .search-section input[type="text"] { min-width: 100%; }
+  .search-row-filters input[type="text"] { min-width: 100%; flex: 1 1 100%; }
   .search-section select,
   .search-section input[type="date"],
   .search-section button { min-height: 44px; }

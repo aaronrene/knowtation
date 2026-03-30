@@ -41,7 +41,7 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 ## 2. MCP (Cursor, Claude Code, etc.)
 
 - **Start:** `knowtation mcp` (stdio transport).
-- **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. Same filters and JSON shapes.
+- **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. Same filters and JSON shapes. The **`search`** tool accepts **`mode`: `semantic` (default) or `keyword`** plus optional **`match`** (`phrase` \| `all_terms`) for keyword mode, aligned with `POST /api/v1/search`.
 - **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant’s context matches Knowtation.
 - **Summarize (Phase F1):** The **`summarize`** tool uses the host’s LLM when the client supports **sampling**; otherwise it uses Ollama/OpenAI on the machine running Knowtation. See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
 - **Use case:** When the agent runtime speaks MCP; no need to shell out to CLI.
@@ -75,7 +75,7 @@ curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
 | List notes    | GET    | /notes            | folder, project, tag, limit, offset, order, fields, count_only |
 | Get note      | GET    | /notes/{path}     | —          |
 | Write note    | POST   | /notes            | path, body?, frontmatter?, append? |
-| Search        | POST   | /search           | query, folder?, project?, tag?, limit?, order?, fields? |
+| Search        | POST   | /search           | query, mode? (semantic\|keyword), match? (phrase\|all_terms), folder?, project?, tag?, limit?, order?, fields?, content_scope?, … |
 | List proposals| GET    | /proposals        | status, limit, offset |
 | Get proposal  | GET    | /proposals/:id    | —          |
 | Create proposal | POST | /proposals        | path?, body?, frontmatter?, intent?, base_state_id? |

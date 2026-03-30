@@ -95,35 +95,43 @@
 
     <main id="main" class="hidden">
       <section class="search-section">
-        <input type="text" id="search-query" placeholder="Search by meaning (not exact words)…" autocomplete="off" aria-label="Semantic search query" aria-describedby="search-semantic-hint">
-        <div class="filter-project-wrap">
-          <select id="filter-project">
-            <option value="">All projects</option>
+        <div class="search-row search-row-filters" role="group" aria-label="Search query and filters">
+          <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query" aria-describedby="search-semantic-hint">
+          <select id="search-mode" class="search-mode-select" title="Meaning = similar ideas (indexed). Keyword = text in path, body, and key frontmatter fields." aria-label="Search mode">
+            <option value="semantic">Meaning</option>
+            <option value="keyword">Keyword</option>
           </select>
-          <button type="button" id="btn-projects-help" class="btn-inline-field-help hidden" title="How projects work on hosted" aria-label="How projects work on hosted">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </button>
+          <div class="filter-project-wrap">
+            <select id="filter-project">
+              <option value="">All projects</option>
+            </select>
+            <button type="button" id="btn-projects-help" class="btn-inline-field-help hidden" title="How projects work on hosted" aria-label="How projects work on hosted">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+          </div>
+          <select id="filter-tag">
+            <option value="">All tags</option>
+          </select>
+          <select id="filter-folder">
+            <option value="">All folders</option>
+          </select>
+          <select id="filter-content-scope" title="Applies to the Notes list and to Search. Search results always open under Notes—not Activity." aria-label="Content type: all notes, exclude approval logs, or approval logs only">
+            <option value="">All content</option>
+            <option value="notes">Notes only</option>
+            <option value="approval_logs">Approval logs only</option>
+          </select>
         </div>
-        <select id="filter-tag">
-          <option value="">All tags</option>
-        </select>
-        <select id="filter-folder">
-          <option value="">All folders</option>
-        </select>
-        <select id="filter-content-scope" title="Applies to the Notes list and to Search. Search results always open under Notes—not Activity." aria-label="Content type: all notes, exclude approval logs, or approval logs only">
-          <option value="">All content</option>
-          <option value="notes">Notes only</option>
-          <option value="approval_logs">Approval logs only</option>
-        </select>
-        <label for="filter-since" class="filter-date-label">Since</label>
-        <input type="date" id="filter-since" aria-label="Filter notes from this date">
-        <label for="filter-until" class="filter-date-label">Until</label>
-        <input type="date" id="filter-until" aria-label="Filter notes until this date">
-        <button id="btn-search" type="button" class="btn-primary" title="Semantic search over the indexed vault (meaning, not exact keywords). Results always appear under the Notes tab. Respects filters above. Enter also runs search." aria-label="Semantic search">Search</button>
-        <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear semantic search">Clear</button>
-        <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
-        <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
-        <p id="search-semantic-hint" class="search-hint muted small"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. Green <strong>Search</strong> is meaning-based (re-index after approvals). <strong>Clear</strong> resets search + content filter.</p>
+        <div class="search-row search-row-dates-actions" role="group" aria-label="Date range and search actions">
+          <label for="filter-since" class="filter-date-label">Since</label>
+          <input type="date" id="filter-since" aria-label="Filter notes from this date">
+          <label for="filter-until" class="filter-date-label">Until</label>
+          <input type="date" id="filter-until" aria-label="Filter notes until this date">
+          <button id="btn-search" type="button" class="btn-primary" title="Run search (mode from dropdown: Meaning or Keyword). Results appear under the Notes tab. Respects filters. Enter also runs search." aria-label="Search vault">Search</button>
+          <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear search">Clear</button>
+          <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
+          <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
+        </div>
+        <p id="search-semantic-hint" class="search-hint muted small"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. <strong>Meaning</strong> needs an up-to-date index (re-index after big changes). <strong>Keyword</strong> scans note text on the server. <strong>Clear</strong> resets search + content filter.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">

@@ -75,8 +75,8 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "path": "...", "frontmatter": { ... }, "body": "..." }` per SPEC §4.2 get-note.  
   **404** if not found.
 
-- **POST /search** — Semantic search. Body: `{ "query": "...", "folder?", "project?", "tag?", "limit?", "since?", "until?", "order?", "fields?", "content_scope?" }`. Optional **`content_scope`**: `notes` (exclude `approvals/…` hits) or `approval_logs` (only those paths).  
-  **Response:** `{ "results": [ { "path", "snippet?", "score", "project", "tags" } ], "query": "..." }` per SPEC §4.2 search.  
+- **POST /search** — Vault search. Default is **semantic** (vector similarity; requires index on self-hosted; hosted bridge uses per-user vector store). Set **`"mode": "keyword"`** for **keyword** search: case-insensitive match over path, body, and selected frontmatter strings (`title`, `intent`, `tags`, etc.), with the same structural filters as list-notes. Optional **`match`** (keyword only): `"phrase"` (default, whole query as substring) or `"all_terms"` (every whitespace-separated token must appear, AND). Body also supports: `"folder?"`, `"project?"`, `"tag?"`, `"limit?"`, `"since?"`, `"until?"`, `"order?"`, `"fields?"`, `"chain?"`, `"entity?"`, `"episode?"`, `"snippetChars?"`, **`content_scope`** (`notes` \| `approval_logs`), **`count_only`** / **`countOnly`**.  
+  **Response:** `{ "results": [ { "path", "snippet?", "score", "project", "tags" } ], "query": "...", "mode": "semantic" | "keyword" }`; keyword responses may include `"count"` when `count_only` is true. Per SPEC §4.2 search where applicable.  
   **400** if query missing.
 
 ### 3.3 Vault write
