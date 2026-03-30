@@ -34,11 +34,11 @@ import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
 import { deleteNotesByProjectSlug, renameProjectSlugInVault } from '../lib/hub-bulk-metadata.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
 import { runSearch } from '../lib/search.mjs';
-import { buildApprovalLogWrite } from '../lib/approval-log.mjs';
 import { exportNoteToContent } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../lib/import-source-types.mjs';
 import { noteStateIdFromParts, absentNoteStateId } from '../lib/note-state-id.mjs';
+import { buildApprovalLogWrite } from '../lib/approval-log.mjs';
 import { completeChat } from '../lib/llm-complete.mjs';
 import {
   listProposals,
@@ -939,50 +939,50 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, (req, res) => {
       body: proposal.body,
       frontmatter: fm,
     });
-    const approvedAt = new Date().toISOString();
-    let approval_log_written = true;
-    let approval_log_error;
+    const approvedAtIso = new Date().toISOString();
+    let approval_log_written = false;
     let approval_log_path;
+    let approval_log_error;
     try {
-      const al = buildApprovalLogWrite({
+      const excerpt =
+        proposal.body != null && String(proposal.body).trim()
+          ? String(proposal.body).replace(/\s+/g, ' ').trim()
+          : '';
+      const logSpec = buildApprovalLogWrite({
         proposalId: proposal.proposal_id,
         targetPath: proposal.path,
-        approvedAt,
-        approvedBy: req.user?.sub ?? '',
-        proposedBy: proposal.proposed_by,
+        approvedAt: approvedAtIso,
+        approvedBy: req.user?.sub ?? undefined,
+        proposedBy: proposal.proposed_by ?? undefined,
         intent: proposal.intent,
         source: proposal.source,
+        proposedBodyExcerpt: excerpt || undefined,
       });
-      writeNote(approveVaultPath, al.relativePath, {
-        body: al.body,
-        frontmatter: al.frontmatter,
+      writeNote(approveVaultPath, logSpec.relativePath, {
+        body: logSpec.body,
+        frontmatter: logSpec.frontmatter,
       });
-      approval_log_path = al.relativePath;
-    } catch (logErr) {
-      approval_log_written = false;
-      approval_log_error = logErr && logErr.message ? String(logErr.message) : 'approval_log_write_failed';
-      console.error('[hub] approval log write failed:', logErr);
+      approval_log_written = true;
+      approval_log_path = logSpec.relativePath;
+    } catch (e) {
+      approval_log_error = e.message || String(e);
     }
     let evaluation_waiver;
     if (!evaluationAllowsApprove(proposal) && waiverReason.length >= 3) {
       evaluation_waiver = {
         by: req.user?.sub ?? 'unknown',
-        at: new Date().toISOString(),
+        at: approvedAtIso,
         reason: waiverReason.slice(0, 2000),
       };
     }
     const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved', {
       ...(evaluation_waiver ? { evaluation_waiver } : {}),
     });
-    const auditDetail = {
-      ...(evaluation_waiver ? { reason_len: waiverReason.length } : {}),
-      ...(!approval_log_written && approval_log_error ? { approval_log_error } : {}),
-    };
     appendAudit(config.data_dir, {
       userId: req.user?.sub ?? 'unknown',
       action: evaluation_waiver ? 'approve_waiver' : 'approve',
       proposalId: req.params.id,
-      ...(Object.keys(auditDetail).length ? { detail: auditDetail } : {}),
+      ...(evaluation_waiver ? { detail: { reason_len: waiverReason.length } } : {}),
     });
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: approveVaultPath });

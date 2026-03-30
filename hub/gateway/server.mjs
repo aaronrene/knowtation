@@ -27,7 +27,14 @@ import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 import { createMetadataBulkHandlers } from './metadata-bulk-canister.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
 import { loadProposalRubric } from '../../lib/hub-proposal-rubric.mjs';
-import { getProposalEvaluationRequired } from '../../lib/hub-proposal-policy.mjs';
+import { proposalPolicyEnvLocked } from '../../lib/hub-proposal-policy.mjs';
+import {
+  loadHostedProposalLlmPrefs,
+  mergeHostedProposalLlmPrefs,
+  effectiveHostedEvaluationRequired,
+  effectiveHostedReviewHints,
+  effectiveHostedEnrich,
+} from './proposal-llm-store.mjs';
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
@@ -644,6 +651,8 @@ app.get('/api/v1/settings', async (req, res) => {
     auto_commit: false,
     auto_push: false,
   };
+  const dataDir = path.join(projectRoot, 'data');
+  const llmPrefs = await loadHostedProposalLlmPrefs();
   res.json({
     role,
     user_id: uid,
@@ -658,12 +667,32 @@ app.get('/api/v1/settings', async (req, res) => {
     workspace_owner_id,
     hosted_delegating,
     embedding_display: { provider: '—', model: '—', ollama_url: '—' },
-    proposal_enrich_enabled: process.env.KNOWTATION_HUB_PROPOSAL_ENRICH === '1',
-    proposal_evaluation_required: getProposalEvaluationRequired(path.join(projectRoot, 'data')),
-    proposal_review_hints_enabled: process.env.KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS === '1',
+    proposal_enrich_enabled: effectiveHostedEnrich(llmPrefs),
+    proposal_evaluation_required: effectiveHostedEvaluationRequired(llmPrefs, dataDir),
+    proposal_review_hints_enabled: effectiveHostedReviewHints(llmPrefs),
+    proposal_policy_stored: {
+      proposal_evaluation_required: llmPrefs.proposal_evaluation_required,
+      review_hints_enabled: llmPrefs.review_hints_enabled,
+      enrich_enabled: llmPrefs.enrich_enabled,
+    },
+    proposal_policy_env_locked: proposalPolicyEnvLocked(),
     hub_evaluator_may_approve,
     proposal_rubric: loadProposalRubric(path.join(projectRoot, 'data')),
   });
+});
+
+app.post('/api/v1/settings/proposal-policy', requireAdmin, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    await mergeHostedProposalLlmPrefs({
+      proposal_evaluation_required: body.proposal_evaluation_required,
+      review_hints_enabled: body.review_hints_enabled,
+      enrich_enabled: body.enrich_enabled,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
 });
 
 app.get('/api/v1/setup', (req, res) => {
@@ -675,12 +704,42 @@ app.get('/api/v1/setup', (req, res) => {
   });
 });
 
-// --- Parity (Phase 1): roles, invites — stubs; admin from HUB_ADMIN_USER_IDS, full Team/invites need storage (Phase 2) ---
+// --- Admin routes: HUB_ADMIN_USER_IDS, or bridge GET /api/v1/role → role "admin" (Team tab) ---
 function requireAdmin(req, res, next) {
   const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  if (roleForSub(uid) !== 'admin') return res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
-  next();
+  if (!uid) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return;
+  }
+  if (roleForSub(uid) === 'admin') {
+    next();
+    return;
+  }
+  if (!BRIDGE_URL || !req.headers.authorization) {
+    res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+    return;
+  }
+  void (async () => {
+    try {
+      const roleRes = await fetch(BRIDGE_URL + '/api/v1/role', {
+        method: 'GET',
+        headers: { Authorization: req.headers.authorization, Accept: 'application/json' },
+      });
+      if (!roleRes.ok) {
+        if (!res.headersSent) res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+        return;
+      }
+      const data = await roleRes.json();
+      if (data && data.role === 'admin') {
+        next();
+        return;
+      }
+      if (!res.headersSent) res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+    } catch (e) {
+      console.warn('[gateway] requireAdmin bridge /role', e?.message || String(e));
+      if (!res.headersSent) res.status(403).json({ error: 'Admin only', code: 'FORBIDDEN' });
+    }
+  })();
 }
 
 if (!BRIDGE_URL) {
@@ -1095,6 +1154,14 @@ async function proxyToCanister(req, res) {
   const opts = { method: req.method, headers };
   let bodyOut = req.body;
   const pathOnlyForBody = pathPartNoQuery(req);
+  const dataDir = path.join(projectRoot, 'data');
+  let hostedLlmPrefs = null;
+  if (
+    req.method === 'POST' &&
+    (pathOnlyForBody === '/api/v1/proposals' || pathOnlyForBody === '/api/v1/proposals/')
+  ) {
+    hostedLlmPrefs = await loadHostedProposalLlmPrefs();
+  }
   if (
     bodyOut !== undefined &&
     typeof bodyOut === 'object' &&
@@ -1105,7 +1172,11 @@ async function proxyToCanister(req, res) {
   }
   if (bodyOut !== undefined && typeof bodyOut === 'object' && !Buffer.isBuffer(bodyOut)) {
     bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);
-    bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, path.join(projectRoot, 'data'));
+    const policyOpts =
+      hostedLlmPrefs != null
+        ? { evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir) }
+        : {};
+    bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && bodyOut !== undefined) {
     opts.body = typeof bodyOut === 'string' ? bodyOut : JSON.stringify(bodyOut);
@@ -1123,6 +1194,7 @@ async function proxyToCanister(req, res) {
       effectiveUserId: effective,
       actorUserId: uid,
       vaultId,
+      hintsEnabled: hostedLlmPrefs ? effectiveHostedReviewHints(hostedLlmPrefs) : false,
     });
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
@@ -1177,12 +1249,15 @@ app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
     hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
       ? hctx.effective_canister_user_id
       : uid;
+  const llmPrefs = await loadHostedProposalLlmPrefs();
+  const enrichEnabled = effectiveHostedEnrich(llmPrefs);
   const out = await runHostedProposalEnrichAndPost({
     canisterUrl: CANISTER_URL,
     effectiveUserId: effective,
     actorUserId: uid,
     vaultId,
     proposalId,
+    enrichEnabled,
   });
   if (!out.ok) {
     if (out.status === 404 && out.code === 'NOT_FOUND') {

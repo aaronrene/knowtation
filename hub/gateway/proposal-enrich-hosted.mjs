@@ -29,11 +29,12 @@ function chatModelLabel() {
  *   actorUserId: string,
  *   vaultId: string,
  *   proposalId: string,
+ *   enrichEnabled: boolean,
  * }} opts
  * @returns {Promise<{ ok: true } | { ok: false, status: number, code: string, detail?: string }>}
  */
 export async function runHostedProposalEnrichAndPost(opts) {
-  if (process.env.KNOWTATION_HUB_PROPOSAL_ENRICH !== '1') {
+  if (!opts.enrichEnabled) {
     return { ok: false, status: 404, code: 'NOT_FOUND' };
   }
   const { canisterUrl, effectiveUserId, actorUserId, vaultId, proposalId } = opts;

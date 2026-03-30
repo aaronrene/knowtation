@@ -39,6 +39,17 @@ test('buildApprovalLogWrite shapes frontmatter', () => {
   assert.ok(w.body.includes('inbox/foo.md'));
 });
 
+test('buildApprovalLogWrite appends proposedBodyExcerpt for search', () => {
+  const w = buildApprovalLogWrite({
+    proposalId: 'pid-2',
+    targetPath: 'x.md',
+    approvedAt: '2026-03-30T00:00:00.000Z',
+    proposedBodyExcerpt: 'embeddings and indexing test',
+  });
+  assert.ok(w.body.includes('Proposal excerpt'));
+  assert.ok(w.body.includes('embeddings'));
+});
+
 test('resolveSearchFolderForContentScope approval_logs uses approvals prefix', () => {
   const r = resolveSearchFolderForContentScope('approval_logs', undefined);
   assert.equal(r.impossible, false);
