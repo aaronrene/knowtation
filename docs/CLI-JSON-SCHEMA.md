@@ -9,11 +9,11 @@ This document summarizes the **stable JSON shapes** returned by the Knowtation C
 ### search (--json)
 
 - **Default / `--fields path+snippet`:**  
-  `{ "results": [ { "path": string, "snippet": string, "score": number, "project": string | null, "tags": string[] } ], "query": string }`
+  `{ "results": [ { "path": string, "snippet": string, "score": number, "project": string | null, "tags": string[] } ], "query": string, "mode"?: "semantic" | "keyword" }` — `mode` is set by implementations that support **`--keyword`** (keyword) vs default semantic search.
 - **`--fields path`:** Same, but each result has only `path`, `score`, and optionally `project`/`tags`; no `snippet`.
 - **`--fields full`:** Each result includes full note (frontmatter + body).
 - **`--count-only`:**  
-  `{ "count": number, "query": string }` (no `results` or empty).
+  `{ "count": number, "query": string, "mode"?: "semantic" | "keyword" }` (no `results` or empty).
 
 ### get-note (--json)
 

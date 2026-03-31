@@ -4,6 +4,11 @@
  */
 
 import { completeChat } from '../../lib/llm-complete.mjs';
+import {
+  buildEnrichMessages,
+  validateAndNormalizeEnrichResult,
+  serializeSuggestedFrontmatterJson,
+} from '../../lib/proposal-enrich-llm.mjs';
 
 function miniLlmConfig() {
   return {
@@ -54,39 +59,33 @@ export async function runHostedProposalEnrichAndPost(opts) {
     return { ok: false, status: 400, code: 'BAD_REQUEST', detail: 'Can only enrich proposed proposals' };
   }
 
-  const system =
-    'Reply with ONLY valid JSON: {"summary":"one short paragraph","suggested_labels":["lowercase-short-tag"]}. At most 5 labels. No markdown fences.';
-  const user = `Path: ${p.path}\nIntent: ${p.intent || '—'}\n---\n${String(p.body || '').slice(0, 12_000)}`;
+  const { system, user } = buildEnrichMessages({
+    path: p.path,
+    intent: p.intent,
+    body: p.body,
+  });
   let raw;
   try {
-    raw = await completeChat(miniLlmConfig(), { system, user, maxTokens: 400 });
+    raw = await completeChat(miniLlmConfig(), { system, user, maxTokens: 1200 });
   } catch (e) {
     const msg = e && e.message ? String(e.message) : String(e);
     return { ok: false, status: 500, code: 'RUNTIME_ERROR', detail: msg };
   }
 
-  let summary = raw;
-  let suggested = [];
-  try {
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim();
-    const j = JSON.parse(cleaned);
-    if (typeof j.summary === 'string') summary = j.summary;
-    if (Array.isArray(j.suggested_labels)) suggested = j.suggested_labels;
-  } catch (_) {
-    /* use raw text as summary */
-  }
-
+  const norm = validateAndNormalizeEnrichResult(raw);
   const model = chatModelLabel();
   const labelsJson = JSON.stringify(
-    suggested.map((x) => String(x).slice(0, 64)).filter(Boolean).slice(0, 8),
+    norm.suggested_labels.map((x) => String(x).slice(0, 64)).filter(Boolean).slice(0, 8),
   );
+  const fmJson = serializeSuggestedFrontmatterJson(norm.suggested_frontmatter);
   const postRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}/enrich`, {
     method: 'POST',
     headers: { ...h, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      assistant_notes: String(summary).slice(0, 16_000),
+      assistant_notes: String(norm.summary).slice(0, 16_000),
       assistant_model: String(model).slice(0, 128),
       suggested_labels_json: labelsJson,
+      assistant_suggested_frontmatter_json: fmJson,
     }),
   });
   if (!postRes.ok) {

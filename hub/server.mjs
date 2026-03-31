@@ -1038,27 +1038,22 @@ app.post('/api/v1/proposals/:id/enrich', requireRole('editor', 'admin', 'evaluat
     return res.status(400).json({ error: 'Can only enrich proposed proposals', code: 'BAD_REQUEST' });
   }
   try {
-    const system =
-      'Reply with ONLY valid JSON: {"summary":"one short paragraph","suggested_labels":["lowercase-short-tag"]}. At most 5 labels. No markdown fences.';
-    const user = `Path: ${proposal.path}\nIntent: ${proposal.intent || '—'}\n---\n${String(proposal.body || '').slice(0, 12_000)}`;
-    const raw = await completeChat(config, { system, user, maxTokens: 400 });
-    let summary = raw;
-    let suggested = [];
-    try {
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim();
-      const j = JSON.parse(cleaned);
-      if (typeof j.summary === 'string') summary = j.summary;
-      if (Array.isArray(j.suggested_labels)) suggested = j.suggested_labels;
-    } catch (_) {
-      /* use raw text as summary */
-    }
+    const { buildEnrichMessages, validateAndNormalizeEnrichResult } = await import('../lib/proposal-enrich-llm.mjs');
+    const { system, user } = buildEnrichMessages({
+      path: proposal.path,
+      intent: proposal.intent,
+      body: proposal.body,
+    });
+    const raw = await completeChat(config, { system, user, maxTokens: 1200 });
+    const norm = validateAndNormalizeEnrichResult(raw);
     const model = process.env.OPENAI_API_KEY
       ? config.llm?.openai_chat_model || process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini'
       : process.env.OLLAMA_CHAT_MODEL || config.llm?.ollama_chat_model || process.env.OLLAMA_MODEL || 'ollama';
     const updated = updateProposalEnrichment(config.data_dir, req.params.id, {
-      assistant_notes: summary,
+      assistant_notes: norm.summary,
       assistant_model: String(model).slice(0, 128),
-      suggested_labels: suggested,
+      suggested_labels: norm.suggested_labels,
+      assistant_suggested_frontmatter: norm.suggested_frontmatter,
     });
     appendAudit(config.data_dir, { userId: req.user?.sub ?? 'unknown', action: 'enrich', proposalId: req.params.id });
     res.json(updated);

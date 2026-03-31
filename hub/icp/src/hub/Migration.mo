@@ -4,6 +4,8 @@
  * V2 = ProposalRecord gains human evaluation fields (Text; checklist JSON in evaluation_checklist).
  * V3 = ProposalRecord gains review_queue, review_severity, auto_flag_reasons_json, review_hints* (Text).
  * V4 = ProposalRecord gains assistant_notes, assistant_model, assistant_at, suggested_labels_json (LLM Enrich).
+ * V5 = ProposalRecord gains assistant_suggested_frontmatter_json (structured Enrich metadata).
+ * Actor upgrade hook input must match **on-chain** storage before this WASM: after V4 deploy use `StableStorageV4`; canisters still on `StableStorageBeforeEnrich` must upgrade via an intermediate release that runs the V4 hook first.
  * See https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility
  */
 import Array "mo:base/Array";
@@ -117,7 +119,8 @@ module Migration {
     review_hints_model : Text;
   };
 
-  public type ProposalRecord = {
+  /// Proposals as persisted after V4 enrich, before V5 suggested frontmatter JSON.
+  public type ProposalRecordV4 = {
     proposal_id : Text;
     path : Text;
     status : Text;
@@ -148,9 +151,47 @@ module Migration {
     suggested_labels_json : Text;
   };
 
+  public type ProposalRecord = {
+    proposal_id : Text;
+    path : Text;
+    status : Text;
+    body : Text;
+    frontmatter : Text;
+    intent : Text;
+    base_state_id : Text;
+    external_ref : Text;
+    vault_id : Text;
+    created_at : Text;
+    updated_at : Text;
+    evaluation_status : Text;
+    evaluation_grade : Text;
+    evaluation_checklist : Text;
+    evaluation_comment : Text;
+    evaluated_by : Text;
+    evaluated_at : Text;
+    evaluation_waiver_json : Text;
+    review_queue : Text;
+    review_severity : Text;
+    auto_flag_reasons_json : Text;
+    review_hints : Text;
+    review_hints_at : Text;
+    review_hints_model : Text;
+    assistant_notes : Text;
+    assistant_model : Text;
+    assistant_at : Text;
+    suggested_labels_json : Text;
+    assistant_suggested_frontmatter_json : Text;
+  };
+
   public type StableStorageBeforeEnrich = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
     proposalEntries : [(Text, [ProposalRecordBeforeEnrich])];
+    billingByUser : [(Text, BillingRecord)];
+  };
+
+  public type StableStorageV4 = {
+    vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
+    proposalEntries : [(Text, [ProposalRecordV4])];
     billingByUser : [(Text, BillingRecord)];
   };
 
@@ -190,6 +231,41 @@ module Migration {
       assistant_model = "";
       assistant_at = "";
       suggested_labels_json = "[]";
+      assistant_suggested_frontmatter_json = "{}";
+    };
+  };
+
+  func proposalV4ToV5(p : ProposalRecordV4) : ProposalRecord {
+    {
+      proposal_id = p.proposal_id;
+      path = p.path;
+      status = p.status;
+      body = p.body;
+      frontmatter = p.frontmatter;
+      intent = p.intent;
+      base_state_id = p.base_state_id;
+      external_ref = p.external_ref;
+      vault_id = p.vault_id;
+      created_at = p.created_at;
+      updated_at = p.updated_at;
+      evaluation_status = p.evaluation_status;
+      evaluation_grade = p.evaluation_grade;
+      evaluation_checklist = p.evaluation_checklist;
+      evaluation_comment = p.evaluation_comment;
+      evaluated_by = p.evaluated_by;
+      evaluated_at = p.evaluated_at;
+      evaluation_waiver_json = p.evaluation_waiver_json;
+      review_queue = p.review_queue;
+      review_severity = p.review_severity;
+      auto_flag_reasons_json = p.auto_flag_reasons_json;
+      review_hints = p.review_hints;
+      review_hints_at = p.review_hints_at;
+      review_hints_model = p.review_hints_model;
+      assistant_notes = p.assistant_notes;
+      assistant_model = p.assistant_model;
+      assistant_at = p.assistant_at;
+      suggested_labels_json = p.suggested_labels_json;
+      assistant_suggested_frontmatter_json = "{}";
     };
   };
 
@@ -271,18 +347,18 @@ module Migration {
   };
 
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
-  /// V4: enrich fields default empty on upgrade from `StableStorageBeforeEnrich`.
-  public func migration(old : { var storage : StableStorageBeforeEnrich }) : { var storage : StableStorage } {
+  /// V5: add `assistant_suggested_frontmatter_json` default "{}" on upgrade from V4 (`StableStorageV4`).
+  public func migration(old : { var storage : StableStorageV4 }) : { var storage : StableStorage } {
     {
       var storage = {
         vaultEntries = old.storage.vaultEntries;
         billingByUser = old.storage.billingByUser;
-        proposalEntries = Array.map<(Text, [ProposalRecordBeforeEnrich]), (Text, [ProposalRecord])>(
+        proposalEntries = Array.map<(Text, [ProposalRecordV4]), (Text, [ProposalRecord])>(
           old.storage.proposalEntries,
-          func(e : (Text, [ProposalRecordBeforeEnrich])) : (Text, [ProposalRecord]) {
+          func(e : (Text, [ProposalRecordV4])) : (Text, [ProposalRecord]) {
             (
               e.0,
-              Array.map<ProposalRecordBeforeEnrich, ProposalRecord>(e.1, proposalBeforeEnrichToCurrent),
+              Array.map<ProposalRecordV4, ProposalRecord>(e.1, proposalV4ToV5),
             );
           },
         );

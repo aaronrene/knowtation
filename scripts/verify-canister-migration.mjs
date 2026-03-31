@@ -45,12 +45,19 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorageBeforeEnrich }) — V4 enrich upgrade',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorageBeforeEnrich })'),
+    name: 'migration(old : { var storage : StableStorageV4 }) — V5 suggested frontmatter upgrade',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorageV4 })'),
   },
   {
-    name: 'ProposalRecord includes assistant_notes (V4 enrich)',
-    ok: (s) => s.includes('assistant_notes : Text;') && s.includes('suggested_labels_json : Text;'),
+    name: 'StableStorageV4 type (pre-V5 proposals)',
+    ok: (s) => s.includes('public type StableStorageV4') && s.includes('[ProposalRecordV4]'),
+  },
+  {
+    name: 'ProposalRecord includes enrich + suggested frontmatter JSON (V5)',
+    ok: (s) =>
+      s.includes('assistant_notes : Text;') &&
+      s.includes('suggested_labels_json : Text;') &&
+      s.includes('assistant_suggested_frontmatter_json : Text;'),
   },
   {
     name: 'V0 → V1 maps notes into vault "default"',

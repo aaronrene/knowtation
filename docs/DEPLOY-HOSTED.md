@@ -59,7 +59,7 @@ The gateway strips `/.netlify/functions/gateway` from `req.url` when present so 
 - `BRIDGE_URL` — URL of the bridge if separate (e.g. `https://bridge.knowtation.com`); gateway then proxies vault/sync, search, index to bridge
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — OAuth (callback URLs must match `HUB_BASE_URL` and bridge callback URL)
 - `HUB_ADMIN_USER_IDS` (optional) — Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted; everyone else gets **member**. Enables Edit and Team tab for designated admins. See [hub/gateway/README.md](../hub/gateway/README.md).
-- **Proposal LLM (optional):** `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1` — async review hints after create (gateway → canister). `KNOWTATION_HUB_PROPOSAL_ENRICH=1` — **`POST /api/v1/proposals/:id/enrich`** on the gateway (LLM + canister write). Requires a **reachable** chat API on the gateway host (**`OPENAI_API_KEY`**, or **`ANTHROPIC_API_KEY`**, not localhost Ollama on Netlify). **Deploy the `hub` canister** from this repo **before** enabling hosted Enrich so stable storage includes enrich fields (V4 migration). See [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md).
+- **Proposal LLM (optional):** `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1` — async review hints after create (gateway → canister). `KNOWTATION_HUB_PROPOSAL_ENRICH=1` — **`POST /api/v1/proposals/:id/enrich`** on the gateway (LLM + canister write). Requires a **reachable** chat API on the gateway host (**`OPENAI_API_KEY`**, or **`ANTHROPIC_API_KEY`**, not localhost Ollama on Netlify). **Deploy the `hub` canister** from this repo **before** enabling hosted Enrich so stable storage includes enrich fields: **V4** added base enrich columns; **V5** adds **`assistant_suggested_frontmatter_json`** for structured suggested metadata. Canisters still on pre–V4 storage must upgrade through a release that runs the **V4** migration first, then **V5** (see [hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo)). See [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md).
 
 **Bridge env (production):**
 
@@ -123,7 +123,7 @@ Use this list **before first launch** and **again after** any production env cha
 
 ### 5.0 Post-merge canister upgrade (auto Netlify + 4Everland on `main`)
 
-If **merging to `main`** triggers **Netlify** (gateway) and **4Everland** (static site) automatically, the **new gateway** may go live **before** you upgrade the **ICP hub canister**. Hosted features that need new Motoko routes or stable fields (for example **proposal Enrich** after V4) will **fail until the canister is deployed**.
+If **merging to `main`** triggers **Netlify** (gateway) and **4Everland** (static site) automatically, the **new gateway** may go live **before** you upgrade the **ICP hub canister**. Hosted features that need new Motoko routes or stable fields (for example **extended proposal Enrich** with **`assistant_suggested_frontmatter_json`** after **V5**) will **fail or drop suggested frontmatter** until the canister matches the gateway (deploy **hub** WASM before relying on hosted Enrich end-to-end).
 
 **Operator sequence (recommended):**
 

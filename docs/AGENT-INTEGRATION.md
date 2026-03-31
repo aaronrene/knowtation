@@ -16,6 +16,7 @@ Integrate Knowtation with any agent (OpenAI, Claude, LangChain, LlamaIndex, cust
 
 ```bash
 knowtation search "query" --limit 5 --json
+knowtation search "exact phrase" --keyword --limit 5 --json
 knowtation list-notes --project my-project --limit 20 --json
 knowtation get-note "path/to/note.md" --json
 ```
@@ -32,7 +33,7 @@ knowtation write "inbox/capture.md" --body "content" --json
 knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add summary" --json
 ```
 
-**Token levers:** `--limit`, `--fields path` or `path+snippet`, `--count-only`, `--body-only`, `--frontmatter-only`, `--snippet-chars`. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
+**Token levers:** `--limit`, `--fields path` or `path+snippet`, `--count-only`, `--body-only`, `--frontmatter-only`, `--snippet-chars`, **`--keyword`** / **`--match`** for literal text search (no index required). See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 
 **JSON shapes:** [CLI-JSON-SCHEMA.md](./CLI-JSON-SCHEMA.md) and [SPEC.md](./SPEC.md) §4.2.
 

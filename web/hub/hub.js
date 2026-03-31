@@ -4892,6 +4892,49 @@
             (sug ? '<div class="proposal-meta-chips">' + sug + '</div>' : '') +
             '</div>';
         }
+        let suggestedFmHtml = '';
+        {
+          let fm = p.assistant_suggested_frontmatter;
+          if (typeof fm === 'string') {
+            try {
+              fm = JSON.parse(fm);
+            } catch {
+              fm = null;
+            }
+          }
+          if (fm && typeof fm === 'object' && !Array.isArray(fm)) {
+            const keys = Object.keys(fm).filter((k) => {
+              const v = fm[k];
+              return v !== undefined && v !== null && v !== '';
+            });
+            if (keys.length) {
+              const rows = keys
+                .map((k) => {
+                  const v = fm[k];
+                  let cell;
+                  if (Array.isArray(v)) cell = v.map((x) => String(x)).join(', ');
+                  else if (v !== null && typeof v === 'object') cell = JSON.stringify(v);
+                  else cell = String(v);
+                  return (
+                    '<tr><th scope="row">' +
+                    escapeHtml(k) +
+                    '</th><td>' +
+                    escapeHtml(cell) +
+                    '</td></tr>'
+                  );
+                })
+                .join('');
+              suggestedFmHtml =
+                '<div class="proposal-suggested-fm">' +
+                '<strong>Suggested frontmatter</strong> ' +
+                '<button type="button" class="btn-link btn-link-small" id="proposal-suggested-fm-copy">Copy JSON</button>' +
+                '<p class="small muted" style="margin: 0.35rem 0 0.5rem;">From the assistant run; not applied on approve — verify before reusing in a note.</p>' +
+                '<table class="proposal-suggested-fm-table"><tbody>' +
+                rows +
+                '</tbody></table></div>';
+            }
+          }
+        }
         const openVaultNoteLine = note
           ? '<p class="small proposal-open-note-wrap"><button type="button" class="btn-link btn-link-small" id="proposal-open-note-btn">Open vault note to edit</button> <span class="muted">— tags, episode, entity, causal chain (frontmatter); use Activity again to return to this proposal.</span></p>'
           : '<p class="small muted">No note file at this path yet — approving creates or overwrites the file from the proposal body; then you can edit frontmatter.</p>';
@@ -4923,11 +4966,33 @@
           evalHtml +
           waiverHtml +
           assistantHtml +
+          suggestedFmHtml +
           hintsHtml;
         actions.innerHTML = '';
         const openNoteBtn = body.querySelector('#proposal-open-note-btn');
         if (openNoteBtn && note && p.path) {
           openNoteBtn.onclick = () => openNote(String(p.path));
+        }
+        const copyFmBtn = body.querySelector('#proposal-suggested-fm-copy');
+        if (copyFmBtn) {
+          let fmForCopy = p.assistant_suggested_frontmatter;
+          if (typeof fmForCopy === 'string') {
+            try {
+              fmForCopy = JSON.parse(fmForCopy);
+            } catch {
+              fmForCopy = null;
+            }
+          }
+          if (fmForCopy && typeof fmForCopy === 'object' && !Array.isArray(fmForCopy)) {
+            copyFmBtn.onclick = async () => {
+              try {
+                await navigator.clipboard.writeText(JSON.stringify(fmForCopy, null, 2));
+                showToast('Copied suggested frontmatter JSON.');
+              } catch (err) {
+                showToast(err.message || 'Copy failed', true);
+              }
+            };
+          }
         }
         const saveEvalBtn = body.querySelector('#proposal-eval-save');
         if (saveEvalBtn) {

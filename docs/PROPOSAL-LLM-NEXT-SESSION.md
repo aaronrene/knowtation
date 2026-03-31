@@ -20,6 +20,7 @@ Handoff for future work (e.g. regenerate hints). Core **Plan A + Plan B** are im
 
 - **Regenerate review hints** — `POST` + UI + rate limits (not implemented).
 - **Per-user / team caps** on LLM calls (cost/abuse).
+- **Extended Enrich (metadata recommendations)** — Beyond `summary` + `suggested_labels`, recommend `project`, `causal_chain_id`, `entity`, `episode_id`, `follows`, `title`, and other SPEC-aligned frontmatter. Full plan: [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md). Implementation intended on branch **`feature/enrich`** after docs land.
 
 ---
 
@@ -28,6 +29,7 @@ Handoff for future work (e.g. regenerate hints). Core **Plan A + Plan B** are im
 | Topic | Path |
 |--------|------|
 | Feature overview | [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) |
+| Enrich extension (planned) | [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md) |
 | API | [HUB-API.md](./HUB-API.md) (`POST /proposals/:id/enrich`) |
 | Gateway | `hub/gateway/server.mjs`, `proposal-review-hints-async.mjs`, `proposal-enrich-hosted.mjs` |
 | Self-hosted Enrich | `hub/server.mjs` |

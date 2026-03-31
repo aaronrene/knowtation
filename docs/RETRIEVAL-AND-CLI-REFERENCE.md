@@ -16,7 +16,7 @@ This document (1) lists **all CLI commands and optional features**, (2) explains
 
 | Command | Purpose | Key flags |
 |--------|--------|-----------|
-| **search** \<query\> | Semantic (and optional hybrid) search over the indexed vault. | `--folder`, `--project`, `--tag`, `--limit` (default 10), `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`, `--fields`, `--snippet-chars`, `--count-only`, `--json` |
+| **search** \<query\> | **Semantic** search over the indexed vault (default), or **keyword** search with `--keyword` (literal text: path, body, key frontmatter; no index required). | Same filters as list-notes: `--folder`, `--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--content-scope` (`all` \| `notes` \| `approval_logs`), `--order`, `--limit` (default 10), `--fields`, `--snippet-chars`, `--count-only`, `--json`. **Keyword-only:** `--keyword`, `--match phrase` \| `all-terms`. JSON may include `"mode": "semantic"` \| `"keyword"`. |
 | **list-notes** | List notes with filters (no semantic search). | `--folder`, `--project`, `--tag`, `--limit`, `--offset`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`, `--fields`, `--count-only`, `--json` |
 | **get-note** \<path\> | Return full content of one note (frontmatter + body), or subset. | `--body-only`, `--frontmatter-only`, `--json` |
 | **index** | Re-run indexer: vault → chunk → embed → vector store. | (optional: `--json` for machine output) |
@@ -114,7 +114,7 @@ The following are **in scope** and specified in SPEC §4.1–4.2.
 
 **Spec (SPEC §4.1–4.2):**
 
-- **search:** `--fields path|path+snippet|full` (default path+snippet). `--snippet-chars <n>`. `--count-only` → `{ "count": n, "query": "..." }`.
+- **search:** `--fields path|path+snippet|full` (default path+snippet). `--snippet-chars <n>`. `--count-only` → `{ "count": n, "query": "..." }`. **`--keyword`** → literal text search; JSON includes `"mode": "keyword"` (and `"mode": "semantic"` when using the default path in Hub/repo CLI).
 - **list-notes:** `--fields path|path+metadata|full` (default path+metadata). `--count-only` → `{ "total": number }`.
 - **get-note:** `--body-only` or `--frontmatter-only` for a single note; omit both for full content.
 

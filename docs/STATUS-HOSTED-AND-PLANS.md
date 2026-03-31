@@ -24,7 +24,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 | **1** | Canister: vault + proposals API (Motoko), `dfx` deploy, CORS, GET /export | ✅ Done — `hub/icp/` |
 | **2** | Gateway: OAuth (Google/GitHub), JWT, proxy to canister with X-User-Id | ✅ Done — `hub/gateway/` |
 | **3** | Bridge: Connect GitHub, store token, Back up now (canister → GitHub) | ✅ Done — `hub/bridge/` |
-| **4** | Bridge: indexer + search (per-user sqlite-vec) | ✅ Done — bridge POST /api/v1/index, /api/v1/search. **Production hardening (2026-03):** Netlify **`[functions].external_node_modules`** for **sqlite-vec** + **better-sqlite3** (bundler broke `import.meta.url` → Invalid URL); gateway **must not** forward **Content-Encoding** after `fetch().text()` when proxying to bridge (PRs **#44**, **#45**). Meaning-search + Re-index **smoke-tested OK** on knowtation.store after those deploys. |
+| **4** | Bridge: indexer + search (per-user sqlite-vec) | ✅ Done — bridge POST /api/v1/index, /api/v1/search. **Semantic** = vector store; **keyword** = canister export + text match when `body.mode === "keyword"` (PR **#79**); redeploy bridge for parity. **Production hardening (2026-03):** Netlify **`[functions].external_node_modules`** for **sqlite-vec** + **better-sqlite3** (bundler broke `import.meta.url` → Invalid URL); gateway **must not** forward **Content-Encoding** after `fetch().text()` when proxying to bridge (PRs **#44**, **#45**). Meaning-search + Re-index **smoke-tested OK** on knowtation.store after those deploys. |
 | **5** | 4Everland + single URL (knowtation.store), deploy docs, landing CTA | ✅ Done — docs, web/ updated |
 
 **Current deployed state**
