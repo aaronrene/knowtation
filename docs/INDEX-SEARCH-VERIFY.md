@@ -39,14 +39,24 @@ Use this to confirm **local** indexing and semantic search before relying on the
 
 ## Hub UI (self-hosted)
 
-- Semantic search is triggered by the **Search** button or **Enter** in the search field (`web/hub/hub.js`: `runVaultSearch`, bound to `#search-query` keydown and `#btn-search`).
+- **Search** runs **`POST /api/v1/search`** (`web/hub/hub.js`: `runVaultSearch`). Default **Meaning** = semantic (vector) search after index/Re-index. **Keyword** = literal text search (`body.mode: keyword`); same filters (project, tag, folder, content scope, dates).
 - The global shortcut **Enter** on the notes list (when focus is not in an input) still opens the selected note.
+
+## Keyword search (CLI quick check)
+
+After a normal index is optional for keyword:
+
+```bash
+node cli/index.mjs search "some phrase" --keyword --json
+```
+
+Expect `"mode": "keyword"` in JSON and paths whose text contains the phrase (case-insensitive).
 
 After changing `hub.js`, bump the `hub.js?v=` query string in `web/hub/index.html` so CDNs pick up the new bundle ([HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) §1).
 
 ## Hosted (bridge)
 
-With `BRIDGE_URL` set, search/index use bridge env for embeddings and per-user sqlite-vec storage. See [hub/bridge/README.md](../hub/bridge/README.md) and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md).
+With `BRIDGE_URL` set, search/index use bridge env for embeddings and per-user sqlite-vec storage. **Keyword** mode on hosted uses the same bridge route with **`mode: keyword`** in the JSON body (canister export + in-memory match; no embedding call). See [hub/bridge/README.md](../hub/bridge/README.md) and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md).
 
 ## Security
 

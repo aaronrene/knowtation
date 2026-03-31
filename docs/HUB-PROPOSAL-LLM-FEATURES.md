@@ -29,6 +29,8 @@ Two **optional** features use a chat-capable model (Ollama or OpenAI) for **prop
 
 **What it does:** On demand, **`POST /api/v1/proposals/:id/enrich`** asks the model for **JSON**: `{"summary":"...","suggested_labels":["tag",...]}`. The Hub stores `assistant_notes`, `assistant_model`, and suggested labels on the proposal record. The UI shows an **Enrich (AI)** button on proposed items when the feature is enabled (`web/hub/hub.js`).
 
+**Roadmap — richer metadata:** We plan to extend Enrich so the model also recommends **vault-aligned frontmatter** (e.g. `project`, `title`, `causal_chain_id`, `entity`, `episode_id`, `follows`, and other fields from [SPEC.md](./SPEC.md) §2), not only summary and tags. That work is specified in **[PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md)** (storage, validation, Hub UI, canister/gateway parity). Until that ships, Enrich remains summary + `suggested_labels` only.
+
 **Self-hosted:** Set **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`** on the Node Hub; same Ollama/OpenAI chat config as above. Route is implemented in **`hub/server.mjs`**.
 
 **Hosted:** The **gateway** implements **`POST /api/v1/proposals/:id/enrich`** when **`KNOWTATION_HUB_PROPOSAL_ENRICH=1`**: it runs **`completeChat()`** ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `assistant_notes`, `assistant_model`, and **`suggested_labels_json`** (JSON array string) to the **canister** at the same path. The canister stores fields on the proposal; **deploy the hub canister** from this repo so stable storage includes enrich columns (V4 migration). **Chat env** on the gateway: typically **OpenAI** or **Anthropic** on Netlify (localhost **Ollama** is not reachable from serverless).
@@ -48,6 +50,6 @@ Proposal **body** (and path/intent) are sent to the configured chat API when hin
 
 ---
 
-## Future: “every interaction” JSON pre-fill for notes
+## Related (not Enrich v1)
 
-That would be a **different** product path (e.g. import pipeline or **New note** assistant), not the current review-hints or enrich flows. Today, **Enrich** is the only built-in JSON-shaped LLM output for proposals (`summary` + `suggested_labels`), and it is **proposal-scoped**, not global.
+**New note / import assistants** that pre-fill Markdown for arbitrary captures are a **separate** product path from proposal Enrich. **Enrich** stays **proposal-scoped**; the **extended Enrich** plan still targets the **proposal review** surface and approved-note metadata alignment — see [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md).

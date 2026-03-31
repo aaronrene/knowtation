@@ -88,6 +88,8 @@ node cli/index.mjs index
 node cli/index.mjs search "your query"
 ```
 
+**Meaning vs keyword:** **Semantic** search needs the index above. **Keyword** search matches text in note paths and bodies (`--keyword`); useful when you want exact words or have not re-indexed. In the Hub, use the **Meaning** / **Keyword** dropdown next to the search box. On hosted, keyword uses the live vault export on the bridge (redeploy bridge + gateway + static Hub if that path is missing).
+
 **Other useful commands:**
 
 ```bash

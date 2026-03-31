@@ -30,7 +30,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Health | GET /health, GET /api/v1/health | ✅ |
 | Auth providers | GET /api/v1/auth/providers | ✅ |
 | Notes | GET/POST /api/v1/notes, GET /api/v1/notes/:path, DELETE /api/v1/notes/:path, POST /api/v1/notes/delete-by-prefix, POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project, GET /api/v1/notes/facets | ✅ (project-slug bulk on **Node**; hosted uses **gateway** — [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
-| Search | POST /api/v1/search | ✅ |
+| Search | POST /api/v1/search (semantic default; **keyword** via `body.mode`; `lib/keyword-search.mjs`) | ✅ |
 | Index | POST /api/v1/index | ✅ |
 | Export | POST /api/v1/export | ✅ |
 | Import | POST /api/v1/import | ✅ |
@@ -53,7 +53,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 | Notes (incl. delete-by-prefix), proposals, export | Canister (proxy) | ✅ |
 | POST /api/v1/notes/delete-by-project, POST /api/v1/notes/rename-project | Gateway ([`metadata-bulk-canister.mjs`](../hub/gateway/metadata-bulk-canister.mjs)) — orchestrates canister list/delete/write + proposal discard; not Motoko routes | ✅ ([HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)) |
 | Notes facets (filter dropdowns) | Gateway stub (GET /api/v1/notes/facets) | ✅ |
-| Search, index | Bridge (proxy from gateway) | ✅ |
+| Search, index | Bridge (proxy from gateway); search JSON body may include **`mode: keyword`** (export + text match) or semantic (vector) | ✅ |
 | Vault/sync, github-status | Bridge (proxy from gateway) | ✅ |
 | Settings | Gateway **stub** (GET only) | ✅ |
 | Setup | Gateway **stub** (GET only) | ✅ |
