@@ -41,8 +41,9 @@ Older models returning only `summary` + `suggested_labels` still parse; `suggest
 
 ## Migration
 
-- **V5** ([hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo)): upgrade input is **`StableStorageV4`** (proposals already on V4 enrich shape). New field initializes to `"{}"`.
-- Canisters **not** yet on V4 must deploy an intermediate build that runs the **V4** migration first; see comments at top of `Migration.mo`.
+- **V5 field** (`assistant_suggested_frontmatter_json`): first upgrade from **V4** stable layout used a migration whose input was **`StableStorageV4`** (see git history if you need that WASM for a canister still on V4-only storage).
+- **Repeat deploys** after mainnet already stores **`StableStorage`** (V5): the actor hook is **identity** on **`StableStorage`** so `dfx deploy` matches on-chain types. See [Migration.mo](../hub/icp/src/hub/Migration.mo) module comment.
+- Canisters **not** yet on V4 must deploy an intermediate build that runs the **V4** enrich migration first; see comments at top of `Migration.mo`.
 
 ## Hub UI
 

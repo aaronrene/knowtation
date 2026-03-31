@@ -5,7 +5,7 @@
  * V3 = ProposalRecord gains review_queue, review_severity, auto_flag_reasons_json, review_hints* (Text).
  * V4 = ProposalRecord gains assistant_notes, assistant_model, assistant_at, suggested_labels_json (LLM Enrich).
  * V5 = ProposalRecord gains assistant_suggested_frontmatter_json (structured Enrich metadata).
- * Actor upgrade hook input must match **on-chain** storage before this WASM: after V4 deploy use `StableStorageV4`; canisters still on `StableStorageBeforeEnrich` must upgrade via an intermediate release that runs the V4 hook first.
+ * Actor upgrade hook: after mainnet has run **one** V4→V5 deploy, stable storage is `StableStorage` (V5). The hook is **identity** on `StableStorage` so repeat deploys succeed. Canisters still on `StableStorageV4` must install **once** a WASM whose `migration` input is `StableStorageV4` (see git history before identity migration), then upgrade to this tree. Canisters still on `StableStorageBeforeEnrich` need the V4 migration path first (intermediate release).
  * See https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility
  */
 import Array "mo:base/Array";
@@ -201,7 +201,7 @@ module Migration {
     billingByUser : [(Text, BillingRecord)];
   };
 
-  func proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecord {
+  func _proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecord {
     {
       proposal_id = p.proposal_id;
       path = p.path;
@@ -235,7 +235,8 @@ module Migration {
     };
   };
 
-  func proposalV4ToV5(p : ProposalRecordV4) : ProposalRecord {
+  /// Historical V4→V5 row map; kept for docs and one-off tooling. Actor hook uses identity on `StableStorage` once V5 is live.
+  func _proposalV4ToV5(p : ProposalRecordV4) : ProposalRecord {
     {
       proposal_id = p.proposal_id;
       path = p.path;
@@ -347,22 +348,8 @@ module Migration {
   };
 
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
-  /// V5: add `assistant_suggested_frontmatter_json` default "{}" on upgrade from V4 (`StableStorageV4`).
-  public func migration(old : { var storage : StableStorageV4 }) : { var storage : StableStorage } {
-    {
-      var storage = {
-        vaultEntries = old.storage.vaultEntries;
-        billingByUser = old.storage.billingByUser;
-        proposalEntries = Array.map<(Text, [ProposalRecordV4]), (Text, [ProposalRecord])>(
-          old.storage.proposalEntries,
-          func(e : (Text, [ProposalRecordV4])) : (Text, [ProposalRecord]) {
-            (
-              e.0,
-              Array.map<ProposalRecordV4, ProposalRecord>(e.1, proposalV4ToV5),
-            );
-          },
-        );
-      };
-    };
-  };
+  /// Identity on `StableStorage` (V5 layout) after the one-time V4→V5 upgrade has run on a canister.
+  public func migration(old : { var storage : StableStorage }) : { var storage : StableStorage } {
+    old
+  }
 }

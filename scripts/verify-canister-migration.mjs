@@ -45,8 +45,8 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorageV4 }) — V5 suggested frontmatter upgrade',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorageV4 })'),
+    name: 'migration(old : { var storage : StableStorage }) — identity hook for V5-stable repeat deploys',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
   },
   {
     name: 'StableStorageV4 type (pre-V5 proposals)',
