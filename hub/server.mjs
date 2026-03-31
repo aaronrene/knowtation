@@ -238,8 +238,9 @@ function requireVaultAccess(req, res, next) {
 
 const app = express();
 const corsOrigin = process.env.HUB_CORS_ORIGIN;
+const jsonBodyLimit = process.env.HUB_JSON_BODY_LIMIT || '5mb';
 app.use(cors({ origin: corsOrigin ? corsOrigin.split(',') : true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: jsonBodyLimit }));
 app.use(passport.initialize());
 
 // Rate limits
@@ -1428,6 +1429,16 @@ app.post('/api/v1/setup', jwtAuth, requireRole('admin'), (req, res) => {
 
 // Rich Hub UI — same origin as API so opening http://localhost:3333/ shows the app
 const hubUiDir = path.join(projectRoot, 'web', 'hub');
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  if (err.type === 'entity.too.large') {
+    const isApi = req.path === '/api' || req.path.startsWith('/api/');
+    const message = `Request body exceeds Hub JSON limit (${jsonBodyLimit}).`;
+    if (isApi) return res.status(413).json({ error: message, code: 'PAYLOAD_TOO_LARGE' });
+    return res.status(413).type('text/plain').send(message);
+  }
+  return next(err);
+});
 app.use(express.static(hubUiDir, { index: 'index.html' }));
 app.get('/', (_req, res) => {
   res.sendFile(path.join(hubUiDir, 'index.html'));

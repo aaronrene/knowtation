@@ -55,12 +55,15 @@ describe('proposal-enrich-llm', () => {
 
   it('validateAndNormalizeEnrichResult end-to-end', () => {
     const raw =
-      '{"enrich_version":2,"summary":"S","suggested_labels":["tag-one"],"suggested_frontmatter":{"title":"T","episode_id":"Ep_1"}}';
+      '{"enrich_version":2,"summary":"S","suggested_labels":["tag-one"],"suggested_frontmatter":{"title":"T","episode_id":"Ep_1","entity":["Alice B","Core API"],"causal_chain_id":"Launch Rollout","state_snapshot":"true"}}';
     const r = validateAndNormalizeEnrichResult(raw);
     assert.strictEqual(r.summary, 'S');
     assert.deepStrictEqual(r.suggested_labels, ['tag-one']);
     assert.strictEqual(r.suggested_frontmatter.title, 'T');
     assert.strictEqual(r.suggested_frontmatter.episode_id, 'ep-1');
+    assert.deepStrictEqual(r.suggested_frontmatter.entity, ['alice-b', 'core-api']);
+    assert.strictEqual(r.suggested_frontmatter.causal_chain_id, 'launch-rollout');
+    assert.strictEqual(r.suggested_frontmatter.state_snapshot, true);
   });
 
   it('serializeSuggestedFrontmatterJson returns bounded object', () => {
@@ -73,8 +76,12 @@ describe('proposal-enrich-llm', () => {
   it('buildEnrichMessages includes allow-list and path', () => {
     const { system, user } = buildEnrichMessages({ path: 'inbox/x.md', intent: 'fix', body: 'hello' });
     assert(system.includes('enrich_version'));
+    assert(system.includes('Prefer returning every field'));
     assert(user.includes('inbox/x.md'));
     assert(user.includes('fix'));
     assert(user.includes('hello'));
+    assert(user.includes('Prioritize temporal, causal, entity, and relationship metadata'));
+    assert(user.includes('causal_chain_id'));
+    assert(user.includes('state_snapshot'));
   });
 });
