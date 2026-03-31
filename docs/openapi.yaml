@@ -659,6 +659,10 @@ components:
         review_hints: { type: string }
         review_hints_at: { type: string }
         review_hints_model: { type: string }
+        assistant_suggested_frontmatter:
+          type: object
+          description: Normalized SPEC-aligned suggested note metadata from Enrich (object on GET); omitted or empty on older proposals
+          additionalProperties: true
 
     ProposalDetail:
       allOf:

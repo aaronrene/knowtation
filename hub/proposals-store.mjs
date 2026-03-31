@@ -211,6 +211,7 @@ export function createProposal(dataDir, input) {
     assistant_notes: undefined,
     assistant_model: undefined,
     assistant_at: undefined,
+    assistant_suggested_frontmatter: undefined,
     evaluation_status,
     evaluation_grade: undefined,
     evaluation_checklist: undefined,
@@ -336,7 +337,12 @@ export function evaluationAllowsApprove(proposal) {
  * Tier-2 assistant fields (feature-flagged route).
  * @param {string} dataDir
  * @param {string} id
- * @param {{ assistant_notes: string, assistant_model: string, suggested_labels?: string[] }} fields
+ * @param {{
+ *   assistant_notes: string,
+ *   assistant_model: string,
+ *   suggested_labels?: string[],
+ *   assistant_suggested_frontmatter?: Record<string, unknown>,
+ * }} fields
  * @returns {object|null}
  */
 export function updateProposalEnrichment(dataDir, id, fields) {
@@ -345,12 +351,18 @@ export function updateProposalEnrichment(dataDir, id, fields) {
   if (idx === -1) return null;
   const now = new Date().toISOString();
   const sug = normalizeLabels(fields.suggested_labels ?? []);
+  const fm = fields.assistant_suggested_frontmatter;
+  const nextFm =
+    fm && typeof fm === 'object' && !Array.isArray(fm) && Object.keys(fm).length > 0 ? { ...fm } : undefined;
   all[idx] = {
     ...all[idx],
     assistant_notes: fields.assistant_notes,
     assistant_model: fields.assistant_model,
     assistant_at: now,
     suggested_labels: sug.length ? sug : all[idx].suggested_labels || [],
+    ...(Object.prototype.hasOwnProperty.call(fields, 'assistant_suggested_frontmatter')
+      ? { assistant_suggested_frontmatter: nextFm }
+      : {}),
     updated_at: now,
   };
   saveProposals(dataDir, all);

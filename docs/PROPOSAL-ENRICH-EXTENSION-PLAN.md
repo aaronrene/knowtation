@@ -1,73 +1,61 @@
 # Plan: extend proposal Enrich (full metadata recommendations)
 
-**Status:** Planning / design (implementation on branch `feature/enrich`).  
-**Related:** [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) (current Enrich: summary + `suggested_labels`), [PROPOSAL-LLM-NEXT-SESSION.md](./PROPOSAL-LLM-NEXT-SESSION.md), [SPEC.md](./SPEC.md) §2 (frontmatter), [INTENTION-AND-TEMPORAL.md](./INTENTION-AND-TEMPORAL.md).
+**Status:** Implemented in repo (shared lib, Node Hub, canister V5, gateway, Hub UI).  
+**Related:** [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md), [HUB-API.md](./HUB-API.md) § proposals, [SPEC.md](./SPEC.md) §2, [INTENTION-AND-TEMPORAL.md](./INTENTION-AND-TEMPORAL.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) (canister order).
 
-## Problem
+## Problem (resolved)
 
-Today **Enrich** (`POST /api/v1/proposals/:id/enrich`) asks the model for JSON shaped roughly as:
+Enrich previously returned only a short summary and `suggested_labels`. Reviewers still inferred **project**, **causal / entity / episode** fields, **title**, **follows**, and other frontmatter manually.
 
-- `summary` (stored in proposal assistant notes)
-- `suggested_labels` (tag-like strings)
+## Goals (met)
 
-Reviewers still manually decide **project**, **causal / entity / episode** fields, **title**, **follows** links, and other frontmatter that the vault and filters already understand. We want Enrich to **recommend as much of that metadata as is reasonable** from the proposed body + path + existing proposal fields, so humans can approve with fewer guesswork and agents get structured hints aligned with `list-notes` / search filters.
+1. **Expand LLM output** to a structured **`suggested_frontmatter`** object (SPEC §2.1 + §2.3 allow-list in code).
+2. **Stay advisory** — recommendations are not authorization; approve still applies vault rules and human choice.
+3. **Normalize** via [lib/proposal-enrich-llm.mjs](../lib/proposal-enrich-llm.mjs) (slugs, tags, paths; forbidden keys stripped).
+4. **Parity** — same parsing and caps on self-hosted Node ([hub/server.mjs](../hub/server.mjs)), hosted gateway ([hub/gateway/proposal-enrich-hosted.mjs](../hub/gateway/proposal-enrich-hosted.mjs)), and canister persistence ([hub/icp/src/hub/main.mo](../hub/icp/src/hub/main.mo)).
 
-## Goals
+## Wire format
 
-1. **Expand LLM output** beyond summary + tags to a **structured “suggested frontmatter”** object covering vault-relevant fields (see table below).
-2. **Stay advisory** — same security model as today: recommendations are **not** authorization; merge/approve still applies canonical rules and human choice.
-3. **Normalize** outputs to **SPEC** rules (slug normalization for `project`, tags, `causal_chain_id`, `entity`, `episode_id` per [SPEC.md](./SPEC.md) §1–2 and `lib/vault.mjs`).
-4. **Parity** — self-hosted Node Hub, hosted gateway + canister storage, and Hub UI should all understand the expanded shape (migration/versioning as needed).
+### LLM envelope (model output)
 
-## Target fields (v1 recommendation set)
+The model is asked for JSON only, with:
 
-Prioritize fields that **already drive** list, search, calendar, and graph behavior. Omit or mark “future” for reserved / payment / provenance keys the model must not invent.
+- `enrich_version`: **2** (see `ENRICH_VERSION` in `lib/proposal-enrich-llm.mjs`).
+- `summary`: string (stored in `assistant_notes`).
+- `suggested_labels`: string array (stored as today; also overlaps tag-like hints).
+- `suggested_frontmatter`: object with **only** allow-listed keys (see `SUGGESTED_FRONTMATTER_KEYS` in the same module).
 
-| Field | Type (suggested) | Notes |
-|--------|------------------|--------|
-| `title` | string | Short note title if distinct from first heading. |
-| `project` | string (slug) | Effective project; normalize like CLI `--project`. |
-| `tags` | string[] | Same semantics as `suggested_labels` today; may merge or alias. |
-| `date` | string | ISO date if inferable from content (optional). |
-| `source` | string | Only if clearly stated in body (optional). |
-| `intent` | string | Short intent line; may duplicate/supplement proposal `intent`. |
-| `description` / `summary` | string | Keep summary for backwards compatibility; map to assistant display. |
-| `follows` | string \| string[] | Vault-relative path(s) if model infers continuation links. |
-| `causal_chain_id` | string | Single chain slug. |
-| `entity` | string \| string[] | Entity slugs. |
-| `episode_id` | string | Episode slug. |
+Older models returning only `summary` + `suggested_labels` still parse; `suggested_frontmatter` defaults to `{}`.
 
-**Explicitly out of scope for model suggestion (human or system only):**
+### Persistence
 
-- `knowtation_*`, `author_kind`, `proposal_id`, approval timestamps, AIR ids.
-- `kind: approval_log` and anything under `approvals/` workflow.
-- Blockchain / wallet reserved keys ([SPEC.md](./SPEC.md) §2.3 “reserved”) unless product later opts in.
+| Surface | Field |
+|--------|--------|
+| Node proposals file | `assistant_suggested_frontmatter` (object); cleared on re-enrich when the normalized object is empty (`in` check in [hub/proposals-store.mjs](../hub/proposals-store.mjs)). |
+| Canister `ProposalRecord` | `assistant_suggested_frontmatter_json` (`Text`), default `"{}"`; POST enrich trims to **14000** characters (aligned with `ENRICH_SUGGESTED_FRONTMATTER_MAX_JSON_CHARS`). |
+| **GET /proposals/:id** | `assistant_suggested_frontmatter` as **embedded JSON object** (same pattern as `suggested_labels` array inlining on the canister). |
 
-**Nice-to-have (v2):** `state_snapshot`, `compression`, or other INTENTION-AND-TEMPORAL extras if we document stable shapes first.
+### Gateway → canister POST body (hosted enrich)
 
-## API and storage (directional)
+`assistant_notes`, `assistant_model`, `suggested_labels_json`, **`assistant_suggested_frontmatter_json`** (JSON string of normalized object).
 
-1. **LLM JSON schema** — Versioned envelope, e.g. `{ "enrich_version": 1, "summary": "...", "suggested_labels": [], "suggested_frontmatter": { ... } }` so old clients ignore unknown keys and we can migrate.
-2. **Persistence** — Either extend Motoko `ProposalRecord` with a new `Text` blob (`assistant_suggested_metadata_json`) or pack into existing assistant fields with strict JSON parsing on read. Prefer **one JSON column** to avoid many stable-field migrations on the canister.
-3. **Hub UI** — Show grouped recommendations (Identity: title/project/tags; Graph: chain/entity/episode/follows; Narrative: summary/intent). Actions: copy JSON, or “Apply as starting frontmatter” on approve preview (does not bypass review).
-4. **Validation layer** — Server-side: strip unknown keys, normalize slugs, clamp string lengths, reject non-string/array shapes before persist.
+## Migration
 
-## Implementation order (suggested)
+- **V5** ([hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo)): upgrade input is **`StableStorageV4`** (proposals already on V4 enrich shape). New field initializes to `"{}"`.
+- Canisters **not** yet on V4 must deploy an intermediate build that runs the **V4** migration first; see comments at top of `Migration.mo`.
 
-1. **Docs + JSON schema** in repo (this file + OpenAPI/HUB-API appendix when implemented).
-2. **Self-hosted** `hub/server.mjs` enrich handler: new prompt, parse, validate, store on file-backed proposals.
-3. **Hub UI** read-only display of `suggested_frontmatter`.
-4. **Canister + Migration.mo** + gateway `proposal-enrich-hosted.mjs` + deploy notes.
-5. **Optional:** merge assist — pre-fill editor frontmatter from suggestions on “Edit before approve” (if such a flow exists).
+## Hub UI
+
+[web/hub/hub.js](../web/hub/hub.js): existing Assistant block unchanged; **Suggested frontmatter** table + **Copy JSON** when `assistant_suggested_frontmatter` has keys.
+
+## Non-goals (unchanged)
+
+- Auto-approve based on Enrich output.
+- Implicit merge of suggestions into the vault on approve (operators copy or edit manually unless a future feature adds an explicit apply step).
+- Full RAG over the vault inside enrich v1.
 
 ## Testing
 
-- Fixture proposals with rich body text; assert normalized slugs and omitted forbidden keys.
-- Golden JSON tests for parser (no network in CI).
-- Hosted smoke: one enrich call after canister upgrade with migration.
-
-## Non-goals
-
-- Auto-approve based on Enrich output.
-- Replacing **review hints** (plain text) or merging the two jobs into one without product review.
-- Full RAG over the vault inside enrich v1 (optional context: “top 3 `list-notes` paths” could be a later enhancement).
+- Unit: `node --test test/proposal-enrich-llm.test.mjs`.
+- Static migration contract: `node scripts/verify-canister-migration.mjs`.
+- Upgrade: V4→V5 preserves existing `assistant_notes` / `suggested_labels_json`; new field empty until enrich runs again.

@@ -580,6 +580,31 @@ button.btn-new-note.btn-busy::after {
   border: 1px dashed var(--border);
   font-size: 0.85rem;
 }
+.proposal-suggested-fm {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--border, #444) 70%, transparent);
+  font-size: 0.85rem;
+}
+.proposal-suggested-fm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+}
+.proposal-suggested-fm-table th {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.25rem 0.5rem 0.25rem 0;
+  width: 38%;
+  color: var(--muted);
+  font-weight: 600;
+}
+.proposal-suggested-fm-table td {
+  padding: 0.25rem 0;
+  word-break: break-word;
+}
 .proposal-eval,
 .proposal-eval-waiver {
   margin-top: 1rem;

@@ -931,7 +931,12 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
           "\"evaluation_waiver\":null";
         };
         let sugJson = if (Text.size(p.suggested_labels_json) > 0) { p.suggested_labels_json } else { "[]" };
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\",\"assistant_notes\":\"" # escapeJson(p.assistant_notes) # "\",\"assistant_model\":\"" # escapeJson(p.assistant_model) # "\",\"assistant_at\":\"" # escapeJson(p.assistant_at) # "\",\"suggested_labels\":" # sugJson # "}";
+        let fmJson = if (Text.size(p.assistant_suggested_frontmatter_json) > 0) {
+          p.assistant_suggested_frontmatter_json;
+        } else {
+          "{}";
+        };
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\",\"assistant_notes\":\"" # escapeJson(p.assistant_notes) # "\",\"assistant_model\":\"" # escapeJson(p.assistant_model) # "\",\"assistant_at\":\"" # escapeJson(p.assistant_at) # "\",\"suggested_labels\":" # sugJson # ",\"assistant_suggested_frontmatter\":" # fmJson # "}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
@@ -1188,6 +1193,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
       assistant_model = "";
       assistant_at = "";
       suggested_labels_json = "[]";
+      assistant_suggested_frontmatter_json = "{}";
     };
     list := Array.append(list, [newP]);
     setProposalsList(uid, list);
@@ -1338,6 +1344,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let notes = Option.get(extractJsonString(bodyText, "assistant_notes"), "");
     let modelEn = Option.get(extractJsonString(bodyText, "assistant_model"), "");
     let sugRaw = Option.get(extractJsonString(bodyText, "suggested_labels_json"), "[]");
+    let fmRaw = Option.get(extractJsonString(bodyText, "assistant_suggested_frontmatter_json"), "{}");
     var listEn = getProposalsList(uid);
     switch (Array.find<ProposalRecord>(listEn, func(p : ProposalRecord) : Bool { p.proposal_id == pathArg })) {
       case null {
@@ -1372,6 +1379,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         let notesTrim = if (Text.size(notes) > 16_000) { textSlice(notes, 0, 16_000) } else { notes };
         let modelTrim = if (Text.size(modelEn) > 128) { textSlice(modelEn, 0, 128) } else { modelEn };
         let sugTrim = if (Text.size(sugRaw) > 4000) { textSlice(sugRaw, 0, 4000) } else { sugRaw };
+        let fmTrim = if (Text.size(fmRaw) > 14_000) { textSlice(fmRaw, 0, 14_000) } else { fmRaw };
         listEn := Array.map<ProposalRecord, ProposalRecord>(listEn, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) {
             {
@@ -1379,6 +1387,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
               assistant_notes = notesTrim;
               assistant_model = modelTrim;
               suggested_labels_json = sugTrim;
+              assistant_suggested_frontmatter_json = fmTrim;
               assistant_at = nowEn;
               updated_at = nowEn;
             }
