@@ -19,6 +19,7 @@ import { completeChat } from '../../lib/llm-complete.mjs';
  *   actorUserId: string,
  *   vaultId: string,
  *   hintsEnabled: boolean,
+ *   proposalData?: { path: string, body: string } | null,
  * }} opts
  * @param {number} [budgetMs=6000] Maximum ms to wait before giving up and letting the response proceed.
  * @returns {Promise<void>}
@@ -47,6 +48,7 @@ export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 60
     actorUserId,
     vaultId,
     proposalId,
+    proposalData: opts.proposalData || null,
   }).catch((e) => ({ ok: false, code: 'RUNTIME_ERROR', detail: e?.message || String(e) }));
 
   const out = await Promise.race([job, deadline]);
@@ -61,12 +63,16 @@ export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 60
 
 /**
  * Run LLM review hints and POST to canister (used after proposal create and from explicit UI trigger).
+ * When proposalData is provided (path + body already known from the create response) the canister
+ * GET is skipped entirely, saving one ICP round trip (~1–3 s) and making it reliably fit inside
+ * the Netlify function budget.
  * @param {{
  *   canisterUrl: string,
  *   effectiveUserId: string,
  *   actorUserId: string,
  *   vaultId: string,
  *   proposalId: string,
+ *   proposalData?: { path: string, body: string } | null,
  * }} opts
  * @returns {Promise<{ ok: true } | { ok: false, status: number, code: string, detail?: string }>}
  */
@@ -76,6 +82,7 @@ export async function runHostedProposalReviewHintsJob({
   actorUserId,
   vaultId,
   proposalId,
+  proposalData = null,
 }) {
   const base = canisterUrl.replace(/\/$/, '');
   const h = {
@@ -88,22 +95,33 @@ export async function runHostedProposalReviewHintsJob({
     embedding: { ollama_url: process.env.OLLAMA_URL },
     llm: {},
   };
-  const getRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}`, { headers: h });
-  if (!getRes.ok) {
-    return {
-      ok: false,
-      status: getRes.status === 404 ? 404 : 502,
-      code: 'UPSTREAM',
-      detail: `GET proposal ${getRes.status}`,
-    };
+
+  let proposalPath, proposalBody;
+  if (proposalData && proposalData.path != null) {
+    // Caller already has the proposal — skip the canister GET
+    proposalPath = String(proposalData.path);
+    proposalBody = String(proposalData.body ?? '');
+  } else {
+    const getRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}`, { headers: h });
+    if (!getRes.ok) {
+      return {
+        ok: false,
+        status: getRes.status === 404 ? 404 : 502,
+        code: 'UPSTREAM',
+        detail: `GET proposal ${getRes.status}`,
+      };
+    }
+    const p = await getRes.json();
+    if (!p || p.status !== 'proposed') {
+      return { ok: false, status: 400, code: 'BAD_REQUEST', detail: 'Can only attach hints to proposed proposals' };
+    }
+    proposalPath = p.path;
+    proposalBody = p.body || '';
   }
-  const p = await getRes.json();
-  if (!p || p.status !== 'proposed') {
-    return { ok: false, status: 400, code: 'BAD_REQUEST', detail: 'Can only attach hints to proposed proposals' };
-  }
+
   const system =
     'You assist human proposal reviewers. Reply with plain text only: 2–6 short lines (risks, unclear scope, things to verify). Do not say pass/fail or approve; output is untrusted hints.';
-  const user = `Path: ${p.path}\n---\n${String(p.body || '').slice(0, 12_000)}`;
+  const user = `Path: ${proposalPath}\n---\n${String(proposalBody).slice(0, 12_000)}`;
   let raw;
   try {
     raw = await completeChat(miniConfig, { system, user, maxTokens: 400 });
