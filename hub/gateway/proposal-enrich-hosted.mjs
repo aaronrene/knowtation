@@ -4,11 +4,7 @@
  */
 
 import { completeChat } from '../../lib/llm-complete.mjs';
-import {
-  buildEnrichMessages,
-  validateAndNormalizeEnrichResult,
-  serializeSuggestedFrontmatterJson,
-} from '../../lib/proposal-enrich-llm.mjs';
+import { validateAndNormalizeEnrichResult, serializeSuggestedFrontmatterJson } from '../../lib/proposal-enrich-llm.mjs';
 
 function miniLlmConfig() {
   return {
@@ -25,6 +21,16 @@ function chatModelLabel() {
     return process.env.ANTHROPIC_CHAT_MODEL || 'claude-3-5-haiku-20241022';
   }
   return process.env.OLLAMA_CHAT_MODEL || process.env.OLLAMA_MODEL || 'ollama';
+}
+
+function buildHostedEnrichMessages(input) {
+  const path = input.path != null ? String(input.path) : '';
+  const intent = input.intent != null ? String(input.intent) : '—';
+  const body = input.body != null ? String(input.body).slice(0, 12_000) : '';
+  const system =
+    'Reply with ONLY valid JSON (no markdown fences): {"summary":"one short paragraph","suggested_labels":["short-tag"],"suggested_frontmatter":{"title":"...","project":"...","tags":["..."],"date":"...","updated":"...","source":"...","source_id":"...","intent":"...","follows":"inbox/note.md","causal_chain_id":"...","entity":"...","episode_id":"...","summarizes":"inbox/other.md","summarizes_range":"...","state_snapshot":true}}. suggested_frontmatter is optional; include only fields clearly grounded in the content. Labels use lowercase slug form.';
+  const user = `Path: ${path}\nIntent: ${intent}\n---\n${body}`;
+  return { system, user };
 }
 
 /**
@@ -59,14 +65,16 @@ export async function runHostedProposalEnrichAndPost(opts) {
     return { ok: false, status: 400, code: 'BAD_REQUEST', detail: 'Can only enrich proposed proposals' };
   }
 
-  const { system, user } = buildEnrichMessages({
+  // Hosted runs inside a short-lived Netlify function, so keep the prompt/output budget
+  // close to the last known good path while still returning the expanded schema.
+  const { system, user } = buildHostedEnrichMessages({
     path: p.path,
     intent: p.intent,
     body: p.body,
   });
   let raw;
   try {
-    raw = await completeChat(miniLlmConfig(), { system, user, maxTokens: 1200 });
+    raw = await completeChat(miniLlmConfig(), { system, user, maxTokens: 400 });
   } catch (e) {
     const msg = e && e.message ? String(e.message) : String(e);
     return { ok: false, status: 500, code: 'RUNTIME_ERROR', detail: msg };
