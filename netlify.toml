@@ -9,7 +9,6 @@
 # real package files from node_modules (see sqlite-vec index.mjs getLoadablePath).
 [functions]
   node_bundler = "esbuild"
-  timeout = 26
   external_node_modules = [
     "better-sqlite3",
     "sqlite-vec",
@@ -19,6 +18,11 @@
     "sqlite-vec-darwin-arm64",
     "sqlite-vec-windows-x64"
   ]
+
+# Netlify Pro allows up to 26 s per function. Per-function timeout must be a sub-table;
+# a scalar timeout = N under [functions] is rejected by the config validator.
+[functions."gateway"]
+  timeout = 26
 
 # Catch-all routing lives in public/_redirects (scripts/netlify-redirects.mjs). Do not add
 # [[redirects]] here: in a monorepo, root netlify.toml settings apply to every linked site
