@@ -1185,6 +1185,24 @@ async function proxyToCanister(req, res) {
   try {
     const upstream = await fetch(url, opts);
     const body = await upstream.text();
+    // For a successful proposal CREATE, extract path+body so the hints job can skip
+    // its own canister GET (saves one ICP round trip, ~1–3 s, from the hints path).
+    let parsedProposalData = null;
+    if (
+      req.method === 'POST' &&
+      (pathOnlyForBody === '/api/v1/proposals' || pathOnlyForBody === '/api/v1/proposals/') &&
+      upstream.status >= 200 && upstream.status < 300
+    ) {
+      try {
+        const j = JSON.parse(body);
+        if (j && typeof j.proposal_id === 'string') {
+          parsedProposalData = {
+            path: j.path != null ? String(j.path) : '',
+            body: j.body != null ? String(j.body) : '',
+          };
+        }
+      } catch (_) {}
+    }
     await maybeScheduleHostedProposalReviewHints({
       method: req.method,
       pathOnly: pathOnlyForBody,
@@ -1195,6 +1213,7 @@ async function proxyToCanister(req, res) {
       actorUserId: uid,
       vaultId,
       hintsEnabled: hostedLlmPrefs ? effectiveHostedReviewHints(hostedLlmPrefs) : false,
+      proposalData: parsedProposalData,
     });
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
@@ -1274,26 +1293,10 @@ app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
       code: out.code || 'RUNTIME_ERROR',
     });
   }
-  try {
-    const base = CANISTER_URL.replace(/\/$/, '');
-    const getRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}`, {
-      headers: {
-        Accept: 'application/json',
-        'x-user-id': effective,
-        'x-actor-id': uid,
-        'x-vault-id': vaultId,
-      },
-    });
-    const bodyText = await getRes.text();
-    const hop = filterUpstreamResponseHeadersForDecodedBody(getRes.headers.entries()).filter(
-      ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
-    );
-    res.status(getRes.status).set(Object.fromEntries(hop));
-    res.set('Cache-Control', 'private, no-store, must-revalidate');
-    res.send(bodyText);
-  } catch (e) {
-    res.status(502).json({ error: e.message || 'Bad Gateway', code: 'BAD_GATEWAY' });
-  }
+  // Return immediately — the frontend calls openProposal() + loadProposals() after this
+  // which re-fetches the updated proposal. Eliminating the extra canister GET here removes
+  // one full ICP round trip (~1–3 s) from the critical path and prevents Netlify timeout.
+  return res.set('Cache-Control', 'private, no-store, must-revalidate').json({ ok: true });
 });
 
 app.use('/api/v1', async (req, res) => {
