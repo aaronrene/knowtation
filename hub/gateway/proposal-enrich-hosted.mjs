@@ -56,11 +56,26 @@ export async function runHostedProposalEnrichAndPost(opts) {
     'x-actor-id': actorUserId,
     'x-vault-id': vaultId,
   };
-  const getRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}`, { headers: h });
+  let getRes;
+  try {
+    getRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(proposalId)}`, { headers: h });
+  } catch (e) {
+    return { ok: false, status: 502, code: 'UPSTREAM', detail: `fetch: ${e?.message || String(e)}` };
+  }
   if (!getRes.ok) {
     return { ok: false, status: getRes.status === 404 ? 404 : 502, code: 'UPSTREAM' };
   }
-  const p = await getRes.json();
+  let p;
+  try {
+    p = await getRes.json();
+  } catch (e) {
+    return {
+      ok: false,
+      status: 502,
+      code: 'UPSTREAM_JSON',
+      detail: `Canister returned non-JSON body for proposal ${proposalId}: ${e?.message || String(e)}`,
+    };
+  }
   if (!p || p.status !== 'proposed') {
     return { ok: false, status: 400, code: 'BAD_REQUEST', detail: 'Can only enrich proposed proposals' };
   }
