@@ -6,6 +6,9 @@
 import { completeChat } from '../../lib/llm-complete.mjs';
 
 /**
+ * Run LLM review hints inline (before response is sent), bounded by a deadline.
+ * setImmediate is not used because Netlify/Lambda containers freeze after the async handler
+ * resolves — macrotask callbacks never fire reliably in that environment.
  * @param {{
  *   method: string,
  *   pathOnly: string,
@@ -17,8 +20,10 @@ import { completeChat } from '../../lib/llm-complete.mjs';
  *   vaultId: string,
  *   hintsEnabled: boolean,
  * }} opts
+ * @param {number} [budgetMs=6000] Maximum ms to wait before giving up and letting the response proceed.
+ * @returns {Promise<void>}
  */
-export function maybeScheduleHostedProposalReviewHints(opts) {
+export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 6000) {
   if (!opts.hintsEnabled) return;
   const { method, pathOnly, upstreamStatus, responseText, canisterUrl, effectiveUserId, actorUserId, vaultId } = opts;
   if (method !== 'POST' || (pathOnly !== '/api/v1/proposals' && pathOnly !== '/api/v1/proposals/')) return;
@@ -31,22 +36,27 @@ export function maybeScheduleHostedProposalReviewHints(opts) {
     return;
   }
   if (!proposalId) return;
-  setImmediate(() => {
-    runHostedProposalReviewHintsJob({
-      canisterUrl,
-      effectiveUserId,
-      actorUserId,
-      vaultId,
-      proposalId,
-    }).then((out) => {
-      if (!out.ok) {
-        console.error(
-          '[gateway] async review hints failed',
-          JSON.stringify({ proposalId, code: out.code, detail: out.detail?.slice?.(0, 200) }),
-        );
-      }
-    });
+
+  let timeoutHandle;
+  const deadline = new Promise((resolve) => {
+    timeoutHandle = setTimeout(() => resolve({ ok: false, code: 'TIMEOUT' }), budgetMs);
   });
+  const job = runHostedProposalReviewHintsJob({
+    canisterUrl,
+    effectiveUserId,
+    actorUserId,
+    vaultId,
+    proposalId,
+  }).catch((e) => ({ ok: false, code: 'RUNTIME_ERROR', detail: e?.message || String(e) }));
+
+  const out = await Promise.race([job, deadline]);
+  clearTimeout(timeoutHandle);
+  if (!out.ok) {
+    console.error(
+      '[gateway] review hints failed',
+      JSON.stringify({ proposalId, code: out.code, detail: out.detail?.slice?.(0, 200) }),
+    );
+  }
 }
 
 /**
