@@ -1203,18 +1203,23 @@ async function proxyToCanister(req, res) {
         }
       } catch (_) {}
     }
-    await maybeScheduleHostedProposalReviewHints({
-      method: req.method,
-      pathOnly: pathOnlyForBody,
-      upstreamStatus: upstream.status,
-      responseText: body,
-      canisterUrl: CANISTER_URL,
-      effectiveUserId: effective,
-      actorUserId: uid,
-      vaultId,
-      hintsEnabled: hostedLlmPrefs ? effectiveHostedReviewHints(hostedLlmPrefs) : false,
-      proposalData: parsedProposalData,
-    });
+    try {
+      await maybeScheduleHostedProposalReviewHints({
+        method: req.method,
+        pathOnly: pathOnlyForBody,
+        upstreamStatus: upstream.status,
+        responseText: body,
+        canisterUrl: CANISTER_URL,
+        effectiveUserId: effective,
+        actorUserId: uid,
+        vaultId,
+        hintsEnabled: hostedLlmPrefs ? effectiveHostedReviewHints(hostedLlmPrefs) : false,
+        proposalData: parsedProposalData,
+      });
+    } catch (e) {
+      // Never let a hints failure affect the primary proxy response.
+      console.error('[gateway] hints exception (non-fatal):', e?.message || String(e));
+    }
     if (upstream.status >= 400 && req.method === 'GET' && url.includes('/api/v1/notes/')) {
       console.warn('[gateway] canister GET note:', upstream.status, 'url:', url.slice(0, 120));
     }
@@ -1251,52 +1256,68 @@ app.post('/api/v1/notes/rename-project', async (req, res) => {
 
 /** Hosted Enrich: gateway runs LLM and POSTs to canister (not proxied as opaque POST). */
 app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
-  if (!(await runBillingGate(req, res, getUserId))) return;
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  const proposalId = req.params.proposalId;
-  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
-  const hctx = await getHostedAccessContext(req);
-  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
-    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
-  }
-  const { role } = await resolveHostedActorRole(req, hctx);
-  if (role === 'viewer') {
-    return res.status(403).json({ error: 'This action requires a different role.', code: 'FORBIDDEN' });
-  }
-  const effective =
-    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
-      ? hctx.effective_canister_user_id
-      : uid;
-  const llmPrefs = await loadHostedProposalLlmPrefs();
-  const enrichEnabled = effectiveHostedEnrich(llmPrefs);
-  const out = await runHostedProposalEnrichAndPost({
-    canisterUrl: CANISTER_URL,
-    effectiveUserId: effective,
-    actorUserId: uid,
-    vaultId,
-    proposalId,
-    enrichEnabled,
-  });
-  if (!out.ok) {
-    if (out.status === 404 && out.code === 'NOT_FOUND') {
-      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+  // Express 4 does not auto-catch async route handler exceptions; wrap everything so a
+  // rejected promise never leaves the request hanging until Netlify's Lambda timeout.
+  try {
+    if (!(await runBillingGate(req, res, getUserId))) return;
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    const proposalId = req.params.proposalId;
+    const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    const hctx = await getHostedAccessContext(req);
+    if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+      return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
     }
-    if (out.status === 404) {
-      return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+    const { role } = await resolveHostedActorRole(req, hctx);
+    if (role === 'viewer') {
+      return res.status(403).json({ error: 'This action requires a different role.', code: 'FORBIDDEN' });
     }
-    if (out.status === 400) {
-      return res.status(400).json({ error: out.detail || 'Bad request', code: out.code || 'BAD_REQUEST' });
-    }
-    return res.status(out.status || 500).json({
-      error: out.detail || out.code || 'Enrich failed',
-      code: out.code || 'RUNTIME_ERROR',
+    const effective =
+      hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+        ? hctx.effective_canister_user_id
+        : uid;
+    const llmPrefs = await loadHostedProposalLlmPrefs();
+    const enrichEnabled = effectiveHostedEnrich(llmPrefs);
+    // Diagnostic: log which LLM provider will be used (visible in Netlify function logs).
+    console.log(
+      '[gateway/enrich] proposalId=%s enrichEnabled=%s provider=%s',
+      proposalId,
+      enrichEnabled,
+      process.env.OPENAI_API_KEY ? 'openai' : process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'ollama(NO KEY)',
+    );
+    const out = await runHostedProposalEnrichAndPost({
+      canisterUrl: CANISTER_URL,
+      effectiveUserId: effective,
+      actorUserId: uid,
+      vaultId,
+      proposalId,
+      enrichEnabled,
     });
+    if (!out.ok) {
+      if (out.status === 404 && out.code === 'NOT_FOUND') {
+        return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+      }
+      if (out.status === 404) {
+        return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
+      }
+      if (out.status === 400) {
+        return res.status(400).json({ error: out.detail || 'Bad request', code: out.code || 'BAD_REQUEST' });
+      }
+      return res.status(out.status || 500).json({
+        error: out.detail || out.code || 'Enrich failed',
+        code: out.code || 'RUNTIME_ERROR',
+      });
+    }
+    // Return immediately — the frontend calls openProposal() + loadProposals() after this
+    // which re-fetches the updated proposal. Eliminating the extra canister GET here removes
+    // one full ICP round trip (~1–3 s) from the critical path and prevents Netlify timeout.
+    return res.set('Cache-Control', 'private, no-store, must-revalidate').json({ ok: true });
+  } catch (e) {
+    console.error('[gateway/enrich] unhandled exception:', e?.stack || e?.message || e);
+    if (!res.headersSent) {
+      res.status(500).json({ error: e?.message || 'Internal error', code: 'INTERNAL_ERROR' });
+    }
   }
-  // Return immediately — the frontend calls openProposal() + loadProposals() after this
-  // which re-fetches the updated proposal. Eliminating the extra canister GET here removes
-  // one full ICP round trip (~1–3 s) from the critical path and prevents Netlify timeout.
-  return res.set('Cache-Control', 'private, no-store, must-revalidate').json({ ok: true });
 });
 
 app.use('/api/v1', async (req, res) => {
