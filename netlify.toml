@@ -9,6 +9,7 @@
 # real package files from node_modules (see sqlite-vec index.mjs getLoadablePath).
 [functions]
   node_bundler = "esbuild"
+  timeout = 26
   external_node_modules = [
     "better-sqlite3",
     "sqlite-vec",

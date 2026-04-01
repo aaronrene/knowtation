@@ -1185,7 +1185,7 @@ async function proxyToCanister(req, res) {
   try {
     const upstream = await fetch(url, opts);
     const body = await upstream.text();
-    maybeScheduleHostedProposalReviewHints({
+    await maybeScheduleHostedProposalReviewHints({
       method: req.method,
       pathOnly: pathOnlyForBody,
       upstreamStatus: upstream.status,
