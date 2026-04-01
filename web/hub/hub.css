@@ -572,6 +572,13 @@ button.btn-new-note.btn-busy::after {
   letter-spacing: 0.03em;
 }
 .proposal-md { font-size: 0.9rem; line-height: 1.45; }
+.proposal-md h1, .proposal-md h2, .proposal-md h3,
+.proposal-md h4, .proposal-md h5, .proposal-md h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.65rem 0 0.25rem;
+  line-height: 1.3;
+}
 .proposal-md pre { overflow: auto; max-height: 10rem; }
 .proposal-assistant {
   margin-top: 1rem;
