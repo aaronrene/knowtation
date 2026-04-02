@@ -21,10 +21,10 @@ import { completeChat } from '../../lib/llm-complete.mjs';
  *   hintsEnabled: boolean,
  *   proposalData?: { path: string, body: string } | null,
  * }} opts
- * @param {number} [budgetMs=6000] Maximum ms to wait before giving up and letting the response proceed.
+ * @param {number} [budgetMs=18000] Maximum ms to wait before giving up and letting the response proceed.
  * @returns {Promise<void>}
  */
-export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 6000) {
+export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 18000) {
   if (!opts.hintsEnabled) return;
   const { method, pathOnly, upstreamStatus, responseText, canisterUrl, effectiveUserId, actorUserId, vaultId } = opts;
   if (method !== 'POST' || (pathOnly !== '/api/v1/proposals' && pathOnly !== '/api/v1/proposals/')) return;
@@ -97,10 +97,9 @@ export async function runHostedProposalReviewHintsJob({
   };
 
   let proposalPath, proposalBody;
-  if (proposalData && proposalData.path != null) {
-    // Caller already has the proposal — skip the canister GET
+  if (proposalData && proposalData.path != null && proposalData.body) {
     proposalPath = String(proposalData.path);
-    proposalBody = String(proposalData.body ?? '');
+    proposalBody = String(proposalData.body);
   } else {
     let getRes;
     try {

@@ -400,6 +400,8 @@ func parsePath(url : Text) : (Text, Text) {
 
 // Minimal JSON: extract string value for key (finds "\"key\":\"...\"").
 // Linear in output size: one Text.toArray on body, Buffer for result (avoids quadratic Text #= in a loop).
+// Escape sequences are unescaped so the stored text matches the original value
+// (e.g. "[\\"tag1\\"]" in the POST body becomes ["tag1"] in storage).
 func extractJsonString(body : Text, key : Text) : ?Text {
   let needle = "\"" # key # "\":\"";
   switch (textFind(body, needle)) {
@@ -411,8 +413,14 @@ func extractJsonString(body : Text, key : Text) : ?Text {
       while (i < chars.size()) {
         let ch = chars[i];
         if (ch == '\\' and i + 1 < chars.size()) {
-          buf.add(chars[i]);
-          buf.add(chars[i + 1]);
+          let next = chars[i + 1];
+          if (next == '"')  { buf.add('"') }
+          else if (next == '\\') { buf.add('\\') }
+          else if (next == 'n')  { buf.add('\n') }
+          else if (next == 'r')  { buf.add('\r') }
+          else if (next == 't')  { buf.add('\t') }
+          else if (next == '/')  { buf.add('/') }
+          else { buf.add(ch); buf.add(next) };
           i += 2;
         } else if (ch == '\"') {
           return ?Text.fromIter(buf.vals());
