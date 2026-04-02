@@ -2948,7 +2948,7 @@
       // Legacy credits row (only show if non-zero)
       const mu = Number(d.monthly_used_cents) || 0;
       const mi = Number(d.monthly_included_effective_cents) || 0;
-      if (credRow) credRow.style.display = (mu > 0 || mi > 0) ? '' : 'none';
+      if (credRow) credRow.style.display = 'none'; // legacy cents ledger not surfaced in UI
       if (credEl && (mu > 0 || mi > 0)) {
         credEl.textContent = `${(mu / 100).toFixed(2)} / ${(mi / 100).toFixed(2)} credits`;
       }

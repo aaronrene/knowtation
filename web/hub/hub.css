@@ -1506,12 +1506,14 @@ button.btn-new-note.btn-busy::after {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  background: var(--surface);
-  transition: border-color 0.15s;
+  background: color-mix(in srgb, #fff 4%, var(--surface));
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .billing-plan-card-active {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0,0,0,0.4);
 }
 .billing-plan-card-header {
   display: flex;
@@ -1588,6 +1590,9 @@ button.btn-new-note.btn-busy::after {
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
   border: 1px solid var(--border);
+  background: color-mix(in srgb, #fff 4%, var(--surface));
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   background: var(--surface);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -1596,7 +1601,8 @@ button.btn-new-note.btn-busy::after {
 .billing-pack-card:hover,
 .billing-pack-card:focus {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0,0,0,0.4);
   outline: none;
 }
 .billing-pack-card:disabled {
