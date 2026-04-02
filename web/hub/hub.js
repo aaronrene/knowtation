@@ -2857,7 +2857,7 @@
     const upgradeBtn = el('btn-billing-upgrade');
     const manageBtn = el('btn-billing-manage');
     const packSection = el('billing-pack-section');
-    if (!tierEl || !usedEl) return;
+    if (!tierEl || !searchesUsedEl) return;
     if (msg) msg.textContent = '';
     if (refreshBtn) setButtonBusy(refreshBtn, true, 'Loading…');
 
