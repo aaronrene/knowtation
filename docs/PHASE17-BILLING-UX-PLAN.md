@@ -1,4 +1,4 @@
-# Phase 17 — Billing UX: Tier Selector, Operation Metering & Storage Strategy
+# Phase 17 — Billing UX, Operation Metering & Note Rendering
 
 > **Branch:** `feature/phase17-billing-ux`
 > **Preceded by:** Phase 16 (Stripe billing scaffold, pack purchases, webhooks)
@@ -111,9 +111,90 @@ separate concern and should not be surfaced in the UI.
 
 ---
 
-## §3 Build Order
+## §3 Note Rendering & Media Model
 
-### Phase 17A — Tier selector UI (immediate priority)
+### 3.1 Current state
+
+Note bodies in the Hub are displayed with `bodyEl.textContent` — raw plain text. Markdown
+syntax (`**bold**`, `[link](url)`, `![](img-url)`) is shown as literal characters, not
+rendered. This is unlike proposals, which already use `marked.parse` + `DOMPurify`.
+
+### 3.2 Decision: enable markdown rendering for note bodies
+
+Render note bodies as sanitized HTML using the same `marked` + `DOMPurify` pipeline already
+used for proposals. This makes links clickable, images inline, and formatting visible. It is a
+small code change (one function) with high user-facing impact.
+
+**Implementation:** Change `switchNoteToReadMode` in `hub.js` to use the same
+`renderProposalMarkdownHtml` helper (or an equivalent) instead of `textContent`. The `marked`
+and `DOMPurify` libraries are already loaded by the Hub page.
+
+### 3.3 Media / asset model — "pointer, not payload"
+
+Knowtation is the **semantic layer** of a user's knowledge stack. Assets (images, videos,
+documents) live wherever they naturally live — Google Drive, Dropbox, GitHub, a CDN, Imgur.
+The note stores the **reference** (URL) and the **context** (why the asset matters, how it
+connects to other notes). Knowtation does not need to be a file storage system.
+
+This is the correct architecture for an agent-based platform. An AI agent reading a note that
+contains `![Whiteboard](https://drive.google.com/file/d/abc123)` gets:
+- The semantic context around the image
+- The URL pointer to retrieve or analyze the asset using whatever tools the agent has
+
+Knowtation's job is to surface the right note. What the agent does with URLs in that note is
+outside Knowtation's scope.
+
+### 3.4 Public vs. private asset URLs
+
+Once markdown rendering is enabled, image rendering depends on URL accessibility:
+
+| Asset location | Renders in Hub | Agent can read URL? |
+|---|---|---|
+| GitHub raw (public repo) | Yes | Yes |
+| Cloudinary / Imgur / any CDN | Yes | Yes |
+| Google Drive (shared "anyone with link") | Yes | Yes |
+| Google Drive (private / not shared) | No — broken image | Yes (URL in text) |
+| Dropbox / OneDrive (private) | No — broken image | Yes (URL in text) |
+
+**Implication for users:** If an image does not render, it means the hosting URL requires
+authentication. The fix is on the user's side (make the file publicly accessible or use a
+different host). Knowtation does not need to proxy or re-host assets.
+
+**Documentation note to add:** A one-line tooltip or help text near the note body view:
+*"Images render from public URLs. For Google Drive, share the file as 'Anyone with the link.'"*
+
+### 3.5 Native image upload (deferred)
+
+Building a media upload pipeline (storage backend + upload UI + URL insertion) is a meaningful
+project. Defer until users explicitly request it. When built, the right storage layer is
+Cloudflare R2, Netlify Blobs (for small assets), or a GitHub commit of the asset to the user's
+own repo. No decision needed now.
+
+---
+
+## §4 Build Order
+
+### Phase 17A — Markdown rendering for note bodies
+
+**Goal:** Note bodies render as formatted HTML (links, images, bold, code blocks) instead of
+raw markdown text.
+
+**Changes:**
+- `web/hub/hub.js`: In `switchNoteToReadMode`, replace `bodyEl.textContent = ...` with a
+  call to `renderProposalMarkdownHtml` (or extract a shared `renderMarkdownHtml` helper used
+  by both note detail and proposals). The `marked` and `DOMPurify` libraries are already
+  present on the page.
+- Verify that DOMPurify config allows `<img>` tags with `src` attributes (external URLs) and
+  `<a>` tags with `href`. Tighten to block `<script>`, `<iframe>`, data URIs.
+- Add a one-line help note in the note body area or a tooltip:
+  *"Images render from public URLs (e.g. GitHub raw, Cloudinary). For Google Drive, share as
+  'Anyone with the link.'"*
+
+**Acceptance:** Open a note containing `**bold**`, `[a link](https://example.com)`, and
+`![](https://picsum.photos/200)` — all render correctly. Raw markdown syntax is no longer
+visible in read mode.
+
+### Phase 17B — Tier selector UI
 
 **Goal:** Any user can see and upgrade to any tier from within the billing panel.
 
@@ -126,7 +207,7 @@ separate concern and should not be surfaced in the UI.
 
 **Acceptance:** A Plus subscriber can click "Upgrade to Growth" and complete the checkout.
 
-### Phase 17B — Operation count metering
+### Phase 17C — Operation count metering
 
 **Goal:** Track and display searches used + index jobs used per billing period.
 
@@ -152,7 +233,7 @@ monthly_index_jobs_used:  0,   // incremented by billing gate on each index
 - Remove `monthly_indexing_tokens_used` / `pack_indexing_tokens_balance` as primary display.
 - Keep pack balance as a secondary note: "Pack balance: 60M tokens (rollover)."
 
-### Phase 17C — Pack card human-readable equivalents
+### Phase 17D — Pack card human-readable equivalents
 
 Update the three pack cards in `index.html` to show:
 ```
@@ -162,7 +243,7 @@ Update the three pack cards in `index.html` to show:
 
 Small change, high clarity impact.
 
-### Phase 17D — Token tracking (deferred, future canister work)
+### Phase 17E — Token tracking (deferred, future canister work)
 
 Requires the ICP canister to return per-job token counts from OpenAI embedding API responses.
 When implemented:
@@ -184,13 +265,14 @@ and gateway JS only.
 
 ## §5 Rollout Checklist
 
-- [ ] 17A: Tier selector UI — PR, merge, verify Growth/Pro checkout works in test mode
-- [ ] 17B: Operation count metering — shadow-log for 2–4 weeks, verify counts look right
-- [ ] 17C: Pack card labels updated
+- [ ] 17A: Markdown rendering for note bodies — PR, merge, verify links/images render in Hub
+- [ ] 17B: Tier selector UI — PR, merge, verify Growth/Pro checkout works in test mode
+- [ ] 17C: Operation count metering — shadow-log for 2–4 weeks, verify counts look right
+- [ ] 17D: Pack card labels updated
 - [ ] Review shadow logs → decide on final operation allowance numbers by tier
 - [ ] Flip `BILLING_ENFORCE=true` in Netlify after confirming numbers
 - [ ] Switch Stripe keys to live mode (separate checklist item)
-- [ ] 17D: Deferred — track as a future ticket
+- [ ] 17E: Token tracking — deferred, track as a future ticket
 
 ---
 
