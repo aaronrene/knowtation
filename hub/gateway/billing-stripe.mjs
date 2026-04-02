@@ -34,15 +34,18 @@ function subscriptionPriceId(subscription) {
   return item?.price?.id ?? null;
 }
 
-async function applySubscriptionToUser(stripe, sub, explicitUserId) {
+/**
+ * Build a synchronous db mutator for a subscription object.
+ * Returns (db: BillingDb) => void — called inside a single mutateBillingDb.
+ */
+function buildSubscriptionMutator(sub, explicitUserId) {
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
   const priceId = subscriptionPriceId(sub);
   const tier = tierFromEnvPriceId(priceId) || 'plus';
   const included = MONTHLY_INCLUDED_CENTS_BY_TIER[tier] ?? MONTHLY_INCLUDED_CENTS_BY_TIER.plus;
 
-  await mutateBillingDb((db) => {
+  return (db) => {
     let uid = explicitUserId || findUserIdByCustomerId(db, customerId);
-    if (!uid && explicitUserId) uid = explicitUserId;
     if (!uid) return;
     const u = db.users[uid] || defaultUserRecord(uid);
     db.users[uid] = u;
@@ -59,18 +62,21 @@ async function applySubscriptionToUser(stripe, sub, explicitUserId) {
       u.stripe_subscription_id = null;
       u.monthly_included_cents = 0;
     }
-  });
+  };
 }
 
-async function handleCheckoutSessionCompleted(stripe, session) {
+/**
+ * Prepare all async work for a checkout.session.completed event and return a
+ * synchronous db mutator.  Returns null if the event requires no db change.
+ */
+async function prepareCheckoutMutator(stripe, session) {
   const uidMeta = session.metadata?.user_id?.trim() || null;
 
   if (session.mode === 'subscription') {
     const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
-    if (!subId) return;
+    if (!subId) return null;
     const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
-    await applySubscriptionToUser(stripe, sub, uidMeta);
-    return;
+    return buildSubscriptionMutator(sub, uidMeta);
   }
 
   if (session.mode === 'payment') {
@@ -80,7 +86,7 @@ async function handleCheckoutSessionCompleted(stripe, session) {
     // Primary source: price_id stored in checkout session metadata at creation time.
     let resolvedPriceId = session.metadata?.price_id?.trim() || null;
 
-    // If still missing, fetch line items (fallback for sessions created before this metadata was added).
+    // Fallback: fetch line items for sessions created before the metadata field was added.
     if (!resolvedPriceId && stripe) {
       try {
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
@@ -97,7 +103,6 @@ async function handleCheckoutSessionCompleted(stripe, session) {
       const mapped = addonCentsFromPackPriceId(resolvedPriceId);
       if (mapped) creditsCents = mapped;
     }
-
     if (!packTokens && resolvedPriceId) {
       const mapped = addonTokensFromPackPriceId(resolvedPriceId);
       if (mapped) packTokens = mapped;
@@ -105,38 +110,41 @@ async function handleCheckoutSessionCompleted(stripe, session) {
 
     if (!creditsCents && !packTokens) {
       console.error('[billing] pack payment: could not resolve credits/tokens for session', session.id, 'price_id:', resolvedPriceId);
-      return;
+      return null;
     }
 
     const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
-    await mutateBillingDb((db) => {
+    return (db) => {
       let uid = uidMeta || findUserIdByCustomerId(db, customerId);
       if (!uid) return;
       const u = db.users[uid] || defaultUserRecord(uid);
       db.users[uid] = u;
       if (customerId) u.stripe_customer_id = customerId;
-      if (creditsCents > 0) {
-        u.addon_cents = (Number(u.addon_cents) || 0) + creditsCents;
-      }
+      if (creditsCents > 0) u.addon_cents = (Number(u.addon_cents) || 0) + creditsCents;
       if (packTokens > 0) {
         u.pack_indexing_tokens_balance =
           (Math.max(0, Math.floor(Number(u.pack_indexing_tokens_balance) || 0))) + packTokens;
       }
-    });
+    };
   }
+
+  return null;
 }
 
-async function handleInvoicePaid(invoice) {
-  if (!invoice.subscription) return;
+/**
+ * Build a synchronous db mutator for an invoice.paid event.
+ */
+function buildInvoicePaidMutator(invoice) {
+  if (!invoice.subscription) return null;
   const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
   const line = invoice.lines?.data?.[0];
   const periodEnd = line?.period?.end;
-  await mutateBillingDb((db) => {
+  return (db) => {
     const uid = findUserIdByCustomerId(db, customerId);
     if (!uid || !db.users[uid]) return;
     db.users[uid].monthly_used_cents = 0;
     if (periodEnd) db.users[uid].period_end = new Date(periodEnd * 1000).toISOString();
-  });
+  };
 }
 
 /**
@@ -234,38 +242,45 @@ export async function stripeWebhookHandler(req, res) {
       return res.json({ received: true, duplicate: true });
     }
 
+    // --- Phase 1: async preparation (Stripe API calls, token resolution) ---
+    // All Stripe network calls happen here, BEFORE any blob writes.
+    let mutate = null;
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(stripe, event.data.object);
+        mutate = await prepareCheckoutMutator(stripe, event.data.object);
         break;
       case 'invoice.paid':
-        await handleInvoicePaid(event.data.object);
+        mutate = buildInvoicePaidMutator(event.data.object);
         break;
       case 'customer.subscription.updated': {
         const subId = event.data.object?.id;
         if (subId) {
           const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
-          await applySubscriptionToUser(stripe, sub, null);
+          mutate = buildSubscriptionMutator(sub, null);
         }
         break;
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
         const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
-        await mutateBillingDb((db) => {
+        mutate = (db) => {
           const uid = findUserIdByCustomerId(db, customerId);
           if (!uid || !db.users[uid]) return;
           db.users[uid].tier = 'beta';
           db.users[uid].stripe_subscription_id = null;
           db.users[uid].monthly_included_cents = 0;
-        });
+        };
         break;
       }
       default:
         break;
     }
 
+    // --- Phase 2: single atomic read-modify-write ---
+    // Applying the event mutation AND marking it processed in ONE mutateBillingDb call
+    // prevents a second load from reading stale data and overwriting the first write.
     await mutateBillingDb((db) => {
+      if (mutate) mutate(db);
       markEventProcessed(db, event.id);
     });
 
