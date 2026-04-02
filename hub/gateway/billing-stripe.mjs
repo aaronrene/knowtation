@@ -6,6 +6,7 @@ import {
   MONTHLY_INCLUDED_CENTS_BY_TIER,
   tierFromEnvPriceId,
   addonCentsFromPackPriceId,
+  addonTokensFromPackPriceId,
 } from './billing-constants.mjs';
 import { defaultUserRecord } from './billing-logic.mjs';
 import {
@@ -36,8 +37,8 @@ function subscriptionPriceId(subscription) {
 async function applySubscriptionToUser(stripe, sub, explicitUserId) {
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
   const priceId = subscriptionPriceId(sub);
-  const tier = tierFromEnvPriceId(priceId) || 'starter';
-  const included = MONTHLY_INCLUDED_CENTS_BY_TIER[tier] ?? MONTHLY_INCLUDED_CENTS_BY_TIER.starter;
+  const tier = tierFromEnvPriceId(priceId) || 'plus';
+  const included = MONTHLY_INCLUDED_CENTS_BY_TIER[tier] ?? MONTHLY_INCLUDED_CENTS_BY_TIER.plus;
 
   await mutateBillingDb((db) => {
     let uid = explicitUserId || findUserIdByCustomerId(db, customerId);
@@ -74,13 +75,36 @@ async function handleCheckoutSessionCompleted(stripe, session) {
 
   if (session.mode === 'payment') {
     let creditsCents = parseInt(session.metadata?.credits_cents || '0', 10);
-    if (!creditsCents && stripe) {
-      const full = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items.data.price'] });
-      const priceId = full.line_items?.data?.[0]?.price?.id;
-      const mapped = addonCentsFromPackPriceId(priceId);
-      if (mapped) creditsCents = mapped;
+    let packTokens = parseInt(session.metadata?.indexing_tokens || '0', 10);
+    let resolvedPriceId = null;
+
+    if ((!creditsCents || !packTokens) && stripe) {
+      const full = await stripe.checkout.sessions.retrieve(session.id, {
+        expand: ['line_items.data.price'],
+      });
+      resolvedPriceId = full.line_items?.data?.[0]?.price?.id ?? null;
+
+      if (!creditsCents && resolvedPriceId) {
+        const mapped = addonCentsFromPackPriceId(resolvedPriceId);
+        if (mapped) creditsCents = mapped;
+      }
+
+      if (!packTokens && resolvedPriceId) {
+        // Prefer Stripe price metadata set on the product (authoritative source).
+        const metaTokens = parseInt(
+          full.line_items?.data?.[0]?.price?.metadata?.indexing_tokens || '0',
+          10,
+        );
+        if (metaTokens > 0) {
+          packTokens = metaTokens;
+        } else {
+          const mapped = addonTokensFromPackPriceId(resolvedPriceId);
+          if (mapped) packTokens = mapped;
+        }
+      }
     }
-    if (!creditsCents || creditsCents < 1) return;
+
+    if (!creditsCents && !packTokens) return;
 
     const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
     await mutateBillingDb((db) => {
@@ -89,7 +113,13 @@ async function handleCheckoutSessionCompleted(stripe, session) {
       const u = db.users[uid] || defaultUserRecord(uid);
       db.users[uid] = u;
       if (customerId) u.stripe_customer_id = customerId;
-      u.addon_cents = (Number(u.addon_cents) || 0) + creditsCents;
+      if (creditsCents > 0) {
+        u.addon_cents = (Number(u.addon_cents) || 0) + creditsCents;
+      }
+      if (packTokens > 0) {
+        u.pack_indexing_tokens_balance =
+          (Math.max(0, Math.floor(Number(u.pack_indexing_tokens_balance) || 0))) + packTokens;
+      }
     });
   }
 }
@@ -105,6 +135,72 @@ async function handleInvoicePaid(invoice) {
     db.users[uid].monthly_used_cents = 0;
     if (periodEnd) db.users[uid].period_end = new Date(periodEnd * 1000).toISOString();
   });
+}
+
+/**
+ * Create a Stripe Checkout Session for a subscription or one-time pack purchase.
+ *
+ * @param {{ priceId: string, userId: string, successUrl: string, cancelUrl: string, mode: 'subscription'|'payment', customerEmail?: string|null, stripeCustomerId?: string|null }} opts
+ * @returns {Promise<{ url: string }>}
+ */
+export async function createCheckoutSession({ priceId, userId, successUrl, cancelUrl, mode, customerEmail, stripeCustomerId }) {
+  const stripe = await getStripe();
+  if (!stripe) throw Object.assign(new Error('Stripe is not configured (STRIPE_SECRET_KEY missing)'), { code: 'NOT_CONFIGURED' });
+
+  const sessionParams = {
+    mode,
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    client_reference_id: userId,
+    metadata: { user_id: userId },
+  };
+
+  if (stripeCustomerId) {
+    sessionParams.customer = stripeCustomerId;
+  } else if (customerEmail) {
+    sessionParams.customer_email = customerEmail;
+  }
+
+  if (mode === 'subscription') {
+    sessionParams.subscription_data = { metadata: { user_id: userId } };
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams);
+  return { url: session.url };
+}
+
+/**
+ * Look up or create a Stripe Customer for a user, then create a Billing Portal session.
+ *
+ * @param {{ userId: string, returnUrl: string }} opts
+ * @returns {Promise<{ url: string }>}
+ */
+export async function createPortalSession({ userId, returnUrl }) {
+  const stripe = await getStripe();
+  if (!stripe) throw Object.assign(new Error('Stripe is not configured (STRIPE_SECRET_KEY missing)'), { code: 'NOT_CONFIGURED' });
+
+  const db = await loadBillingDb();
+  const u = db.users[userId];
+  let customerId = u?.stripe_customer_id ?? null;
+
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      metadata: { user_id: userId },
+    });
+    customerId = customer.id;
+    await mutateBillingDb((dbMut) => {
+      if (!dbMut.users[userId]) dbMut.users[userId] = defaultUserRecord(userId);
+      dbMut.users[userId].stripe_customer_id = customerId;
+    });
+  }
+
+  const portalSession = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+  });
+
+  return { url: portalSession.url };
 }
 
 /**

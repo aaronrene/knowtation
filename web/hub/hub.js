@@ -2650,61 +2650,204 @@
     return Number(n).toLocaleString();
   }
 
+  function formatTokenCountShort(n) {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    const v = Number(n);
+    if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + 'B';
+    if (v >= 1_000_000) return (v / 1_000_000).toFixed(0) + 'M';
+    if (v >= 1_000) return (v / 1_000).toFixed(0) + 'K';
+    return String(v);
+  }
+
+  /**
+   * Update the token usage progress bar.
+   * @param {number} used - tokens used this period
+   * @param {number|null} included - tokens included (null = unlimited)
+   */
+  function updateTokenBar(used, included) {
+    const fill = el('billing-token-bar-fill');
+    if (!fill) return;
+    if (included == null) {
+      fill.style.width = '15%';
+      fill.className = 'billing-usage-bar-fill';
+      return;
+    }
+    const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0;
+    fill.style.width = pct + '%';
+    fill.className =
+      'billing-usage-bar-fill' + (pct >= 100 ? ' over' : pct >= 80 ? ' warn' : '');
+  }
+
+  const TIER_LABELS = {
+    free: 'Free',
+    plus: 'Plus',
+    growth: 'Growth',
+    pro: 'Pro',
+    beta: 'Beta',
+    starter: 'Plus',
+    team: 'Team',
+  };
+
+  const TIER_CSS_CLASSES = {
+    free: 'tier-free',
+    plus: 'tier-plus',
+    growth: 'tier-growth',
+    pro: 'tier-pro',
+    beta: 'tier-beta',
+    starter: 'tier-plus',
+    team: 'tier-pro',
+  };
+
+  /**
+   * Redirect to Stripe Checkout for the given price_id (or tier shorthand).
+   * @param {{ price_id?: string, tier?: string }} opts
+   */
+  async function redirectToCheckout(opts) {
+    const resp = await api('/api/v1/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...opts,
+        success_url: window.location.origin + window.location.pathname + '#settings',
+        cancel_url: window.location.origin + window.location.pathname + '#settings',
+      }),
+    });
+    if (resp && resp.url) {
+      window.location.href = resp.url;
+    }
+  }
+
+  /**
+   * Redirect to Stripe Customer Portal.
+   */
+  async function redirectToPortal() {
+    const resp = await api('/api/v1/billing/portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        return_url: window.location.origin + window.location.pathname + '#settings',
+      }),
+    });
+    if (resp && resp.url) {
+      window.location.href = resp.url;
+    }
+  }
+
   async function loadBillingPanel() {
     const msg = el('billing-panel-msg');
     const tierEl = el('billing-tier');
     const usedEl = el('billing-indexing-used');
     const incEl = el('billing-indexing-included');
     const packEl = el('billing-pack-balance');
+    const packRow = el('billing-pack-balance-row');
     const periodEl = el('billing-period');
+    const renewalEl = el('billing-renewal');
     const credEl = el('billing-credits-used');
+    const credRow = el('billing-credits-row');
     const polEl = el('billing-indexing-policy');
+    const noteCap = el('billing-note-cap');
     const refreshBtn = el('btn-billing-refresh');
+    const upgradeBtn = el('btn-billing-upgrade');
+    const manageBtn = el('btn-billing-manage');
+    const packSection = el('billing-pack-section');
     if (!tierEl || !usedEl) return;
     if (msg) msg.textContent = '';
     if (refreshBtn) setButtonBusy(refreshBtn, true, 'Loading…');
+
     const setDash = () => {
       tierEl.textContent = '—';
+      tierEl.className = 'billing-plan-badge tier-beta';
       usedEl.textContent = '—';
       if (incEl) incEl.textContent = '—';
-      if (packEl) packEl.textContent = '—';
+      if (packEl) packEl.textContent = '0';
+      if (packRow) packRow.style.display = 'none';
       if (periodEl) periodEl.textContent = '—';
+      if (renewalEl) renewalEl.textContent = '';
       if (credEl) credEl.textContent = '—';
-      if (polEl) polEl.textContent = '—';
+      if (credRow) credRow.style.display = 'none';
+      if (polEl) { polEl.textContent = ''; polEl.style.display = 'none'; }
+      if (noteCap) noteCap.textContent = '—';
+      if (upgradeBtn) upgradeBtn.style.display = 'none';
+      if (manageBtn) manageBtn.style.display = 'none';
+      updateTokenBar(0, 0);
     };
+
     if (!token) {
       setDash();
       if (msg) msg.textContent = 'Sign in to view billing usage.';
       if (refreshBtn) setButtonBusy(refreshBtn, false);
       return;
     }
+
     try {
       const d = await api('/api/v1/billing/summary');
-      tierEl.textContent = d.tier != null ? String(d.tier) : '—';
-      usedEl.textContent = formatTokenCount(d.monthly_indexing_tokens_used);
+      const tier = d.tier != null ? String(d.tier) : 'beta';
+
+      // Plan badge
+      tierEl.textContent = TIER_LABELS[tier] || tier;
+      tierEl.className = 'billing-plan-badge ' + (TIER_CSS_CLASSES[tier] || 'tier-beta');
+
+      // Renewal date
+      if (renewalEl) {
+        const pe = d.period_end;
+        renewalEl.textContent = pe ? 'renews ' + String(pe).slice(0, 10) : '';
+      }
+
+      // Upgrade / Manage buttons
+      const hasSub = Boolean(d.has_active_subscription);
+      const isFreeTier = tier === 'free' || tier === 'beta';
+      if (upgradeBtn) upgradeBtn.style.display = (!hasSub && d.stripe_configured) ? '' : 'none';
+      if (manageBtn) manageBtn.style.display = (hasSub && d.stripe_configured) ? '' : 'none';
+
+      // Token usage bar
+      const used = Math.max(0, Math.floor(Number(d.monthly_indexing_tokens_used) || 0));
       const inc = d.monthly_indexing_tokens_included;
-      if (incEl) incEl.textContent = inc == null ? 'Unlimited (beta)' : formatTokenCount(inc);
-      if (packEl) packEl.textContent = formatTokenCount(d.pack_indexing_tokens_balance);
-      const ps = d.period_start;
-      const pe = d.period_end;
+      usedEl.textContent = formatTokenCountShort(used);
+      if (incEl) incEl.textContent = inc == null ? 'Unlimited' : formatTokenCountShort(inc);
+      updateTokenBar(used, inc);
+
+      // Pack balance
+      const packBal = Math.max(0, Math.floor(Number(d.pack_indexing_tokens_balance) || 0));
+      if (packEl) packEl.textContent = formatTokenCountShort(packBal);
+      if (packRow) packRow.style.display = packBal > 0 ? '' : 'none';
+
+      // Period
       if (periodEl) {
-        periodEl.textContent =
-          ps && pe ? `${String(ps).slice(0, 10)} → ${String(pe).slice(0, 10)}` : '—';
+        const ps = d.period_start;
+        const pe = d.period_end;
+        periodEl.textContent = ps && pe ? `${String(ps).slice(0, 10)} → ${String(pe).slice(0, 10)}` : '—';
       }
-      const mu = d.monthly_used_cents;
-      const mi = d.monthly_included_effective_cents;
-      if (credEl) {
-        credEl.textContent =
-          mi != null && mu != null
-            ? `${(Number(mu) / 100).toFixed(2)} / ${(Number(mi) / 100).toFixed(2)} credits`
-            : '—';
+
+      // Note cap
+      if (noteCap) {
+        noteCap.textContent = d.note_cap == null ? 'Unlimited' : d.note_cap.toLocaleString() + ' max';
       }
+
+      // Legacy credits row (only show if non-zero)
+      const mu = Number(d.monthly_used_cents) || 0;
+      const mi = Number(d.monthly_included_effective_cents) || 0;
+      if (credRow) credRow.style.display = (mu > 0 || mi > 0) ? '' : 'none';
+      if (credEl && (mu > 0 || mi > 0)) {
+        credEl.textContent = `${(mu / 100).toFixed(2)} / ${(mi / 100).toFixed(2)} credits`;
+      }
+
+      // Token policy
       if (polEl) {
-        polEl.textContent =
-          d.indexing_tokens_policy != null && String(d.indexing_tokens_policy).trim()
-            ? String(d.indexing_tokens_policy).trim()
-            : '—';
+        const pol = d.indexing_tokens_policy;
+        if (pol && String(pol).trim()) {
+          polEl.textContent = String(pol).trim();
+          polEl.style.display = '';
+        } else {
+          polEl.style.display = 'none';
+        }
       }
+
+      // Pack section: only show pack purchase when Stripe is configured and user has a paid plan
+      if (packSection) {
+        const showPacks = d.stripe_configured && !isFreeTier && hasSub;
+        packSection.style.display = showPacks ? '' : 'none';
+      }
+
       if (msg) {
         msg.textContent = '';
         msg.className = 'settings-intro small muted';
@@ -2727,6 +2870,50 @@
   if (btnBillingRefresh) {
     btnBillingRefresh.addEventListener('click', () => loadBillingPanel());
   }
+
+  const btnBillingUpgrade = el('btn-billing-upgrade');
+  if (btnBillingUpgrade) {
+    btnBillingUpgrade.addEventListener('click', async () => {
+      setButtonBusy(btnBillingUpgrade, true, 'Redirecting…');
+      try {
+        await redirectToCheckout({ tier: 'plus' });
+      } catch (e) {
+        setButtonBusy(btnBillingUpgrade, false);
+        const packMsg = el('billing-panel-msg');
+        if (packMsg) { packMsg.textContent = e?.message || 'Could not start checkout.'; packMsg.className = 'settings-intro small err'; }
+      }
+    });
+  }
+
+  const btnBillingManage = el('btn-billing-manage');
+  if (btnBillingManage) {
+    btnBillingManage.addEventListener('click', async () => {
+      setButtonBusy(btnBillingManage, true, 'Redirecting…');
+      try {
+        await redirectToPortal();
+      } catch (e) {
+        setButtonBusy(btnBillingManage, false);
+        const packMsg = el('billing-panel-msg');
+        if (packMsg) { packMsg.textContent = e?.message || 'Could not open billing portal.'; packMsg.className = 'settings-intro small err'; }
+      }
+    });
+  }
+
+  // Token pack purchase buttons
+  document.querySelectorAll('.billing-pack-card[data-pack]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const pack = btn.dataset.pack;
+      const packMsgEl = el('billing-pack-msg');
+      setButtonBusy(btn, true, 'Redirecting…');
+      if (packMsgEl) packMsgEl.textContent = '';
+      try {
+        await redirectToCheckout({ pack_size: pack });
+      } catch (e) {
+        setButtonBusy(btn, false);
+        if (packMsgEl) { packMsgEl.textContent = e?.message || 'Could not start checkout.'; }
+      }
+    });
+  });
 
   /** Human-readable vault list (no raw JSON) — full JSON stays under Advanced. */
   function buildVaultListSummaryInnerHtml(vaults, isHosted) {

@@ -1,9 +1,16 @@
 /**
- * Billing gate: deduct before expensive hosted operations when BILLING_ENFORCE is on.
+ * Billing gate: deduct credits + enforce storage caps before hosted operations.
+ * BILLING_ENFORCE=false (default) → shadow logs only; no requests are blocked.
+ * BILLING_ENFORCE=true → hard enforcement: 402 on quota/storage exceeded.
  */
-import { billingEnforced, billingShadowLogEnabled, COST_CENTS } from './billing-constants.mjs';
+import {
+  billingEnforced,
+  billingShadowLogEnabled,
+  COST_CENTS,
+  NOTE_CAP_BY_TIER,
+} from './billing-constants.mjs';
 import { tryDeduct, defaultUserRecord } from './billing-logic.mjs';
-import { loadBillingDb, saveBillingDb } from './billing-store.mjs';
+import { loadBillingDb, saveBillingDb, resetMonthlyTokensIfNeeded } from './billing-store.mjs';
 import { effectiveRequestPath } from './request-path.mjs';
 
 function operationFromRequest(method, req) {
@@ -27,12 +34,40 @@ function operationFromRequest(method, req) {
 }
 
 /**
+ * Returns true if the request is a note CREATE (POST /api/v1/notes), which is the only operation
+ * that increases note count and needs the storage cap check.
+ */
+function isNoteCreate(method, req) {
+  const path = effectiveRequestPath(req);
+  return method === 'POST' && /\/api\/v1\/notes\/?$/.test(path);
+}
+
+/**
+ * Check note count against tier cap.
+ * Returns { ok: true } if under cap, or { ok: false, code: 'STORAGE_QUOTA_EXCEEDED', cap, tier } if over.
+ *
+ * @param {object} u - Billing user record
+ * @param {number} currentNoteCount - Current number of notes for this user
+ * @returns {{ ok: boolean, code?: string, cap?: number, tier?: string }}
+ */
+function checkNoteStorageCap(u, currentNoteCount) {
+  const tier = String(u?.tier || 'beta');
+  const cap = NOTE_CAP_BY_TIER[tier] ?? null;
+  if (cap === null) return { ok: true };
+  if (currentNoteCount >= cap) {
+    return { ok: false, code: 'STORAGE_QUOTA_EXCEEDED', cap, tier };
+  }
+  return { ok: true };
+}
+
+/**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
- * @param {() => string|null} getUserId
+ * @param {(req: import('express').Request) => string|null} getUserId
+ * @param {{ getNoteCount?: (userId: string, req: import('express').Request) => Promise<number> }} [opts]
  * @returns {Promise<boolean>} true if request may proceed
  */
-export async function runBillingGate(req, res, getUserId) {
+export async function runBillingGate(req, res, getUserId, opts = {}) {
   const op = operationFromRequest(req.method, req);
   if (!op) return true;
 
@@ -53,6 +88,45 @@ export async function runBillingGate(req, res, getUserId) {
     );
   }
 
+  // Storage cap check — only for note CREATE, only when enforce is on.
+  if (isNoteCreate(req.method, req) && uid) {
+    if (billingEnforced() && typeof opts.getNoteCount === 'function') {
+      try {
+        await resetMonthlyTokensIfNeeded(uid);
+        const db = await loadBillingDb();
+        const u = db.users[uid] || defaultUserRecord(uid);
+
+        const noteCount = await opts.getNoteCount(uid, req);
+        const storageCheck = checkNoteStorageCap(u, noteCount);
+
+        if (!storageCheck.ok) {
+          res.status(402).json({
+            error: `Note storage quota exceeded for tier '${storageCheck.tier}' (cap: ${storageCheck.cap} notes).`,
+            code: 'STORAGE_QUOTA_EXCEEDED',
+            note_cap: storageCheck.cap,
+            tier: storageCheck.tier,
+          });
+          return false;
+        }
+      } catch (e) {
+        // Never block a request due to a storage-check failure — fail open.
+        console.error('[billing] storage cap check failed (non-fatal):', e?.message || String(e));
+      }
+    } else if (billingShadowLogEnabled() && uid) {
+      // Shadow log: record that a note create happened (count enforcement deferred).
+      console.log(
+        JSON.stringify({
+          type: 'knowtation_billing_shadow',
+          ts: new Date().toISOString(),
+          user_id: uid,
+          operation: 'note_create_storage_cap_check',
+          note_count_fetcher_available: typeof opts.getNoteCount === 'function',
+          billing_enforced: billingEnforced(),
+        })
+      );
+    }
+  }
+
   if (!billingEnforced()) return true;
 
   if (!uid) {
@@ -61,6 +135,8 @@ export async function runBillingGate(req, res, getUserId) {
   }
 
   if (cost == null || cost <= 0) return true;
+
+  await resetMonthlyTokensIfNeeded(uid);
 
   const db = await loadBillingDb();
   const u = db.users[uid] || defaultUserRecord(uid);
@@ -81,10 +157,13 @@ export async function runBillingGate(req, res, getUserId) {
 
 /**
  * Express middleware factory for the catch-all /api/v1 canister proxy.
+ *
+ * @param {(req: import('express').Request) => string|null} getUserId
+ * @param {{ getNoteCount?: (userId: string, req: import('express').Request) => Promise<number> }} [opts]
  */
-export function billingGatewayMiddleware(getUserId) {
+export function billingGatewayMiddleware(getUserId, opts = {}) {
   return async (req, res, next) => {
-    const ok = await runBillingGate(req, res, getUserId);
+    const ok = await runBillingGate(req, res, getUserId, opts);
     if (ok) next();
   };
 }
