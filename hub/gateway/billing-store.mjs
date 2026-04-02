@@ -141,9 +141,11 @@ export async function resetMonthlyTokensIfNeeded(userId) {
     const pe = new Date(user.period_end);
     if (isNaN(pe.getTime()) || now <= pe) return;
 
-    // Reset monthly token counter.
+    // Reset all monthly counters.
     user.monthly_indexing_tokens_used = 0;
     user.monthly_used_cents = 0;
+    user.monthly_searches_used = 0;
+    user.monthly_index_jobs_used = 0;
 
     // Advance period by one month.
     const newStart = new Date(pe);

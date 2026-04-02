@@ -2691,8 +2691,8 @@
    * @param {number} used - tokens used this period
    * @param {number|null} included - tokens included (null = unlimited)
    */
-  function updateTokenBar(used, included) {
-    const fill = el('billing-token-bar-fill');
+  function updateUsageBar(fillId, used, included) {
+    const fill = el(fillId);
     if (!fill) return;
     if (included == null) {
       fill.style.width = '15%';
@@ -2724,6 +2724,84 @@
     starter: 'tier-plus',
     team: 'tier-pro',
   };
+
+  const TIER_ORDER = ['free', 'plus', 'growth', 'pro'];
+
+  const TIER_PLAN_DATA = [
+    { tier: 'free',   price: 'Free',    tokens: '5M tokens/mo',       notes: '200 notes max' },
+    { tier: 'plus',   price: '$9/mo',   tokens: '36M tokens/mo',      notes: '2,000 notes max' },
+    { tier: 'growth', price: '$17/mo',  tokens: '68M tokens/mo',      notes: '5,000 notes max' },
+    { tier: 'pro',    price: '$25/mo',  tokens: 'Unlimited indexing',  notes: 'Unlimited notes' },
+  ];
+
+  /**
+   * Render the plan comparison grid into #billing-plan-grid.
+   * Highlights the current tier, shows upgrade CTAs for higher tiers, no downgrade buttons.
+   */
+  function renderBillingPlanGrid(currentTier, hasSub, stripeConfigured) {
+    const grid = el('billing-plan-grid');
+    if (!grid) return;
+
+    const normalized =
+      currentTier === 'starter' ? 'plus'
+      : (currentTier === 'beta' || !TIER_ORDER.includes(currentTier)) ? 'free'
+      : currentTier;
+    const currentRank = TIER_ORDER.indexOf(normalized);
+
+    const cards = TIER_PLAN_DATA.map(({ tier, price, tokens, notes }) => {
+      const rank = TIER_ORDER.indexOf(tier);
+      const isCurrent = rank === currentRank;
+      const isUpgrade = rank > currentRank && stripeConfigured && tier !== 'free';
+
+      let ctaHtml = '';
+      if (isCurrent) {
+        ctaHtml = '<span class="billing-plan-current-badge">Current plan</span>';
+      } else if (isUpgrade) {
+        const label = hasSub
+          ? 'Upgrade to ' + (TIER_LABELS[tier] || tier) + ' \u2192'
+          : 'Get ' + (TIER_LABELS[tier] || tier) + ' \u2192';
+        ctaHtml =
+          '<button type="button" class="billing-plan-upgrade-btn" data-tier="' +
+          tier + '">' + label + '</button>';
+      }
+
+      const packLine = tier !== 'free'
+        ? '<li>Rollover token packs</li>'
+        : '';
+
+      return (
+        '<div class="billing-plan-card' + (isCurrent ? ' billing-plan-card-active' : '') + '">' +
+          '<div class="billing-plan-card-header">' +
+            '<span class="billing-plan-card-name">' + (TIER_LABELS[tier] || tier) + '</span>' +
+            '<span class="billing-plan-card-price">' + price + '</span>' +
+          '</div>' +
+          '<ul class="billing-plan-card-features">' +
+            '<li>' + tokens + '</li>' +
+            '<li>' + notes + '</li>' +
+            '<li>Semantic search</li>' +
+            packLine +
+          '</ul>' +
+          '<div class="billing-plan-card-cta">' + ctaHtml + '</div>' +
+        '</div>'
+      );
+    });
+
+    grid.innerHTML = cards.join('');
+
+    grid.querySelectorAll('.billing-plan-upgrade-btn[data-tier]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const tier = btn.dataset.tier;
+        setButtonBusy(btn, true, 'Redirecting\u2026');
+        try {
+          await redirectToCheckout({ tier });
+        } catch (e) {
+          setButtonBusy(btn, false);
+          const msg = el('billing-panel-msg');
+          if (msg) { msg.textContent = e?.message || 'Could not start checkout.'; msg.className = 'settings-intro small err'; }
+        }
+      });
+    });
+  }
 
   /**
    * Redirect to Stripe Checkout for the given price_id (or tier shorthand).
@@ -2763,8 +2841,10 @@
   async function loadBillingPanel() {
     const msg = el('billing-panel-msg');
     const tierEl = el('billing-tier');
-    const usedEl = el('billing-indexing-used');
-    const incEl = el('billing-indexing-included');
+    const searchesUsedEl = el('billing-searches-used');
+    const searchesIncEl = el('billing-searches-included');
+    const indexJobsUsedEl = el('billing-index-jobs-used');
+    const indexJobsIncEl = el('billing-index-jobs-included');
     const packEl = el('billing-pack-balance');
     const packRow = el('billing-pack-balance-row');
     const periodEl = el('billing-period');
@@ -2784,8 +2864,10 @@
     const setDash = () => {
       tierEl.textContent = '—';
       tierEl.className = 'billing-plan-badge tier-beta';
-      usedEl.textContent = '—';
-      if (incEl) incEl.textContent = '—';
+      if (searchesUsedEl) searchesUsedEl.textContent = '—';
+      if (searchesIncEl) searchesIncEl.textContent = '—';
+      if (indexJobsUsedEl) indexJobsUsedEl.textContent = '—';
+      if (indexJobsIncEl) indexJobsIncEl.textContent = '—';
       if (packEl) packEl.textContent = '0';
       if (packRow) packRow.style.display = 'none';
       if (periodEl) periodEl.textContent = '—';
@@ -2796,7 +2878,9 @@
       if (noteCap) noteCap.textContent = '—';
       if (upgradeBtn) upgradeBtn.style.display = 'none';
       if (manageBtn) manageBtn.style.display = 'none';
-      updateTokenBar(0, 0);
+      updateUsageBar('billing-searches-bar-fill', 0, 0);
+      updateUsageBar('billing-index-jobs-bar-fill', 0, 0);
+      renderBillingPlanGrid('beta', false, false);
     };
 
     if (!token) {
@@ -2820,18 +2904,29 @@
         renewalEl.textContent = pe ? 'renews ' + String(pe).slice(0, 10) : '';
       }
 
-      // Upgrade / Manage buttons
+      // Plan comparison grid
       const hasSub = Boolean(d.has_active_subscription);
       const isFreeTier = tier === 'free' || tier === 'beta';
-      if (upgradeBtn) upgradeBtn.style.display = (!hasSub && d.stripe_configured) ? '' : 'none';
+      renderBillingPlanGrid(tier, hasSub, Boolean(d.stripe_configured));
+
+      // Legacy upgrade button stays hidden (grid handles upgrades now)
+      if (upgradeBtn) upgradeBtn.style.display = 'none';
+      // Manage button: visible for active subscribers to reach the Stripe portal
       if (manageBtn) manageBtn.style.display = (hasSub && d.stripe_configured) ? '' : 'none';
 
-      // Token usage bar
-      const used = Math.max(0, Math.floor(Number(d.monthly_indexing_tokens_used) || 0));
-      const inc = d.monthly_indexing_tokens_included;
-      usedEl.textContent = formatTokenCountShort(used);
-      if (incEl) incEl.textContent = inc == null ? 'Unlimited' : formatTokenCountShort(inc);
-      updateTokenBar(used, inc);
+      // Searches usage bar
+      const searchesUsed = Math.max(0, Math.floor(Number(d.monthly_searches_used) || 0));
+      const searchesInc = d.monthly_searches_included ?? null;
+      if (searchesUsedEl) searchesUsedEl.textContent = searchesUsed.toLocaleString();
+      if (searchesIncEl) searchesIncEl.textContent = searchesInc == null ? 'Unlimited' : searchesInc.toLocaleString();
+      updateUsageBar('billing-searches-bar-fill', searchesUsed, searchesInc);
+
+      // Index jobs usage bar
+      const indexJobsUsed = Math.max(0, Math.floor(Number(d.monthly_index_jobs_used) || 0));
+      const indexJobsInc = d.monthly_index_jobs_included ?? null;
+      if (indexJobsUsedEl) indexJobsUsedEl.textContent = indexJobsUsed.toLocaleString();
+      if (indexJobsIncEl) indexJobsIncEl.textContent = indexJobsInc == null ? 'Unlimited' : indexJobsInc.toLocaleString();
+      updateUsageBar('billing-index-jobs-bar-fill', indexJobsUsed, indexJobsInc);
 
       // Pack balance
       const packBal = Math.max(0, Math.floor(Number(d.pack_indexing_tokens_balance) || 0));
@@ -4773,13 +4868,52 @@
     return text;
   }
 
+  /**
+   * Render markdown text as sanitised HTML.
+   * Uses marked + DOMPurify (both loaded in index.html). Falls back to escaped plain text.
+   * Blocks javascript: and data: URIs; allows standard https:// image and link URLs.
+   */
+  function renderNoteMarkdownHtml(md) {
+    try {
+      if (typeof marked !== 'undefined' && marked.parse && typeof DOMPurify !== 'undefined') {
+        const raw = marked.parse(md || '', { breaks: true });
+        return DOMPurify.sanitize(raw, {
+          ADD_TAGS: ['details', 'summary'],
+          FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+          ALLOWED_URI_REGEXP: /^(?:https?|mailto|ftp):/i,
+        });
+      }
+    } catch (_) { /* fall through */ }
+    return '<pre class="note-body-fallback">' + escapeHtml(md || '') + '</pre>';
+  }
+
+  /**
+   * Build the full read-view HTML for a note: rendered markdown body + collapsible metadata block.
+   */
+  function buildNoteReadHtml(body, fm) {
+    const o = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
+    const keys = Object.keys(o);
+    const bodyHtml = renderNoteMarkdownHtml(body || '');
+    const metaJson = escapeHtml(JSON.stringify(keys.length ? o : {}, null, 2));
+    const emptyNote = keys.length === 0 && hubUserCanWriteNotes()
+      ? '<p class="note-meta-hint">No metadata yet — Edit → Save once to populate tags, date, and provenance.</p>'
+      : '';
+    return (
+      bodyHtml +
+      '<details class="note-meta-block">' +
+        '<summary>Metadata</summary>' +
+        '<pre class="note-meta-pre">' + metaJson + '</pre>' +
+        emptyNote +
+      '</details>'
+    );
+  }
+
   function switchNoteToReadMode() {
     if (!currentOpenNote) return;
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
-    bodyEl.innerHTML = '';
-    bodyEl.textContent = formatDetailReadBody(currentOpenNote.body, currentOpenNote.frontmatter);
-    bodyEl.className = '';
+    bodyEl.innerHTML = buildNoteReadHtml(currentOpenNote.body, currentOpenNote.frontmatter);
+    bodyEl.className = 'note-rendered-body';
     actionsEl.innerHTML = '';
     attachNoteDetailReadActions(actionsEl);
   }
@@ -4933,11 +5067,13 @@
       .then((note) => {
         const fm = materializeFrontmatter(note.frontmatter);
         currentOpenNote = { path, body: note.body || '', frontmatter: fm };
-        bodyEl.textContent = formatDetailReadBody(note.body, fm);
+        bodyEl.innerHTML = buildNoteReadHtml(note.body, fm);
+        bodyEl.className = 'note-rendered-body';
         attachNoteDetailReadActions(actionsEl);
       })
       .catch((e) => {
         bodyEl.textContent = 'Error: ' + e.message;
+        bodyEl.className = '';
       });
   }
 

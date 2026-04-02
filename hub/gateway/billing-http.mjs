@@ -11,6 +11,8 @@ import {
 import {
   defaultUserRecord,
   effectiveMonthlyIndexingTokensIncluded,
+  effectiveMonthlySearchesIncluded,
+  effectiveMonthlyIndexJobsIncluded,
   normalizeBillingUser,
 } from './billing-logic.mjs';
 import { loadBillingDb, resetMonthlyTokensIfNeeded } from './billing-store.mjs';
@@ -49,6 +51,10 @@ export async function handleBillingSummary(req, res, getUserId) {
     monthly_indexing_tokens_included: effectiveMonthlyIndexingTokensIncluded(u),
     monthly_indexing_tokens_used: Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0)),
     pack_indexing_tokens_balance: Math.max(0, Math.floor(Number(u.pack_indexing_tokens_balance) || 0)),
+    monthly_searches_used: Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)),
+    monthly_searches_included: effectiveMonthlySearchesIncluded(u),
+    monthly_index_jobs_used: Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)),
+    monthly_index_jobs_included: effectiveMonthlyIndexJobsIncluded(u),
     note_cap: noteCap,
     indexing_tokens_policy: INDEXING_TOKENS_POLICY,
     cost_breakdown: COST_BREAKDOWN,

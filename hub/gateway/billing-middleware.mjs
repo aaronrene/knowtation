@@ -151,6 +151,10 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
     return false;
   }
 
+  // Increment operation counters in the same write cycle as tryDeduct (no extra blob round-trip).
+  if (op === 'search') u.monthly_searches_used = Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)) + 1;
+  if (op === 'index')  u.monthly_index_jobs_used = Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
+
   await saveBillingDb(db);
   return true;
 }

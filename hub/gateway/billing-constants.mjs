@@ -125,6 +125,34 @@ export function priceIdFromTierShorthand(tier) {
   return null;
 }
 
+/**
+ * Monthly search request allowance by tier.
+ * null = unlimited. Pending calibration from shadow-log data before BILLING_ENFORCE=true.
+ */
+export const MONTHLY_SEARCHES_INCLUDED_BY_TIER = {
+  beta:    null,
+  free:    100,
+  plus:    2_000,
+  starter: 2_000,
+  growth:  8_000,
+  pro:     null,
+  team:    null,
+};
+
+/**
+ * Monthly index-job allowance by tier.
+ * null = unlimited. Pending calibration from shadow-log data before BILLING_ENFORCE=true.
+ */
+export const MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER = {
+  beta:    null,
+  free:    5,
+  plus:    50,
+  starter: 50,
+  growth:  200,
+  pro:     null,
+  team:    null,
+};
+
 /** Metered operation → cost in cents (legacy credit ledger). Shadow-log only until BILLING_ENFORCE=true. */
 export const COST_CENTS = {
   search: 1,

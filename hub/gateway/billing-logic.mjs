@@ -4,6 +4,8 @@
 import {
   MONTHLY_INCLUDED_CENTS_BY_TIER,
   MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER,
+  MONTHLY_SEARCHES_INCLUDED_BY_TIER,
+  MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER,
 } from './billing-constants.mjs';
 
 /**
@@ -19,19 +21,42 @@ export function effectiveMonthlyIndexingTokensIncluded(u) {
   return val;
 }
 
-/** Ensure new billing fields exist on loaded JSON records. */
+/** Ensure all billing fields exist on loaded JSON records. */
 export function normalizeBillingUser(u) {
   if (!u || typeof u !== 'object') return u;
   if (typeof u.monthly_indexing_tokens_used !== 'number' || !Number.isFinite(u.monthly_indexing_tokens_used)) {
     u.monthly_indexing_tokens_used = 0;
   }
-  if (
-    typeof u.pack_indexing_tokens_balance !== 'number' ||
-    !Number.isFinite(u.pack_indexing_tokens_balance)
-  ) {
+  if (typeof u.pack_indexing_tokens_balance !== 'number' || !Number.isFinite(u.pack_indexing_tokens_balance)) {
     u.pack_indexing_tokens_balance = 0;
   }
+  if (typeof u.monthly_searches_used !== 'number' || !Number.isFinite(u.monthly_searches_used)) {
+    u.monthly_searches_used = 0;
+  }
+  if (typeof u.monthly_index_jobs_used !== 'number' || !Number.isFinite(u.monthly_index_jobs_used)) {
+    u.monthly_index_jobs_used = 0;
+  }
   return u;
+}
+
+/**
+ * @param {object} u - Billing user record
+ * @returns {number|null} null = unlimited
+ */
+export function effectiveMonthlySearchesIncluded(u) {
+  const tier = String(u?.tier || 'beta');
+  const val = MONTHLY_SEARCHES_INCLUDED_BY_TIER[tier];
+  return val === undefined ? null : val;
+}
+
+/**
+ * @param {object} u - Billing user record
+ * @returns {number|null} null = unlimited
+ */
+export function effectiveMonthlyIndexJobsIncluded(u) {
+  const tier = String(u?.tier || 'beta');
+  const val = MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER[tier];
+  return val === undefined ? null : val;
 }
 
 /**
@@ -83,5 +108,7 @@ export function defaultUserRecord(userId) {
     addon_cents: 0,
     monthly_indexing_tokens_used: 0,
     pack_indexing_tokens_balance: 0,
+    monthly_searches_used: 0,
+    monthly_index_jobs_used: 0,
   };
 }
