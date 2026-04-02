@@ -2728,10 +2728,10 @@
   const TIER_ORDER = ['free', 'plus', 'growth', 'pro'];
 
   const TIER_PLAN_DATA = [
-    { tier: 'free',   price: 'Free',    tokens: '5M tokens/mo',       notes: '200 notes max' },
-    { tier: 'plus',   price: '$9/mo',   tokens: '36M tokens/mo',      notes: '2,000 notes max' },
-    { tier: 'growth', price: '$17/mo',  tokens: '68M tokens/mo',      notes: '5,000 notes max' },
-    { tier: 'pro',    price: '$25/mo',  tokens: 'Unlimited indexing',  notes: 'Unlimited notes' },
+    { tier: 'free',   price: 'Free',   searches: '100 searches/mo',       indexJobs: '5 index jobs/mo',        notes: '200 notes' },
+    { tier: 'plus',   price: '$9/mo',  searches: '2,000 searches/mo',     indexJobs: '50 index jobs/mo',       notes: '2,000 notes' },
+    { tier: 'growth', price: '$17/mo', searches: '8,000 searches/mo',     indexJobs: '200 index jobs/mo',      notes: '5,000 notes' },
+    { tier: 'pro',    price: '$25/mo', searches: 'Unlimited searches',    indexJobs: 'Unlimited index jobs',   notes: 'Unlimited notes' },
   ];
 
   /**
@@ -2748,7 +2748,7 @@
       : currentTier;
     const currentRank = TIER_ORDER.indexOf(normalized);
 
-    const cards = TIER_PLAN_DATA.map(({ tier, price, tokens, notes }) => {
+    const cards = TIER_PLAN_DATA.map(({ tier, price, searches, indexJobs, notes }) => {
       const rank = TIER_ORDER.indexOf(tier);
       const isCurrent = rank === currentRank;
       const isUpgrade = rank > currentRank && stripeConfigured && tier !== 'free';
@@ -2765,9 +2765,7 @@
           tier + '">' + label + '</button>';
       }
 
-      const packLine = tier !== 'free'
-        ? '<li>Rollover token packs</li>'
-        : '';
+      const packLine = tier !== 'free' ? '<li>Token packs available</li>' : '';
 
       return (
         '<div class="billing-plan-card' + (isCurrent ? ' billing-plan-card-active' : '') + '">' +
@@ -2776,9 +2774,9 @@
             '<span class="billing-plan-card-price">' + price + '</span>' +
           '</div>' +
           '<ul class="billing-plan-card-features">' +
-            '<li>' + tokens + '</li>' +
+            '<li>' + searches + '</li>' +
+            '<li>' + indexJobs + '</li>' +
             '<li>' + notes + '</li>' +
-            '<li>Semantic search</li>' +
             packLine +
           '</ul>' +
           '<div class="billing-plan-card-cta">' + ctaHtml + '</div>' +
