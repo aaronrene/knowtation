@@ -9,7 +9,7 @@ import { app } from '../../hub/gateway/server.mjs';
 
 export const handler = async (event, context) => {
   connectLambda(event);
-  globalThis.__knowtation_gateway_blob = getStore({ name: 'gateway-billing', consistency: 'strong' });
+  globalThis.__knowtation_gateway_blob = getStore({ name: 'gateway-billing', consistency: 'eventual' });
   try {
     return await serverless(app)(event, context);
   } finally {
