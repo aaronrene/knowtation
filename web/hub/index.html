@@ -1012,17 +1012,23 @@ Your note body here.</pre>
             <p class="settings-intro">Your Knowtation plan and usage. Indexing tokens are consumed each time you Re-index your vault. Semantic search is included on all plans.</p>
             <p class="settings-intro small muted" id="billing-panel-msg"></p>
 
-            <!-- Plan + CTA row -->
+            <!-- Plan badge + renewal -->
             <div class="settings-row" style="align-items: center; gap: 0.6rem; flex-wrap: wrap;">
               <span class="settings-label">Plan</span>
               <span id="billing-tier" class="billing-plan-badge tier-beta">—</span>
               <span id="billing-renewal" class="muted small" style="margin-left: 0.25rem;"></span>
             </div>
-            <div class="billing-cta-row">
-              <button type="button" id="btn-billing-upgrade" class="btn-primary" style="display:none;">Upgrade to Plus →</button>
+
+            <!-- Plan comparison grid (populated by hub.js) -->
+            <div id="billing-plan-grid" class="billing-plan-grid"></div>
+
+            <!-- Action row: Manage portal + Refresh -->
+            <div class="billing-cta-row" style="margin-top: 0.5rem;">
               <button type="button" id="btn-billing-manage" class="btn-secondary" style="display:none;">Manage billing →</button>
               <button type="button" id="btn-billing-refresh" class="btn-secondary">Refresh</button>
             </div>
+            <!-- Legacy upgrade button — hidden, kept so startup JS listener attaches without null-check error -->
+            <button type="button" id="btn-billing-upgrade" style="display:none;" aria-hidden="true"></button>
 
             <hr class="settings-hr">
 

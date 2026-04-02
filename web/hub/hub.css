@@ -1477,6 +1477,81 @@ button.btn-new-note.btn-busy::after {
   margin-top: 0.2rem;
 }
 
+/* Plan comparison grid */
+.billing-plan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0;
+}
+.billing-plan-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.billing-plan-card-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.billing-plan-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+.billing-plan-card-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.billing-plan-card-price {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.billing-plan-card-active .billing-plan-card-price { color: var(--accent); }
+.billing-plan-card-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.billing-plan-card-features li::before {
+  content: '✓ ';
+  opacity: 0.55;
+}
+.billing-plan-card-cta {
+  margin-top: 0.3rem;
+}
+.billing-plan-upgrade-btn {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  transition: opacity 0.15s;
+}
+.billing-plan-upgrade-btn:hover { opacity: 0.85; }
+.billing-plan-upgrade-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.billing-plan-current-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .billing-cta-row {
   display: flex;
   align-items: center;

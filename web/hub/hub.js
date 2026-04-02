@@ -2725,6 +2725,84 @@
     team: 'tier-pro',
   };
 
+  const TIER_ORDER = ['free', 'plus', 'growth', 'pro'];
+
+  const TIER_PLAN_DATA = [
+    { tier: 'free',   price: 'Free',    tokens: '5M tokens/mo',       notes: '200 notes max' },
+    { tier: 'plus',   price: '$9/mo',   tokens: '36M tokens/mo',      notes: '2,000 notes max' },
+    { tier: 'growth', price: '$17/mo',  tokens: '68M tokens/mo',      notes: '5,000 notes max' },
+    { tier: 'pro',    price: '$25/mo',  tokens: 'Unlimited indexing',  notes: 'Unlimited notes' },
+  ];
+
+  /**
+   * Render the plan comparison grid into #billing-plan-grid.
+   * Highlights the current tier, shows upgrade CTAs for higher tiers, no downgrade buttons.
+   */
+  function renderBillingPlanGrid(currentTier, hasSub, stripeConfigured) {
+    const grid = el('billing-plan-grid');
+    if (!grid) return;
+
+    const normalized =
+      currentTier === 'starter' ? 'plus'
+      : (currentTier === 'beta' || !TIER_ORDER.includes(currentTier)) ? 'free'
+      : currentTier;
+    const currentRank = TIER_ORDER.indexOf(normalized);
+
+    const cards = TIER_PLAN_DATA.map(({ tier, price, tokens, notes }) => {
+      const rank = TIER_ORDER.indexOf(tier);
+      const isCurrent = rank === currentRank;
+      const isUpgrade = rank > currentRank && stripeConfigured && tier !== 'free';
+
+      let ctaHtml = '';
+      if (isCurrent) {
+        ctaHtml = '<span class="billing-plan-current-badge">Current plan</span>';
+      } else if (isUpgrade) {
+        const label = hasSub
+          ? 'Upgrade to ' + (TIER_LABELS[tier] || tier) + ' \u2192'
+          : 'Get ' + (TIER_LABELS[tier] || tier) + ' \u2192';
+        ctaHtml =
+          '<button type="button" class="billing-plan-upgrade-btn" data-tier="' +
+          tier + '">' + label + '</button>';
+      }
+
+      const packLine = tier !== 'free'
+        ? '<li>Rollover token packs</li>'
+        : '';
+
+      return (
+        '<div class="billing-plan-card' + (isCurrent ? ' billing-plan-card-active' : '') + '">' +
+          '<div class="billing-plan-card-header">' +
+            '<span class="billing-plan-card-name">' + (TIER_LABELS[tier] || tier) + '</span>' +
+            '<span class="billing-plan-card-price">' + price + '</span>' +
+          '</div>' +
+          '<ul class="billing-plan-card-features">' +
+            '<li>' + tokens + '</li>' +
+            '<li>' + notes + '</li>' +
+            '<li>Semantic search</li>' +
+            packLine +
+          '</ul>' +
+          '<div class="billing-plan-card-cta">' + ctaHtml + '</div>' +
+        '</div>'
+      );
+    });
+
+    grid.innerHTML = cards.join('');
+
+    grid.querySelectorAll('.billing-plan-upgrade-btn[data-tier]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const tier = btn.dataset.tier;
+        setButtonBusy(btn, true, 'Redirecting\u2026');
+        try {
+          await redirectToCheckout({ tier });
+        } catch (e) {
+          setButtonBusy(btn, false);
+          const msg = el('billing-panel-msg');
+          if (msg) { msg.textContent = e?.message || 'Could not start checkout.'; msg.className = 'settings-intro small err'; }
+        }
+      });
+    });
+  }
+
   /**
    * Redirect to Stripe Checkout for the given price_id (or tier shorthand).
    * @param {{ price_id?: string, tier?: string }} opts
@@ -2797,6 +2875,7 @@
       if (upgradeBtn) upgradeBtn.style.display = 'none';
       if (manageBtn) manageBtn.style.display = 'none';
       updateTokenBar(0, 0);
+      renderBillingPlanGrid('beta', false, false);
     };
 
     if (!token) {
@@ -2820,10 +2899,14 @@
         renewalEl.textContent = pe ? 'renews ' + String(pe).slice(0, 10) : '';
       }
 
-      // Upgrade / Manage buttons
+      // Plan comparison grid
       const hasSub = Boolean(d.has_active_subscription);
       const isFreeTier = tier === 'free' || tier === 'beta';
-      if (upgradeBtn) upgradeBtn.style.display = (!hasSub && d.stripe_configured) ? '' : 'none';
+      renderBillingPlanGrid(tier, hasSub, Boolean(d.stripe_configured));
+
+      // Legacy upgrade button stays hidden (grid handles upgrades now)
+      if (upgradeBtn) upgradeBtn.style.display = 'none';
+      // Manage button: visible for active subscribers to reach the Stripe portal
       if (manageBtn) manageBtn.style.display = (hasSub && d.stripe_configured) ? '' : 'none';
 
       // Token usage bar
