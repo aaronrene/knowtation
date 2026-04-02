@@ -18,5 +18,5 @@ export default async () => {
 };
 
 export const config = {
-  schedule: '@every 5m',
+  schedule: '*/5 * * * *',
 };
