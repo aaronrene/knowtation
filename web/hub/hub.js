@@ -4773,13 +4773,52 @@
     return text;
   }
 
+  /**
+   * Render markdown text as sanitised HTML.
+   * Uses marked + DOMPurify (both loaded in index.html). Falls back to escaped plain text.
+   * Blocks javascript: and data: URIs; allows standard https:// image and link URLs.
+   */
+  function renderNoteMarkdownHtml(md) {
+    try {
+      if (typeof marked !== 'undefined' && marked.parse && typeof DOMPurify !== 'undefined') {
+        const raw = marked.parse(md || '', { breaks: true });
+        return DOMPurify.sanitize(raw, {
+          ADD_TAGS: ['details', 'summary'],
+          FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+          ALLOWED_URI_REGEXP: /^(?:https?|mailto|ftp):/i,
+        });
+      }
+    } catch (_) { /* fall through */ }
+    return '<pre class="note-body-fallback">' + escapeHtml(md || '') + '</pre>';
+  }
+
+  /**
+   * Build the full read-view HTML for a note: rendered markdown body + collapsible metadata block.
+   */
+  function buildNoteReadHtml(body, fm) {
+    const o = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
+    const keys = Object.keys(o);
+    const bodyHtml = renderNoteMarkdownHtml(body || '');
+    const metaJson = escapeHtml(JSON.stringify(keys.length ? o : {}, null, 2));
+    const emptyNote = keys.length === 0 && hubUserCanWriteNotes()
+      ? '<p class="note-meta-hint">No metadata yet — Edit → Save once to populate tags, date, and provenance.</p>'
+      : '';
+    return (
+      bodyHtml +
+      '<details class="note-meta-block">' +
+        '<summary>Metadata</summary>' +
+        '<pre class="note-meta-pre">' + metaJson + '</pre>' +
+        emptyNote +
+      '</details>'
+    );
+  }
+
   function switchNoteToReadMode() {
     if (!currentOpenNote) return;
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
-    bodyEl.innerHTML = '';
-    bodyEl.textContent = formatDetailReadBody(currentOpenNote.body, currentOpenNote.frontmatter);
-    bodyEl.className = '';
+    bodyEl.innerHTML = buildNoteReadHtml(currentOpenNote.body, currentOpenNote.frontmatter);
+    bodyEl.className = 'note-rendered-body';
     actionsEl.innerHTML = '';
     attachNoteDetailReadActions(actionsEl);
   }
@@ -4933,11 +4972,13 @@
       .then((note) => {
         const fm = materializeFrontmatter(note.frontmatter);
         currentOpenNote = { path, body: note.body || '', frontmatter: fm };
-        bodyEl.textContent = formatDetailReadBody(note.body, fm);
+        bodyEl.innerHTML = buildNoteReadHtml(note.body, fm);
+        bodyEl.className = 'note-rendered-body';
         attachNoteDetailReadActions(actionsEl);
       })
       .catch((e) => {
         bodyEl.textContent = 'Error: ' + e.message;
+        bodyEl.className = '';
       });
   }
 
