@@ -414,7 +414,7 @@ func extractJsonString(body : Text, key : Text) : ?Text {
         let ch = chars[i];
         if (ch == '\\' and i + 1 < chars.size()) {
           let next = chars[i + 1];
-          if (next == '"')  { buf.add('"') }
+          if (next == '\"')  { buf.add('\"') }
           else if (next == '\\') { buf.add('\\') }
           else if (next == 'n')  { buf.add('\n') }
           else if (next == 'r')  { buf.add('\r') }
