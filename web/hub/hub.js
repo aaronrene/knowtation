@@ -169,9 +169,12 @@
 
   async function api(path, opts = {}) {
     const method = (opts.method || 'GET').toUpperCase();
-    const retryable = method === 'GET' || method === 'HEAD';
+    // GET/HEAD: retry up to 2×. POST/PATCH/DELETE: retry once only on pure network failures
+    // (before any HTTP response), which means the server never received the request so retrying
+    // is safe. Never retry on HTTP error responses (4xx/5xx) — those were received and processed.
+    const maxNetworkRetries = (method === 'GET' || method === 'HEAD') ? 2 : 1;
     let res;
-    let networkRetries = retryable ? 2 : 0;
+    let networkRetries = maxNetworkRetries;
     for (;;) {
       try {
         res = await fetch(apiBase + path, {
@@ -184,7 +187,7 @@
         const m = e && e.message ? String(e.message) : String(e);
         if ((m === 'Failed to fetch' || m.includes('NetworkError')) && networkRetries > 0) {
           networkRetries--;
-          await new Promise(resolve => setTimeout(resolve, (3 - networkRetries) * 2000));
+          await new Promise(resolve => setTimeout(resolve, (maxNetworkRetries - networkRetries) * 2000));
           continue;
         }
         if (m === 'Failed to fetch' || m.includes('NetworkError')) {
@@ -1465,7 +1468,7 @@
                 escapeHtml(p.path) +
                 '</span><div class="status">' +
                 escapeHtml(p.status) +
-                (p.updated_at ? ' · ' + p.updated_at.slice(0, 10) : '') +
+                (p.updated_at ? ' · ' + (calendarDisplayDayKey(p.updated_at) || p.updated_at.slice(0, 10)) : '') +
                 (p.evaluation_status ? ' · eval:' + escapeHtml(String(p.evaluation_status)) : '') +
                 (extraChips ? ' · ' + extraChips : '') +
                 '</div></div>'
@@ -1494,7 +1497,7 @@
       container.innerHTML = list
         .map((p) => {
           const statusClass = p.status === 'approved' ? 'status-approved' : p.status === 'discarded' ? 'status-discarded' : 'status-proposed';
-          const date = (p.updated_at || p.created_at || '').slice(0, 19).replace('T', ' ');
+          const date = calendarDisplayDayKey(p.updated_at || p.created_at || '') || (p.updated_at || p.created_at || '').slice(0, 10);
           return (
             '<div class="list-item activity-item ' +
             statusClass +
@@ -2057,12 +2060,25 @@
         const importHeaders = token ? { Authorization: 'Bearer ' + token } : {};
         const importVaultId = getCurrentVaultId();
         if (importVaultId) importHeaders['X-Vault-Id'] = importVaultId;
-        const res = await fetch(apiBase + '/api/v1/import', {
-          method: 'POST',
-          cache: 'no-store',
-          headers: importHeaders,
-          body: formData,
-        });
+        let res;
+        for (let importAttempt = 0; importAttempt < 2; importAttempt++) {
+          try {
+            res = await fetch(apiBase + '/api/v1/import', {
+              method: 'POST',
+              cache: 'no-store',
+              headers: importHeaders,
+              body: formData,
+            });
+            break;
+          } catch (importErr) {
+            const em = importErr && importErr.message ? String(importErr.message) : String(importErr);
+            if (importAttempt === 0 && (em === 'Failed to fetch' || em.includes('NetworkError'))) {
+              await new Promise(r => setTimeout(r, 3000));
+              continue;
+            }
+            throw importErr;
+          }
+        }
         const text = await res.text();
         let data = {};
         try {
