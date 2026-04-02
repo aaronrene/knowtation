@@ -1,42 +1,98 @@
 /**
- * Hosted billing defaults (v0). See docs/HOSTED-CREDITS-DESIGN.md.
- * Tune COST_CENTS after shadow metering; start conservative (easier to lower later).
+ * Hosted billing constants — Phase 16 tier model. See docs/PHASE16-STRIPE-BILLING-PLAN.md §4.
+ *
+ * Tiers: free · plus ($9) · growth ($17) · pro ($25)
+ * Legacy aliases: beta (internal dev/no-cap), starter (→ plus), team (reserved for future seats)
  */
 
-/** Monthly included budget in cents (1 credit = 100 cents). `free` = $0 tier (no Stripe sub). */
+/**
+ * Monthly included credit budget in cents for legacy metered ops (search, note_write, proposal_write).
+ * This parallel ledger still runs; the primary per-period limit is MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER.
+ */
 export const MONTHLY_INCLUDED_CENTS_BY_TIER = {
   beta: 0,
   free: 3 * 100,
-  starter: 12 * 100,
-  pro: 30 * 100,
-  team: 80 * 100,
+  plus: 9 * 100,
+  starter: 9 * 100,      // legacy alias → plus
+  growth: 17 * 100,
+  pro: 25 * 100,
+  team: 80 * 100,        // reserved for future team/seats tier
 };
 
 /**
- * Monthly **indexing** allowance (embedding input tokens). Aligns with docs/HOSTED-CREDITS-DESIGN.md §2 (illustrative).
- * **`beta`:** no cap in UI (`null` effective included); usage is still recorded.
+ * Monthly indexing allowance (embedding input tokens) per tier.
+ * `pro` = null → unlimited (no enforcement cap).
+ * `beta` = null → unlimited (internal dev).
  */
 export const MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER = {
-  free: 5_000_000,
-  starter: 36_000_000,
-  pro: 100_000_000,
-  team: 400_000_000,
+  free:    5_000_000,
+  plus:   36_000_000,
+  starter: 36_000_000,   // legacy alias → plus
+  growth:  68_000_000,
+  pro:    null,          // unlimited
+  team:  400_000_000,    // reserved
 };
 
-/** Shown on GET /api/v1/billing/summary and future Hub billing UI. */
+/**
+ * Note count caps per tier. null = unlimited (no hard cap enforced).
+ * Enforcement: 402 STORAGE_QUOTA_EXCEEDED on POST /api/v1/notes when BILLING_ENFORCE=true.
+ */
+export const NOTE_CAP_BY_TIER = {
+  beta:    null,
+  free:    200,
+  plus:    2_000,
+  starter: 2_000,        // legacy alias → plus
+  growth:  5_000,
+  pro:     null,
+  team:    null,
+};
+
+/** Shown on GET /api/v1/billing/summary and Hub billing UI. */
 export const INDEXING_TOKENS_POLICY =
   'Semantic search is included (fair use). Indexing is measured in embedding input tokens per billing period; add-on token packs roll over when billing is fully enabled.';
 
-/** Stripe Price id → tier (set in env per deploy). */
+/** Token amounts granted per pack (matches Stripe price metadata `indexing_tokens`). */
+export const PACK_TOKENS = {
+  small:  20_000_000,
+  medium: 60_000_000,
+  large: 150_000_000,
+};
+
+/**
+ * Stripe Price id → subscription tier.
+ * Reads STRIPE_PRICE_PLUS, STRIPE_PRICE_GROWTH, STRIPE_PRICE_PRO from env (set in Netlify).
+ * Legacy STRIPE_PRICE_STARTER still maps to 'plus' for backward compat during migration.
+ */
 export function tierFromEnvPriceId(priceId) {
   if (!priceId) return null;
-  if (process.env.STRIPE_PRICE_STARTER && priceId === process.env.STRIPE_PRICE_STARTER) return 'starter';
+  if (process.env.STRIPE_PRICE_PLUS && priceId === process.env.STRIPE_PRICE_PLUS) return 'plus';
+  if (process.env.STRIPE_PRICE_GROWTH && priceId === process.env.STRIPE_PRICE_GROWTH) return 'growth';
   if (process.env.STRIPE_PRICE_PRO && priceId === process.env.STRIPE_PRICE_PRO) return 'pro';
+  if (process.env.STRIPE_PRICE_STARTER && priceId === process.env.STRIPE_PRICE_STARTER) return 'plus';
   if (process.env.STRIPE_PRICE_TEAM && priceId === process.env.STRIPE_PRICE_TEAM) return 'team';
   return null;
 }
 
-/** Stripe Price id → add-on credits in cents. */
+/**
+ * Returns true if a given price ID is a known subscription price (for checkout mode selection).
+ */
+export function isSubscriptionPriceId(priceId) {
+  return tierFromEnvPriceId(priceId) !== null;
+}
+
+/**
+ * Returns true if a given price ID is a known token pack price (one-time payment).
+ */
+export function isPackPriceId(priceId) {
+  if (!priceId) return false;
+  return Boolean(
+    (process.env.STRIPE_PRICE_PACK_10 && priceId === process.env.STRIPE_PRICE_PACK_10) ||
+    (process.env.STRIPE_PRICE_PACK_25 && priceId === process.env.STRIPE_PRICE_PACK_25) ||
+    (process.env.STRIPE_PRICE_PACK_50 && priceId === process.env.STRIPE_PRICE_PACK_50),
+  );
+}
+
+/** Stripe Price id → add-on credits in cents (legacy credit ledger). */
 export function addonCentsFromPackPriceId(priceId) {
   if (!priceId) return null;
   if (process.env.STRIPE_PRICE_PACK_10 && priceId === process.env.STRIPE_PRICE_PACK_10) return 10 * 100;
@@ -45,7 +101,31 @@ export function addonCentsFromPackPriceId(priceId) {
   return null;
 }
 
-/** Metered operation → cost in cents (placeholders). */
+/**
+ * Stripe Price id → indexing token grant for pack purchase.
+ * Matches PACK_TOKENS amounts and Stripe price metadata `indexing_tokens`.
+ */
+export function addonTokensFromPackPriceId(priceId) {
+  if (!priceId) return null;
+  if (process.env.STRIPE_PRICE_PACK_10 && priceId === process.env.STRIPE_PRICE_PACK_10) return PACK_TOKENS.small;
+  if (process.env.STRIPE_PRICE_PACK_25 && priceId === process.env.STRIPE_PRICE_PACK_25) return PACK_TOKENS.medium;
+  if (process.env.STRIPE_PRICE_PACK_50 && priceId === process.env.STRIPE_PRICE_PACK_50) return PACK_TOKENS.large;
+  return null;
+}
+
+/**
+ * Resolve a tier shorthand (e.g. 'plus', 'growth', 'pro') to its Stripe Price ID from env.
+ * Returns null if the env var is not set (Stripe not configured yet).
+ */
+export function priceIdFromTierShorthand(tier) {
+  const t = String(tier || '').toLowerCase();
+  if (t === 'plus' || t === 'starter') return process.env.STRIPE_PRICE_PLUS || process.env.STRIPE_PRICE_STARTER || null;
+  if (t === 'growth') return process.env.STRIPE_PRICE_GROWTH || null;
+  if (t === 'pro') return process.env.STRIPE_PRICE_PRO || null;
+  return null;
+}
+
+/** Metered operation → cost in cents (legacy credit ledger). Shadow-log only until BILLING_ENFORCE=true. */
 export const COST_CENTS = {
   search: 1,
   index: 50,
@@ -54,8 +134,8 @@ export const COST_CENTS = {
 };
 
 /**
- * User-facing transparency: what we charge per action (v0). Shown in billing summary for Hub UI.
- * cost_usd is a string for display; internal ledger uses cost_cents.
+ * User-facing cost transparency (shown in billing summary for Hub UI).
+ * cost_usd_display is for display; internal ledger uses cost_cents.
  */
 export const COST_BREAKDOWN = [
   {

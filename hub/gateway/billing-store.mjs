@@ -111,3 +111,45 @@ export function findUserIdByCustomerId(db, customerId) {
   }
   return null;
 }
+
+/**
+ * If the user's billing period has expired, reset monthly_indexing_tokens_used to 0 and
+ * advance period_start / period_end by one calendar month.
+ *
+ * This is a client-side guard for cases where the `invoice.paid` webhook is delayed or missed.
+ * It does NOT reset the credit (cents) ledger — that is handled by the Stripe invoice webhook.
+ *
+ * @param {string} userId
+ * @returns {Promise<void>}
+ */
+export async function resetMonthlyTokensIfNeeded(userId) {
+  if (!userId) return;
+  const db = await loadBillingDb();
+  const u = db.users[userId];
+  if (!u) return;
+
+  const periodEnd = u.period_end ? new Date(u.period_end) : null;
+  if (!periodEnd || isNaN(periodEnd.getTime())) return;
+
+  const now = new Date();
+  if (now <= periodEnd) return;
+
+  await mutateBillingDb((dbMut) => {
+    const user = dbMut.users[userId];
+    if (!user) return;
+
+    const pe = new Date(user.period_end);
+    if (isNaN(pe.getTime()) || now <= pe) return;
+
+    // Reset monthly token counter.
+    user.monthly_indexing_tokens_used = 0;
+    user.monthly_used_cents = 0;
+
+    // Advance period by one month.
+    const newStart = new Date(pe);
+    const newEnd = new Date(pe);
+    newEnd.setMonth(newEnd.getMonth() + 1);
+    user.period_start = newStart.toISOString();
+    user.period_end = newEnd.toISOString();
+  });
+}

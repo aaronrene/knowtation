@@ -15,8 +15,9 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
-import { stripeWebhookHandler } from './billing-stripe.mjs';
+import { stripeWebhookHandler, createCheckoutSession, createPortalSession } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
+import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand } from './billing-constants.mjs';
 import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
@@ -540,6 +541,114 @@ const metadataBulkHandlers = createMetadataBulkHandlers({
 });
 
 app.get('/api/v1/billing/summary', (req, res) => handleBillingSummary(req, res, getUserId));
+
+/**
+ * POST /api/v1/billing/checkout
+ * Body: { price_id, success_url, cancel_url } OR { tier, success_url, cancel_url }
+ * Returns: { url } — Stripe Checkout Session URL.
+ * mode is automatically determined: subscription for tiers, payment for token packs.
+ */
+app.post('/api/v1/billing/checkout', async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  let priceId = typeof body.price_id === 'string' ? body.price_id.trim() : null;
+
+  if (!priceId && typeof body.tier === 'string') {
+    priceId = priceIdFromTierShorthand(body.tier.trim());
+    if (!priceId) {
+      return res.status(400).json({
+        error: `Unknown tier '${body.tier}' or Stripe price env var not configured.`,
+        code: 'BAD_REQUEST',
+      });
+    }
+  }
+
+  if (!priceId && typeof body.pack_size === 'string') {
+    const packSizeMap = {
+      small: process.env.STRIPE_PRICE_PACK_10 || null,
+      medium: process.env.STRIPE_PRICE_PACK_25 || null,
+      large: process.env.STRIPE_PRICE_PACK_50 || null,
+    };
+    priceId = packSizeMap[body.pack_size.toLowerCase()] || null;
+    if (!priceId) {
+      return res.status(400).json({
+        error: `Unknown pack_size '${body.pack_size}' or Stripe pack price env var not configured.`,
+        code: 'BAD_REQUEST',
+      });
+    }
+  }
+
+  if (!priceId) {
+    return res.status(400).json({ error: 'price_id, tier, or pack_size is required', code: 'BAD_REQUEST' });
+  }
+
+  const isSub = isSubscriptionPriceId(priceId);
+  const isPack = isPackPriceId(priceId);
+
+  if (!isSub && !isPack) {
+    return res.status(400).json({
+      error: 'price_id is not a recognised Knowtation subscription or token pack price.',
+      code: 'BAD_REQUEST',
+    });
+  }
+
+  const mode = isSub ? 'subscription' : 'payment';
+
+  const rawSuccessUrl = typeof body.success_url === 'string' ? body.success_url.trim() : '';
+  const rawCancelUrl = typeof body.cancel_url === 'string' ? body.cancel_url.trim() : '';
+
+  const fallbackBase = HUB_UI_ORIGIN || BASE_URL;
+  const successUrl = rawSuccessUrl || `${fallbackBase}/hub/#settings`;
+  const cancelUrl = rawCancelUrl || `${fallbackBase}/hub/#settings`;
+
+  try {
+    const { url } = await createCheckoutSession({
+      priceId,
+      userId: uid,
+      successUrl,
+      cancelUrl,
+      mode,
+      stripeCustomerId: null,
+    });
+    return res.json({ url });
+  } catch (e) {
+    const code = e.code || 'STRIPE_ERROR';
+    if (code === 'NOT_CONFIGURED') {
+      return res.status(503).json({ error: e.message, code });
+    }
+    console.error('[billing/checkout] Stripe error:', e.message);
+    return res.status(502).json({ error: e.message || 'Stripe checkout failed', code });
+  }
+});
+
+/**
+ * POST /api/v1/billing/portal
+ * Body: { return_url? }
+ * Returns: { url } — Stripe Billing Portal session URL.
+ */
+app.post('/api/v1/billing/portal', async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const rawReturnUrl = typeof body.return_url === 'string' ? body.return_url.trim() : '';
+  const fallbackBase = HUB_UI_ORIGIN || BASE_URL;
+  const returnUrl = rawReturnUrl || `${fallbackBase}/hub/#settings`;
+
+  try {
+    const { url } = await createPortalSession({ userId: uid, returnUrl });
+    return res.json({ url });
+  } catch (e) {
+    const code = e.code || 'STRIPE_ERROR';
+    if (code === 'NOT_CONFIGURED') {
+      return res.status(503).json({ error: e.message, code });
+    }
+    console.error('[billing/portal] Stripe error:', e.message);
+    return res.status(502).json({ error: e.message || 'Stripe portal failed', code });
+  }
+});
 
 // GET /api/v1/settings and GET /api/v1/setup — hosted: vault_list from canister; bridge fields when BRIDGE_URL set
 app.get('/api/v1/settings', async (req, res) => {
@@ -1108,6 +1217,43 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   return true;
 }
 
+/**
+ * Fetch the current note count for a user from the canister.
+ * Used by the billing storage cap gate before note CREATE.
+ * Fails open — returns 0 on any error so the gate never blocks due to a canister outage.
+ *
+ * @param {string} userId
+ * @param {import('express').Request} req
+ * @returns {Promise<number>}
+ */
+async function getNoteCountForUser(userId, req) {
+  if (!CANISTER_URL) return 0;
+  try {
+    const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    const hctx = await getHostedAccessContext(req);
+    const effective =
+      hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+        ? hctx.effective_canister_user_id
+        : userId;
+    const url = `${CANISTER_URL}/api/v1/notes?limit=1&offset=0`;
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': userId,
+        'x-vault-id': vaultId,
+      },
+    });
+    if (!upstream.ok) return 0;
+    const data = await upstream.json();
+    const total = typeof data.total === 'number' ? data.total : (Array.isArray(data.notes) ? data.notes.length : 0);
+    return Math.max(0, Math.floor(total));
+  } catch (_) {
+    return 0;
+  }
+}
+
 async function proxyToCanister(req, res) {
   const uid = getUserId(req);
   if (!uid) {
@@ -1322,7 +1468,7 @@ app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
 
 app.use('/api/v1', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (!(await runBillingGate(req, res, getUserId))) return;
+  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
   return proxyToCanister(req, res);
 });
 

@@ -1009,38 +1009,90 @@ Your note body here.</pre>
         </div>
         <div id="settings-panel-billing" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Indexing usage for the <strong>hosted</strong> product (embedding input tokens this billing period). After each successful <strong>Re-index</strong>, the gateway records tokens reported by the bridge. Semantic search is included (fair use).</p>
+            <p class="settings-intro">Your Knowtation plan and usage. Indexing tokens are consumed each time you Re-index your vault. Semantic search is included on all plans.</p>
             <p class="settings-intro small muted" id="billing-panel-msg"></p>
-            <div class="settings-form-actions" style="margin-bottom: 0.75rem;">
+
+            <!-- Plan + CTA row -->
+            <div class="settings-row" style="align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              <span class="settings-label">Plan</span>
+              <span id="billing-tier" class="billing-plan-badge tier-beta">—</span>
+              <span id="billing-renewal" class="muted small" style="margin-left: 0.25rem;"></span>
+            </div>
+            <div class="billing-cta-row">
+              <button type="button" id="btn-billing-upgrade" class="btn-primary" style="display:none;">Upgrade →</button>
+              <button type="button" id="btn-billing-manage" class="btn-secondary" style="display:none;">Manage billing →</button>
               <button type="button" id="btn-billing-refresh" class="btn-secondary">Refresh</button>
             </div>
-            <div class="settings-row">
-              <span class="settings-label">Tier</span>
-              <span id="billing-tier" class="settings-value">—</span>
+
+            <hr class="settings-hr">
+
+            <!-- Indexing token usage bar -->
+            <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.35rem;">
+              <span class="settings-label">Indexing tokens</span>
+              <div class="billing-usage-bar-wrap">
+                <div class="billing-usage-bar-track">
+                  <div id="billing-token-bar-fill" class="billing-usage-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div class="billing-usage-bar-label">
+                  <span id="billing-indexing-used">—</span> used
+                  / <span id="billing-indexing-included">—</span> included
+                </div>
+              </div>
+              <div class="billing-usage-bar-label muted" id="billing-pack-balance-row" style="display:none;">
+                + <span id="billing-pack-balance">0</span> rollover pack tokens available
+              </div>
             </div>
-            <div class="settings-row">
-              <span class="settings-label">Indexing tokens used</span>
-              <span id="billing-indexing-used" class="settings-value">—</span>
+
+            <!-- Note count -->
+            <div class="settings-row" style="margin-top: 0.5rem;">
+              <span class="settings-label">Notes</span>
+              <span id="billing-note-cap" class="settings-value muted small">—</span>
             </div>
-            <div class="settings-row">
-              <span class="settings-label">Included / month</span>
-              <span id="billing-indexing-included" class="settings-value">—</span>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Pack balance (rollover)</span>
-              <span id="billing-pack-balance" class="settings-value">—</span>
-            </div>
+
+            <!-- Period -->
             <div class="settings-row">
               <span class="settings-label">Period</span>
-              <span id="billing-period" class="settings-value">—</span>
+              <span id="billing-period" class="settings-value muted small">—</span>
             </div>
-            <div class="settings-row">
-              <span class="settings-label">Legacy credits used</span>
+
+            <!-- Legacy credits row (hidden when 0) -->
+            <div class="settings-row" id="billing-credits-row" style="display:none;">
+              <span class="settings-label">Legacy credits</span>
               <span id="billing-credits-used" class="settings-value muted small">—</span>
             </div>
+
             <hr class="settings-hr">
-            <p class="settings-intro small" id="billing-indexing-policy">—</p>
-            <p class="settings-intro small muted">Self-hosted Hub (no gateway) does not expose this API yet — use the hosted Hub or <code>GET /api/v1/billing/summary</code> on the gateway for operators.</p>
+
+            <!-- Token pack purchase -->
+            <div id="billing-pack-section">
+              <h3 class="settings-h3">Token pack add-ons</h3>
+              <p class="settings-intro small muted">Extra indexing tokens that roll over. Consumed after your monthly grant runs out. Available on paid plans.</p>
+              <div class="billing-pack-grid" id="billing-pack-grid">
+                <button type="button" class="billing-pack-card" id="btn-pack-small" data-pack="small">
+                  <div class="billing-pack-name">Small pack</div>
+                  <div class="billing-pack-price">$10</div>
+                  <div class="billing-pack-tokens">+20M indexing tokens</div>
+                </button>
+                <button type="button" class="billing-pack-card" id="btn-pack-medium" data-pack="medium">
+                  <div class="billing-pack-name">Medium pack</div>
+                  <div class="billing-pack-price">$25</div>
+                  <div class="billing-pack-tokens">+60M indexing tokens</div>
+                </button>
+                <button type="button" class="billing-pack-card" id="btn-pack-large" data-pack="large">
+                  <div class="billing-pack-name">Large pack</div>
+                  <div class="billing-pack-price">$50</div>
+                  <div class="billing-pack-tokens">+150M indexing tokens</div>
+                </button>
+              </div>
+              <p class="settings-intro small muted" id="billing-pack-msg" style="margin-top: 0.5rem;"></p>
+            </div>
+
+            <hr class="settings-hr">
+            <p class="settings-intro small" id="billing-indexing-policy" style="display:none;"></p>
+            <p class="settings-intro small muted">Self-hosted Hub (no gateway) does not expose this API — use the hosted Hub or <code>GET /api/v1/billing/summary</code> for operators.</p>
+
+            <!-- Born Free blurb -->
+            <p class="billing-bornfree-blurb">Knowtation is a <a href="https://bornfree.io" target="_blank" rel="noopener">Born Free Communities</a> tool. Billing handled by Born Free Communities.</p>
           </div>
         </div>
         <div id="settings-panel-agents" class="settings-panel" role="tabpanel">

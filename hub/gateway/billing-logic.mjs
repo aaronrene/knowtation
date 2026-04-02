@@ -8,13 +8,15 @@ import {
 
 /**
  * @param {object} u - Billing user record
- * @returns {number|null} null = unlimited display (beta)
+ * @returns {number|null} null = unlimited (beta or pro)
  */
 export function effectiveMonthlyIndexingTokensIncluded(u) {
   const tier = String(u?.tier || 'beta');
   if (tier === 'beta') return null;
-  if (tier === 'free') return MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER.free ?? 0;
-  return MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER[tier] ?? 0;
+  const val = MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER[tier];
+  if (val === null || val === undefined) return null;
+  if (tier === 'free') return val;
+  return val;
 }
 
 /** Ensure new billing fields exist on loaded JSON records. */
