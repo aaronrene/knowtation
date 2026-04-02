@@ -506,6 +506,12 @@ button.btn-new-note.btn-busy::after {
 .dashboard-footnote { font-size: 0.8rem; margin-top: 0.5rem; }
 
 .detail-panel { position: fixed; top: 0; right: 0; width: min(420px, 100vw); height: 100vh; background: var(--surface); border-left: 1px solid var(--border); overflow: auto; z-index: 10; }
+.detail-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 11; }
+.detail-resize-handle:hover, .detail-resize-handle.dragging { background: var(--accent, #0ff); opacity: 0.35; }
+.list-item { position: relative; }
+.list-item-delete { position: absolute; top: 50%; right: 0.5rem; transform: translateY(-50%); background: none; border: none; color: var(--text-muted, #888); font-size: 0.75rem; line-height: 1; padding: 0.25rem 0.35rem; border-radius: 4px; cursor: pointer; opacity: 0; transition: opacity 0.15s, color 0.15s; }
+.list-item:hover .list-item-delete { opacity: 0.6; }
+.list-item-delete:hover { opacity: 1 !important; color: var(--danger, #f66); }
 .detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; padding: 1rem; border-bottom: 1px solid var(--border); }
 .detail-header h2 { margin: 0; font-size: 1rem; word-break: break-all; flex: 1; }
 .detail-header-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }

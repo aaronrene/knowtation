@@ -1234,6 +1234,7 @@
       chips.join('') +
       '</div>' +
       (meta ? '<div class="status">' + escapeHtml(meta) + '</div>' : '') +
+      '<button class="list-item-delete" title="Delete note" aria-label="Delete note">✕</button>' +
       '</div>'
     );
   }
@@ -1241,6 +1242,28 @@
   function bindNoteClicks(container) {
     container.querySelectorAll('.list-item').forEach((item) => {
       item.onclick = () => openNote(item.dataset.path);
+      const delBtn = item.querySelector('.list-item-delete');
+      if (delBtn) {
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const path = item.dataset.path;
+          if (!path) return;
+          if (!confirm('Permanently delete "' + path + '"?\nThis cannot be undone.')) return;
+          try {
+            await api('/api/v1/notes/' + encodeURIComponent(path), { method: 'DELETE' });
+            if (typeof showToast === 'function') showToast('Deleted: ' + path);
+            if (currentOpenNote && currentOpenNote.path === path) {
+              currentOpenNote = null;
+              const panel = el('detail-panel');
+              if (panel) panel.classList.add('hidden');
+            }
+            loadNotes();
+            loadFacets();
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Delete failed: ' + (err.message || err), true);
+          }
+        };
+      }
     });
   }
 
@@ -2124,6 +2147,7 @@
         if (typeof loadNotes === 'function') loadNotes();
         if (typeof loadFacets === 'function') loadFacets();
         if (typeof showToast === 'function') showToast('Import complete');
+        setTimeout(() => closeImportModal(), 1500);
       } catch (e) {
         const raw = e && e.message ? String(e.message) : 'Import failed';
         const isNetwork =
@@ -5111,6 +5135,15 @@
       showToast('Proposal enriched.');
       openProposal(id);
       loadProposals();
+      // Scroll the detail panel to the top so enriched content (labels, frontmatter, hints)
+      // is visible instead of the browser staying at whatever scroll position it was at.
+      if (panel) requestAnimationFrame(() => panel.scrollTo({ top: 0, behavior: 'smooth' }));
+      // Also highlight the matching row in the Suggested/Activity list so the user can see which
+      // proposal was enriched.
+      requestAnimationFrame(() => {
+        const row = document.querySelector('[data-id="' + CSS.escape(id) + '"]');
+        if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
     } catch (e) {
       showToast(e.message || 'Enrich failed', true);
     }
@@ -5180,6 +5213,54 @@
     dp.classList.add('hidden');
     dp.classList.remove('detail-panel-proposal-wide');
   };
+
+  // Resizable detail panel — drag the left edge to widen/narrow.
+  (function initDetailPanelResize() {
+    const panel = el('detail-panel');
+    if (!panel) return;
+    const handle = document.createElement('div');
+    handle.className = 'detail-resize-handle';
+    handle.title = 'Drag to resize panel';
+    panel.prepend(handle);
+    const MIN_W = 280;
+    const MAX_W = Math.round(window.innerWidth * 0.92);
+    let startX = 0, startW = 0, dragging = false;
+    const onMove = (e) => {
+      if (!dragging) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const delta = startX - clientX;
+      const newW = Math.max(MIN_W, Math.min(MAX_W, startW + delta));
+      panel.style.width = newW + 'px';
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      document.body.style.userSelect = '';
+    };
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      startX = e.clientX;
+      startW = panel.offsetWidth;
+      handle.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    handle.addEventListener('touchstart', (e) => {
+      dragging = true;
+      startX = e.touches[0].clientX;
+      startW = panel.offsetWidth;
+      handle.classList.add('dragging');
+      document.addEventListener('touchmove', onMove, { passive: true });
+      document.addEventListener('touchend', onUp);
+    });
+  })();
 
   document.addEventListener('keydown', (e) => {
     const inInput = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
