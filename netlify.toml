@@ -4,9 +4,13 @@
   functions = "netlify/functions"
   publish = "public"
 
+[build.environment]
+  NODE_VERSION = "20"
+
 # sqlite-vec uses `new URL('.', import.meta.url)` to find vec0.{so,dylib,dll}. Esbuild bundling
 # breaks import.meta.url → TypeError Invalid URL (input '.'). Keep these external so Node loads
 # real package files from node_modules (see sqlite-vec index.mjs getLoadablePath).
+# stripe is external + lazy-loaded in billing-stripe.mjs to avoid bundling ~220 KB on cold start.
 [functions]
   node_bundler = "esbuild"
   external_node_modules = [
@@ -16,12 +20,16 @@
     "sqlite-vec-linux-arm64",
     "sqlite-vec-darwin-x64",
     "sqlite-vec-darwin-arm64",
-    "sqlite-vec-windows-x64"
+    "sqlite-vec-windows-x64",
+    "stripe"
   ]
 
 # Netlify Pro allows up to 26 s per function. Per-function timeout must be a sub-table;
 # a scalar timeout = N under [functions] is rejected by the config validator.
 [functions."gateway"]
+  timeout = 26
+
+[functions."warmup"]
   timeout = 26
 
 # Catch-all routing lives in public/_redirects (scripts/netlify-redirects.mjs). Do not add

@@ -1,7 +1,7 @@
 /**
  * Stripe webhook handler + optional session helpers.
+ * Stripe SDK (~220 KB) is lazy-loaded on first webhook call to reduce Lambda cold-start time.
  */
-import Stripe from 'stripe';
 import {
   MONTHLY_INCLUDED_CENTS_BY_TIER,
   tierFromEnvPriceId,
@@ -18,10 +18,13 @@ import {
 
 let stripeSingleton = null;
 
-export function getStripe() {
+export async function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
-  if (!stripeSingleton) stripeSingleton = new Stripe(key);
+  if (!stripeSingleton) {
+    const { default: Stripe } = await import('stripe');
+    stripeSingleton = new Stripe(key);
+  }
   return stripeSingleton;
 }
 
@@ -109,7 +112,7 @@ async function handleInvoicePaid(invoice) {
  */
 export async function stripeWebhookHandler(req, res) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  const stripe = getStripe();
+  const stripe = await getStripe();
   if (!secret || !stripe) {
     return res.status(503).json({ error: 'Stripe webhook not configured', code: 'NOT_CONFIGURED' });
   }

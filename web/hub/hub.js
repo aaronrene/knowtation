@@ -168,23 +168,34 @@
   }
 
   async function api(path, opts = {}) {
+    const method = (opts.method || 'GET').toUpperCase();
+    const retryable = method === 'GET' || method === 'HEAD';
     let res;
-    try {
-      res = await fetch(apiBase + path, {
-        ...opts,
-        cache: opts.cache != null ? opts.cache : 'no-store',
-        headers: { ...headers(), ...opts.headers },
-      });
-    } catch (e) {
-      const m = e && e.message ? String(e.message) : String(e);
-      if (m === 'Failed to fetch' || m.includes('NetworkError')) {
-        throw new Error(
-          'Could not reach the API (' +
-            apiBase +
-            '). Check gateway status, CORS (HUB_CORS_ORIGIN), ad blockers, and Netlify limits.',
-        );
+    let networkRetries = retryable ? 2 : 0;
+    for (;;) {
+      try {
+        res = await fetch(apiBase + path, {
+          ...opts,
+          cache: opts.cache != null ? opts.cache : 'no-store',
+          headers: { ...headers(), ...opts.headers },
+        });
+        break;
+      } catch (e) {
+        const m = e && e.message ? String(e.message) : String(e);
+        if ((m === 'Failed to fetch' || m.includes('NetworkError')) && networkRetries > 0) {
+          networkRetries--;
+          await new Promise(resolve => setTimeout(resolve, (3 - networkRetries) * 2000));
+          continue;
+        }
+        if (m === 'Failed to fetch' || m.includes('NetworkError')) {
+          throw new Error(
+            'Could not reach the API (' +
+              apiBase +
+              '). Check gateway status, CORS (HUB_CORS_ORIGIN), ad blockers, and Netlify limits.',
+          );
+        }
+        throw e instanceof Error ? e : new Error(m);
       }
-      throw e instanceof Error ? e : new Error(m);
     }
     if (res.status === 401) {
       token = null;
@@ -613,34 +624,41 @@
   };
 
   async function initProviders() {
-    try {
-      const r = await fetch(apiBase + '/api/v1/auth/providers', { cache: 'no-store' });
-      if (!r.ok) throw new Error('providers');
-      providers = await r.json();
-    } catch (_) {
-      providers = { google: false, github: false };
-      oauthNotConfigured.classList.remove('hidden');
-      if (loginIntro) loginIntro.classList.add('hidden');
-      const first = oauthNotConfigured.querySelector('p');
-      if (first) {
-        const isHosted = location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
-        const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
-        if (isHosted && sameOrigin) {
-          first.innerHTML =
-            '<strong>Could not load OAuth status.</strong> The Hub at <code>' + escapeHtml(location.origin) +
-            '</code> is calling itself for the API, but the API runs on the <strong>gateway</strong>. Set <code>window.HUB_API_BASE_URL</code> in <code>web/hub/config.js</code> to your gateway URL (e.g. <code>https://knowtation-gateway.netlify.app</code>), then commit and redeploy so 4Everland serves the updated config.';
-        } else if (isHosted && !sameOrigin) {
-          first.innerHTML =
-            '<strong>Could not reach the gateway.</strong> Sign-in with Google or GitHub will appear once the gateway at <code>' + escapeHtml(apiBase) +
-            '</code> is deployed and allows this site (check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) + '</code>). If the gateway is still deploying on Netlify, wait a few minutes and refresh.';
-        } else {
-          first.innerHTML =
-            '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +
-            escapeHtml(apiBase) +
-            '</code>? Open this page from the same machine as <code>npm run hub</code> (e.g. <code>http://localhost:3333/</code>).';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r = await fetch(apiBase + '/api/v1/auth/providers', { cache: 'no-store' });
+        if (!r.ok) throw new Error('providers');
+        providers = await r.json();
+        break;
+      } catch (_) {
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 3000));
+          continue;
         }
+        providers = { google: false, github: false };
+        oauthNotConfigured.classList.remove('hidden');
+        if (loginIntro) loginIntro.classList.add('hidden');
+        const first = oauthNotConfigured.querySelector('p');
+        if (first) {
+          const isHosted = location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
+          const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
+          if (isHosted && sameOrigin) {
+            first.innerHTML =
+              '<strong>Could not load OAuth status.</strong> The Hub at <code>' + escapeHtml(location.origin) +
+              '</code> is calling itself for the API, but the API runs on the <strong>gateway</strong>. Set <code>window.HUB_API_BASE_URL</code> in <code>web/hub/config.js</code> to your gateway URL (e.g. <code>https://knowtation-gateway.netlify.app</code>), then commit and redeploy so 4Everland serves the updated config.';
+          } else if (isHosted && !sameOrigin) {
+            first.innerHTML =
+              '<strong>Could not reach the gateway.</strong> Sign-in with Google or GitHub will appear once the gateway at <code>' + escapeHtml(apiBase) +
+              '</code> is deployed and allows this site (check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) + '</code>). If the gateway is still deploying on Netlify, wait a few minutes and refresh.';
+          } else {
+            first.innerHTML =
+              '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +
+              escapeHtml(apiBase) +
+              '</code>? Open this page from the same machine as <code>npm run hub</code> (e.g. <code>http://localhost:3333/</code>).';
+          }
+        }
+        return;
       }
-      return;
     }
 
     if (!providers.google && !providers.github) {
