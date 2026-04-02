@@ -76,35 +76,37 @@ async function handleCheckoutSessionCompleted(stripe, session) {
   if (session.mode === 'payment') {
     let creditsCents = parseInt(session.metadata?.credits_cents || '0', 10);
     let packTokens = parseInt(session.metadata?.indexing_tokens || '0', 10);
-    let resolvedPriceId = null;
 
-    if ((!creditsCents || !packTokens) && stripe) {
-      const full = await stripe.checkout.sessions.retrieve(session.id, {
-        expand: ['line_items.data.price'],
-      });
-      resolvedPriceId = full.line_items?.data?.[0]?.price?.id ?? null;
+    // Primary source: price_id stored in checkout session metadata at creation time.
+    let resolvedPriceId = session.metadata?.price_id?.trim() || null;
 
-      if (!creditsCents && resolvedPriceId) {
-        const mapped = addonCentsFromPackPriceId(resolvedPriceId);
-        if (mapped) creditsCents = mapped;
-      }
-
-      if (!packTokens && resolvedPriceId) {
-        // Prefer Stripe price metadata set on the product (authoritative source).
-        const metaTokens = parseInt(
-          full.line_items?.data?.[0]?.price?.metadata?.indexing_tokens || '0',
-          10,
-        );
-        if (metaTokens > 0) {
-          packTokens = metaTokens;
-        } else {
-          const mapped = addonTokensFromPackPriceId(resolvedPriceId);
-          if (mapped) packTokens = mapped;
-        }
+    // If still missing, fetch line items (fallback for sessions created before this metadata was added).
+    if (!resolvedPriceId && stripe) {
+      try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+          expand: ['data.price'],
+          limit: 1,
+        });
+        resolvedPriceId = lineItems.data?.[0]?.price?.id ?? null;
+      } catch (e) {
+        console.error('[billing] listLineItems failed for session', session.id, e?.message);
       }
     }
 
-    if (!creditsCents && !packTokens) return;
+    if (!creditsCents && resolvedPriceId) {
+      const mapped = addonCentsFromPackPriceId(resolvedPriceId);
+      if (mapped) creditsCents = mapped;
+    }
+
+    if (!packTokens && resolvedPriceId) {
+      const mapped = addonTokensFromPackPriceId(resolvedPriceId);
+      if (mapped) packTokens = mapped;
+    }
+
+    if (!creditsCents && !packTokens) {
+      console.error('[billing] pack payment: could not resolve credits/tokens for session', session.id, 'price_id:', resolvedPriceId);
+      return;
+    }
 
     const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
     await mutateBillingDb((db) => {
@@ -153,7 +155,8 @@ export async function createCheckoutSession({ priceId, userId, successUrl, cance
     success_url: successUrl,
     cancel_url: cancelUrl,
     client_reference_id: userId,
-    metadata: { user_id: userId },
+    // Include price_id so the webhook handler can resolve tokens without a line-item expand.
+    metadata: { user_id: userId, price_id: priceId },
   };
 
   if (stripeCustomerId) {

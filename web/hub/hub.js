@@ -749,6 +749,21 @@
       renderPresets();
     })();
     initProviders();
+    if (params.get('open') === 'billing') {
+      const checkoutSuccess = params.get('checkout') === 'success';
+      // Clean up params before opening so back-button doesn't re-trigger.
+      const u = new URL(location.href);
+      u.searchParams.delete('open');
+      u.searchParams.delete('checkout');
+      history.replaceState({}, '', u.toString());
+      // Small delay so the main Hub has rendered before the modal opens.
+      setTimeout(() => {
+        openSettingsBillingTab();
+        if (checkoutSuccess && typeof showToast === 'function') {
+          showToast('Subscription activated — welcome to your new plan!');
+        }
+      }, 400);
+    }
     if (params.get('github_connected') === '1') {
       sessionStorage.setItem('knowtation_github_connect_pending', String(Date.now()));
       setTimeout(() => {
@@ -2485,6 +2500,18 @@
   function closeSettings() {
     el('modal-settings').classList.add('hidden');
   }
+  function openSettingsBillingTab() {
+    openSettings();
+    document.querySelectorAll('.settings-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.settingsTab === 'billing');
+      t.setAttribute('aria-selected', t.dataset.settingsTab === 'billing' ? 'true' : 'false');
+    });
+    document.querySelectorAll('.settings-panel').forEach((p) => {
+      p.classList.toggle('active', p.id === 'settings-panel-billing');
+    });
+    loadBillingPanel();
+  }
+
   if (btnSettings) btnSettings.onclick = openSettings;
 
   const btnProposalPolicySave = el('btn-proposal-policy-save');
@@ -2708,8 +2735,8 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...opts,
-        success_url: window.location.origin + window.location.pathname + '#settings',
-        cancel_url: window.location.origin + window.location.pathname + '#settings',
+        success_url: window.location.origin + window.location.pathname + '?open=billing&checkout=success',
+        cancel_url: window.location.origin + window.location.pathname + '?open=billing',
       }),
     });
     if (resp && resp.url) {
@@ -2725,7 +2752,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        return_url: window.location.origin + window.location.pathname + '#settings',
+        return_url: window.location.origin + window.location.pathname + '?open=billing',
       }),
     });
     if (resp && resp.url) {
