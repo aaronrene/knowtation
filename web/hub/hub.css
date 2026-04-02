@@ -1479,9 +1479,9 @@ button.btn-new-note.btn-busy::after {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.billing-pack-name  { font-weight: 600; font-size: 0.88rem; }
-.billing-pack-price { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
-.billing-pack-tokens { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+.billing-pack-name  { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.3rem; }
+.billing-pack-price { font-size: 1.05rem; font-weight: 700; color: var(--accent); margin-bottom: 0.2rem; }
+.billing-pack-tokens { font-size: 0.78rem; color: var(--muted); }
 
 .billing-bornfree-blurb {
   font-size: 0.8rem;
