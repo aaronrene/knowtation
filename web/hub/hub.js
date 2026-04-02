@@ -608,8 +608,32 @@
     const invite = params.get('invite');
     return invite ? u + '&invite=' + encodeURIComponent(invite) : u;
   }
-  btnLoginGoogle.onclick = () => { window.location.href = loginUrl('google'); };
-  btnLoginGithub.onclick = () => { window.location.href = loginUrl('github'); };
+  // Pre-warm the gateway Lambda before navigating to the OAuth URL.
+  // Without this, a cold start (12-30 s) causes ERR_CONNECTION_CLOSED in the browser
+  // because a direct window.location.href navigation has no retry mechanism.
+  // We fire a cheap /api/v1/auth/providers fetch first; once it returns the Lambda is
+  // guaranteed warm, and the OAuth redirect hits a hot instance.
+  async function oauthNavigate(provider, btn) {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Connecting…';
+    try {
+      // Allow up to 22 s for the cold start; the button stays in "Connecting…" state
+      // during this time so the user knows something is happening.
+      await fetch(apiBase + '/api/v1/auth/providers', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(22000),
+      });
+    } catch (_) {
+      // Fetch failed — navigate anyway; the Lambda may still be starting up and the
+      // OAuth handler itself has the full 26 s budget once TCP is established.
+    }
+    window.location.href = loginUrl(provider);
+    // Navigation is underway; restore button state in case the browser returns here.
+    setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 5000);
+  }
+  btnLoginGoogle.onclick = (e) => oauthNavigate('google', e.currentTarget);
+  btnLoginGithub.onclick = (e) => oauthNavigate('github', e.currentTarget);
 
   btnLogout.onclick = () => {
     token = null;
@@ -1446,6 +1470,25 @@
     return params.length ? '&' + params.join('&') : '';
   }
 
+  // Discard a proposal directly from the list without opening the detail panel.
+  async function discardProposalInline(id, itemEl) {
+    if (!confirm('Discard this proposal?\nThis cannot be undone.')) return;
+    try {
+      await api('/api/v1/proposals/' + encodeURIComponent(id) + '/discard', { method: 'POST' });
+      if (typeof showToast === 'function') showToast('Proposal discarded.');
+      const panel = el('detail-panel');
+      if (panel && !panel.classList.contains('hidden')) {
+        // If this proposal was open in the detail panel, close it.
+        panel.classList.add('hidden');
+        panel.classList.remove('detail-panel-proposal-wide');
+      }
+      loadProposals();
+      loadActivity();
+    } catch (err) {
+      if (typeof showToast === 'function') showToast('Discard failed: ' + (err.message || err), true);
+    }
+  }
+
   async function loadProposals() {
     const emptySuggested =
       '<div class="empty-state">No proposals waiting for review. Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</div>';
@@ -1465,6 +1508,7 @@
             container.innerHTML = emptyHtml;
             return;
           }
+          const canDiscard = kind === 'suggested' && hubUserCanWriteNotes();
           container.innerHTML = list
             .map((p) => {
               const labelChips = (Array.isArray(p.labels) ? p.labels : [])
@@ -1484,6 +1528,9 @@
                     ? '<span class="proposal-chip">standard</span>'
                     : '';
               const extraChips = [labelChips, srcChip, qChip, sevChip].filter(Boolean).join('');
+              const discardBtn = canDiscard
+                ? '<button class="list-item-delete" title="Discard proposal" aria-label="Discard proposal">✕</button>'
+                : '';
               return (
                 '<div class="list-item" data-id="' +
                 escapeHtml(p.proposal_id) +
@@ -1494,12 +1541,19 @@
                 (p.updated_at ? ' · ' + (calendarDisplayDayKey(p.updated_at) || p.updated_at.slice(0, 10)) : '') +
                 (p.evaluation_status ? ' · eval:' + escapeHtml(String(p.evaluation_status)) : '') +
                 (extraChips ? ' · ' + extraChips : '') +
-                '</div></div>'
+                '</div>' + discardBtn + '</div>'
               );
             })
             .join('');
           container.querySelectorAll('.list-item').forEach((item) => {
             item.onclick = () => openProposal(item.dataset.id);
+            const db = item.querySelector('.list-item-delete');
+            if (db) {
+              db.onclick = (e) => {
+                e.stopPropagation();
+                discardProposalInline(item.dataset.id, item);
+              };
+            }
           });
         })
         .catch(() => (container.innerHTML = '<p class="muted">Failed to load</p>'));
@@ -1517,10 +1571,17 @@
         container.innerHTML = '<div class="empty-state">No proposal activity yet.</div>';
         return;
       }
+      const canDiscard = hubUserCanWriteNotes();
       container.innerHTML = list
         .map((p) => {
           const statusClass = p.status === 'approved' ? 'status-approved' : p.status === 'discarded' ? 'status-discarded' : 'status-proposed';
           const date = calendarDisplayDayKey(p.updated_at || p.created_at || '') || (p.updated_at || p.created_at || '').slice(0, 10);
+          // Show discard for proposed; show discard-again for discarded (idempotent cleanup);
+          // approved records stay as-is unless the user opens them.
+          const showDiscard = canDiscard && p.status !== 'approved';
+          const discardBtn = showDiscard
+            ? '<button class="list-item-delete" title="Discard proposal" aria-label="Discard proposal">✕</button>'
+            : '';
           return (
             '<div class="list-item activity-item ' +
             statusClass +
@@ -1532,12 +1593,19 @@
             escapeHtml(p.status) +
             ' · ' +
             escapeHtml(date) +
-            '</div></div>'
+            '</div>' + discardBtn + '</div>'
           );
         })
         .join('');
       container.querySelectorAll('.list-item').forEach((item) => {
         item.onclick = () => openProposal(item.dataset.id);
+        const db = item.querySelector('.list-item-delete');
+        if (db) {
+          db.onclick = (e) => {
+            e.stopPropagation();
+            discardProposalInline(item.dataset.id, item);
+          };
+        }
       });
     } catch (e) {
       container.innerHTML = '<p class="muted">' + escapeHtml(e.message) + '</p>';
