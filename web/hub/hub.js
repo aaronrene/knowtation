@@ -2691,8 +2691,8 @@
    * @param {number} used - tokens used this period
    * @param {number|null} included - tokens included (null = unlimited)
    */
-  function updateTokenBar(used, included) {
-    const fill = el('billing-token-bar-fill');
+  function updateUsageBar(fillId, used, included) {
+    const fill = el(fillId);
     if (!fill) return;
     if (included == null) {
       fill.style.width = '15%';
@@ -2841,8 +2841,10 @@
   async function loadBillingPanel() {
     const msg = el('billing-panel-msg');
     const tierEl = el('billing-tier');
-    const usedEl = el('billing-indexing-used');
-    const incEl = el('billing-indexing-included');
+    const searchesUsedEl = el('billing-searches-used');
+    const searchesIncEl = el('billing-searches-included');
+    const indexJobsUsedEl = el('billing-index-jobs-used');
+    const indexJobsIncEl = el('billing-index-jobs-included');
     const packEl = el('billing-pack-balance');
     const packRow = el('billing-pack-balance-row');
     const periodEl = el('billing-period');
@@ -2862,8 +2864,10 @@
     const setDash = () => {
       tierEl.textContent = '—';
       tierEl.className = 'billing-plan-badge tier-beta';
-      usedEl.textContent = '—';
-      if (incEl) incEl.textContent = '—';
+      if (searchesUsedEl) searchesUsedEl.textContent = '—';
+      if (searchesIncEl) searchesIncEl.textContent = '—';
+      if (indexJobsUsedEl) indexJobsUsedEl.textContent = '—';
+      if (indexJobsIncEl) indexJobsIncEl.textContent = '—';
       if (packEl) packEl.textContent = '0';
       if (packRow) packRow.style.display = 'none';
       if (periodEl) periodEl.textContent = '—';
@@ -2874,7 +2878,8 @@
       if (noteCap) noteCap.textContent = '—';
       if (upgradeBtn) upgradeBtn.style.display = 'none';
       if (manageBtn) manageBtn.style.display = 'none';
-      updateTokenBar(0, 0);
+      updateUsageBar('billing-searches-bar-fill', 0, 0);
+      updateUsageBar('billing-index-jobs-bar-fill', 0, 0);
       renderBillingPlanGrid('beta', false, false);
     };
 
@@ -2909,12 +2914,19 @@
       // Manage button: visible for active subscribers to reach the Stripe portal
       if (manageBtn) manageBtn.style.display = (hasSub && d.stripe_configured) ? '' : 'none';
 
-      // Token usage bar
-      const used = Math.max(0, Math.floor(Number(d.monthly_indexing_tokens_used) || 0));
-      const inc = d.monthly_indexing_tokens_included;
-      usedEl.textContent = formatTokenCountShort(used);
-      if (incEl) incEl.textContent = inc == null ? 'Unlimited' : formatTokenCountShort(inc);
-      updateTokenBar(used, inc);
+      // Searches usage bar
+      const searchesUsed = Math.max(0, Math.floor(Number(d.monthly_searches_used) || 0));
+      const searchesInc = d.monthly_searches_included ?? null;
+      if (searchesUsedEl) searchesUsedEl.textContent = searchesUsed.toLocaleString();
+      if (searchesIncEl) searchesIncEl.textContent = searchesInc == null ? 'Unlimited' : searchesInc.toLocaleString();
+      updateUsageBar('billing-searches-bar-fill', searchesUsed, searchesInc);
+
+      // Index jobs usage bar
+      const indexJobsUsed = Math.max(0, Math.floor(Number(d.monthly_index_jobs_used) || 0));
+      const indexJobsInc = d.monthly_index_jobs_included ?? null;
+      if (indexJobsUsedEl) indexJobsUsedEl.textContent = indexJobsUsed.toLocaleString();
+      if (indexJobsIncEl) indexJobsIncEl.textContent = indexJobsInc == null ? 'Unlimited' : indexJobsInc.toLocaleString();
+      updateUsageBar('billing-index-jobs-bar-fill', indexJobsUsed, indexJobsInc);
 
       // Pack balance
       const packBal = Math.max(0, Math.floor(Number(d.pack_indexing_tokens_balance) || 0));

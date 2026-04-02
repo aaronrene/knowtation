@@ -1477,6 +1477,21 @@ button.btn-new-note.btn-busy::after {
   margin-top: 0.2rem;
 }
 
+/* Operation usage rows (searches + index jobs) */
+.billing-op-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+}
+.billing-op-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  width: 5.5rem;
+  flex-shrink: 0;
+  padding-top: 0.05rem;
+}
+
 /* Plan comparison grid */
 .billing-plan-grid {
   display: grid;

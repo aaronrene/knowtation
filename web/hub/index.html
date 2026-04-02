@@ -1032,20 +1032,36 @@ Your note body here.</pre>
 
             <hr class="settings-hr">
 
-            <!-- Indexing token usage bar -->
-            <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.35rem;">
-              <span class="settings-label">Indexing tokens</span>
-              <div class="billing-usage-bar-wrap">
-                <div class="billing-usage-bar-track">
-                  <div id="billing-token-bar-fill" class="billing-usage-bar-fill" style="width: 0%;"></div>
-                </div>
-                <div class="billing-usage-bar-label">
-                  <span id="billing-indexing-used">—</span> used
-                  / <span id="billing-indexing-included">—</span> included
+            <!-- Usage this period: searches + index jobs -->
+            <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.55rem;">
+              <span class="settings-label">Usage this period</span>
+              <!-- Searches -->
+              <div class="billing-op-row">
+                <span class="billing-op-label">Searches</span>
+                <div class="billing-usage-bar-wrap">
+                  <div class="billing-usage-bar-track">
+                    <div id="billing-searches-bar-fill" class="billing-usage-bar-fill" style="width: 0%;"></div>
+                  </div>
+                  <div class="billing-usage-bar-label">
+                    <span id="billing-searches-used">—</span> / <span id="billing-searches-included">—</span>
+                  </div>
                 </div>
               </div>
+              <!-- Index jobs -->
+              <div class="billing-op-row">
+                <span class="billing-op-label">Index jobs</span>
+                <div class="billing-usage-bar-wrap">
+                  <div class="billing-usage-bar-track">
+                    <div id="billing-index-jobs-bar-fill" class="billing-usage-bar-fill" style="width: 0%;"></div>
+                  </div>
+                  <div class="billing-usage-bar-label">
+                    <span id="billing-index-jobs-used">—</span> / <span id="billing-index-jobs-included">—</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Pack balance (secondary) -->
               <div class="billing-usage-bar-label muted" id="billing-pack-balance-row" style="display:none;">
-                + <span id="billing-pack-balance">0</span> rollover pack tokens available
+                Pack balance: <span id="billing-pack-balance">0</span> rollover tokens
               </div>
             </div>
 
