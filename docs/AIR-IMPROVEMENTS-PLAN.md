@@ -210,17 +210,17 @@ air_block_height: 12345678
 
 ## Build Order Summary
 
-| Improvement | Effort | Ships with |
-|---|---|---|
-| **A** — Store `air_id` in frontmatter | Small | `feature/air-improvements` |
-| **B** — Wire gateway writes to AIR | Small | `feature/air-improvements` |
-| **C** — Hard-fail mode (`air.required`) | Tiny | `feature/air-improvements` |
-| **D** — Built-in Netlify attestation endpoint | Medium | `feature/air-built-in-endpoint` |
-| **E** — ICP blockchain anchor | Large | `feature/air-icp-attestation` |
+| Improvement | Effort | Ships with | Status |
+|---|---|---|---|
+| **A** — Store `air_id` in frontmatter | Small | `feature/air-improvements` | ✅ Merged PR #96 (2026-04-03) |
+| **B** — Wire gateway writes to AIR | Small | `feature/air-improvements` | ✅ Merged PR #96 (2026-04-03) |
+| **C** — Hard-fail mode (`air.required`) | Tiny | `feature/air-improvements` | ✅ Merged PR #96 (2026-04-03) |
+| **D** — Built-in Netlify attestation endpoint | Medium | `feature/air-built-in-endpoint` | 🔲 Branch created — planning pass needed |
+| **E** — ICP blockchain anchor | Large | `feature/air-icp-attestation` | 🔲 After D |
 
-**Recommended sequencing:** Ship A+B+C together as a single PR (they are small and synergistic).
-Then D as a standalone feature. Then E only when the use case demands it (likely a specific
-partner or compliance requirement).
+**Recommended sequencing:** A+B+C shipped as a single PR. D next as a standalone feature
+(planning pass first — see §D above for full spec). E only when the use case demands it
+(likely a specific partner or compliance requirement).
 
 ---
 

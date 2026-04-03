@@ -10,9 +10,11 @@ import { app } from '../../hub/gateway/server.mjs';
 export const handler = async (event, context) => {
   connectLambda(event);
   globalThis.__knowtation_gateway_blob = getStore({ name: 'gateway-billing', consistency: 'eventual' });
+  globalThis.__knowtation_attest_blob = getStore({ name: 'gateway-attestation', consistency: 'eventual' });
   try {
     return await serverless(app)(event, context);
   } finally {
     delete globalThis.__knowtation_gateway_blob;
+    delete globalThis.__knowtation_attest_blob;
   }
 };
