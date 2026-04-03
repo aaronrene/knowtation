@@ -42,7 +42,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 | Phase | Theme | In plan? | Code / notes |
 |-------|--------|----------|----------------|
 | **A** | MCP Resources — vault as browseable knowledge graph (`knowtation://vault/...`, listings, index/stats, tags, graph) | **Done** | `mcp/resources/` |
-| **B** | MCP Prompts — reusable agent workflows | **Done** | `mcp/prompts/` |
+| **B** | MCP Prompts — reusable agent workflows + 3 memory-aware prompts (memory-context, memory-informed-search, resume-session) | **Done** | `mcp/prompts/` |
 | **C** | Enhanced tools — relate, backlinks, capture, transcribe, summarize, cluster, … | **Done (in repo)** | `mcp/tools/phase-c.mjs` |
 | **D** | Streamable HTTP transport + Hub as MCP gateway (HTTP+SSE, OAuth 2.1, session pool) | **D1 done** (local HTTP); **D2/D3** backlog | `mcp/http-server.mjs`, `mcp/server.mjs` |
 | **E** | Resource subscriptions + real-time vault watcher | **Done (local vault)** | `mcp/resource-subscriptions.mjs` — hosted N/A |
@@ -75,7 +75,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Current state in the repo
 
-- **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1); base + Phase C tools; Phase A resources; Phase B prompts; Phase E; Phase H; Phase G; Phase **F1** sampling (`summarize`). Hub MCP proxy / OAuth (D2/D3) not implemented; F2–F5 sampling still backlog.
+- **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1); base + Phase C tools + 6 memory tools (`memory_query`, `memory_list`, `memory_store`, `memory_search`, `memory_clear`, `memory_summarize`); Phase A resources + 3 memory resources; Phase B prompts + 3 memory-aware prompts (`memory-context`, `memory-informed-search`, `resume-session`); Phase E; Phase H; Phase G; Phase **F1** sampling (`summarize`). Hub MCP proxy / OAuth (D2/D3) not implemented; F2–F5 sampling still backlog.
 - **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](./PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
 - **IMPLEMENTATION-PLAN:** References this backlog; suggested prompts for agents is separate optional backlog item.
 
