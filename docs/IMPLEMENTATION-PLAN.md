@@ -36,15 +36,15 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **Done** | **Hub bulk housekeeping (self-hosted):** Delete and rename notes by **effective project slug** (`POST /api/v1/notes/delete-by-project`, `POST /api/v1/notes/rename-project` on Node Hub); proposal discard for deleted paths; Settings → Backup **presets** (path prefix + project slugs from facets); **New note** folder picker (`listVaultFolderOptions`, `GET /vault/folders`); localhost Hub uses same-origin API; docs [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md), [VAULT-RENAME-SPEC.md](./VAULT-RENAME-SPEC.md). | **Merged:** PR **#63** (2026-03). |
 | **Done (hosted)** | **Metadata bulk delete/rename:** Gateway orchestrates the canister (`hub/gateway/metadata-bulk-canister.mjs`); shared `effectiveProjectSlug` in `lib/vault.mjs`; Hub Settings calls the routes on hosted (**PR #65**). **Ops:** redeploy gateway + static Hub. | [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md), [PARITY-PLAN.md](./PARITY-PLAN.md). |
 | **Done** | **Delete non-default vault:** Self-hosted + hosted (**PR #66**): Motoko vault purge, bridge orchestration, gateway proxy, Hub danger-zone UI; vectors `deleteByVaultId`. | [HUB-API.md](./HUB-API.md) §3.3.2; [PARITY-PLAN.md](./PARITY-PLAN.md). **Ops:** redeploy canister + bridge + gateway + static Hub for prod. |
-| **Parallel (design + thin slices)** | **Proposal evaluation stage:** Add an explicit **evaluation** step in the proposal lifecycle (see **Option B+ — Proposal evaluation stage** below). **Muse thin bridge:** Optional Muse service URL; delegate **history / lineage** queries only; canonical vault + Hub unchanged — see **Option C — Muse thin bridge** below. | No blocking dependency on 15.1; specify API/UI before large build. |
+| **Done** | **Proposal evaluation stage:** Explicit evaluation step in proposal lifecycle — `POST /api/v1/proposals/:id/evaluation` on both Node Hub and gateway, canister V3 migration, evaluator role, review triggers, rubric, async review hints. Tests in `test/hub-proposal-evaluation.test.mjs`. **Muse thin bridge:** Optional Muse service URL; delegate **history / lineage** queries only; canonical vault + Hub unchanged — see **Option C — Muse thin bridge** below (not yet implemented). | Evaluation: merged. Muse: deferred. |
 | **Done (ops)** | **Deploy hosted:** knowtation.store + gateway + canister **live**; bridge when `BRIDGE_URL` set. Ongoing: redeploy when code changes — [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md). | Done (ops ongoing). |
 | **Next (hosted)** | **Re-verify after changes:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 + UI smoke; confirm `BRIDGE_URL`, embeddings, OAuth callbacks. | After any prod deploy. |
-| **Next (product)** | **Extended proposal Enrich:** LLM recommends **full note metadata** (project, `causal_chain_id`, `entity`, `episode_id`, `follows`, title, …), not only summary + tags — [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md). Track on **`feature/enrich`**. | Plan in doc; implement on branch. |
+| **Done** | **Extended proposal Enrich:** LLM recommends **full note metadata** (`suggested_frontmatter` — project, `causal_chain_id`, `entity`, `episode_id`, `follows`, title, labels, …). Canister V5 adds `assistant_suggested_frontmatter_json`; gateway `POST /api/v1/proposals/:id/enrich`; Node Hub enrich route; `lib/proposal-enrich-llm.mjs` parse/validate/serialize. See [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md) (status: implemented). | Merged to `main` via `feature/enrich`. |
 | **Done** | **Phase 16 (Stripe billing):** Checkout sessions, Customer Portal, pack purchase webhooks, billing summary, Netlify Blob store, `BILLING_ENFORCE` + `BILLING_SHADOW_LOG` flags. Race condition fix (single `mutateBillingDb` per webhook event). See [PHASE16-STRIPE-BILLING-PLAN.md](./PHASE16-STRIPE-BILLING-PLAN.md). | Complete — test mode live. Switch to live keys + flip `BILLING_ENFORCE=true` after shadow-log review. |
-| **Active** | **Phase 17 (Billing UX + note rendering):** (A) Markdown rendering for note bodies — links, images, formatting; (B) Tier selector UI (Free/Plus/Growth/Pro comparison grid); (C) Operation count metering (searches + index jobs, replacing token counters); (D) Pack card human-readable equivalents. See [PHASE17-BILLING-UX-PLAN.md](./PHASE17-BILLING-UX-PLAN.md). | Branch: `feature/phase17-billing-ux`. |
+| **Done** | **Phase 17 (Billing UX + note rendering)** (PR #93): (A) Markdown rendering — marked + DOMPurify, note read mode; (B) Tier selector — Free/Plus/Growth/Pro comparison grid with checkout wiring; (C) Operation count metering — searches + index jobs counters in billing middleware and Hub UI; (D) Pack card human-readable equivalents. See [PHASE17-BILLING-UX-PLAN.md](./PHASE17-BILLING-UX-PLAN.md). | Merged to `main`. |
 | **Planned** | **Phase 18 (Native media upload):** In-Hub image/file upload for users without external hosting. Storage layer: Cloudflare R2 or GitHub commit to user's own repo. Upload UI + URL insertion into note body. Prerequisite: Phase 17A (markdown rendering) must ship first so uploaded images actually render. | After Phase 17 complete. |
-| **Active** | **Phase 12A (Blockchain frontmatter + agent wallet records):** Optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`, `air_id`); list-notes + MCP filters; Hub Network + Wallet dropdowns + payment_status Quick chips; hosted facets; keyword search scope. See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Branch: `feature/phase12-blockchain-frontmatter`. No canister redeploy needed. |
-| **Planned** | **Phase 12B (Blockchain remainder):** (1) Wallet/transaction history CSV import (`wallet-csv` source type — column mapping, dedup by `tx_hash`, generic + named parsers); (2) AIR on-chain backend — ICP attestation canister as tamper-evident backing store (AIR D+E now complete). See [PHASE12B-BLOCKCHAIN-REMAINDER.md](./PHASE12B-BLOCKCHAIN-REMAINDER.md). | Branch: `feature/phase12b-blockchain-remainder`. Start after 12A merges. |
+| **Done** | **Phase 12A (Blockchain frontmatter + agent wallet records)** (PR #94): Optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`, `air_id`); list-notes + MCP filters; Hub Network + Wallet dropdowns + payment_status Quick chips; hosted facets; keyword search covers `network`, `wallet_address`, `tx_hash`, `payment_status`, `currency`, `direction`, `air_id`. See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Merged to `main`. |
+| **Done** | **Phase 12B (Blockchain remainder)** (PR #95): (1) Wallet/transaction history CSV import (`wallet-csv` source type — Kraken, Binance, MetaMask, Phantom, Ledger Live normalisers; column mapping, dedup by `tx_hash`, `lib/importers/wallet-csv.mjs`); (2) AIR on-chain backend — ICP attestation canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed (AIR Improvement E, PR #99). See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Merged to `main`. |
 | **Done** | **AIR Improvements (A–E) — complete:** ✅ (A) Store `air_id` in frontmatter (PR #96). ✅ (B) Gateway AIR for hosted writes (PR #96). ✅ (C) `air.required` hard-fail (PR #96). ✅ (D) Built-in Netlify endpoint (PR #97). ✅ (E) ICP blockchain anchor (PR #99) — canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed and authorized. See [AIR-IMPROVEMENTS-PLAN.md](./AIR-IMPROVEMENTS-PLAN.md). | All merged to `main`. |
 | **Later** | **MCP D2/D3, F2–F5** per backlog. | Deferred. |
 
@@ -52,15 +52,24 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 
 ### Recommended path forward (concise)
 
-1. **Core loop (hosted):** Index + search via Hub + bridge — **verified** in production; keep [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 smoke after deploys. **CLI** index/search still recommended for local vaults.
-2. **Hosted import:** **Shipped and verified** on production (2026-03). **Spec:** [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md), [PARITY-PLAN.md](./PARITY-PLAN.md). **Follow-on:** golden / regression coverage for importer edge cases (see eval roadmap in-repo notes).
-3. **Hosted metadata bulk (delete-by-project / rename-project):** Self-hosted **PR #63**; hosted **gateway** in **`hub/gateway/metadata-bulk-canister.mjs`**; Hub client **PR #65** (no hosted-only guard). **Spec:** [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md). **Ops:** redeploy **gateway** and **static Hub**; optional later Motoko-native bulk if needed.
-4. **Billing (Phase 16 completion):** After import parity — Stripe products, webhooks, pack balance, period reset, optional **402** enforcement. **Design:** [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md). Indexing-token **recording + Hub Billing tab** may already be on `main` from the billing merge.
-5. **Multi-vault on hosted:** Phase 15.1 **partition + UI bootstrap** merged (**#46–#48**); **team vault access + scope** in repo ([HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)); **vault delete** merged (**#66**). **Ops:** redeploy gateway + bridge + canister + §5.1 when needed (vault delete needs full stack deploy for prod parity).
-6. **Memory (active):** Expand Phase 8 stub (`data/memory.json` — `last_search`, `last_export` only). Compare file memory vs Mem0 API vs vector-backed snippets; extend CLI `memory` subcommand, MCP tools, hosted path. Branch: `feature/memory-augmentation`.
-7. **Evaluation stage:** Design **status transitions** and permissions (who runs evaluation, who can approve after pass/fail). Implement after the lifecycle is written down.
-8. **Muse thin bridge:** Docs + optional env and small delegation surface; **full Muse domain plugin** remains deferred until a concrete partner or DAG need appears.
-9. **Phase 12 (blockchain / wallets) — optional:** **Read-only** chain context + MCP/tools per [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md); **after** hosted core + import confidence unless a partner forces earlier scope.
+**Completed (1–9):**
+1. ~~Core loop (hosted)~~ — Done. Index + search verified in production.
+2. ~~Hosted import~~ — Done (2026-03). Spec: [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md).
+3. ~~Hosted metadata bulk~~ — Done (PRs #63, #65).
+4. ~~Billing (Phase 16)~~ — Done. Stripe products, webhooks, pack balance, enforcement scaffold.
+5. ~~Multi-vault on hosted~~ — Done (PRs #46–#48, #66). Ops: redeploy as needed.
+6. ~~Evaluation stage~~ — Done. Full lifecycle: `POST /proposals/:id/evaluation`, evaluator role, triggers, rubric, canister V3.
+7. ~~Extended Enrich~~ — Done. LLM `suggested_frontmatter`, canister V5, gateway + Node Hub.
+8. ~~Phase 12A+12B (blockchain)~~ — Done (PRs #94, #95). Frontmatter filters, wallet-csv import, wallet UI.
+9. ~~Phase 17 (Billing UX)~~ — Done (PR #93). Markdown rendering, tier grid, operation metering, pack equivalents.
+10. ~~AIR A–E~~ — Done (PRs #96, #97, #99). Full attestation stack including ICP blockchain anchor.
+
+**Active / next:**
+11. **Memory augmentation (active):** Expand Phase 8 stub (`data/memory.json` — `last_search`, `last_export` only). Compare file memory vs Mem0 API vs vector-backed snippets; extend CLI `memory` subcommand, MCP tools, hosted path. Branch: `feature/memory-augmentation`.
+12. **Phase 18 (Native media upload):** In-Hub image/file upload, Cloudflare R2 or GitHub commit storage. Prerequisite: Phase 17A (done). After memory ships.
+13. **Muse thin bridge:** Docs + optional env and small delegation surface; deferred until concrete partner or DAG need.
+14. **MCP D2/D3, F2–F5:** Hub MCP gateway, hosted MCP proxy — per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). After stable hosted baseline.
+15. **Ops (ongoing):** Re-verify after deploys — [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5. Switch Stripe to live keys + `BILLING_ENFORCE=true` after shadow-log review.
 
 ### Option B (Muse protocol alignment) — do first
 
@@ -114,15 +123,15 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 - [ ] Canister + gateway: extend `ProposalRecord` / API only after the doc is agreed (avoid churn).
 - [ ] Hub UI: show evaluation badge and block **Approve** until policy satisfied (if that’s the chosen pattern).
 
-### Recommended next steps (after Option B) — updated
+### Recommended next steps — updated (2026-04-03)
 
-1. **Indexing + search verification** — Same as **Recommended path forward** §1; confirm CLI and Hub-hosted (bridge) paths. Parity: [PARITY-PLAN.md](./PARITY-PLAN.md); **hosted metadata bulk** needs **gateway + Hub static** deploy (**PR #65**); **import** on hosted is live when **`BRIDGE_URL`** is set.
-2. **Deploy / re-verify** — After merges: Netlify gateway rebuild; canister only if Motoko changed — [DEPLOY-STEPS-ONE-PAGE.md](./DEPLOY-STEPS-ONE-PAGE.md), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5.
-3. **Memory + Mem0** — Phase 8 file memory + `mem0-export` / optional Mem0 API; see **What we're doing next** table.
-4. **Proposal lifecycle doc** — **Option B+** before canister/UI changes for evaluation.
-5. **Muse thin bridge** — **Option C** docs and optional delegate route when Muse API is stable enough.
+1. ~~Indexing + search verification~~ — Done. Production verified.
+2. ~~Deploy / re-verify~~ — Done (ops ongoing). [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 after each deploy.
+3. **Memory augmentation (active)** — Expand Phase 8 stub; branch `feature/memory-augmentation`. See **Recommended path forward** §11.
+4. ~~Proposal lifecycle~~ — Done. Evaluation stage implemented (canister V3, evaluator role, triggers, rubric).
+5. **Muse thin bridge** — Deferred until concrete partner or DAG need.
 6. **Suggested prompts for agents** (optional) — Hub section or SUGGESTED-AGENT-PROMPTS.md.
-7. **MCP D2/D3, F2–F5** — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) after index/search confidence on hosted. **Issue #2** deferred.
+7. **MCP D2/D3, F2–F5** — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** deferred.
 
 ### Phase 11.1 and follow-on: order and status
 
