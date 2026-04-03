@@ -124,4 +124,4 @@ See **§4** above for when to consider a separate HTTP canister (Rust) vs keepin
 
 ---
 
-**Last updated:** 2026-03-28 — **PR #66** delete non-default vault: status blurb + §2.1 parity row; ops note (canister + bridge + gateway + static Hub). Prior: **PR #65** metadata bulk Hub client; import live with **`BRIDGE_URL`**.
+**Last updated:** 2026-04-03 — **AIR Improvements A–E complete:** PR #96 (A+B+C), PR #97 (D — built-in attestation endpoint), PR #99 (E — ICP blockchain anchor, canister `dejku-syaaa-aaaaa-qgy3q-cai`). All merged to `main`. See [AIR-IMPROVEMENTS-PLAN.md](./AIR-IMPROVEMENTS-PLAN.md). **Next:** Memory augmentation (`feature/memory-augmentation`). Prior: **PR #66** delete non-default vault; **PR #65** metadata bulk Hub client; import live with **`BRIDGE_URL`**.
