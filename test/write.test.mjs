@@ -33,8 +33,8 @@ describe('writeNote', () => {
     }
   });
 
-  it('writes a new note and returns path and written: true', () => {
-    const result = writeNote(testVault, 'inbox/new-note.md', {
+  it('writes a new note and returns path and written: true', async () => {
+    const result = await writeNote(testVault, 'inbox/new-note.md', {
       body: '# New\n\nContent.',
       frontmatter: { title: 'New Note', date: '2025-03-12' },
     });
@@ -46,25 +46,25 @@ describe('writeNote', () => {
     assert.strictEqual(read.frontmatter?.title, 'New Note');
   });
 
-  it('updates existing note when body/frontmatter provided without append', () => {
-    writeNote(testVault, 'inbox/update.md', { body: 'First', frontmatter: { date: '2025-01-01' } });
-    const result = writeNote(testVault, 'inbox/update.md', { body: 'Second', frontmatter: { date: '2025-02-01' } });
+  it('updates existing note when body/frontmatter provided without append', async () => {
+    await writeNote(testVault, 'inbox/update.md', { body: 'First', frontmatter: { date: '2025-01-01' } });
+    const result = await writeNote(testVault, 'inbox/update.md', { body: 'Second', frontmatter: { date: '2025-02-01' } });
     assert.strictEqual(result.written, true);
     const read = readNote(testVault, 'inbox/update.md');
     assert.strictEqual(read.body.trim(), 'Second');
     assert.strictEqual(read.frontmatter?.date, '2025-02-01');
   });
 
-  it('append option appends to body', () => {
-    writeNote(testVault, 'inbox/append.md', { body: 'Part one.\n\n' });
-    writeNote(testVault, 'inbox/append.md', { body: 'Part two.', append: true });
+  it('append option appends to body', async () => {
+    await writeNote(testVault, 'inbox/append.md', { body: 'Part one.\n\n' });
+    await writeNote(testVault, 'inbox/append.md', { body: 'Part two.', append: true });
     const read = readNote(testVault, 'inbox/append.md');
     assert(read.body.includes('Part one.'));
     assert(read.body.includes('Part two.'));
   });
 
-  it('throws for path that escapes vault', () => {
-    assert.throws(
+  it('throws for path that escapes vault', async () => {
+    await assert.rejects(
       () => writeNote(testVault, '../../../etc/foo.md', { body: 'x' }),
       /Invalid path|escapes vault/
     );
@@ -85,8 +85,8 @@ describe('deleteNote', () => {
     }
   });
 
-  it('removes an existing file and returns path and deleted: true', () => {
-    writeNote(testVault, 'inbox/to-delete.md', { body: 'x', frontmatter: { date: '2025-01-01' } });
+  it('removes an existing file and returns path and deleted: true', async () => {
+    await writeNote(testVault, 'inbox/to-delete.md', { body: 'x', frontmatter: { date: '2025-01-01' } });
     const result = deleteNote(testVault, 'inbox/to-delete.md');
     assert.strictEqual(result.path, 'inbox/to-delete.md');
     assert.strictEqual(result.deleted, true);
@@ -134,10 +134,10 @@ describe('deleteNotesByPrefix', () => {
     assert.strictEqual(notePathMatchesPrefix('other/foo.md', 'projects/foo'), false);
   });
 
-  it('deletes all .md under prefix and returns paths', () => {
-    writeNote(testVault, 'projects/p1/a.md', { body: 'a' });
-    writeNote(testVault, 'projects/p1/sub/b.md', { body: 'b' });
-    writeNote(testVault, 'projects/p2/keep.md', { body: 'k' });
+  it('deletes all .md under prefix and returns paths', async () => {
+    await writeNote(testVault, 'projects/p1/a.md', { body: 'a' });
+    await writeNote(testVault, 'projects/p1/sub/b.md', { body: 'b' });
+    await writeNote(testVault, 'projects/p2/keep.md', { body: 'k' });
     const { deleted, paths } = deleteNotesByPrefix(testVault, 'projects/p1');
     assert.strictEqual(deleted, 2);
     assert.strictEqual(paths.length, 2);
