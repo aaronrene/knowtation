@@ -16,6 +16,7 @@ import { completeChat } from '../../lib/llm-complete.mjs';
 import { runExtractTasks } from '../../lib/extract-tasks.mjs';
 import { runCluster } from '../../lib/cluster-semantic.mjs';
 import { runTagSuggest } from '../../lib/tag-suggest.mjs';
+import { trySampling } from '../sampling.mjs';
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -23,46 +24,6 @@ function jsonResponse(obj) {
 
 function jsonError(msg, code = 'ERROR') {
   return { content: [{ type: 'text', text: JSON.stringify({ error: msg, code }) }], isError: true };
-}
-
-/** @param {unknown} result @returns {string} */
-function samplingResultToText(result) {
-  const c = result?.content;
-  if (!c) return '';
-  if (typeof c === 'object' && !Array.isArray(c) && c.type === 'text' && typeof c.text === 'string') {
-    return c.text;
-  }
-  if (Array.isArray(c)) {
-    return c
-      .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
-      .map((b) => b.text)
-      .join('\n');
-  }
-  return '';
-}
-
-/**
- * Phase F1 — delegate summarization to the MCP host LLM when `sampling` is available.
- * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} mcpServer
- * @param {{ system: string, user: string, maxTokens: number }} opts
- * @returns {Promise<string | null>} trimmed text, or null to fall back to server-side LLM
- */
-async function trySamplingSummarize(mcpServer, opts) {
-  const caps = mcpServer.server.getClientCapabilities?.();
-  if (!caps?.sampling) return null;
-  const maxTokens = Math.max(1, Math.min(8192, Math.floor(opts.maxTokens)));
-  try {
-    const result = await mcpServer.server.createMessage({
-      systemPrompt: opts.system,
-      messages: [{ role: 'user', content: { type: 'text', text: opts.user } }],
-      maxTokens,
-      includeContext: 'none',
-    });
-    const text = samplingResultToText(result).trim();
-    return text.length > 0 ? text : null;
-  } catch (_) {
-    return null;
-  }
 }
 
 /**
@@ -219,7 +180,7 @@ export function registerPhaseCTools(server) {
         const system = `You summarize vault notes faithfully. Output style: ${style}. Max approximately ${mw} words.`;
         const user = `Summarize the following markdown note(s):\n\n${combined}`;
         const maxTokens = Math.min(1024, Math.floor(mw * 2));
-        let summary = await trySamplingSummarize(server, { system, user, maxTokens });
+        let summary = await trySampling(server, { system, user, maxTokens });
         if (summary == null) {
           summary = await completeChat(config, { system, user, maxTokens });
         }

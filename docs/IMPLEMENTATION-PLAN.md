@@ -46,7 +46,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **Done** | **Phase 12A (Blockchain frontmatter + agent wallet records)** (PR #94): Optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`, `air_id`); list-notes + MCP filters; Hub Network + Wallet dropdowns + payment_status Quick chips; hosted facets; keyword search covers `network`, `wallet_address`, `tx_hash`, `payment_status`, `currency`, `direction`, `air_id`. See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Merged to `main`. |
 | **Done** | **Phase 12B (Blockchain remainder)** (PR #95): (1) Wallet/transaction history CSV import (`wallet-csv` source type — Kraken, Binance, MetaMask, Phantom, Ledger Live normalisers; column mapping, dedup by `tx_hash`, `lib/importers/wallet-csv.mjs`); (2) AIR on-chain backend — ICP attestation canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed (AIR Improvement E, PR #99). See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Merged to `main`. |
 | **Done** | **AIR Improvements (A–E) — complete:** ✅ (A) Store `air_id` in frontmatter (PR #96). ✅ (B) Gateway AIR for hosted writes (PR #96). ✅ (C) `air.required` hard-fail (PR #96). ✅ (D) Built-in Netlify endpoint (PR #97). ✅ (E) ICP blockchain anchor (PR #99) — canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed and authorized. See [AIR-IMPROVEMENTS-PLAN.md](./AIR-IMPROVEMENTS-PLAN.md). | All merged to `main`. |
-| **Later** | **MCP D2/D3, F2–F5** per backlog. | Deferred. |
+| **Done** | **MCP D2/D3, F2–F5** — Hub MCP gateway (D2), OAuth 2.1 (D3), sampling tools (F2–F5). | `feature/mcp-supercharge` branch. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
 
@@ -68,7 +68,7 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 11. ~~**Memory augmentation**~~ — Done (`feature/memory-augmentation`). **Phase 1:** Three-tier provider architecture (file / vector / mem0); JSONL event log + state overlay; 11 event types; CLI 7 subcommands; 5 MCP tools + resources; auto-capture; hosted path; secret detection + privacy controls. **Phase 2:** Retention enforcement (throttled pruning); cross-vault memory (`scope: vault|global`); Mem0 import enrichment; 3 memory-aware MCP prompts (`memory-context`, `memory-informed-search`, `resume-session`); LLM session summaries (`memory summarize` CLI + `memory_summarize` MCP tool); AES-256-GCM encrypted memory at rest (`memory.encrypt: true`); Supabase provider with pgvector + migration SQL + `supabase-memory` import type. 112 tests across 4 test files. See `docs/MEMORY-AUGMENTATION-PLAN.md`.
 12. **Phase 18 (Native media upload):** In-Hub image/file upload, Cloudflare R2 or GitHub commit storage. Prerequisite: Phase 17A (done). After memory ships.
 13. **Muse thin bridge:** Docs + optional env and small delegation surface; deferred until concrete partner or DAG need.
-14. **MCP D2/D3, F2–F5:** Hub MCP gateway, hosted MCP proxy — per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). After stable hosted baseline.
+14. **MCP D2/D3, F2–F5:** ✅ Hub MCP gateway (`/mcp` endpoint, session pool, role ACL), OAuth 2.1 (`KnowtationOAuthProvider`), sampling tools (enrich, rerank, prefill, index-enrich). See [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
 15. **Ops (ongoing):** Re-verify after deploys — [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5. Switch Stripe to live keys + `BILLING_ENFORCE=true` after shadow-log review.
 
 ### Option B (Muse protocol alignment) — do first
@@ -131,7 +131,7 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 4. ~~Proposal lifecycle~~ — Done. Evaluation stage implemented (canister V3, evaluator role, triggers, rubric).
 5. **Muse thin bridge** — Deferred until concrete partner or DAG need.
 6. **Suggested prompts for agents** (optional) — Hub section or SUGGESTED-AGENT-PROMPTS.md.
-7. **MCP D2/D3, F2–F5** — [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** deferred.
+7. **MCP D2/D3, F2–F5** — ✅ Complete. [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** deferred.
 
 ### Phase 11.1 and follow-on: order and status
 
@@ -437,9 +437,11 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 - **Issue #1 Phase E (subscriptions + watcher):** `mcp/resource-subscriptions.mjs` — `resources/subscribe` / `unsubscribe`, chokidar on `vault_path`, debounced `notifications/resources/updated` and `list_changed`; `index` tool notifies index/tags/projects/graph URIs when subscribed.
 - **Issue #1 Phase H (progress + logging):** `mcp/tool-telemetry.mjs`; `McpServer` with `capabilities.logging`; `index` / `import` use `_meta.progressToken` + `onProgress` in `lib/indexer.mjs` and markdown importer; structured `notifications/message` for index/import/write.
 - **Issue #1 Phase B (prompts):** `mcp/prompts/register.mjs` + `helpers.mjs` — ten prompts (daily-brief, search-and-synthesize, project-summary, write-from-capture, temporal-summary, extract-entities, meeting-notes, knowledge-gap, causal-chain, content-plan); `listNotesForCausalChainId` in `mcp/resources/graph.mjs`.
-- **Issue #1 Phase D1 (Streamable HTTP):** `mcp/http-server.mjs`, `mcp/create-server.mjs` (shared mount), `mcp/stdio-main.mjs`, `mcp/server.mjs` transport switch; `config.mcp.http_port` / `http_host`; `express` dependency. D2/D3 (Hub + OAuth) not implemented.
+- **Issue #1 Phase D1 (Streamable HTTP):** `mcp/http-server.mjs`, `mcp/create-server.mjs` (shared mount), `mcp/stdio-main.mjs`, `mcp/server.mjs` transport switch; `config.mcp.http_port` / `http_host`; `express` dependency.
+- **Issue #1 Phase D2 (Hub MCP gateway):** `hub/gateway/mcp-proxy.mjs` — Express router for `/mcp` with JWT auth, per-user session pool (max 5, 30-min TTL), rate limiting (60 req/min). `hub/gateway/mcp-hosted-server.mjs` — per-session McpServer with canister/bridge-backed tools. `hub/gateway/mcp-tool-acl.mjs` — role-based tool filtering (viewer/editor/admin).
+- **Issue #1 Phase D3 (OAuth 2.1):** `hub/gateway/mcp-oauth-provider.mjs` — `KnowtationOAuthProvider` implementing `OAuthServerProvider` from MCP SDK. Dynamic client registration (in-memory), PKCE authorization flow via Hub OAuth, MCP-scoped JWT access tokens. Mounted via `mcpAuthRouter` in gateway. Auth callbacks extended for MCP state passthrough.
 - **Issue #1 Phase G (scope / roots alignment):** `mcp/server-instructions.mjs` — initialize `instructions` with plain language + `file://` URIs for vault and data_dir (multi-vault lines when configured); after `initialized`, optional `roots/list` + structured log when the client supports roots.
-- **Issue #1 Phase F1 (sampling — summarize):** `mcp/tools/phase-c.mjs` — when the MCP client advertises `sampling`, `summarize` uses `Server#createMessage` (`sampling/createMessage`); otherwise existing `completeChat` (Ollama/OpenAI). F2–F5 backlog in [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
+- **Issue #1 Phase F1–F5 (sampling):** `mcp/sampling.mjs` — generic `trySampling()` and `trySamplingJson()` helpers. F1: `summarize` in `phase-c.mjs` (refactored to use shared helper). F2: `enrich` tool in `mcp/tools/enrich.mjs` (auto-tag, categorize, title via sampling). F3: index enrichment in `mcp/tools/index-enrich.mjs` (opt-in `--enrich` flag). F4: search reranking in `mcp/tools/sampling-rerank.mjs` (post-search LLM rerank). F5: prompt prefill in `mcp/prompts/helpers.mjs` (`maybeAppendSamplingPrefill`).
 - `lib/list-notes.mjs`: Extracted `runListNotes(config, options)` for single backend; CLI and MCP both use it.
 - CLI `knowtation mcp`: Starts MCP server; `npm run mcp` runs `node mcp/server.mjs`.
 - Tools map to CLI args; outputs match CLI `--json` shapes. Memory and AIR hooks preserved where applicable.

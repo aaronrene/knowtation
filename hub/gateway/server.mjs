@@ -221,10 +221,17 @@ app.get('/api/v1/auth/providers', (_req, res) => {
 });
 
 // Auth: login redirect — plan routes GET /auth/login, GET /auth/callback/google|github. Preserve invite in state for post-login redirect.
+// Phase D3: mcp_state query param is passed through OAuth state for MCP authorization flow.
 app.get('/auth/login', (req, res, next) => {
   const provider = (req.query.provider || 'google').toLowerCase();
   const invite = typeof req.query.invite === 'string' ? req.query.invite.trim() : '';
-  const state = invite || undefined;
+  const mcpState = typeof req.query.mcp_state === 'string' ? req.query.mcp_state.trim() : '';
+  let state;
+  if (mcpState) {
+    state = `mcp:${mcpState}`;
+  } else {
+    state = invite || undefined;
+  }
   if (provider === 'google' && process.env.GOOGLE_CLIENT_ID) {
     return passport.authenticate('google', { scope: ['profile'], state })(req, res, next);
   }
@@ -246,6 +253,12 @@ app.get(
   '/auth/callback/google',
   passport.authenticate('google', { session: false }),
   (req, res) => {
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    if (state.startsWith('mcp:') && app._mcpOAuthProvider) {
+      const sub = userId(req.user);
+      if (!sub) return res.status(401).json({ error: 'auth_failed' });
+      return app._mcpOAuthProvider.completeMcpAuthorization(state.slice(4), sub, res);
+    }
     const token = issueToken(req.user);
     res.redirect(postLoginRedirect(token, req));
   }
@@ -254,6 +267,12 @@ app.get(
   '/auth/callback/github',
   passport.authenticate('github', { session: false }),
   (req, res) => {
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    if (state.startsWith('mcp:') && app._mcpOAuthProvider) {
+      const sub = userId(req.user);
+      if (!sub) return res.status(401).json({ error: 'auth_failed' });
+      return app._mcpOAuthProvider.completeMcpAuthorization(state.slice(4), sub, res);
+    }
     const token = issueToken(req.user);
     res.redirect(postLoginRedirect(token, req));
   }
@@ -267,6 +286,57 @@ app.get('/api/v1/auth/login', (req, res) => {
   if (invite) url += '&invite=' + encodeURIComponent(invite);
   res.redirect(url);
 });
+
+// Phase D2/D3: MCP gateway + OAuth 2.1.
+// MCP requires stateful sessions (SSE, session pool) that are incompatible with Netlify's
+// serverless function model (26s timeout, no shared memory between invocations).
+// On Netlify, only the OAuth discovery endpoints are mounted (lightweight, stateless).
+// The full /mcp session endpoint requires a persistent Express server (local dev, Docker, VPS,
+// or a dedicated MCP host like Railway/Fly.io). See docs/BACKLOG-MCP-SUPERCHARGE.md.
+if (SESSION_SECRET && !process.env.NETLIFY) {
+  import('./mcp-oauth-provider.mjs').then(async ({ KnowtationOAuthProvider }) => {
+    const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
+    const oauthProvider = new KnowtationOAuthProvider({
+      sessionSecret: SESSION_SECRET,
+      baseUrl: BASE_URL,
+    });
+    app._mcpOAuthProvider = oauthProvider;
+    app.use(mcpAuthRouter({
+      provider: oauthProvider,
+      issuerUrl: new URL(BASE_URL),
+      scopesSupported: ['vault:read', 'vault:write', 'vault:admin'],
+    }));
+    console.log('[gateway] MCP OAuth 2.1 endpoints mounted');
+  }).catch((e) => {
+    console.error('[gateway] MCP OAuth router failed to load:', e.message || e);
+  });
+} else if (SESSION_SECRET && process.env.NETLIFY) {
+  console.log('[gateway] MCP OAuth/session endpoints skipped on Netlify (stateful sessions require persistent server)');
+}
+
+if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
+  import('./mcp-proxy.mjs').then(({ createMcpProxyRouter }) => {
+    const mcpRouter = createMcpProxyRouter({
+      getUserId,
+      getHostedAccessContext,
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+      sessionSecret: SESSION_SECRET || '',
+    });
+    app.use('/mcp', mcpRouter);
+    console.log('[gateway] MCP endpoint mounted at /mcp');
+  }).catch((e) => {
+    console.error('[gateway] MCP proxy failed to load:', e.message || e);
+  });
+} else if (process.env.NETLIFY) {
+  app.all('/mcp', (_req, res) => {
+    res.status(503).json({
+      error: 'MCP endpoint requires a persistent server. Connect to the dedicated MCP host or use self-hosted deployment.',
+      code: 'MCP_NETLIFY_UNSUPPORTED',
+      docs: 'https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md',
+    });
+  });
+}
 
 // Connect GitHub + Back up now: proxy to bridge when BRIDGE_URL is set (single origin for UI)
 if (BRIDGE_URL) {

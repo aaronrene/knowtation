@@ -41,13 +41,26 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 
 ## 2. MCP (Cursor, Claude Code, etc.)
 
-- **Start:** `knowtation mcp` (stdio transport).
-- **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. Same filters and JSON shapes. The **`search`** tool accepts **`mode`: `semantic` (default) or `keyword`** plus optional **`match`** (`phrase` \| `all_terms`) for keyword mode, aligned with `POST /api/v1/search`.
-- **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant’s context matches Knowtation.
-- **Summarize (Phase F1):** The **`summarize`** tool uses the host’s LLM when the client supports **sampling**; otherwise it uses Ollama/OpenAI on the machine running Knowtation. See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
+- **Start:** `knowtation mcp` (stdio transport) or `MCP_TRANSPORT=http knowtation mcp` (Streamable HTTP, default port 3334).
+- **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. Same filters and JSON shapes. The **`search`** tool accepts **`mode`: `semantic` (default) or `keyword`** plus optional **`match`** (`phrase` \| `all_terms`) for keyword mode, aligned with `POST /api/v1/search`. The search tool also supports **`rerank`** (Phase F4) — when the client supports sampling, results are reranked by the client LLM for better relevance.
+- **Enrich (Phase F2):** The **`enrich`** tool auto-categorizes a note: suggests project slug, tags, and title via sampling (client LLM) or server-side LLM fallback. Use `apply: true` to write suggestions to frontmatter.
+- **Index enrichment (Phase F3):** The **`index`** tool accepts `enrich: true` to generate per-note AI summaries after indexing (opt-in, expensive). Summaries are stored in `ai_summary` frontmatter.
+- **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant's context matches Knowtation.
+- **Sampling (Phase F1–F5):** Tools that benefit from LLM intelligence (`summarize`, `enrich`, `search` rerank) delegate to the host's LLM when the client supports **sampling**; otherwise they use Ollama/OpenAI on the server. Prompts (`search-and-synthesize`, `project-summary`, `knowledge-gap`) may include a sampling-based assistant prefill (Phase F5). See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
 - **Use case:** When the agent runtime speaks MCP; no need to shell out to CLI.
 
 See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
+
+### Hosted MCP (Phase D2/D3)
+
+Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hub's MCP endpoint:
+
+- **Endpoint:** `POST /mcp` on the Hub gateway (e.g. `https://hub.example.com/mcp`).
+- **Auth:** OAuth 2.1 (Phase D3) via dynamic client registration + PKCE flow. Discovery: `GET /.well-known/oauth-authorization-server`. Or pass a Hub JWT as `Authorization: Bearer <token>`.
+- **Session management:** Each authenticated user gets an isolated MCP session with role-based tool access (viewer: read-only; editor: + write; admin: + index/export/import). Sessions auto-expire after 30 min inactivity. Max 5 per user.
+- **Rate limiting:** 60 requests/min per user on the `/mcp` endpoint.
+- **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
+- **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
 
 ---
 

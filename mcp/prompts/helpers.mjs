@@ -1,9 +1,10 @@
 /**
- * Shared helpers for MCP prompts (Issue #1 Phase B).
+ * Shared helpers for MCP prompts (Issue #1 Phase B + F5 prefill).
  */
 
 import { readNote } from '../../lib/vault.mjs';
 import { noteToMarkdown } from '../resources/note.mjs';
+import { trySampling } from '../sampling.mjs';
 
 export const MAX_EMBEDDED_NOTES = 12;
 export const MAX_ENTITY_NOTES = 20;
@@ -108,4 +109,40 @@ export async function formatMemoryEventsAsync(config, opts = {}) {
   } catch (_) {
     return { text: '(Memory not available.)', count: 0 };
   }
+}
+
+/**
+ * Phase F5 — attempt to prefill the assistant turn via sampling.
+ * Extracts the last user-role text from the messages array and asks the client
+ * LLM for a draft response. Returns the original result with an appended assistant
+ * message when sampling succeeds; otherwise returns it unchanged.
+ *
+ * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} mcpServer
+ * @param {{ description?: string, messages: Array<{ role: string, content: unknown }> }} promptResult
+ * @returns {Promise<{ description?: string, messages: Array<{ role: string, content: unknown }> }>}
+ */
+export async function maybeAppendSamplingPrefill(mcpServer, promptResult) {
+  if (!promptResult || !Array.isArray(promptResult.messages) || promptResult.messages.length === 0) {
+    return promptResult;
+  }
+  const lastAssistant = promptResult.messages[promptResult.messages.length - 1];
+  if (lastAssistant?.role === 'assistant') return promptResult;
+
+  const userMessages = promptResult.messages.filter((m) => m.role === 'user');
+  if (userMessages.length === 0) return promptResult;
+
+  const last = userMessages[userMessages.length - 1];
+  const userText = typeof last.content === 'string'
+    ? last.content
+    : last.content?.type === 'text' ? last.content.text : null;
+  if (!userText) return promptResult;
+
+  const system = 'You are a helpful knowledge assistant. Provide a thorough but concise draft response to the following prompt. The user will refine your draft.';
+  const draft = await trySampling(mcpServer, { system, user: userText.slice(0, 16000), maxTokens: 1024 });
+  if (!draft) return promptResult;
+
+  return {
+    ...promptResult,
+    messages: [...promptResult.messages, { role: 'assistant', content: textContent(draft) }],
+  };
 }
