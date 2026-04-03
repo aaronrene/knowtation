@@ -40,7 +40,7 @@ import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
-import { isAttestationConfigured, createAttestation, verifyAttestation } from './attest-store.mjs';
+import { isAttestationConfigured, createAttestation, verifyAttestation, verifyWithIcp, anchorPendingAttestations } from './attest-store.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -1588,6 +1588,57 @@ app.get('/api/v1/attest/:id', async (req, res) => {
   } catch (e) {
     console.error('[gateway] GET /api/v1/attest/:id error:', e?.message || e);
     return res.status(500).json({ error: 'Verification failed', code: 'INTERNAL_ERROR' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AIR Improvement E — ICP blockchain anchor verification + reconciliation
+// ---------------------------------------------------------------------------
+
+app.get('/api/v1/attest/:id/verify', async (req, res) => {
+  if (!isAttestationConfigured()) {
+    return res.status(503).json({
+      error: 'Attestation service not configured (ATTESTATION_SECRET missing or too short).',
+      code: 'NOT_CONFIGURED',
+    });
+  }
+  const id = req.params.id;
+  if (!id || !id.startsWith('air-')) {
+    return res.status(400).json({ error: 'Invalid attestation id format', code: 'BAD_REQUEST' });
+  }
+  try {
+    const result = await verifyWithIcp(id);
+    if (!result.sources.blobs.found && !result.sources.icp.found) {
+      return res.status(404).json({ error: 'Attestation not found', code: 'NOT_FOUND', ...result });
+    }
+    return res.json(result);
+  } catch (e) {
+    console.error('[gateway] GET /api/v1/attest/:id/verify error:', e?.message || e);
+    return res.status(500).json({ error: 'Verification failed', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.post('/api/v1/attest/anchor-pending', requireAdmin, async (req, res) => {
+  if (!isAttestationConfigured()) {
+    return res.status(503).json({
+      error: 'Attestation service not configured (ATTESTATION_SECRET missing or too short).',
+      code: 'NOT_CONFIGURED',
+    });
+  }
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const ids = Array.isArray(body.ids) ? body.ids.filter((x) => typeof x === 'string' && x.startsWith('air-')) : [];
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'ids array with air-* entries is required', code: 'BAD_REQUEST' });
+  }
+  if (ids.length > 100) {
+    return res.status(400).json({ error: 'Maximum 100 IDs per batch', code: 'BAD_REQUEST' });
+  }
+  try {
+    const result = await anchorPendingAttestations(ids);
+    return res.json(result);
+  } catch (e) {
+    console.error('[gateway] POST /api/v1/attest/anchor-pending error:', e?.message || e);
+    return res.status(500).json({ error: 'Anchor failed', code: 'INTERNAL_ERROR' });
   }
 });
 

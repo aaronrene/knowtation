@@ -61,6 +61,11 @@ The gateway strips `/.netlify/functions/gateway` from `req.url` when present so 
 - `HUB_ADMIN_USER_IDS` (optional) — Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** on hosted; everyone else gets **member**. Enables Edit and Team tab for designated admins. See [hub/gateway/README.md](../hub/gateway/README.md).
 - **Proposal LLM (optional):** `KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1` — async review hints after create (gateway → canister). `KNOWTATION_HUB_PROPOSAL_ENRICH=1` — **`POST /api/v1/proposals/:id/enrich`** on the gateway (LLM + canister write). Requires a **reachable** chat API on the gateway host (**`OPENAI_API_KEY`**, or **`ANTHROPIC_API_KEY`**, not localhost Ollama on Netlify). **Deploy the `hub` canister** from this repo **before** enabling hosted Enrich so stable storage includes enrich fields: **V4** added base enrich columns; **V5** adds **`assistant_suggested_frontmatter_json`** for structured suggested metadata. Canisters still on pre–V4 storage must upgrade through a release that runs the **V4** migration first, then **V5** (see [hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo)). See [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md).
 - **AIR attestation (optional):** `ATTESTATION_SECRET` — signing secret for the built-in attestation endpoint (32+ characters, never committed). When set, the gateway auto-configures `KNOWTATION_AIR_ENDPOINT` to its own `POST /api/v1/attest` route. All note writes through the gateway are then attested: each write receives a unique `air_id` backed by an HMAC-SHA256 signed record stored in Netlify Blobs. Verify any attestation via `GET /api/v1/attest/:id`. If `KNOWTATION_AIR_ENDPOINT` is also set explicitly, the explicit value takes precedence (use this to point at an external attestation service instead of the built-in one). See [AIR-IMPROVEMENTS-PLAN.md](./AIR-IMPROVEMENTS-PLAN.md) §D.
+- **AIR ICP blockchain anchor (optional, requires Improvement D):** Anchors every attestation record on an immutable ICP canister. Once anchored, records cannot be altered or deleted — even by the operator. Third parties can verify directly on-chain. See [AIR-IMPROVEMENTS-PLAN.md](./AIR-IMPROVEMENTS-PLAN.md) §E.
+  - `ICP_ATTESTATION_CANISTER_ID` — the attestation canister Principal on ICP mainnet (deployed separately, see §5.2 below).
+  - `ICP_ATTESTATION_KEY` — 32-byte hex seed for the gateway's Secp256k1 identity. Generate: `openssl rand -hex 32`. **Never commit.**
+  - When both are set, every `POST /api/v1/attest` call dual-writes to Blobs (fast) and the ICP canister (1–3 s, best-effort with timeout). Verify via `GET /api/v1/attest/:id/verify` which checks both sources and returns a `consensus` field (`match`, `mismatch`, `icp_pending`, etc.).
+  - When either is unset, the system operates exactly as Improvement D (Blobs-only). No ICP calls are made.
 
 **Bridge env (production):**
 
@@ -122,6 +127,7 @@ Use this list **before first launch** and **again after** any production env cha
 - [ ] No secrets or credentials in repo or client bundle.
 - [ ] **Settings → Backup → project slug:** **Gateway** must include metadata bulk handlers; **static Hub** (`web/hub`) must include **PR #65** so the client does not block `POST /notes/delete-by-project` or `rename-project` on hosted. Then **Delete by project (metadata)** and **Rename project** work (confirm with a test vault; **Re-index** afterward if you rely on semantic search — see [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md)).
 - [ ] **AIR attestation (if desired):** `ATTESTATION_SECRET` set on the gateway site (32+ chars). After deploy, verify: `curl -X POST <gateway>/api/v1/attest -H 'Content-Type: application/json' -d '{"action":"write","path":"test/check.md"}'` returns `{ "id": "air-...", "timestamp": "..." }`; then `curl <gateway>/api/v1/attest/<id>` returns `{ "verified": true, ... }`.
+- [ ] **AIR ICP anchor (if desired):** attestation canister deployed (§5.2), `ICP_ATTESTATION_CANISTER_ID` + `ICP_ATTESTATION_KEY` set on gateway. After deploy, create an attestation and verify: `curl <gateway>/api/v1/attest/<id>/verify` returns `{ "consensus": "match", ... }`.
 
 ### 5.0 Post-merge canister upgrade (auto Netlify + 4Everland on `main`)
 
@@ -171,6 +177,66 @@ Run these **after** `hub/icp` is deployed from the current repo (partitioned sto
 **Automation (optional):** `npm run smoke:hosted-multi-vault` with **`CANISTER_URL`** (and **`X_TEST_USER`** or **`HUB_GATEWAY_URL` + `HUB_SMOKE_TOKEN`**) — see [scripts/smoke-hosted-multi-vault.mjs](../scripts/smoke-hosted-multi-vault.mjs).
 
 **Recorded read-only sample (2026-03-24):** `GET https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` → **200**, `{"ok":true}` (same canister id as in [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §1). Mutation checks (§5.1 steps 1–5) must be run by an operator after each relevant deploy; do not point **`smoke:hosted-multi-vault`** at production unless you intend to write test notes.
+
+### 5.2 Attestation canister deploy (AIR Improvement E)
+
+The attestation canister is **separate** from the hub canister — it stores immutable attestation records on-chain. Deploy only when you want ICP-backed tamper-evidence for attestations.
+
+**Prerequisites:** `dfx` installed, mainnet deploy identity available, `ATTESTATION_SECRET` already working on the gateway (Improvement D).
+
+1. **Generate a gateway identity key** (one-time):
+   ```bash
+   openssl rand -hex 32
+   ```
+   Save this as `ICP_ATTESTATION_KEY` in your `.env` (never commit) and on the Netlify gateway site.
+
+2. **Get the gateway's ICP Principal:**
+   ```bash
+   ICP_ATTESTATION_KEY=<your-hex-key> node scripts/icp-attestation-principal.mjs
+   ```
+   Note the printed principal (e.g. `fhaxy-l6y4l-...`).
+
+3. **Deploy the canister:**
+   ```bash
+   cd hub/icp
+   dfx identity use <your-deploy-identity>
+   dfx deploy attestation --network ic
+   ```
+
+4. **Record the canister ID:**
+   ```bash
+   dfx canister id attestation --network ic
+   ```
+   Add to `hub/icp/canister_ids.json` under `"attestation": { "ic": "<id>" }`.
+
+5. **Authorize the gateway identity:**
+   ```bash
+   dfx canister call attestation setAuthorizedCallers \
+     '(vec { principal "<principal-from-step-2>" })' --network ic
+   ```
+
+6. **Set gateway env vars** on Netlify:
+   - `ICP_ATTESTATION_CANISTER_ID=<canister-id-from-step-4>`
+   - `ICP_ATTESTATION_KEY=<hex-key-from-step-1>`
+
+7. **Verify end-to-end:**
+   ```bash
+   # Create an attestation
+   curl -X POST https://<gateway>/api/v1/attest \
+     -H 'Content-Type: application/json' \
+     -d '{"action":"write","path":"test/e2e.md"}'
+   # → { "id": "air-...", "timestamp": "...", "icp_status": "anchored" }
+
+   # Verify against both sources
+   curl https://<gateway>/api/v1/attest/<id>/verify
+   # → { "consensus": "match", "sources": { "blobs": {...}, "icp": {...} } }
+
+   # Verify directly on the canister (no gateway needed)
+   curl https://<canister-id>.ic0.app/attest/<id>
+   # → { "id": "air-...", "seq": 0, "stored_at": "..." }
+   ```
+
+**Self-hosted (no Netlify):** The same steps apply. The attestation canister is on ICP regardless of where the gateway runs. Blob storage falls back to a local JSON file (`data/hosted_attestations.json`). The ICP anchor works the same way.
 
 ---
 

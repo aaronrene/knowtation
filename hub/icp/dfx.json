@@ -4,6 +4,10 @@
     "hub": {
       "type": "motoko",
       "main": "src/hub/main.mo"
+    },
+    "attestation": {
+      "type": "motoko",
+      "main": "src/attestation/main.mo"
     }
   }
 }
