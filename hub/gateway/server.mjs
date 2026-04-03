@@ -1025,10 +1025,19 @@ async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
   const limit = Math.min(100, Math.max(0, parseInt(params.get('limit') || '20', 10) || 20));
   const offset = Math.max(0, parseInt(params.get('offset') || '0', 10) || 0);
   const scope = scopeActiveForGateway(hctx) ? hctx.scope : null;
-  if (scope) {
+  // Phase 12 — blockchain filters applied client-side (canister stores frontmatter as opaque JSON)
+  const filterNetwork = (params.get('network') || '').trim().toLowerCase();
+  const filterWallet = (params.get('wallet_address') || '').trim().toLowerCase();
+  const filterPaymentStatus = (params.get('payment_status') || '').trim().toLowerCase();
+  const needsClientFilter = Boolean(scope || filterNetwork || filterWallet || filterPaymentStatus);
+  if (needsClientFilter) {
     params.set('limit', '10000');
     params.set('offset', '0');
   }
+  // Remove Phase 12 params before forwarding to canister (canister ignores them, but keep URL clean)
+  params.delete('network');
+  params.delete('wallet_address');
+  params.delete('payment_status');
   const fetchUrl = `${CANISTER_URL}/api/v1/notes${params.toString() ? `?${params.toString()}` : ''}`;
   try {
     const upstream = await fetch(fetchUrl, {
@@ -1057,19 +1066,30 @@ async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
       res.send(text);
       return;
     }
-    if (scope && Array.isArray(data.notes)) {
-      const withProj = data.notes.map((n) => ({
-        path: n.path,
-        project: materializeListFrontmatter(n.frontmatter).project ?? null,
-      }));
-      const filteredIdx = new Set();
-      const kept = applyScopeFilterToNotes(withProj, scope);
-      for (const row of kept) {
-        if (row.path) filteredIdx.add(row.path);
+    if (needsClientFilter && Array.isArray(data.notes)) {
+      let filtered = data.notes;
+      // Scope filter (project/folder access control)
+      if (scope) {
+        const withProj = filtered.map((n) => ({
+          path: n.path,
+          project: materializeListFrontmatter(n.frontmatter).project ?? null,
+        }));
+        const kept = applyScopeFilterToNotes(withProj, scope);
+        const keptPaths = new Set(kept.map((r) => r.path).filter(Boolean));
+        filtered = filtered.filter((n) => n.path && keptPaths.has(n.path));
       }
-      const all = data.notes.filter((n) => n.path && filteredIdx.has(n.path));
-      const total = all.length;
-      const page = all.slice(offset, offset + limit);
+      // Phase 12 blockchain filters
+      if (filterNetwork || filterWallet || filterPaymentStatus) {
+        filtered = filtered.filter((n) => {
+          const fm = materializeListFrontmatter(n.frontmatter);
+          if (filterNetwork && String(fm.network ?? '').trim().toLowerCase() !== filterNetwork) return false;
+          if (filterWallet && String(fm.wallet_address ?? '').trim().toLowerCase() !== filterWallet) return false;
+          if (filterPaymentStatus && String(fm.payment_status ?? '').trim().toLowerCase() !== filterPaymentStatus) return false;
+          return true;
+        });
+      }
+      const total = filtered.length;
+      const page = filtered.slice(offset, offset + limit);
       res.json({ notes: page, total });
       return;
     }

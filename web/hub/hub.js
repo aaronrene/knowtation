@@ -73,6 +73,8 @@
   const filterSince = el('filter-since');
   const filterUntil = el('filter-until');
   const filterContentScope = el('filter-content-scope');
+  const filterNetwork = el('filter-network');
+  const filterWallet = el('filter-wallet');
   const searchMode = el('search-mode');
   const btnSearch = el('btn-search');
   const btnClearSearch = el('btn-clear-search');
@@ -1013,6 +1015,28 @@
     } else if (cs === 'approval_logs') {
       out = out.filter((n) => hubRowIsApprovalLog(n));
     }
+    // Phase 12 — blockchain filters (client-side safety net; gateway also filters on hosted)
+    if (opts.network) {
+      const net = String(opts.network).trim().toLowerCase();
+      out = out.filter((n) => {
+        const v = n.frontmatter?.network ?? n.network;
+        return v != null && String(v).trim().toLowerCase() === net;
+      });
+    }
+    if (opts.wallet_address) {
+      const wa = String(opts.wallet_address).trim().toLowerCase();
+      out = out.filter((n) => {
+        const v = n.frontmatter?.wallet_address ?? n.wallet_address;
+        return v != null && String(v).trim().toLowerCase() === wa;
+      });
+    }
+    if (opts.payment_status) {
+      const ps = String(opts.payment_status).trim().toLowerCase();
+      out = out.filter((n) => {
+        const v = n.frontmatter?.payment_status ?? n.payment_status;
+        return v != null && String(v).trim().toLowerCase() === ps;
+      });
+    }
     return out;
   }
 
@@ -1122,6 +1146,8 @@
       const savedProject = filterProject.value;
       const savedTag = filterTag.value;
       const savedFolder = filterFolder.value;
+      const savedNetwork = filterNetwork ? filterNetwork.value : '';
+      const savedWallet = filterWallet ? filterWallet.value : '';
       const facets = await fetchFacetsResolved();
       filterProject.innerHTML = '<option value="">All projects</option>' + (facets.projects || []).map((p) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('');
       filterTag.innerHTML = '<option value="">All tags</option>' + (facets.tags || []).map((t) => '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>').join('');
@@ -1129,6 +1155,19 @@
       if (facets.projects?.includes(savedProject)) filterProject.value = savedProject;
       if (facets.tags?.includes(savedTag)) filterTag.value = savedTag;
       if (facets.folders?.includes(savedFolder)) filterFolder.value = savedFolder;
+      // Phase 12 — blockchain filter dropdowns (hidden when no data)
+      if (filterNetwork) {
+        const nets = facets.networks || [];
+        filterNetwork.innerHTML = '<option value="">All networks</option>' + nets.map((n) => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
+        filterNetwork.classList.toggle('hidden', nets.length === 0);
+        if (nets.includes(savedNetwork)) filterNetwork.value = savedNetwork;
+      }
+      if (filterWallet) {
+        const wallets = facets.wallets || [];
+        filterWallet.innerHTML = '<option value="">All wallets</option>' + wallets.map((w) => '<option value="' + escapeHtml(w) + '">' + escapeHtml(w) + '</option>').join('');
+        filterWallet.classList.toggle('hidden', wallets.length === 0);
+        if (wallets.includes(savedWallet)) filterWallet.value = savedWallet;
+      }
       renderFilterChips(facets);
     } catch (_) {
       renderFilterChips(null);
@@ -1195,6 +1234,40 @@
         };
         filterChipsEl.appendChild(b);
       });
+      // Phase 12 — network chips
+      (f.networks || []).slice(0, 8).forEach((net) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip-btn chip-blockchain' + (filterNetwork && filterNetwork.value === net ? ' active' : '');
+        b.textContent = 'net:' + net;
+        b.onclick = () => {
+          searchQuery.value = '';
+          if (filterNetwork) filterNetwork.value = net;
+          switchNotesView('list');
+          loadNotes();
+          renderFilterChips(null);
+        };
+        filterChipsEl.appendChild(b);
+      });
+      // Phase 12 — payment_status Quick chips (fixed enum, shown when vault has any blockchain notes)
+      if ((f.networks || []).length > 0 || (f.wallets || []).length > 0) {
+        const payStatuses = ['pending', 'settled', 'failed'];
+        payStatuses.forEach((ps) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'chip-btn chip-blockchain';
+          b.textContent = 'status:' + ps;
+          b.onclick = () => {
+            searchQuery.value = '';
+            const fpsEl = el('filter-payment-status');
+            if (fpsEl) fpsEl.value = ps;
+            switchNotesView('list');
+            loadNotes();
+            renderFilterChips(null);
+          };
+          filterChipsEl.appendChild(b);
+        });
+      }
     };
     if (facets) apply(facets);
     else fetchFacetsResolved().then(apply).catch(() => {});
@@ -1315,6 +1388,13 @@
     if (filterSince && filterSince.value) q.set('since', filterSince.value);
     if (filterUntil && filterUntil.value) q.set('until', filterUntil.value);
     if (filterContentScope && filterContentScope.value) q.set('content_scope', filterContentScope.value);
+    // Phase 12 — blockchain filters
+    const networkVal = filterNetwork ? filterNetwork.value : '';
+    const walletVal = filterWallet ? filterWallet.value : '';
+    const paymentStatusVal = el('filter-payment-status') ? el('filter-payment-status').value : '';
+    if (networkVal) q.set('network', networkVal);
+    if (walletVal) q.set('wallet_address', walletVal);
+    if (paymentStatusVal) q.set('payment_status', paymentStatusVal);
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
     try {
@@ -1327,6 +1407,9 @@
         since: filterSince?.value || '',
         until: filterUntil?.value || '',
         content_scope: filterContentScope && filterContentScope.value ? filterContentScope.value : '',
+        network: networkVal,
+        wallet_address: walletVal,
+        payment_status: paymentStatusVal,
       });
       const totalCount = notes.length;
       notes = notes.slice(0, 100);
