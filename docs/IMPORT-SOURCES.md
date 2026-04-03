@@ -35,6 +35,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 | `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. |
 | `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | **Primary path for in-Hub transcription** (self-hosted). OpenAI Whisper; **max ~25&nbsp;MB** per file. One note per file; frontmatter: `source: audio`, `source_id`, `date`. |
 | `video`           | Path to video file or URL | Same Whisper pipeline as audio; files are often **over 25&nbsp;MB**—export **audio** or use another service, then import Markdown. **Hub UI:** video option *coming soon*; **CLI/MCP** still support `video`. |
+| `wallet-csv`      | Path to wallet/exchange transaction history CSV (or folder containing one .csv) | Converts wallet export files into vault notes with blockchain frontmatter. One note per row; `source: wallet-csv-import`, `source_id: tx_hash`, blockchain fields (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`). Notes land in `inbox/wallet-import/`. Auto-detects named formats: **Coinbase**, **Coinbase Pro**, **Exodus**, **ICP Rosetta**, **Kraken**, **Binance**, **MetaMask/Etherscan**, **Phantom (Solana)**, **Ledger Live**. Falls back to generic column alias matching for any other CSV. Re-import is safe: duplicate rows (same output path) are skipped. |
 
 **Options (common):** `--project <slug>`, `--output-dir <vault-path>`, `--tags tag1,tag2`, `--dry-run`, `--json`. If `--output-dir` is omitted, default is `vault/inbox/` or `vault/projects/<project>/inbox/` when `--project` is set.
 
@@ -175,6 +176,108 @@ knowtation import audio ./recording.m4a --project born-free --output-dir media/a
 **Video** (same pipeline and limit; prefer exporting **audio** for long content):
 ```bash
 knowtation import video ./short-clip.mp4 --output-dir media/video
+```
+
+**Wallet / exchange CSV** — one note per transaction row, format auto-detected:
+```bash
+# Generic CSV with any recognized headers
+knowtation import wallet-csv ./wallet-export.csv --tags payment,on-chain
+
+# Coinbase (Date, Transaction Type, Asset, Quantity Transacted, …)
+knowtation import wallet-csv ./coinbase-export.csv --tags coinbase,payment
+
+# Coinbase Pro / Advanced Trade (portfolio, type, time, amount, amount/balance unit, …)
+knowtation import wallet-csv ./coinbase-pro-fills.csv --tags coinbase-pro
+
+# Exodus (DATE, TYPE, FROMAMOUNT, FROMCURRENCY, TXID, …)
+knowtation import wallet-csv ./exodus-transactions.csv --tags exodus
+
+# ICP Rosetta (hash, block_index, timestamp, type, account, amount)
+knowtation import wallet-csv ./icp-rosetta.csv --tags icp,on-chain
+
+# Kraken ledger export (txid, refid, time, type, aclass, asset, amount, fee, balance)
+knowtation import wallet-csv ./kraken-ledgers.csv --tags kraken,payment
+
+# Binance deposit/withdrawal (Date(UTC), Coin, Network, Amount, TXID, Status, …)
+knowtation import wallet-csv ./binance-history.csv --tags binance
+
+# Binance spot wallet history (UTC_Time, Account, Operation, Coin, Change, Remark)
+knowtation import wallet-csv ./binance-spot-wallet.csv --tags binance
+
+# MetaMask / Etherscan address export (Txhash, Blockno, DateTime (UTC), From, To,
+#   Value_IN(ETH), Value_OUT(ETH), Status, …)
+knowtation import wallet-csv ./etherscan-export.csv --tags metamask,eth
+
+# Phantom wallet (Transaction ID, Date, Type, Amount, Token, Status, Fee (SOL), Signature)
+knowtation import wallet-csv ./phantom-history.csv --tags phantom,solana
+
+# Ledger Live (Operation Date, Currency ticker, Operation Amount, Operation Hash, …)
+knowtation import wallet-csv ./ledger-live-export.csv --tags ledger
+
+# From Hub UI: Import modal → Source type → Wallet / exchange CSV → upload .csv file
+```
+
+Notes land in `inbox/wallet-import/<YYYY-MM-DD>-<tx_hash_prefix>.md`.  
+Re-importing the same CSV is safe — rows with an existing output path are skipped.
+
+### Named format auto-detection
+
+The importer fingerprints the CSV header to pick the right normaliser automatically.
+No user action required — just upload/pass the CSV as-is.
+
+| Format | Fingerprint headers | `network` set to |
+|--------|--------------------|--------------------|
+| **Coinbase** | `Quantity Transacted`, `Transaction Type` | `coinbase` |
+| **Coinbase Pro** | `portfolio`, `amount/balance unit` | `coinbase-pro` |
+| **Exodus** | `FROMAMOUNT`, `FROMCURRENCY` | _(from row)_ |
+| **ICP Rosetta** | `hash`, `block_index` (≤10 cols) | `icp` |
+| **Kraken** | `refid`, `aclass` or `asset` | `kraken` |
+| **Binance deposit/withdrawal** | `Date(UTC)`, `Coin` | from `Network` column |
+| **Binance spot wallet** | `UTC_Time`, `Coin` | `binance` |
+| **MetaMask / Etherscan** | `Value_IN(ETH)` or `Value_OUT(ETH)` or `Blockno` | `ethereum` |
+| **Phantom** | `Signature` or `fee (sol)`, `token` | `solana` |
+| **Ledger Live** | `Operation Date`, `Currency ticker` | inferred from ticker |
+| **Generic** | any CSV with recognised aliases | from `network` column |
+
+### Generic column alias table
+
+For CSVs not matching a named format, the importer resolves these aliases (case-insensitive):
+
+| Canonical field   | CSV column aliases |
+|-------------------|--------------------|
+| `tx_hash`         | `txhash`, `transaction_hash`, `hash`, `tx id`, `txid`, `transaction id`, `transaction_id` |
+| `confirmed_at`    | `date`, `timestamp`, `time`, `confirmed at`, `confirmed_at`, `block time`, `block_time` |
+| `amount`          | `amount`, `value`, `quantity` |
+| `currency`        | `currency`, `asset`, `token`, `coin`, `symbol` |
+| `direction`       | `type`, `direction`, `side` — `buy`/`receive`/`deposit`/`earn` → `received`; `sell`/`send`/`withdrawal` → `sent`; `swap`/`trade` → as-is |
+| `payment_status`  | `status` — `completed`/`success`/`confirmed` → `settled`; `pending` → `pending`; `failed`/`error`/`rejected` → `failed` |
+| `wallet_address`  | `from`, `to`, `address`, `wallet`, `sender`, `recipient`, `from_address`, `to_address` |
+| `network`         | `network`, `chain`, `blockchain` |
+| `block_height`    | `block`, `block number`, `block_number`, `block height`, `block_height` |
+
+### Example note produced
+
+```markdown
+---
+title: ICP transfer — 500 ICP sent
+date: 2026-04-02
+source: wallet-csv-import
+source_id: 8a3c0d1b2e4f
+network: icp
+wallet_address: rrkah-fqaaa-aaaaa-aaaaq-cai
+tx_hash: 8a3c0d1b2e4f
+payment_status: settled
+amount: 500
+currency: ICP
+direction: sent
+confirmed_at: 2026-04-02T18:12:44Z
+block_height: 12345678
+tags: [payment, on-chain, icp-tx]
+---
+
+Transaction imported from wallet CSV export.
+Amount: 500 ICP | Direction: sent | Status: settled
+Block: 12,345,678 | Confirmed: 2026-04-02 18:12:44 UTC
 ```
 
 **Dry run** (preview without writing):
