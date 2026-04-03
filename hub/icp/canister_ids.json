@@ -1,4 +1,7 @@
 {
+  "attestation": {
+    "ic": "dejku-syaaa-aaaaa-qgy3q-cai"
+  },
   "hub": {
     "ic": "rsovz-byaaa-aaaaa-qgira-cai"
   }

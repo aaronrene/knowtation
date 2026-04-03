@@ -38,6 +38,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@icp-sdk/core": "^5.2.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@netlify/blobs": "^10.7.0",
     "@qdrant/js-client-rest": "^1.17.0",
