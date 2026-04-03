@@ -54,5 +54,8 @@
     "sqlite-vec": "^0.1.7-alpha.2",
     "stripe": "^17.7.0",
     "zod": "^4.3.6"
+  },
+  "optionalDependencies": {
+    "@supabase/supabase-js": "^2.49.0"
   }
 }

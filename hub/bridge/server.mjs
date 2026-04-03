@@ -1816,6 +1816,115 @@ app.use((err, req, res, _next) => {
   });
 });
 
+// ——— Memory endpoints (Phase 8) ———
+function bridgeMemoryAuth(req) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const uid = token ? userIdFromJwt(token) : null;
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id'] || req.query.vault_id);
+  const scope = req.query.scope === 'global' ? 'global' : 'vault';
+  return { uid: uid ? sanitizeUserId(uid) : null, vaultId, scope };
+}
+
+function bridgeMemoryDir(uid, vaultId, scope) {
+  if (scope === 'global') {
+    return path.join(DATA_DIR, 'memory', uid, '_global');
+  }
+  return path.join(DATA_DIR, 'memory', uid, vaultId);
+}
+
+app.get('/api/v1/memory/:key', async (req, res) => {
+  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  try {
+    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../../lib/memory.mjs');
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const mm = new MemoryManager(provider);
+    const event = mm.getLatest(req.params.key);
+    if (!event) return res.json({ key: req.params.key, value: null, updated_at: null });
+    res.json({ key: req.params.key, value: event.data, updated_at: event.ts, id: event.id });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/memory/store', express.json(), async (req, res) => {
+  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  try {
+    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../../lib/memory.mjs');
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const mm = new MemoryManager(provider);
+    const { key, value, ttl } = req.body || {};
+    if (!key || !value) return res.status(400).json({ error: 'key and value required', code: 'BAD_REQUEST' });
+    const data = typeof value === 'object' ? { key, ...value } : { key, text: String(value) };
+    const result = mm.store('user', data, { vaultId, ttl });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/memory', async (req, res) => {
+  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  try {
+    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../../lib/memory.mjs');
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const mm = new MemoryManager(provider);
+    const events = mm.list({
+      type: req.query.type || undefined,
+      since: req.query.since || undefined,
+      until: req.query.until || undefined,
+      limit: Math.min(parseInt(req.query.limit) || 20, 100),
+    });
+    res.json({ events, count: events.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/memory/search', express.json(), async (req, res) => {
+  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  res.json({ results: [], count: 0, note: 'Hosted memory search requires vector provider (future).' });
+});
+
+app.delete('/api/v1/memory/clear', async (req, res) => {
+  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  try {
+    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../../lib/memory.mjs');
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const mm = new MemoryManager(provider);
+    const result = mm.clear({
+      type: req.query.type || undefined,
+      before: req.query.before || undefined,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/memory-stats', async (req, res) => {
+  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  try {
+    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../../lib/memory.mjs');
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const mm = new MemoryManager(provider);
+    res.json(mm.stats());
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
 if (!isServerless) {
   if (!CANISTER_URL || !SESSION_SECRET) {
     console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required.');

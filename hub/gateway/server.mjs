@@ -380,6 +380,28 @@ if (BRIDGE_URL) {
   }, async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/hosted-context', req, res);
   });
+
+  // Memory routes: proxy to bridge (per-user/vault isolation handled by bridge)
+  app.get('/api/v1/memory/:key', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/' + encodeURIComponent(req.params.key) + q, req, res);
+  });
+  app.post('/api/v1/memory/store', async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/store', req, res);
+  });
+  app.get('/api/v1/memory', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory' + q, req, res);
+  });
+  app.post('/api/v1/memory/search', async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/search', req, res);
+  });
+  app.delete('/api/v1/memory/clear', async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/clear', req, res);
+  });
+  app.get('/api/v1/memory-stats', async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory-stats', req, res);
+  });
 }
 
 /**

@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { createVectorStore } from '../../lib/vector-store.mjs';
 import { listMarkdownFiles, readNote, normalizeTags, normalizeSlug } from '../../lib/vault.mjs';
-import { getMemory } from '../../lib/memory.mjs';
+import { getMemory, createMemoryManager } from '../../lib/memory.mjs';
 
 const SENSITIVE_KEY = /(api[_-]?key|secret|password|token|credential|authorization|bearer)/i;
 
@@ -125,10 +125,65 @@ export function buildProjectsResource(config) {
 }
 
 export function buildMemoryResource(config, key) {
-  const v = getMemory(config.data_dir, key);
-  if (!v) return { key, value: null, updated_at: null };
-  const { _at, ...rest } = v;
-  return { key, value: rest, updated_at: _at ?? null };
+  if (!config.memory?.enabled) return { key, value: null, updated_at: null };
+  try {
+    const mm = createMemoryManager(config);
+    const event = mm.getLatest(key);
+    if (!event) {
+      const v = getMemory(config.data_dir, key);
+      if (!v) return { key, value: null, updated_at: null };
+      const { _at, ...rest } = v;
+      return { key, value: rest, updated_at: _at ?? null };
+    }
+    return { key, value: event.data, updated_at: event.ts, id: event.id };
+  } catch (_) {
+    const v = getMemory(config.data_dir, key);
+    if (!v) return { key, value: null, updated_at: null };
+    const { _at, ...rest } = v;
+    return { key, value: rest, updated_at: _at ?? null };
+  }
+}
+
+export function buildMemorySummaryResource(config) {
+  if (!config.memory?.enabled) return { enabled: false, provider: null, events: 0 };
+  try {
+    const mm = createMemoryManager(config);
+    const stats = mm.stats();
+    return {
+      enabled: true,
+      provider: config.memory.provider || 'file',
+      total_events: stats.total,
+      counts_by_type: stats.counts_by_type,
+      oldest: stats.oldest,
+      newest: stats.newest,
+      size_bytes: stats.size_bytes,
+    };
+  } catch (_) {
+    return { enabled: true, provider: config.memory.provider || 'file', total_events: 0, error: 'failed to read stats' };
+  }
+}
+
+export function buildMemoryEventsResource(config, limit = 50) {
+  if (!config.memory?.enabled) return { enabled: false, events: [] };
+  try {
+    const mm = createMemoryManager(config);
+    const events = mm.list({ limit });
+    return { enabled: true, events, count: events.length };
+  } catch (_) {
+    return { enabled: true, events: [], error: 'failed to read events' };
+  }
+}
+
+export function buildMemoryTypeResource(config, type) {
+  if (!config.memory?.enabled) return { enabled: false, type, latest: null, recent: [] };
+  try {
+    const mm = createMemoryManager(config);
+    const latest = mm.getLatest(type);
+    const recent = mm.list({ type, limit: 10 });
+    return { enabled: true, type, latest, recent, count: recent.length };
+  } catch (_) {
+    return { enabled: true, type, latest: null, recent: [], error: 'failed to read' };
+  }
 }
 
 export function buildAirLogResource() {

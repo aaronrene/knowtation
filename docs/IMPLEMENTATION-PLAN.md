@@ -65,7 +65,7 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 10. ~~AIR A–E~~ — Done (PRs #96, #97, #99). Full attestation stack including ICP blockchain anchor.
 
 **Active / next:**
-11. **Memory augmentation (active):** Expand Phase 8 stub (`data/memory.json` — `last_search`, `last_export` only). Compare file memory vs Mem0 API vs vector-backed snippets; extend CLI `memory` subcommand, MCP tools, hosted path. Branch: `feature/memory-augmentation`.
+11. ~~**Memory augmentation**~~ — Done (`feature/memory-augmentation`). **Phase 1:** Three-tier provider architecture (file / vector / mem0); JSONL event log + state overlay; 11 event types; CLI 7 subcommands; 5 MCP tools + resources; auto-capture; hosted path; secret detection + privacy controls. **Phase 2:** Retention enforcement (throttled pruning); cross-vault memory (`scope: vault|global`); Mem0 import enrichment; 3 memory-aware MCP prompts (`memory-context`, `memory-informed-search`, `resume-session`); LLM session summaries (`memory summarize` CLI + `memory_summarize` MCP tool); AES-256-GCM encrypted memory at rest (`memory.encrypt: true`); Supabase provider with pgvector + migration SQL + `supabase-memory` import type. 112 tests across 4 test files. See `docs/MEMORY-AUGMENTATION-PLAN.md`.
 12. **Phase 18 (Native media upload):** In-Hub image/file upload, Cloudflare R2 or GitHub commit storage. Prerequisite: Phase 17A (done). After memory ships.
 13. **Muse thin bridge:** Docs + optional env and small delegation surface; deferred until concrete partner or DAG need.
 14. **MCP D2/D3, F2–F5:** Hub MCP gateway, hosted MCP proxy — per [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). After stable hosted baseline.
@@ -127,7 +127,7 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 
 1. ~~Indexing + search verification~~ — Done. Production verified.
 2. ~~Deploy / re-verify~~ — Done (ops ongoing). [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 after each deploy.
-3. **Memory augmentation (active)** — Expand Phase 8 stub; branch `feature/memory-augmentation`. See **Recommended path forward** §11.
+3. ~~Memory augmentation~~ — Done (`feature/memory-augmentation`). Phase 1 + Phase 2 (7 enhancements). 112 tests. See `docs/MEMORY-AUGMENTATION-PLAN.md`.
 4. ~~Proposal lifecycle~~ — Done. Evaluation stage implemented (canister V3, evaluator role, triggers, rubric).
 5. **Muse thin bridge** — Deferred until concrete partner or DAG need.
 6. **Suggested prompts for agents** (optional) — Hub section or SUGGESTED-AGENT-PROMPTS.md.
@@ -394,7 +394,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 
 **Acceptance:** With memory and AIR configured, running export triggers AIR and stores provenance in memory. With services off, CLI still works (memory optional; AIR can fail the op or be made optional per config).
 
-**Implemented (Phase 8 session):**
+**Implemented (Phase 8 session — initial stub):**
 - `lib/memory.mjs`: storeMemory(dataDir, key, value), getMemory(dataDir, key); file backend stores in data/memory.json; graceful on error.
 - CLI search: after runSearch, if memory.enabled, store last_search (query, paths, count).
 - CLI export: after exportNotes, if memory.enabled, store last_export (provenance, exported).
@@ -402,6 +402,18 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 - Config: memory.enabled, memory.provider (file), memory.url; air.enabled, air.endpoint (normalized).
 - AIR: already implemented in Phase 4 (lib/air.mjs); calls endpoint or placeholder when unreachable.
 - docs/PHASE8-MANUAL-TEST.md.
+
+**Implemented (Phase 8 augmentation — `feature/memory-augmentation`):**
+- **Core engine:** `lib/memory-event.mjs` (11 event types, ID gen, validation, secret detection), `lib/memory-provider-file.mjs` (JSONL append-only log + state.json overlay), `lib/memory.mjs` rewritten with `MemoryManager` class + backward-compatible `storeMemory`/`getMemory` wrappers.
+- **Three-tier providers:** `file` (default, zero-dependency), `vector` (extends file with embedding-based semantic search via existing vector store), `mem0` (delegates to external Mem0 API).
+- **Config expanded:** `memory.retention_days`, `memory.capture` (configurable event types to auto-capture).
+- **CLI expanded:** 7 subcommands — `query`, `list`, `store`, `search`, `clear`, `export`, `stats`. Removed hardcoded `validKeys`.
+- **MCP expanded:** 5 tools (`memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`) in new `mcp/tools/memory.mjs`; old `memory_query` removed from `phase-c.mjs`; 2 new resources (`knowtation://memory/`, `knowtation://memory/events`).
+- **Auto-capture:** Memory events captured after search, export, write, import, index, propose in both CLI and MCP; honors `memory.capture` config list via `shouldCapture()`.
+- **Hosted path:** Gateway `/api/v1/memory/*` proxy routes; bridge memory endpoints with per-user/vault file storage under `DATA_DIR/memory/{userId}/{vaultId}/`.
+- **Privacy:** Secret detection rejects data with sensitive key patterns; configurable capture types; retention limits; `memory clear` requires `--confirm`; per-user isolation on hosted.
+- **Tests:** 87 tests across 4 files (`test/memory.test.mjs`, `test/memory-cli.test.mjs`, `test/memory-mcp.test.mjs`, `test/memory-hosted.test.mjs`).
+- **Docs:** `docs/MEMORY-AUGMENTATION-PLAN.md`, `docs/SPEC.md` §7 updated, `docs/PHASE8-MANUAL-TEST.md` updated, `config/local.example.yaml` updated.
 
 ---
 

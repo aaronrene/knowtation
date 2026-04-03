@@ -33,7 +33,7 @@ Commands:
   write <path>      Create or overwrite a note. Use --stdin for body, --frontmatter k=v, --append.
   export <path|query> <output>  Export note(s) to dir/file. Use --format, --project. Provenance and AIR per spec.
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
-  memory query <key>             Read from memory layer (requires memory.enabled). Keys: last_search, last_export.
+  memory <action>                Memory layer commands: query, list, store, search, clear, export, stats. Requires memory.enabled.
   hub status                    Check Hub reachability (use --hub <url>). Requires Hub API.
   propose <path>                Create a proposal from local vault note (body/frontmatter) on the Hub. Options: --hub, --intent, --vault (X-Vault-Id), --external-ref, --labels a,b, --source agent|human|import, --base-state-id, --no-fetch-base.
   vault sync                    Commit and push vault to Git (when vault.git.enabled and remote set). See config.
@@ -274,12 +274,16 @@ async function main() {
         }
         if (config.memory?.enabled) {
           try {
-            const { storeMemory } = await import('../lib/memory.mjs');
-            storeMemory(config.data_dir, 'last_search', {
-              query: out.query,
-              paths: (out.results || []).map((r) => r.path),
-              count: out.count ?? (out.results || []).length,
-            });
+            const { createMemoryManager } = await import('../lib/memory.mjs');
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('search')) {
+              mm.store('search', {
+                query: out.query,
+                mode: useKeyword ? 'keyword' : 'semantic',
+                paths: (out.results || []).map((r) => r.path),
+                count: out.count ?? (out.results || []).length,
+              });
+            }
           } catch (_) {}
         }
         if (useJson) {
@@ -311,7 +315,22 @@ async function main() {
     }
     const { runIndex } = await import('../lib/indexer.mjs');
     try {
+      const t0 = Date.now();
       const result = await runIndex();
+      const config = loadConfig();
+      if (config.memory?.enabled) {
+        try {
+          const { createMemoryManager } = await import('../lib/memory.mjs');
+          const mm = createMemoryManager(config);
+          if (mm.shouldCapture('index')) {
+            mm.store('index', {
+              notes_processed: result.notesProcessed,
+              chunks_indexed: result.chunksIndexed,
+              duration_ms: Date.now() - t0,
+            });
+          }
+        } catch (_) {}
+      }
       if (useJson) {
         console.log(JSON.stringify({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed }));
       }
@@ -376,6 +395,19 @@ async function main() {
           const { maybeAutoSync } = await import('../lib/vault-git-sync.mjs');
           maybeAutoSync(config);
         } catch (_) {}
+        if (config.memory?.enabled) {
+          try {
+            const { createMemoryManager } = await import('../lib/memory.mjs');
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('write')) {
+              mm.store('write', {
+                path: result.path,
+                action: append ? 'append' : 'create',
+                air_id: result.air_id || undefined,
+              });
+            }
+          } catch (_) {}
+        }
         if (useJson) {
           console.log(JSON.stringify(result));
         } else {
@@ -442,8 +474,11 @@ async function main() {
         const result = exportNotes(config.vault_path, paths, output, { format });
         if (config.memory?.enabled) {
           try {
-            const { storeMemory } = await import('../lib/memory.mjs');
-            storeMemory(config.data_dir, 'last_export', { provenance: result.provenance, exported: result.exported });
+            const { createMemoryManager } = await import('../lib/memory.mjs');
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('export')) {
+              mm.store('export', { provenance: result.provenance, exported: result.exported, format });
+            }
           } catch (_) {}
         }
         if (useJson) {
@@ -486,12 +521,39 @@ async function main() {
         const tagsOpt = getOpt('tags');
         const tags = tagsOpt ? tagsOpt.split(',').map((t) => t.trim()).filter(Boolean) : [];
         const dryRun = hasOpt('dry-run');
-        const result = await runImport(sourceType, input, {
+        let memoryManager;
+        if (config.memory?.enabled && !dryRun) {
+          try {
+            const { createMemoryManager } = await import('../lib/memory.mjs');
+            memoryManager = createMemoryManager(config);
+          } catch (_) {}
+        }
+
+        const importOpts = {
           project: project ?? undefined,
           outputDir: outputDir ?? undefined,
           tags,
           dryRun,
-        });
+        };
+        if (memoryManager && sourceType === 'mem0-export' && memoryManager.shouldCapture('capture')) {
+          importOpts.onMemoryEvent = (data) => {
+            try { memoryManager.store('capture', data); } catch (_) {}
+          };
+        }
+
+        const result = await runImport(sourceType, input, importOpts);
+        if (memoryManager) {
+          try {
+            if (memoryManager.shouldCapture('import')) {
+              memoryManager.store('import', {
+                source_type: sourceType,
+                count: result.count ?? 0,
+                paths: (result.imported || []).map((r) => r.path).slice(0, 50),
+                project: project ?? undefined,
+              });
+            }
+          } catch (_) {}
+        }
         if (useJson) {
           console.log(JSON.stringify({ imported: result.imported, count: result.count }));
         } else {
@@ -525,34 +587,205 @@ async function main() {
 
   if (subcommand === 'memory') {
     const action = args[1];
-    const keyArg = args[2];
-    if (action !== 'query' || !keyArg) {
-      exitWithError('knowtation memory: use "memory query <key>". Keys: last_search, last_export.', 1, useJson);
-    }
-    const key = keyArg.replace(/\s+/g, '_');
-    const validKeys = ['last_search', 'last_export'];
-    if (!validKeys.includes(key)) {
-      exitWithError(`knowtation memory: unknown key "${key}". Use: ${validKeys.join(', ')}.`, 1, useJson);
-    }
-    try {
-      const config = loadConfig();
-      if (!config.memory?.enabled) {
-        exitWithError('knowtation memory: memory layer not enabled. Set memory.enabled in config.', 2, useJson);
-      }
-      const { getMemory } = await import('../lib/memory.mjs');
-      const val = getMemory(config.data_dir, key);
-      if (!val) {
-        if (useJson) console.log(JSON.stringify({ key, value: null }));
-        else console.log('(no value)');
-      } else if (useJson) {
-        console.log(JSON.stringify({ key, value: val }));
-      } else {
-        console.log(JSON.stringify(val, null, 2));
-      }
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log(`knowtation memory <action>
+  Actions:
+    query <key>              Read latest value for an event type (e.g. search, export, write, import, index, propose, user).
+    list                     List recent memory events. --type, --since, --until, --limit (default 20), --json.
+    store <key> <value>      Store a user-defined memory entry. Value is JSON string or --stdin.
+    search <query>           Semantic search over memory (requires vector or mem0 provider). --limit, --json.
+    clear                    Clear memory. --type, --before <date>, --confirm required. --json.
+    export                   Export memory log. --format jsonl|mif, --since, --until, --type. Output to stdout.
+    stats                    Show memory statistics. --json.
+
+  Options: --json`);
       process.exit(0);
+    }
+    const validActions = ['query', 'list', 'store', 'search', 'clear', 'export', 'stats'];
+    if (!action || !validActions.includes(action)) {
+      exitWithError(`knowtation memory: use "memory <action>". Actions: ${validActions.join(', ')}.`, 1, useJson);
+    }
+    let config;
+    try {
+      config = loadConfig();
     } catch (e) {
       exitWithError(e.message, 2, useJson);
     }
+    if (!config.memory?.enabled) {
+      exitWithError('knowtation memory: memory layer not enabled. Set memory.enabled in config.', 2, useJson);
+    }
+    (async () => {
+      try {
+        const { createMemoryManager } = await import('../lib/memory.mjs');
+        const { MEMORY_EVENT_TYPES } = await import('../lib/memory-event.mjs');
+        const scopeOpt = getOpt('scope') === 'global' ? 'global' : undefined;
+        const mm = createMemoryManager(config, 'default', scopeOpt ? { scope: scopeOpt } : {});
+
+        if (action === 'query') {
+          const keyArg = args[2];
+          if (!keyArg) {
+            exitWithError('knowtation memory query: provide a key (event type).', 1, useJson);
+          }
+          const key = keyArg.replace(/\s+/g, '_');
+          const latest = mm.getLatest(key);
+          if (!latest) {
+            if (useJson) console.log(JSON.stringify({ key, value: null }));
+            else console.log('(no value)');
+          } else {
+            const { id: _id, vault_id: _vid, ...display } = latest;
+            if (useJson) console.log(JSON.stringify({ key, value: display }));
+            else console.log(JSON.stringify(display, null, 2));
+          }
+          process.exit(0);
+        }
+
+        if (action === 'list') {
+          const type = getOpt('type');
+          const since = getOpt('since');
+          const until = getOpt('until');
+          const limit = getOpt('limit', 'number') ?? 20;
+          const events = mm.list({ type: type ?? undefined, since: since ?? undefined, until: until ?? undefined, limit });
+          if (useJson) {
+            console.log(JSON.stringify({ events, count: events.length }));
+          } else {
+            if (events.length === 0) console.log('(no events)');
+            for (const e of events) {
+              const summary = JSON.stringify(e.data).slice(0, 120);
+              console.log(`${e.ts}  ${e.type}  ${summary}`);
+            }
+          }
+          process.exit(0);
+        }
+
+        if (action === 'store') {
+          const keyArg = args[2];
+          if (!keyArg) {
+            exitWithError('knowtation memory store: provide a key.', 1, useJson);
+          }
+          let valueRaw;
+          if (hasOpt('stdin')) {
+            valueRaw = fs.readFileSync(0, 'utf8').trim();
+          } else {
+            valueRaw = args[3];
+          }
+          if (!valueRaw) {
+            exitWithError('knowtation memory store: provide a value (JSON string) or --stdin.', 1, useJson);
+          }
+          let value;
+          try {
+            value = JSON.parse(valueRaw);
+          } catch (_) {
+            value = { text: valueRaw };
+          }
+          const result = mm.store('user', { key: keyArg, ...value });
+          if (useJson) console.log(JSON.stringify(result));
+          else console.log(`Stored: ${result.id}`);
+          process.exit(0);
+        }
+
+        if (action === 'search') {
+          const query = args.slice(2).filter((a) => !a.startsWith('--')).join(' ').trim();
+          if (!query) {
+            exitWithError('knowtation memory search: provide a query string.', 1, useJson);
+          }
+          if (!mm.supportsSearch()) {
+            exitWithError('knowtation memory search: semantic search requires memory.provider: vector or mem0.', 2, useJson);
+          }
+          const limit = getOpt('limit', 'number') ?? 10;
+          const results = mm.search(query, { limit });
+          if (useJson) {
+            console.log(JSON.stringify({ results, count: results.length }));
+          } else {
+            if (results.length === 0) console.log('(no results)');
+            for (const r of results) {
+              console.log(`${r.ts}  ${r.type}  ${JSON.stringify(r.data).slice(0, 120)}`);
+            }
+          }
+          process.exit(0);
+        }
+
+        if (action === 'clear') {
+          if (!hasOpt('confirm')) {
+            exitWithError('knowtation memory clear: use --confirm to confirm deletion.', 1, useJson);
+          }
+          const type = getOpt('type');
+          const before = getOpt('before');
+          const result = mm.clear({ type: type ?? undefined, before: before ?? undefined });
+          if (useJson) console.log(JSON.stringify(result));
+          else console.log(`Cleared ${result.cleared} event(s).`);
+          process.exit(0);
+        }
+
+        if (action === 'export') {
+          const format = getOpt('format') || 'jsonl';
+          if (!['jsonl', 'mif'].includes(format)) {
+            exitWithError('knowtation memory export: --format must be jsonl or mif.', 1, useJson);
+          }
+          const type = getOpt('type');
+          const since = getOpt('since');
+          const until = getOpt('until');
+          const events = mm.list({ type: type ?? undefined, since: since ?? undefined, until: until ?? undefined, limit: 10000 });
+          if (format === 'jsonl') {
+            for (const e of events) {
+              console.log(JSON.stringify(e));
+            }
+          } else {
+            for (const e of events) {
+              console.log(`---`);
+              console.log(`id: ${e.id}`);
+              console.log(`type: ${e.type}`);
+              console.log(`ts: ${e.ts}`);
+              console.log(`vault_id: ${e.vault_id}`);
+              console.log(`---`);
+              console.log(JSON.stringify(e.data, null, 2));
+              console.log('');
+            }
+          }
+          process.exit(0);
+        }
+
+        if (action === 'summarize') {
+          const since = getOpt('since') || new Date(Date.now() - 86_400_000).toISOString();
+          const maxTokens = getOpt('max-tokens', 'number') ?? 512;
+          const dryRun = hasOpt('dry-run');
+          try {
+            const { generateSessionSummary } = await import('../lib/memory-session-summary.mjs');
+            const result = await generateSessionSummary(config, { since, maxTokens, dryRun });
+            if (useJson) {
+              console.log(JSON.stringify(result));
+            } else {
+              console.log(result.summary);
+              if (result.id) console.log(`\nStored as: ${result.id}`);
+              console.log(`Events summarized: ${result.event_count}`);
+            }
+          } catch (e) {
+            exitWithError(`Session summary failed: ${e.message}`, 2, useJson);
+          }
+          process.exit(0);
+        }
+
+        if (action === 'stats') {
+          const stats = mm.stats();
+          if (useJson) {
+            console.log(JSON.stringify(stats));
+          } else {
+            console.log(`Total events: ${stats.total}`);
+            console.log(`Storage: ${stats.size_bytes} bytes`);
+            if (stats.oldest) console.log(`Oldest: ${stats.oldest}`);
+            if (stats.newest) console.log(`Newest: ${stats.newest}`);
+            if (Object.keys(stats.counts_by_type).length > 0) {
+              console.log('Counts by type:');
+              for (const [t, c] of Object.entries(stats.counts_by_type)) {
+                console.log(`  ${t}: ${c}`);
+              }
+            }
+          }
+          process.exit(0);
+        }
+      } catch (e) {
+        exitWithError(e.message, 2, useJson);
+      }
+    })();
     return;
   }
 
@@ -694,6 +927,21 @@ async function main() {
           exitWithError(data.error || res.statusText, 2, useJson);
           return;
         }
+        try {
+          const config2 = loadConfig();
+          if (config2.memory?.enabled) {
+            const { createMemoryManager } = await import('../lib/memory.mjs');
+            const mm = createMemoryManager(config2);
+            if (mm.shouldCapture('propose')) {
+              mm.store('propose', {
+                proposal_id: data.proposal_id,
+                path: data.path || pathArg,
+                intent: intent || undefined,
+                base_state_id: baseStateId || undefined,
+              });
+            }
+          }
+        } catch (_) {}
         if (useJson) console.log(JSON.stringify(data));
         else console.log('Proposal created:', data.proposal_id, data.path);
         process.exit(0);

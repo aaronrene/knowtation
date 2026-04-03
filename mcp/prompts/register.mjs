@@ -17,6 +17,7 @@ import {
   embeddedMarkdownResource,
   snippet,
   parseIntSafe,
+  formatMemoryEventsAsync,
   MAX_EMBEDDED_NOTES,
   MAX_ENTITY_NOTES,
   PROJECT_SUMMARY_NOTES,
@@ -440,6 +441,118 @@ export function registerKnowtationPrompts(server) {
         } catch (_) {}
       }
       return { description: `Content plan (${project})`, messages };
+    }
+  );
+
+  server.registerPrompt(
+    'memory-context',
+    {
+      title: 'Memory context',
+      description: 'What has the agent been doing? Recent memory events formatted for context.',
+      argsSchema: {
+        limit: z.string().optional().describe('Max events (default 20)'),
+        type: z.string().optional().describe('Filter by event type'),
+      },
+    },
+    async (args) => {
+      const config = loadConfig();
+      const limit = parseIntSafe(args.limit, 20);
+      const { text, count } = await formatMemoryEventsAsync(config, {
+        limit,
+        type: args.type || undefined,
+      });
+      return {
+        description: `Memory context (${count} events)`,
+        messages: [
+          {
+            role: 'user',
+            content: textContent(
+              `Below is a log of recent agent/user activity from the memory layer (${count} events). Use this to understand context, prior actions, and continuity.\n\n${text}`
+            ),
+          },
+        ],
+      };
+    }
+  );
+
+  server.registerPrompt(
+    'memory-informed-search',
+    {
+      title: 'Memory-informed search',
+      description: 'Vault search augmented with memory context — what was searched before, what is new.',
+      argsSchema: {
+        query: z.string().describe('Search query'),
+        limit: z.string().optional().describe('Max notes (default 10)'),
+        project: z.string().optional(),
+      },
+    },
+    async (args) => {
+      const config = loadConfig();
+      const limit = Math.min(20, Math.max(1, parseIntSafe(args.limit, 10)));
+      const searchOut = await runSearch(String(args.query || ''), {
+        limit,
+        project: args.project || undefined,
+        fields: 'path',
+      });
+      const paths = (searchOut.results || []).map((r) => r.path).filter(Boolean).slice(0, MAX_EMBEDDED_NOTES);
+      const { text: memText, count: memCount } = await formatMemoryEventsAsync(config, {
+        limit: 10,
+        type: 'search',
+      });
+      const messages = [
+        {
+          role: 'user',
+          content: textContent(
+            `Search query: "${String(args.query)}"\n\n**Previous searches from memory** (${memCount} recent):\n${memText}\n\n**Current search results** (${paths.length} notes embedded below). Compare with past searches — highlight what is new or changed, and synthesize findings.`
+          ),
+        },
+      ];
+      for (const p of paths) {
+        try {
+          messages.push({ role: 'user', content: embeddedNoteFromPath(config, p) });
+        } catch (_) {}
+      }
+      return { description: 'Memory-informed search', messages };
+    }
+  );
+
+  server.registerPrompt(
+    'resume-session',
+    {
+      title: 'Resume session',
+      description: 'Pick up where you left off — recent memory events and session summaries.',
+      argsSchema: {
+        since: z.string().optional().describe('YYYY-MM-DD (default: last 24 hours)'),
+      },
+    },
+    async (args) => {
+      const config = loadConfig();
+      const since = args.since || new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      const { text: allText, count: allCount } = await formatMemoryEventsAsync(config, {
+        limit: 30,
+        since,
+      });
+      const { text: summaryText, count: summaryCount } = await formatMemoryEventsAsync(config, {
+        limit: 5,
+        type: 'session_summary',
+        since,
+      });
+      const parts = [];
+      if (summaryCount > 0) {
+        parts.push(`**Session summaries** (${summaryCount}):\n${summaryText}`);
+      }
+      parts.push(`**Recent activity** (${allCount} events since ${since}):\n${allText}`);
+      return {
+        description: `Resume session (since ${since})`,
+        messages: [
+          {
+            role: 'user',
+            content: textContent(
+              `Help me pick up where I left off. Below is my recent activity log and any session summaries. Summarize what was happening, what was accomplished, and suggest next steps.\n\n${parts.join('\n\n')}`
+            ),
+          },
+        ],
+      };
     }
   );
 }

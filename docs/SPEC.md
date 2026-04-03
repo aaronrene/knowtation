@@ -159,7 +159,7 @@ CLI and indexer read, in order: env overrides, then `config/local.yaml`.
 | `embedding.provider` | string | e.g. `ollama`, `openai`. |
 | `embedding.model` | string | Model name. |
 | `memory.enabled` | boolean | Enable memory layer. |
-| `memory.provider` | string | e.g. `mem0`, `same`. |
+| `memory.provider` | string | `file` (default), `vector`, or `mem0`. |
 | `memory.url` / `KNOWTATION_MEMORY_URL` | string | Optional endpoint for memory service. |
 | `air.enabled` | boolean | Require AIR attestation for protected operations. |
 | `air.endpoint` / `KNOWTATION_AIR_ENDPOINT` | string | Optional AIR service URL. |
@@ -185,7 +185,17 @@ When an MCP server is provided, it MUST expose the same operations and semantics
 
 ## 7. Memory and AIR integration points
 
-- **Memory:** Optional. If enabled, the CLI (or MCP) may call the memory layer: (1) after search, to store “last query + result set” for cross-session context; (2) after export, to store “provenance: these notes → this export”; (3) on demand via a dedicated subcommand (e.g. `knowtation memory query "last export"`). Implementation chooses when to read/write memory; the spec only requires that when `memory.enabled` is true, a memory backend is configured and used for these purposes.
+- **Memory:** Optional. When `memory.enabled` is true, a multi-tier memory layer captures events across CLI, MCP, and hosted surfaces:
+  - **Providers:** `file` (default, JSONL append-only log + latest-value state overlay), `vector` (extends file with embedding-based semantic search), `mem0` (delegates to external Mem0 API).
+  - **Storage:** Per-vault at `{data_dir}/memory/{vault_id}/`. Hosted: per-user + per-vault at `DATA_DIR/memory/{userId}/{vaultId}/`.
+  - **Events captured:** `search`, `export`, `write`, `import`, `index`, `propose` (default). `agent_interaction`, `capture`, `error`, `session_summary` are opt-in via `memory.capture` config. `user` type is always available for manual/agent stores.
+  - **CLI commands:** `memory query <key>`, `memory list`, `memory store`, `memory search`, `memory clear`, `memory export`, `memory stats`.
+  - **MCP tools:** `memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`.
+  - **MCP resources:** `knowtation://memory/` (summary), `knowtation://memory/events`, `knowtation://memory/last_search`, `knowtation://memory/last_export`.
+  - **Privacy:** Secret detection rejects data with sensitive key patterns. Configurable capture types. Retention limits via `memory.retention_days`. `memory clear` requires `--confirm`.
+- **AIR:** Optional. If enabled, the following operations MUST obtain an attestation before proceeding: `write` (when path is outside inbox), `export`. Inbox writes are exempt. The attestation id (AIR id) MUST be logged or stored with the action (e.g. in a log file or in note frontmatter). Implementation may call `air.endpoint` or a local AIR flow. Memory writes can optionally carry an `air_id` for attested memory.
+
+_REMOVEBLOCK_ — see “last query + result set” for cross-session context; (2) after export, to store “provenance: these notes → this export”; (3) on demand via a dedicated subcommand (e.g. `knowtation memory query "last export"`). Implementation chooses when to read/write memory; the spec only requires that when `memory.enabled` is true, a memory backend is configured and used for these purposes.
 - **AIR:** Optional. If enabled, the following operations MUST obtain an attestation before proceeding: `write` (when path is outside inbox), `export`. Inbox writes are exempt. The attestation id (AIR id) MUST be logged or stored with the action (e.g. in a log file or in note frontmatter). Implementation may call `air.endpoint` or a local AIR flow.
 
 ---
