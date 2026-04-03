@@ -20,7 +20,7 @@ import { handleBillingSummary } from './billing-http.mjs';
 import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand } from './billing-constants.mjs';
 import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
-import { mergeHostedNoteBodyForCanister, isPostApiV1Notes } from './apply-note-provenance.mjs';
+import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, isNoteWriteRequest } from './apply-note-provenance.mjs';
 import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './note-facets.mjs';
 import { applyGatewayCors } from './cors-middleware.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './request-path.mjs';
@@ -1328,13 +1328,56 @@ async function proxyToCanister(req, res) {
   ) {
     hostedLlmPrefs = await loadHostedProposalLlmPrefs();
   }
+  // Improvement B: AIR attestation for hosted gateway note writes.
+  // Guarded by KNOWTATION_AIR_ENDPOINT being set; always non-blocking (gateway has no air.required config).
+  let gatewayAirId = null;
+  if (
+    process.env.KNOWTATION_AIR_ENDPOINT &&
+    bodyOut !== undefined &&
+    typeof bodyOut === 'object' &&
+    !Buffer.isBuffer(bodyOut) &&
+    isNoteWriteRequest(req.method, pathOnlyForBody)
+  ) {
+    try {
+      const notePath =
+        req.method === 'POST'
+          ? (typeof bodyOut.path === 'string' ? bodyOut.path.replace(/\\/g, '/') : '')
+          : pathOnlyForBody
+              .slice('/api/v1/notes/'.length)
+              .split('/')
+              .map(decodeURIComponent)
+              .join('/');
+      const { attestBeforeWrite: gwAttest } = await import('../../lib/air.mjs');
+      const airId = await gwAttest(
+        { air: { enabled: true, required: false, endpoint: process.env.KNOWTATION_AIR_ENDPOINT } },
+        notePath
+      );
+      if (airId && airId !== 'air-placeholder-write') {
+        gatewayAirId = airId;
+      }
+    } catch (e) {
+      // Never let an AIR failure block a hosted write; log and continue.
+      console.error('[gateway] AIR attestation error (non-fatal):', e?.message || String(e));
+    }
+  }
+
   if (
     bodyOut !== undefined &&
     typeof bodyOut === 'object' &&
     !Buffer.isBuffer(bodyOut) &&
     isPostApiV1Notes(req.method, pathOnlyForBody)
   ) {
-    bodyOut = mergeHostedNoteBodyForCanister(bodyOut, uid);
+    bodyOut = mergeHostedNoteBodyForCanister(bodyOut, uid, gatewayAirId);
+  } else if (
+    gatewayAirId &&
+    bodyOut !== undefined &&
+    typeof bodyOut === 'object' &&
+    !Buffer.isBuffer(bodyOut) &&
+    req.method === 'PUT' &&
+    pathOnlyForBody.startsWith('/api/v1/notes/')
+  ) {
+    // PUT note write: inject air_id into frontmatter alongside existing fields
+    bodyOut = mergeHostedNoteBodyForCanister(bodyOut, uid, gatewayAirId);
   }
   if (bodyOut !== undefined && typeof bodyOut === 'object' && !Buffer.isBuffer(bodyOut)) {
     bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);

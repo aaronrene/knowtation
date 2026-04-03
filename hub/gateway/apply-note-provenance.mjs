@@ -10,11 +10,18 @@
 import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
 
 /**
- * @param {unknown} body Parsed POST body (Express json())
+ * Merge hosted provenance fields (and optional AIR attestation id) into a note POST/PUT body
+ * before forwarding to the canister.
+ *
+ * `frontmatter` must remain a JSON **object** on the wire so Motoko's `extractJsonObjectSlice`
+ * persists valid JSON. Passing a pre-stringified value causes double-escaping.
+ *
+ * @param {unknown} body Parsed POST/PUT body (Express json())
  * @param {string | null} userId X-User-Id value (e.g. google:123)
+ * @param {string | null} [airId] Attestation ID from attestBeforeWrite; injected when non-null
  * @returns {unknown}
  */
-export function mergeHostedNoteBodyForCanister(body, userId) {
+export function mergeHostedNoteBodyForCanister(body, userId, airId = null) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
   /** @type {Record<string, unknown>} */
   const out = { ...body };
@@ -35,6 +42,10 @@ export function mergeHostedNoteBodyForCanister(body, userId) {
       kind: 'human',
     }
   );
+  // Improvement B: inject attestation id when present
+  if (airId) {
+    merged.air_id = airId;
+  }
   out.frontmatter = merged;
   return out;
 }
@@ -47,6 +58,19 @@ export function isPostApiV1Notes(method, pathPart) {
   if (method !== 'POST') return false;
   const p = (pathPart || '').replace(/\/+$/, '') || '/';
   return p === '/api/v1/notes';
+}
+
+/**
+ * Returns true for note-write requests: POST /api/v1/notes (create) or
+ * PUT /api/v1/notes/:path (update). Used to gate AIR attestation on the gateway.
+ * @param {string} method
+ * @param {string} pathPart URL path without query
+ */
+export function isNoteWriteRequest(method, pathPart) {
+  const p = (pathPart || '').replace(/\/+$/, '') || '/';
+  if (method === 'POST' && p === '/api/v1/notes') return true;
+  if (method === 'PUT' && p.startsWith('/api/v1/notes/')) return true;
+  return false;
 }
 
 export { pathPartNoQuery } from './request-path.mjs';

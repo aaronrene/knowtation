@@ -11,11 +11,11 @@ import { runListNotes } from '../lib/list-notes.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { runKeywordSearch } from '../lib/keyword-search.mjs';
 import { runIndex } from '../lib/indexer.mjs';
-import { writeNote, isInboxPath } from '../lib/write.mjs';
+import { writeNote } from '../lib/write.mjs';
 import { exportNotes } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES, IMPORT_SOURCE_TYPES_HELP } from '../lib/import-source-types.mjs';
-import { attestBeforeWrite, attestBeforeExport } from '../lib/air.mjs';
+import { attestBeforeExport } from '../lib/air.mjs';
 import { storeMemory } from '../lib/memory.mjs';
 import { registerKnowtationResources } from './resources/register.mjs';
 import { registerPhaseCTools } from './tools/phase-c.mjs';
@@ -230,13 +230,11 @@ export function mountKnowtationMcp(server) {
     async (args, _extra) => {
       try {
         const config = loadConfig();
-        if (config.air?.enabled && !isInboxPath(args.path)) {
-          await attestBeforeWrite(config, args.path);
-        }
-        const result = writeNote(config.vault_path, args.path, {
+        const result = await writeNote(config.vault_path, args.path, {
           body: args.body,
           frontmatter: args.frontmatter,
           append: args.append,
+          config,
         });
         const fm = args.frontmatter;
         if (fm && Object.keys(fm).length > 0 && fm.title === undefined) {
