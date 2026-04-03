@@ -1,6 +1,6 @@
 # Knowtation — Whitepaper
 
-**Version:** 2.1 (March 2026)  
+**Version:** 2.2 (April 2026)  
 **Product:** Knowtation (*know* + *notation*) — personal and team knowledge vault with CLI, optional MCP, indexing, search, and imports.
 
 ---
@@ -82,8 +82,9 @@ See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) for setup and patterns.
 
 
 1. **Data liberation** — Your vault is yours. Export, copy, and host where policy demands. SPEC §0 and the README state vendor independence explicitly.
-2. **Open brain** — Agents learn behavior via `SKILL.md` and invoke `knowtation` (or MCP) without stuffing large tool specs into every prompt.
+2. **Open brain** — Agents learn behavior via `SKILL.md` and invoke `knowtation` (or MCP) without stuffing large tool specs into every prompt. The memory layer gives agents **persistent recall** across sessions — what was searched, written, exported, and why — so context compounds instead of resetting.
 3. **Notation over hype** — Value comes from **regular capture**, **re-indexing after edits**, and **queries that match how you organize**—not from any one model drop.
+4. **Memory as a first-class primitive** — Unlike systems where memory is an afterthought bolted onto chat history, Knowtation treats operational memory as structured, queryable data with event types, timestamps, and optional semantic search — bridging the gap between "what's in the vault" and "what has the agent been doing."
 
 ---
 
@@ -102,6 +103,9 @@ flowchart LR
   subgraph index [Index]
     I[Chunk embed store]
   end
+  subgraph memory [Memory]
+    M[Event log + semantic recall]
+  end
   subgraph use [Use]
     CLI[CLI and MCP]
     AG[Agents]
@@ -110,12 +114,15 @@ flowchart LR
   V --> I
   I --> CLI
   CLI --> AG
+  CLI --> M
+  M --> CLI
 ```
 
-- **Config** — `config/local.yaml`; vault path, embedding provider, vector backend (Qdrant or sqlite-vec), optional memory and AIR ([SPEC.md](./SPEC.md)).
+- **Config** — `config/local.yaml`; vault path, embedding provider, vector backend (Qdrant or sqlite-vec), memory provider and capture settings, optional AIR ([SPEC.md](./SPEC.md)).
 - **Indexer** — Walk vault, chunk by heading or size, embed, upsert idempotently; metadata includes date, optional `causal_chain_id`, `entity`, `episode_id`.
 - **Search / list / get-note** — Ranked hits with filters (`--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`); token levers: `--fields`, `--snippet-chars`, `--count-only`, `--body-only`, `--frontmatter-only`.
 - **Write / export / import** — Create notes, export to md/html with provenance; import from external platforms.
+- **Memory** — Append-only event log of user and agent operations; five provider tiers (file, vector, mem0, encrypted, Supabase/pgvector); semantic recall; auto-capture; cross-vault or per-vault scope; LLM session summaries; AES-256-GCM encryption at rest; retention enforcement; memory-aware MCP prompts for session continuity; Supabase migration path for users with existing PostgreSQL-based memory stores.
 
 Full detail: [ARCHITECTURE.md](../ARCHITECTURE.md), [SPEC.md](./SPEC.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
 
@@ -131,9 +138,11 @@ Full detail: [ARCHITECTURE.md](../ARCHITECTURE.md), [SPEC.md](./SPEC.md), [IMPLE
 
 ## 11. Roadmap, Hub, and optional layers
 
-Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Phases 1–10 complete (config, vault, indexer, search, write, export, capture, import, transcription, memory, AIR, MCP, sqlite-vec). Phase 11: **Knowtation Hub** — hosted or self-hosted vault, proposals, review queue, web UI. Hub is **convenience**; file semantics and export remain the portability story. **Multi-agent orchestration:** Knowtation as a knowledge backend via CLI and MCP — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
+Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Phases 1–10 complete (config, vault, indexer, search, write, export, capture, import, transcription, memory, AIR, MCP, sqlite-vec); Phase 8 memory augmented to full three-tier provider system with event log, semantic recall, and hosted path. Phase 11: **Knowtation Hub** — hosted or self-hosted vault, proposals, review queue, web UI. Hub is **convenience**; file semantics and export remain the portability story. **Multi-agent orchestration:** Knowtation as a knowledge backend via CLI and MCP — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
 
-**Optional:** Memory layer (e.g. Mem0) for "last query + results" and provenance; AIR (intent attestation) before write/export; Phase 12 reserves blockchain/wallet frontmatter and filters for agent payments when needed. **Hosted plug-and-play:** A future offering where we host and maintain the platform; paid users get a zero-config experience (no YAML, no server setup), with optional "Connect GitHub" for backup and "Connect an agent" for API access. See [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md).
+**Memory augmentation (Phase 8):** Three-tier memory layer — `file` (zero-dependency JSONL event log + JSON state overlay), `vector` (semantic search over memory via existing embedding/vector infrastructure), `mem0` (external Mem0 API integration). Eleven event types captured automatically after search, export, write, import, index, and propose operations. CLI offers seven `memory` subcommands (`query`, `list`, `store`, `search`, `clear`, `export`, `stats`); MCP exposes five tools (`memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`) and resource URIs. Hosted path provides per-user/vault isolation. Privacy controls include secret detection, configurable capture types, and retention limits. See [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md).
+
+**AIR (Attestation Integrity Records):** Intent attestation before write/export with optional ICP blockchain anchor for immutable audit trail. **Phase 12:** Blockchain/wallet frontmatter and filters for agent payments. **Hosted plug-and-play:** A future offering where we host and maintain the platform; paid users get a zero-config experience (no YAML, no server setup), with optional "Connect GitHub" for backup and "Connect an agent" for API access. See [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md).
 
 ---
 
@@ -162,7 +171,7 @@ Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Pha
 | [HUB-API.md](./HUB-API.md) | Hub REST API and auth |
 | [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Hub API for agents |
 | [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md) | Slack, Discord, capture adapters |
-| [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Cursor — agent integration |
+| [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md) | Memory architecture, providers, CLI, MCP, hosted path |
 
 ---
 

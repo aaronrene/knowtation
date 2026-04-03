@@ -2,7 +2,7 @@
 
 > **Branch:** `feature/phase17-billing-ux`
 > **Preceded by:** Phase 16 (Stripe billing scaffold, pack purchases, webhooks)
-> **Status:** Planning / in progress
+> **Status:** Implemented and merged (PR #93, 2026-04-03). All four sub-items (17A–17D) shipped.
 
 ---
 

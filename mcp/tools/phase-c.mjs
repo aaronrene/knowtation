@@ -15,7 +15,6 @@ import { runVaultSync } from '../../lib/vault-git-sync.mjs';
 import { completeChat } from '../../lib/llm-complete.mjs';
 import { runExtractTasks } from '../../lib/extract-tasks.mjs';
 import { runCluster } from '../../lib/cluster-semantic.mjs';
-import { getMemory } from '../../lib/memory.mjs';
 import { runTagSuggest } from '../../lib/tag-suggest.mjs';
 
 function jsonResponse(obj) {
@@ -267,27 +266,6 @@ export function registerPhaseCTools(server) {
       try {
         const out = await runCluster(args);
         return jsonResponse(out);
-      } catch (e) {
-        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
-      }
-    }
-  );
-
-  server.registerTool(
-    'memory_query',
-    {
-      description: 'Read a value from the file memory store (e.g. last_search, last_export).',
-      inputSchema: {
-        key: z.string().describe('Memory key, e.g. last_search or last_export'),
-      },
-    },
-    async (args) => {
-      try {
-        const config = loadConfig();
-        const v = getMemory(config.data_dir, args.key);
-        if (!v) return jsonResponse({ key: args.key, value: null, updated_at: null });
-        const { _at, ...rest } = v;
-        return jsonResponse({ key: args.key, value: rest, updated_at: _at ?? null });
       } catch (e) {
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');
       }

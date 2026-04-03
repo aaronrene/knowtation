@@ -1,7 +1,7 @@
 # Phase 12 — Blockchain Frontmatter & Agent Wallet Records
 
 **Branch:** `feature/phase12-blockchain-frontmatter`
-**Status:** Active
+**Status:** Implemented and merged (PR #94 — Phase 12A; PR #95 — Phase 12B wallet-csv)
 **Reference:** [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md)
 
 ---

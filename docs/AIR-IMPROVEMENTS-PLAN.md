@@ -216,7 +216,7 @@ air_block_height: 12345678
 | **B** — Wire gateway writes to AIR | Small | `feature/air-improvements` | ✅ Merged PR #96 (2026-04-03) |
 | **C** — Hard-fail mode (`air.required`) | Tiny | `feature/air-improvements` | ✅ Merged PR #96 (2026-04-03) |
 | **D** — Built-in Netlify attestation endpoint | Medium | `feature/air-built-in-endpoint` | ✅ Merged PR #97 (2026-04-03) |
-| **E** — ICP blockchain anchor | Large | `feature/air-icp-attestation` | 🔨 In progress (branch created, code complete, pending canister deploy) |
+| **E** — ICP blockchain anchor | Large | `feature/air-icp-attestation` | ✅ Merged PR #99 (2026-04-03); canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed |
 
 **Recommended sequencing:** A+B+C shipped as a single PR. D next as a standalone feature
 (planning pass first — see §D above for full spec). E only when the use case demands it

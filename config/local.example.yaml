@@ -36,11 +36,25 @@
 #   model: whisper-1
 # Requires OPENAI_API_KEY in env. Get key: platform.openai.com → API Keys. New accounts get $5 free credits; Whisper ~$0.006/min.
 
-# --- Optional: memory layer (store last search, export provenance) ---
+# --- Optional: memory layer (timestamped event log, semantic recall) ---
 # memory:
 #   enabled: true
-#   provider: file   # stores in data/memory.json
-#   # url: http://localhost:8080   # for Mem0; env KNOWTATION_MEMORY_URL
+#   provider: file   # file | vector | mem0 | supabase
+#   # url: http://localhost:8080   # for Mem0 provider; env KNOWTATION_MEMORY_URL
+#   # retention_days: 90           # null = keep forever; number = auto-prune
+#   # scope: vault                 # vault (per-vault, default) | global (shared across all vaults)
+#   # encrypt: false               # true = AES-256-GCM at rest; requires secret or KNOWTATION_MEMORY_SECRET
+#   # secret: ""                   # encryption key; prefer env KNOWTATION_MEMORY_SECRET over YAML
+#   # supabase_url: ""             # for Supabase provider; env KNOWTATION_SUPABASE_URL
+#   # supabase_key: ""             # for Supabase provider; env KNOWTATION_SUPABASE_KEY
+#   # capture:                     # which events to auto-capture (defaults below)
+#   #   - search
+#   #   - export
+#   #   - write
+#   #   - import
+#   #   - index
+#   #   - propose
+#   #   # opt-in: agent_interaction, capture, error, session_summary
 
 # --- Optional: AIR attestation (before write non-inbox, before export) ---
 # air:

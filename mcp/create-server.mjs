@@ -16,9 +16,10 @@ import { exportNotes } from '../lib/export.mjs';
 import { runImport } from '../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES, IMPORT_SOURCE_TYPES_HELP } from '../lib/import-source-types.mjs';
 import { attestBeforeExport } from '../lib/air.mjs';
-import { storeMemory } from '../lib/memory.mjs';
+import { storeMemory, createMemoryManager } from '../lib/memory.mjs';
 import { registerKnowtationResources } from './resources/register.mjs';
 import { registerPhaseCTools } from './tools/phase-c.mjs';
+import { registerMemoryTools } from './tools/memory.mjs';
 import { registerHubProposalTools } from './tools/hub-proposals.mjs';
 import { registerResourceSubscriptionHandlers, notifyIndexMetadataResources } from './resource-subscriptions.mjs';
 import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
@@ -93,11 +94,15 @@ export function mountKnowtationMcp(server) {
             : await runSearch(args.query, base, config);
         if (config.memory?.enabled) {
           try {
-            storeMemory(config.data_dir, 'last_search', {
-              query: out.query,
-              paths: (out.results || []).map((r) => r.path),
-              count: out.count ?? (out.results || []).length,
-            });
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('search')) {
+              mm.store('search', {
+                query: out.query,
+                mode: args.mode || 'semantic',
+                paths: (out.results || []).map((r) => r.path),
+                count: out.count ?? (out.results || []).length,
+              });
+            }
           } catch (_) {}
         }
         return jsonResponse(out);
@@ -193,6 +198,7 @@ export function mountKnowtationMcp(server) {
     },
     async (extra) => {
       try {
+        const t0 = Date.now();
         const result = await runIndex({
           onProgress: async (p) => {
             await sendMcpToolProgress(extra, {
@@ -203,6 +209,19 @@ export function mountKnowtationMcp(server) {
           },
         });
         await notifyIndexMetadataResources(server);
+        const config = loadConfig();
+        if (config.memory?.enabled) {
+          try {
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('index')) {
+              mm.store('index', {
+                notes_processed: result.notesProcessed,
+                chunks_indexed: result.chunksIndexed,
+                duration_ms: Date.now() - t0,
+              });
+            }
+          } catch (_) {}
+        }
         await sendMcpLog(server, 'info', {
           event: 'index_complete',
           notesProcessed: result.notesProcessed,
@@ -236,6 +255,18 @@ export function mountKnowtationMcp(server) {
           append: args.append,
           config,
         });
+        if (config.memory?.enabled) {
+          try {
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('write')) {
+              mm.store('write', {
+                path: result.path,
+                action: args.append ? 'append' : 'create',
+                air_id: result.air_id || undefined,
+              });
+            }
+          } catch (_) {}
+        }
         const fm = args.frontmatter;
         if (fm && Object.keys(fm).length > 0 && fm.title === undefined) {
           await sendMcpLog(server, 'warning', {
@@ -293,7 +324,10 @@ export function mountKnowtationMcp(server) {
         const result = exportNotes(config.vault_path, paths, args.output, { format: args.format ?? 'md' });
         if (config.memory?.enabled) {
           try {
-            storeMemory(config.data_dir, 'last_export', { provenance: result.provenance, exported: result.exported });
+            const mm = createMemoryManager(config);
+            if (mm.shouldCapture('export')) {
+              mm.store('export', { provenance: result.provenance, exported: result.exported, format: args.format ?? 'md' });
+            }
           } catch (_) {}
         }
         return jsonResponse({ exported: result.exported, provenance: result.provenance });
@@ -323,7 +357,12 @@ export function mountKnowtationMcp(server) {
     async (args, extra) => {
       try {
         await sendMcpToolProgress(extra, { progress: 0, message: `import start: ${args.source_type}` });
-        const result = await runImport(args.source_type, args.input, {
+        const config = loadConfig();
+        let mm;
+        if (config.memory?.enabled && !args.dry_run) {
+          try { mm = createMemoryManager(config); } catch (_) {}
+        }
+        const importOpts = {
           project: args.project,
           outputDir: args.output_dir,
           tags: args.tags || [],
@@ -335,8 +374,26 @@ export function mountKnowtationMcp(server) {
               message: p.message,
             });
           },
-        });
+        };
+        if (mm && args.source_type === 'mem0-export' && mm.shouldCapture('capture')) {
+          importOpts.onMemoryEvent = (data) => {
+            try { mm.store('capture', data); } catch (_) {}
+          };
+        }
+        const result = await runImport(args.source_type, args.input, importOpts);
         const n = result.count ?? 0;
+        if (mm) {
+          try {
+            if (mm.shouldCapture('import')) {
+              mm.store('import', {
+                source_type: args.source_type,
+                count: n,
+                paths: (result.imported || []).map((r) => r.path).slice(0, 50),
+                project: args.project || undefined,
+              });
+            }
+          } catch (_) {}
+        }
         await sendMcpToolProgress(extra, {
           progress: Math.max(1, n),
           total: Math.max(1, n),
@@ -358,6 +415,7 @@ export function mountKnowtationMcp(server) {
   registerKnowtationResources(server);
   registerKnowtationPrompts(server);
   registerPhaseCTools(server);
+  registerMemoryTools(server);
   registerHubProposalTools(server);
   registerResourceSubscriptionHandlers(server);
 }

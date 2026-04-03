@@ -16,6 +16,9 @@ import {
   buildProjectsResource,
   redactConfig,
   buildMemoryResource,
+  buildMemorySummaryResource,
+  buildMemoryEventsResource,
+  buildMemoryTypeResource,
   buildAirLogResource,
 } from './metadata.mjs';
 import { buildKnowledgeGraph } from './graph.mjs';
@@ -225,6 +228,32 @@ export function registerKnowtationResources(server) {
     async (uri) => {
       const config = loadConfig();
       return jsonContent(uri, buildMemoryResource(config, 'last_export'));
+    }
+  );
+
+  server.registerResource(
+    'memory-summary',
+    'knowtation://memory/',
+    {
+      title: 'Memory summary',
+      description: 'Memory layer status: enabled, provider, event counts, last activity.',
+    },
+    async (uri) => {
+      const config = loadConfig();
+      return jsonContent(uri, buildMemorySummaryResource(config));
+    }
+  );
+
+  server.registerResource(
+    'memory-events',
+    'knowtation://memory/events',
+    {
+      title: 'Recent memory events',
+      description: 'Last 50 memory events from the event log.',
+    },
+    async (uri) => {
+      const config = loadConfig();
+      return jsonContent(uri, buildMemoryEventsResource(config));
     }
   );
 
