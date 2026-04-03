@@ -120,6 +120,12 @@
             <option value="notes">Notes only</option>
             <option value="approval_logs">Approval logs only</option>
           </select>
+          <select id="filter-network" class="filter-blockchain hidden" title="Filter by blockchain network (e.g. icp, ethereum). Only shown when vault has notes with network frontmatter." aria-label="Filter by blockchain network">
+            <option value="">All networks</option>
+          </select>
+          <select id="filter-wallet" class="filter-blockchain hidden" title="Filter by wallet address. Only shown when vault has notes with wallet_address frontmatter." aria-label="Filter by wallet address">
+            <option value="">All wallets</option>
+          </select>
         </div>
         <div class="search-row search-row-dates-actions" role="group" aria-label="Date range and search actions">
           <label for="filter-since" class="filter-date-label">Since</label>

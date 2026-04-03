@@ -346,6 +346,9 @@ button.btn-new-note.btn-busy::after {
 .filter-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
 .filter-chips .chip-btn { cursor: pointer; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
 .filter-chips .chip-btn:hover, .filter-chips .chip-btn.active { border-color: var(--accent); color: var(--accent); }
+/* Phase 12 — blockchain chip tint */
+.filter-chips .chip-blockchain { border-color: color-mix(in srgb, #7c6fff 40%, var(--border)); color: color-mix(in srgb, #7c6fff 80%, var(--muted)); }
+.filter-chips .chip-blockchain:hover, .filter-chips .chip-blockchain.active { border-color: #7c6fff; color: #7c6fff; }
 .presets-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .presets-row input { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 10rem; }
 .presets-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
