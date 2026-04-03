@@ -40,6 +40,7 @@ import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
+import { isAttestationConfigured, createAttestation, verifyAttestation } from './attest-store.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -54,6 +55,17 @@ if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
 
 const PORT = parseInt(process.env.GATEWAY_PORT || process.env.PORT || '3340', 10);
 const BASE_URL = process.env.HUB_BASE_URL || `http://localhost:${PORT}`;
+
+// AIR Improvement D: when ATTESTATION_SECRET is set and no explicit AIR endpoint
+// is provided, point AIR at this gateway's own /api/v1/attest route.
+if (
+  process.env.ATTESTATION_SECRET &&
+  process.env.ATTESTATION_SECRET.length >= 32 &&
+  !process.env.KNOWTATION_AIR_ENDPOINT
+) {
+  process.env.KNOWTATION_AIR_ENDPOINT = `${BASE_URL}/api/v1/attest`;
+  console.log('[gateway] AIR auto-configured: KNOWTATION_AIR_ENDPOINT =', process.env.KNOWTATION_AIR_ENDPOINT);
+}
 const CANISTER_URL = (process.env.CANISTER_URL || '').replace(/\/$/, '');
 const BRIDGE_URL = (process.env.BRIDGE_URL || '').replace(/\/$/, '');
 if (BRIDGE_URL) {
@@ -1526,6 +1538,56 @@ app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: e?.message || 'Internal error', code: 'INTERNAL_ERROR' });
     }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AIR Improvement D — built-in attestation endpoint
+// ---------------------------------------------------------------------------
+
+app.post('/api/v1/attest', async (req, res) => {
+  if (!isAttestationConfigured()) {
+    return res.status(503).json({
+      error: 'Attestation service not configured (ATTESTATION_SECRET missing or too short).',
+      code: 'NOT_CONFIGURED',
+    });
+  }
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const action = typeof body.action === 'string' ? body.action.trim() : '';
+  if (!action) {
+    return res.status(400).json({ error: 'action is required', code: 'BAD_REQUEST' });
+  }
+  const notePath = typeof body.path === 'string' ? body.path : '';
+  const contentHash = typeof body.content_hash === 'string' ? body.content_hash : null;
+  try {
+    const result = await createAttestation(action, notePath, contentHash);
+    return res.json(result);
+  } catch (e) {
+    console.error('[gateway] POST /api/v1/attest error:', e?.message || e);
+    return res.status(500).json({ error: 'Attestation failed', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.get('/api/v1/attest/:id', async (req, res) => {
+  if (!isAttestationConfigured()) {
+    return res.status(503).json({
+      error: 'Attestation service not configured (ATTESTATION_SECRET missing or too short).',
+      code: 'NOT_CONFIGURED',
+    });
+  }
+  const id = req.params.id;
+  if (!id || !id.startsWith('air-')) {
+    return res.status(400).json({ error: 'Invalid attestation id format', code: 'BAD_REQUEST' });
+  }
+  try {
+    const result = await verifyAttestation(id);
+    if (!result.record) {
+      return res.status(404).json({ error: 'Attestation not found', code: 'NOT_FOUND' });
+    }
+    return res.json(result);
+  } catch (e) {
+    console.error('[gateway] GET /api/v1/attest/:id error:', e?.message || e);
+    return res.status(500).json({ error: 'Verification failed', code: 'INTERNAL_ERROR' });
   }
 });
 
