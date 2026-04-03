@@ -365,15 +365,12 @@ async function main() {
     }
     (async () => {
       try {
-        const { writeNote, isInboxPath } = await import('../lib/write.mjs');
-        const { attestBeforeWrite } = await import('../lib/air.mjs');
-        if (config.air?.enabled && !isInboxPath(pathArg)) {
-          await attestBeforeWrite(config, pathArg);
-        }
-        const result = writeNote(config.vault_path, pathArg, {
+        const { writeNote } = await import('../lib/write.mjs');
+        const result = await writeNote(config.vault_path, pathArg, {
           body,
           frontmatter: Object.keys(frontmatterOverrides).length ? frontmatterOverrides : undefined,
           append,
+          config,
         });
         try {
           const { maybeAutoSync } = await import('../lib/vault-git-sync.mjs');
