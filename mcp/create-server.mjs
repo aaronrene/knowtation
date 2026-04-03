@@ -60,6 +60,9 @@ export function mountKnowtationMcp(server) {
         entity: z.string().optional().describe('Entity filter'),
         episode: z.string().optional().describe('Episode filter'),
         content_scope: z.enum(['all', 'notes', 'approval_logs']).optional().describe('Restrict to note files vs approval logs'),
+        network: z.string().optional().describe('Phase 12: filter by blockchain network (e.g. icp, ethereum, sepolia)'),
+        wallet_address: z.string().optional().describe('Phase 12: filter by wallet address or principal'),
+        payment_status: z.string().optional().describe('Phase 12: filter by payment status (pending, settled, failed, cancelled)'),
       },
     },
     async (args) => {
@@ -80,6 +83,9 @@ export function mountKnowtationMcp(server) {
           entity: args.entity,
           episode: args.episode,
           content_scope: args.content_scope === 'all' ? undefined : args.content_scope,
+          network: args.network,
+          wallet_address: args.wallet_address,
+          payment_status: args.payment_status,
         };
         const out =
           args.mode === 'keyword'
@@ -132,7 +138,7 @@ export function mountKnowtationMcp(server) {
   server.registerTool(
     'list_notes',
     {
-      description: 'List notes with optional filters (folder, project, tag, date range).',
+      description: 'List notes with optional filters (folder, project, tag, date range, blockchain fields).',
       inputSchema: {
         folder: z.string().optional(),
         project: z.string().optional(),
@@ -147,6 +153,9 @@ export function mountKnowtationMcp(server) {
         order: z.enum(['date', 'date-asc']).optional(),
         fields: z.enum(['path', 'path+metadata', 'full']).optional(),
         count_only: z.boolean().optional(),
+        network: z.string().optional().describe('Phase 12: filter by blockchain network (e.g. icp, ethereum)'),
+        wallet_address: z.string().optional().describe('Phase 12: filter by wallet address or principal'),
+        payment_status: z.string().optional().describe('Phase 12: filter by payment status (pending, settled, failed, cancelled)'),
       },
     },
     async (args) => {
@@ -166,6 +175,9 @@ export function mountKnowtationMcp(server) {
           order: args.order ?? 'date',
           fields: args.fields ?? 'path+metadata',
           countOnly: args.count_only,
+          network: args.network,
+          wallet_address: args.wallet_address,
+          payment_status: args.payment_status,
         });
         return jsonResponse(out);
       } catch (e) {
