@@ -888,6 +888,7 @@ button.btn-new-note.btn-busy::after {
 .settings-list { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.55; }
 .settings-list li { margin-bottom: 0.5rem; }
 .how-to-note { margin-top: 1rem; padding: 0.5rem 0.75rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem; line-height: 1.5; }
+.how-to-code { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
 .settings-body { padding: 1rem 1.25rem; }
 .settings-intro { margin: 0 0 1rem; font-size: 0.9rem; color: var(--muted); }
 .settings-row { display: flex; gap: 0.75rem; margin-bottom: 0.5rem; }
@@ -1624,3 +1625,67 @@ button.btn-new-note.btn-busy::after {
 }
 .billing-bornfree-blurb a { color: var(--accent); text-decoration: none; }
 .billing-bornfree-blurb a:hover { text-decoration: underline; }
+
+/* Phase 18: Media toolbar + paste-URL dialog */
+.media-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+.media-toolbar .btn-small {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.media-toolbar .btn-small:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.media-url-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-top: 0.25rem;
+  max-width: 450px;
+}
+.media-url-input {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+}
+.media-url-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.media-preview {
+  margin-top: 0.5rem;
+  min-height: 1rem;
+}
+.media-preview img,
+.media-preview video {
+  max-height: 200px;
+  max-width: 100%;
+  border-radius: 4px;
+  object-fit: contain;
+}
+.media-url-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.note-rendered-body video {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+}

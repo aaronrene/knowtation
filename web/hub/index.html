@@ -1165,6 +1165,7 @@ Your note body here.</pre>
         <nav class="how-to-tabs" role="tablist" aria-label="How to use sections">
           <button type="button" class="how-to-tab active" role="tab" aria-selected="true" data-how-to-tab="setup">Setup</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="knowledge-agents">Knowledge &amp; agents</button>
+          <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="media">Media &amp; images</button>
         </nav>
         <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
           <div class="how-to-use-body">
@@ -1646,6 +1647,69 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <section class="how-to-step">
               <h3>Orchestrators</h3>
               <p>Point any orchestrator at this vault and the same project slugs. Use CLI in worktrees or MCP where available. For local models (e.g. Ollama), use the same embedding URL and model as Knowtation—see <strong>Settings → Agents</strong> for the current config and a copyable env snippet.</p>
+            </section>
+          </div>
+        </div>
+
+        <div id="how-to-panel-media" class="how-to-panel" role="tabpanel">
+          <div class="how-to-use-body">
+            <p class="how-to-intro">How to embed images and videos in notes — what works inline, what shows as a link, and what you need for each.</p>
+
+            <section class="how-to-step">
+              <h3>Inline images</h3>
+              <p class="step-what">Use standard Markdown image syntax. The image loads directly from the URL you provide.</p>
+              <pre class="how-to-code">![My image](https://example.com/photo.jpg)</pre>
+              <ul>
+                <li>The URL must be <strong>publicly accessible</strong> (no login required). The Hub does not proxy images — the browser fetches them directly.</li>
+                <li>Supported formats: JPEG, PNG, GIF, WebP, SVG (any format your browser can render).</li>
+                <li>To embed an image from your <strong>GitHub vault repo</strong>, use the <strong>Upload Image</strong> button in edit mode — see below.</li>
+              </ul>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Inline video players (.mp4, .webm, .mov)</h3>
+              <p class="step-what">Paste a <strong>direct video file URL</strong> on its own line. The Hub automatically renders it as a native <code>&lt;video&gt;</code> player.</p>
+              <pre class="how-to-code">https://example.com/demo.mp4</pre>
+              <ul>
+                <li>The URL must end in <code>.mp4</code>, <code>.webm</code>, or <code>.mov</code> (a direct link to the file, not a streaming page).</li>
+                <li>Put the URL on its own line with a <strong>blank line above and below</strong> it — or use the <strong>Insert Media URL</strong> button which handles spacing automatically.</li>
+                <li>The video must be publicly hosted (no authentication). <a href="https://samplelib.com/sample-mp4.html" target="_blank" rel="noopener">samplelib.com</a> has free test videos.</li>
+                <li><strong>Adjacent content tip:</strong> If you add text or an image right after a video URL without a blank line, the video player may not render. Always leave a blank line between the video URL and whatever comes next.</li>
+              </ul>
+            </section>
+
+            <section class="how-to-step">
+              <h3>YouTube, Vimeo, and other streaming links</h3>
+              <p>These show as <strong>clickable links</strong>, not embedded players. Embedding streaming services requires iframes, which are blocked for security (iframe injection is a common XSS vector). Click the link to open the video in its own tab.</p>
+              <p class="how-to-note">If you need video to play inline in the note, host the file as an <code>.mp4</code> (e.g. on GitHub, Cloudflare R2, or another public host) and use the direct file URL.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Upload Image button (GitHub-backed)</h3>
+              <p class="step-what">In <strong>edit mode</strong> (click Edit on a note), the toolbar shows an <strong>Upload Image</strong> button when GitHub is connected. It commits the file to your vault's GitHub repo and inserts the correct Markdown.</p>
+              <ul>
+                <li>Accepted formats: JPEG, PNG, GIF, WebP — up to 25 MB.</li>
+                <li>Files are committed to <code>media/images/YYYY-MM/</code> in your repo.</li>
+                <li>Works with both <strong>public and private</strong> GitHub repos. When viewing in the Hub, images load through a secure proxy that uses your connected GitHub token — no authentication is exposed in the note source.</li>
+                <li>The raw <code>raw.githubusercontent.com</code> URL is stored in the note markdown, so the note remains portable (images display in any viewer for public repos; in the Hub for private repos).</li>
+                <li>If the button is not visible: make sure you are in Edit mode <em>and</em> GitHub is connected (Settings → Backup → Connect GitHub).</li>
+              </ul>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Insert Media URL button (preview &amp; insert)</h3>
+              <p class="step-what">In edit mode, the <strong>Insert Media URL</strong> button opens a small dialog where you can paste any public URL and see a live preview before inserting.</p>
+              <ul>
+                <li>Paste an image URL (<code>https://…/photo.jpg</code>) → a preview image appears.</li>
+                <li>Paste a direct video URL (<code>https://…/demo.mp4</code>) → a preview video player appears.</li>
+                <li>Click <strong>Insert</strong> to add the correct Markdown at the cursor position.</li>
+                <li>Images are inserted as <code>![filename](url)</code>; videos are inserted as a bare URL on its own line (which renders as a player in read view).</li>
+              </ul>
+            </section>
+
+            <section class="how-to-step">
+              <h3>MCP image and video resources</h3>
+              <p>When an AI agent reads a note via MCP, any embedded image URLs are exposed as typed <code>image/*</code> resources (<code>knowtation://vault/…/image/0</code>, <code>/image/1</code>, …). Video URLs are exposed as <code>video/*</code> resources with the URL as text content. Vision-capable models can receive the image blobs directly. This requires no extra configuration — it is automatic for all notes.</p>
             </section>
           </div>
         </div>

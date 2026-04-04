@@ -7,7 +7,7 @@ import path from 'path';
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { loadConfig } from '../../lib/config.mjs';
-import { readNote, resolveVaultRelativePath } from '../../lib/vault.mjs';
+import { readNote, resolveVaultRelativePath, listMarkdownFiles } from '../../lib/vault.mjs';
 import { buildVaultListing, listMediaFiles, listTemplateFiles } from './listing.mjs';
 import { noteToMarkdown } from './note.mjs';
 import {
@@ -22,6 +22,9 @@ import {
   buildAirLogResource,
 } from './metadata.mjs';
 import { buildKnowledgeGraph } from './graph.mjs';
+import { extractImageUrls, extractVideoUrls } from '../../lib/media-url-extract.mjs';
+import { fetchImageAsBase64 } from './image-fetch.mjs';
+import { MCP_RESOURCE_PAGE_SIZE } from './pagination.mjs';
 
 function jsonContent(uri, obj) {
   return {
@@ -385,6 +388,156 @@ export function registerKnowtationResources(server) {
       }
 
       return jsonContent(uri, buildVaultListing(config, rel));
+    }
+  );
+
+  // --- Phase 18A: MCP Image Resources ---
+
+  const noteImageTemplate = new ResourceTemplate('knowtation://vault/{+notePath}/image/{index}', {
+    list: async () => {
+      const config = loadConfig();
+      const paths = listMarkdownFiles(config.vault_path, { ignore: config.ignore });
+      const resources = [];
+      for (const p of paths.slice(0, MCP_RESOURCE_PAGE_SIZE)) {
+        try {
+          const note = readNote(config.vault_path, p);
+          const images = extractImageUrls(note.body);
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const name = img.alt || img.url.split('/').pop().split('?')[0] || `image-${i}`;
+            resources.push({
+              uri: `knowtation://vault/${p}/image/${i}`,
+              name,
+              mimeType: img.mimeType,
+              description: `Image in ${p}`,
+            });
+          }
+        } catch (_) {}
+        if (resources.length >= MCP_RESOURCE_PAGE_SIZE) break;
+      }
+      return { resources: resources.slice(0, MCP_RESOURCE_PAGE_SIZE) };
+    },
+  });
+
+  server.registerResource(
+    'note-image',
+    noteImageTemplate,
+    {
+      title: 'Note embedded image',
+      description: 'Image referenced in a note body via ![alt](url). Returns base64 blob with typed mimeType for vision-capable MCP clients.',
+    },
+    async (uri, variables) => {
+      const config = loadConfig();
+      let notePath = variables.notePath;
+      if (Array.isArray(notePath)) notePath = notePath[0];
+      notePath = decodeURIComponent(String(notePath || '').replace(/\\/g, '/'));
+      if (notePath.includes('..')) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid note path');
+      }
+
+      let idx = variables.index;
+      if (Array.isArray(idx)) idx = idx[0];
+      idx = parseInt(String(idx), 10);
+      if (isNaN(idx) || idx < 0) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid image index');
+      }
+
+      resolveVaultRelativePath(config.vault_path, notePath);
+      const note = readNote(config.vault_path, notePath);
+      const images = extractImageUrls(note.body);
+      if (idx >= images.length) {
+        throw new McpError(ErrorCode.InvalidParams, `Image index ${idx} out of range (note has ${images.length} images)`);
+      }
+
+      const img = images[idx];
+      try {
+        const result = await fetchImageAsBase64(img.url);
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: result.mimeType,
+              blob: result.blob,
+            },
+          ],
+        };
+      } catch (e) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to fetch image from ${img.url}: ${e.message || e}`,
+        );
+      }
+    }
+  );
+
+  // --- Phase 18B: MCP Video Resources ---
+
+  const noteVideoTemplate = new ResourceTemplate('knowtation://vault/{+notePath}/video/{index}', {
+    list: async () => {
+      const config = loadConfig();
+      const paths = listMarkdownFiles(config.vault_path, { ignore: config.ignore });
+      const resources = [];
+      for (const p of paths.slice(0, MCP_RESOURCE_PAGE_SIZE)) {
+        try {
+          const note = readNote(config.vault_path, p);
+          const videos = extractVideoUrls(note.body);
+          for (let i = 0; i < videos.length; i++) {
+            const vid = videos[i];
+            const name = vid.url.split('/').pop().split('?')[0] || `video-${i}`;
+            resources.push({
+              uri: `knowtation://vault/${p}/video/${i}`,
+              name,
+              mimeType: vid.mimeType,
+              description: `Video in ${p}`,
+            });
+          }
+        } catch (_) {}
+        if (resources.length >= MCP_RESOURCE_PAGE_SIZE) break;
+      }
+      return { resources: resources.slice(0, MCP_RESOURCE_PAGE_SIZE) };
+    },
+  });
+
+  server.registerResource(
+    'note-video',
+    noteVideoTemplate,
+    {
+      title: 'Note embedded video',
+      description: 'Video URL referenced in a note body. Returns the URL as text with typed video/* mimeType for video-capable agents.',
+    },
+    async (uri, variables) => {
+      const config = loadConfig();
+      let notePath = variables.notePath;
+      if (Array.isArray(notePath)) notePath = notePath[0];
+      notePath = decodeURIComponent(String(notePath || '').replace(/\\/g, '/'));
+      if (notePath.includes('..')) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid note path');
+      }
+
+      let idx = variables.index;
+      if (Array.isArray(idx)) idx = idx[0];
+      idx = parseInt(String(idx), 10);
+      if (isNaN(idx) || idx < 0) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid video index');
+      }
+
+      resolveVaultRelativePath(config.vault_path, notePath);
+      const note = readNote(config.vault_path, notePath);
+      const videos = extractVideoUrls(note.body);
+      if (idx >= videos.length) {
+        throw new McpError(ErrorCode.InvalidParams, `Video index ${idx} out of range (note has ${videos.length} videos)`);
+      }
+
+      const vid = videos[idx];
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: vid.mimeType,
+            text: vid.url,
+          },
+        ],
+      };
     }
   );
 }

@@ -472,6 +472,61 @@ if (BRIDGE_URL) {
   app.get('/api/v1/memory-stats', async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory-stats', req, res);
   });
+
+  // Phase 18: image upload (multipart) and image proxy — bridge owns GitHub token and multer
+  app.post(/^\/api\/v1\/notes\/(.+)\/upload-image$/, async (req, res) => {
+    const notePath = req.params[0] || req.path.split('/').slice(4, -1).join('/');
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    const url = `${BRIDGE_URL}/api/v1/notes/${notePath}/upload-image${q}`;
+    let raw;
+    try {
+      raw = await bufferImportRequestBody(req);
+    } catch (e) {
+      return res.status(500).json({ error: 'Could not read upload body', code: 'INTERNAL_ERROR' });
+    }
+    const headers = {
+      authorization: req.headers.authorization || '',
+      'x-vault-id': String(req.headers['x-vault-id'] || 'default'),
+    };
+    const ct = req.headers['content-type'];
+    if (ct) headers['content-type'] = ct;
+    headers['content-length'] = String(raw.length);
+    let upstream;
+    try {
+      upstream = await fetch(url, { method: 'POST', headers, body: raw });
+    } catch (e) {
+      return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY', detail: e.message });
+    }
+    const body = await upstream.text();
+    res.status(upstream.status).set('content-type', 'application/json').send(body);
+  });
+
+  app.get('/api/v1/vault/image-proxy', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    const url = `${BRIDGE_URL}/api/v1/vault/image-proxy${q}`;
+    let upstream;
+    try {
+      upstream = await fetch(url, {
+        headers: {
+          authorization: req.headers.authorization || '',
+          'x-vault-id': String(req.headers['x-vault-id'] || 'default'),
+        },
+      });
+    } catch (e) {
+      return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+    }
+    if (!upstream.ok) {
+      const errText = await upstream.text().catch(() => '');
+      return res.status(upstream.status).set('content-type', 'application/json').send(errText || '{}');
+    }
+    const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.setHeader('Content-Type', ct);
+    res.setHeader('Content-Length', buf.byteLength);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(buf);
+  });
 }
 
 /**
