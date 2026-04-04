@@ -51,6 +51,16 @@ describe('parseGitHubRepoUrl', () => {
     const result = parseGitHubRepoUrl('git@github.com:user/repo.git');
     assert.deepStrictEqual(result, { owner: 'user', repo: 'repo' });
   });
+
+  it('parses short owner/repo slug (format stored by the bridge)', () => {
+    const result = parseGitHubRepoUrl('aaronrene/knowtation-vault-hosted');
+    assert.deepStrictEqual(result, { owner: 'aaronrene', repo: 'knowtation-vault-hosted' });
+  });
+
+  it('parses short owner/repo.git slug', () => {
+    const result = parseGitHubRepoUrl('user/my-vault.git');
+    assert.deepStrictEqual(result, { owner: 'user', repo: 'my-vault' });
+  });
 });
 
 describe('validateImageExtension', () => {
