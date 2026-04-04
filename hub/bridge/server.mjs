@@ -18,6 +18,7 @@ import multer from 'multer';
 import AdmZip from 'adm-zip';
 import { runImport } from '../../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
+import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../../lib/github-commit-image.mjs';
 import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
 import { writeNote } from '../../lib/write.mjs';
 import { resolveVaultRelativePath, parseFrontmatterAndBody } from '../../lib/vault.mjs';
@@ -1406,6 +1407,122 @@ const bridgeImportUpload = multer({
   limits: { fileSize: 100 * 1024 * 1024 },
 }).single('file');
 
+// ——— Phase 18: GitHub image upload + image proxy ———
+
+const bridgeImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+}).single('image');
+
+app.post(
+  /^\/api\/v1\/notes\/(.+)\/upload-image$/,
+  requireBridgeAuth,
+  requireBridgeEditorOrAdmin,
+  bridgeImageUpload,
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'image file required', code: 'BAD_REQUEST' });
+
+      const originalName = req.file.originalname || 'image.jpg';
+      try { validateImageExtension(originalName); } catch (e) {
+        return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+      }
+      if (!(req.file.mimetype || '').toLowerCase().startsWith('image/')) {
+        return res.status(400).json({ error: 'File content-type must be image/*', code: 'BAD_REQUEST' });
+      }
+      const ext = originalName.split('.').pop().toLowerCase();
+      try { validateMagicBytes(req.file.buffer, ext); } catch (e) {
+        return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+      }
+
+      const tokensByUser = await loadTokens(req.blobStore);
+      const conn = tokensByUser[req.uid];
+      if (!conn?.token) {
+        return res.status(400).json({ error: 'GitHub not connected. Go to Settings → Backup → Connect GitHub.', code: 'GITHUB_NOT_CONNECTED' });
+      }
+      if (!conn.repo) {
+        return res.status(400).json({ error: 'GitHub repo not set. Back up once first to set the remote.', code: 'GITHUB_NOT_CONFIGURED' });
+      }
+
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128);
+      const uniqueName = `${Date.now()}-${safeName}`;
+      const repoFilePath = `media/images/${yearMonth}/${uniqueName}`;
+
+      const result = await commitImageToRepo({
+        accessToken: conn.token,
+        repoUrl: conn.repo,
+        filePath: repoFilePath,
+        fileBuffer: req.file.buffer,
+        commitMessage: `Add image: ${safeName}`,
+      });
+
+      res.json({
+        url: result.url,
+        inserted_markdown: `![${safeName}](${result.url})`,
+        sha: result.sha,
+        repo_path: repoFilePath,
+        repo_private: result.isPrivate === true,
+      });
+    } catch (e) {
+      console.error('[bridge] upload-image error:', e?.message);
+      const msg = e.message || String(e);
+      const clientErr = /not found|not connected|lacks permission|lacks repo|Reconnect|scope|remote/i.test(msg);
+      res.status(clientErr ? 400 : 500).json({ error: msg, code: clientErr ? 'BAD_REQUEST' : 'RUNTIME_ERROR' });
+    }
+  }
+);
+
+// Image proxy: serve raw.githubusercontent.com images via the stored GitHub token.
+// Accepts JWT via ?token= query param (browsers cannot send headers for <img> tags).
+const BRIDGE_IMAGE_PROXY_SIZE_LIMIT = 10 * 1024 * 1024;
+app.get('/api/v1/vault/image-proxy', async (req, res) => {
+  const auth = req.headers.authorization;
+  const headerToken = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
+  const uid = (headerToken || queryToken) ? userIdFromJwt(headerToken || queryToken) : null;
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+  const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
+  if (!/^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/.+$/i.test(rawUrl)) {
+    return res.status(400).json({ error: 'url must be a raw.githubusercontent.com path', code: 'BAD_REQUEST' });
+  }
+
+  let accessToken = '';
+  try {
+    const tokensByUser = await loadTokens(req.blobStore);
+    const conn = tokensByUser[uid];
+    if (conn?.token) accessToken = conn.token;
+  } catch (_) {}
+
+  const fetchHeaders = { 'User-Agent': 'Knowtation-Hub/1.0' };
+  if (accessToken) fetchHeaders.Authorization = `token ${accessToken}`;
+
+  let upstream;
+  try {
+    upstream = await fetch(rawUrl, { headers: fetchHeaders });
+  } catch (e) {
+    return res.status(502).json({ error: 'Failed to fetch image from GitHub', code: 'UPSTREAM_ERROR' });
+  }
+  if (!upstream.ok) {
+    return res.status(upstream.status).json({ error: 'Image not found on GitHub', code: 'UPSTREAM_ERROR' });
+  }
+  const ct = upstream.headers.get('content-type') || '';
+  if (!ct.startsWith('image/')) {
+    return res.status(400).json({ error: 'URL does not point to an image', code: 'BAD_REQUEST' });
+  }
+  const buf = Buffer.from(await upstream.arrayBuffer());
+  if (buf.byteLength > BRIDGE_IMAGE_PROXY_SIZE_LIMIT) {
+    return res.status(400).json({ error: 'Image too large (max 10 MB)', code: 'BAD_REQUEST' });
+  }
+  res.setHeader('Content-Type', ct);
+  res.setHeader('Content-Length', buf.byteLength);
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.send(buf);
+});
+
 app.post(
   '/api/v1/import',
   requireBridgeAuth,
@@ -1834,12 +1951,12 @@ function bridgeMemoryDir(uid, vaultId, scope) {
 }
 
 app.get('/api/v1/memory/:key', async (req, res) => {
-  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
-    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId));
     const mm = new MemoryManager(provider);
     const event = mm.getLatest(req.params.key);
     if (!event) return res.json({ key: req.params.key, value: null, updated_at: null });
@@ -1850,12 +1967,12 @@ app.get('/api/v1/memory/:key', async (req, res) => {
 });
 
 app.post('/api/v1/memory/store', express.json(), async (req, res) => {
-  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
-    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId));
     const mm = new MemoryManager(provider);
     const { key, value, ttl } = req.body || {};
     if (!key || !value) return res.status(400).json({ error: 'key and value required', code: 'BAD_REQUEST' });
@@ -1868,12 +1985,12 @@ app.post('/api/v1/memory/store', express.json(), async (req, res) => {
 });
 
 app.get('/api/v1/memory', async (req, res) => {
-  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
-    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId));
     const mm = new MemoryManager(provider);
     const events = mm.list({
       type: req.query.type || undefined,
@@ -1888,18 +2005,18 @@ app.get('/api/v1/memory', async (req, res) => {
 });
 
 app.post('/api/v1/memory/search', express.json(), async (req, res) => {
-  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   res.json({ results: [], count: 0, note: 'Hosted memory search requires vector provider (future).' });
 });
 
 app.delete('/api/v1/memory/clear', async (req, res) => {
-  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
-    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId));
     const mm = new MemoryManager(provider);
     const result = mm.clear({
       type: req.query.type || undefined,
@@ -1912,12 +2029,12 @@ app.delete('/api/v1/memory/clear', async (req, res) => {
 });
 
 app.get('/api/v1/memory-stats', async (req, res) => {
-  const { uid, vaultId, scope } = bridgeMemoryAuth(req);
+  const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
-    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId, scope));
+    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId));
     const mm = new MemoryManager(provider);
     res.json(mm.stats());
   } catch (e) {
