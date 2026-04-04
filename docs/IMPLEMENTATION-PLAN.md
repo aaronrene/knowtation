@@ -46,7 +46,7 @@ This document lays out **all phases** to build Knowtation end-to-end. Nothing is
 | **Done** | **Phase 12A (Blockchain frontmatter + agent wallet records)** (PR #94): Optional frontmatter (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`, `air_id`); list-notes + MCP filters; Hub Network + Wallet dropdowns + payment_status Quick chips; hosted facets; keyword search covers `network`, `wallet_address`, `tx_hash`, `payment_status`, `currency`, `direction`, `air_id`. See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Merged to `main`. |
 | **Done** | **Phase 12B (Blockchain remainder)** (PR #95): (1) Wallet/transaction history CSV import (`wallet-csv` source type — Kraken, Binance, MetaMask, Phantom, Ledger Live normalisers; column mapping, dedup by `tx_hash`, `lib/importers/wallet-csv.mjs`); (2) AIR on-chain backend — ICP attestation canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed (AIR Improvement E, PR #99). See [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md). | Merged to `main`. |
 | **Done** | **AIR Improvements (A–E) — complete:** ✅ (A) Store `air_id` in frontmatter (PR #96). ✅ (B) Gateway AIR for hosted writes (PR #96). ✅ (C) `air.required` hard-fail (PR #96). ✅ (D) Built-in Netlify endpoint (PR #97). ✅ (E) ICP blockchain anchor (PR #99) — canister `dejku-syaaa-aaaaa-qgy3q-cai` deployed and authorized. See [AIR-IMPROVEMENTS-PLAN.md](./AIR-IMPROVEMENTS-PLAN.md). | All merged to `main`. |
-| **Done** | **MCP D2/D3, F2–F5** — Hub MCP gateway (D2), OAuth 2.1 (D3), sampling tools (F2–F5). | `feature/mcp-supercharge` branch. |
+| **Done** | **MCP D2/D3, F2–F5 + AWS Gateway deployment** — Hub MCP gateway (D2), OAuth 2.1 (D3), sampling tools (F2–F5). **AWS:** Persistent Node.js gateway deployed on EC2 `18.221.120.124` via PM2 + Nginx reverse proxy; `/.well-known/oauth-authorization-server` and `/mcp` endpoints live; PM2 systemd auto-start configured; all dependencies declared in `package.json`. | `feature/mcp-supercharge` — **ready to merge**. |
 
 Stubs done now mean we don't change JWT shape or add new data files later in a breaking way; Phase 13 implementation only populates `role` from a roles store and enforces permissions.
 
@@ -68,7 +68,7 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 11. ~~**Memory augmentation**~~ — Done (`feature/memory-augmentation`). **Phase 1:** Three-tier provider architecture (file / vector / mem0); JSONL event log + state overlay; 11 event types; CLI 7 subcommands; 5 MCP tools + resources; auto-capture; hosted path; secret detection + privacy controls. **Phase 2:** Retention enforcement (throttled pruning); cross-vault memory (`scope: vault|global`); Mem0 import enrichment; 3 memory-aware MCP prompts (`memory-context`, `memory-informed-search`, `resume-session`); LLM session summaries (`memory summarize` CLI + `memory_summarize` MCP tool); AES-256-GCM encrypted memory at rest (`memory.encrypt: true`); Supabase provider with pgvector + migration SQL + `supabase-memory` import type. 112 tests across 4 test files. See `docs/MEMORY-AUGMENTATION-PLAN.md`.
 12. **Phase 18 (Native media upload):** In-Hub image/file upload, Cloudflare R2 or GitHub commit storage. Prerequisite: Phase 17A (done). After memory ships.
 13. **Muse thin bridge:** Docs + optional env and small delegation surface; deferred until concrete partner or DAG need.
-14. **MCP D2/D3, F2–F5:** ✅ Hub MCP gateway (`/mcp` endpoint, session pool, role ACL), OAuth 2.1 (`KnowtationOAuthProvider`), sampling tools (enrich, rerank, prefill, index-enrich). See [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
+14. ~~**MCP D2/D3, F2–F5:**~~ ✅ Hub MCP gateway (`/mcp` endpoint, session pool, role ACL), OAuth 2.1 (`KnowtationOAuthProvider`), sampling tools (enrich, rerank, prefill, index-enrich). **AWS gateway deployed** on EC2 `18.221.120.124` (PM2 + Nginx, systemd auto-start). See [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **`feature/mcp-supercharge` ready to merge.**
 15. **Ops (ongoing):** Re-verify after deploys — [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5. Switch Stripe to live keys + `BILLING_ENFORCE=true` after shadow-log review.
 
 ### Option B (Muse protocol alignment) — do first
@@ -131,7 +131,7 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 4. ~~Proposal lifecycle~~ — Done. Evaluation stage implemented (canister V3, evaluator role, triggers, rubric).
 5. **Muse thin bridge** — Deferred until concrete partner or DAG need.
 6. **Suggested prompts for agents** (optional) — Hub section or SUGGESTED-AGENT-PROMPTS.md.
-7. **MCP D2/D3, F2–F5** — ✅ Complete. [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** deferred.
+7. ~~**MCP D2/D3, F2–F5**~~ — ✅ Complete + **AWS gateway deployed** (EC2 `18.221.120.124`, PM2 + Nginx, OAuth 2.1 live). [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md). **Issue #2** deferred. **Next: merge `feature/mcp-supercharge` → `main`, then Phase 18.**
 
 ### Phase 11.1 and follow-on: order and status
 
