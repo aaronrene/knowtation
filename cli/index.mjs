@@ -604,7 +604,7 @@ async function main() {
     export                   Export memory log. --format jsonl|mif, --since, --until, --type. Output to stdout.
     stats                    Show memory statistics. --json.
     index                    Print lightweight pointer index (markdown). --json returns structured object.
-    consolidate              Run LLM-powered memory consolidation. --dry-run, --passes <n>, --lookback-hours <n>. --json.
+    consolidate              Run LLM-powered memory consolidation. --dry-run, --passes consolidate,verify, --lookback-hours <n>. --json.
 
   Options: --json`);
       process.exit(0);
@@ -775,7 +775,10 @@ async function main() {
 
         if (action === 'consolidate') {
           const dryRun = hasOpt('dry-run');
-          const passes = getOpt('passes', 'number') ?? 1;
+          const passesRaw = getOpt('passes', 'string');
+          const passes = passesRaw
+            ? passesRaw.split(',').map((s) => s.trim()).filter(Boolean)
+            : undefined;
           const lookbackHours = getOpt('lookback-hours', 'number') ?? undefined;
           try {
             const { consolidateMemory } = await import('../lib/memory-consolidate.mjs');
@@ -787,18 +790,30 @@ async function main() {
               for (const t of result.topics) {
                 console.log(`[dry-run] Topic "${t.topic}": ${t.event_count} events → ${t.dry_run_estimate || 'estimated facts'}`);
               }
-            } else if (result.topics.length === 0) {
+              if (result.verify) {
+                console.log(`[dry-run] Verify pass: would check paths in events (no writes).`);
+              }
+            } else if (result.topics.length === 0 && !result.verify) {
               console.log('No events to consolidate.');
             } else {
-              console.log(`Consolidated ${result.total_events} events across ${result.topics.length} topics.`);
-              for (const t of result.topics) {
-                if (t.error) {
-                  console.log(`  ${t.topic}: error — ${t.error}`);
-                } else {
-                  console.log(`  ${t.topic}: ${t.facts.length} facts written${t.id ? ` (${t.id})` : ''}`);
+              if (result.topics.length > 0) {
+                console.log(`Consolidated ${result.total_events} events across ${result.topics.length} topics.`);
+                for (const t of result.topics) {
+                  if (t.error) {
+                    console.log(`  ${t.topic}: error — ${t.error}`);
+                  } else {
+                    console.log(`  ${t.topic}: ${t.facts.length} facts written${t.id ? ` (${t.id})` : ''}`);
+                  }
+                }
+                console.log('Index regenerated.');
+              }
+              if (result.verify) {
+                const v = result.verify;
+                console.log(`Verify pass: checked ${v.checked_count} events — ${v.verified_paths.length} verified, ${v.stale_paths.length} stale.`);
+                if (v.stale_paths.length > 0) {
+                  for (const p of v.stale_paths) console.log(`  stale: ${p}`);
                 }
               }
-              console.log('Index regenerated.');
             }
           } catch (e) {
             exitWithError(`Consolidation failed: ${e.message}`, 2, useJson);

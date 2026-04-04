@@ -224,10 +224,14 @@ export function registerMemoryTools(server) {
     {
       description:
         'Trigger LLM-powered memory consolidation: group recent events by topic, merge/deduplicate via LLM, ' +
-        'and store concise fact summaries as consolidation events. Rebuilds the pointer index afterward.',
+        'and store concise fact summaries as consolidation events. Optionally runs the stale reference ' +
+        'detection pass (verify). Rebuilds the pointer index afterward.',
       inputSchema: {
         dry_run: z.boolean().optional().describe('If true, preview what would happen without writing events (default false)'),
-        passes: z.number().optional().describe('Number of consolidation passes (default 1)'),
+        passes: z
+          .array(z.string())
+          .optional()
+          .describe('Pass names to run, e.g. ["consolidate", "verify"]. Default: all enabled passes from daemon config.'),
         lookback_hours: z.number().optional().describe('How far back to read events (default: daemon config or 24h)'),
       },
     },

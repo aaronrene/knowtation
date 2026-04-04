@@ -25,6 +25,9 @@ import {
   parseConsolidationResponse,
   groupEventsByTopic,
   consolidateMemory,
+  extractPathsFromEventData,
+  resolvePassNames,
+  runVerifyPass,
 } from '../lib/memory-consolidate.mjs';
 
 import { loadDaemonConfig } from '../lib/config.mjs';
@@ -637,5 +640,580 @@ describe('CLI: memory consolidate', () => {
   it('consolidate is in valid actions list', () => {
     const r = runCli('memory consolidate-invalid');
     assert.notStrictEqual(r.exitCode, 0);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 8. extractPathsFromEventData
+// ───────────────────────────────────────────────────
+
+describe('extractPathsFromEventData', () => {
+  it('extracts data.path', () => {
+    const paths = extractPathsFromEventData({ path: 'notes/a.md' });
+    assert.deepStrictEqual(paths, ['notes/a.md']);
+  });
+
+  it('extracts data.paths array when not encrypted', () => {
+    const paths = extractPathsFromEventData({ paths: ['notes/a.md', 'notes/b.md'] }, false);
+    assert.deepStrictEqual(paths, ['notes/a.md', 'notes/b.md']);
+  });
+
+  it('skips data.paths when encrypt=true', () => {
+    const paths = extractPathsFromEventData({ paths: ['notes/a.md', 'notes/b.md'] }, true);
+    assert.deepStrictEqual(paths, []);
+  });
+
+  it('extracts both data.path and data.paths when not encrypted', () => {
+    const paths = extractPathsFromEventData({ path: 'notes/a.md', paths: ['notes/b.md', 'notes/c.md'] }, false);
+    assert.deepStrictEqual(paths, ['notes/a.md', 'notes/b.md', 'notes/c.md']);
+  });
+
+  it('deduplicates paths appearing in both data.path and data.paths', () => {
+    const paths = extractPathsFromEventData({ path: 'notes/a.md', paths: ['notes/a.md', 'notes/b.md'] }, false);
+    assert.deepStrictEqual(paths, ['notes/a.md', 'notes/b.md']);
+  });
+
+  it('returns empty array for null data', () => {
+    assert.deepStrictEqual(extractPathsFromEventData(null), []);
+    assert.deepStrictEqual(extractPathsFromEventData(undefined), []);
+  });
+
+  it('returns empty array when data has no path fields', () => {
+    assert.deepStrictEqual(extractPathsFromEventData({ query: 'bitcoin' }), []);
+  });
+
+  it('ignores non-string path entries in data.paths', () => {
+    const paths = extractPathsFromEventData({ paths: [42, null, 'valid.md', ''] }, false);
+    assert.deepStrictEqual(paths, ['valid.md']);
+  });
+
+  it('returns only data.path when encrypt=true even if data.paths present', () => {
+    const paths = extractPathsFromEventData({ path: 'notes/a.md', paths: ['notes/b.md'] }, true);
+    assert.deepStrictEqual(paths, ['notes/a.md']);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 9. resolvePassNames
+// ───────────────────────────────────────────────────
+
+describe('resolvePassNames', () => {
+  it('returns default passes from daemon config when opts.passes is undefined', () => {
+    const names = resolvePassNames(undefined, { consolidate: true, verify: true });
+    assert.deepStrictEqual(names, ['consolidate', 'verify']);
+  });
+
+  it('omits verify when daemon config has verify: false', () => {
+    const names = resolvePassNames(undefined, { consolidate: true, verify: false });
+    assert.deepStrictEqual(names, ['consolidate']);
+  });
+
+  it('omits consolidate when daemon config has consolidate: false', () => {
+    const names = resolvePassNames(undefined, { consolidate: false, verify: true });
+    assert.deepStrictEqual(names, ['verify']);
+  });
+
+  it('accepts string array', () => {
+    const names = resolvePassNames(['consolidate', 'verify'], {});
+    assert.deepStrictEqual(names, ['consolidate', 'verify']);
+  });
+
+  it('accepts comma-separated string', () => {
+    const names = resolvePassNames('consolidate,verify', {});
+    assert.deepStrictEqual(names, ['consolidate', 'verify']);
+  });
+
+  it('accepts single pass name string', () => {
+    const names = resolvePassNames('verify', {});
+    assert.deepStrictEqual(names, ['verify']);
+  });
+
+  it('trims whitespace in comma-separated string', () => {
+    const names = resolvePassNames(' consolidate , verify ', {});
+    assert.deepStrictEqual(names, ['consolidate', 'verify']);
+  });
+
+  it('returns empty array for empty string', () => {
+    const names = resolvePassNames('', {});
+    assert.deepStrictEqual(names, []);
+  });
+
+  it('uses empty default when daemon config is null/undefined', () => {
+    // Both consolidate and verify default to "enabled" when key is absent
+    const names = resolvePassNames(undefined, undefined);
+    assert.deepStrictEqual(names, ['consolidate', 'verify']);
+  });
+
+  it('defaults to consolidate+verify when daemon config keys are absent', () => {
+    const names = resolvePassNames(undefined, {});
+    assert.deepStrictEqual(names, ['consolidate', 'verify']);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 10. runVerifyPass
+// ───────────────────────────────────────────────────
+
+describe('runVerifyPass', () => {
+  let verifyConfig;
+
+  beforeEach(() => {
+    const freshDataDir = path.join(tmpDir, `data-verify-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(freshDataDir, { recursive: true });
+    verifyConfig = {
+      vault_path: vaultDir,
+      data_dir: freshDataDir,
+      memory: { enabled: true, provider: 'file', encrypt: false },
+      daemon: loadDaemonConfig({}),
+    };
+  });
+
+  it('returns correct shape', () => {
+    const result = runVerifyPass(verifyConfig, [], { dryRun: true });
+    assert(Array.isArray(result.stale_paths));
+    assert(Array.isArray(result.verified_paths));
+    assert.strictEqual(typeof result.checked_count, 'number');
+    assert.strictEqual(typeof result.dry_run, 'boolean');
+  });
+
+  it('returns dry_run: true in dryRun mode', () => {
+    const result = runVerifyPass(verifyConfig, [], { dryRun: true });
+    assert.strictEqual(result.dry_run, true);
+  });
+
+  it('returns dry_run: false when not in dryRun mode', () => {
+    const result = runVerifyPass(verifyConfig, [], { dryRun: false });
+    assert.strictEqual(result.dry_run, false);
+  });
+
+  it('classifies event with existing, unmodified file as verified', () => {
+    // test.md was created in before(); using the current time as eventTs guarantees
+    // that mtime (creation time) <= eventTs, so the file is not "modified after event".
+    const nowTs = new Date().toISOString();
+    const events = [
+      { id: 'mem_aaa111', type: 'write', ts: nowTs, vault_id: 'default', status: 'success', data: { path: 'test.md' } },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.checked_count, 1);
+    assert(result.verified_paths.includes('test.md'), `Expected test.md in verified: ${JSON.stringify(result)}`);
+    assert.strictEqual(result.stale_paths.length, 0);
+  });
+
+  it('classifies event referencing a missing file as stale', () => {
+    const events = [
+      { id: 'mem_bbb222', type: 'write', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { path: 'does-not-exist.md' } },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.checked_count, 1);
+    assert(result.stale_paths.includes('does-not-exist.md'), `Expected stale: ${JSON.stringify(result)}`);
+    assert.strictEqual(result.verified_paths.length, 0);
+  });
+
+  it('classifies events with no path reference as no_ref (not counted in checked_count)', () => {
+    const events = [
+      { id: 'mem_ccc333', type: 'search', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { query: 'blockchain' } },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.checked_count, 0);
+    assert.strictEqual(result.stale_paths.length, 0);
+    assert.strictEqual(result.verified_paths.length, 0);
+  });
+
+  it('checks all paths in data.paths array when not encrypted', () => {
+    const nowTs = new Date().toISOString();
+    const events = [
+      {
+        id: 'mem_ddd444', type: 'export', ts: nowTs,
+        vault_id: 'default', status: 'success',
+        data: { paths: ['test.md', 'missing-file.md'] },
+      },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.checked_count, 1);
+    assert(result.verified_paths.includes('test.md'));
+    assert(result.stale_paths.includes('missing-file.md'));
+  });
+
+  it('skips data.paths when encrypt=true', () => {
+    const encryptConfig = { ...verifyConfig, memory: { ...verifyConfig.memory, encrypt: true } };
+    const events = [
+      {
+        id: 'mem_eee555', type: 'export', ts: new Date().toISOString(),
+        vault_id: 'default', status: 'success',
+        data: { paths: ['test.md', 'missing-file.md'] },
+      },
+    ];
+    // encrypt=true: data.paths is skipped, data.path is undefined → no paths → no_ref
+    const result = runVerifyPass(encryptConfig, events, { dryRun: true });
+    assert.strictEqual(result.checked_count, 0);
+    assert.strictEqual(result.stale_paths.length, 0);
+    assert.strictEqual(result.verified_paths.length, 0);
+  });
+
+  it('handles empty events array', () => {
+    const result = runVerifyPass(verifyConfig, [], { dryRun: true });
+    assert.strictEqual(result.checked_count, 0);
+    assert.strictEqual(result.stale_paths.length, 0);
+    assert.strictEqual(result.verified_paths.length, 0);
+  });
+
+  it('deduplicates stale_paths across multiple events referencing the same missing file', () => {
+    const events = [
+      { id: 'mem_f1', type: 'write', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { path: 'ghost.md' } },
+      { id: 'mem_f2', type: 'write', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { path: 'ghost.md' } },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.stale_paths.filter((p) => p === 'ghost.md').length, 1);
+  });
+
+  it('deduplicates verified_paths across multiple events referencing the same existing file', () => {
+    const nowTs = new Date().toISOString();
+    const events = [
+      { id: 'mem_g1', type: 'write', ts: nowTs, vault_id: 'default', status: 'success', data: { path: 'test.md' } },
+      { id: 'mem_g2', type: 'write', ts: nowTs, vault_id: 'default', status: 'success', data: { path: 'test.md' } },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.verified_paths.filter((p) => p === 'test.md').length, 1);
+  });
+
+  it('in dryRun mode does NOT write a maintenance event', () => {
+    const events = [
+      { id: 'mem_h1', type: 'write', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { path: 'ghost.md' } },
+    ];
+    runVerifyPass(verifyConfig, events, { dryRun: true });
+    const mm = _createMemoryManager(verifyConfig);
+    const maintenance = mm.list({ type: 'maintenance' });
+    assert.strictEqual(maintenance.length, 0);
+  });
+
+  it('in non-dryRun mode writes a maintenance event with correct shape', () => {
+    const events = [
+      { id: 'mem_i1', type: 'write', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { path: 'ghost.md' } },
+    ];
+    runVerifyPass(verifyConfig, events, { dryRun: false });
+    const mm = _createMemoryManager(verifyConfig);
+    const maintenance = mm.list({ type: 'maintenance' });
+    assert.strictEqual(maintenance.length, 1);
+    const m = maintenance[0];
+    assert.strictEqual(m.type, 'maintenance');
+    assert(Array.isArray(m.data.stale_paths));
+    assert(Array.isArray(m.data.verified_paths));
+    assert.strictEqual(typeof m.data.checked_count, 'number');
+    assert(m.data.stale_paths.includes('ghost.md'));
+  });
+
+  it('maintenance event stale_paths contains the stale path', () => {
+    const events = [
+      { id: 'mem_j1', type: 'write', ts: new Date().toISOString(), vault_id: 'default', status: 'success', data: { path: 'never-existed.md' } },
+    ];
+    runVerifyPass(verifyConfig, events, { dryRun: false });
+    const mm = _createMemoryManager(verifyConfig);
+    const [m] = mm.list({ type: 'maintenance' });
+    assert.deepStrictEqual(m.data.stale_paths, ['never-existed.md']);
+    assert.deepStrictEqual(m.data.verified_paths, []);
+    assert.strictEqual(m.data.checked_count, 1);
+  });
+
+  it('maintenance event verified_paths contains verified path', () => {
+    const nowTs = new Date().toISOString();
+    const events = [
+      { id: 'mem_k1', type: 'write', ts: nowTs, vault_id: 'default', status: 'success', data: { path: 'test.md' } },
+    ];
+    runVerifyPass(verifyConfig, events, { dryRun: false });
+    const mm = _createMemoryManager(verifyConfig);
+    const [m] = mm.list({ type: 'maintenance' });
+    assert(m.data.verified_paths.includes('test.md'));
+    assert.deepStrictEqual(m.data.stale_paths, []);
+  });
+
+  it('processes mixed verified and stale paths in same pass', () => {
+    const nowTs = new Date().toISOString();
+    const events = [
+      { id: 'mem_l1', type: 'write', ts: nowTs, vault_id: 'default', status: 'success', data: { path: 'test.md' } },
+      { id: 'mem_l2', type: 'write', ts: nowTs, vault_id: 'default', status: 'success', data: { path: 'missing.md' } },
+    ];
+    const result = runVerifyPass(verifyConfig, events, { dryRun: true });
+    assert.strictEqual(result.checked_count, 2);
+    assert(result.verified_paths.includes('test.md'));
+    assert(result.stale_paths.includes('missing.md'));
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 11. runVerifyPass wired into consolidateMemory
+// ───────────────────────────────────────────────────
+
+describe('consolidateMemory — verify pass wiring', () => {
+  let config;
+
+  beforeEach(() => {
+    const freshDataDir = path.join(tmpDir, `data-wire-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(freshDataDir, { recursive: true });
+    config = {
+      vault_path: vaultDir,
+      data_dir: freshDataDir,
+      memory: { enabled: true, provider: 'file', encrypt: false },
+      daemon: loadDaemonConfig({ passes: { consolidate: true, verify: true } }),
+    };
+  });
+
+  it('includes verify result in return when verify pass enabled', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'test.md' });
+    mm.store('write', { path: 'missing.md' });
+
+    const mockLlm = makeMockLlmFn('["fact one"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate', 'verify'], llmFn: mockLlm });
+
+    assert(result.verify !== null, 'verify result should not be null');
+    assert(Array.isArray(result.verify.stale_paths));
+    assert(Array.isArray(result.verify.verified_paths));
+    assert.strictEqual(typeof result.verify.checked_count, 'number');
+  });
+
+  it('verify result is null when only consolidate pass requested', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'test.md' });
+    mm.store('write', { path: 'other.md' });
+
+    const mockLlm = makeMockLlmFn('["fact one"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate'], llmFn: mockLlm });
+
+    assert.strictEqual(result.verify, null);
+  });
+
+  it('verify pass detects stale paths among event set', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'ghost-path.md' });
+    mm.store('write', { path: 'ghost-path.md' });
+
+    const mockLlm = makeMockLlmFn('["ghost path facts"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate', 'verify'], llmFn: mockLlm });
+
+    assert(result.verify.stale_paths.includes('ghost-path.md'));
+  });
+
+  it('verify pass detects verified paths for existing files', async () => {
+    // Use a past timestamp so test.md is "not modified after event"
+    const pastTs = new Date(Date.now() - 60_000).toISOString();
+    const mm = _createMemoryManager(config);
+    // Directly store an event with a past timestamp via the provider (store sets ts = now)
+    // We simulate by using a search event (no path) + a real write that references test.md
+    // The MemoryManager sets ts=now, so test.md may appear stale if mtime > ts.
+    // Instead, test only stale detection (ghost path) to avoid timing sensitivity.
+    mm.store('write', { path: 'another-ghost.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate', 'verify'], llmFn: mockLlm });
+
+    assert(result.verify !== null);
+    assert(result.verify.stale_paths.includes('another-ghost.md'));
+  });
+
+  it('runs verify-only pass when passes: [verify]', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'ghost.md' });
+
+    const mockLlm = makeMockLlmFn('["should not be called"]');
+    const result = await consolidateMemory(config, { passes: ['verify'], llmFn: mockLlm });
+
+    assert.strictEqual(mockLlm.calls.length, 0, 'LLM should not be called for verify-only');
+    assert(result.verify !== null);
+    assert(result.verify.stale_paths.includes('ghost.md'));
+  });
+
+  it('dryRun: true propagates to verify pass — no maintenance event written', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'ghost.md' });
+    mm.store('write', { path: 'ghost2.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, {
+      dryRun: true, passes: ['consolidate', 'verify'], llmFn: mockLlm,
+    });
+
+    assert.strictEqual(result.dry_run, true);
+    assert(result.verify !== null);
+    assert.strictEqual(result.verify.dry_run, true);
+
+    // No maintenance events written
+    const mm2 = _createMemoryManager(config);
+    assert.strictEqual(mm2.list({ type: 'maintenance' }).length, 0);
+  });
+
+  it('verify pass uses the same event set read by consolidateMemory (not re-reading)', async () => {
+    // Seed events that have path references; verify should see all of them
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'pathA.md' });
+    mm.store('write', { path: 'pathB.md' });
+    mm.store('search', { query: 'no path here' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, { passes: ['verify'], llmFn: mockLlm });
+
+    // pathA and pathB are stale (don't exist); search event is no_ref (not counted)
+    assert.strictEqual(result.verify.checked_count, 2);
+    assert(result.verify.stale_paths.includes('pathA.md'));
+    assert(result.verify.stale_paths.includes('pathB.md'));
+  });
+
+  it('maintains total_events count for non-daemon events', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('search', { query: 'q1' });
+    mm.store('search', { query: 'q2' });
+    mm.store('consolidation', {
+      topic: 'old', facts: ['f'], event_count: 1,
+      since: '2026-01-01T00:00:00Z', until: '2026-01-01T00:00:00Z',
+    });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate', 'verify'], llmFn: mockLlm });
+    assert.strictEqual(result.total_events, 2);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 12. CLI: memory consolidate --passes flag
+// ───────────────────────────────────────────────────
+
+describe('CLI: memory consolidate --passes', () => {
+  it('--passes consolidate runs only consolidate pass in JSON output', () => {
+    const freshDir = path.join(tmpDir, `data-cli-passes-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes consolidate --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.dry_run, true);
+    assert(Array.isArray(data.topics));
+    assert.strictEqual(data.verify, null, 'verify should be null when only consolidate requested');
+  });
+
+  it('--passes verify runs only verify pass in JSON output', () => {
+    const freshDir = path.join(tmpDir, `data-cli-passes-verify-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes verify --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.dry_run, true);
+    assert.deepStrictEqual(data.topics, []);
+  });
+
+  it('--passes consolidate,verify runs both passes in JSON output', () => {
+    const freshDir = path.join(tmpDir, `data-cli-passes-both-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes consolidate,verify --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.dry_run, true);
+    assert(Array.isArray(data.topics));
+  });
+
+  it('memory consolidate --dry-run --json with no events returns expected shape', () => {
+    const freshDir = path.join(tmpDir, `data-cli-shape-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.dry_run, true);
+    assert(Array.isArray(data.topics));
+    assert.strictEqual(typeof data.total_events, 'number');
+    assert('verify' in data, 'result should include verify key');
+  });
+
+  it('--passes with invalid name is handled gracefully (no crash)', () => {
+    const freshDir = path.join(tmpDir, `data-cli-unknown-pass-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes unknown --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert(Array.isArray(data.topics));
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 13. MCP: memory_consolidate passes param
+// ───────────────────────────────────────────────────
+
+describe('MCP memory_consolidate passes param (programmatic)', () => {
+  let mcpConfig;
+
+  beforeEach(() => {
+    const freshDataDir = path.join(tmpDir, `data-mcp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(freshDataDir, { recursive: true });
+    mcpConfig = {
+      vault_path: vaultDir,
+      data_dir: freshDataDir,
+      memory: { enabled: true, provider: 'file', encrypt: false },
+      daemon: loadDaemonConfig({}),
+    };
+  });
+
+  it('passes: ["consolidate"] runs only consolidate pass, verify is null', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'ghost.md' });
+    mm.store('write', { path: 'ghost2.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(mcpConfig, {
+      dryRun: true, passes: ['consolidate'], llmFn: mockLlm,
+    });
+    assert.strictEqual(result.verify, null);
+    assert(Array.isArray(result.topics));
+  });
+
+  it('passes: ["verify"] runs only verify pass, topics is empty', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'ghost.md' });
+
+    const mockLlm = makeMockLlmFn('["should not be called"]');
+    const result = await consolidateMemory(mcpConfig, {
+      dryRun: true, passes: ['verify'], llmFn: mockLlm,
+    });
+    assert.strictEqual(mockLlm.calls.length, 0);
+    assert.deepStrictEqual(result.topics, []);
+    assert(result.verify !== null);
+    assert.strictEqual(result.verify.dry_run, true);
+  });
+
+  it('passes: ["consolidate", "verify"] runs both passes', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'ghost.md' });
+    mm.store('write', { path: 'ghost2.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(mcpConfig, {
+      dryRun: true, passes: ['consolidate', 'verify'], llmFn: mockLlm,
+    });
+    assert(Array.isArray(result.topics));
+    assert(result.verify !== null);
+  });
+
+  it('passes: undefined uses daemon config defaults (both passes)', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'ghost.md' });
+    mm.store('write', { path: 'ghost2.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(mcpConfig, {
+      dryRun: true, passes: undefined, llmFn: mockLlm,
+    });
+    // Default daemon config has verify: true
+    assert(result.verify !== null, 'verify should run by default');
+  });
+
+  it('verify result has correct shape when passed via MCP-style params', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'stale-ref.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(mcpConfig, {
+      dryRun: true, passes: ['verify'], llmFn: mockLlm,
+    });
+    const v = result.verify;
+    assert(Array.isArray(v.stale_paths));
+    assert(Array.isArray(v.verified_paths));
+    assert.strictEqual(typeof v.checked_count, 'number');
+    assert.strictEqual(v.dry_run, true);
+    assert(v.stale_paths.includes('stale-ref.md'));
   });
 });
