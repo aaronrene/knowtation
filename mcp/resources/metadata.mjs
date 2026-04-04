@@ -186,6 +186,23 @@ export function buildMemoryTypeResource(config, type) {
   }
 }
 
+/**
+ * Build the lightweight memory pointer index (markdown).
+ * @param {object} config
+ * @param {{ recentLimit?: number }} [opts]
+ * @returns {{ enabled: boolean, index: { markdown: string, generated_at: string, total_events: number, types: string[] } | null }}
+ */
+export function buildMemoryIndexResource(config, opts = {}) {
+  if (!config.memory?.enabled) return { enabled: false, index: null };
+  try {
+    const mm = createMemoryManager(config);
+    const index = mm.generateIndex({ force: true, recentLimit: opts.recentLimit });
+    return { enabled: true, index };
+  } catch (_) {
+    return { enabled: true, index: null, error: 'failed to generate index' };
+  }
+}
+
 export function buildAirLogResource() {
   return {
     entries: [],

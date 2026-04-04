@@ -19,6 +19,7 @@ import {
   buildMemorySummaryResource,
   buildMemoryEventsResource,
   buildMemoryTypeResource,
+  buildMemoryIndexResource,
   buildAirLogResource,
 } from './metadata.mjs';
 import { buildKnowledgeGraph } from './graph.mjs';
@@ -257,6 +258,23 @@ export function registerKnowtationResources(server) {
     async (uri) => {
       const config = loadConfig();
       return jsonContent(uri, buildMemoryEventsResource(config));
+    }
+  );
+
+  server.registerResource(
+    'memory-index',
+    'knowtation://memory/index',
+    {
+      title: 'Memory pointer index',
+      description: 'Lightweight markdown index (~150 chars/line) of memory state. Designed to be cheap enough for agents to always include in context. Lists event types with counts and latest summaries, plus recent activity.',
+    },
+    async (uri) => {
+      const config = loadConfig();
+      const result = buildMemoryIndexResource(config);
+      if (!result.enabled || !result.index) {
+        return jsonContent(uri, result);
+      }
+      return textContent(uri, 'text/markdown', result.index.markdown);
     }
   );
 

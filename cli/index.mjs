@@ -597,11 +597,12 @@ async function main() {
     clear                    Clear memory. --type, --before <date>, --confirm required. --json.
     export                   Export memory log. --format jsonl|mif, --since, --until, --type. Output to stdout.
     stats                    Show memory statistics. --json.
+    index                    Print lightweight pointer index (markdown). --json returns structured object.
 
   Options: --json`);
       process.exit(0);
     }
-    const validActions = ['query', 'list', 'store', 'search', 'clear', 'export', 'stats'];
+    const validActions = ['query', 'list', 'store', 'search', 'clear', 'export', 'stats', 'index'];
     if (!action || !validActions.includes(action)) {
       exitWithError(`knowtation memory: use "memory <action>". Actions: ${validActions.join(', ')}.`, 1, useJson);
     }
@@ -760,6 +761,16 @@ async function main() {
             }
           } catch (e) {
             exitWithError(`Session summary failed: ${e.message}`, 2, useJson);
+          }
+          process.exit(0);
+        }
+
+        if (action === 'index') {
+          const idx = mm.generateIndex({ force: true });
+          if (useJson) {
+            console.log(JSON.stringify(idx));
+          } else {
+            console.log(idx.markdown);
           }
           process.exit(0);
         }
