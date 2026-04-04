@@ -4949,20 +4949,116 @@
     return text;
   }
 
+  var VIDEO_URL_RE = /^([ \t]*)(https?:\/\/[^\s]+\.(?:mp4|webm|mov)(?:\?[^\s]*)?)[ \t]*$/gim;
+  var VIDEO_MIME_MAP = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' };
+
+  function videoExtToMime(url) {
+    try {
+      var ext = new URL(url).pathname.split('.').pop().toLowerCase();
+      return VIDEO_MIME_MAP[ext] || 'video/mp4';
+    } catch (_) {
+      var clean = url.split('?')[0].split('#')[0];
+      var ext2 = clean.split('.').pop().toLowerCase();
+      return VIDEO_MIME_MAP[ext2] || 'video/mp4';
+    }
+  }
+
+  /**
+   * Ensure standalone video URL lines are surrounded by blank lines in the raw
+   * markdown BEFORE it is fed to marked. Without this, marked's `breaks: true`
+   * mode joins adjacent lines (e.g. a video URL followed immediately by image
+   * markdown) into a single <p>, which prevents the video-URL regex from matching.
+   */
+  function isolateVideoUrlLines(md) {
+    // Match any line whose entire content is a bare https video URL.
+    // The `m` flag makes ^ / $ match per-line. Insert a blank line before
+    // and after so marked always puts the URL in its own paragraph.
+    return md.replace(
+      /^([ \t]*)(https?:\/\/[^\s]+\.(?:mp4|webm|mov)(?:\?[^\s]*)?)[ \t]*$/gim,
+      '\n$1$2\n'
+    );
+  }
+
+  /**
+   * Replace bare video URLs (on their own line) with <video> elements.
+   * Handles two forms that marked produces for a bare URL on its own paragraph:
+   *   1. GFM autolink:  <p><a href="URL">URL</a></p>
+   *   2. Plain text:    <p>URL</p>
+   * Runs before DOMPurify so the sanitiser validates the output.
+   */
+  function expandVideoUrls(html) {
+    var VIDEO_EXT_PAT = /\.(?:mp4|webm|mov)(?:\?[^\s"<#]*)?(?:#[^\s"<]*)?$/i;
+
+    // GFM autolink form: <p><a href="URL">...</a></p>
+    var result = html.replace(
+      /<p>\s*<a\s+href="(https?:\/\/[^\s"<]+)"[^>]*>[^<]*<\/a>\s*<\/p>/gi,
+      function (match, url) {
+        if (!VIDEO_EXT_PAT.test(url)) return match;
+        var mime = videoExtToMime(url);
+        return '<video controls preload="metadata" style="max-width:100%;border-radius:6px">' +
+          '<source src="' + url.replace(/"/g, '&quot;') + '" type="' + mime + '">' +
+          'Your browser does not support embedded video.</video>';
+      }
+    );
+
+    // Plain text form: <p>URL</p>
+    result = result.replace(
+      /<p>\s*(https?:\/\/[^\s<]+)\s*<\/p>/gi,
+      function (match, url) {
+        if (!VIDEO_EXT_PAT.test(url)) return match;
+        var mime = videoExtToMime(url);
+        return '<video controls preload="metadata" style="max-width:100%;border-radius:6px">' +
+          '<source src="' + url.replace(/"/g, '&quot;') + '" type="' + mime + '">' +
+          'Your browser does not support embedded video.</video>';
+      }
+    );
+
+    return result;
+  }
+
+  var SANITIZE_OPTS_NOTE = {
+    ADD_TAGS: ['details', 'summary', 'video', 'source'],
+    ADD_ATTR: ['controls', 'preload', 'type'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'autoplay'],
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto|ftp):/i,
+  };
+
   /**
    * Render markdown text as sanitised HTML.
    * Uses marked + DOMPurify (both loaded in index.html). Falls back to escaped plain text.
    * Blocks javascript: and data: URIs; allows standard https:// image and link URLs.
+   * Phase 18: bare video URLs (.mp4/.webm/.mov) become inline <video> players.
    */
+  /**
+   * Rewrite raw.githubusercontent.com <img> src attributes to go through the
+   * Hub's image proxy. This makes images from private GitHub repos display
+   * correctly — the browser loads /api/v1/vault/image-proxy which fetches
+   * with the stored GitHub token. The raw URL stays in the markdown source.
+   *
+   * Only rewrites raw.githubusercontent.com (no other hosts are proxied),
+   * and only for <img> tags produced by marked (already sanitised by DOMPurify).
+   * The Hub JWT is appended as ?token= so the browser can load it directly.
+   */
+  function rewriteGitHubImageUrls(html) {
+    var tok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    if (!tok) return html;
+    var encodedTok = encodeURIComponent(tok);
+    return html.replace(
+      /(<img\b[^>]*?\ssrc=")https?:\/\/raw\.githubusercontent\.com\/([^"]+)"/gi,
+      function (match, pre, rest) {
+        var encoded = encodeURIComponent('https://raw.githubusercontent.com/' + rest);
+        return pre + '/api/v1/vault/image-proxy?url=' + encoded + '&token=' + encodedTok + '"';
+      }
+    );
+  }
+
   function renderNoteMarkdownHtml(md) {
     try {
       if (typeof marked !== 'undefined' && marked.parse && typeof DOMPurify !== 'undefined') {
-        const raw = marked.parse(md || '', { breaks: true });
-        return DOMPurify.sanitize(raw, {
-          ADD_TAGS: ['details', 'summary'],
-          FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-          ALLOWED_URI_REGEXP: /^(?:https?|mailto|ftp):/i,
-        });
+        var raw = marked.parse(isolateVideoUrlLines(md || ''), { breaks: true });
+        var withVideo = expandVideoUrls(raw);
+        var sanitised = DOMPurify.sanitize(withVideo, SANITIZE_OPTS_NOTE);
+        return rewriteGitHubImageUrls(sanitised);
       }
     } catch (_) { /* fall through */ }
     return '<pre class="note-body-fallback">' + escapeHtml(md || '') + '</pre>';
@@ -5061,6 +5157,185 @@
     }
   }
 
+  var MEDIA_IMAGE_EXTS = /\.(jpe?g|png|gif|webp)(\?|#|$)/i;
+  var MEDIA_VIDEO_EXTS = /\.(mp4|webm|mov)(\?|#|$)/i;
+  var MEDIA_URL_SAFE = /^https?:\/\//i;
+
+  function attachMediaToolbar() {
+    var textarea = el('detail-edit-body');
+    if (!textarea) return;
+    var existing = document.getElementById('media-toolbar');
+    if (existing) existing.remove();
+
+    var toolbar = document.createElement('div');
+    toolbar.id = 'media-toolbar';
+    toolbar.className = 'media-toolbar';
+
+    var insertBtn = document.createElement('button');
+    insertBtn.type = 'button';
+    insertBtn.textContent = 'Insert Media URL';
+    insertBtn.className = 'btn-small';
+    insertBtn.title = 'Paste a public image or video URL (.mp4 / .webm / .mov) to preview and insert it. Direct video file URLs render as inline players; YouTube/Vimeo links appear as clickable links.';
+    insertBtn.onclick = function () { toggleMediaUrlDialog(toolbar, textarea); };
+    toolbar.appendChild(insertBtn);
+
+    var s = lastBackupSettingsPayload;
+    if (s && s.github_connected && hubUserCanWriteNotes()) {
+      var uploadBtn = document.createElement('button');
+      uploadBtn.type = 'button';
+      uploadBtn.textContent = 'Upload Image';
+      uploadBtn.className = 'btn-small';
+      uploadBtn.title = 'Upload an image (JPEG, PNG, GIF, WebP) and commit it to your connected GitHub repo. The image embeds inline in the note. Requires a public GitHub repo for the image to display.';
+      uploadBtn.onclick = function () { triggerImageUpload(textarea); };
+      toolbar.appendChild(uploadBtn);
+    }
+
+    textarea.parentNode.insertBefore(toolbar, textarea.nextSibling);
+  }
+
+  function toggleMediaUrlDialog(toolbar, textarea) {
+    var existing = document.getElementById('media-url-dialog');
+    if (existing) { existing.remove(); return; }
+
+    var dialog = document.createElement('div');
+    dialog.id = 'media-url-dialog';
+    dialog.className = 'media-url-dialog';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Paste image or video URL (https://...)';
+    input.className = 'media-url-input';
+
+    var preview = document.createElement('div');
+    preview.className = 'media-preview';
+
+    var actions = document.createElement('div');
+    actions.className = 'media-url-actions';
+
+    var doInsert = document.createElement('button');
+    doInsert.type = 'button';
+    doInsert.textContent = 'Insert';
+    doInsert.className = 'btn-primary btn-small';
+    doInsert.disabled = true;
+
+    var doCancel = document.createElement('button');
+    doCancel.type = 'button';
+    doCancel.textContent = 'Cancel';
+    doCancel.className = 'btn-small';
+    doCancel.onclick = function () { dialog.remove(); };
+
+    actions.appendChild(doInsert);
+    actions.appendChild(doCancel);
+
+    var detectedType = null;
+
+    function onUrlChange() {
+      var url = input.value.trim();
+      preview.innerHTML = '';
+      doInsert.disabled = true;
+      detectedType = null;
+      if (!url || !MEDIA_URL_SAFE.test(url)) return;
+      if (MEDIA_IMAGE_EXTS.test(url)) {
+        detectedType = 'image';
+        var img = document.createElement('img');
+        img.src = url;
+        img.style.maxHeight = '200px';
+        img.style.maxWidth = '100%';
+        img.crossOrigin = 'anonymous';
+        img.onerror = function () { preview.innerHTML = '<span class="muted small">Could not load preview.</span>'; };
+        preview.appendChild(img);
+        doInsert.disabled = false;
+      } else if (MEDIA_VIDEO_EXTS.test(url)) {
+        detectedType = 'video';
+        var vid = document.createElement('video');
+        vid.controls = true;
+        vid.preload = 'metadata';
+        vid.style.maxHeight = '200px';
+        vid.style.maxWidth = '100%';
+        vid.src = url;
+        vid.onerror = function () { preview.innerHTML = '<span class="muted small">Could not load preview.</span>'; };
+        preview.appendChild(vid);
+        doInsert.disabled = false;
+      } else {
+        preview.innerHTML = '<span class="muted small">Not a recognised image or video URL. Paste a URL ending in .jpg, .png, .gif, .webp, .mp4, .webm, or .mov.</span>';
+      }
+    }
+
+    input.addEventListener('input', onUrlChange);
+    input.addEventListener('paste', function () { setTimeout(onUrlChange, 50); });
+
+    doInsert.onclick = function () {
+      var url = input.value.trim();
+      if (!url) return;
+      var insertion = detectedType === 'image' ? '![image](' + url + ')' : url;
+      insertAtCursor(textarea, insertion);
+      dialog.remove();
+    };
+
+    dialog.appendChild(input);
+    dialog.appendChild(preview);
+    dialog.appendChild(actions);
+    toolbar.parentNode.insertBefore(dialog, toolbar.nextSibling);
+    input.focus();
+  }
+
+  function insertAtCursor(textarea, text) {
+    var start = textarea.selectionStart;
+    var end = textarea.selectionEnd;
+    var val = textarea.value;
+    var before = val.substring(0, start);
+    var needsNewline = before.length > 0 && !before.endsWith('\n');
+    var insertion = (needsNewline ? '\n' : '') + text + '\n';
+    textarea.value = before + insertion + val.substring(end);
+    var newPos = start + insertion.length;
+    textarea.setSelectionRange(newPos, newPos);
+    textarea.focus();
+  }
+
+  function triggerImageUpload(textarea) {
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/jpeg,image/png,image/gif,image/webp';
+    fileInput.onchange = async function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file || !currentOpenNote) return;
+      try {
+        if (typeof showToast === 'function') showToast('Uploading image…');
+        var form = new FormData();
+        form.append('image', file);
+        var notePath = encodeURIComponent(currentOpenNote.path);
+        var vaultIdParam = '';
+        try { vaultIdParam = '?vault_id=' + encodeURIComponent(getCurrentVaultId()); } catch (_) {}
+        // Build auth headers from the shared helper (omit Content-Type so the
+        // browser sets the correct multipart/form-data boundary automatically).
+        var uploadHeaders = headers();
+        delete uploadHeaders['Content-Type'];
+        var res = await fetch('/api/v1/notes/' + notePath + '/upload-image' + vaultIdParam, {
+          method: 'POST',
+          headers: uploadHeaders,
+          body: form,
+        });
+        if (!res.ok) {
+          var errData = await res.json().catch(function () { return {}; });
+          throw new Error(errData.error || 'Upload failed (HTTP ' + res.status + ')');
+        }
+        var data = await res.json();
+        insertAtCursor(textarea, data.inserted_markdown || '![image](' + data.url + ')');
+        if (data.repo_private) {
+          if (typeof showToast === 'function') showToast(
+            'Image committed to GitHub, but your repo is private — the image will not display inline until the repo is made public or you host images elsewhere.',
+            true
+          );
+        } else {
+          if (typeof showToast === 'function') showToast('Image uploaded and inserted');
+        }
+      } catch (e) {
+        if (typeof showToast === 'function') showToast('Upload failed: ' + (e.message || String(e)), true);
+      }
+    };
+    fileInput.click();
+  }
+
   function switchNoteToEditMode() {
     if (!currentOpenNote) return;
     closeCreateModal();
@@ -5092,6 +5367,7 @@
     const pathDisp = el('detail-edit-path-display');
     if (pathDisp) pathDisp.textContent = currentOpenNote.path;
     fillDetailEditFieldsFromFrontmatter(fm);
+    attachMediaToolbar();
     actionsEl.innerHTML = '';
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
@@ -5204,7 +5480,10 @@
   function renderProposalMarkdownHtml(md) {
     try {
       if (typeof marked !== 'undefined' && marked.parse && typeof DOMPurify !== 'undefined') {
-        return DOMPurify.sanitize(marked.parse(md || '', { breaks: true }));
+        var raw = marked.parse(isolateVideoUrlLines(md || ''), { breaks: true });
+        var withVideo = expandVideoUrls(raw);
+        var sanitised = DOMPurify.sanitize(withVideo, SANITIZE_OPTS_NOTE);
+        return rewriteGitHubImageUrls(sanitised);
       }
     } catch (_) {
       /* fall through */

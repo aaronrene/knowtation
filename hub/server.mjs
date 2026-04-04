@@ -68,6 +68,7 @@ import { appendAudit } from './audit-log.mjs';
 import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
+import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../lib/github-commit-image.mjs';
 import { loadRoleMap, getRole, readRolesObject, writeRolesFile } from './roles.mjs';
 import { createInvite, consumeInvite, revokeInvite, listInvites } from './invites.mjs';
 import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
@@ -171,6 +172,27 @@ function parseQueryBounds(req, res, next) {
 function jwtAuth(req, res, next) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
+  }
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (_) {
+    return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
+  }
+}
+
+/**
+ * Like jwtAuth but also accepts ?token= in the query string.
+ * Required for media proxy endpoints where the browser loads the URL directly
+ * in an <img> tag and cannot attach custom Authorization headers.
+ */
+function jwtAuthFlex(req, res, next) {
+  const auth = req.headers.authorization;
+  const headerToken = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
+  const token = headerToken || queryToken;
   if (!token) {
     return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
   }
@@ -770,6 +792,151 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
       try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
     }
   }
+});
+
+// Phase 18D: Upload image to GitHub backup repo, return raw URL for note embedding
+const imageUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many image uploads. Try again later.', code: 'RATE_LIMIT' },
+});
+const imageUploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+}).single('image');
+
+app.post(
+  /^\/api\/v1\/notes\/(.+)\/upload-image$/,
+  jwtAuth,
+  apiLimiter,
+  imageUploadLimiter,
+  requireVaultAccess,
+  requireRole('editor', 'admin'),
+  imageUploadMiddleware,
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'image file is required (multipart field "image")', code: 'BAD_REQUEST' });
+      }
+
+      const githubConn = readGitHubConnection(config.data_dir);
+      if (!githubConn?.access_token) {
+        return res.status(400).json({
+          error: 'GitHub is not connected. Go to Settings → Backup → Connect GitHub first.',
+          code: 'GITHUB_NOT_CONNECTED',
+        });
+      }
+
+      const remoteUrl = config.vault_git?.remote;
+      if (!remoteUrl) {
+        return res.status(400).json({
+          error: 'No Git remote URL configured. Go to Settings → Backup and set a remote URL.',
+          code: 'NO_GIT_REMOTE',
+        });
+      }
+
+      const originalName = req.file.originalname || 'image.png';
+      let ext;
+      try {
+        ext = validateImageExtension(originalName);
+      } catch (e) {
+        return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+      }
+
+      const contentType = req.file.mimetype || '';
+      if (!contentType.startsWith('image/')) {
+        return res.status(400).json({ error: `Invalid Content-Type: ${contentType}. Must be image/*`, code: 'BAD_REQUEST' });
+      }
+
+      if (!validateMagicBytes(req.file.buffer, ext)) {
+        return res.status(400).json({
+          error: `File content does not match .${ext} format (magic bytes mismatch). The file may be corrupted or not a real image.`,
+          code: 'BAD_REQUEST',
+        });
+      }
+
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128);
+      const uniqueName = `${Date.now()}-${safeName}`;
+      const repoFilePath = `media/images/${yearMonth}/${uniqueName}`;
+
+      const result = await commitImageToRepo({
+        accessToken: githubConn.access_token,
+        repoUrl: remoteUrl,
+        filePath: repoFilePath,
+        fileBuffer: req.file.buffer,
+        commitMessage: `Add image: ${safeName}`,
+      });
+
+      const insertedMarkdown = `![${safeName}](${result.url})`;
+
+      res.json({
+        url: result.url,
+        inserted_markdown: insertedMarkdown,
+        sha: result.sha,
+        repo_path: repoFilePath,
+        repo_private: result.isPrivate === true,
+      });
+    } catch (e) {
+      const msg = e.message || String(e);
+      const clientErr = /not found|not connected|lacks permission|lacks repo|Reconnect|scope|remote/i.test(msg);
+      res.status(clientErr ? 400 : 500).json({
+        error: msg,
+        code: clientErr ? 'BAD_REQUEST' : 'RUNTIME_ERROR',
+      });
+    }
+  },
+);
+
+// GET /api/v1/vault/image-proxy — proxy raw.githubusercontent.com images for private-repo support.
+// Uses jwtAuthFlex so the browser can load the URL in an <img> tag (query-param token).
+// The Hub fetches using the logged-in user's stored GitHub token; raw URL stays in the note markdown.
+const IMAGE_PROXY_SIZE_LIMIT = 10 * 1024 * 1024; // 10 MB
+app.get('/api/v1/vault/image-proxy', jwtAuthFlex, apiLimiter, async (req, res) => {
+  const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
+  // Accept only raw.githubusercontent.com URLs to prevent SSRF.
+  if (!/^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/.+$/i.test(rawUrl)) {
+    return res.status(400).json({ error: 'url must be a raw.githubusercontent.com path', code: 'BAD_REQUEST' });
+  }
+  // Read the stored GitHub token for this user (falls back to any connected token).
+  let accessToken = '';
+  try {
+    const userId = req.user?.sub ?? '';
+    const conn = readGitHubConnection(config.data_dir, userId || undefined);
+    if (conn?.access_token) accessToken = conn.access_token;
+  } catch (_) {}
+
+  const fetchHeaders = { 'User-Agent': 'Knowtation-Hub/1.0' };
+  if (accessToken) fetchHeaders.Authorization = `token ${accessToken}`;
+
+  let upstream;
+  try {
+    upstream = await fetch(rawUrl, { headers: fetchHeaders });
+  } catch (e) {
+    return res.status(502).json({ error: 'Failed to fetch image from GitHub', code: 'UPSTREAM_ERROR' });
+  }
+
+  if (!upstream.ok) {
+    return res.status(upstream.status).json({ error: 'Image not found on GitHub', code: 'UPSTREAM_ERROR' });
+  }
+
+  const ct = upstream.headers.get('content-type') || '';
+  if (!ct.startsWith('image/')) {
+    return res.status(400).json({ error: 'URL does not point to an image', code: 'BAD_REQUEST' });
+  }
+
+  // Buffer and enforce size limit before sending.
+  const buf = Buffer.from(await upstream.arrayBuffer());
+  if (buf.byteLength > IMAGE_PROXY_SIZE_LIMIT) {
+    return res.status(400).json({ error: 'Image too large (max 10 MB)', code: 'BAD_REQUEST' });
+  }
+
+  res.setHeader('Content-Type', ct);
+  res.setHeader('Content-Length', buf.byteLength);
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.send(buf);
 });
 
 // Proposals (vault-scoped)
