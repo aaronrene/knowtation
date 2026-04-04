@@ -251,6 +251,27 @@ export function registerMemoryTools(server) {
   );
 
   server.registerTool(
+    'daemon_status',
+    {
+      description:
+        'Return the background consolidation daemon status: running state, PID, ' +
+        'last pass time and statistics, next scheduled pass time, and events processed count. ' +
+        'Use before calling daemon start/stop to check current state.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const config = loadConfig();
+        const { getDaemonStatus } = await import('../../lib/daemon.mjs');
+        const status = getDaemonStatus(config);
+        return jsonResponse(status);
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
     'memory_summarize',
     {
       description: 'Generate an LLM-powered summary of recent session activity and store it as a session_summary event.',
