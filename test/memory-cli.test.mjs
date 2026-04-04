@@ -20,6 +20,8 @@ function run(cmdArgs, opts = {}) {
     ...process.env,
     KNOWTATION_VAULT_PATH: vaultDir,
     KNOWTATION_DATA_DIR: dataDir,
+    KNOWTATION_MEMORY_ENABLED: 'true',
+    KNOWTATION_MEMORY_PROVIDER: 'file',
   };
   try {
     const out = execSync(`node ${cliPath} ${cmdArgs}`, {
