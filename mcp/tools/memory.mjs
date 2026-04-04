@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { loadConfig } from '../../lib/config.mjs';
-import { createMemoryManager } from '../../lib/memory.mjs';
+import { createMemoryManager, verifyMemoryEvent } from '../../lib/memory.mjs';
 import { MEMORY_EVENT_TYPES } from '../../lib/memory-event.mjs';
 
 function jsonResponse(obj) {
@@ -150,6 +150,67 @@ export function registerMemoryTools(server) {
         const mm = createMemoryManager(config);
         const result = mm.clear({ type: args.type, before: args.before });
         return jsonResponse(result);
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'memory_verify',
+    {
+      description:
+        'Verify one or more memory events against the current vault state. Returns a confidence level for each: ' +
+        '"verified" (path exists, unchanged), "stale" (path gone or modified after event), or ' +
+        '"hint" (no verifiable reference — treat as context only). ' +
+        'ALWAYS call this before acting on memory that references vault paths.',
+      inputSchema: {
+        event_ids: z
+          .array(z.string())
+          .optional()
+          .describe('List of memory event IDs (mem_*) to verify. Omit to verify all recent events.'),
+        type: z.string().optional().describe('Verify only events of this type (e.g. write, export)'),
+        limit: z.number().optional().describe('Max events to verify when no event_ids given (default 20)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = loadConfig();
+        if (!config.memory?.enabled) {
+          return jsonError('Memory layer not enabled.', 'DISABLED');
+        }
+        const mm = createMemoryManager(config);
+
+        let events;
+        if (args.event_ids && args.event_ids.length > 0) {
+          const allRecent = mm.list({ limit: 500 });
+          const idSet = new Set(args.event_ids);
+          events = allRecent.filter((e) => idSet.has(e.id));
+        } else {
+          events = mm.list({ type: args.type, limit: Math.min(args.limit ?? 20, 100) });
+        }
+
+        const results = events.map((event) => {
+          const { confidence, reason } = verifyMemoryEvent(config, event);
+          return {
+            id: event.id,
+            type: event.type,
+            ts: event.ts,
+            confidence,
+            reason,
+            data_summary: JSON.stringify(event.data).slice(0, 120),
+          };
+        });
+
+        const counts = { verified: 0, hint: 0, stale: 0 };
+        for (const r of results) counts[r.confidence] = (counts[r.confidence] || 0) + 1;
+
+        return jsonResponse({
+          results,
+          summary: counts,
+          total: results.length,
+          note: 'Treat memory as hints. Stale entries may reference moved or deleted notes. Verify against the vault before taking action.',
+        });
       } catch (e) {
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');
       }

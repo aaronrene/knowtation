@@ -468,7 +468,10 @@ export function registerKnowtationPrompts(server) {
           {
             role: 'user',
             content: textContent(
-              `Below is a log of recent agent/user activity from the memory layer (${count} events). Use this to understand context, prior actions, and continuity.\n\n${text}`
+              `Below is a log of recent agent/user activity from the memory layer (${count} events). Use this to understand context, prior actions, and continuity.\n\n` +
+              `⚠ SKEPTICAL MEMORY: Treat all entries as hints, not ground truth. ` +
+              `Note paths may have moved or been deleted since these events were recorded. ` +
+              `Before acting on any path reference, use the memory_verify tool or confirm the path exists in the vault.\n\n${text}`
             ),
           },
         ],
@@ -549,7 +552,11 @@ export function registerKnowtationPrompts(server) {
           {
             role: 'user',
             content: textContent(
-              `Help me pick up where I left off. Below is my recent activity log and any session summaries. Summarize what was happening, what was accomplished, and suggest next steps.\n\n${parts.join('\n\n')}`
+              `Help me pick up where I left off. Below is my recent activity log and any session summaries. Summarize what was happening, what was accomplished, and suggest next steps.\n\n` +
+              `⚠ SKEPTICAL MEMORY: Treat all memory entries as hints, not ground truth. ` +
+              `Vault paths referenced in past events may have moved or been deleted. ` +
+              `Use memory_verify to confirm path references before acting, and check the vault directly for current state.\n\n` +
+              `${parts.join('\n\n')}`
             ),
           },
         ],
