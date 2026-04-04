@@ -44,15 +44,15 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 | **A** | MCP Resources — vault as browseable knowledge graph (`knowtation://vault/...`, listings, index/stats, tags, graph) | **Done** | `mcp/resources/` |
 | **B** | MCP Prompts — reusable agent workflows + 3 memory-aware prompts (memory-context, memory-informed-search, resume-session) | **Done** | `mcp/prompts/` |
 | **C** | Enhanced tools — relate, backlinks, capture, transcribe, summarize, cluster, … | **Done (in repo)** | `mcp/tools/phase-c.mjs` |
-| **D** | Streamable HTTP transport + Hub as MCP gateway (HTTP+SSE, OAuth 2.1, session pool) | **D1 done** (local HTTP); **D2/D3** backlog | `mcp/http-server.mjs`, `mcp/server.mjs` |
+| **D** | Streamable HTTP transport + Hub as MCP gateway (HTTP+SSE, OAuth 2.1, session pool) | **D1 done** (local HTTP); **D2 done** (gateway proxy); **D3 done** (OAuth 2.1) | `mcp/http-server.mjs`, `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-oauth-provider.mjs` |
 | **E** | Resource subscriptions + real-time vault watcher | **Done (local vault)** | `mcp/resource-subscriptions.mjs` — hosted N/A |
-| **F** | MCP Sampling — delegate LLM work to client | **F1 done** (`summarize`); **F2–F5** backlog | `mcp/tools/phase-c.mjs` (`summarize`) |
+| **F** | MCP Sampling — delegate LLM work to client | **F1–F5 done** | `mcp/sampling.mjs` (generic helper), `mcp/tools/enrich.mjs` (F2), `mcp/tools/sampling-rerank.mjs` (F4), `mcp/prompts/helpers.mjs` (F5 prefill), `mcp/tools/index-enrich.mjs` (F3) |
 | **G** | Roots / scope — `instructions` with `file://` vault + data_dir | **Done** | `mcp/server-instructions.mjs` |
 | **H** | Progress notifications + structured logging | **Done (stdio)** | `mcp/tool-telemetry.mjs` |
 
 **Recommended implementation order (from Issue #1):** A → C → E → H → B → D → F → G
 
-**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10); Resources ✅ (Phase A); Prompts ✅ (Phase B); Resource subscriptions ✅ (Phase E, self-hosted); Progress + logging ✅ (Phase H, stdio); Scope / roots alignment ✅ (Phase G: `instructions` + optional client roots log); local Streamable HTTP ✅ (D1); Sampling **F1** ✅ (`summarize` via client when supported); Sampling **F2–F5** ❌; Hub MCP proxy + OAuth ❌ (D2/D3).
+**Gap today (from issue):** Base tools ✅ (7) + Phase C tools ✅ (10) + `enrich` (F2); Resources ✅ (Phase A); Prompts ✅ (Phase B + F5 prefill); Resource subscriptions ✅ (Phase E, self-hosted); Progress + logging ✅ (Phase H, stdio); Scope / roots alignment ✅ (Phase G: `instructions` + optional client roots log); local Streamable HTTP ✅ (D1); Hub MCP gateway ✅ (D2: `/mcp` session pool + role ACL); OAuth 2.1 ✅ (D3: `KnowtationOAuthProvider`); Sampling **F1–F5** ✅ (generic `trySampling`, enrich, rerank, prefill, index-enrich). **All Issue #1 phases complete.**
 
 ---
 
@@ -75,7 +75,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Current state in the repo
 
-- **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1); base + Phase C tools + 6 memory tools (`memory_query`, `memory_list`, `memory_store`, `memory_search`, `memory_clear`, `memory_summarize`); Phase A resources + 3 memory resources; Phase B prompts + 3 memory-aware prompts (`memory-context`, `memory-informed-search`, `resume-session`); Phase E; Phase H; Phase G; Phase **F1** sampling (`summarize`). Hub MCP proxy / OAuth (D2/D3) not implemented; F2–F5 sampling still backlog.
+- **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1) + **Hub MCP gateway** (D2/D3); base + Phase C tools + `enrich` (F2) + 6 memory tools; Phase A resources + 3 memory resources; Phase B prompts + 3 memory-aware prompts + F5 sampling prefill; Phase E; Phase H; Phase G; Phase **F1–F5** sampling (generic `trySampling`, enrich, search rerank, prompt prefill, index-enrich). **Hub MCP proxy** (`/mcp` endpoint with session pool, JWT auth, role-based ACL) and **OAuth 2.1** (`KnowtationOAuthProvider` with dynamic client registration, PKCE, MCP-scoped JWTs) both implemented.
 - **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](./PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
 - **IMPLEMENTATION-PLAN:** References this backlog; suggested prompts for agents is separate optional backlog item.
 
@@ -83,9 +83,9 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Recommended timing
 
-- **Now:** Phases **A–E**, **F1**, **G**, **H**, and **D1** (local Streamable HTTP) are in-repo. Remaining: **D2/D3** (Hub gateway + OAuth); **F2–F5** (more sampling use cases).
-- **After Phase 2 (bridge + pre-roll):** Continue MCP supercharge in that order. Issue #2 depends on external orchestrator + Knowtation MCP features (Resources, Subscriptions); schedule after corresponding Issue #1 phases.
-- **Order vs multi-vault:** Finish hosted Phase 2 (bridge, pre-roll) → **Phase 15.1** hosted multi-vault ([MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md)) → Issue #1 leftovers (**D2/D3**, **F2–F5**), or Issue #2 slices.
+- **Now:** All Issue #1 phases **A–H**, **D1–D3**, **F1–F5** are implemented. The MCP supercharge work is complete.
+- **Next:** Issue #2 (AgentCeption) depends on external orchestrator + Knowtation MCP features (Resources, Subscriptions); schedule after hosted production is stable.
+- **Order:** Hosted Phase 2 (bridge, pre-roll) → **Phase 15.1** hosted multi-vault → Issue #2 slices.
 
 ---
 

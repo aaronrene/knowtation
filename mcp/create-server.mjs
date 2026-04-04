@@ -21,6 +21,8 @@ import { registerKnowtationResources } from './resources/register.mjs';
 import { registerPhaseCTools } from './tools/phase-c.mjs';
 import { registerMemoryTools } from './tools/memory.mjs';
 import { registerHubProposalTools } from './tools/hub-proposals.mjs';
+import { registerEnrichTool } from './tools/enrich.mjs';
+import { rerankWithSampling } from './tools/sampling-rerank.mjs';
 import { registerResourceSubscriptionHandlers, notifyIndexMetadataResources } from './resource-subscriptions.mjs';
 import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
 import { registerKnowtationPrompts } from './prompts/register.mjs';
@@ -64,6 +66,7 @@ export function mountKnowtationMcp(server) {
         network: z.string().optional().describe('Phase 12: filter by blockchain network (e.g. icp, ethereum, sepolia)'),
         wallet_address: z.string().optional().describe('Phase 12: filter by wallet address or principal'),
         payment_status: z.string().optional().describe('Phase 12: filter by payment status (pending, settled, failed, cancelled)'),
+        rerank: z.boolean().optional().describe('Phase F4: rerank results via sampling (default true for semantic; requires client sampling support)'),
       },
     },
     async (args) => {
@@ -92,6 +95,9 @@ export function mountKnowtationMcp(server) {
           args.mode === 'keyword'
             ? await runKeywordSearch(args.query, { ...base, match: args.match === 'all_terms' ? 'all_terms' : 'phrase' }, config)
             : await runSearch(args.query, base, config);
+        if (args.rerank !== false && args.mode !== 'keyword' && !args.count_only && Array.isArray(out.results) && out.results.length > 1) {
+          out.results = await rerankWithSampling(server, args.query, out.results, args.limit ?? 10);
+        }
         if (config.memory?.enabled) {
           try {
             const mm = createMemoryManager(config);
@@ -194,9 +200,13 @@ export function mountKnowtationMcp(server) {
   server.registerTool(
     'index',
     {
-      description: 'Re-run indexer: vault → chunk → embed → vector store.',
+      description: 'Re-run indexer: vault → chunk → embed → vector store. With enrich=true, generate per-note summaries via sampling after indexing.',
+      inputSchema: {
+        enrich: z.boolean().optional().describe('Phase F3: generate per-note summaries via sampling after indexing (default false, expensive)'),
+        enrich_limit: z.number().optional().describe('Max notes to enrich (default 50)'),
+      },
     },
-    async (extra) => {
+    async (args, extra) => {
       try {
         const t0 = Date.now();
         const result = await runIndex({
@@ -210,6 +220,20 @@ export function mountKnowtationMcp(server) {
         });
         await notifyIndexMetadataResources(server);
         const config = loadConfig();
+        let enriched = 0;
+        if (args?.enrich) {
+          const { enrichIndexedNotes } = await import('./tools/index-enrich.mjs');
+          enriched = await enrichIndexedNotes(server, config, {
+            limit: args.enrich_limit ?? 50,
+            onProgress: async (done, total) => {
+              await sendMcpToolProgress(extra, {
+                progress: result.notesProcessed + done,
+                total: result.notesProcessed + total,
+                message: `enriching ${done}/${total}`,
+              });
+            },
+          });
+        }
         if (config.memory?.enabled) {
           try {
             const mm = createMemoryManager(config);
@@ -218,6 +242,7 @@ export function mountKnowtationMcp(server) {
                 notes_processed: result.notesProcessed,
                 chunks_indexed: result.chunksIndexed,
                 duration_ms: Date.now() - t0,
+                enriched,
               });
             }
           } catch (_) {}
@@ -226,8 +251,9 @@ export function mountKnowtationMcp(server) {
           event: 'index_complete',
           notesProcessed: result.notesProcessed,
           chunksIndexed: result.chunksIndexed,
+          enriched,
         });
-        return jsonResponse({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
+        return jsonResponse({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed, enriched });
       } catch (e) {
         await sendMcpLog(server, 'error', { event: 'index_failed', message: e.message || String(e) });
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');
@@ -417,6 +443,7 @@ export function mountKnowtationMcp(server) {
   registerPhaseCTools(server);
   registerMemoryTools(server);
   registerHubProposalTools(server);
+  registerEnrichTool(server);
   registerResourceSubscriptionHandlers(server);
 }
 

@@ -18,6 +18,7 @@ import {
   snippet,
   parseIntSafe,
   formatMemoryEventsAsync,
+  maybeAppendSamplingPrefill,
   MAX_EMBEDDED_NOTES,
   MAX_ENTITY_NOTES,
   PROJECT_SUMMARY_NOTES,
@@ -104,7 +105,7 @@ export function registerKnowtationPrompts(server) {
           messages.push({ role: 'user', content: embeddedNoteFromPath(config, p) });
         } catch (_) {}
       }
-      return { description: 'Search results embedded as resources', messages };
+      return maybeAppendSamplingPrefill(server, { description: 'Search results embedded as resources', messages });
     }
   );
 
@@ -150,7 +151,7 @@ export function registerKnowtationPrompts(server) {
           messages.push({ role: 'user', content: embeddedNoteFromPath(config, n.path) });
         } catch (_) {}
       }
-      return { description: `Project summary (${project})`, messages };
+      return maybeAppendSamplingPrefill(server, { description: `Project summary (${project})`, messages });
     }
   );
 
@@ -352,7 +353,7 @@ export function registerKnowtationPrompts(server) {
       const lines = (so.results || []).map(
         (r, i) => `${i + 1}. ${r.path}${r.snippet ? `\n   ${snippet(r.snippet, 200)}` : ''}`
       );
-      return {
+      return maybeAppendSamplingPrefill(server, {
         description: 'Knowledge gap analysis',
         messages: [
           {
@@ -362,7 +363,7 @@ export function registerKnowtationPrompts(server) {
             ),
           },
         ],
-      };
+      });
     }
   );
 
