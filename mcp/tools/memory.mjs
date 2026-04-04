@@ -220,6 +220,37 @@ export function registerMemoryTools(server) {
   );
 
   server.registerTool(
+    'memory_consolidate',
+    {
+      description:
+        'Trigger LLM-powered memory consolidation: group recent events by topic, merge/deduplicate via LLM, ' +
+        'and store concise fact summaries as consolidation events. Rebuilds the pointer index afterward.',
+      inputSchema: {
+        dry_run: z.boolean().optional().describe('If true, preview what would happen without writing events (default false)'),
+        passes: z.number().optional().describe('Number of consolidation passes (default 1)'),
+        lookback_hours: z.number().optional().describe('How far back to read events (default: daemon config or 24h)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = loadConfig();
+        if (!config.memory?.enabled) {
+          return jsonError('Memory layer not enabled. Set memory.enabled in config.', 'DISABLED');
+        }
+        const { consolidateMemory } = await import('../../lib/memory-consolidate.mjs');
+        const result = await consolidateMemory(config, {
+          dryRun: args.dry_run,
+          passes: args.passes,
+          lookbackHours: args.lookback_hours,
+        });
+        return jsonResponse(result);
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
     'memory_summarize',
     {
       description: 'Generate an LLM-powered summary of recent session activity and store it as a session_summary event.',
