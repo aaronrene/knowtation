@@ -5043,11 +5043,14 @@
     var tok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
     if (!tok) return html;
     var encodedTok = encodeURIComponent(tok);
+    // Use the resolved apiBase so the proxy request reaches the gateway even when
+    // the frontend is served from a different origin (e.g. knowtation.store → ICP canister).
+    var proxyBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
     return html.replace(
       /(<img\b[^>]*?\ssrc=")https?:\/\/raw\.githubusercontent\.com\/([^"]+)"/gi,
       function (match, pre, rest) {
         var encoded = encodeURIComponent('https://raw.githubusercontent.com/' + rest);
-        return pre + '/api/v1/vault/image-proxy?url=' + encoded + '&token=' + encodedTok + '"';
+        return pre + proxyBase + '/api/v1/vault/image-proxy?url=' + encoded + '&token=' + encodedTok + '"';
       }
     );
   }
@@ -5363,7 +5366,10 @@
         // browser sets the correct multipart/form-data boundary automatically).
         var uploadHeaders = headers();
         delete uploadHeaders['Content-Type'];
-        var res = await fetch('/api/v1/notes/' + notePath + '/upload-image' + vaultIdParam, {
+        // Use apiBase so this request reaches the gateway when the frontend is served
+        // from a different origin (e.g. knowtation.store → ICP canister, read-only).
+        var uploadBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
+        var res = await fetch(uploadBase + '/api/v1/notes/' + notePath + '/upload-image' + vaultIdParam, {
           method: 'POST',
           headers: uploadHeaders,
           body: form,
