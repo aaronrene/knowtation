@@ -562,31 +562,76 @@ if (BRIDGE_URL) {
     }
   });
 
+  // Image proxy: instead of buffering the image through Lambda (which hits the 6 MB
+  // response-size limit for real photos), we fetch a short-lived signed download_url
+  // from the GitHub Contents API and issue a 302 redirect.  The browser then fetches
+  // the image directly from GitHub — no Lambda body involved at all.
   app.get('/api/v1/vault/image-proxy', async (req, res) => {
-    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-    const url = `${BRIDGE_URL}/api/v1/vault/image-proxy${q}`;
-    let upstream;
+    // Accept JWT from Authorization header OR ?token= query param (img tags can't send headers).
+    const auth = req.headers.authorization || '';
+    const headerToken = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
+    const jwtToken = headerToken || queryToken || '';
+    const uid = getUserId({ headers: { authorization: `Bearer ${jwtToken}` } });
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+    const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
+    if (!rawUrl) return res.status(400).json({ error: 'url parameter required', code: 'BAD_REQUEST' });
+
+    // Only proxy raw.githubusercontent.com URLs to prevent SSRF.
+    const rawMatch = rawUrl.match(
+      /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/i,
+    );
+    if (!rawMatch) {
+      return res.status(400).json({ error: 'Only raw.githubusercontent.com URLs are supported', code: 'BAD_REQUEST' });
+    }
+    const [, owner, repo, ref, filePath] = rawMatch;
+
+    // Get the user's GitHub token from the bridge.
+    let ghToken = null;
     try {
-      upstream = await fetch(url, {
+      const tokenRes = await fetch(`${BRIDGE_URL}/api/v1/vault/github-token`, {
+        headers: { authorization: `Bearer ${jwtToken}` },
+      });
+      if (tokenRes.ok) {
+        const data = await tokenRes.json();
+        ghToken = data.token || null;
+      }
+    } catch (_) { /* bridge unreachable — fall through, public repos still work */ }
+
+    if (!ghToken) {
+      // No stored GitHub token — assume the repo is public and redirect directly.
+      return res.redirect(302, rawUrl);
+    }
+
+    // Use the GitHub Contents API to get a signed, short-lived download_url for the file.
+    // This avoids sending the PAT in the redirect URL while still letting private-repo images load.
+    const apiUrl =
+      `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}` +
+      `?ref=${encodeURIComponent(ref)}`;
+    try {
+      const apiRes = await fetch(apiUrl, {
         headers: {
-          authorization: req.headers.authorization || '',
-          'x-vault-id': String(req.headers['x-vault-id'] || 'default'),
+          Authorization: `token ${ghToken}`,
+          Accept: 'application/vnd.github.v3+json',
+          'User-Agent': 'Knowtation-Hub/1.0',
         },
       });
+      if (apiRes.ok) {
+        const data = await apiRes.json();
+        const dlUrl = data.download_url || rawUrl;
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        return res.redirect(302, dlUrl);
+      }
+      // GitHub returned an error (e.g. 404 file missing, 403 large-file).
+      const errBody = await apiRes.json().catch(() => ({}));
+      return res.status(apiRes.status).json({
+        error: errBody.message || 'Image not found on GitHub',
+        code: 'UPSTREAM_ERROR',
+      });
     } catch (e) {
-      return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+      return res.status(502).json({ error: 'Failed to fetch image metadata from GitHub', code: 'BAD_GATEWAY' });
     }
-    if (!upstream.ok) {
-      const errText = await upstream.text().catch(() => '');
-      return res.status(upstream.status).set('content-type', 'application/json').send(errText || '{}');
-    }
-    const ct = upstream.headers.get('content-type') || 'application/octet-stream';
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.setHeader('Content-Type', ct);
-    res.setHeader('Content-Length', buf.byteLength);
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.send(buf);
   });
 }
 

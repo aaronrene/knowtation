@@ -5292,6 +5292,56 @@
     textarea.focus();
   }
 
+  /**
+   * Compress an image File/Blob using the Canvas API so it fits within the
+   * Netlify Lambda 6 MB payload limit (~4.5 MB binary after base64 overhead).
+   * Target: longest side ≤ 2048 px, JPEG quality 0.82, result ≤ 3 MB.
+   * Falls back to the original file if Canvas is unavailable or the image is
+   * already small enough.
+   */
+  function compressImageIfNeeded(file) {
+    var MAX_BYTES = 3 * 1024 * 1024; // 3 MB ceiling
+    var MAX_DIM = 2048;
+    return new Promise(function (resolve) {
+      if (!file.type.startsWith('image/') || file.size <= MAX_BYTES) {
+        return resolve(file);
+      }
+      if (typeof window === 'undefined' || !window.HTMLCanvasElement) {
+        return resolve(file);
+      }
+      var img = new window.Image();
+      var objectUrl = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(objectUrl);
+        var ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+        var w = Math.round(img.width * ratio);
+        var h = Math.round(img.height * ratio);
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var tryQuality = function (quality, attempt) {
+          canvas.toBlob(function (blob) {
+            if (!blob) return resolve(file); // Canvas failed — upload original
+            if (blob.size <= MAX_BYTES || quality <= 0.4 || attempt >= 3) {
+              var outName = file.name.replace(/\.[^.]+$/, '.jpg');
+              resolve(new window.File([blob], outName, { type: 'image/jpeg' }));
+            } else {
+              tryQuality(quality - 0.2, attempt + 1);
+            }
+          }, 'image/jpeg', quality);
+        };
+        tryQuality(0.82, 0);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+      img.src = objectUrl;
+    });
+  }
+
   function triggerImageUpload(textarea) {
     var fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -5301,8 +5351,11 @@
       if (!file || !currentOpenNote) return;
       try {
         if (typeof showToast === 'function') showToast('Uploading image…');
+        // Compress before uploading to stay within the Netlify Lambda 6 MB
+        // payload limit (~4.5 MB binary after base64 overhead).
+        var uploadFile = await compressImageIfNeeded(file);
         var form = new FormData();
-        form.append('image', file);
+        form.append('image', uploadFile);
         var notePath = encodeURIComponent(currentOpenNote.path);
         var vaultIdParam = '';
         try { vaultIdParam = '?vault_id=' + encodeURIComponent(getCurrentVaultId()); } catch (_) {}
@@ -5321,14 +5374,7 @@
         }
         var data = await res.json();
         insertAtCursor(textarea, data.inserted_markdown || '![image](' + data.url + ')');
-        if (data.repo_private) {
-          if (typeof showToast === 'function') showToast(
-            'Image committed to GitHub, but your repo is private — the image will not display inline until the repo is made public or you host images elsewhere.',
-            true
-          );
-        } else {
-          if (typeof showToast === 'function') showToast('Image uploaded and inserted');
-        }
+        if (typeof showToast === 'function') showToast('Image uploaded and inserted');
       } catch (e) {
         if (typeof showToast === 'function') showToast('Upload failed: ' + (e.message || String(e)), true);
       }
