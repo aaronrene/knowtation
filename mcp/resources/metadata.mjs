@@ -203,6 +203,26 @@ export function buildMemoryIndexResource(config, opts = {}) {
   }
 }
 
+/**
+ * Build a topic-scoped memory resource: recent events for a given topic slug.
+ * @param {object} config
+ * @param {string} topicSlug
+ * @param {{ limit?: number }} [opts]
+ * @returns {{ enabled: boolean, topic: string, events: object[], count: number }}
+ */
+export function buildMemoryTopicResource(config, topicSlug, opts = {}) {
+  if (!config.memory?.enabled) return { enabled: false, topic: topicSlug, events: [], count: 0 };
+  try {
+    const mm = createMemoryManager(config);
+    const limit = opts.limit ?? 50;
+    const events = mm.list({ topic: topicSlug, limit });
+    const topics = mm.listTopics();
+    return { enabled: true, topic: topicSlug, events, count: events.length, all_topics: topics };
+  } catch (_) {
+    return { enabled: true, topic: topicSlug, events: [], count: 0, error: 'failed to read topic events' };
+  }
+}
+
 export function buildAirLogResource() {
   return {
     entries: [],

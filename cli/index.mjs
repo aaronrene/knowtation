@@ -591,7 +591,7 @@ async function main() {
       console.log(`knowtation memory <action>
   Actions:
     query <key>              Read latest value for an event type (e.g. search, export, write, import, index, propose, user).
-    list                     List recent memory events. --type, --since, --until, --limit (default 20), --json.
+    list                     List recent memory events. --type, --topic, --since, --until, --limit (default 20), --json.
     store <key> <value>      Store a user-defined memory entry. Value is JSON string or --stdin.
     search <query>           Semantic search over memory (requires vector or mem0 provider). --limit, --json.
     clear                    Clear memory. --type, --before <date>, --confirm required. --json.
@@ -642,10 +642,11 @@ async function main() {
 
         if (action === 'list') {
           const type = getOpt('type');
+          const topic = getOpt('topic');
           const since = getOpt('since');
           const until = getOpt('until');
           const limit = getOpt('limit', 'number') ?? 20;
-          const events = mm.list({ type: type ?? undefined, since: since ?? undefined, until: until ?? undefined, limit });
+          const events = mm.list({ type: type ?? undefined, topic: topic ?? undefined, since: since ?? undefined, until: until ?? undefined, limit });
           if (useJson) {
             console.log(JSON.stringify({ events, count: events.length }));
           } else {

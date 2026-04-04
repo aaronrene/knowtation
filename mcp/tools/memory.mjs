@@ -73,9 +73,10 @@ export function registerMemoryTools(server) {
   server.registerTool(
     'memory_list',
     {
-      description: 'List recent memory events with optional filters.',
+      description: 'List recent memory events with optional filters. Use topic to filter by topic slug (e.g. "blockchain", "vault").',
       inputSchema: {
         type: z.string().optional().describe('Filter by event type'),
+        topic: z.string().optional().describe('Filter by topic slug (derived from event data)'),
         since: z.string().optional().describe('ISO date lower bound'),
         until: z.string().optional().describe('ISO date upper bound'),
         limit: z.number().optional().describe('Max events (default 20, max 100)'),
@@ -90,6 +91,7 @@ export function registerMemoryTools(server) {
         const mm = createMemoryManager(config);
         const events = mm.list({
           type: args.type,
+          topic: args.topic,
           since: args.since,
           until: args.until,
           limit: Math.min(args.limit ?? 20, 100),

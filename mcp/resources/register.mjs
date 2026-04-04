@@ -20,6 +20,7 @@ import {
   buildMemoryEventsResource,
   buildMemoryTypeResource,
   buildMemoryIndexResource,
+  buildMemoryTopicResource,
   buildAirLogResource,
 } from './metadata.mjs';
 import { buildKnowledgeGraph } from './graph.mjs';
@@ -275,6 +276,47 @@ export function registerKnowtationResources(server) {
         return jsonContent(uri, result);
       }
       return textContent(uri, 'text/markdown', result.index.markdown);
+    }
+  );
+
+  const memoryTopicTemplate = new ResourceTemplate('knowtation://memory/topic/{slug}', {
+    list: async () => {
+      try {
+        const config = loadConfig();
+        if (!config.memory?.enabled) return { resources: [] };
+        const { createMemoryManager } = await import('../../lib/memory.mjs');
+        const mm = createMemoryManager(config);
+        const topics = mm.listTopics();
+        return {
+          resources: topics.map((slug) => ({
+            uri: `knowtation://memory/topic/${slug}`,
+            name: slug,
+            mimeType: 'application/json',
+            description: `Memory events for topic: ${slug}`,
+          })),
+        };
+      } catch (_) {
+        return { resources: [] };
+      }
+    },
+  });
+
+  server.registerResource(
+    'memory-topic',
+    memoryTopicTemplate,
+    {
+      title: 'Memory topic partition',
+      description: 'Events partitioned by topic slug. Topics are derived from event data (path directory, query keywords, explicit data.topic).',
+    },
+    async (uri, variables) => {
+      const config = loadConfig();
+      let slug = variables.slug;
+      if (Array.isArray(slug)) slug = slug[0];
+      slug = decodeURIComponent(String(slug || ''));
+      if (!slug || slug.includes('..')) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid topic slug');
+      }
+      return jsonContent(uri, buildMemoryTopicResource(config, slug));
     }
   );
 
