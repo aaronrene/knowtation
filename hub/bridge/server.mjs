@@ -1364,6 +1364,27 @@ app.get('/api/v1/vault/github-status', async (req, res) => {
   });
 });
 
+// Internal: GET GitHub connection (token + repo) for the gateway to use for image upload.
+// Server-to-server only — never exposed to the browser. Auth required.
+app.get('/api/v1/vault/github-token', async (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const uid = token ? userIdFromJwt(token) : null;
+  if (!uid) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  try {
+    const tokensByUser = await loadTokens(req.blobStore);
+    const conn = tokensByUser[uid];
+    if (!conn?.token) {
+      return res.status(400).json({ error: 'GitHub not connected', code: 'GITHUB_NOT_CONNECTED' });
+    }
+    res.json({ token: conn.token, repo: conn.repo || null });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
 /** Max notes per canister POST /api/v1/notes/batch (must match hub/icp NOTES_BATCH cap). */
 const CANISTER_NOTES_BATCH_MAX = 100;
 

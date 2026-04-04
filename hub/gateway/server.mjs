@@ -28,6 +28,8 @@ import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 import { createMetadataBulkHandlers } from './metadata-bulk-canister.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
 import { loadProposalRubric } from '../../lib/hub-proposal-rubric.mjs';
+import { commitImageToRepo, validateImageExtension, validateMagicBytes } from '../../lib/github-commit-image.mjs';
+import { parseMultipartFile } from './parse-multipart.mjs';
 import { proposalPolicyEnvLocked } from '../../lib/hub-proposal-policy.mjs';
 import {
   loadHostedProposalLlmPrefs,
@@ -473,32 +475,91 @@ if (BRIDGE_URL) {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory-stats', req, res);
   });
 
-  // Phase 18: image upload (multipart) and image proxy — bridge owns GitHub token and multer
+  // Phase 18: image upload — gateway buffers the file, fetches GitHub token from bridge,
+  // then commits directly to GitHub (avoids forwarding a multipart body to another Lambda).
   app.post(/^\/api\/v1\/notes\/(.+)\/upload-image$/, async (req, res) => {
-    const notePath = req.params[0] || req.path.split('/').slice(4, -1).join('/');
-    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-    const url = `${BRIDGE_URL}/api/v1/notes/${notePath}/upload-image${q}`;
-    let raw;
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+    // 1. Get GitHub connection (token + repo) from bridge.
+    let ghToken, ghRepo;
     try {
-      raw = await bufferImportRequestBody(req);
+      const tokenRes = await fetch(`${BRIDGE_URL}/api/v1/vault/github-token`, {
+        headers: { authorization: req.headers.authorization || '' },
+      });
+      if (!tokenRes.ok) {
+        const errData = await tokenRes.json().catch(() => ({}));
+        return res.status(tokenRes.status).json({
+          error: errData.error || 'GitHub not connected',
+          code: errData.code || 'GITHUB_NOT_CONNECTED',
+        });
+      }
+      const data = await tokenRes.json();
+      ghToken = data.token;
+      ghRepo = data.repo;
+    } catch (e) {
+      return res.status(502).json({ error: 'Could not reach bridge', code: 'BAD_GATEWAY' });
+    }
+    if (!ghToken) return res.status(400).json({ error: 'GitHub not connected', code: 'GITHUB_NOT_CONNECTED' });
+    if (!ghRepo) return res.status(400).json({ error: 'GitHub repo not set. Back up once first to set the remote.', code: 'GITHUB_NOT_CONFIGURED' });
+
+    // 2. Buffer the uploaded file from the multipart body.
+    let fileBuffer, originalName, mimeType;
+    try {
+      const raw = await bufferImportRequestBody(req);
+      const ct = req.headers['content-type'] || '';
+      const boundaryMatch = ct.match(/boundary=([^\s;]+)/i);
+      if (!boundaryMatch) return res.status(400).json({ error: 'Content-Type boundary missing', code: 'BAD_REQUEST' });
+      const boundary = boundaryMatch[1];
+      // Parse the first file part from the multipart body manually (avoids multer dependency).
+      const parsed = parseMultipartFile(raw, boundary);
+      if (!parsed) return res.status(400).json({ error: 'image file required', code: 'BAD_REQUEST' });
+      fileBuffer = parsed.data;
+      originalName = parsed.filename || 'image.jpg';
+      mimeType = parsed.contentType || 'application/octet-stream';
     } catch (e) {
       return res.status(500).json({ error: 'Could not read upload body', code: 'INTERNAL_ERROR' });
     }
-    const headers = {
-      authorization: req.headers.authorization || '',
-      'x-vault-id': String(req.headers['x-vault-id'] || 'default'),
-    };
-    const ct = req.headers['content-type'];
-    if (ct) headers['content-type'] = ct;
-    headers['content-length'] = String(raw.length);
-    let upstream;
-    try {
-      upstream = await fetch(url, { method: 'POST', headers, body: raw });
-    } catch (e) {
-      return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY', detail: e.message });
+
+    // 3. Validate extension, content-type, and magic bytes.
+    try { validateImageExtension(originalName); } catch (e) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     }
-    const body = await upstream.text();
-    res.status(upstream.status).set('content-type', 'application/json').send(body);
+    if (!mimeType.toLowerCase().startsWith('image/')) {
+      return res.status(400).json({ error: 'File content-type must be image/*', code: 'BAD_REQUEST' });
+    }
+    const ext = originalName.split('.').pop().toLowerCase();
+    const magicOk = validateMagicBytes(fileBuffer, ext);
+    if (!magicOk) {
+      return res.status(400).json({ error: 'File content does not match declared image type', code: 'BAD_REQUEST' });
+    }
+
+    // 4. Commit to GitHub directly from the gateway.
+    try {
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128);
+      const uniqueName = `${Date.now()}-${safeName}`;
+      const repoFilePath = `media/images/${yearMonth}/${uniqueName}`;
+      const result = await commitImageToRepo({
+        accessToken: ghToken,
+        repoUrl: ghRepo,
+        filePath: repoFilePath,
+        fileBuffer,
+        commitMessage: `Add image: ${safeName}`,
+      });
+      return res.json({
+        url: result.url,
+        inserted_markdown: `![${safeName}](${result.url})`,
+        sha: result.sha,
+        repo_path: repoFilePath,
+        repo_private: result.isPrivate === true,
+      });
+    } catch (e) {
+      const msg = e.message || String(e);
+      const clientErr = /not found|not connected|lacks permission|lacks repo|Reconnect|scope|remote/i.test(msg);
+      return res.status(clientErr ? 400 : 500).json({ error: msg, code: clientErr ? 'BAD_REQUEST' : 'RUNTIME_ERROR' });
+    }
   });
 
   app.get('/api/v1/vault/image-proxy', async (req, res) => {
@@ -585,6 +646,7 @@ async function bufferImportRequestBody(req) {
   }
   return Buffer.concat(chunks);
 }
+
 
 /**
  * Multipart import: forward body bytes to bridge (do not use proxyTo — body is not JSON in req.body).
