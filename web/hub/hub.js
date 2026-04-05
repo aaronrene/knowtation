@@ -6322,9 +6322,11 @@
     }
     let html = '<table class="consol-history-table"><thead><tr><th>Date</th><th>Topics</th><th>Events Merged</th><th>Cost</th><th>Status</th></tr></thead><tbody>';
     events.forEach((ev) => {
-      const date = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '—';
-      const topics = ev.data?.topics_count ?? ev.data?.topics?.length ?? '—';
-      const merged = ev.data?.total_events ?? '—';
+      const ts = ev.ts || ev.timestamp || ev.created_at;
+      const date = ts ? new Date(ts).toLocaleString() : '—';
+      const rawTopics = ev.data?.topics_count;
+      const topics = Array.isArray(rawTopics) ? rawTopics.length : (rawTopics ?? ev.data?.topics?.length ?? '—');
+      const merged = ev.data?.total_events ?? ev.data?.event_count ?? '—';
       const cost = ev.data?.cost_usd != null ? '$' + Number(ev.data.cost_usd).toFixed(4) : '—';
       const status = ev.data?.dry_run ? 'dry-run' : (ev.data?.error ? 'error' : 'complete');
       html += '<tr><td>' + escapeHtml(date) + '</td><td>' + escapeHtml(String(topics)) + '</td><td>' + escapeHtml(String(merged)) + '</td><td>' + escapeHtml(cost) + '</td><td>' + escapeHtml(status) + '</td></tr>';
@@ -6418,7 +6420,7 @@
     btnConsolHistory.addEventListener('click', async () => {
       setButtonBusy(btnConsolHistory, true, 'Loading…');
       try {
-        const res = await api('/api/v1/memory?type=consolidation&limit=20');
+        const res = await api('/api/v1/memory?type=consolidation_pass&limit=20');
         const events = res.events || res.history || [];
         setButtonBusy(btnConsolHistory, false);
         const modal = document.createElement('div');

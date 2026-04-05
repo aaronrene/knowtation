@@ -109,6 +109,10 @@ describe('New event types (consolidation, maintenance, insight)', () => {
     assert(MEMORY_EVENT_TYPES.includes('insight'));
   });
 
+  it('MEMORY_EVENT_TYPES includes consolidation_pass for pass-level summary events', () => {
+    assert(MEMORY_EVENT_TYPES.includes('consolidation_pass'));
+  });
+
   it('createMemoryEvent accepts consolidation type', () => {
     const event = createMemoryEvent('consolidation', {
       topic: 'blockchain',
