@@ -153,12 +153,27 @@ export const MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER = {
   team:    null,
 };
 
+/**
+ * Monthly consolidation pass allowance by tier.
+ * null = unlimited. free = 0 → no hosted consolidation on free tier.
+ */
+export const CONSOLIDATION_PASSES_BY_TIER = {
+  beta:    null,   // unlimited (internal dev)
+  free:    0,      // no hosted consolidation on free
+  plus:    10,
+  starter: 10,     // legacy alias → plus
+  growth:  30,
+  pro:     null,   // unlimited
+  team:    100,
+};
+
 /** Metered operation → cost in cents (legacy credit ledger). Shadow-log only until BILLING_ENFORCE=true. */
 export const COST_CENTS = {
   search: 1,
   index: 50,
   note_write: 2,
   proposal_write: 2,
+  consolidation: 5,
 };
 
 /**
@@ -189,6 +204,12 @@ export const COST_BREAKDOWN = [
     label: 'Create a proposal',
     cost_cents: COST_CENTS.proposal_write,
     relates_to: 'Canister write + storage',
+  },
+  {
+    operation: 'consolidation',
+    label: 'Memory consolidation pass (hosted)',
+    cost_cents: COST_CENTS.consolidation,
+    relates_to: 'Hub LLM (gpt-4o-mini) — merge, verify, discover passes',
   },
 ].map((row) => ({
   ...row,

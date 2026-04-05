@@ -13,6 +13,7 @@ import {
   effectiveMonthlyIndexingTokensIncluded,
   effectiveMonthlySearchesIncluded,
   effectiveMonthlyIndexJobsIncluded,
+  effectiveMonthlyConsolidationPassesIncluded,
   normalizeBillingUser,
 } from './billing-logic.mjs';
 import { loadBillingDb, resetMonthlyTokensIfNeeded } from './billing-store.mjs';
@@ -55,6 +56,9 @@ export async function handleBillingSummary(req, res, getUserId) {
     monthly_searches_included: effectiveMonthlySearchesIncluded(u),
     monthly_index_jobs_used: Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)),
     monthly_index_jobs_included: effectiveMonthlyIndexJobsIncluded(u),
+    monthly_consolidation_jobs_used: Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0)),
+    monthly_consolidation_jobs_included: effectiveMonthlyConsolidationPassesIncluded(u),
+    consolidation_last_pass_at: u.consolidation_last_pass_at ?? null,
     note_cap: noteCap,
     indexing_tokens_policy: INDEXING_TOKENS_POLICY,
     cost_breakdown: COST_BREAKDOWN,

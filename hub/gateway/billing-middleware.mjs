@@ -8,8 +8,13 @@ import {
   billingShadowLogEnabled,
   COST_CENTS,
   NOTE_CAP_BY_TIER,
+  CONSOLIDATION_PASSES_BY_TIER,
 } from './billing-constants.mjs';
-import { tryDeduct, defaultUserRecord } from './billing-logic.mjs';
+import {
+  tryDeduct,
+  defaultUserRecord,
+  effectiveMonthlyConsolidationPassesIncluded,
+} from './billing-logic.mjs';
 import { loadBillingDb, saveBillingDb, resetMonthlyTokensIfNeeded } from './billing-store.mjs';
 import { effectiveRequestPath } from './request-path.mjs';
 
@@ -17,6 +22,7 @@ function operationFromRequest(method, req) {
   const path = effectiveRequestPath(req);
   if (method === 'POST' && path.endsWith('/search')) return 'search';
   if (method === 'POST' && path.endsWith('/index')) return 'index';
+  if (method === 'POST' && /\/memory\/consolidate\/?$/.test(path)) return 'consolidation';
   if (method === 'POST' && /\/api\/v1\/notes\/?$/.test(path)) return 'note_write';
   if (method === 'POST' && /\/api\/v1\/notes\/delete-by-prefix\/?$/.test(path)) return 'note_write';
   if (method === 'POST' && /\/api\/v1\/notes\/delete-by-project\/?$/.test(path)) return 'note_write';
@@ -142,6 +148,20 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
   const u = db.users[uid] || defaultUserRecord(uid);
   if (!db.users[uid]) db.users[uid] = u;
 
+  // Consolidation-specific cap check: free tier (cap=0) is always blocked.
+  // Other tiers with cap exceeded use overage (addon_cents) via the standard tryDeduct flow.
+  if (op === 'consolidation') {
+    const passCap = effectiveMonthlyConsolidationPassesIncluded(u);
+    if (passCap !== null && passCap === 0) {
+      res.status(402).json({
+        error: 'Hosted memory consolidation is not available on the free tier. Upgrade to a paid plan.',
+        code: 'CONSOLIDATION_NOT_AVAILABLE',
+        tier: u.tier || 'free',
+      });
+      return false;
+    }
+  }
+
   const result = tryDeduct(u, cost);
   if (!result.ok) {
     res.status(402).json({
@@ -154,6 +174,10 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
   // Increment operation counters in the same write cycle as tryDeduct (no extra blob round-trip).
   if (op === 'search') u.monthly_searches_used = Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)) + 1;
   if (op === 'index')  u.monthly_index_jobs_used = Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
+  if (op === 'consolidation') {
+    u.monthly_consolidation_jobs_used = Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0)) + 1;
+    u.consolidation_last_pass_at = new Date().toISOString();
+  }
 
   await saveBillingDb(db);
   return true;

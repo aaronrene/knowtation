@@ -88,6 +88,33 @@ Set `max_cost_per_day_usd: 0.001`, start daemon, run one pass, check log for
 
 ---
 
+## Session Status
+
+| Stream | Title | Status |
+|--------|-------|--------|
+| Stream 1 | Bridge Consolidation Endpoint | ✅ Complete (committed) |
+| Stream 0 | Cron Scheduling (Netlify Scheduled Function) | 🔲 Next |
+| Stream 3 | MCP — consolidation_history, consolidation_settings, hosted routing | 🔲 Pending |
+| Stream 2 | Hub UI — Settings tab, Dashboard card, Billing row | 🔲 Pending |
+| Stream 4 | Docs — How to Use modal + MEMORY-CONSOLIDATION-GUIDE.md | 🔲 Pending |
+
+### Stream 1 Deliverables (Done)
+
+- `hub/bridge/server.mjs` — `POST /api/v1/memory/consolidate` + `GET /api/v1/memory/consolidate/status`
+- `hub/gateway/server.mjs` — proxy both routes; `runBillingGate` on POST
+- `hub/gateway/billing-middleware.mjs` — `consolidation` in `operationFromRequest`; free-tier block; counter increment
+- `hub/gateway/billing-constants.mjs` — `COST_CENTS.consolidation = 5`; `CONSOLIDATION_PASSES_BY_TIER`; `COST_BREAKDOWN` entry
+- `hub/gateway/billing-logic.mjs` — `monthly_consolidation_jobs_used`, `consolidation_last_pass_at`, `consolidation_interval_minutes`; `effectiveMonthlyConsolidationPassesIncluded`
+- `hub/gateway/billing-http.mjs` — consolidation fields in `GET /api/v1/billing/summary`
+- `hub/gateway/billing-store.mjs` — reset `monthly_consolidation_jobs_used` on period rollover
+- `lib/memory-consolidate.mjs` — `opts.mm` injection in `consolidateMemory`, `runVerifyPass`, `runDiscoverPass`
+- `.env.example` + `hub/bridge/.env.example` — documented `CONSOLIDATION_LLM_API_KEY`, `CONSOLIDATION_LLM_MODEL`, `CONSOLIDATION_COST_CAP_USD`
+- `test/billing-consolidation.test.mjs` — 33 new tests (billing constants, logic, middleware, http, gateway integration)
+- `test/bridge-consolidation.test.mjs` — 13 new tests (cost tracking, response shape, env resolution, opts.mm injection)
+- **Test suite: 995 passing, 0 failing** (up from 949)
+
+---
+
 ## Work Streams
 
 ---
