@@ -1775,12 +1775,10 @@ app.post('/api/v1/index', async (req, res) => {
       await store.upsert(points);
     }
     await persistVectorsToBlob(req, canisterUid, vectorsDir);
-    return res.json({
-      ok: true,
-      notesProcessed: notes.length,
-      chunksIndexed: allChunks.length,
-      embedding_input_tokens,
-    });
+    const indexResult = { ok: true, notesProcessed: notes.length, chunksIndexed: allChunks.length, embedding_input_tokens };
+    res.json(indexResult);
+    fireBridgeCaptureEvent('index', { note_count: notes.length, chunk_count: allChunks.length }, sanitizeUserId(uid), vaultId);
+    return;
   } catch (e) {
     console.error('Bridge index error:', e);
     return res.status(500).json({
@@ -1813,6 +1811,14 @@ app.post('/api/v1/search', async (req, res) => {
   }
   const canisterUid = hctx.effectiveCanisterUid;
   const query = req.body?.query;
+  // Auto-capture after successful response — fire-and-forget, does not affect latency.
+  const _captureVaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  const _captureMode = req.body?.mode === 'keyword' ? 'keyword' : 'semantic';
+  res.on('finish', () => {
+    if (res.statusCode >= 200 && res.statusCode < 300 && query) {
+      fireBridgeCaptureEvent('search', { query, mode: _captureMode }, sanitizeUserId(uid), _captureVaultId);
+    }
+  });
   if (!query || typeof query !== 'string') {
     return res.status(400).json({ error: 'query required', code: 'BAD_REQUEST' });
   }
@@ -1955,6 +1961,22 @@ app.use((err, req, res, _next) => {
 });
 
 // ——— Memory endpoints (Phase 8) ———
+
+/**
+ * Fire-and-forget memory event capture for hosted bridge endpoints.
+ * Never throws, never delays the response.
+ */
+function fireBridgeCaptureEvent(type, data, uid, vaultId) {
+  (async () => {
+    try {
+      const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+      const { MemoryManager } = await import('../../lib/memory.mjs');
+      const mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId || 'default')));
+      if (mm.shouldCapture(type)) mm.store(type, data);
+    } catch (_) {}
+  })();
+}
+
 function bridgeMemoryAuth(req) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
