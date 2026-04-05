@@ -49,9 +49,11 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 // Path under HUB_UI_ORIGIN where the Hub app lives (e.g. /hub). Empty string = root.
 const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
+// On Netlify Lambda /var/task/ is read-only; only /tmp is writable.
+// Use /tmp/knowtation-bridge-data when serverless and DATA_DIR is not explicitly set.
 const DATA_DIR = process.env.DATA_DIR
   ? (path.isAbsolute(process.env.DATA_DIR) ? process.env.DATA_DIR : path.join(projectRoot, process.env.DATA_DIR))
-  : path.join(projectRoot, 'data');
+  : (inServerless ? path.join(os.tmpdir(), 'knowtation-bridge-data') : path.join(projectRoot, 'data'));
 const TOKENS_FILE = path.join(DATA_DIR, 'hub_github_tokens.json');
 const ROLES_FILE = path.join(DATA_DIR, 'hub_roles.json');
 const INVITES_FILE = path.join(DATA_DIR, 'hub_invites.json');
