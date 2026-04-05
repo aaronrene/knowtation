@@ -51,6 +51,7 @@ import {
   startDaemon,
 } from '../lib/daemon.mjs';
 
+import { getDailyCost, recordCallCost, resetDailyCost } from '../lib/daemon-cost.mjs';
 import { loadDaemonConfig } from '../lib/config.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -747,16 +748,26 @@ describe('startDaemon lifecycle', () => {
     assert(errors[0].error.includes('timeout'));
   });
 
-  it('LLM function is passed through to consolidateFn via opts', async () => {
+  it('LLM function is passed through to consolidateFn via opts (as cost-tracking wrapper)', async () => {
+    // startDaemon wraps llmFn in a cost-tracking decorator before passing it to
+    // consolidateFn.  The wrapper is a different function reference but must
+    // still delegate every call to the original llmFn.
     const config = makeConfig({ daemon: { idle_only: false } });
     const llm = mockLlm('OK');
     let receivedLlmFn = null;
-    const consolidate = async (_cfg, opts) => {
+    const consolidate = async (cfg, opts) => {
       receivedLlmFn = opts.llmFn;
+      // Invoke the received function to verify it delegates to the raw llmFn.
+      await opts.llmFn(cfg, { system: 'test', user: 'test' });
       return { total_events: 0, topics: [] };
     };
     await runDaemonCycle(config, { llmFn: llm, consolidateFn: consolidate }, { stopAfterLoops: 2 });
-    assert.strictEqual(receivedLlmFn, llm, 'llmFn should be passed to consolidateFn');
+    assert(typeof receivedLlmFn === 'function', 'a function must be passed to consolidateFn');
+    // The wrapper must have forwarded the call to the underlying llm.
+    // llm.calls includes the health-check call (opts.maxTokens <= 10) plus our
+    // call above; filter to the test call to confirm delegation.
+    const testCall = llm.calls.find((c) => c.opts.system === 'test');
+    assert.ok(testCall, 'wrapper should forward calls to the underlying llmFn');
   });
 
   it('cleans up signal listeners after shutdown (no accumulation)', async () => {
@@ -921,5 +932,251 @@ describe('CLI: daemon commands', () => {
     const r = runCli('--help');
     assert.strictEqual(r.exitCode, 0);
     assert(r.stdout.includes('daemon'), 'Global help should mention daemon command');
+  });
+});
+
+// ── 9. Phase F: Cost Guards ───────────────────────────────────────────────────
+//
+// Tests validate cost accumulation, daily reset, cap enforcement, and the
+// cost fields exposed on getDaemonStatus.  All LLM calls are mocked.
+// Filesystem I/O goes to per-test temp dirs (via makeConfig).
+//
+// The key integration point: startDaemon wraps llmFn with a cost-tracking
+// decorator before passing it to consolidateFn.  To observe accumulated cost
+// we need a consolidateFn that actually invokes opts.llmFn.
+
+/**
+ * A consolidateFn that calls opts.llmFn once with a fixed prompt so the cost
+ * tracking wrapper fires.  The response is the injected mock llmFn's return.
+ */
+function makeLlmCallingConsolidate(
+  result = { total_events: 5, topics: [{ topic: 'test', facts: ['fact'], event_count: 5 }] },
+) {
+  return async (cfg, opts) => {
+    await opts.llmFn(cfg, {
+      system: 'a'.repeat(40), // 10 input tokens (40 chars / 4)
+      user: 'b'.repeat(40),   // 10 input tokens
+    });
+    return result;
+  };
+}
+
+describe('Phase F: Cost Guards', () => {
+  // ── cost accumulation across passes ────────────────────────────────────────
+
+  it('cost is recorded after each pass that calls llmFn', async () => {
+    const config = makeConfig({ daemon: { idle_only: false } });
+    const consolidate = makeLlmCallingConsolidate();
+
+    // stopAfterLoops=2 → 1 consolidation pass
+    await runDaemonCycle(
+      config,
+      { consolidateFn: consolidate, costRates: { input_per_token: 0.01, output_per_token: 0.01 } },
+      { stopAfterLoops: 2 },
+    );
+
+    const cost = getDailyCost(config);
+    assert(cost > 0, `Expected cost > 0, got ${cost}`);
+  });
+
+  it('cost accumulates additively across multiple passes', async () => {
+    const config = makeConfig({ daemon: { idle_only: false } });
+    const consolidate = makeLlmCallingConsolidate();
+    const rates = { input_per_token: 0.001, output_per_token: 0.001 };
+
+    // 1 pass
+    await runDaemonCycle(
+      config,
+      { consolidateFn: consolidate, costRates: rates },
+      { stopAfterLoops: 2 },
+    );
+    const costAfter1 = getDailyCost(config);
+
+    // 2nd pass (same config / same data dir — cost accumulates)
+    await runDaemonCycle(
+      config,
+      { consolidateFn: consolidate, costRates: rates },
+      { stopAfterLoops: 2 },
+    );
+    const costAfter2 = getDailyCost(config);
+
+    assert(costAfter2 > costAfter1, `Cost should increase: ${costAfter1} → ${costAfter2}`);
+  });
+
+  // ── daily reset ─────────────────────────────────────────────────────────────
+
+  it("yesterday's cost is not counted in today's total", () => {
+    const config = makeConfig();
+    const yesterday = '2000-01-01';
+    const today = '2000-01-02';
+    recordCallCost(config, 999.0, yesterday);
+    assert.strictEqual(getDailyCost(config, today), 0);
+    assert(getDailyCost(config, yesterday) > 0, 'yesterday cost must still be in file');
+  });
+
+  it('getDailyCost returns 0 after resetDailyCost', () => {
+    const config = makeConfig();
+    const date = '2026-04-05';
+    recordCallCost(config, 5.0, date);
+    resetDailyCost(config);
+    assert.strictEqual(getDailyCost(config, date), 0);
+  });
+
+  // ── cap enforcement ─────────────────────────────────────────────────────────
+
+  it('scheduling loop skips pass and logs cost_cap_reached when cap exceeded', async () => {
+    const config = makeConfig({ daemon: { idle_only: false, max_cost_per_day_usd: 0.001 } });
+
+    // Pre-seed cost well above the cap
+    recordCallCost(config, 0.005, undefined); // today
+
+    const consolidate = mockConsolidate();
+    await runDaemonCycle(config, { consolidateFn: consolidate }, { stopAfterLoops: 2 });
+
+    assert.strictEqual(consolidate.calls.length, 0, 'consolidate should not run when cap exceeded');
+    const log = readDaemonLog(getLogPath(config));
+    const capEntry = log.find((e) => e.event === 'cost_cap_reached');
+    assert.ok(capEntry, 'should log cost_cap_reached');
+    assert(typeof capEntry.cost_today_usd === 'number', 'should include cost_today_usd');
+    assert.strictEqual(capEntry.cap_usd, 0.001);
+  });
+
+  it('cap enforcement does not throw — daemon keeps running and logs shutdown', async () => {
+    const config = makeConfig({ daemon: { idle_only: false, max_cost_per_day_usd: 0.001 } });
+    recordCallCost(config, 0.01, undefined);
+
+    let threw = false;
+    try {
+      // stopAfterLoops=3 → 2 skipped passes before SIGTERM
+      await runDaemonCycle(config, { consolidateFn: mockConsolidate() }, { stopAfterLoops: 3 });
+    } catch {
+      threw = true;
+    }
+
+    assert.strictEqual(threw, false, 'startDaemon must not throw when cap is exceeded');
+    const log = readDaemonLog(getLogPath(config));
+    assert.ok(log.find((e) => e.event === 'shutdown'), 'daemon should shut down cleanly');
+  });
+
+  it('cap exactly at threshold (cost === cap) → still skips the pass', async () => {
+    const config = makeConfig({ daemon: { idle_only: false, max_cost_per_day_usd: 0.05 } });
+    recordCallCost(config, 0.05, undefined); // exactly at cap
+
+    const consolidate = mockConsolidate();
+    await runDaemonCycle(config, { consolidateFn: consolidate }, { stopAfterLoops: 2 });
+
+    assert.strictEqual(consolidate.calls.length, 0, 'should skip when cost equals cap');
+    const log = readDaemonLog(getLogPath(config));
+    assert.ok(log.find((e) => e.event === 'cost_cap_reached'));
+  });
+
+  // ── cap = null means no limit ───────────────────────────────────────────────
+
+  it('null cap allows passes regardless of accumulated cost', async () => {
+    const config = makeConfig({ daemon: { idle_only: false, max_cost_per_day_usd: null } });
+
+    // Seed an absurdly large cost — should be ignored
+    recordCallCost(config, 99999, undefined);
+
+    const consolidate = mockConsolidate();
+    // stopAfterLoops=2 → 1 pass
+    await runDaemonCycle(config, { consolidateFn: consolidate }, { stopAfterLoops: 2 });
+
+    assert(consolidate.calls.length >= 1, 'should run consolidation when cap is null');
+    const log = readDaemonLog(getLogPath(config));
+    assert(!log.find((e) => e.event === 'cost_cap_reached'), 'should not log cost_cap_reached');
+  });
+
+  it('undefined cap (missing from config) behaves like null — no limit', async () => {
+    // loadDaemonConfig defaults max_cost_per_day_usd to null, but test raw object too
+    const config = makeConfig();
+    // Omit max_cost_per_day_usd entirely — daemon.max_cost_per_day_usd is absent
+    delete config.daemon;
+    recordCallCost(config, 999, undefined);
+
+    const consolidate = mockConsolidate();
+    await runDaemonCycle(config, { consolidateFn: consolidate }, { stopAfterLoops: 2 });
+
+    assert(consolidate.calls.length >= 1, 'should run when no cap is configured');
+  });
+
+  // ── getDailyCost and resetDailyCost helpers ─────────────────────────────────
+
+  it('getDailyCost returns 0 when no cost has been recorded', () => {
+    const config = makeConfig();
+    assert.strictEqual(getDailyCost(config), 0);
+  });
+
+  it('getDailyCost returns the correct sum after recordCallCost calls', () => {
+    const config = makeConfig();
+    const date = '2026-04-05';
+    recordCallCost(config, 0.10, date);
+    recordCallCost(config, 0.05, date);
+    assert(Math.abs(getDailyCost(config, date) - 0.15) < 1e-10);
+  });
+
+  it('resetDailyCost clears all cost entries', () => {
+    const config = makeConfig();
+    recordCallCost(config, 0.5, '2026-04-05');
+    recordCallCost(config, 0.3, '2026-04-04');
+    resetDailyCost(config);
+    assert.strictEqual(getDailyCost(config, '2026-04-05'), 0);
+    assert.strictEqual(getDailyCost(config, '2026-04-04'), 0);
+  });
+
+  // ── getDaemonStatus cost fields ─────────────────────────────────────────────
+
+  it('getDaemonStatus includes cost_today_usd field', () => {
+    const config = makeConfig({ daemon: { max_cost_per_day_usd: 1.0 } });
+    const status = getDaemonStatus(config);
+    assert('cost_today_usd' in status, 'status should have cost_today_usd');
+    assert(typeof status.cost_today_usd === 'number');
+    assert.strictEqual(status.cost_today_usd, 0);
+  });
+
+  it('getDaemonStatus reflects actual accumulated cost', () => {
+    const config = makeConfig({ daemon: { max_cost_per_day_usd: 1.0 } });
+    recordCallCost(config, 0.042, undefined);
+    const status = getDaemonStatus(config);
+    assert(Math.abs(status.cost_today_usd - 0.042) < 1e-10);
+  });
+
+  it('getDaemonStatus includes cost_cap_usd from config', () => {
+    const config = makeConfig({ daemon: { max_cost_per_day_usd: 0.50 } });
+    const status = getDaemonStatus(config);
+    assert('cost_cap_usd' in status, 'status should have cost_cap_usd');
+    assert.strictEqual(status.cost_cap_usd, 0.50);
+  });
+
+  it('getDaemonStatus cost_cap_usd is null when cap is not configured', () => {
+    const config = makeConfig({ daemon: {} });
+    const status = getDaemonStatus(config);
+    assert.strictEqual(status.cost_cap_usd, null);
+  });
+
+  it('getDaemonStatus cost_today_usd is 0 when no passes have run', () => {
+    const config = makeConfig();
+    const status = getDaemonStatus(config);
+    assert.strictEqual(status.cost_today_usd, 0);
+  });
+
+  // ── LLM health check is NOT counted toward daily cost ──────────────────────
+
+  it('validateLlmConnectivity health-check call does not increment daily cost', async () => {
+    const config = makeConfig({ daemon: { idle_only: false } });
+
+    // The raw llmFn is used for the health check; the trackedLlmFn (which records
+    // cost) is only used inside consolidateFn.  mockConsolidate never calls llmFn,
+    // so cost must remain 0 after a full daemon cycle.
+    await runDaemonCycle(
+      config,
+      {
+        consolidateFn: mockConsolidate(), // does NOT call llmFn
+        costRates: { input_per_token: 1.0, output_per_token: 1.0 }, // absurd rate
+      },
+      { stopAfterLoops: 2 },
+    );
+
+    assert.strictEqual(getDailyCost(config), 0, 'health check must not be billed');
   });
 });
