@@ -93,10 +93,28 @@ Set `max_cost_per_day_usd: 0.001`, start daemon, run one pass, check log for
 | Stream | Title | Status |
 |--------|-------|--------|
 | Stream 1 | Bridge Consolidation Endpoint | ✅ Complete (committed) |
-| Stream 0 | Cron Scheduling (Netlify Scheduled Function) | 🔲 Next |
-| Stream 3 | MCP — consolidation_history, consolidation_settings, hosted routing | 🔲 Pending |
-| Stream 2 | Hub UI — Settings tab, Dashboard card, Billing row | 🔲 Pending |
+| Stream 0 | Cron Scheduling (Netlify Scheduled Function) | ✅ Complete (committed) |
+| Stream 3 | MCP — consolidation_history, consolidation_settings, hosted routing | ✅ Complete (committed) |
+| Stream 2 | Hub UI — Settings tab, Dashboard card, Billing row | 🔲 Next |
 | Stream 4 | Docs — How to Use modal + MEMORY-CONSOLIDATION-GUIDE.md | 🔲 Pending |
+
+### Stream 0 Deliverables (Done)
+
+- `netlify/functions/consolidation-scheduler.mjs` — hourly Netlify Scheduled Function; per-user due-check (`isUserDue`), service JWT signing (`signServiceJwt`), bridge call loop, shadow-log mode, dependency-injected `runScheduler` for testability
+- `netlify.toml` — `[functions]` block pointing to `netlify/functions/` with `node_bundler = "esm"`
+- `hub/gateway/billing-logic.mjs` — `consolidation_enabled`, `consolidation_last_pass_at`, `consolidation_interval_minutes` fields in `normalizeBillingUser` + `defaultUserRecord`
+- `test/consolidation-scheduler.test.mjs` — 31 tests covering `isUserDue`, `signServiceJwt`, `runScheduler` (guard conditions, skip disabled, skip not-due, trigger + stamp, per-user error isolation, cap, shadow mode, mixed states), `normalizeBillingUser`, `defaultUserRecord`
+- **Test suite after Stream 0: 1026 passing, 0 failing** (up from 995)
+
+### Stream 3 Deliverables (Done)
+
+- `mcp/tools/memory.mjs` — three additions:
+  - `consolidation_history` tool: returns last N `consolidation`-type memory events via `mm.list({ type: 'consolidation', limit })`
+  - `consolidation_settings` tool: read path returns `config.daemon`; write path merges fields into `config/local.yaml` via `js-yaml`; validates `interval_minutes` ∈ [1, 43200] and rejects `llm_model` with path separators/shell metacharacters
+  - `memory_consolidate` hosted routing: detects `KNOWTATION_HUB_URL` / `config.hub_url`, routes to `POST /api/v1/memory/consolidate` on the Hub, requires `KNOWTATION_HUB_TOKEN`; falls back to local `consolidateMemory()` when no hub URL is present
+  - All three additions use injectable `opts` for testability (no real HTTP or fs in tests)
+- `test/mcp-memory-consolidation.test.mjs` — 20 tests across 4 suites
+- **Test suite after Stream 3: 1046 passing, 0 failing** (up from 1026)
 
 ### Stream 1 Deliverables (Done)
 

@@ -40,6 +40,9 @@ export function normalizeBillingUser(u) {
   if (typeof u.monthly_consolidation_jobs_used !== 'number' || !Number.isFinite(u.monthly_consolidation_jobs_used)) {
     u.monthly_consolidation_jobs_used = 0;
   }
+  if (u.consolidation_enabled === undefined) {
+    u.consolidation_enabled = false;
+  }
   if (u.consolidation_last_pass_at === undefined) {
     u.consolidation_last_pass_at = null;
   }
@@ -131,6 +134,7 @@ export function defaultUserRecord(userId) {
     monthly_searches_used: 0,
     monthly_index_jobs_used: 0,
     monthly_consolidation_jobs_used: 0,
+    consolidation_enabled: false,
     consolidation_last_pass_at: null,
     consolidation_interval_minutes: null,
   };
