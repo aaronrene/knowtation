@@ -1378,6 +1378,99 @@ app.post(
   },
 );
 
+/**
+ * POST /api/v1/memory/consolidate
+ * Self-hosted: runs consolidation inline using the user's config (LLM key from env or config.daemon).
+ * Body: { dry_run?, passes?, lookback_hours? }
+ */
+app.post('/api/v1/memory/consolidate', jwtAuth, apiLimiter, express.json(), async (req, res) => {
+  const uid = req.user?.sub ?? 'local';
+  const { dry_run, passes, lookback_hours } = req.body || {};
+
+  const llmApiKey =
+    config.daemon?.llm?.api_key ||
+    process.env.CONSOLIDATION_LLM_API_KEY ||
+    process.env.OPENAI_API_KEY;
+  if (!llmApiKey) {
+    return res.status(503).json({
+      error: 'No LLM API key configured. Set OPENAI_API_KEY in your environment or config/local.yaml daemon.llm.api_key.',
+      code: 'LLM_NOT_CONFIGURED',
+    });
+  }
+
+  try {
+    const { FileMemoryProvider } = await import('../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../lib/memory.mjs');
+    const { consolidateMemory } = await import('../lib/memory-consolidate.mjs');
+    const { computeCallCost } = await import('../lib/daemon-cost.mjs');
+    const { completeChat } = await import('../lib/llm-complete.mjs');
+
+    const memDir = path.join(config.data_dir, 'memory');
+    const provider = new FileMemoryProvider(memDir);
+    const mm = new MemoryManager(provider);
+
+    const consolidationConfig = {
+      data_dir: config.data_dir,
+      llm: {
+        provider: config.daemon?.llm?.provider || 'openai',
+        api_key: llmApiKey,
+        model: config.daemon?.llm?.model || process.env.CONSOLIDATION_LLM_MODEL || 'gpt-4o-mini',
+        base_url: config.daemon?.llm?.base_url || undefined,
+      },
+      daemon: config.daemon || {},
+      memory: config.memory || { provider: 'file' },
+    };
+
+    let totalCostUsd = 0;
+    const trackingLlmFn = async (cfg, callOpts) => {
+      const rawResponse = await completeChat(consolidationConfig, callOpts);
+      totalCostUsd += computeCallCost(callOpts, rawResponse);
+      return rawResponse;
+    };
+
+    const result = await consolidateMemory(consolidationConfig, {
+      mm,
+      dryRun: Boolean(dry_run),
+      passes: passes ?? undefined,
+      lookbackHours: lookback_hours != null ? Number(lookback_hours) : undefined,
+      llmFn: dry_run ? undefined : trackingLlmFn,
+    });
+
+    const pass_id = 'cpass_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    return res.json({
+      topics: result.topics,
+      total_events: result.total_events,
+      verify: result.verify ?? null,
+      discover: result.discover ?? null,
+      cost_usd: totalCostUsd,
+      pass_id,
+      dry_run: result.dry_run,
+    });
+  } catch (e) {
+    console.error('[hub] POST /api/v1/memory/consolidate', e?.message);
+    res.status(500).json({ error: e.message || 'Consolidation failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
+/**
+ * GET /api/v1/memory/consolidate/status
+ * Self-hosted: returns daemon-based status from config.
+ */
+app.get('/api/v1/memory/consolidate/status', jwtAuth, async (req, res) => {
+  try {
+    return res.json({
+      enabled: Boolean(config.daemon?.enabled),
+      interval_minutes: config.daemon?.interval_minutes ?? null,
+      last_pass: null,
+      cost_today_usd: 0,
+      cost_cap_usd: config.daemon?.max_cost_per_day_usd ?? null,
+      pass_count_month: 0,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Status unavailable', code: 'RUNTIME_ERROR' });
+  }
+});
+
 // POST /api/v1/vault/sync — manual "Back up now" (Phase 13: editor or admin; Phase 15: vault-scoped)
 app.post('/api/v1/vault/sync', jwtAuth, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
   try {
