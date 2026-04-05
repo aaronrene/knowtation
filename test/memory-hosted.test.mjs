@@ -171,3 +171,56 @@ describe('Hosted memory: bridge-like endpoint behavior', () => {
     );
   });
 });
+
+describe('auto-capture: shouldCapture and DEFAULT_CAPTURE_TYPES', () => {
+  let dataDir;
+  before(() => { dataDir = fs.mkdtempSync(path.join(tmpDir, 'autocap-')); });
+
+  it('shouldCapture returns true for search (in DEFAULT_CAPTURE_TYPES)', () => {
+    const dir = bridgeMemoryDir(dataDir, 'user_ac', 'default');
+    const mm = new MemoryManager(new FileMemoryProvider(dir));
+    assert.ok(mm.shouldCapture('search'));
+    assert.ok(mm.shouldCapture('write'));
+    assert.ok(mm.shouldCapture('index'));
+    assert.ok(mm.shouldCapture('import'));
+  });
+
+  it('shouldCapture returns false for consolidation (not in DEFAULT_CAPTURE_TYPES)', () => {
+    const dir = bridgeMemoryDir(dataDir, 'user_ac2', 'default');
+    const mm = new MemoryManager(new FileMemoryProvider(dir));
+    assert.ok(!mm.shouldCapture('consolidation'));
+    assert.ok(!mm.shouldCapture('consolidation_pass'));
+    assert.ok(!mm.shouldCapture('maintenance'));
+  });
+
+  it('captures search event and makes it available for consolidation', () => {
+    const dir = bridgeMemoryDir(dataDir, 'user_ac3', 'default');
+    const mm = new MemoryManager(new FileMemoryProvider(dir));
+    if (mm.shouldCapture('search')) mm.store('search', { query: 'memory consolidation', mode: 'semantic', result_count: 3 });
+    if (mm.shouldCapture('search')) mm.store('search', { query: 'vault notes', mode: 'keyword', result_count: 5 });
+    const events = mm.list({ type: 'search' });
+    assert.strictEqual(events.length, 2);
+    assert.strictEqual(events[0].data.query, 'vault notes');
+    assert.ok(events[0].ts, 'captured event must have ts field');
+  });
+
+  it('captures write event with path and action', () => {
+    const dir = bridgeMemoryDir(dataDir, 'user_ac4', 'default');
+    const mm = new MemoryManager(new FileMemoryProvider(dir));
+    if (mm.shouldCapture('write')) mm.store('write', { path: 'projects/my-project/note.md', action: 'write' });
+    const ev = mm.getLatest('write');
+    assert.ok(ev);
+    assert.strictEqual(ev.data.path, 'projects/my-project/note.md');
+    assert.ok(ev.ts);
+  });
+
+  it('captures index event with note_count', () => {
+    const dir = bridgeMemoryDir(dataDir, 'user_ac5', 'default');
+    const mm = new MemoryManager(new FileMemoryProvider(dir));
+    if (mm.shouldCapture('index')) mm.store('index', { note_count: 20, chunk_count: 45 });
+    const ev = mm.getLatest('index');
+    assert.ok(ev);
+    assert.strictEqual(ev.data.note_count, 20);
+    assert.ok(ev.ts);
+  });
+});

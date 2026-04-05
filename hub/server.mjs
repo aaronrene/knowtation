@@ -464,6 +464,24 @@ app.get('/api/v1/vault/folders', jwtAuth, apiLimiter, requireVaultAccess, (req, 
   }
 });
 
+/**
+ * Fire-and-forget memory event capture after successful API responses.
+ * Never throws, never delays the response — runs in a detached async chain.
+ * @param {string} type - MEMORY_EVENT_TYPES value
+ * @param {object} data - event payload
+ * @param {object} cfg  - server config (for resolveMemoryDir)
+ * @param {string} vaultId
+ */
+function fireCaptureEvent(type, data, cfg, vaultId) {
+  (async () => {
+    try {
+      const { createMemoryManager } = await import('../lib/memory.mjs');
+      const mm = createMemoryManager(cfg, vaultId || 'default');
+      if (mm.shouldCapture(type)) mm.store(type, data);
+    } catch (_) {}
+  })();
+}
+
 // GET /api/v1/notes/facets — filter dropdown values (before /:path to avoid collision)
 app.get('/api/v1/notes/facets', (req, res) => {
   try {
@@ -592,6 +610,7 @@ app.post('/api/v1/search', async (req, res) => {
       out = { ...out, results: applyScopeFilter(out.results, req.scope) };
     }
     res.json(out);
+    fireCaptureEvent('search', { query, mode, result_count: out.results?.length ?? 0 }, config, req.vault_id || 'default');
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
@@ -612,6 +631,7 @@ app.post('/api/v1/notes', requireRole('editor', 'admin'), (req, res) => {
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: req.vaultPath });
     res.json(out);
+    fireCaptureEvent('write', { path: notePath, action: append ? 'append' : 'write' }, config, req.vault_id || 'default');
   } catch (e) {
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
@@ -706,6 +726,7 @@ app.post('/api/v1/index', jwtAuth, apiLimiter, requireVaultAccess, requireRole('
     const result = await runIndex({ log: () => {}, vaultId: req.vault_id, vaultPath: req.vaultPath });
     invalidateFacetsCache();
     res.json({ ok: true, notesProcessed: result.notesProcessed, chunksIndexed: result.chunksIndexed });
+    fireCaptureEvent('index', { note_count: result.notesProcessed, chunk_count: result.chunksIndexed }, config, req.vault_id || 'default');
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
