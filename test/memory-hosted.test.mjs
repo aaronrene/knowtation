@@ -200,8 +200,11 @@ describe('auto-capture: shouldCapture and DEFAULT_CAPTURE_TYPES', () => {
     if (mm.shouldCapture('search')) mm.store('search', { query: 'vault notes', mode: 'keyword', result_count: 5 });
     const events = mm.list({ type: 'search' });
     assert.strictEqual(events.length, 2);
-    assert.strictEqual(events[0].data.query, 'vault notes');
-    assert.ok(events[0].ts, 'captured event must have ts field');
+    // Both queries must be present (order is undefined when stored in the same millisecond)
+    const queries = events.map((e) => e.data.query);
+    assert.ok(queries.includes('memory consolidation'), 'first query must be present');
+    assert.ok(queries.includes('vault notes'), 'second query must be present');
+    assert.ok(events.every((e) => e.ts), 'every captured event must have a ts field');
   });
 
   it('captures write event with path and action', () => {
