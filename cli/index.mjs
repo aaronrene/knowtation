@@ -6,8 +6,13 @@ import '../lib/load-env.mjs';
  */
 
 import fs from 'fs';
+import path from 'path';
+import { spawn } from 'child_process';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
+
+const __filename = fileURLToPath(import.meta.url);
 import { loadConfig } from '../lib/config.mjs';
 import { readNote, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
 import { noteStateIdFromHubNoteJson, absentNoteStateId } from '../lib/note-state-id.mjs';
@@ -38,6 +43,7 @@ Commands:
   propose <path>                Create a proposal from local vault note (body/frontmatter) on the Hub. Options: --hub, --intent, --vault (X-Vault-Id), --external-ref, --labels a,b, --source agent|human|import, --base-state-id, --no-fetch-base.
   vault sync                    Commit and push vault to Git (when vault.git.enabled and remote set). See config.
   mcp                           Start MCP server (stdio transport). For Cursor/Claude Desktop.
+  daemon <action>               Background consolidation daemon: start [--background], stop, status, log.
 
 Options (global):
   --help, -h        Show this help or command-specific help.
@@ -591,17 +597,19 @@ async function main() {
       console.log(`knowtation memory <action>
   Actions:
     query <key>              Read latest value for an event type (e.g. search, export, write, import, index, propose, user).
-    list                     List recent memory events. --type, --since, --until, --limit (default 20), --json.
+    list                     List recent memory events. --type, --topic, --since, --until, --limit (default 20), --json.
     store <key> <value>      Store a user-defined memory entry. Value is JSON string or --stdin.
     search <query>           Semantic search over memory (requires vector or mem0 provider). --limit, --json.
     clear                    Clear memory. --type, --before <date>, --confirm required. --json.
     export                   Export memory log. --format jsonl|mif, --since, --until, --type. Output to stdout.
     stats                    Show memory statistics. --json.
+    index                    Print lightweight pointer index (markdown). --json returns structured object.
+    consolidate              Run LLM-powered memory consolidation. --dry-run, --passes consolidate,verify,discover, --lookback-hours <n>. --json.
 
   Options: --json`);
       process.exit(0);
     }
-    const validActions = ['query', 'list', 'store', 'search', 'clear', 'export', 'stats'];
+    const validActions = ['query', 'list', 'store', 'search', 'clear', 'export', 'stats', 'index', 'consolidate'];
     if (!action || !validActions.includes(action)) {
       exitWithError(`knowtation memory: use "memory <action>". Actions: ${validActions.join(', ')}.`, 1, useJson);
     }
@@ -641,10 +649,11 @@ async function main() {
 
         if (action === 'list') {
           const type = getOpt('type');
+          const topic = getOpt('topic');
           const since = getOpt('since');
           const until = getOpt('until');
           const limit = getOpt('limit', 'number') ?? 20;
-          const events = mm.list({ type: type ?? undefined, since: since ?? undefined, until: until ?? undefined, limit });
+          const events = mm.list({ type: type ?? undefined, topic: topic ?? undefined, since: since ?? undefined, until: until ?? undefined, limit });
           if (useJson) {
             console.log(JSON.stringify({ events, count: events.length }));
           } else {
@@ -760,6 +769,71 @@ async function main() {
             }
           } catch (e) {
             exitWithError(`Session summary failed: ${e.message}`, 2, useJson);
+          }
+          process.exit(0);
+        }
+
+        if (action === 'consolidate') {
+          const dryRun = hasOpt('dry-run');
+          const passesRaw = getOpt('passes', 'string');
+          const passes = passesRaw
+            ? passesRaw.split(',').map((s) => s.trim()).filter(Boolean)
+            : undefined;
+          const lookbackHours = getOpt('lookback-hours', 'number') ?? undefined;
+          try {
+            const { consolidateMemory } = await import('../lib/memory-consolidate.mjs');
+            const result = await consolidateMemory(config, { dryRun, passes, lookbackHours });
+            if (useJson) {
+              console.log(JSON.stringify(result));
+            } else if (result.dry_run) {
+              console.log(`[dry-run] Would process ${result.total_events} events across ${result.topics.length} topics.`);
+              for (const t of result.topics) {
+                console.log(`[dry-run] Topic "${t.topic}": ${t.event_count} events → ${t.dry_run_estimate || 'estimated facts'}`);
+              }
+              if (result.verify) {
+                console.log(`[dry-run] Verify pass: would check paths in events (no writes).`);
+              }
+              if (result.discover) {
+                console.log(`[dry-run] Discover pass: would analyze ${result.discover.topic_count} topic(s) for cross-topic insights (no writes).`);
+              }
+            } else if (result.topics.length === 0 && !result.verify && !result.discover) {
+              console.log('No events to consolidate.');
+            } else {
+              if (result.topics.length > 0) {
+                console.log(`Consolidated ${result.total_events} events across ${result.topics.length} topics.`);
+                for (const t of result.topics) {
+                  if (t.error) {
+                    console.log(`  ${t.topic}: error — ${t.error}`);
+                  } else {
+                    console.log(`  ${t.topic}: ${t.facts.length} facts written${t.id ? ` (${t.id})` : ''}`);
+                  }
+                }
+                console.log('Index regenerated.');
+              }
+              if (result.verify) {
+                const v = result.verify;
+                console.log(`Verify pass: checked ${v.checked_count} events — ${v.verified_paths.length} verified, ${v.stale_paths.length} stale.`);
+                if (v.stale_paths.length > 0) {
+                  for (const p of v.stale_paths) console.log(`  stale: ${p}`);
+                }
+              }
+              if (result.discover) {
+                const d = result.discover;
+                console.log(`Discover pass: ${d.connections.length} connection(s), ${d.contradictions.length} contradiction(s), ${d.open_questions.length} open question(s) across ${d.topic_count} topic(s).`);
+              }
+            }
+          } catch (e) {
+            exitWithError(`Consolidation failed: ${e.message}`, 2, useJson);
+          }
+          process.exit(0);
+        }
+
+        if (action === 'index') {
+          const idx = mm.generateIndex({ force: true });
+          if (useJson) {
+            console.log(JSON.stringify(idx));
+          } else {
+            console.log(idx.markdown);
           }
           process.exit(0);
         }
@@ -949,6 +1023,171 @@ async function main() {
         exitWithError(e.message, 2, useJson);
       }
     })();
+    return;
+  }
+
+  if (subcommand === 'daemon') {
+    const daemonAction = args[1];
+
+    if (!daemonAction || hasOpt('help') || hasOpt('h')) {
+      console.log(`knowtation daemon <action>
+  Actions:
+    start [--background]   Start the daemon. --background runs it detached (writes PID).
+    stop                   Stop a running daemon (SIGTERM → SIGKILL after 10 s).
+    status                 Show running state, PID, last pass, next scheduled pass.
+    log [--tail <n>]       Print daemon log entries (JSONL). --tail limits to last N.
+
+  Notes:
+    - Daemon requires daemon.enabled in config and a reachable LLM.
+    - Foreground mode: Ctrl+C to stop (SIGINT).
+    - Background mode writes PID to {data_dir}/daemon.pid, log to {data_dir}/daemon.log.`);
+      process.exit(0);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+
+    // ── daemon start ───────────────────────────────────────────────────────
+    if (daemonAction === 'start') {
+      const background = hasOpt('background');
+
+      if (background) {
+        // Spawn a detached child that runs `knowtation daemon start` (foreground).
+        // Use env var to prevent the child from re-entering background-spawn logic.
+        const child = spawn(process.execPath, [__filename, 'daemon', 'start'], {
+          detached: true,
+          stdio: 'ignore',
+          env: { ...process.env, KNOWTATION_DAEMON_BACKGROUND: '0' },
+        });
+        child.unref();
+
+        const pidPath = path.join(config.data_dir, 'daemon.pid');
+        const logPath = config.daemon?.log_file || path.join(config.data_dir, 'daemon.log');
+
+        if (useJson) {
+          console.log(JSON.stringify({ ok: true, pid: child.pid, pid_path: pidPath, log_path: logPath }));
+        } else {
+          const llmProvider = config.daemon?.llm?.provider || 'auto-detect';
+          const llmModel = config.daemon?.llm?.model || 'default';
+          console.log(`Daemon started in background (PID ${child.pid}). Consolidation every ${config.daemon?.interval_minutes ?? 120} min when idle.`);
+          console.log(`LLM: ${llmProvider} ${llmModel}.`);
+          console.log(`Log: ${logPath}`);
+        }
+        process.exit(0);
+        return;
+      }
+
+      // Foreground mode
+      if (!config.daemon?.enabled && process.env.KNOWTATION_DAEMON_BACKGROUND !== '0') {
+        console.warn('Warning: daemon.enabled is false in config. Starting anyway (foreground mode).');
+      }
+
+      (async () => {
+        try {
+          const { startDaemon } = await import('../lib/daemon.mjs');
+          const logPath = config.daemon?.log_file || path.join(config.data_dir, 'daemon.log');
+          const intervalMin = config.daemon?.interval_minutes ?? 120;
+          console.log(`Daemon starting (PID ${process.pid}). Consolidation every ${intervalMin} min when idle.`);
+          console.log(`Log: ${logPath}. Press Ctrl+C to stop.`);
+          await startDaemon(config);
+          console.log('Daemon stopped.');
+          process.exit(0);
+        } catch (e) {
+          exitWithError(`Daemon start failed: ${e.message}`, 2, useJson);
+        }
+      })();
+      return;
+    }
+
+    // ── daemon stop ────────────────────────────────────────────────────────
+    if (daemonAction === 'stop') {
+      (async () => {
+        try {
+          const { stopDaemon } = await import('../lib/daemon.mjs');
+          const result = await stopDaemon(config);
+          if (useJson) {
+            console.log(JSON.stringify(result));
+          } else if (result.stopped) {
+            console.log(`Daemon stopped (PID ${result.pid}, signal ${result.signal}).`);
+          } else {
+            console.log(`Daemon was not running: ${result.reason}`);
+          }
+          process.exit(0);
+        } catch (e) {
+          exitWithError(`Daemon stop failed: ${e.message}`, 2, useJson);
+        }
+      })();
+      return;
+    }
+
+    // ── daemon status ──────────────────────────────────────────────────────
+    if (daemonAction === 'status') {
+      try {
+        const { getDaemonStatus } = await import('../lib/daemon.mjs');
+        const status = getDaemonStatus(config);
+        if (useJson) {
+          console.log(JSON.stringify(status));
+        } else if (!status.running) {
+          console.log('Status: not running');
+          if (status.last_pass) {
+            console.log(`Last pass: ${status.last_pass.ts} (${status.last_pass.events_processed} events, ${status.last_pass.topics} topics)`);
+          }
+          console.log(`Log: ${status.log_path}`);
+        } else {
+          const uptimeSec = Math.round((status.uptime_ms ?? 0) / 1000);
+          const uptimeStr = uptimeSec < 60
+            ? `${uptimeSec}s`
+            : uptimeSec < 3600
+              ? `${Math.round(uptimeSec / 60)}m ${uptimeSec % 60}s`
+              : `${Math.floor(uptimeSec / 3600)}h ${Math.floor((uptimeSec % 3600) / 60)}m`;
+          console.log(`Status: running (PID ${status.pid}, uptime ${uptimeStr})`);
+          if (status.last_pass) {
+            const lp = status.last_pass;
+            console.log(`Last pass: ${lp.ts} (processed ${lp.events_processed} events, ${lp.topics} topics)`);
+          } else {
+            console.log('Last pass: none yet');
+          }
+          if (status.next_pass_at) {
+            console.log(`Next pass: ~${status.next_pass_at} (if idle)`);
+          }
+        }
+        process.exit(0);
+      } catch (e) {
+        exitWithError(`Daemon status failed: ${e.message}`, 2, useJson);
+      }
+      return;
+    }
+
+    // ── daemon log ─────────────────────────────────────────────────────────
+    if (daemonAction === 'log') {
+      const tail = getOpt('tail', 'number') ?? null;
+      try {
+        const { getLogPath, readDaemonLog } = await import('../lib/daemon.mjs');
+        const logPath = getLogPath(config);
+        const entries = readDaemonLog(logPath, { tail: tail ?? undefined });
+        if (useJson) {
+          console.log(JSON.stringify({ entries, count: entries.length, log_path: logPath }));
+        } else if (entries.length === 0) {
+          console.log(`(no log entries — log: ${logPath})`);
+        } else {
+          for (const e of entries) {
+            const { ts, event, ...rest } = e;
+            const detail = Object.keys(rest).length ? '  ' + JSON.stringify(rest) : '';
+            console.log(`${ts}  ${event ?? '?'}${detail}`);
+          }
+        }
+        process.exit(0);
+      } catch (e) {
+        exitWithError(`Daemon log failed: ${e.message}`, 2, useJson);
+      }
+      return;
+    }
+
+    exitWithError(`knowtation daemon: unknown action "${daemonAction}". Use start, stop, status, or log.`, 1, useJson);
     return;
   }
 

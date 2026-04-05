@@ -13,10 +13,11 @@ import {
   isValidMemoryEvent,
   hasSensitiveKeys,
   MEMORY_EVENT_TYPES,
+  MEMORY_EVENT_STATUSES,
   DEFAULT_CAPTURE_TYPES,
 } from '../lib/memory-event.mjs';
 import { FileMemoryProvider } from '../lib/memory-provider-file.mjs';
-import { MemoryManager, createMemoryManager, storeMemory, getMemory, resolveMemoryDir } from '../lib/memory.mjs';
+import { MemoryManager, createMemoryManager, generateMemoryIndex, storeMemory, getMemory, resolveMemoryDir } from '../lib/memory.mjs';
 
 let tmpDir;
 
@@ -853,5 +854,224 @@ describe('cross-vault memory (global scope)', () => {
     const events = mm2.list();
     assert.strictEqual(events.length, 1);
     assert.strictEqual(events[0].data.query, 'from-x');
+  });
+});
+
+describe('memory event status field', () => {
+  it('MEMORY_EVENT_STATUSES is a frozen array with success and failed', () => {
+    assert(Array.isArray(MEMORY_EVENT_STATUSES));
+    assert(Object.isFrozen(MEMORY_EVENT_STATUSES));
+    assert(MEMORY_EVENT_STATUSES.includes('success'));
+    assert(MEMORY_EVENT_STATUSES.includes('failed'));
+    assert.strictEqual(MEMORY_EVENT_STATUSES.length, 2);
+  });
+
+  it('createMemoryEvent defaults status to success', () => {
+    const event = createMemoryEvent('search', { query: 'test' });
+    assert.strictEqual(event.status, 'success');
+  });
+
+  it('createMemoryEvent accepts status=failed', () => {
+    const event = createMemoryEvent('search', { query: 'test' }, { status: 'failed' });
+    assert.strictEqual(event.status, 'failed');
+  });
+
+  it('createMemoryEvent accepts status=success explicitly', () => {
+    const event = createMemoryEvent('search', { query: 'test' }, { status: 'success' });
+    assert.strictEqual(event.status, 'success');
+  });
+
+  it('createMemoryEvent rejects invalid status', () => {
+    assert.throws(
+      () => createMemoryEvent('search', { query: 'test' }, { status: 'pending' }),
+      /Invalid memory event status/
+    );
+  });
+
+  it('isValidMemoryEvent accepts events with valid status', () => {
+    const event = createMemoryEvent('search', { query: 'test' });
+    assert(isValidMemoryEvent(event));
+    event.status = 'failed';
+    assert(isValidMemoryEvent(event));
+  });
+
+  it('isValidMemoryEvent accepts events without status (backward compat)', () => {
+    const event = createMemoryEvent('search', { query: 'test' });
+    delete event.status;
+    assert(isValidMemoryEvent(event));
+  });
+
+  it('isValidMemoryEvent rejects events with invalid status', () => {
+    const event = createMemoryEvent('search', { query: 'test' });
+    event.status = 'bogus';
+    assert.strictEqual(isValidMemoryEvent(event), false);
+  });
+
+  it('MemoryManager.store accepts status option', () => {
+    const dir = path.join(tmpDir, 'mm-status-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'ok' });
+    mm.store('search', { query: 'fail' }, { status: 'failed' });
+    const events = mm.list();
+    assert.strictEqual(events.length, 2);
+    const statuses = events.map((e) => e.status);
+    assert(statuses.includes('success'));
+    assert(statuses.includes('failed'));
+  });
+});
+
+describe('generateMemoryIndex', () => {
+  it('returns empty index when no events exist', () => {
+    const dir = path.join(tmpDir, 'idx-empty-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    const idx = generateMemoryIndex(mm);
+    assert.strictEqual(typeof idx.markdown, 'string');
+    assert(idx.markdown.includes('# Memory Index'));
+    assert(idx.markdown.includes('empty'));
+    assert.strictEqual(idx.total_events, 0);
+    assert.deepStrictEqual(idx.types, []);
+    assert.strictEqual(typeof idx.generated_at, 'string');
+  });
+
+  it('includes event types with counts and latest summary', () => {
+    const dir = path.join(tmpDir, 'idx-types-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'blockchain architecture' });
+    mm.store('search', { query: 'memory patterns' });
+    mm.store('write', { path: 'vault/notes/test.md' });
+    const idx = generateMemoryIndex(mm);
+    assert(idx.markdown.includes('search: 2 events'));
+    assert(idx.markdown.includes('write: 1 events'));
+    assert(idx.markdown.includes('memory patterns'));
+    assert(idx.markdown.includes('vault/notes/test.md'));
+    assert.strictEqual(idx.total_events, 3);
+    assert(idx.types.includes('search'));
+    assert(idx.types.includes('write'));
+  });
+
+  it('includes recent activity section', () => {
+    const dir = path.join(tmpDir, 'idx-recent-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'recent query' });
+    const idx = generateMemoryIndex(mm);
+    assert(idx.markdown.includes('## Recent Activity'));
+    assert(idx.markdown.includes('[search]'));
+    assert(idx.markdown.includes('recent query'));
+  });
+
+  it('filters out failed events from recent activity', () => {
+    const dir = path.join(tmpDir, 'idx-filter-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'good query' });
+    mm.store('search', { query: 'bad query' }, { status: 'failed' });
+    const idx = generateMemoryIndex(mm);
+    assert(idx.markdown.includes('good query'));
+    assert(!idx.markdown.includes('bad query'));
+  });
+
+  it('respects recentLimit option', () => {
+    const dir = path.join(tmpDir, 'idx-limit-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    for (let i = 0; i < 10; i++) {
+      mm.store('search', { query: `query-${i}` });
+    }
+    const idx = generateMemoryIndex(mm, { recentLimit: 3 });
+    const activitySection = idx.markdown.split('## Recent Activity')[1];
+    const activityLines = activitySection.trim().split('\n').filter((l) => l.startsWith('- '));
+    assert.strictEqual(activityLines.length, 3);
+  });
+
+  it('truncates long summaries', () => {
+    const dir = path.join(tmpDir, 'idx-trunc-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'A'.repeat(200) });
+    const idx = generateMemoryIndex(mm);
+    assert(idx.markdown.includes('…'));
+    const lines = idx.markdown.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('- ') && line.includes('[search]')) {
+        assert(line.length < 200);
+      }
+    }
+  });
+
+  it('handles events with different data shapes', () => {
+    const dir = path.join(tmpDir, 'idx-shapes-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'test' });
+    mm.store('write', { path: 'notes/hello.md' });
+    mm.store('export', { format: 'md' });
+    mm.store('user', { key: 'preference', theme: 'dark' });
+    const idx = generateMemoryIndex(mm);
+    assert.strictEqual(idx.total_events, 4);
+    assert(idx.types.includes('search'));
+    assert(idx.types.includes('write'));
+    assert(idx.types.includes('export'));
+    assert(idx.types.includes('user'));
+  });
+});
+
+describe('MemoryManager.generateIndex', () => {
+  it('returns index and caches it', () => {
+    const dir = path.join(tmpDir, 'mm-idx-cache-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'test' });
+    const idx1 = mm.generateIndex();
+    const idx2 = mm.generateIndex();
+    assert.strictEqual(idx1.generated_at, idx2.generated_at);
+  });
+
+  it('force bypasses cache', () => {
+    const dir = path.join(tmpDir, 'mm-idx-force-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'test' });
+    const idx1 = mm.generateIndex();
+    const idx2 = mm.generateIndex({ force: true });
+    assert(idx2.generated_at >= idx1.generated_at);
+  });
+
+  it('clear invalidates cached index', () => {
+    const dir = path.join(tmpDir, 'mm-idx-clear-' + Date.now());
+    const provider = new FileMemoryProvider(dir);
+    const mm = new MemoryManager(provider);
+    mm.store('search', { query: 'test' });
+    const idx1 = mm.generateIndex({ force: true });
+    assert.strictEqual(idx1.total_events, 1);
+    mm.clear();
+    const idx2 = mm.generateIndex({ force: true });
+    assert.strictEqual(idx2.total_events, 0);
+  });
+});
+
+describe('buildMemoryIndexResource', () => {
+  it('returns enabled:false when memory is disabled', async () => {
+    const { buildMemoryIndexResource } = await import('../mcp/resources/metadata.mjs');
+    const result = buildMemoryIndexResource({ memory: { enabled: false } });
+    assert.strictEqual(result.enabled, false);
+    assert.strictEqual(result.index, null);
+  });
+
+  it('returns index when memory is enabled', async () => {
+    const { buildMemoryIndexResource } = await import('../mcp/resources/metadata.mjs');
+    const dataDir = path.join(tmpDir, 'mcp-idx-' + Date.now());
+    fs.mkdirSync(dataDir, { recursive: true });
+    const config = { data_dir: dataDir, memory: { enabled: true, provider: 'file' } };
+    const mm = createMemoryManager(config);
+    mm.store('search', { query: 'mcp test' });
+    const result = buildMemoryIndexResource(config);
+    assert.strictEqual(result.enabled, true);
+    assert.notStrictEqual(result.index, null);
+    assert(result.index.markdown.includes('# Memory Index'));
+    assert(result.index.markdown.includes('search'));
   });
 });
