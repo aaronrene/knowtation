@@ -73,9 +73,10 @@ export function renderConsolidationHistory(events, container) {
   }
   let html = '<table class="consol-history-table"><thead><tr><th>Date</th><th>Topics</th><th>Events Merged</th><th>Cost</th><th>Status</th></tr></thead><tbody>';
   events.forEach((ev) => {
-    const date = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '—';
+    const ts = ev.ts || ev.timestamp;
+    const date = ts ? new Date(ts).toLocaleString() : '—';
     const topics = ev.data?.topics_count ?? ev.data?.topics?.length ?? '—';
-    const merged = ev.data?.total_events ?? '—';
+    const merged = ev.data?.total_events ?? ev.data?.event_count ?? '—';
     const cost = ev.data?.cost_usd != null ? '$' + Number(ev.data.cost_usd).toFixed(4) : '—';
     const status = ev.data?.dry_run ? 'dry-run' : (ev.data?.error ? 'error' : 'complete');
     html += `<tr><td>${esc(date)}</td><td>${esc(String(topics))}</td><td>${esc(String(merged))}</td><td>${esc(cost)}</td><td>${esc(status)}</td></tr>`;

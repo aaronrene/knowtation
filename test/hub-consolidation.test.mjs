@@ -188,11 +188,11 @@ describe('renderConsolidationHistory', () => {
     assert.equal(count, 0);
   });
 
-  it('renders correct number of rows', () => {
+  it('renders correct number of rows (ts field from real memory events)', () => {
     const events = [
-      { timestamp: '2026-04-01T10:00:00Z', data: { topics_count: 3, total_events: 15, cost_usd: 0.004 } },
-      { timestamp: '2026-04-02T10:00:00Z', data: { topics_count: 5, total_events: 22, cost_usd: 0.007, dry_run: true } },
-      { timestamp: '2026-04-03T10:00:00Z', data: { topics_count: 2, total_events: 8, cost_usd: 0.003, error: 'LLM timeout' } },
+      { ts: '2026-04-01T10:00:00Z', data: { topics_count: 3, total_events: 15, cost_usd: 0.004 } },
+      { ts: '2026-04-02T10:00:00Z', data: { topics_count: 5, total_events: 22, cost_usd: 0.007, dry_run: true } },
+      { ts: '2026-04-03T10:00:00Z', data: { topics_count: 2, total_events: 8, cost_usd: 0.003, error: 'LLM timeout' } },
     ];
     const c = makeContainer();
     const count = renderConsolidationHistory(events, c);
@@ -203,22 +203,39 @@ describe('renderConsolidationHistory', () => {
     assert.equal(trCount, 4); // 1 header + 3 data rows
   });
 
+  it('renders date using legacy timestamp field as fallback', () => {
+    const events = [{ timestamp: '2026-04-01T10:00:00Z', data: { topics_count: 1 } }];
+    const c = makeContainer();
+    renderConsolidationHistory(events, c);
+    // The date cell must contain a human-readable date, not '—'.
+    // Extract just the first <td> value from the rendered HTML.
+    const firstTd = c.innerHTML.match(/<td>([^<]*)<\/td>/);
+    assert.ok(firstTd && firstTd[1] !== '—', 'date cell should not be — when timestamp is present');
+  });
+
+  it('shows events merged from event_count fallback (per-topic shape)', () => {
+    const events = [{ ts: '2026-04-01T10:00:00Z', data: { topic: 'AI', event_count: 7 } }];
+    const c = makeContainer();
+    renderConsolidationHistory(events, c);
+    assert.ok(c.innerHTML.includes('7'), 'event_count should render in Events Merged column');
+  });
+
   it('shows dry-run status', () => {
-    const events = [{ timestamp: '2026-04-01T10:00:00Z', data: { dry_run: true } }];
+    const events = [{ ts: '2026-04-01T10:00:00Z', data: { dry_run: true } }];
     const c = makeContainer();
     renderConsolidationHistory(events, c);
     assert.ok(c.innerHTML.includes('dry-run'));
   });
 
   it('shows error status', () => {
-    const events = [{ timestamp: '2026-04-01T10:00:00Z', data: { error: 'fail' } }];
+    const events = [{ ts: '2026-04-01T10:00:00Z', data: { error: 'fail' } }];
     const c = makeContainer();
     renderConsolidationHistory(events, c);
     assert.ok(c.innerHTML.includes('error'));
   });
 
   it('shows complete status for normal events', () => {
-    const events = [{ timestamp: '2026-04-01T10:00:00Z', data: { topics_count: 1 } }];
+    const events = [{ ts: '2026-04-01T10:00:00Z', data: { topics_count: 1 } }];
     const c = makeContainer();
     renderConsolidationHistory(events, c);
     assert.ok(c.innerHTML.includes('complete'));
@@ -229,7 +246,7 @@ describe('renderConsolidationHistory', () => {
   });
 
   it('escapes HTML in event data', () => {
-    const events = [{ timestamp: '2026-04-01T10:00:00Z', data: { topics_count: '<script>alert(1)</script>' } }];
+    const events = [{ ts: '2026-04-01T10:00:00Z', data: { topics_count: '<script>alert(1)</script>' } }];
     const c = makeContainer();
     renderConsolidationHistory(events, c);
     assert.ok(!c.innerHTML.includes('<script>'));

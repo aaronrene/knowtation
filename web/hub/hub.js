@@ -6418,7 +6418,7 @@
     btnConsolHistory.addEventListener('click', async () => {
       setButtonBusy(btnConsolHistory, true, 'Loading…');
       try {
-        const res = await api('/api/v1/memory?type=consolidation&limit=20');
+        const res = await api('/api/v1/memory?type=consolidation_pass&limit=20');
         const events = res.events || res.history || [];
         setButtonBusy(btnConsolHistory, false);
         const modal = document.createElement('div');

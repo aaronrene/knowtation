@@ -1435,6 +1435,23 @@ app.post('/api/v1/memory/consolidate', jwtAuth, apiLimiter, express.json(), asyn
     });
 
     const pass_id = 'cpass_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+
+    // Store a pass-level summary event so History shows one row per run.
+    if (!dry_run) {
+      mm.store({
+        type: 'consolidation_pass',
+        data: {
+          topics_count: result.topics,
+          total_events: result.total_events,
+          cost_usd: totalCostUsd,
+          pass_id,
+          dry_run: false,
+          verify: result.verify ?? null,
+          discover: result.discover ?? null,
+        },
+      });
+    }
+
     return res.json({
       topics: result.topics,
       total_events: result.total_events,
@@ -1459,15 +1476,19 @@ app.get('/api/v1/memory/consolidate/status', jwtAuth, async (req, res) => {
     const { createMemoryManager } = await import('../lib/memory.mjs');
     const vaultId = req.vault_id || 'default';
     const mm = createMemoryManager(config, vaultId);
-    const events = mm.list({ type: 'consolidation', limit: 1 });
-    const lastPass = events.length > 0 ? (events[0].created_at || events[0].timestamp || null) : null;
+    const recentPasses = mm.list({ type: 'consolidation_pass', limit: 1 });
+    const lastPass = recentPasses.length > 0 ? (recentPasses[0].ts || recentPasses[0].created_at || null) : null;
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const allPasses = mm.list({ type: 'consolidation_pass', since: monthStart.toISOString(), limit: 500 });
     return res.json({
       enabled: Boolean(config.daemon?.enabled),
       interval_minutes: config.daemon?.interval_minutes ?? null,
       last_pass: lastPass,
       cost_today_usd: 0,
       cost_cap_usd: config.daemon?.max_cost_per_day_usd ?? null,
-      pass_count_month: events.length,
+      pass_count_month: allPasses.length,
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Status unavailable', code: 'RUNTIME_ERROR' });
