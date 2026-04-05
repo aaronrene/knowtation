@@ -149,7 +149,7 @@ export async function runScheduler({
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ passes: user.consolidation_passes || undefined }),
         signal: AbortSignal.timeout(25_000),
       });
 

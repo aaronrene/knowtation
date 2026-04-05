@@ -49,6 +49,9 @@ export function normalizeBillingUser(u) {
   if (u.consolidation_interval_minutes === undefined) {
     u.consolidation_interval_minutes = null;
   }
+  if (!u.consolidation_passes || typeof u.consolidation_passes !== 'object') {
+    u.consolidation_passes = { consolidate: true, verify: true, discover: false };
+  }
   return u;
 }
 
@@ -137,5 +140,6 @@ export function defaultUserRecord(userId) {
     consolidation_enabled: false,
     consolidation_last_pass_at: null,
     consolidation_interval_minutes: null,
+    consolidation_passes: { consolidate: true, verify: true, discover: false },
   };
 }

@@ -39,6 +39,7 @@ export function populateConsolSettingsForm(settings, form) {
  */
 export function buildConsolSettingsPayload(form, mode) {
   return {
+    mode,
     enabled: mode === 'daemon',
     interval_minutes: Math.max(1, Math.floor(Number(form['consol-interval']?.value) || 120)),
     idle_only: Boolean(form['consol-idle-only']?.checked),
