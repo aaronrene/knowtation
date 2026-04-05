@@ -1061,6 +1061,16 @@ app.get('/api/v1/settings', async (req, res) => {
     proposal_policy_env_locked: proposalPolicyEnvLocked(),
     hub_evaluator_may_approve,
     proposal_rubric: loadProposalRubric(path.join(projectRoot, 'data')),
+    daemon: {
+      enabled: false,
+      interval_minutes: 120,
+      idle_only: true,
+      idle_threshold_minutes: 15,
+      run_on_start: false,
+      max_cost_per_day_usd: null,
+      passes: { consolidate: true, verify: true, discover: false },
+      llm: { provider: '', model: '', base_url: '' },
+    },
   });
 });
 

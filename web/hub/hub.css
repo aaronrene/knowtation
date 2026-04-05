@@ -1689,3 +1689,80 @@ button.btn-new-note.btn-busy::after {
   border-radius: 6px;
   margin: 0.5rem 0;
 }
+
+/* ── Consolidation UI (Stream 2) ──────────────────────────────── */
+.consol-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+.consol-mode-section {
+  padding-top: 0.25rem;
+}
+.consol-dashboard-card {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.consol-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.consol-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+.consol-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.consol-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.consol-badge-success { background: color-mix(in srgb, #22c55e 18%, transparent); color: #22c55e; }
+.consol-badge-warning { background: color-mix(in srgb, #fbbf24 18%, transparent); color: #fbbf24; }
+.consol-badge-neutral { background: color-mix(in srgb, var(--muted) 12%, transparent); color: var(--muted); }
+.consol-badge-error   { background: color-mix(in srgb, #f87171 18%, transparent); color: #f87171; }
+.consol-cost-meter {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.consol-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+.consol-history-table th,
+.consol-history-table td {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.consol-history-table th {
+  background: var(--bg);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.consol-history-modal {
+  max-width: 720px;
+  width: 92%;
+  max-height: 80vh;
+  overflow: auto;
+}
