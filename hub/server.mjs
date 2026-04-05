@@ -1439,7 +1439,7 @@ app.post('/api/v1/memory/consolidate', jwtAuth, apiLimiter, express.json(), asyn
     // Store a pass-level summary event so History shows one row per run.
     if (!dry_run) {
       mm.store('consolidation_pass', {
-        topics_count: result.topics,
+        topics_count: Array.isArray(result.topics) ? result.topics.length : (result.topics ?? 0),
         total_events: result.total_events,
         cost_usd: totalCostUsd,
         pass_id,

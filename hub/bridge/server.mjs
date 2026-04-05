@@ -2173,6 +2173,15 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
     if (!dry_run) {
       const updated = recordConsolidationPass(uid, totalCostUsd);
       saveConsolidationCost(uid, updated);
+      // Store pass-level summary so History button returns one row per run.
+      mm.store('consolidation_pass', {
+        topics_count: Array.isArray(result.topics) ? result.topics.length : (result.topics ?? 0),
+        total_events: result.total_events,
+        cost_usd: totalCostUsd,
+        pass_id,
+        verify: result.verify ?? null,
+        discover: result.discover ?? null,
+      });
     }
 
     return res.json({

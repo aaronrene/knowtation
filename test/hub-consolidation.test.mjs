@@ -220,6 +220,15 @@ describe('renderConsolidationHistory', () => {
     assert.ok(c.innerHTML.includes('7'), 'event_count should render in Events Merged column');
   });
 
+  it('handles topics_count as array (legacy malformed events) by rendering .length', () => {
+    const topicsArray = [{ topic: 'AI' }, { topic: 'UX' }, { topic: 'Security' }];
+    const events = [{ ts: '2026-04-01T10:00:00Z', data: { topics_count: topicsArray, total_events: 10 } }];
+    const c = makeContainer();
+    renderConsolidationHistory(events, c);
+    assert.ok(c.innerHTML.includes('3'), 'array topics_count should render as its length (3)');
+    assert.ok(!c.innerHTML.includes('[object Object]'), 'should not render [object Object]');
+  });
+
   it('shows dry-run status', () => {
     const events = [{ ts: '2026-04-01T10:00:00Z', data: { dry_run: true } }];
     const c = makeContainer();
