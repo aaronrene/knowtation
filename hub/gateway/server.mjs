@@ -474,6 +474,14 @@ if (BRIDGE_URL) {
   app.get('/api/v1/memory-stats', async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory-stats', req, res);
   });
+  // Consolidation routes: proxy to bridge with billing gate on POST
+  app.post('/api/v1/memory/consolidate', async (req, res) => {
+    if (!(await runBillingGate(req, res, getUserId))) return;
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/consolidate', req, res);
+  });
+  app.get('/api/v1/memory/consolidate/status', async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/consolidate/status', req, res);
+  });
 
   // Phase 18: image upload — gateway buffers the file, fetches GitHub token from bridge,
   // then commits directly to GitHub (avoids forwarding a multipart body to another Lambda).
@@ -1053,6 +1061,16 @@ app.get('/api/v1/settings', async (req, res) => {
     proposal_policy_env_locked: proposalPolicyEnvLocked(),
     hub_evaluator_may_approve,
     proposal_rubric: loadProposalRubric(path.join(projectRoot, 'data')),
+    daemon: {
+      enabled: false,
+      interval_minutes: 120,
+      idle_only: true,
+      idle_threshold_minutes: 15,
+      run_on_start: false,
+      max_cost_per_day_usd: null,
+      passes: { consolidate: true, verify: true, discover: false },
+      llm: { provider: '', model: '', base_url: '' },
+    },
   });
 });
 

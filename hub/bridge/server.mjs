@@ -2063,6 +2063,159 @@ app.get('/api/v1/memory-stats', async (req, res) => {
   }
 });
 
+// ——— Hosted Consolidation (Phase 10 / Stream 1) ———
+
+/** Path of per-user consolidation cost tracking file. */
+function consolidationCostFilePath(uid) {
+  return path.join(DATA_DIR, 'consolidation', uid + '_cost.json');
+}
+
+function utcDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function utcMonthString() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function loadConsolidationCost(uid) {
+  const filePath = consolidationCostFilePath(uid);
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function saveConsolidationCost(uid, data) {
+  const filePath = consolidationCostFilePath(uid);
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function recordConsolidationPass(uid, costUsd) {
+  const rec = loadConsolidationCost(uid);
+  const today = utcDateString();
+  const month = utcMonthString();
+  const prevCostDate = rec.cost_date;
+  const prevMonth = rec.pass_month;
+  return {
+    last_pass: new Date().toISOString(),
+    cost_today_usd: prevCostDate === today ? Number((rec.cost_today_usd || 0) + costUsd) : costUsd,
+    cost_date: today,
+    cost_cap_usd: process.env.CONSOLIDATION_COST_CAP_USD ? parseFloat(process.env.CONSOLIDATION_COST_CAP_USD) : null,
+    pass_count_month: prevMonth === month ? (rec.pass_count_month || 0) + 1 : 1,
+    pass_month: month,
+  };
+}
+
+/**
+ * POST /api/v1/memory/consolidate
+ * Body: { dry_run?, passes?, lookback_hours? }
+ * Response: { topics, total_events, verify, discover, cost_usd, pass_id }
+ */
+app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
+  const { uid, vaultId } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+  const llmApiKey = process.env.CONSOLIDATION_LLM_API_KEY || process.env.OPENAI_API_KEY;
+  if (!llmApiKey) {
+    return res.status(503).json({
+      error: 'No LLM API key configured for hosted consolidation (CONSOLIDATION_LLM_API_KEY or OPENAI_API_KEY).',
+      code: 'LLM_NOT_CONFIGURED',
+    });
+  }
+
+  const { dry_run, passes, lookback_hours } = req.body || {};
+
+  try {
+    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+    const { MemoryManager } = await import('../../lib/memory.mjs');
+    const { consolidateMemory } = await import('../../lib/memory-consolidate.mjs');
+    const { computeCallCost } = await import('../../lib/daemon-cost.mjs');
+
+    const memDir = bridgeMemoryDir(uid, vaultId);
+    const provider = new FileMemoryProvider(memDir);
+    const mm = new MemoryManager(provider);
+
+    const consolidationConfig = {
+      data_dir: DATA_DIR,
+      llm: {
+        provider: 'openai',
+        api_key: llmApiKey,
+        model: process.env.CONSOLIDATION_LLM_MODEL || 'gpt-4o-mini',
+      },
+      daemon: {},
+      memory: { provider: 'file' },
+    };
+
+    // Track LLM call cost via a wrapping llmFn.
+    let totalCostUsd = 0;
+    const { completeChat } = await import('../../lib/llm-complete.mjs');
+    const trackingLlmFn = async (cfg, callOpts) => {
+      const rawResponse = await completeChat(consolidationConfig, callOpts);
+      totalCostUsd += computeCallCost(callOpts, rawResponse);
+      return rawResponse;
+    };
+
+    const result = await consolidateMemory(consolidationConfig, {
+      mm,
+      dryRun: Boolean(dry_run),
+      passes: passes ?? undefined,
+      lookbackHours: lookback_hours != null ? Number(lookback_hours) : undefined,
+      llmFn: dry_run ? undefined : trackingLlmFn,
+    });
+
+    const pass_id = 'cpass_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+
+    if (!dry_run) {
+      const updated = recordConsolidationPass(uid, totalCostUsd);
+      saveConsolidationCost(uid, updated);
+    }
+
+    return res.json({
+      topics: result.topics,
+      total_events: result.total_events,
+      verify: result.verify ?? null,
+      discover: result.discover ?? null,
+      cost_usd: totalCostUsd,
+      pass_id,
+      dry_run: result.dry_run,
+    });
+  } catch (e) {
+    console.error('[bridge] POST /api/v1/memory/consolidate', e?.message);
+    res.status(500).json({ error: e.message || 'Consolidation failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
+/**
+ * GET /api/v1/memory/consolidate/status
+ * Response: { last_pass, cost_today_usd, cost_cap_usd, pass_count_month }
+ */
+app.get('/api/v1/memory/consolidate/status', async (req, res) => {
+  const { uid } = bridgeMemoryAuth(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+
+  try {
+    const rec = loadConsolidationCost(uid);
+    const today = utcDateString();
+    const month = utcMonthString();
+    return res.json({
+      last_pass: rec.last_pass ?? null,
+      cost_today_usd: rec.cost_date === today ? (rec.cost_today_usd || 0) : 0,
+      cost_cap_usd: process.env.CONSOLIDATION_COST_CAP_USD
+        ? parseFloat(process.env.CONSOLIDATION_COST_CAP_USD)
+        : null,
+      pass_count_month: rec.pass_month === month ? (rec.pass_count_month || 0) : 0,
+    });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/memory/consolidate/status', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'RUNTIME_ERROR' });
+  }
+});
+
 if (!isServerless) {
   if (!CANISTER_URL || !SESSION_SECRET) {
     console.error('Bridge: CANISTER_URL and SESSION_SECRET (or HUB_JWT_SECRET) are required.');

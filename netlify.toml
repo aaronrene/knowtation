@@ -32,6 +32,12 @@
 [functions."warmup"]
   timeout = 26
 
+# Scheduled function: runs hourly, triggers consolidation for all due hosted users.
+# Netlify scheduled functions run as background-style invocations (up to 15 min);
+# 26 s is the declared limit here for safety — tune MAX_USERS_PER_RUN if needed.
+[functions."consolidation-scheduler"]
+  timeout = 26
+
 # Catch-all routing lives in public/_redirects (scripts/netlify-redirects.mjs). Do not add
 # [[redirects]] here: in a monorepo, root netlify.toml settings apply to every linked site
 # and would send the bridge deploy to the gateway function.

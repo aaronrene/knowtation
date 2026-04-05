@@ -146,6 +146,7 @@ export async function resetMonthlyTokensIfNeeded(userId) {
     user.monthly_used_cents = 0;
     user.monthly_searches_used = 0;
     user.monthly_index_jobs_used = 0;
+    user.monthly_consolidation_jobs_used = 0;
 
     // Advance period by one month.
     const newStart = new Date(pe);

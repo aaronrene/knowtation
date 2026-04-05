@@ -6,6 +6,7 @@ import {
   MONTHLY_INDEXING_TOKENS_INCLUDED_BY_TIER,
   MONTHLY_SEARCHES_INCLUDED_BY_TIER,
   MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER,
+  CONSOLIDATION_PASSES_BY_TIER,
 } from './billing-constants.mjs';
 
 /**
@@ -36,6 +37,18 @@ export function normalizeBillingUser(u) {
   if (typeof u.monthly_index_jobs_used !== 'number' || !Number.isFinite(u.monthly_index_jobs_used)) {
     u.monthly_index_jobs_used = 0;
   }
+  if (typeof u.monthly_consolidation_jobs_used !== 'number' || !Number.isFinite(u.monthly_consolidation_jobs_used)) {
+    u.monthly_consolidation_jobs_used = 0;
+  }
+  if (u.consolidation_enabled === undefined) {
+    u.consolidation_enabled = false;
+  }
+  if (u.consolidation_last_pass_at === undefined) {
+    u.consolidation_last_pass_at = null;
+  }
+  if (u.consolidation_interval_minutes === undefined) {
+    u.consolidation_interval_minutes = null;
+  }
   return u;
 }
 
@@ -56,6 +69,16 @@ export function effectiveMonthlySearchesIncluded(u) {
 export function effectiveMonthlyIndexJobsIncluded(u) {
   const tier = String(u?.tier || 'beta');
   const val = MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER[tier];
+  return val === undefined ? null : val;
+}
+
+/**
+ * @param {object} u - Billing user record
+ * @returns {number|null} null = unlimited; 0 = no hosted consolidation on this tier
+ */
+export function effectiveMonthlyConsolidationPassesIncluded(u) {
+  const tier = String(u?.tier || 'beta');
+  const val = CONSOLIDATION_PASSES_BY_TIER[tier];
   return val === undefined ? null : val;
 }
 
@@ -110,5 +133,9 @@ export function defaultUserRecord(userId) {
     pack_indexing_tokens_balance: 0,
     monthly_searches_used: 0,
     monthly_index_jobs_used: 0,
+    monthly_consolidation_jobs_used: 0,
+    consolidation_enabled: false,
+    consolidation_last_pass_at: null,
+    consolidation_interval_minutes: null,
   };
 }

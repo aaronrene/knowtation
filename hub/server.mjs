@@ -1282,8 +1282,81 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
       hubEnvEvaluatorMayApprove(),
     ),
     proposal_rubric: loadProposalRubric(config.data_dir),
+    daemon: {
+      enabled: Boolean(config.daemon?.enabled),
+      interval_minutes: config.daemon?.interval_minutes ?? 120,
+      idle_only: config.daemon?.idle_only !== false,
+      idle_threshold_minutes: config.daemon?.idle_threshold_minutes ?? 15,
+      run_on_start: Boolean(config.daemon?.run_on_start),
+      max_cost_per_day_usd: config.daemon?.max_cost_per_day_usd ?? null,
+      passes: {
+        consolidate: config.daemon?.passes?.consolidate !== false,
+        verify: config.daemon?.passes?.verify !== false,
+        discover: Boolean(config.daemon?.passes?.discover),
+      },
+      llm: {
+        provider: config.daemon?.llm?.provider || '',
+        model: config.daemon?.llm?.model || '',
+        base_url: config.daemon?.llm?.base_url || '',
+      },
+    },
   });
 });
+
+app.post(
+  '/api/v1/settings/consolidation',
+  jwtAuth,
+  apiLimiter,
+  requireRole('admin'),
+  express.json(),
+  async (req, res) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const yaml = (await import('js-yaml')).default;
+      const configPath = process.env.KNOWTATION_CONFIG || path.join(projectRoot, 'config', 'local.yaml');
+      let doc = {};
+      if (fs.existsSync(configPath)) {
+        doc = yaml.load(fs.readFileSync(configPath, 'utf8')) || {};
+      }
+      if (!doc.daemon) doc.daemon = {};
+      if (body.enabled !== undefined) doc.daemon.enabled = Boolean(body.enabled);
+      if (body.interval_minutes !== undefined) {
+        const iv = Math.floor(Number(body.interval_minutes) || 0);
+        if (iv < 1 || iv > 43200) return res.status(400).json({ error: 'interval_minutes must be 1–43200', code: 'VALIDATION_ERROR' });
+        doc.daemon.interval_minutes = iv;
+      }
+      if (body.idle_only !== undefined) doc.daemon.idle_only = Boolean(body.idle_only);
+      if (body.idle_threshold_minutes !== undefined) doc.daemon.idle_threshold_minutes = Math.max(1, Math.floor(Number(body.idle_threshold_minutes) || 15));
+      if (body.run_on_start !== undefined) doc.daemon.run_on_start = Boolean(body.run_on_start);
+      if (body.max_cost_per_day_usd !== undefined) {
+        doc.daemon.max_cost_per_day_usd = body.max_cost_per_day_usd === '' || body.max_cost_per_day_usd === null ? null : Math.max(0, Number(body.max_cost_per_day_usd) || 0);
+      }
+      if (body.passes !== undefined && typeof body.passes === 'object') {
+        if (!doc.daemon.passes) doc.daemon.passes = {};
+        if (body.passes.consolidate !== undefined) doc.daemon.passes.consolidate = Boolean(body.passes.consolidate);
+        if (body.passes.verify !== undefined) doc.daemon.passes.verify = Boolean(body.passes.verify);
+        if (body.passes.discover !== undefined) doc.daemon.passes.discover = Boolean(body.passes.discover);
+      }
+      if (body.llm !== undefined && typeof body.llm === 'object') {
+        if (!doc.daemon.llm) doc.daemon.llm = {};
+        if (body.llm.provider !== undefined) doc.daemon.llm.provider = String(body.llm.provider || '');
+        if (body.llm.model !== undefined) {
+          const m = String(body.llm.model || '');
+          if (/[/\\;|&$`(){}<>!#]/.test(m)) return res.status(400).json({ error: 'Invalid model name', code: 'VALIDATION_ERROR' });
+          doc.daemon.llm.model = m;
+        }
+        if (body.llm.base_url !== undefined) doc.daemon.llm.base_url = String(body.llm.base_url || '');
+      }
+      const dir = path.dirname(configPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(configPath, yaml.dump(doc), 'utf8');
+      config = loadConfig(projectRoot);
+      res.json({ ok: true, daemon: doc.daemon });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to save', code: 'RUNTIME_ERROR' });
+    }
+  },
+);
 
 app.post(
   '/api/v1/settings/proposal-policy',

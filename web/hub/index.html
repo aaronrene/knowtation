@@ -185,6 +185,30 @@
         </div>
         <div id="notes-view-graph" class="notes-view-panel hidden">
           <div class="dashboard-cards" id="dashboard-cards"></div>
+
+          <div id="consolidation-card" class="consol-dashboard-card" style="display:none;">
+            <div class="consol-card-header">
+              <h4 style="margin: 0; font-size: 0.95rem;">Memory Consolidation</h4>
+              <span id="consol-status-badge" class="consol-badge consol-badge-neutral">● Not configured</span>
+            </div>
+            <div class="consol-card-body">
+              <div id="consol-last-pass" class="muted small">Last pass: —</div>
+              <div id="consol-next-pass" class="muted small">Next pass: —</div>
+              <div id="consol-cost-meter" class="consol-cost-meter" style="display:none;">
+                <span id="consol-cost-label" class="muted small">$0.000 today</span>
+                <div class="billing-usage-bar-track" style="max-width: 12rem;">
+                  <div id="consol-cost-fill" class="billing-usage-bar-fill" style="width:0%;"></div>
+                </div>
+                <span id="consol-cost-cap-label" class="muted small"></span>
+              </div>
+            </div>
+            <div class="consol-card-actions">
+              <button type="button" id="btn-consol-now">Consolidate Now</button>
+              <button type="button" id="btn-consol-history">History</button>
+              <button type="button" id="btn-consol-settings">Settings ⚙</button>
+            </div>
+          </div>
+
           <div class="chart-row">
             <div class="chart-box"><canvas id="chart-projects"></canvas></div>
             <div class="chart-box"><canvas id="chart-tags"></canvas></div>
@@ -389,6 +413,7 @@ Your note body here.</pre>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="billing">Billing</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="agents">Agents</button>
+          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="consolidation">Consolidation</button>
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
           <div class="settings-body">
@@ -1066,6 +1091,18 @@ Your note body here.</pre>
                   </div>
                 </div>
               </div>
+              <!-- Consolidation jobs -->
+              <div class="billing-op-row">
+                <span class="billing-op-label">Consolidations</span>
+                <div class="billing-usage-bar-wrap">
+                  <div class="billing-usage-bar-track">
+                    <div id="billing-consol-bar-fill" class="billing-usage-bar-fill" style="width: 0%;"></div>
+                  </div>
+                  <div class="billing-usage-bar-label">
+                    <span id="billing-consol-used">—</span> / <span id="billing-consol-included">—</span>
+                  </div>
+                </div>
+              </div>
               <!-- Pack balance (secondary) -->
               <div class="billing-usage-bar-label muted" id="billing-pack-balance-row" style="display:none;">
                 Pack balance: <span id="billing-pack-balance">0</span> rollover tokens
@@ -1152,6 +1189,103 @@ Your note body here.</pre>
             </div>
           </div>
         </div>
+        <div id="settings-panel-consolidation" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <h3 class="settings-h3">Memory Consolidation</h3>
+
+            <div class="settings-form" style="gap: 0.75rem;">
+              <div>
+                <label style="font-weight: 600; margin-bottom: 0.35rem; display: block;">Mode</label>
+                <div class="consol-radio-group">
+                  <label class="settings-checkbox-label"><input type="radio" name="consol-mode" value="daemon"> Self-Hosted (daemon)</label>
+                  <label class="settings-checkbox-label"><input type="radio" name="consol-mode" value="hosted"> Hosted (Hub)</label>
+                  <label class="settings-checkbox-label"><input type="radio" name="consol-mode" value="off" checked> Off</label>
+                </div>
+                <p class="settings-intro small muted" style="margin-top: 0.35rem;">Self-hosted runs on your machine. Hosted uses the Hub's LLM (included in your plan).</p>
+              </div>
+
+              <div id="consol-daemon-settings" class="consol-mode-section" style="display:none;">
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div>
+                    <label for="consol-interval" style="font-weight: 500;">Interval <span class="muted small">(minutes between passes)</span></label>
+                    <input type="number" id="consol-interval" class="settings-input-inline" value="120" min="30" max="10080" style="width: 7rem; display: block; margin-top: 0.25rem;">
+                  </div>
+                  <label class="settings-checkbox-label">
+                    <input type="checkbox" id="consol-idle-only" checked> Idle only <span class="muted small">— only run when inactive</span>
+                  </label>
+                  <div>
+                    <label for="consol-idle-threshold" style="font-weight: 500;">Idle threshold <span class="muted small">(minutes of inactivity)</span></label>
+                    <input type="number" id="consol-idle-threshold" class="settings-input-inline" value="15" min="1" style="width: 5rem; display: block; margin-top: 0.25rem;">
+                  </div>
+                  <label class="settings-checkbox-label">
+                    <input type="checkbox" id="consol-run-on-start"> Run on start <span class="muted small">— run one pass when daemon starts</span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="consol-hosted-settings" class="consol-mode-section" style="display:none;">
+                <div>
+                  <label for="consol-hosted-interval" style="font-weight: 500;">Schedule <span class="muted small">(Hub runs automatically)</span></label>
+                  <select id="consol-hosted-interval" class="settings-select-inline" style="display: block; margin-top: 0.25rem;">
+                    <option value="60">Every hour</option>
+                    <option value="120" selected>Every 2 hours</option>
+                    <option value="360">Every 6 hours</option>
+                    <option value="720">Every 12 hours</option>
+                    <option value="1440">Daily</option>
+                    <option value="10080">Weekly</option>
+                  </select>
+                </div>
+              </div>
+
+              <fieldset style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0;">
+                <legend style="font-weight: 600; font-size: 0.9rem; padding: 0 0.35rem;">Passes</legend>
+                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                  <label class="settings-checkbox-label"><input type="checkbox" id="pass-consolidate" checked> Consolidate — merge &amp; deduplicate events (recommended)</label>
+                  <label class="settings-checkbox-label"><input type="checkbox" id="pass-verify" checked> Verify — detect stale note references (recommended)</label>
+                  <label class="settings-checkbox-label"><input type="checkbox" id="pass-discover"> Discover — cross-topic insights (uses more LLM tokens, optional)</label>
+                </div>
+              </fieldset>
+
+              <fieldset id="consol-llm-settings" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0; display:none;">
+                <legend style="font-weight: 600; font-size: 0.9rem; padding: 0 0.35rem;">LLM Override <span class="muted small">(self-hosted only — optional)</span></legend>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div>
+                    <label for="consol-llm-provider" style="font-weight: 500;">Provider</label>
+                    <select id="consol-llm-provider" class="settings-select-inline" style="display: block; margin-top: 0.25rem;">
+                      <option value="">auto-detect</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="anthropic">Anthropic</option>
+                      <option value="ollama">Ollama (local, free)</option>
+                      <option value="openrouter">OpenRouter</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="consol-llm-model" style="font-weight: 500;">Model</label>
+                    <input type="text" id="consol-llm-model" class="settings-input-inline" placeholder="e.g. gpt-4o-mini" style="display: block; margin-top: 0.25rem; width: 100%; max-width: 18rem;">
+                  </div>
+                  <div>
+                    <label for="consol-llm-base-url" style="font-weight: 500;">Base URL <span class="muted small">(for OpenAI-compatible endpoints)</span></label>
+                    <input type="text" id="consol-llm-base-url" class="settings-input-inline" placeholder="https://openrouter.ai/api/v1" style="display: block; margin-top: 0.25rem; width: 100%; max-width: 22rem;">
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset id="consol-cost-guard" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0; display:none;">
+                <legend style="font-weight: 600; font-size: 0.9rem; padding: 0 0.35rem;">Cost Guard <span class="muted small">(self-hosted only)</span></legend>
+                <div>
+                  <label for="consol-cost-cap" style="font-weight: 500;">Daily cap (USD) <span class="muted small">— leave blank for no limit</span></label>
+                  <input type="number" id="consol-cost-cap" class="settings-input-inline" placeholder="no limit" min="0" step="0.01" style="display: block; margin-top: 0.25rem; width: 8rem;">
+                </div>
+              </fieldset>
+
+              <div class="settings-form-actions">
+                <button type="button" id="btn-consol-save" class="btn-primary">Save Settings</button>
+                <span id="consol-save-status" class="settings-msg"></span>
+              </div>
+              <p class="settings-intro small muted" style="margin-top: 0;"><a href="#" id="link-consol-help" class="btn-link btn-link-small">Learn more about Memory Consolidation ↗</a></p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1166,6 +1300,7 @@ Your note body here.</pre>
           <button type="button" class="how-to-tab active" role="tab" aria-selected="true" data-how-to-tab="setup">Setup</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="knowledge-agents">Knowledge &amp; agents</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="media">Media &amp; images</button>
+          <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="consolidation">Memory consolidation</button>
         </nav>
         <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
           <div class="how-to-use-body">
@@ -1710,6 +1845,53 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <section class="how-to-step">
               <h3>MCP image and video resources</h3>
               <p>When an AI agent reads a note via MCP, any embedded image URLs are exposed as typed <code>image/*</code> resources (<code>knowtation://vault/…/image/0</code>, <code>/image/1</code>, …). Video URLs are exposed as <code>video/*</code> resources with the URL as text content. Vision-capable models can receive the image blobs directly. This requires no extra configuration — it is automatic for all notes.</p>
+            </section>
+          </div>
+        </div>
+
+        <div id="how-to-panel-consolidation" class="how-to-panel" role="tabpanel">
+          <div class="how-to-use-body">
+            <p class="how-to-intro">Your knowledge vault accumulates activity events over time — searches, notes created, topics explored. After weeks of use, you may have thousands of events, many redundant. Memory consolidation uses an AI model to periodically clean this up automatically.</p>
+
+            <section class="how-to-step">
+              <h3>What consolidation does</h3>
+              <ul>
+                <li><strong>Merge</strong> — redundant observations become concise facts. Thousands of raw events become hundreds of distilled knowledge entries.</li>
+                <li><strong>Verify</strong> — stale references to renamed or deleted notes are detected and flagged, keeping your memory index accurate.</li>
+                <li><strong>Discover</strong> — hidden connections across your topics are surfaced as new insight events (optional, uses more LLM tokens).</li>
+              </ul>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Quick Start — Hosted users</h3>
+              <p>Open <strong>Settings → Consolidation</strong>, switch Mode to <strong>"Hosted"</strong>, choose your schedule, and click <strong>Save</strong>. The Hub handles the rest — no API key needed. Your plan includes a monthly consolidation pass allowance; see the billing panel for usage.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Quick Start — Self-hosted users</h3>
+              <p>Add to <code>config/local.yaml</code>:</p>
+              <pre class="how-to-code">daemon:
+  enabled: true
+  llm:
+    model: gpt-4o-mini   # or any OpenAI-compatible model</pre>
+              <p>Then run: <code>knowtation daemon start</code></p>
+              <p>Or configure via the Hub: <strong>Settings → Consolidation → Self-Hosted (daemon) → Save</strong>.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>What does it cost?</h3>
+              <ul>
+                <li>Using <code>gpt-4o-mini</code>, a typical pass costs <strong>$0.003–$0.009</strong>.</li>
+                <li>At every-2-hours frequency, that's roughly <strong>$0.04–$0.11/day</strong>.</li>
+                <li>Hosted plans include a monthly pass allowance; see your billing panel.</li>
+                <li>Using a local <strong>Ollama</strong> model is <strong>free</strong>.</li>
+              </ul>
+              <p>Set a <strong>Daily Cap</strong> in Settings → Consolidation → Cost Guard to stay within budget. The daemon skips passes once the cap is reached, then resets the next calendar day.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Privacy</h3>
+              <p>Only memory event metadata is sent to the LLM (paths, query strings, timestamps). <strong>Your note content is never sent.</strong> For full privacy, use a local Ollama model.</p>
             </section>
           </div>
         </div>

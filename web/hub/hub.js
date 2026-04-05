@@ -1806,7 +1806,7 @@
     el('notes-view-calendar').classList.toggle('hidden', view !== 'calendar');
     el('notes-view-graph').classList.toggle('hidden', view !== 'graph');
     if (view === 'calendar') renderCalendar();
-    if (view === 'graph') renderDashboard();
+    if (view === 'graph') { renderDashboard(); refreshConsolidationCard(); }
   }
 
   document.querySelectorAll('.view-tab').forEach((t) => {
@@ -2734,16 +2734,7 @@
         t.setAttribute('aria-selected', t.dataset.settingsTab === id ? 'true' : 'false');
       });
       document.querySelectorAll('.settings-panel').forEach((p) => {
-        p.classList.toggle(
-          'active',
-          (id === 'backup' && p.id === 'settings-panel-backup') ||
-            (id === 'team' && p.id === 'settings-panel-team') ||
-            (id === 'vaults' && p.id === 'settings-panel-vaults') ||
-            (id === 'integrations' && p.id === 'settings-panel-integrations') ||
-            (id === 'appearance' && p.id === 'settings-panel-appearance') ||
-            (id === 'billing' && p.id === 'settings-panel-billing') ||
-            (id === 'agents' && p.id === 'settings-panel-agents'),
-        );
+        p.classList.toggle('active', p.id === 'settings-panel-' + id);
       });
       if (id === 'team') {
         loadTeamRolesList();
@@ -2752,6 +2743,7 @@
       if (id === 'vaults') loadVaultsPanel();
       if (id === 'billing') loadBillingPanel();
       if (id === 'backup') void refreshBulkDeletePresetDropdowns();
+      if (id === 'consolidation') loadConsolidationSettings();
     });
   });
 
@@ -2961,6 +2953,11 @@
       if (manageBtn) manageBtn.style.display = 'none';
       updateUsageBar('billing-searches-bar-fill', 0, 0);
       updateUsageBar('billing-index-jobs-bar-fill', 0, 0);
+      updateUsageBar('billing-consol-bar-fill', 0, 0);
+      const consolUsedReset = el('billing-consol-used');
+      const consolIncReset = el('billing-consol-included');
+      if (consolUsedReset) consolUsedReset.textContent = '—';
+      if (consolIncReset) consolIncReset.textContent = '—';
       renderBillingPlanGrid('beta', false, false);
     };
 
@@ -3008,6 +3005,15 @@
       if (indexJobsUsedEl) indexJobsUsedEl.textContent = indexJobsUsed.toLocaleString();
       if (indexJobsIncEl) indexJobsIncEl.textContent = indexJobsInc == null ? 'Unlimited' : indexJobsInc.toLocaleString();
       updateUsageBar('billing-index-jobs-bar-fill', indexJobsUsed, indexJobsInc);
+
+      // Consolidation jobs usage bar
+      const consolUsed = Math.max(0, Math.floor(Number(d.monthly_consolidation_jobs_used) || 0));
+      const consolInc = d.monthly_consolidation_jobs_included ?? null;
+      const consolUsedEl = el('billing-consol-used');
+      const consolIncEl = el('billing-consol-included');
+      if (consolUsedEl) consolUsedEl.textContent = consolUsed.toLocaleString();
+      if (consolIncEl) consolIncEl.textContent = consolInc == null ? 'Unlimited' : consolInc.toLocaleString();
+      updateUsageBar('billing-consol-bar-fill', consolUsed, consolInc);
 
       // Pack balance
       const packBal = Math.max(0, Math.floor(Number(d.pack_indexing_tokens_balance) || 0));
@@ -6174,4 +6180,288 @@
     div.textContent = s == null ? '' : String(s);
     return div.innerHTML;
   }
+
+  // ── Consolidation UI (Stream 2) ───────────────────────────────
+
+  function consolModeFromSettings(s) {
+    if (!s || !s.daemon) return 'off';
+    if (s.daemon.enabled) return 'daemon';
+    if (s.hosted_delegating || (s.vault_path_display || '').toLowerCase() === 'canister') return 'hosted';
+    return 'off';
+  }
+
+  function populateConsolSettingsForm(s) {
+    if (!s || !s.daemon) return;
+    const d = s.daemon;
+    const mode = consolModeFromSettings(s);
+    document.querySelectorAll('input[name="consol-mode"]').forEach((r) => { r.checked = r.value === mode; });
+    applyConsolModeVisibility(mode);
+    const iv = el('consol-interval');
+    if (iv) iv.value = d.interval_minutes ?? 120;
+    const idle = el('consol-idle-only');
+    if (idle) idle.checked = d.idle_only !== false;
+    const idleTh = el('consol-idle-threshold');
+    if (idleTh) idleTh.value = d.idle_threshold_minutes ?? 15;
+    const ros = el('consol-run-on-start');
+    if (ros) ros.checked = Boolean(d.run_on_start);
+    const pc = el('pass-consolidate');
+    if (pc) pc.checked = d.passes?.consolidate !== false;
+    const pv = el('pass-verify');
+    if (pv) pv.checked = d.passes?.verify !== false;
+    const pd = el('pass-discover');
+    if (pd) pd.checked = Boolean(d.passes?.discover);
+    const lp = el('consol-llm-provider');
+    if (lp) lp.value = d.llm?.provider || '';
+    const lm = el('consol-llm-model');
+    if (lm) lm.value = d.llm?.model || '';
+    const lb = el('consol-llm-base-url');
+    if (lb) lb.value = d.llm?.base_url || '';
+    const cc = el('consol-cost-cap');
+    if (cc) cc.value = d.max_cost_per_day_usd != null ? d.max_cost_per_day_usd : '';
+  }
+
+  function buildConsolSettingsPayload() {
+    const modeRadio = document.querySelector('input[name="consol-mode"]:checked');
+    const mode = modeRadio ? modeRadio.value : 'off';
+    const payload = {
+      enabled: mode === 'daemon',
+      interval_minutes: Math.max(1, Math.floor(Number(el('consol-interval')?.value) || 120)),
+      idle_only: Boolean(el('consol-idle-only')?.checked),
+      idle_threshold_minutes: Math.max(1, Math.floor(Number(el('consol-idle-threshold')?.value) || 15)),
+      run_on_start: Boolean(el('consol-run-on-start')?.checked),
+      passes: {
+        consolidate: Boolean(el('pass-consolidate')?.checked),
+        verify: Boolean(el('pass-verify')?.checked),
+        discover: Boolean(el('pass-discover')?.checked),
+      },
+      llm: {
+        provider: el('consol-llm-provider')?.value || '',
+        model: el('consol-llm-model')?.value || '',
+        base_url: el('consol-llm-base-url')?.value || '',
+      },
+      max_cost_per_day_usd: el('consol-cost-cap')?.value === '' ? null : Number(el('consol-cost-cap')?.value) || 0,
+    };
+    return payload;
+  }
+
+  function applyConsolModeVisibility(mode) {
+    const daemonSection = el('consol-daemon-settings');
+    const hostedSection = el('consol-hosted-settings');
+    const llmSection = el('consol-llm-settings');
+    const costGuard = el('consol-cost-guard');
+    if (daemonSection) daemonSection.style.display = mode === 'daemon' ? '' : 'none';
+    if (hostedSection) hostedSection.style.display = mode === 'hosted' ? '' : 'none';
+    if (llmSection) llmSection.style.display = mode === 'daemon' ? '' : 'none';
+    if (costGuard) costGuard.style.display = mode === 'daemon' ? '' : 'none';
+  }
+
+  document.querySelectorAll('input[name="consol-mode"]').forEach((radio) => {
+    radio.addEventListener('change', () => applyConsolModeVisibility(radio.value));
+  });
+
+  async function loadConsolidationSettings() {
+    const msg = el('consol-save-status');
+    if (msg) msg.textContent = '';
+    try {
+      const s = await api('/api/v1/settings');
+      populateConsolSettingsForm(s);
+    } catch (e) {
+      if (msg) { msg.textContent = e?.message || 'Failed to load settings'; msg.className = 'settings-msg err'; }
+    }
+  }
+
+  const btnConsolSave = el('btn-consol-save');
+  if (btnConsolSave) {
+    btnConsolSave.addEventListener('click', async () => {
+      const msg = el('consol-save-status');
+      if (msg) { msg.textContent = ''; msg.className = 'settings-msg'; }
+      const payload = buildConsolSettingsPayload();
+      if (payload.enabled && payload.interval_minutes < 30) {
+        if (msg) { msg.textContent = 'Interval must be at least 30 minutes in daemon mode.'; msg.className = 'settings-msg err'; }
+        return;
+      }
+      setButtonBusy(btnConsolSave, true, 'Saving…');
+      try {
+        await api('/api/v1/settings/consolidation', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        if (msg) { msg.textContent = 'Saved.'; msg.className = 'settings-msg ok'; }
+      } catch (e) {
+        if (msg) { msg.textContent = e?.message || 'Failed to save'; msg.className = 'settings-msg err'; }
+      }
+      setButtonBusy(btnConsolSave, false);
+    });
+  }
+
+  const linkConsolHelp = el('link-consol-help');
+  if (linkConsolHelp) {
+    linkConsolHelp.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeSettings();
+      openHowToUse('consolidation');
+    });
+  }
+
+  // ── Consolidation Dashboard Card ──────────────────────────────
+
+  function formatCostMeter(costUsd, capUsd) {
+    const cost = Math.max(0, Number(costUsd) || 0);
+    const cap = capUsd != null ? Math.max(0, Number(capUsd) || 0) : null;
+    const display = '$' + cost.toFixed(3) + ' today';
+    if (cap == null || cap === 0) return { fillPercent: 0, display, capLabel: '', showMeter: false };
+    const pct = Math.min(100, (cost / cap) * 100);
+    return { fillPercent: pct, display, capLabel: 'cap: $' + cap.toFixed(2), showMeter: true };
+  }
+
+  function renderConsolidationHistory(events, container) {
+    if (!container) return;
+    if (!events || events.length === 0) {
+      container.innerHTML = '<p class="muted">No consolidation history found.</p>';
+      return;
+    }
+    let html = '<table class="consol-history-table"><thead><tr><th>Date</th><th>Topics</th><th>Events Merged</th><th>Cost</th><th>Status</th></tr></thead><tbody>';
+    events.forEach((ev) => {
+      const date = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '—';
+      const topics = ev.data?.topics_count ?? ev.data?.topics?.length ?? '—';
+      const merged = ev.data?.total_events ?? '—';
+      const cost = ev.data?.cost_usd != null ? '$' + Number(ev.data.cost_usd).toFixed(4) : '—';
+      const status = ev.data?.dry_run ? 'dry-run' : (ev.data?.error ? 'error' : 'complete');
+      html += '<tr><td>' + escapeHtml(date) + '</td><td>' + escapeHtml(String(topics)) + '</td><td>' + escapeHtml(String(merged)) + '</td><td>' + escapeHtml(cost) + '</td><td>' + escapeHtml(status) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  async function refreshConsolidationCard() {
+    const card = el('consolidation-card');
+    const badge = el('consol-status-badge');
+    const lastPass = el('consol-last-pass');
+    const nextPass = el('consol-next-pass');
+    const costMeter = el('consol-cost-meter');
+    const costLabel = el('consol-cost-label');
+    const costFill = el('consol-cost-fill');
+    const costCapLabel = el('consol-cost-cap-label');
+    if (!card) return;
+
+    try {
+      const s = await api('/api/v1/settings');
+      const mode = consolModeFromSettings(s);
+      if (mode === 'off') {
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = '';
+
+      if (mode === 'hosted') {
+        try {
+          const st = await api('/api/v1/memory/consolidate/status');
+          if (badge) {
+            badge.textContent = '● Active (hosted)';
+            badge.className = 'consol-badge consol-badge-success';
+          }
+          if (lastPass) lastPass.textContent = 'Last pass: ' + (st.last_pass ? new Date(st.last_pass).toLocaleString() : '—');
+          if (nextPass) nextPass.textContent = 'Next pass: scheduled';
+          const meter = formatCostMeter(st.cost_today_usd, st.cost_cap_usd);
+          if (costMeter) costMeter.style.display = meter.showMeter ? '' : 'none';
+          if (costLabel) costLabel.textContent = meter.display;
+          if (costFill) costFill.style.width = meter.fillPercent + '%';
+          if (costCapLabel) costCapLabel.textContent = meter.capLabel;
+        } catch (_) {
+          if (badge) { badge.textContent = '● Hosted'; badge.className = 'consol-badge consol-badge-warning'; }
+        }
+      } else {
+        if (badge) {
+          badge.textContent = s.daemon.enabled ? '● Daemon enabled' : '● Not running';
+          badge.className = 'consol-badge ' + (s.daemon.enabled ? 'consol-badge-success' : 'consol-badge-warning');
+        }
+        if (lastPass) lastPass.textContent = 'Last pass: —';
+        if (nextPass) nextPass.textContent = 'Next pass: ' + (s.daemon.enabled ? 'per daemon schedule' : '—');
+        if (costMeter) costMeter.style.display = 'none';
+      }
+    } catch (_) {
+      card.style.display = 'none';
+    }
+  }
+
+  const btnConsolNow = el('btn-consol-now');
+  if (btnConsolNow) {
+    btnConsolNow.addEventListener('click', async () => {
+      setButtonBusy(btnConsolNow, true, 'Previewing…');
+      try {
+        const preview = await api('/api/v1/memory/consolidate', {
+          method: 'POST',
+          body: JSON.stringify({ dry_run: true }),
+        });
+        setButtonBusy(btnConsolNow, false);
+        const topics = preview.topics ?? 0;
+        const events = preview.total_events ?? 0;
+        const cost = preview.cost_usd != null ? '$' + Number(preview.cost_usd).toFixed(4) : 'unknown';
+        const ok = confirm('Consolidation preview:\n\nTopics: ' + topics + '\nEvents to merge: ' + events + '\nEstimated cost: ' + cost + '\n\nProceed?');
+        if (!ok) return;
+        setButtonBusy(btnConsolNow, true, 'Consolidating…');
+        await api('/api/v1/memory/consolidate', {
+          method: 'POST',
+          body: JSON.stringify({ dry_run: false }),
+        });
+        if (typeof showToast === 'function') showToast('Consolidation complete.');
+        refreshConsolidationCard();
+      } catch (e) {
+        if (typeof showToast === 'function') showToast(e?.message || 'Consolidation failed', true);
+      }
+      setButtonBusy(btnConsolNow, false);
+    });
+  }
+
+  const btnConsolHistory = el('btn-consol-history');
+  if (btnConsolHistory) {
+    btnConsolHistory.addEventListener('click', async () => {
+      setButtonBusy(btnConsolHistory, true, 'Loading…');
+      try {
+        const res = await api('/api/v1/memory?type=consolidation&limit=20');
+        const events = res.events || res.history || [];
+        setButtonBusy(btnConsolHistory, false);
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.setAttribute('aria-modal', 'true');
+        modal.innerHTML =
+          '<div class="modal-backdrop"></div>' +
+          '<div class="modal-card consol-history-modal">' +
+          '<div class="modal-header"><h2>Consolidation History</h2><button type="button" class="modal-close" aria-label="Close">×</button></div>' +
+          '<div style="padding: 1rem 1.25rem;" id="consol-history-body"></div></div>';
+        document.body.appendChild(modal);
+        renderConsolidationHistory(events, modal.querySelector('#consol-history-body'));
+        modal.querySelector('.modal-backdrop').onclick = () => modal.remove();
+        modal.querySelector('.modal-close').onclick = () => modal.remove();
+      } catch (e) {
+        setButtonBusy(btnConsolHistory, false);
+        if (typeof showToast === 'function') showToast(e?.message || 'Failed to load history', true);
+      }
+    });
+  }
+
+  function openSettingsConsolidationTab() {
+    openSettings();
+    document.querySelectorAll('.settings-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.settingsTab === 'consolidation');
+      t.setAttribute('aria-selected', t.dataset.settingsTab === 'consolidation' ? 'true' : 'false');
+    });
+    document.querySelectorAll('.settings-panel').forEach((p) => {
+      p.classList.toggle('active', p.id === 'settings-panel-consolidation');
+    });
+    loadConsolidationSettings();
+  }
+
+  const btnConsolSettings = el('btn-consol-settings');
+  if (btnConsolSettings) {
+    btnConsolSettings.addEventListener('click', openSettingsConsolidationTab);
+  }
+
+  // Billing panel: consolidation row population (piggyback on loadBillingPanel)
+  const _origLoadBillingPanel = typeof loadBillingPanel === 'function' ? loadBillingPanel : null;
+  // Billing consolidation row is populated inline in loadBillingPanel's try block.
+  // We add to the existing billing flow by hooking the billing API response.
+
+  // Refresh consolidation card when dashboard renders
+  const _origRenderDashboard = typeof renderDashboard === 'function' ? renderDashboard : null;
 })();

@@ -4,6 +4,9 @@
  */
 
 import { z } from 'zod';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
 import { loadConfig } from '../../lib/config.mjs';
 import { createMemoryManager, verifyMemoryEvent } from '../../lib/memory.mjs';
 import { MEMORY_EVENT_TYPES } from '../../lib/memory-event.mjs';
@@ -16,10 +19,18 @@ function jsonError(msg, code = 'ERROR') {
   return { content: [{ type: 'text', text: JSON.stringify({ error: msg, code }) }], isError: true };
 }
 
+const SHELL_META_RE = /[/\\;|&$`(){}<>!#]/;
+const INTERVAL_BOUNDS = { min: 1, max: 43200 };
+
+function resolveConfigPath() {
+  return process.env.KNOWTATION_CONFIG ?? path.join(process.cwd(), 'config', 'local.yaml');
+}
+
 /**
  * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
+ * @param {object} [opts] — injectable dependencies for testing
  */
-export function registerMemoryTools(server) {
+export function registerMemoryTools(server, opts = {}) {
   server.registerTool(
     'memory_query',
     {
@@ -225,7 +236,8 @@ export function registerMemoryTools(server) {
       description:
         'Trigger LLM-powered memory consolidation: group recent events by topic, merge/deduplicate via LLM, ' +
         'and store concise fact summaries as consolidation events. Optionally runs the stale reference ' +
-        'detection pass (verify). Rebuilds the pointer index afterward.',
+        'detection pass (verify). Rebuilds the pointer index afterward. ' +
+        'Routes to the Hub when KNOWTATION_HUB_URL is set.',
       inputSchema: {
         dry_run: z.boolean().optional().describe('If true, preview what would happen without writing events (default false)'),
         passes: z
@@ -237,12 +249,54 @@ export function registerMemoryTools(server) {
     },
     async (args) => {
       try {
-        const config = loadConfig();
+        const config = (opts.loadConfig ?? loadConfig)();
         if (!config.memory?.enabled) {
           return jsonError('Memory layer not enabled. Set memory.enabled in config.', 'DISABLED');
         }
-        const { consolidateMemory } = await import('../../lib/memory-consolidate.mjs');
-        const result = await consolidateMemory(config, {
+
+        const hubUrl =
+          (process.env.KNOWTATION_HUB_URL || '').trim().replace(/\/+$/, '') ||
+          (typeof config.hub_url === 'string' && config.hub_url.trim()
+            ? config.hub_url.trim().replace(/\/+$/, '')
+            : '');
+
+        if (hubUrl) {
+          const token = (process.env.KNOWTATION_HUB_TOKEN || '').trim();
+          if (!token) {
+            return jsonError(
+              'KNOWTATION_HUB_TOKEN is not set. Set this environment variable to authenticate with the Hub.',
+              'HUB_TOKEN_REQUIRED',
+            );
+          }
+          const fetchImpl = opts.fetchFn ?? globalThis.fetch;
+          const body = {};
+          if (args.dry_run != null) body.dry_run = args.dry_run;
+          if (args.passes != null) body.passes = args.passes;
+          if (args.lookback_hours != null) body.lookback_hours = args.lookback_hours;
+
+          const res = await fetchImpl(`${hubUrl}/api/v1/memory/consolidate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+          });
+
+          const text = await res.text();
+          let data;
+          try { data = text ? JSON.parse(text) : null; } catch { data = { error: text.slice(0, 200) }; }
+
+          if (!res.ok) {
+            const msg = data?.error || res.statusText || 'Hub request failed';
+            return jsonError(msg, data?.code || 'HUB_ERROR');
+          }
+          return jsonResponse(data);
+        }
+
+        const _consolidateMemory = opts.consolidateMemory
+          ?? (await import('../../lib/memory-consolidate.mjs')).consolidateMemory;
+        const result = await _consolidateMemory(config, {
           dryRun: args.dry_run,
           passes: args.passes,
           lookbackHours: args.lookback_hours,
@@ -298,6 +352,109 @@ export function registerMemoryTools(server) {
           dryRun: args.dry_run,
         });
         return jsonResponse(result);
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'consolidation_history',
+    {
+      description:
+        'Return the last N consolidation pass records stored in memory. Each record contains ' +
+        'topics processed, events merged, cost, and pass timestamp.',
+      inputSchema: {
+        limit: z.number().optional().describe('Max records to return (default 20)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = (opts.loadConfig ?? loadConfig)();
+        if (!config.memory?.enabled) {
+          return jsonResponse({ history: [], count: 0, enabled: false });
+        }
+        const mm = (opts.createMemoryManager ?? createMemoryManager)(config);
+        const history = mm.list({ type: 'consolidation', limit: args.limit ?? 20 });
+        return jsonResponse({ history, count: history.length });
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'consolidation_settings',
+    {
+      description:
+        'Read or write the daemon consolidation settings in config/local.yaml. ' +
+        'When called with no arguments, returns the current daemon.* settings. ' +
+        'When called with update fields, writes them back.',
+      inputSchema: {
+        enabled: z.boolean().optional().describe('daemon.enabled'),
+        interval_minutes: z.number().optional().describe('daemon.interval_minutes'),
+        idle_only: z.boolean().optional().describe('daemon.idle_only'),
+        idle_threshold_minutes: z.number().optional().describe('daemon.idle_threshold_minutes'),
+        run_on_start: z.boolean().optional().describe('daemon.run_on_start'),
+        max_cost_per_day_usd: z.number().optional().describe('daemon.max_cost_per_day_usd'),
+        llm_model: z.string().optional().describe('daemon.llm.model'),
+      },
+    },
+    async (args) => {
+      try {
+        const hasUpdate = [
+          args.enabled, args.interval_minutes, args.idle_only,
+          args.idle_threshold_minutes, args.run_on_start,
+          args.max_cost_per_day_usd, args.llm_model,
+        ].some((v) => v !== undefined);
+
+        if (!hasUpdate) {
+          const config = (opts.loadConfig ?? loadConfig)();
+          return jsonResponse({ daemon: config.daemon ?? {} });
+        }
+
+        if (args.interval_minutes != null && (args.interval_minutes < INTERVAL_BOUNDS.min || args.interval_minutes > INTERVAL_BOUNDS.max)) {
+          return jsonError(
+            `interval_minutes must be between ${INTERVAL_BOUNDS.min} and ${INTERVAL_BOUNDS.max}.`,
+            'VALIDATION_ERROR',
+          );
+        }
+        if (args.llm_model != null && SHELL_META_RE.test(args.llm_model)) {
+          return jsonError(
+            'llm_model contains invalid characters (path separators or shell metacharacters).',
+            'VALIDATION_ERROR',
+          );
+        }
+
+        const _existsSync = opts.fs?.existsSync ?? fs.existsSync;
+        const _readFileSync = opts.fs?.readFileSync ?? fs.readFileSync;
+        const _writeFileSync = opts.fs?.writeFileSync ?? fs.writeFileSync;
+        const _mkdirSync = opts.fs?.mkdirSync ?? fs.mkdirSync;
+        const configFilePath = (opts.resolveConfigPath ?? resolveConfigPath)();
+
+        let doc = {};
+        if (_existsSync(configFilePath)) {
+          const raw = _readFileSync(configFilePath, 'utf8');
+          doc = yaml.load(raw) || {};
+        }
+
+        if (!doc.daemon) doc.daemon = {};
+        if (args.enabled !== undefined) doc.daemon.enabled = args.enabled;
+        if (args.interval_minutes !== undefined) doc.daemon.interval_minutes = args.interval_minutes;
+        if (args.idle_only !== undefined) doc.daemon.idle_only = args.idle_only;
+        if (args.idle_threshold_minutes !== undefined) doc.daemon.idle_threshold_minutes = args.idle_threshold_minutes;
+        if (args.run_on_start !== undefined) doc.daemon.run_on_start = args.run_on_start;
+        if (args.max_cost_per_day_usd !== undefined) doc.daemon.max_cost_per_day_usd = args.max_cost_per_day_usd;
+        if (args.llm_model !== undefined) {
+          if (!doc.daemon.llm) doc.daemon.llm = {};
+          doc.daemon.llm.model = args.llm_model;
+        }
+
+        const dir = path.dirname(configFilePath);
+        if (!_existsSync(dir)) _mkdirSync(dir, { recursive: true });
+        _writeFileSync(configFilePath, yaml.dump(doc), 'utf8');
+
+        return jsonResponse({ ok: true, daemon: doc.daemon });
       } catch (e) {
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');
       }
