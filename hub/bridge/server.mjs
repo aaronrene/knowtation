@@ -1966,15 +1966,25 @@ app.use((err, req, res, _next) => {
 
 /**
  * Fire-and-forget memory event capture for hosted bridge endpoints.
+ * Uses Netlify Blobs when available (hosted), falls back to file-based for self-hosted.
  * Never throws, never delays the response.
  */
 function fireBridgeCaptureEvent(type, data, uid, vaultId) {
   (async () => {
     try {
-      const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
-      const { MemoryManager } = await import('../../lib/memory.mjs');
-      const mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId || 'default')));
-      if (mm.shouldCapture(type)) mm.store(type, data);
+      if (globalThis.__netlify_blob_store) {
+        // Hosted: append to Netlify Blobs for durability across Lambda invocations.
+        const { createMemoryEvent, MEMORY_EVENT_TYPES } = await import('../../lib/memory-event.mjs');
+        if (!MEMORY_EVENT_TYPES.includes(type)) return;
+        const event = createMemoryEvent(type, data, { vaultId: vaultId || 'default' });
+        await blobsAppendMemoryEvent(uid, vaultId, event);
+      } else {
+        // Self-hosted: file-based.
+        const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+        const { MemoryManager } = await import('../../lib/memory.mjs');
+        const mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId || 'default')));
+        if (mm.shouldCapture(type)) mm.store(type, data);
+      }
     } catch (_) {}
   })();
 }
@@ -2033,16 +2043,26 @@ app.get('/api/v1/memory', async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
-    const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
-    const { MemoryManager } = await import('../../lib/memory.mjs');
-    const provider = new FileMemoryProvider(bridgeMemoryDir(uid, vaultId));
-    const mm = new MemoryManager(provider);
-    const events = mm.list({
-      type: req.query.type || undefined,
-      since: req.query.since || undefined,
-      until: req.query.until || undefined,
-      limit: Math.min(parseInt(req.query.limit) || 20, 100),
-    });
+    let events;
+    if (globalThis.__netlify_blob_store) {
+      // Hosted: read from Blobs.
+      events = await blobsGetMemoryEvents(uid, vaultId);
+      if (req.query.type) events = events.filter((e) => e.type === req.query.type);
+      if (req.query.since) events = events.filter((e) => e.ts >= req.query.since);
+      if (req.query.until) events = events.filter((e) => e.ts <= req.query.until);
+      events.sort((a, b) => (b.ts > a.ts ? 1 : b.ts < a.ts ? -1 : 0));
+      events = events.slice(0, Math.min(parseInt(req.query.limit) || 20, 100));
+    } else {
+      const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
+      const { MemoryManager } = await import('../../lib/memory.mjs');
+      const mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId)));
+      events = mm.list({
+        type: req.query.type || undefined,
+        since: req.query.since || undefined,
+        until: req.query.until || undefined,
+        limit: Math.min(parseInt(req.query.limit) || 20, 100),
+      });
+    }
     res.json({ events, count: events.length });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
@@ -2089,10 +2109,41 @@ app.get('/api/v1/memory-stats', async (req, res) => {
 
 // ——— Hosted Consolidation (Phase 10 / Stream 1) ———
 
-/** Path of per-user consolidation cost tracking file. */
-function consolidationCostFilePath(uid) {
-  return path.join(DATA_DIR, 'consolidation', uid + '_cost.json');
+// ——— Blobs-backed memory helpers (hosted path) ———
+
+/** Netlify Blobs key for a user's raw memory events. */
+function memoryBlobKey(uid, vaultId) {
+  return `memory/${uid}/${vaultId || 'default'}/events`;
 }
+
+/** Load memory events from Netlify Blobs (hosted) or return [] if unavailable. */
+async function blobsGetMemoryEvents(uid, vaultId) {
+  const store = globalThis.__netlify_blob_store;
+  if (!store) return [];
+  try {
+    const raw = await store.get(memoryBlobKey(uid, vaultId), { type: 'text' });
+    if (!raw) return [];
+    return JSON.parse(raw) || [];
+  } catch (_) { return []; }
+}
+
+/** Persist memory events to Netlify Blobs, capped at 500 events. */
+async function blobsSetMemoryEvents(uid, vaultId, events) {
+  const store = globalThis.__netlify_blob_store;
+  if (!store) return;
+  try {
+    await store.set(memoryBlobKey(uid, vaultId), JSON.stringify(events.slice(-500)));
+  } catch (_) {}
+}
+
+/** Append a single event to Blobs memory store (read-modify-write). */
+async function blobsAppendMemoryEvent(uid, vaultId, event) {
+  const events = await blobsGetMemoryEvents(uid, vaultId);
+  events.push(event);
+  await blobsSetMemoryEvents(uid, vaultId, events);
+}
+
+// ——— Consolidation cost tracking ———
 
 function utcDateString() {
   return new Date().toISOString().slice(0, 10);
@@ -2102,25 +2153,45 @@ function utcMonthString() {
   return new Date().toISOString().slice(0, 7);
 }
 
-function loadConsolidationCost(uid) {
-  const filePath = consolidationCostFilePath(uid);
+/** Blobs key for per-user consolidation cost record. */
+function consolidationCostBlobKey(uid) {
+  return `memory/${uid}/consolidation-cost`;
+}
+
+/** Load consolidation cost record — Blobs on hosted, file on self-hosted. */
+async function loadConsolidationCost(uid) {
+  const store = globalThis.__netlify_blob_store;
+  if (store) {
+    try {
+      const raw = await store.get(consolidationCostBlobKey(uid), { type: 'text' });
+      if (!raw) return {};
+      return JSON.parse(raw) || {};
+    } catch (_) { return {}; }
+  }
+  const filePath = path.join(DATA_DIR, 'consolidation', uid + '_cost.json');
   try {
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     return raw && typeof raw === 'object' ? raw : {};
-  } catch (_) {
-    return {};
-  }
+  } catch (_) { return {}; }
 }
 
-function saveConsolidationCost(uid, data) {
-  const filePath = consolidationCostFilePath(uid);
+/** Persist consolidation cost record — Blobs on hosted, file on self-hosted. */
+async function saveConsolidationCost(uid, data) {
+  const store = globalThis.__netlify_blob_store;
+  if (store) {
+    try {
+      await store.set(consolidationCostBlobKey(uid), JSON.stringify(data));
+    } catch (_) {}
+    return;
+  }
+  const filePath = path.join(DATA_DIR, 'consolidation', uid + '_cost.json');
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-function recordConsolidationPass(uid, costUsd) {
-  const rec = loadConsolidationCost(uid);
+async function recordConsolidationPass(uid, costUsd) {
+  const rec = await loadConsolidationCost(uid);
   const today = utcDateString();
   const month = utcMonthString();
   const prevCostDate = rec.cost_date;
@@ -2159,13 +2230,32 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
     const { MemoryManager } = await import('../../lib/memory.mjs');
     const { consolidateMemory } = await import('../../lib/memory-consolidate.mjs');
     const { computeCallCost } = await import('../../lib/daemon-cost.mjs');
+    const { createMemoryEvent } = await import('../../lib/memory-event.mjs');
 
-    const memDir = bridgeMemoryDir(uid, vaultId);
-    const provider = new FileMemoryProvider(memDir);
-    const mm = new MemoryManager(provider);
+    // Hosted (Blobs): load events into a temp FileMemoryProvider so consolidateMemory
+    // can read and write to it, then sync remaining events back to Blobs.
+    // Self-hosted: use the normal file-based memory directory.
+    let mm;
+    let tempDir = null;
+    const isHostedBlobs = Boolean(globalThis.__netlify_blob_store);
+
+    if (isHostedBlobs) {
+      const rawEvents = await blobsGetMemoryEvents(uid, vaultId);
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-mm-'));
+      if (rawEvents.length > 0) {
+        fs.writeFileSync(
+          path.join(tempDir, 'events.jsonl'),
+          rawEvents.map((e) => JSON.stringify(e)).join('\n') + '\n',
+          'utf8',
+        );
+      }
+      mm = new MemoryManager(new FileMemoryProvider(tempDir));
+    } else {
+      mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId)));
+    }
 
     const consolidationConfig = {
-      data_dir: DATA_DIR,
+      data_dir: isHostedBlobs ? os.tmpdir() : DATA_DIR,
       llm: {
         provider: 'openai',
         api_key: llmApiKey,
@@ -2195,10 +2285,11 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
     const pass_id = 'cpass_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
 
     if (!dry_run) {
-      const updated = recordConsolidationPass(uid, totalCostUsd);
-      saveConsolidationCost(uid, updated);
-      // Store pass-level summary so History button returns one row per run.
-      mm.store('consolidation_pass', {
+      const updated = await recordConsolidationPass(uid, totalCostUsd);
+      await saveConsolidationCost(uid, updated);
+
+      // Store pass-level summary event.
+      const passEvent = createMemoryEvent('consolidation_pass', {
         topics_count: Array.isArray(result.topics) ? result.topics.length : (result.topics ?? 0),
         total_events: result.total_events,
         cost_usd: totalCostUsd,
@@ -2206,6 +2297,19 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
         verify: result.verify ?? null,
         discover: result.discover ?? null,
       });
+
+      if (isHostedBlobs) {
+        // Sync remaining events (post-consolidation) + pass summary back to Blobs.
+        const remaining = mm.list({ limit: 500 });
+        await blobsSetMemoryEvents(uid, vaultId, [...remaining, passEvent]);
+      } else {
+        mm.store('consolidation_pass', passEvent.data);
+      }
+    }
+
+    // Clean up temp dir used for hosted path.
+    if (tempDir) {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
     }
 
     return res.json({
@@ -2232,7 +2336,7 @@ app.get('/api/v1/memory/consolidate/status', async (req, res) => {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
   try {
-    const rec = loadConsolidationCost(uid);
+    const rec = await loadConsolidationCost(uid);
     const today = utcDateString();
     const month = utcMonthString();
     return res.json({
