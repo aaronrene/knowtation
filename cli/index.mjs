@@ -604,7 +604,7 @@ async function main() {
     export                   Export memory log. --format jsonl|mif, --since, --until, --type. Output to stdout.
     stats                    Show memory statistics. --json.
     index                    Print lightweight pointer index (markdown). --json returns structured object.
-    consolidate              Run LLM-powered memory consolidation. --dry-run, --passes consolidate,verify, --lookback-hours <n>. --json.
+    consolidate              Run LLM-powered memory consolidation. --dry-run, --passes consolidate,verify,discover, --lookback-hours <n>. --json.
 
   Options: --json`);
       process.exit(0);
@@ -793,7 +793,10 @@ async function main() {
               if (result.verify) {
                 console.log(`[dry-run] Verify pass: would check paths in events (no writes).`);
               }
-            } else if (result.topics.length === 0 && !result.verify) {
+              if (result.discover) {
+                console.log(`[dry-run] Discover pass: would analyze ${result.discover.topic_count} topic(s) for cross-topic insights (no writes).`);
+              }
+            } else if (result.topics.length === 0 && !result.verify && !result.discover) {
               console.log('No events to consolidate.');
             } else {
               if (result.topics.length > 0) {
@@ -813,6 +816,10 @@ async function main() {
                 if (v.stale_paths.length > 0) {
                   for (const p of v.stale_paths) console.log(`  stale: ${p}`);
                 }
+              }
+              if (result.discover) {
+                const d = result.discover;
+                console.log(`Discover pass: ${d.connections.length} connection(s), ${d.contradictions.length} contradiction(s), ${d.open_questions.length} open question(s) across ${d.topic_count} topic(s).`);
               }
             }
           } catch (e) {

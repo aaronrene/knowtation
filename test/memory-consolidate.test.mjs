@@ -28,6 +28,9 @@ import {
   extractPathsFromEventData,
   resolvePassNames,
   runVerifyPass,
+  buildDiscoverPrompt,
+  parseDiscoverResponse,
+  runDiscoverPass,
 } from '../lib/memory-consolidate.mjs';
 
 import { loadDaemonConfig } from '../lib/config.mjs';
@@ -1215,5 +1218,655 @@ describe('MCP memory_consolidate passes param (programmatic)', () => {
     assert.strictEqual(typeof v.checked_count, 'number');
     assert.strictEqual(v.dry_run, true);
     assert(v.stale_paths.includes('stale-ref.md'));
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 14. buildDiscoverPrompt
+// ───────────────────────────────────────────────────
+
+describe('buildDiscoverPrompt', () => {
+  const makeConsolidation = (topic, facts) => ({ data: { topic, facts } });
+
+  it('includes "Topic summaries:" header', () => {
+    const prompt = buildDiscoverPrompt([makeConsolidation('blockchain', ['fact one'])]);
+    assert(prompt.startsWith('Topic summaries:'));
+  });
+
+  it('includes topic name in prompt', () => {
+    const prompt = buildDiscoverPrompt([makeConsolidation('blockchain', ['btc fact'])]);
+    assert(prompt.includes('Topic: "blockchain"'));
+  });
+
+  it('includes facts when encrypt is false', () => {
+    const prompt = buildDiscoverPrompt(
+      [makeConsolidation('blockchain', ['btc is a coin', 'mining uses energy'])],
+      false,
+    );
+    assert(prompt.includes('btc is a coin'));
+    assert(prompt.includes('mining uses energy'));
+  });
+
+  it('suppresses facts when encrypt is true', () => {
+    const prompt = buildDiscoverPrompt(
+      [makeConsolidation('blockchain', ['btc is a coin', 'mining uses energy'])],
+      true,
+    );
+    assert(prompt.includes('Topic: "blockchain"'));
+    assert(!prompt.includes('btc is a coin'), 'Facts should not appear when encrypted');
+    assert(!prompt.includes('mining uses energy'), 'Facts should not appear when encrypted');
+  });
+
+  it('includes all consolidation topics when multiple are passed', () => {
+    const consolidations = [
+      makeConsolidation('blockchain', ['btc fact']),
+      makeConsolidation('architecture', ['monorepo fact']),
+      makeConsolidation('testing', ['unit tests fact']),
+    ];
+    const prompt = buildDiscoverPrompt(consolidations);
+    assert(prompt.includes('Topic: "blockchain"'));
+    assert(prompt.includes('Topic: "architecture"'));
+    assert(prompt.includes('Topic: "testing"'));
+  });
+
+  it('shows (no facts) for consolidation with empty facts array', () => {
+    const prompt = buildDiscoverPrompt([makeConsolidation('empty-topic', [])]);
+    assert(prompt.includes('(no facts)'));
+  });
+
+  it('handles consolidation events with raw data shape (data.topic, data.facts)', () => {
+    const event = { data: { topic: 'crypto', facts: ['fact A'] } };
+    const prompt = buildDiscoverPrompt([event]);
+    assert(prompt.includes('Topic: "crypto"'));
+    assert(prompt.includes('fact A'));
+  });
+
+  it('handles consolidation objects without data wrapper (flat topic/facts)', () => {
+    // buildDiscoverPrompt supports { data: { topic, facts } } — top-level data is mandatory per spec
+    const event = { data: { topic: 'flat', facts: ['flat fact'] } };
+    const prompt = buildDiscoverPrompt([event]);
+    assert(prompt.includes('Topic: "flat"'));
+    assert(prompt.includes('flat fact'));
+  });
+
+  it('returns header-only block for empty consolidations array', () => {
+    const prompt = buildDiscoverPrompt([]);
+    assert(prompt.startsWith('Topic summaries:'));
+  });
+
+  it('encrypt default is false (facts included)', () => {
+    const prompt = buildDiscoverPrompt([makeConsolidation('t', ['a secret fact'])]);
+    assert(prompt.includes('a secret fact'));
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 15. parseDiscoverResponse
+// ───────────────────────────────────────────────────
+
+describe('parseDiscoverResponse', () => {
+  it('parses valid JSON object with all three arrays', () => {
+    const raw = JSON.stringify({
+      connections: ['A connects to B'],
+      contradictions: ['X contradicts Y'],
+      open_questions: ['Why Z?'],
+    });
+    const result = parseDiscoverResponse(raw);
+    assert.deepStrictEqual(result.connections, ['A connects to B']);
+    assert.deepStrictEqual(result.contradictions, ['X contradicts Y']);
+    assert.deepStrictEqual(result.open_questions, ['Why Z?']);
+  });
+
+  it('strips markdown code fences (```json ... ```)', () => {
+    const raw = '```json\n{"connections":["conn"],"contradictions":[],"open_questions":["q?"]}\n```';
+    const result = parseDiscoverResponse(raw);
+    assert.deepStrictEqual(result.connections, ['conn']);
+    assert.deepStrictEqual(result.open_questions, ['q?']);
+  });
+
+  it('strips code fences without json tag', () => {
+    const raw = '```\n{"connections":["c"],"contradictions":["d"],"open_questions":["q"]}\n```';
+    const result = parseDiscoverResponse(raw);
+    assert.deepStrictEqual(result.connections, ['c']);
+    assert.deepStrictEqual(result.contradictions, ['d']);
+  });
+
+  it('returns empty arrays for all keys on invalid JSON', () => {
+    const result = parseDiscoverResponse('this is not json at all');
+    assert.deepStrictEqual(result, { connections: [], contradictions: [], open_questions: [] });
+  });
+
+  it('returns empty arrays for null/undefined input', () => {
+    assert.deepStrictEqual(parseDiscoverResponse(null), { connections: [], contradictions: [], open_questions: [] });
+    assert.deepStrictEqual(parseDiscoverResponse(undefined), { connections: [], contradictions: [], open_questions: [] });
+    assert.deepStrictEqual(parseDiscoverResponse(''), { connections: [], contradictions: [], open_questions: [] });
+  });
+
+  it('handles partial object — missing contradictions defaults to empty array', () => {
+    const raw = JSON.stringify({ connections: ['c1'], open_questions: ['q1'] });
+    const result = parseDiscoverResponse(raw);
+    assert.deepStrictEqual(result.connections, ['c1']);
+    assert.deepStrictEqual(result.contradictions, []);
+    assert.deepStrictEqual(result.open_questions, ['q1']);
+  });
+
+  it('handles partial object — missing all keys defaults to all empty arrays', () => {
+    const result = parseDiscoverResponse('{}');
+    assert.deepStrictEqual(result, { connections: [], contradictions: [], open_questions: [] });
+  });
+
+  it('filters non-string items from arrays', () => {
+    const raw = JSON.stringify({
+      connections: ['valid', 42, null, 'also valid', ''],
+      contradictions: [],
+      open_questions: [true, 'real question'],
+    });
+    const result = parseDiscoverResponse(raw);
+    assert.deepStrictEqual(result.connections, ['valid', 'also valid']);
+    assert.deepStrictEqual(result.open_questions, ['real question']);
+  });
+
+  it('trims whitespace from string items', () => {
+    const raw = JSON.stringify({
+      connections: ['  conn with spaces  '],
+      contradictions: [],
+      open_questions: [],
+    });
+    const result = parseDiscoverResponse(raw);
+    assert.deepStrictEqual(result.connections, ['conn with spaces']);
+  });
+
+  it('returns empty object shape when input is a JSON array (not object)', () => {
+    const result = parseDiscoverResponse('["not", "an", "object"]');
+    assert.deepStrictEqual(result, { connections: [], contradictions: [], open_questions: [] });
+  });
+
+  it('returns empty object shape when input is a JSON primitive', () => {
+    assert.deepStrictEqual(parseDiscoverResponse('"just a string"'), { connections: [], contradictions: [], open_questions: [] });
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 16. runDiscoverPass
+// ───────────────────────────────────────────────────
+
+describe('runDiscoverPass', () => {
+  let discoverConfig;
+
+  beforeEach(() => {
+    const freshDataDir = path.join(tmpDir, `data-discover-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(freshDataDir, { recursive: true });
+    discoverConfig = {
+      vault_path: vaultDir,
+      data_dir: freshDataDir,
+      memory: { enabled: true, provider: 'file', encrypt: false },
+      daemon: loadDaemonConfig({}),
+    };
+  });
+
+  const makeConsolidationEvent = (topic, facts) => ({ data: { topic, facts } });
+
+  it('returns correct shape', async () => {
+    const mockLlm = makeMockLlmFn(JSON.stringify({ connections: ['c1'], contradictions: [], open_questions: ['q1'] }));
+    const result = await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('blockchain', ['fact a'])],
+      { llmFn: mockLlm },
+    );
+    assert(Array.isArray(result.connections));
+    assert(Array.isArray(result.contradictions));
+    assert(Array.isArray(result.open_questions));
+    assert.strictEqual(typeof result.topic_count, 'number');
+    assert.strictEqual(typeof result.dry_run, 'boolean');
+  });
+
+  it('calls LLM with discover system prompt and topic summaries', async () => {
+    const mockLlm = makeMockLlmFn(JSON.stringify({ connections: [], contradictions: [], open_questions: [] }));
+    await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('crypto', ['fact1', 'fact2'])],
+      { llmFn: mockLlm },
+    );
+    assert.strictEqual(mockLlm.calls.length, 1);
+    const call = mockLlm.calls[0];
+    assert(call.opts.system.includes('insight engine'), `System prompt should mention insight engine: ${call.opts.system}`);
+    assert(call.opts.user.includes('Topic summaries:'));
+    assert(call.opts.user.includes('Topic: "crypto"'));
+  });
+
+  it('stores insight event with correct shape', async () => {
+    const mockLlm = makeMockLlmFn(JSON.stringify({
+      connections: ['blockchain and testing are related'],
+      contradictions: ['conflicting fact'],
+      open_questions: ['what next?'],
+    }));
+    await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('blockchain', ['btc']), makeConsolidationEvent('testing', ['jest'])],
+      { llmFn: mockLlm },
+    );
+    const mm = _createMemoryManager(discoverConfig);
+    const insights = mm.list({ type: 'insight' });
+    assert.strictEqual(insights.length, 1);
+    const insight = insights[0];
+    assert.strictEqual(insight.type, 'insight');
+    assert(Array.isArray(insight.data.connections));
+    assert(Array.isArray(insight.data.contradictions));
+    assert(Array.isArray(insight.data.open_questions));
+    assert.strictEqual(typeof insight.data.topic_count, 'number');
+    assert.strictEqual(insight.data.topic_count, 2);
+  });
+
+  it('topic_count matches number of consolidations passed', async () => {
+    const mockLlm = makeMockLlmFn(JSON.stringify({ connections: [], contradictions: [], open_questions: [] }));
+    const result = await runDiscoverPass(
+      discoverConfig,
+      [
+        makeConsolidationEvent('a', ['f1']),
+        makeConsolidationEvent('b', ['f2']),
+        makeConsolidationEvent('c', ['f3']),
+      ],
+      { llmFn: mockLlm },
+    );
+    assert.strictEqual(result.topic_count, 3);
+  });
+
+  it('dryRun: true does not call LLM and does not store insight event', async () => {
+    const mockLlm = makeMockLlmFn(JSON.stringify({ connections: ['conn'], contradictions: [], open_questions: [] }));
+    const result = await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('topic', ['fact'])],
+      { dryRun: true, llmFn: mockLlm },
+    );
+    assert.strictEqual(result.dry_run, true);
+    assert.strictEqual(mockLlm.calls.length, 0);
+    const mm = _createMemoryManager(discoverConfig);
+    assert.strictEqual(mm.list({ type: 'insight' }).length, 0);
+  });
+
+  it('dryRun result has empty arrays and correct topic_count', async () => {
+    const mockLlm = makeMockLlmFn('should not be called');
+    const result = await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('t1', ['f1']), makeConsolidationEvent('t2', ['f2'])],
+      { dryRun: true, llmFn: mockLlm },
+    );
+    assert.deepStrictEqual(result.connections, []);
+    assert.deepStrictEqual(result.contradictions, []);
+    assert.deepStrictEqual(result.open_questions, []);
+    assert.strictEqual(result.topic_count, 2);
+  });
+
+  it('encrypt=true suppresses facts in LLM prompt', async () => {
+    const encryptConfig = { ...discoverConfig, memory: { ...discoverConfig.memory, encrypt: true } };
+    const mockLlm = makeMockLlmFn(JSON.stringify({ connections: [], contradictions: [], open_questions: [] }));
+    await runDiscoverPass(
+      encryptConfig,
+      [makeConsolidationEvent('crypto', ['secret fact about btc'])],
+      { llmFn: mockLlm },
+    );
+    assert.strictEqual(mockLlm.calls.length, 1);
+    const userPrompt = mockLlm.calls[0].opts.user;
+    assert(userPrompt.includes('Topic: "crypto"'), 'Topic name should appear');
+    assert(!userPrompt.includes('secret fact about btc'), 'Fact content should be suppressed when encrypted');
+  });
+
+  it('encrypt=false includes facts in LLM prompt', async () => {
+    const mockLlm = makeMockLlmFn(JSON.stringify({ connections: [], contradictions: [], open_questions: [] }));
+    await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('crypto', ['btc price is volatile'])],
+      { llmFn: mockLlm },
+    );
+    const userPrompt = mockLlm.calls[0].opts.user;
+    assert(userPrompt.includes('btc price is volatile'), 'Facts should appear when not encrypted');
+  });
+
+  it('handles LLM error gracefully — returns empty arrays and still stores insight', async () => {
+    const errorLlm = makeMockLlmFn(() => { throw new Error('LLM down'); });
+    const result = await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('topic', ['fact'])],
+      { llmFn: errorLlm },
+    );
+    assert.deepStrictEqual(result.connections, []);
+    assert.deepStrictEqual(result.contradictions, []);
+    assert.deepStrictEqual(result.open_questions, []);
+    assert.strictEqual(result.dry_run, false);
+    const mm = _createMemoryManager(discoverConfig);
+    assert.strictEqual(mm.list({ type: 'insight' }).length, 1);
+  });
+
+  it('handles LLM returning unparseable JSON gracefully', async () => {
+    const badLlm = makeMockLlmFn('not json at all');
+    const result = await runDiscoverPass(
+      discoverConfig,
+      [makeConsolidationEvent('topic', ['fact'])],
+      { llmFn: badLlm },
+    );
+    assert.deepStrictEqual(result.connections, []);
+    assert.deepStrictEqual(result.contradictions, []);
+    assert.deepStrictEqual(result.open_questions, []);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 17. resolvePassNames — discover handling
+// ───────────────────────────────────────────────────
+
+describe('resolvePassNames — discover handling', () => {
+  it('does NOT include discover by default when daemon config has discover: false', () => {
+    const names = resolvePassNames(undefined, { consolidate: true, verify: true, discover: false });
+    assert(!names.includes('discover'), `discover should not be in defaults: ${names}`);
+  });
+
+  it('includes discover when daemon config has discover: true', () => {
+    const names = resolvePassNames(undefined, { consolidate: true, verify: true, discover: true });
+    assert(names.includes('discover'));
+  });
+
+  it('includes discover when passed as comma-string "consolidate,verify,discover"', () => {
+    const names = resolvePassNames('consolidate,verify,discover', {});
+    assert.deepStrictEqual(names, ['consolidate', 'verify', 'discover']);
+  });
+
+  it('includes discover when passed as array ["discover"]', () => {
+    const names = resolvePassNames(['discover'], {});
+    assert.deepStrictEqual(names, ['discover']);
+  });
+
+  it('includes discover when passed as array ["consolidate","verify","discover"]', () => {
+    const names = resolvePassNames(['consolidate', 'verify', 'discover'], {});
+    assert.deepStrictEqual(names, ['consolidate', 'verify', 'discover']);
+  });
+
+  it('discover is absent from default daemon config passes (passes.discover: false)', () => {
+    const cfg = loadDaemonConfig({});
+    assert.strictEqual(cfg.passes.discover, false);
+    const names = resolvePassNames(undefined, cfg.passes);
+    assert(!names.includes('discover'));
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 18. consolidateMemory — discover pass wiring
+// ───────────────────────────────────────────────────
+
+describe('consolidateMemory — discover pass wiring', () => {
+  let config;
+
+  beforeEach(() => {
+    const freshDataDir = path.join(tmpDir, `data-discover-wire-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(freshDataDir, { recursive: true });
+    config = {
+      vault_path: vaultDir,
+      data_dir: freshDataDir,
+      memory: { enabled: true, provider: 'file', encrypt: false },
+      daemon: loadDaemonConfig({ passes: { consolidate: true, verify: false, discover: false } }),
+    };
+  });
+
+  it('discover is null when discover not in passes', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'topic/a.md' });
+    mm.store('write', { path: 'topic/b.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate'], llmFn: mockLlm });
+    assert.strictEqual(result.discover, null);
+  });
+
+  it('discover is null when no consolidations were written (dry-run)', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'topic/a.md' });
+    mm.store('write', { path: 'topic/b.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, {
+      dryRun: true, passes: ['consolidate', 'discover'], llmFn: mockLlm,
+    });
+    assert.strictEqual(result.dry_run, true);
+    assert.strictEqual(result.discover, null, 'discover should be null when dry-run (no consolidations written)');
+  });
+
+  it('discover is null when consolidate pass is skipped', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'topic/a.md' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, {
+      passes: ['discover'], llmFn: mockLlm,
+    });
+    assert.strictEqual(result.discover, null, 'discover should be null when consolidate was skipped');
+  });
+
+  it('discover result has correct shape when consolidations exist', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'topicA/x.md' });
+    mm.store('write', { path: 'topicA/y.md' });
+
+    const discoverResponse = JSON.stringify({
+      connections: ['topicA connects to something'],
+      contradictions: [],
+      open_questions: ['What is topicA?'],
+    });
+    const mockLlm = makeMockLlmFn((opts) => {
+      if (opts.system && opts.system.includes('insight engine')) return discoverResponse;
+      return '["fact from topicA"]';
+    });
+
+    const result = await consolidateMemory(config, {
+      passes: ['consolidate', 'discover'], llmFn: mockLlm,
+    });
+
+    assert(result.discover !== null, 'discover should not be null when consolidations exist');
+    assert(Array.isArray(result.discover.connections));
+    assert(Array.isArray(result.discover.contradictions));
+    assert(Array.isArray(result.discover.open_questions));
+    assert.strictEqual(typeof result.discover.topic_count, 'number');
+    assert.strictEqual(result.discover.dry_run, false);
+  });
+
+  it('discover LLM call receives topic summaries built from stored consolidations', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'blockchain/eth.md' });
+    mm.store('write', { path: 'blockchain/sol.md' });
+
+    const capturedCalls = [];
+    const mockLlm = makeMockLlmFn((opts) => {
+      capturedCalls.push(opts);
+      if (opts.system && opts.system.includes('insight engine')) {
+        return JSON.stringify({ connections: [], contradictions: [], open_questions: [] });
+      }
+      return '["blockchain notes recorded"]';
+    });
+
+    await consolidateMemory(config, { passes: ['consolidate', 'discover'], llmFn: mockLlm });
+
+    const discoverCall = capturedCalls.find((c) => c.system && c.system.includes('insight engine'));
+    assert(discoverCall, 'Should have made a discover LLM call');
+    assert(discoverCall.user.includes('Topic summaries:'));
+    assert(discoverCall.user.includes('blockchain'));
+  });
+
+  it('discover pass stores insight event in memory log', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('write', { path: 'science/a.md' });
+    mm.store('write', { path: 'science/b.md' });
+
+    const mockLlm = makeMockLlmFn((opts) => {
+      if (opts.system && opts.system.includes('insight engine')) {
+        return JSON.stringify({ connections: ['science relates to testing'], contradictions: [], open_questions: [] });
+      }
+      return '["science note written"]';
+    });
+
+    await consolidateMemory(config, { passes: ['consolidate', 'discover'], llmFn: mockLlm });
+
+    const mm2 = _createMemoryManager(config);
+    const insights = mm2.list({ type: 'insight' });
+    assert.strictEqual(insights.length, 1);
+    assert.strictEqual(insights[0].type, 'insight');
+  });
+
+  it('discover pass runs AFTER consolidate and verify passes', async () => {
+    const mmSetup = _createMemoryManager(config);
+    mmSetup.store('write', { path: 'ordered/a.md' });
+    mmSetup.store('write', { path: 'ordered/b.md' });
+
+    const callOrder = [];
+    const mockLlm = makeMockLlmFn((opts) => {
+      if (opts.system && opts.system.includes('insight engine')) {
+        callOrder.push('discover');
+        return JSON.stringify({ connections: [], contradictions: [], open_questions: [] });
+      }
+      callOrder.push('consolidate');
+      return '["ordered fact"]';
+    });
+
+    await consolidateMemory(config, {
+      passes: ['consolidate', 'verify', 'discover'], llmFn: mockLlm,
+    });
+
+    const consolidateIdx = callOrder.indexOf('consolidate');
+    const discoverIdx = callOrder.indexOf('discover');
+    assert(consolidateIdx !== -1, 'consolidate LLM call should exist');
+    assert(discoverIdx !== -1, 'discover LLM call should exist');
+    assert(consolidateIdx < discoverIdx, 'consolidate should run before discover');
+  });
+
+  it('result always contains a discover key (null when not run)', async () => {
+    const mm = _createMemoryManager(config);
+    mm.store('search', { query: 'something' });
+    mm.store('search', { query: 'else' });
+
+    const mockLlm = makeMockLlmFn('["fact"]');
+    const result = await consolidateMemory(config, { passes: ['consolidate'], llmFn: mockLlm });
+    assert('discover' in result, 'result must always have discover key');
+    assert.strictEqual(result.discover, null);
+  });
+
+  it('result discover key is null for empty event set', async () => {
+    const result = await consolidateMemory(config, {
+      passes: ['consolidate', 'discover'], llmFn: makeMockLlmFn('["fact"]'),
+    });
+    assert('discover' in result);
+    assert.strictEqual(result.discover, null);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 19. CLI: memory consolidate --passes discover
+// ───────────────────────────────────────────────────
+
+describe('CLI: memory consolidate --passes discover', () => {
+  it('--passes discover --dry-run --json returns valid JSON with discover key', () => {
+    const freshDir = path.join(tmpDir, `data-cli-discover-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes discover --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.dry_run, true);
+    assert('discover' in data, 'result must include discover key');
+  });
+
+  it('--passes consolidate,verify,discover --dry-run --json returns all keys', () => {
+    const freshDir = path.join(tmpDir, `data-cli-discover-all-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes consolidate,verify,discover --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.dry_run, true);
+    assert(Array.isArray(data.topics));
+    assert('verify' in data);
+    assert('discover' in data);
+  });
+
+  it('--passes discover with no events returns discover: null', () => {
+    const freshDir = path.join(tmpDir, `data-cli-discover-empty-${Date.now()}`);
+    fs.mkdirSync(freshDir, { recursive: true });
+    const r = runCli('memory consolidate --dry-run --passes discover --json', { dataDir: freshDir });
+    assert.strictEqual(r.exitCode, 0, `stderr: ${r.stderr}`);
+    const data = JSON.parse(r.stdout);
+    assert.strictEqual(data.discover, null);
+  });
+
+  it('memory consolidate --help mentions discover pass', () => {
+    const r = runCli('memory --help');
+    assert.strictEqual(r.exitCode, 0);
+    assert(r.stdout.includes('discover'), `Help should mention discover: ${r.stdout}`);
+  });
+});
+
+// ───────────────────────────────────────────────────
+// 20. MCP: memory_consolidate passes: ["discover"]
+// ───────────────────────────────────────────────────
+
+describe('MCP memory_consolidate — discover pass (programmatic)', () => {
+  let mcpConfig;
+
+  beforeEach(() => {
+    const freshDataDir = path.join(tmpDir, `data-mcp-discover-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(freshDataDir, { recursive: true });
+    mcpConfig = {
+      vault_path: vaultDir,
+      data_dir: freshDataDir,
+      memory: { enabled: true, provider: 'file', encrypt: false },
+      daemon: loadDaemonConfig({}),
+    };
+  });
+
+  it('passes: ["discover"] with no prior consolidations returns discover: null', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('search', { query: 'no consolidations' });
+
+    const mockLlm = makeMockLlmFn('should not be called');
+    const result = await consolidateMemory(mcpConfig, {
+      dryRun: true, passes: ['discover'], llmFn: mockLlm,
+    });
+    assert.strictEqual(result.discover, null);
+    assert.strictEqual(mockLlm.calls.length, 0);
+  });
+
+  it('passes: ["consolidate", "discover"] runs both and discover result is non-null', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'noded/a.md' });
+    mm.store('write', { path: 'noded/b.md' });
+
+    const mockLlm = makeMockLlmFn((opts) => {
+      if (opts.system && opts.system.includes('insight engine')) {
+        return JSON.stringify({ connections: ['conn'], contradictions: [], open_questions: [] });
+      }
+      return '["fact"]';
+    });
+
+    const result = await consolidateMemory(mcpConfig, {
+      passes: ['consolidate', 'discover'], llmFn: mockLlm,
+    });
+
+    assert(result.discover !== null, 'discover should be non-null when consolidations exist');
+    assert(Array.isArray(result.discover.connections));
+    assert.strictEqual(result.discover.dry_run, false);
+  });
+
+  it('passes: ["consolidate", "verify", "discover"] runs all three', async () => {
+    const mm = _createMemoryManager(mcpConfig);
+    mm.store('write', { path: 'multi/a.md' });
+    mm.store('write', { path: 'multi/b.md' });
+
+    const mockLlm = makeMockLlmFn((opts) => {
+      if (opts.system && opts.system.includes('insight engine')) {
+        return JSON.stringify({ connections: [], contradictions: [], open_questions: [] });
+      }
+      return '["multi fact"]';
+    });
+
+    const result = await consolidateMemory(mcpConfig, {
+      passes: ['consolidate', 'verify', 'discover'], llmFn: mockLlm,
+    });
+
+    assert(Array.isArray(result.topics));
+    assert(result.verify !== null);
+    assert(result.discover !== null);
   });
 });
