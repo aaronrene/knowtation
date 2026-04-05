@@ -1399,15 +1399,13 @@ app.post('/api/v1/memory/consolidate', jwtAuth, apiLimiter, express.json(), asyn
   }
 
   try {
-    const { FileMemoryProvider } = await import('../lib/memory-provider-file.mjs');
-    const { MemoryManager } = await import('../lib/memory.mjs');
+    const { createMemoryManager } = await import('../lib/memory.mjs');
     const { consolidateMemory } = await import('../lib/memory-consolidate.mjs');
     const { computeCallCost } = await import('../lib/daemon-cost.mjs');
     const { completeChat } = await import('../lib/llm-complete.mjs');
 
-    const memDir = path.join(config.data_dir, 'memory');
-    const provider = new FileMemoryProvider(memDir);
-    const mm = new MemoryManager(provider);
+    const vaultId = req.vault_id || 'default';
+    const mm = createMemoryManager(config, vaultId);
 
     const consolidationConfig = {
       data_dir: config.data_dir,
