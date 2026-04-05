@@ -1452,20 +1452,46 @@ app.post('/api/v1/memory/consolidate', jwtAuth, apiLimiter, express.json(), asyn
 
 /**
  * GET /api/v1/memory/consolidate/status
- * Self-hosted: returns daemon-based status from config.
+ * Self-hosted: returns daemon config + last consolidation pass from memory log.
  */
 app.get('/api/v1/memory/consolidate/status', jwtAuth, async (req, res) => {
   try {
+    const { createMemoryManager } = await import('../lib/memory.mjs');
+    const vaultId = req.vault_id || 'default';
+    const mm = createMemoryManager(config, vaultId);
+    const events = mm.list({ type: 'consolidation', limit: 1 });
+    const lastPass = events.length > 0 ? (events[0].created_at || events[0].timestamp || null) : null;
     return res.json({
       enabled: Boolean(config.daemon?.enabled),
       interval_minutes: config.daemon?.interval_minutes ?? null,
-      last_pass: null,
+      last_pass: lastPass,
       cost_today_usd: 0,
       cost_cap_usd: config.daemon?.max_cost_per_day_usd ?? null,
-      pass_count_month: 0,
+      pass_count_month: events.length,
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Status unavailable', code: 'RUNTIME_ERROR' });
+  }
+});
+
+/**
+ * GET /api/v1/memory — list memory events (used by History button).
+ * Query: type, since, until, limit (max 100)
+ */
+app.get('/api/v1/memory', jwtAuth, async (req, res) => {
+  try {
+    const { createMemoryManager } = await import('../lib/memory.mjs');
+    const vaultId = req.vault_id || 'default';
+    const mm = createMemoryManager(config, vaultId);
+    const events = mm.list({
+      type: req.query.type || undefined,
+      since: req.query.since || undefined,
+      until: req.query.until || undefined,
+      limit: Math.min(parseInt(req.query.limit) || 20, 100),
+    });
+    res.json({ events, count: events.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });
 
