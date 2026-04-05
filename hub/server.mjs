@@ -1813,6 +1813,13 @@ app.use((err, req, res, next) => {
   }
   return next(err);
 });
+// Disable caching for JS/CSS so the browser always fetches the latest source.
+app.use((req, res, next) => {
+  if (/\.(mjs|js|css)$/.test(req.path)) {
+    res.set('Cache-Control', 'no-store');
+  }
+  next();
+});
 app.use(express.static(hubUiDir, { index: 'index.html' }));
 app.get('/', (_req, res) => {
   res.sendFile(path.join(hubUiDir, 'index.html'));
