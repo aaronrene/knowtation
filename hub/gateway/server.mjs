@@ -43,6 +43,8 @@ import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mj
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
 import { isAttestationConfigured, createAttestation, verifyAttestation, verifyWithIcp, anchorPendingAttestations } from './attest-store.mjs';
+import { loadBillingDb, mutateBillingDb } from './billing-store.mjs';
+import { normalizeBillingUser, defaultUserRecord } from './billing-logic.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -1061,17 +1063,79 @@ app.get('/api/v1/settings', async (req, res) => {
     proposal_policy_env_locked: proposalPolicyEnvLocked(),
     hub_evaluator_may_approve,
     proposal_rubric: loadProposalRubric(path.join(projectRoot, 'data')),
-    daemon: {
-      enabled: false,
-      interval_minutes: 120,
-      idle_only: true,
-      idle_threshold_minutes: 15,
-      run_on_start: false,
-      max_cost_per_day_usd: null,
-      passes: { consolidate: true, verify: true, discover: false },
-      llm: { provider: '', model: '', base_url: '' },
-    },
+    daemon: await (async () => {
+      try {
+        const db = await loadBillingDb();
+        const raw = db.users?.[uid] || defaultUserRecord(uid);
+        const u = normalizeBillingUser(raw);
+        return {
+          enabled: false,
+          interval_minutes: u.consolidation_interval_minutes || 120,
+          idle_only: true,
+          idle_threshold_minutes: 15,
+          run_on_start: false,
+          max_cost_per_day_usd: null,
+          passes: u.consolidation_passes,
+          llm: { provider: '', model: '', base_url: '' },
+          hosted_enabled: u.consolidation_enabled,
+        };
+      } catch (_) {
+        return {
+          enabled: false,
+          interval_minutes: 120,
+          idle_only: true,
+          idle_threshold_minutes: 15,
+          run_on_start: false,
+          max_cost_per_day_usd: null,
+          passes: { consolidate: true, verify: true, discover: false },
+          llm: { provider: '', model: '', base_url: '' },
+          hosted_enabled: false,
+        };
+      }
+    })(),
   });
+});
+
+/**
+ * POST /api/v1/settings/consolidation
+ * Hosted mode: save consolidation schedule + pass preferences to the billing store.
+ * Self-hosted daemon settings are not writable here; respond with an appropriate note.
+ */
+app.post('/api/v1/settings/consolidation', express.json(), async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const mode = typeof body.mode === 'string' ? body.mode : (body.enabled ? 'daemon' : 'hosted');
+  try {
+    let saved = {};
+    await mutateBillingDb((db) => {
+      if (!db.users) db.users = {};
+      if (!db.users[uid]) db.users[uid] = defaultUserRecord(uid);
+      const u = normalizeBillingUser(db.users[uid]);
+      if (mode === 'off') {
+        u.consolidation_enabled = false;
+      } else {
+        u.consolidation_enabled = true;
+        const iv = Math.floor(Number(body.interval_minutes) || 120);
+        if (iv >= 1 && iv <= 43200) u.consolidation_interval_minutes = iv;
+      }
+      if (body.passes && typeof body.passes === 'object') {
+        u.consolidation_passes = {
+          consolidate: body.passes.consolidate !== false,
+          verify: body.passes.verify !== false,
+          discover: Boolean(body.passes.discover),
+        };
+      }
+      saved = {
+        hosted_enabled: u.consolidation_enabled,
+        interval_minutes: u.consolidation_interval_minutes,
+        passes: u.consolidation_passes,
+      };
+    });
+    res.json({ ok: true, hosted: true, daemon: { enabled: false, ...saved } });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Failed to save', code: 'RUNTIME_ERROR' });
+  }
 });
 
 app.post('/api/v1/settings/proposal-policy', requireAdmin, async (req, res) => {

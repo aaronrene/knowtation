@@ -6,6 +6,7 @@ import {
   renderConsolidationHistory,
   formatCostMeter,
 } from '../web/hub/consolidation-ui-logic.mjs';
+import { normalizeBillingUser, defaultUserRecord } from '../hub/gateway/billing-logic.mjs';
 
 describe('populateConsolSettingsForm', () => {
   function makeForm() {
@@ -111,6 +112,7 @@ describe('buildConsolSettingsPayload', () => {
 
   it('builds daemon payload', () => {
     const payload = buildConsolSettingsPayload(makeForm(), 'daemon');
+    assert.equal(payload.mode, 'daemon');
     assert.equal(payload.enabled, true);
     assert.equal(payload.interval_minutes, 120);
     assert.equal(payload.idle_only, true);
@@ -123,11 +125,13 @@ describe('buildConsolSettingsPayload', () => {
 
   it('builds off payload', () => {
     const payload = buildConsolSettingsPayload(makeForm(), 'off');
+    assert.equal(payload.mode, 'off');
     assert.equal(payload.enabled, false);
   });
 
-  it('builds hosted payload (not enabled as daemon)', () => {
+  it('builds hosted payload (not enabled as daemon, mode=hosted)', () => {
     const payload = buildConsolSettingsPayload(makeForm(), 'hosted');
+    assert.equal(payload.mode, 'hosted');
     assert.equal(payload.enabled, false);
   });
 
@@ -284,5 +288,53 @@ describe('formatCostMeter', () => {
     const r = formatCostMeter(undefined, undefined);
     assert.equal(r.showMeter, false);
     assert.equal(r.display, '$0.000 today');
+  });
+});
+
+describe('gateway consolidation settings — billing store logic', () => {
+  it('defaultUserRecord includes consolidation_passes', () => {
+    const u = defaultUserRecord('test-user');
+    assert.deepEqual(u.consolidation_passes, { consolidate: true, verify: true, discover: false });
+    assert.equal(u.consolidation_enabled, false);
+    assert.equal(u.consolidation_interval_minutes, null);
+  });
+
+  it('normalizeBillingUser adds consolidation_passes when missing', () => {
+    const u = normalizeBillingUser({ user_id: 'x' });
+    assert.deepEqual(u.consolidation_passes, { consolidate: true, verify: true, discover: false });
+  });
+
+  it('normalizeBillingUser preserves existing consolidation_passes', () => {
+    const u = normalizeBillingUser({
+      user_id: 'x',
+      consolidation_passes: { consolidate: false, verify: true, discover: true },
+    });
+    assert.deepEqual(u.consolidation_passes, { consolidate: false, verify: true, discover: true });
+  });
+
+  it('normalizeBillingUser sets consolidation_enabled=false when undefined', () => {
+    const u = normalizeBillingUser({ user_id: 'x' });
+    assert.equal(u.consolidation_enabled, false);
+  });
+
+  it('buildConsolSettingsPayload mode=hosted sends mode field for gateway to distinguish from off', () => {
+    const form = {
+      'consol-interval': { value: '120' },
+      'consol-idle-only': { checked: true },
+      'consol-idle-threshold': { value: '15' },
+      'consol-run-on-start': { checked: false },
+      'pass-consolidate': { checked: true },
+      'pass-verify': { checked: true },
+      'pass-discover': { checked: false },
+      'consol-llm-provider': { value: '' },
+      'consol-llm-model': { value: '' },
+      'consol-llm-base-url': { value: '' },
+      'consol-cost-cap': { value: '' },
+    };
+    const hosted = buildConsolSettingsPayload(form, 'hosted');
+    const off = buildConsolSettingsPayload(form, 'off');
+    assert.equal(hosted.mode, 'hosted');
+    assert.equal(off.mode, 'off');
+    assert.notEqual(hosted.mode, off.mode, 'hosted and off must be distinguishable');
   });
 });
