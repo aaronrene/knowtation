@@ -3,7 +3,7 @@
  * Enforcement by token cap is documented in HOSTED-CREDITS-DESIGN.md (future: pre-flight or post-hoc policy).
  */
 import { billingShadowLogEnabled } from './billing-constants.mjs';
-import { defaultUserRecord, normalizeBillingUser } from './billing-logic.mjs';
+import { defaultUserRecord, normalizeBillingUser, effectiveMonthlyIndexingTokensIncluded } from './billing-logic.mjs';
 import { mutateBillingDb } from './billing-store.mjs';
 
 /**
@@ -28,13 +28,33 @@ export async function recordIndexingTokensAfterBridgeIndex(uid, statusCode, body
     const u = db.users[uid] || defaultUserRecord(uid);
     normalizeBillingUser(u);
     if (!db.users[uid]) db.users[uid] = u;
+
     // Increment both counters atomically in one write to avoid a race with runBillingGate.
     // A separate write from the billing middleware risks reading a stale Blob snapshot and
     // overwriting the job counter back to 0 on Netlify's eventually-consistent store.
     u.monthly_index_jobs_used =
       Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
-    u.monthly_indexing_tokens_used =
-      Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0)) + tokens;
+
+    const prevTokensUsed = Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0));
+    const newTokensUsed = prevTokensUsed + tokens;
+    u.monthly_indexing_tokens_used = newTokensUsed;
+
+    // Deduct from pack balance: only the marginal tokens that exceed the monthly included allotment.
+    // This keeps pack_indexing_tokens_balance accurate for display even before BILLING_ENFORCE=true.
+    // When the billing period resets (monthly_indexing_tokens_used → 0), the overflow restarts
+    // from zero so the pack balance is not double-charged.
+    const monthlyIncluded = effectiveMonthlyIndexingTokensIncluded(u);
+    if (monthlyIncluded !== null) {
+      const prevOverflow = Math.max(0, prevTokensUsed - monthlyIncluded);
+      const newOverflow = Math.max(0, newTokensUsed - monthlyIncluded);
+      const packDeduction = newOverflow - prevOverflow;
+      if (packDeduction > 0) {
+        u.pack_indexing_tokens_balance = Math.max(
+          0,
+          Math.floor(Number(u.pack_indexing_tokens_balance) || 0) - packDeduction,
+        );
+      }
+    }
   });
 
   if (billingShadowLogEnabled()) {
