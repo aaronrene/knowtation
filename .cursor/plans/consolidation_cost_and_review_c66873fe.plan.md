@@ -1,15 +1,15 @@
 ---
 name: Token savings (branch + docs + UI)
 overview: >-
-  On feature/token-savings: docs/TOKEN-SAVINGS.md; Hub How to use + Settings + Agents + Integrations — surface and explain the Discover pass (cost vs value); Advanced consolidation knobs (self-hosted YAML + hosted billing slice); encrypt-aware consolidate redaction + Hub privacy copy; hosted MCP search audit.
+  Billing: leave Discover inside one pass (no extra pass charge); revisit pricing only if usage strains margin — see TOKEN-SAVINGS.md. Docs + README done; remaining work is code/UI (requires Agent mode in Cursor). Phased sessions below.
 todos:
   - id: branch-token-savings
     content: Work from git branch feature/token-savings
     status: completed
   - id: docs-token-savings-md
     content: >-
-      Add docs/TOKEN-SAVINGS.md + README link — Advanced knobs, Discover on/off behavior and defaults, encrypt-aware consolidation, honest privacy
-    status: pending
+      docs/TOKEN-SAVINGS.md + README + docs/README links — phased checklist inside doc
+    status: completed
   - id: advanced-settings-selfhosted
     content: >-
       Self-hosted — extend GET/POST /api/v1/settings/consolidation (hub/server.mjs) to read/write lookback_hours, max_events_per_pass, max_topics_per_pass, daemon.llm.max_tokens; extend GET /api/v1/settings daemon payload; Hub UI Advanced section + consolidation-ui-logic.mjs + tests
@@ -24,17 +24,17 @@ todos:
     status: pending
   - id: hub-privacy-copy
     content: Reconcile web/hub/index.html Memory consolidation Privacy section with actual behavior + TOKEN-SAVINGS.md
-    status: pending
+    status: completed
   - id: hub-howto-token-savings
     content: Hub How to use — Token savings tab/section + links to doc
-    status: pending
+    status: completed
   - id: hub-settings-intro-agents
     content: Settings Consolidation intro link + Agents/Integrations token blurb
-    status: pending
+    status: completed
   - id: hub-surface-discover
     content: >-
-      Make Discover impossible to miss — Settings → Consolidation: stronger Passes copy (what it adds, cost); Integrations and/or consolidation dashboard card: short “Discover pass” explainer + link to TOKEN-SAVINGS; How to use Token savings section; optional one-line default badge “Off (recommended for cost)”
-    status: pending
+      Surface Discover + hosted billing truth — one POST /memory/consolidate = one pass + one COST_CENTS consolidation charge; Discover is extra LLM inside same run (not a second pass); Settings/Integrations/How to use + TOKEN-SAVINGS.md
+    status: completed
   - id: audit-hosted-mcp-search
     content: Hosted MCP POST search + parity fields (fields, snippet_chars, count_only)
     status: pending
@@ -48,6 +48,30 @@ isProject: false
 ---
 
 # Token savings — final plan (backend facts, encrypt, privacy, phases)
+
+## Product decisions (locked for now)
+
+- **Discover + hosted billing:** Keep current behavior — **one** consolidation pass / **one** metered hit per `POST /memory/consolidate`; Discover is extra LLM work **inside** the same run. **No code change** to billing for Discover unless metrics later justify it.
+- **Margin / “enough to absorb power users”:** The repo does not contain cost-of-goods or revenue; **whether** margin is sufficient is a **business** call. Structurally, power users with Discover on increase **provider token spend** while consuming the **same** pass count; monitor usage and revisit **TOKEN-SAVINGS.md** “Pricing may be revisited” if needed.
+
+## Phased work — new chat sessions and model choice
+
+| Phase | What | New session? | Model / review |
+|-------|------|----------------|----------------|
+| **A** | Hub HTML/JS: How to use “Token savings”, Settings intro, Integrations/Agents blurb, Discover + billing copy, privacy paragraph | Optional new chat | Default agent is fine |
+| **B** | `lib/memory-consolidate.mjs` encrypt-aware `buildConsolidationPrompt` + tests; bridge `CONSOLIDATION_MEMORY_ENCRYPT` | Same or new | Default + run `npm test` |
+| **C** | Self-hosted Advanced: `hub/server.mjs` GET/POST + Hub form + `consolidation-ui-logic.mjs` + tests | New chat if tired | Default |
+| **D** | Hosted Advanced: billing fields, gateway, scheduler, bridge body merge | **Prefer dedicated session** | **Stronger model or human** — billing mistakes are high impact |
+| **E** | Hosted MCP search POST + parity fields | Dedicated session | Stronger model or careful manual API test |
+| **F** | Pre-launch security / privacy audit | Separate | **Human or Opus-class** for policy copy |
+
+**All phases** can land on **`feature/token-savings`** (rebase/merge between sessions).
+
+## Cursor: Agent mode required for code
+
+Markdown updates are done (`docs/TOKEN-SAVINGS.md`, `README.md`, `docs/README.md`). Edits to **`.mjs`, `.html`, tests** were **blocked** while the workspace stayed in plan-only mode. **Switch to Agent mode** (or apply patches locally) to implement phases A–E.
+
+---
 
 ## Backend reality check — Advanced knobs (“do now” scope)
 
@@ -143,6 +167,8 @@ isProject: false
 
 **How much difference (cost):** One **additional** chat completion per consolidation run **when** Consolidate wrote at least one topic; input size scales with **number of topics consolidated in that run** and fact text (capped by `max_topics_per_pass` and model `max_tokens`). Rough magnitude: same order as **one** extra consolidate batch — see [`docs/DAEMON-CONSOLIDATION-SPEC.md`](docs/DAEMON-CONSOLIDATION-SPEC.md) cost table for LLM passes (Discover is another pass in that spirit).
 
+**Hosted billing — is Discover a second “pass” or a freebie?** **Neither.** Billing keys off **one HTTP request**: `POST …/memory/consolidate` ([`operationFromRequest`](hub/gateway/billing-middleware.mjs) → `op === 'consolidation'`). Each such request increments **`monthly_consolidation_jobs_used` by 1**, applies the **monthly pass cap / pack pass** logic once, and deducts **`COST_CENTS.consolidation`** (currently **5¢** per op when billing applies — [`billing-constants.mjs`](hub/gateway/billing-constants.mjs)) via [`tryDeduct`](hub/gateway/billing-logic.mjs). **Discover runs inside the same bridge call** as Consolidate/Verify ([`consolidateMemory`](lib/memory-consolidate.mjs)); it does **not** issue a second proxied request, so the user is **not** charged **two** pass allotments for one run. **Implication:** A power user with Discover on still consumes **one** consolidation pass per run and **one** flat credit line item per run, while **your** variable LLM spend (tokens) is **higher** than with Discover off. **Not** proportional to “file size” in the billing layer — billing is **per run**, not per token. **Docs/UI:** State explicitly: *“One scheduled or manual consolidation run counts as one pass toward your plan; enabling Discover adds extra AI work inside that same run (higher provider cost for us, same pass counter for you).”* **Optional later product change** (if margins tighten): increase `COST_CENTS.consolidation` when `passes.discover` is true, or count Discover as a fractional/extra pass — **not implemented today**; treat as a deliberate pricing decision.
+
 **Where it is today:** Hub **Settings → Consolidation → Passes** already has **“Discover — cross-topic insights (uses more LLM tokens, optional)”** ([`web/hub/index.html`](web/hub/index.html) `pass-discover`). If you did not see it, likely **Consolidation tab** was not opened or an **older `hub.js` / cache** was loaded. **Plan:** make Discover **visible again** in **Integrations**, **How to use**, and **short helper text** next to the checkbox so it is not buried.
 
 ---
@@ -166,7 +192,7 @@ isProject: false
 | Hosted now | **We add** storage on your **account record** and teach the **scheduler** to pass them into each run — **new code**, not already there. |
 | Encrypt + consolidate | **“Locked drawer”** (disk) vs **“what we read aloud to the AI”** — we align so **encrypt means minimal speech**, not just a locked drawer. |
 | Encrypt-aware consolidate redaction | When encrypt is on, **don’t paste event contents into the consolidation prompt** — only the bare minimum labels. |
-| Discover pass | **Optional** “meta” AI pass: **links themes and questions across topics**; **extra cost**; **off by default**. |
+| Discover pass | **Optional** “meta” AI inside the **same** consolidation **run**; **one pass / one credit charge per run** on hosted ([`billing-middleware`](hub/gateway/billing-middleware.mjs)); **extra LLM tokens = your COGS**, not an extra pass count for the user today. |
 | Privacy text | **Stop overpromising**; match what the code actually sends, then tighten again after redaction. |
 
 ---

@@ -69,6 +69,7 @@ knowtation/
 - **[docs/CLARIFICATIONS.md](./docs/CLARIFICATIONS.md)** — Simple explanations: capture/import contracts, optional memory/AIR, backends behind an abstraction, “plug into any LLM or service.”
 - **[docs/INTENTION-AND-TEMPORAL.md](./docs/INTENTION-AND-TEMPORAL.md)** — Intention and temporal understanding: temporal sequence, causation, hierarchical memory, state compression, evals. Optional frontmatter and CLI filters; schema defined now so we don’t backtrack.
 - **[docs/RETRIEVAL-AND-CLI-REFERENCE.md](./docs/RETRIEVAL-AND-CLI-REFERENCE.md)** — All CLI commands and add-on features in one place; how they interact; how each helps the retrieval bottleneck and token cost; expansions (e.g. `--fields`, `--snippet-chars`, `--count-only`) for right information at best price token-wise.
+- **[docs/TOKEN-SAVINGS.md](./docs/TOKEN-SAVINGS.md)** — **Token savings:** consolidation passes, Discover vs billing, tiered retrieval, `memory.encrypt` and consolidation prompts, advanced knobs; phased implementation checklist.
 - **[docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md)** — Capture plugin contract: output location, frontmatter, idempotency. Use when building Telegram, Slack, or custom capture plugins.
 - **[docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md)** — Import from ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, markdown, audio/video; formats and how to run.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — High-level design; points to SPEC for details.

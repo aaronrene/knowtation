@@ -27,6 +27,11 @@ export function populateConsolSettingsForm(settings, form) {
   if (form['consol-llm-model']) form['consol-llm-model'].value = d.llm?.model || '';
   if (form['consol-llm-base-url']) form['consol-llm-base-url'].value = d.llm?.base_url || '';
   if (form['consol-cost-cap']) form['consol-cost-cap'].value = d.max_cost_per_day_usd != null ? d.max_cost_per_day_usd : '';
+  if (form['consol-hosted-interval'] != null && d.interval_minutes != null) {
+    const v = String(d.interval_minutes);
+    const allowed = ['30', '60', '120', '360', '720', '1440', '10080'];
+    form['consol-hosted-interval'].value = allowed.includes(v) ? v : '120';
+  }
 
   return mode;
 }
@@ -38,10 +43,14 @@ export function populateConsolSettingsForm(settings, form) {
  * @returns {object} payload matching POST /api/v1/settings/consolidation schema
  */
 export function buildConsolSettingsPayload(form, mode) {
+  const intervalRaw =
+    mode === 'hosted' && form['consol-hosted-interval'] != null
+      ? form['consol-hosted-interval'].value
+      : form['consol-interval']?.value;
   return {
     mode,
     enabled: mode === 'daemon',
-    interval_minutes: Math.max(1, Math.floor(Number(form['consol-interval']?.value) || 120)),
+    interval_minutes: Math.max(1, Math.floor(Number(intervalRaw) || 120)),
     idle_only: Boolean(form['consol-idle-only']?.checked),
     idle_threshold_minutes: Math.max(1, Math.floor(Number(form['consol-idle-threshold']?.value) || 15)),
     run_on_start: Boolean(form['consol-run-on-start']?.checked),

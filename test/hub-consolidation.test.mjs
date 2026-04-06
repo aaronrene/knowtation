@@ -22,6 +22,7 @@ describe('populateConsolSettingsForm', () => {
       'consol-llm-model': { value: '' },
       'consol-llm-base-url': { value: '' },
       'consol-cost-cap': { value: '' },
+      'consol-hosted-interval': { value: '120' },
     };
   }
 
@@ -48,6 +49,16 @@ describe('populateConsolSettingsForm', () => {
   it('returns hosted when hosted_delegating is true', () => {
     const settings = { daemon: { enabled: false }, hosted_delegating: true };
     assert.equal(populateConsolSettingsForm(settings, makeForm()), 'hosted');
+  });
+
+  it('syncs consol-hosted-interval when interval matches schedule options', () => {
+    const settings = {
+      daemon: { enabled: false, interval_minutes: 360 },
+      hosted_delegating: true,
+    };
+    const form = makeForm();
+    populateConsolSettingsForm(settings, form);
+    assert.equal(form['consol-hosted-interval'].value, '360');
   });
 
   it('populates all form fields from daemon config', () => {
@@ -96,6 +107,7 @@ describe('buildConsolSettingsPayload', () => {
   function makeForm(overrides = {}) {
     return {
       'consol-interval': { value: '120' },
+      'consol-hosted-interval': { value: '120' },
       'consol-idle-only': { checked: true },
       'consol-idle-threshold': { value: '15' },
       'consol-run-on-start': { checked: false },
@@ -133,6 +145,14 @@ describe('buildConsolSettingsPayload', () => {
     const payload = buildConsolSettingsPayload(makeForm(), 'hosted');
     assert.equal(payload.mode, 'hosted');
     assert.equal(payload.enabled, false);
+  });
+
+  it('uses consol-hosted-interval for interval_minutes when mode is hosted', () => {
+    const payload = buildConsolSettingsPayload(
+      makeForm({ 'consol-hosted-interval': { value: '360' }, 'consol-interval': { value: '120' } }),
+      'hosted',
+    );
+    assert.equal(payload.interval_minutes, 360);
   });
 
   it('includes cost cap when set', () => {
