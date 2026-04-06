@@ -21,7 +21,7 @@ todos:
   - id: encrypt-consolidate-implement
     content: >-
       Encrypt-aware consolidate redaction — when memory.encrypt true, omit raw e.data from buildConsolidationPrompt (minimal lines only); tests; hosted bridge sets memory.encrypt when applicable
-    status: pending
+    status: completed
   - id: hub-privacy-copy
     content: Reconcile web/hub/index.html Memory consolidation Privacy section with actual behavior + TOKEN-SAVINGS.md
     status: completed

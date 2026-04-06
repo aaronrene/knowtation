@@ -4,6 +4,7 @@
  * Index/search: pull vault from canister, chunk → embed → sqlite-vec per user; search via POST /api/v1/search.
  * On Netlify, tokens and vector DBs persist via Netlify Blobs (set by netlify/functions/bridge.mjs).
  * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional HUB_UI_ORIGIN, HUB_UI_PATH (default /hub), GITHUB_*, EMBEDDING_*, BRIDGE_PORT, DATA_DIR.
+ * Consolidation: CONSOLIDATION_LLM_API_KEY / OPENAI_API_KEY, CONSOLIDATION_LLM_MODEL; CONSOLIDATION_MEMORY_ENCRYPT=true omits raw event payloads from consolidation LLM prompts.
  */
 
 import fs from 'fs';
@@ -2285,7 +2286,10 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
         model: process.env.CONSOLIDATION_LLM_MODEL || 'gpt-4o-mini',
       },
       daemon: {},
-      memory: { provider: 'file' },
+      memory: {
+        provider: 'file',
+        encrypt: process.env.CONSOLIDATION_MEMORY_ENCRYPT === 'true',
+      },
     };
 
     // Track LLM call cost via a wrapping llmFn.

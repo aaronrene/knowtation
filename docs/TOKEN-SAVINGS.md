@@ -52,7 +52,7 @@ These limit how much work each run does:
 ## Privacy: consolidation and `memory.encrypt`
 
 - **At-rest encryption** protects data on disk when using the encrypted memory provider.
-- **Consolidation** still builds **prompts** for the model. When **`memory.encrypt` is true**, Knowtation uses **encrypt-aware consolidate redaction**: consolidation prompts **omit raw event payloads** and only include minimal lines (timestamp, event type, and topic context), so **less user content is sent to the LLM**. Merge quality may be lower than when full event snippets are sent.
+- **Consolidation** still builds **prompts** for the model. When **`memory.encrypt` is true** (self-hosted: `config/local.yaml` → `memory.encrypt: true`; hosted bridge: env **`CONSOLIDATION_MEMORY_ENCRYPT=true`**), Knowtation uses **encrypt-aware consolidate redaction** in `buildConsolidationPrompt` (`lib/memory-consolidate.mjs`): each event line is `[ts] type (event payload omitted — encrypted memory mode)` — **no** `JSON.stringify(data)` is sent. Merge quality may be lower than when snippets are sent.
 
 When encrypt is **false**, prompts include **truncated JSON** from each event’s `data` (up to 300 characters per event). That is **not** your full note files as a single upload, but **may include short text fragments** captured in activity.
 
@@ -74,7 +74,7 @@ Work on branch `feature/token-savings` (or main after merge).
 |-------|--------|--------|-------------------|
 | **A0** | This doc + [README](../README.md) + [docs/README](./README.md) links | **Done** | — |
 | **A1** | Hub copy (How to use, Settings, Integrations) + privacy paragraph | **Done** (Hub `index.html` + `hub.js`; payload `mode` + hosted schedule sync) | — |
-| **B** | `buildConsolidationPrompt` encrypt redaction + tests + bridge env `CONSOLIDATION_MEMORY_ENCRYPT` | Pending | Run `npm test` after |
+| **B** | `buildConsolidationPrompt` encrypt redaction + tests + bridge env `CONSOLIDATION_MEMORY_ENCRYPT` | **Done** | `lib/memory-consolidate.mjs`, `hub/bridge/server.mjs`, `test/memory-consolidate.test.mjs` |
 | **C** | Self-hosted Advanced (YAML + GET/POST + UI + `consolidation-ui-logic`) | Pending | Same or new chat |
 | **D** | Hosted Advanced (billing + gateway + scheduler + bridge body) | Pending | **Dedicated chat; stronger review** |
 | **E** | Hosted MCP `search`: POST + parity fields | Pending | Dedicated chat |

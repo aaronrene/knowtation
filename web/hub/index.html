@@ -1903,7 +1903,7 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Privacy</h3>
-              <p>Consolidation builds prompts from <strong>memory events</strong>: each line includes a <strong>short JSON snippet</strong> of that event’s <code>data</code> (capped in length). Your full note files are <strong>not</strong> uploaded as a single document, but <strong>fragments of text</strong> that were stored on those events (e.g. search queries, titles) <strong>can</strong> appear. With <strong>encrypted memory</strong> enabled in config, the product roadmap is to omit raw payloads from consolidation prompts (see <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>). For maximum privacy: self-hosted <strong>Ollama</strong>, turn consolidation <strong>off</strong>, or limit what gets captured into memory events.</p>
+              <p>Consolidation builds prompts from <strong>memory events</strong>. By default each line includes a <strong>short JSON snippet</strong> of that event’s <code>data</code> (capped in length). Your full note files are <strong>not</strong> uploaded as a single document, but <strong>fragments of text</strong> that were stored on those events (e.g. search queries, titles) <strong>can</strong> appear. With <strong><code>memory.encrypt: true</code></strong> in <code>config/local.yaml</code> (self-hosted) or <strong><code>CONSOLIDATION_MEMORY_ENCRYPT=true</code></strong> on the hosted bridge, consolidation <strong>omits raw event payloads</strong> from the model prompt (timestamps and event types only). See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>. For maximum privacy: self-hosted <strong>Ollama</strong>, turn consolidation <strong>off</strong>, or limit what gets captured into memory events.</p>
             </section>
           </div>
         </div>
@@ -1937,6 +1937,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260406a"></script>
+  <script src="hub.js?v=20260406b"></script>
 </body>
 </html>
