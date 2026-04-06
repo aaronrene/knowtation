@@ -31,6 +31,9 @@ export function normalizeBillingUser(u) {
   if (typeof u.pack_indexing_tokens_balance !== 'number' || !Number.isFinite(u.pack_indexing_tokens_balance)) {
     u.pack_indexing_tokens_balance = 0;
   }
+  if (typeof u.pack_consolidation_passes_balance !== 'number' || !Number.isFinite(u.pack_consolidation_passes_balance)) {
+    u.pack_consolidation_passes_balance = 0;
+  }
   if (typeof u.monthly_searches_used !== 'number' || !Number.isFinite(u.monthly_searches_used)) {
     u.monthly_searches_used = 0;
   }
@@ -134,6 +137,7 @@ export function defaultUserRecord(userId) {
     addon_cents: 0,
     monthly_indexing_tokens_used: 0,
     pack_indexing_tokens_balance: 0,
+    pack_consolidation_passes_balance: 0,
     monthly_searches_used: 0,
     monthly_index_jobs_used: 0,
     monthly_consolidation_jobs_used: 0,

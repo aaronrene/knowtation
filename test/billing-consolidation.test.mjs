@@ -20,6 +20,8 @@ import assert from 'node:assert';
 
 import {
   CONSOLIDATION_PASSES_BY_TIER,
+  PACK_CONSOLIDATIONS,
+  addonConsolidationsFromPackPriceId,
   COST_CENTS,
   COST_BREAKDOWN,
 } from '../hub/gateway/billing-constants.mjs';
@@ -298,5 +300,183 @@ describe('billing summary: consolidation fields exposed', () => {
     assert.strictEqual(summary.monthly_consolidation_jobs_used, 5);
     assert.strictEqual(summary.monthly_consolidation_jobs_included, 100); // growth tier: 100/mo
     assert.strictEqual(summary.consolidation_last_pass_at, '2026-04-05T10:00:00.000Z');
+  });
+
+  it('billing summary includes pack_consolidation_passes_balance', () => {
+    const u = defaultUserRecord('pack_consol_user');
+    u.tier = 'plus';
+    normalizeBillingUser(u);
+    u.pack_consolidation_passes_balance = 50;
+
+    const summary = {
+      pack_consolidation_passes_balance: Math.max(0, Math.floor(u.pack_consolidation_passes_balance || 0)),
+    };
+    assert.strictEqual(summary.pack_consolidation_passes_balance, 50);
+  });
+});
+
+// ── PACK_CONSOLIDATIONS constants ─────────────────────────────────────────────
+
+describe('PACK_CONSOLIDATIONS', () => {
+  it('small pack grants 50 consolidation passes', () => {
+    assert.strictEqual(PACK_CONSOLIDATIONS.small, 50);
+  });
+  it('medium pack grants 150 consolidation passes', () => {
+    assert.strictEqual(PACK_CONSOLIDATIONS.medium, 150);
+  });
+  it('large pack grants 350 consolidation passes', () => {
+    assert.strictEqual(PACK_CONSOLIDATIONS.large, 350);
+  });
+});
+
+// ── addonConsolidationsFromPackPriceId ────────────────────────────────────────
+
+describe('addonConsolidationsFromPackPriceId', () => {
+  it('returns null for null/undefined price id', () => {
+    assert.strictEqual(addonConsolidationsFromPackPriceId(null), null);
+    assert.strictEqual(addonConsolidationsFromPackPriceId(undefined), null);
+    assert.strictEqual(addonConsolidationsFromPackPriceId(''), null);
+  });
+
+  it('returns null for an unknown price id', () => {
+    assert.strictEqual(addonConsolidationsFromPackPriceId('price_unknown_xyz'), null);
+  });
+
+  it('returns the correct amount for a known env price id', () => {
+    const origSmall = process.env.STRIPE_PRICE_PACK_10;
+    process.env.STRIPE_PRICE_PACK_10 = 'price_small_test';
+    try {
+      assert.strictEqual(addonConsolidationsFromPackPriceId('price_small_test'), PACK_CONSOLIDATIONS.small);
+    } finally {
+      if (origSmall === undefined) delete process.env.STRIPE_PRICE_PACK_10;
+      else process.env.STRIPE_PRICE_PACK_10 = origSmall;
+    }
+  });
+});
+
+// ── normalizeBillingUser: pack_consolidation_passes_balance ───────────────────
+
+describe('normalizeBillingUser: pack_consolidation_passes_balance field', () => {
+  it('initialises to 0 when missing', () => {
+    const u = { tier: 'plus' };
+    normalizeBillingUser(u);
+    assert.strictEqual(u.pack_consolidation_passes_balance, 0);
+  });
+
+  it('preserves an existing valid value', () => {
+    const u = { tier: 'plus', pack_consolidation_passes_balance: 150 };
+    normalizeBillingUser(u);
+    assert.strictEqual(u.pack_consolidation_passes_balance, 150);
+  });
+
+  it('resets NaN to 0', () => {
+    const u = { tier: 'plus', pack_consolidation_passes_balance: NaN };
+    normalizeBillingUser(u);
+    assert.strictEqual(u.pack_consolidation_passes_balance, 0);
+  });
+});
+
+// ── defaultUserRecord: pack_consolidation_passes_balance ──────────────────────
+
+describe('defaultUserRecord: pack_consolidation_passes_balance field', () => {
+  it('is present and equals 0', () => {
+    const u = defaultUserRecord('u_pack_consol');
+    assert.ok('pack_consolidation_passes_balance' in u);
+    assert.strictEqual(u.pack_consolidation_passes_balance, 0);
+  });
+});
+
+// ── Pack consolidation pass enforcement (unit simulation) ─────────────────────
+
+describe('Billing gate: monthly cap exhausted → draw from pack passes', () => {
+  /**
+   * Simulates the enforcement block from billing-middleware.mjs:
+   *   - monthly_consolidation_jobs_used is already post-increment when checked
+   *   - if > passCap, draw from pack or block
+   */
+  function simulateConsolidationGate(u) {
+    const passCap = effectiveMonthlyConsolidationPassesIncluded(u);
+
+    // Free tier — always block
+    if (passCap !== null && passCap === 0) {
+      return { ok: false, code: 'CONSOLIDATION_NOT_AVAILABLE' };
+    }
+
+    if (passCap !== null) {
+      // Post-increment value
+      const passesUsed = Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0));
+      if (passesUsed > passCap) {
+        const packPasses = Math.max(0, Math.floor(Number(u.pack_consolidation_passes_balance) || 0));
+        if (packPasses > 0) {
+          u.pack_consolidation_passes_balance = packPasses - 1;
+          return { ok: true, source: 'pack' };
+        }
+        u.monthly_consolidation_jobs_used = passesUsed - 1; // undo
+        return { ok: false, code: 'CONSOLIDATION_QUOTA_EXHAUSTED' };
+      }
+    }
+
+    return { ok: true, source: 'monthly' };
+  }
+
+  it('allows pass within monthly cap', () => {
+    const u = defaultUserRecord('within_cap');
+    u.tier = 'plus'; // cap = 30
+    u.monthly_consolidation_jobs_used = 15; // post-increment, still within cap
+    const r = simulateConsolidationGate(u);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.source, 'monthly');
+  });
+
+  it('draws from pack when monthly cap exceeded and pack has passes', () => {
+    const u = defaultUserRecord('pack_draw');
+    u.tier = 'plus'; // cap = 30
+    u.monthly_consolidation_jobs_used = 31; // post-increment, 1 over cap
+    u.pack_consolidation_passes_balance = 50;
+    const r = simulateConsolidationGate(u);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.source, 'pack');
+    assert.strictEqual(u.pack_consolidation_passes_balance, 49);
+  });
+
+  it('blocks when monthly cap exceeded and pack is empty', () => {
+    const u = defaultUserRecord('no_pack');
+    u.tier = 'plus'; // cap = 30
+    u.monthly_consolidation_jobs_used = 31; // post-increment, 1 over cap
+    u.pack_consolidation_passes_balance = 0;
+    const r = simulateConsolidationGate(u);
+    assert.strictEqual(r.ok, false);
+    assert.strictEqual(r.code, 'CONSOLIDATION_QUOTA_EXHAUSTED');
+    // Counter must be rolled back so display stays accurate
+    assert.strictEqual(u.monthly_consolidation_jobs_used, 30);
+  });
+
+  it('unlimited tier (beta) never hits the cap', () => {
+    const u = defaultUserRecord('beta_unlimited');
+    u.tier = 'beta'; // cap = null
+    u.monthly_consolidation_jobs_used = 9999;
+    u.pack_consolidation_passes_balance = 0;
+    const r = simulateConsolidationGate(u);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.source, 'monthly');
+  });
+
+  it('depletes pack passes one at a time across multiple overages', () => {
+    const u = defaultUserRecord('multi_overage');
+    u.tier = 'growth'; // cap = 100
+    u.pack_consolidation_passes_balance = 3;
+
+    for (let i = 1; i <= 3; i++) {
+      u.monthly_consolidation_jobs_used = 100 + i; // simulate repeated post-increment
+      const r = simulateConsolidationGate(u);
+      assert.strictEqual(r.ok, true, `pass ${i} should succeed`);
+      assert.strictEqual(u.pack_consolidation_passes_balance, 3 - i);
+    }
+
+    // 4th overage — pack now empty
+    u.monthly_consolidation_jobs_used = 104;
+    const r4 = simulateConsolidationGate(u);
+    assert.strictEqual(r4.ok, false);
+    assert.strictEqual(r4.code, 'CONSOLIDATION_QUOTA_EXHAUSTED');
   });
 });

@@ -154,9 +154,11 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
       }
 
       if (billingEnforced()) {
-        // Consolidation-specific cap check: free tier (cap=0) is always blocked.
+        // Consolidation-specific cap check.
         if (op === 'consolidation') {
           const passCap = effectiveMonthlyConsolidationPassesIncluded(u);
+
+          // Free tier: no hosted consolidation at all.
           if (passCap !== null && passCap === 0) {
             res.status(402).json({
               error: 'Hosted memory consolidation is not available on the free tier. Upgrade to a paid plan.',
@@ -164,6 +166,31 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
               tier: u.tier || 'free',
             });
             return false;
+          }
+
+          // Paid tier with a monthly cap: check if the monthly allotment is exhausted.
+          // NOTE: monthly_consolidation_jobs_used was already incremented above (line ~152),
+          // so the current value reflects the operation being attempted (post-increment).
+          if (passCap !== null) {
+            const passesUsedAfterIncrement = Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0));
+            if (passesUsedAfterIncrement > passCap) {
+              // Monthly exhausted — try to draw one pass from the pack balance.
+              const packPasses = Math.max(0, Math.floor(Number(u.pack_consolidation_passes_balance) || 0));
+              if (packPasses > 0) {
+                u.pack_consolidation_passes_balance = packPasses - 1;
+              } else {
+                // Undo the counter increment so the display stays accurate.
+                u.monthly_consolidation_jobs_used = passesUsedAfterIncrement - 1;
+                res.status(402).json({
+                  error: 'Monthly consolidation passes exhausted. Purchase a token pack to add more.',
+                  code: 'CONSOLIDATION_QUOTA_EXHAUSTED',
+                  tier: u.tier || 'free',
+                  monthly_cap: passCap,
+                  pack_passes_remaining: 0,
+                });
+                return false;
+              }
+            }
           }
         }
 
