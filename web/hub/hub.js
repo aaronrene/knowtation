@@ -2911,9 +2911,13 @@
         return_url: window.location.origin + window.location.pathname + '?open=billing',
       }),
     });
-    if (resp && resp.url) {
-      window.location.href = resp.url;
+    const url = resp && typeof resp.url === 'string' ? resp.url.trim() : '';
+    if (!url) {
+      throw new Error(
+        'Billing portal did not return a URL. In Stripe Dashboard → Settings → Customer portal, activate the portal and save.',
+      );
     }
+    window.location.assign(url);
   }
 
   async function loadBillingPanel() {
@@ -3113,13 +3117,22 @@
   const btnBillingManage = el('btn-billing-manage');
   if (btnBillingManage) {
     btnBillingManage.addEventListener('click', async () => {
+      const panelMsg = el('billing-panel-msg');
+      if (panelMsg) {
+        panelMsg.textContent = '';
+        panelMsg.className = 'settings-intro small muted';
+      }
       setButtonBusy(btnBillingManage, true, 'Redirecting…');
       try {
         await redirectToPortal();
       } catch (e) {
         setButtonBusy(btnBillingManage, false);
-        const packMsg = el('billing-panel-msg');
-        if (packMsg) { packMsg.textContent = e?.message || 'Could not open billing portal.'; packMsg.className = 'settings-intro small err'; }
+        const errText = e?.message || 'Could not open billing portal.';
+        if (panelMsg) {
+          panelMsg.textContent = errText;
+          panelMsg.className = 'settings-intro small err';
+          panelMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       }
     });
   }

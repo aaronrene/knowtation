@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tryDeduct } from '../hub/gateway/billing-logic.mjs';
+import { tryDeduct, inferPackConsolidationPassesFromIndexingTokenBalance } from '../hub/gateway/billing-logic.mjs';
 
 test('tryDeduct: beta tier never blocks', () => {
   const u = {
@@ -61,4 +61,25 @@ test('tryDeduct: QUOTA_EXHAUSTED when both pools insufficient', () => {
   const r = tryDeduct(u, 100);
   assert.equal(r.ok, false);
   assert.equal(r.code, 'QUOTA_EXHAUSTED');
+});
+
+test('inferPackConsolidationPassesFromIndexingTokenBalance: 80M → 200 (medium + small)', () => {
+  assert.equal(inferPackConsolidationPassesFromIndexingTokenBalance(80_000_000), 200);
+});
+
+test('inferPackConsolidationPassesFromIndexingTokenBalance: 60M → 150 (one medium)', () => {
+  assert.equal(inferPackConsolidationPassesFromIndexingTokenBalance(60_000_000), 150);
+});
+
+test('inferPackConsolidationPassesFromIndexingTokenBalance: 20M → 50 (one small)', () => {
+  assert.equal(inferPackConsolidationPassesFromIndexingTokenBalance(20_000_000), 50);
+});
+
+test('inferPackConsolidationPassesFromIndexingTokenBalance: remainder uses 400k tokens/pass', () => {
+  assert.equal(inferPackConsolidationPassesFromIndexingTokenBalance(10_000_000), 25);
+});
+
+test('inferPackConsolidationPassesFromIndexingTokenBalance: zero / NaN', () => {
+  assert.equal(inferPackConsolidationPassesFromIndexingTokenBalance(0), 0);
+  assert.equal(inferPackConsolidationPassesFromIndexingTokenBalance(NaN), 0);
 });
