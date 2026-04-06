@@ -336,6 +336,38 @@ describe('runScheduler — triggers due users and updates last_pass_at', () => {
 
     assert.equal(capturedHeaders['Content-Type'], 'application/json');
   });
+
+  it('POST body includes lookback and caps from billing user record', async () => {
+    const user = makeUser({
+      consolidation_last_pass_at: null,
+      consolidation_lookback_hours: 48,
+      consolidation_max_events_per_pass: 99,
+      consolidation_max_topics_per_pass: 4,
+      consolidation_llm_max_tokens: 2048,
+    });
+    let parsed = null;
+    const { loadDb, mutateDb } = makeOpts([user]);
+
+    await runScheduler({
+      sessionSecret: SECRET,
+      bridgeUrl: BRIDGE,
+      billingEnforce: true,
+      nowMs: NOW_MS,
+      loadDb,
+      mutateDb,
+      fetchFn: async (_url, init) => {
+        parsed = JSON.parse(init.body);
+        return { ok: true, json: async () => ({ topics: [], total_events: 0 }), text: async () => '' };
+      },
+    });
+
+    assert.equal(parsed.lookback_hours, 48);
+    assert.equal(parsed.max_events_per_pass, 99);
+    assert.equal(parsed.max_topics_per_pass, 4);
+    assert.equal(parsed.llm.max_tokens, 2048);
+    assert.equal(parsed.passes.consolidate, true);
+    assert.equal(parsed.passes.verify, true);
+  });
 });
 
 // ── runScheduler: per-user errors do not abort the run ────────────────────────

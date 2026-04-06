@@ -151,6 +151,14 @@ describe('defaultUserRecord: consolidation fields', () => {
     const u = defaultUserRecord('u_default');
     assert.strictEqual(u.consolidation_interval_minutes, null);
   });
+
+  it('includes hosted advanced consolidation defaults on the billing record', () => {
+    const u = defaultUserRecord('u_adv');
+    assert.strictEqual(u.consolidation_lookback_hours, 24);
+    assert.strictEqual(u.consolidation_max_events_per_pass, 200);
+    assert.strictEqual(u.consolidation_max_topics_per_pass, 10);
+    assert.strictEqual(u.consolidation_llm_max_tokens, 1024);
+  });
 });
 
 // ── Billing gate consolidation logic (unit-tested via the pure functions) ─────

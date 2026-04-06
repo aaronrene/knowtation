@@ -10,6 +10,21 @@ import {
   PACK_TOKENS,
   PACK_CONSOLIDATIONS,
 } from './billing-constants.mjs';
+import {
+  clampConsolidationInt,
+  HOSTED_CONSOL_DEFAULT_LOOKBACK_HOURS,
+  HOSTED_CONSOL_DEFAULT_MAX_EVENTS,
+  HOSTED_CONSOL_DEFAULT_MAX_TOPICS,
+  HOSTED_CONSOL_DEFAULT_LLM_MAX_TOKENS,
+  HOSTED_CONSOL_LOOKBACK_MIN,
+  HOSTED_CONSOL_LOOKBACK_MAX,
+  HOSTED_CONSOL_MAX_EVENTS_MIN,
+  HOSTED_CONSOL_MAX_EVENTS_MAX,
+  HOSTED_CONSOL_MAX_TOPICS_MIN,
+  HOSTED_CONSOL_MAX_TOPICS_MAX,
+  HOSTED_CONSOL_LLM_TOKENS_MIN,
+  HOSTED_CONSOL_LLM_TOKENS_MAX,
+} from '../../lib/hosted-consolidation-advanced.mjs';
 
 /**
  * @param {object} u - Billing user record
@@ -60,6 +75,30 @@ export function normalizeBillingUser(u) {
   if (!u.consolidation_passes || typeof u.consolidation_passes !== 'object') {
     u.consolidation_passes = { consolidate: true, verify: true, discover: false };
   }
+  u.consolidation_lookback_hours = clampConsolidationInt(
+    u.consolidation_lookback_hours,
+    HOSTED_CONSOL_LOOKBACK_MIN,
+    HOSTED_CONSOL_LOOKBACK_MAX,
+    HOSTED_CONSOL_DEFAULT_LOOKBACK_HOURS,
+  );
+  u.consolidation_max_events_per_pass = clampConsolidationInt(
+    u.consolidation_max_events_per_pass,
+    HOSTED_CONSOL_MAX_EVENTS_MIN,
+    HOSTED_CONSOL_MAX_EVENTS_MAX,
+    HOSTED_CONSOL_DEFAULT_MAX_EVENTS,
+  );
+  u.consolidation_max_topics_per_pass = clampConsolidationInt(
+    u.consolidation_max_topics_per_pass,
+    HOSTED_CONSOL_MAX_TOPICS_MIN,
+    HOSTED_CONSOL_MAX_TOPICS_MAX,
+    HOSTED_CONSOL_DEFAULT_MAX_TOPICS,
+  );
+  u.consolidation_llm_max_tokens = clampConsolidationInt(
+    u.consolidation_llm_max_tokens,
+    HOSTED_CONSOL_LLM_TOKENS_MIN,
+    HOSTED_CONSOL_LLM_TOKENS_MAX,
+    HOSTED_CONSOL_DEFAULT_LLM_MAX_TOKENS,
+  );
   return u;
 }
 
@@ -183,5 +222,9 @@ export function defaultUserRecord(userId) {
     consolidation_last_pass_at: null,
     consolidation_interval_minutes: null,
     consolidation_passes: { consolidate: true, verify: true, discover: false },
+    consolidation_lookback_hours: HOSTED_CONSOL_DEFAULT_LOOKBACK_HOURS,
+    consolidation_max_events_per_pass: HOSTED_CONSOL_DEFAULT_MAX_EVENTS,
+    consolidation_max_topics_per_pass: HOSTED_CONSOL_DEFAULT_MAX_TOPICS,
+    consolidation_llm_max_tokens: HOSTED_CONSOL_DEFAULT_LLM_MAX_TOKENS,
   };
 }

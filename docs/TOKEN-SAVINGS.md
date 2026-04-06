@@ -47,7 +47,7 @@ These limit how much work each run does:
 
 **Self-hosted:** Set in `config/local.yaml` under `daemon:` or via **Hub → Settings → Consolidation → Advanced** (writes YAML through the Hub API).
 
-**Hosted:** Stored on the user record in the billing DB when implemented; the scheduler sends them in the consolidate request body so the bridge applies them.
+**Hosted:** Stored on the billing user record (`consolidation_lookback_hours`, `consolidation_max_events_per_pass`, `consolidation_max_topics_per_pass`, `consolidation_llm_max_tokens`); the gateway merges them into `GET /api/v1/settings` (`daemon.*`) and into proxied `POST /api/v1/memory/consolidate`; the scheduler includes them in the JSON body to the bridge; the bridge merges any missing fields with the same billing record before running `consolidateMemory`.
 
 ## Privacy: consolidation and `memory.encrypt`
 
@@ -76,7 +76,7 @@ Work on branch `feature/token-savings` (or main after merge).
 | **A1** | Hub copy (How to use, Settings, Integrations) + privacy paragraph | **Done** (Hub `index.html` + `hub.js`; payload `mode` + hosted schedule sync) | — |
 | **B** | `buildConsolidationPrompt` encrypt redaction + tests + bridge env `CONSOLIDATION_MEMORY_ENCRYPT` | **Done** | `lib/memory-consolidate.mjs`, `hub/bridge/server.mjs`, `test/memory-consolidate.test.mjs` |
 | **C** | Self-hosted Advanced (YAML + GET/POST + UI + `consolidation-ui-logic`) | **Done** | — |
-| **D** | Hosted Advanced (billing + gateway + scheduler + bridge body) | Pending | **Dedicated chat; stronger review** |
+| **D** | Hosted Advanced (billing + gateway + scheduler + bridge body) | **Done** | `lib/hosted-consolidation-advanced.mjs`, `hub/gateway/billing-logic.mjs`, `hub/gateway/server.mjs`, `netlify/functions/consolidation-scheduler.mjs`, `hub/bridge/server.mjs`, tests |
 | **E** | Hosted MCP `search`: POST + parity fields | Pending | Dedicated chat |
 | **F** | Pre-launch security/privacy review | Pending | Human or strongest model |
 

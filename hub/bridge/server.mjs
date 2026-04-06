@@ -2209,7 +2209,7 @@ async function recordConsolidationPass(uid, costUsd) {
 
 /**
  * POST /api/v1/memory/consolidate
- * Body: { dry_run?, passes?, lookback_hours? }
+ * Body: { dry_run?, passes?, lookback_hours?, max_events_per_pass?, max_topics_per_pass?, llm?: { max_tokens? } }
  * Response: { topics, total_events, verify, discover, cost_usd, pass_id }
  */
 app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
@@ -2224,7 +2224,10 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
     });
   }
 
-  const { dry_run, passes, lookback_hours } = req.body || {};
+  const mergedBody =
+    req.body && typeof req.body === 'object' ? { ...req.body } : {};
+
+  const { dry_run, passes } = mergedBody;
 
   // 30-minute server-side cooldown on real (non-dry-run) passes to prevent runaway costs.
   // Automated scheduler runs respect their own configured interval; this guards manual triggers.
@@ -2278,6 +2281,23 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
       mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId)));
     }
 
+    const maxTok =
+      mergedBody.llm && typeof mergedBody.llm === 'object' && mergedBody.llm.max_tokens != null
+        ? Math.floor(Number(mergedBody.llm.max_tokens))
+        : 1024;
+    const lbH =
+      mergedBody.lookback_hours != null && Number.isFinite(Number(mergedBody.lookback_hours))
+        ? Number(mergedBody.lookback_hours)
+        : 24;
+    const maxEv =
+      mergedBody.max_events_per_pass != null && Number.isFinite(Number(mergedBody.max_events_per_pass))
+        ? Number(mergedBody.max_events_per_pass)
+        : 200;
+    const maxTop =
+      mergedBody.max_topics_per_pass != null && Number.isFinite(Number(mergedBody.max_topics_per_pass))
+        ? Number(mergedBody.max_topics_per_pass)
+        : 10;
+
     const consolidationConfig = {
       data_dir: isHostedBlobs ? os.tmpdir() : DATA_DIR,
       llm: {
@@ -2285,7 +2305,12 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
         api_key: llmApiKey,
         model: process.env.CONSOLIDATION_LLM_MODEL || 'gpt-4o-mini',
       },
-      daemon: {},
+      daemon: {
+        lookback_hours: lbH,
+        max_events_per_pass: maxEv,
+        max_topics_per_pass: maxTop,
+        llm: { max_tokens: Number.isFinite(maxTok) ? maxTok : 1024 },
+      },
       memory: {
         provider: 'file',
         encrypt: process.env.CONSOLIDATION_MEMORY_ENCRYPT === 'true',
@@ -2305,7 +2330,6 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
       mm,
       dryRun: Boolean(dry_run),
       passes: passes ?? undefined,
-      lookbackHours: lookback_hours != null ? Number(lookback_hours) : undefined,
       llmFn: dry_run ? undefined : trackingLlmFn,
     });
 

@@ -56,11 +56,12 @@ export function buildConsolSettingsPayload(form, mode) {
     model: form['consol-llm-model']?.value || '',
     base_url: form['consol-llm-base-url']?.value || '',
   };
+  const maxTokClamped = Math.max(
+    64,
+    Math.min(8192, Math.floor(Number(form['consol-llm-max-tokens']?.value) || 1024)),
+  );
   if (mode === 'daemon') {
-    llm.max_tokens = Math.max(
-      64,
-      Math.min(8192, Math.floor(Number(form['consol-llm-max-tokens']?.value) || 1024)),
-    );
+    llm.max_tokens = maxTokClamped;
   }
   const payload = {
     mode,
@@ -77,7 +78,7 @@ export function buildConsolSettingsPayload(form, mode) {
     llm,
     max_cost_per_day_usd: form['consol-cost-cap']?.value === '' ? null : Number(form['consol-cost-cap']?.value) || 0,
   };
-  if (mode === 'daemon') {
+  if (mode === 'daemon' || mode === 'hosted') {
     payload.lookback_hours = Math.max(
       1,
       Math.min(8760, Math.floor(Number(form['consol-lookback-hours']?.value) || 24)),
@@ -90,6 +91,9 @@ export function buildConsolSettingsPayload(form, mode) {
       1,
       Math.min(500, Math.floor(Number(form['consol-max-topics']?.value) || 10)),
     );
+  }
+  if (mode === 'hosted') {
+    payload.llm = { ...llm, max_tokens: maxTokClamped };
   }
   return payload;
 }

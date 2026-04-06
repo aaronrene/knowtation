@@ -17,7 +17,7 @@ todos:
   - id: advanced-settings-hosted
     content: >-
       Hosted — add billing user fields (normalizeBillingUser, defaultUserRecord); POST /api/v1/settings/consolidation (gateway) save/load; GET settings merge into daemon display; consolidation-scheduler pass lookback + max opts in JSON body; bridge /memory/consolidate merge body with user defaults; tests
-    status: pending
+    status: completed
   - id: encrypt-consolidate-implement
     content: >-
       Encrypt-aware consolidate redaction — when memory.encrypt true, omit raw e.data from buildConsolidationPrompt (minimal lines only); tests; hosted bridge sets memory.encrypt when applicable

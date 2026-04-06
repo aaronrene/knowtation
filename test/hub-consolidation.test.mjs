@@ -168,14 +168,14 @@ describe('buildConsolSettingsPayload', () => {
     assert.equal(payload.enabled, false);
   });
 
-  it('builds hosted payload (not enabled as daemon, mode=hosted)', () => {
+  it('builds hosted payload with advanced knobs for gateway billing persistence', () => {
     const payload = buildConsolSettingsPayload(makeForm(), 'hosted');
     assert.equal(payload.mode, 'hosted');
     assert.equal(payload.enabled, false);
-    assert.ok(!('lookback_hours' in payload));
-    assert.ok(!('max_events_per_pass' in payload));
-    assert.ok(!('max_topics_per_pass' in payload));
-    assert.ok(!('max_tokens' in payload.llm));
+    assert.equal(payload.lookback_hours, 24);
+    assert.equal(payload.max_events_per_pass, 200);
+    assert.equal(payload.max_topics_per_pass, 10);
+    assert.equal(payload.llm.max_tokens, 1024);
   });
 
   it('uses consol-hosted-interval for interval_minutes when mode is hosted', () => {
@@ -394,6 +394,10 @@ describe('gateway consolidation settings — billing store logic', () => {
     assert.deepEqual(u.consolidation_passes, { consolidate: true, verify: true, discover: false });
     assert.equal(u.consolidation_enabled, false);
     assert.equal(u.consolidation_interval_minutes, null);
+    assert.equal(u.consolidation_lookback_hours, 24);
+    assert.equal(u.consolidation_max_events_per_pass, 200);
+    assert.equal(u.consolidation_max_topics_per_pass, 10);
+    assert.equal(u.consolidation_llm_max_tokens, 1024);
   });
 
   it('normalizeBillingUser adds consolidation_passes when missing', () => {
