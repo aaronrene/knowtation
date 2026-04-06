@@ -384,6 +384,11 @@ describe('defaultUserRecord: pack_consolidation_passes_balance field', () => {
     assert.ok('pack_consolidation_passes_balance' in u);
     assert.strictEqual(u.pack_consolidation_passes_balance, 0);
   });
+
+  it('includes pack_consolidation_legacy_inferred = false', () => {
+    const u = defaultUserRecord('u_legacy_flag');
+    assert.strictEqual(u.pack_consolidation_legacy_inferred, false);
+  });
 });
 
 // ── Pack consolidation pass enforcement (unit simulation) ─────────────────────

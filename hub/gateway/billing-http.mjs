@@ -14,9 +14,10 @@ import {
   effectiveMonthlySearchesIncluded,
   effectiveMonthlyIndexJobsIncluded,
   effectiveMonthlyConsolidationPassesIncluded,
+  inferPackConsolidationPassesFromIndexingTokenBalance,
   normalizeBillingUser,
 } from './billing-logic.mjs';
-import { loadBillingDb, resetMonthlyTokensIfNeeded } from './billing-store.mjs';
+import { loadBillingDb, resetMonthlyTokensIfNeeded, mutateBillingDb } from './billing-store.mjs';
 
 function effectiveMonthlyIncludedCents(u) {
   if (u.tier === 'free') return MONTHLY_INCLUDED_CENTS_BY_TIER.free ?? 0;
@@ -28,6 +29,23 @@ export async function handleBillingSummary(req, res, getUserId) {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
   await resetMonthlyTokensIfNeeded(uid);
+
+  // One-time backfill: purchases before pack consolidation passes were stored in the ledger
+  // left pack_indexing_tokens_balance > 0 with pack_consolidation_passes_balance === 0.
+  await mutateBillingDb((dbMut) => {
+    const user = dbMut.users[uid] || defaultUserRecord(uid);
+    normalizeBillingUser(user);
+    dbMut.users[uid] = user;
+    if (user.pack_consolidation_legacy_inferred === true) return;
+    const packTok = Math.max(0, Math.floor(Number(user.pack_indexing_tokens_balance) || 0));
+    const packPass = Math.max(0, Math.floor(Number(user.pack_consolidation_passes_balance) || 0));
+    if (packPass > 0 || packTok <= 0) return;
+    const inferred = inferPackConsolidationPassesFromIndexingTokenBalance(packTok);
+    if (inferred > 0) {
+      user.pack_consolidation_passes_balance = inferred;
+      user.pack_consolidation_legacy_inferred = true;
+    }
+  });
 
   const db = await loadBillingDb();
   const u = normalizeBillingUser(db.users[uid] || defaultUserRecord(uid));

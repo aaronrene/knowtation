@@ -7,6 +7,8 @@ import {
   MONTHLY_SEARCHES_INCLUDED_BY_TIER,
   MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER,
   CONSOLIDATION_PASSES_BY_TIER,
+  PACK_TOKENS,
+  PACK_CONSOLIDATIONS,
 } from './billing-constants.mjs';
 
 /**
@@ -33,6 +35,9 @@ export function normalizeBillingUser(u) {
   }
   if (typeof u.pack_consolidation_passes_balance !== 'number' || !Number.isFinite(u.pack_consolidation_passes_balance)) {
     u.pack_consolidation_passes_balance = 0;
+  }
+  if (u.pack_consolidation_legacy_inferred !== true) {
+    u.pack_consolidation_legacy_inferred = false;
   }
   if (typeof u.monthly_searches_used !== 'number' || !Number.isFinite(u.monthly_searches_used)) {
     u.monthly_searches_used = 0;
@@ -89,6 +94,38 @@ export function effectiveMonthlyConsolidationPassesIncluded(u) {
 }
 
 /**
+ * Infer how many pack consolidation passes correspond to a remaining indexing-token pack balance.
+ * Uses greedy decomposition into known pack sizes (large → medium → small), then the small-pack
+ * ratio (20M tokens / 50 passes) for any remainder. Used once per account to backfill purchases
+ * made before `pack_consolidation_passes_balance` was credited in Stripe webhooks.
+ *
+ * @param {number} tokenBalance
+ * @returns {number}
+ */
+export function inferPackConsolidationPassesFromIndexingTokenBalance(tokenBalance) {
+  const n = Math.max(0, Math.floor(Number(tokenBalance) || 0));
+  if (n <= 0) return 0;
+  let t = n;
+  let passes = 0;
+  const packs = [
+    { tok: PACK_TOKENS.large, pass: PACK_CONSOLIDATIONS.large },
+    { tok: PACK_TOKENS.medium, pass: PACK_CONSOLIDATIONS.medium },
+    { tok: PACK_TOKENS.small, pass: PACK_CONSOLIDATIONS.small },
+  ];
+  for (const p of packs) {
+    while (t >= p.tok) {
+      passes += p.pass;
+      t -= p.tok;
+    }
+  }
+  if (t > 0) {
+    const tokensPerPass = PACK_TOKENS.small / PACK_CONSOLIDATIONS.small;
+    passes += Math.floor(t / tokensPerPass);
+  }
+  return passes;
+}
+
+/**
  * @param {object} user - Billing user record from store
  * @param {number} costCents
  * @returns {{ ok: boolean, code?: string }}
@@ -138,6 +175,7 @@ export function defaultUserRecord(userId) {
     monthly_indexing_tokens_used: 0,
     pack_indexing_tokens_balance: 0,
     pack_consolidation_passes_balance: 0,
+    pack_consolidation_legacy_inferred: false,
     monthly_searches_used: 0,
     monthly_index_jobs_used: 0,
     monthly_consolidation_jobs_used: 0,
