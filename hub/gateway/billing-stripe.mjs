@@ -7,6 +7,7 @@ import {
   tierFromEnvPriceId,
   addonCentsFromPackPriceId,
   addonTokensFromPackPriceId,
+  addonConsolidationsFromPackPriceId,
 } from './billing-constants.mjs';
 import { defaultUserRecord } from './billing-logic.mjs';
 import {
@@ -82,6 +83,7 @@ async function prepareCheckoutMutator(stripe, session) {
   if (session.mode === 'payment') {
     let creditsCents = parseInt(session.metadata?.credits_cents || '0', 10);
     let packTokens = parseInt(session.metadata?.indexing_tokens || '0', 10);
+    let packConsolidations = parseInt(session.metadata?.consolidation_passes || '0', 10);
 
     // Primary source: price_id stored in checkout session metadata at creation time.
     let resolvedPriceId = session.metadata?.price_id?.trim() || null;
@@ -107,6 +109,10 @@ async function prepareCheckoutMutator(stripe, session) {
       const mapped = addonTokensFromPackPriceId(resolvedPriceId);
       if (mapped) packTokens = mapped;
     }
+    if (!packConsolidations && resolvedPriceId) {
+      const mapped = addonConsolidationsFromPackPriceId(resolvedPriceId);
+      if (mapped) packConsolidations = mapped;
+    }
 
     if (!creditsCents && !packTokens) {
       console.error('[billing] pack payment: could not resolve credits/tokens for session', session.id, 'price_id:', resolvedPriceId);
@@ -124,6 +130,10 @@ async function prepareCheckoutMutator(stripe, session) {
       if (packTokens > 0) {
         u.pack_indexing_tokens_balance =
           (Math.max(0, Math.floor(Number(u.pack_indexing_tokens_balance) || 0))) + packTokens;
+      }
+      if (packConsolidations > 0) {
+        u.pack_consolidation_passes_balance =
+          (Math.max(0, Math.floor(Number(u.pack_consolidation_passes_balance) || 0))) + packConsolidations;
       }
     };
   }

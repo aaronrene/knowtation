@@ -58,6 +58,13 @@ export const PACK_TOKENS = {
   large: 150_000_000,
 };
 
+/** Memory consolidation passes granted per pack purchase. */
+export const PACK_CONSOLIDATIONS = {
+  small:   50,
+  medium: 150,
+  large:  350,
+};
+
 /**
  * Stripe Price id → subscription tier.
  * Reads STRIPE_PRICE_PLUS, STRIPE_PRICE_GROWTH, STRIPE_PRICE_PRO from env (set in Netlify).
@@ -110,6 +117,18 @@ export function addonTokensFromPackPriceId(priceId) {
   if (process.env.STRIPE_PRICE_PACK_10 && priceId === process.env.STRIPE_PRICE_PACK_10) return PACK_TOKENS.small;
   if (process.env.STRIPE_PRICE_PACK_25 && priceId === process.env.STRIPE_PRICE_PACK_25) return PACK_TOKENS.medium;
   if (process.env.STRIPE_PRICE_PACK_50 && priceId === process.env.STRIPE_PRICE_PACK_50) return PACK_TOKENS.large;
+  return null;
+}
+
+/**
+ * Stripe Price id → memory consolidation pass grant for pack purchase.
+ * Matches PACK_CONSOLIDATIONS amounts.
+ */
+export function addonConsolidationsFromPackPriceId(priceId) {
+  if (!priceId) return null;
+  if (process.env.STRIPE_PRICE_PACK_10 && priceId === process.env.STRIPE_PRICE_PACK_10) return PACK_CONSOLIDATIONS.small;
+  if (process.env.STRIPE_PRICE_PACK_25 && priceId === process.env.STRIPE_PRICE_PACK_25) return PACK_CONSOLIDATIONS.medium;
+  if (process.env.STRIPE_PRICE_PACK_50 && priceId === process.env.STRIPE_PRICE_PACK_50) return PACK_CONSOLIDATIONS.large;
   return null;
 }
 

@@ -3022,15 +3022,19 @@
 
       // Pack balance
       const packBal = Math.max(0, Math.floor(Number(d.pack_indexing_tokens_balance) || 0));
+      const packConsolPasses = Math.max(0, Math.floor(Number(d.pack_consolidation_passes_balance) || 0));
       if (packEl) {
-        // Show token count + the equivalent index jobs and searches so the number is meaningful.
-        // Ratios from pack card descriptions: 50K tokens per index job, 1K tokens per search.
+        // Show token count + equivalent index jobs and searches (50K tokens/job, 1K tokens/search).
         const packIndexJobs = Math.floor(packBal / 50_000).toLocaleString();
         const packSearches = Math.floor(packBal / 1_000).toLocaleString();
-        packEl.textContent = formatTokenCountShort(packBal) +
+        let packText = formatTokenCountShort(packBal) +
           ' rollover tokens (\u2248\u00a0' + packIndexJobs + ' index jobs or ' + packSearches + ' searches)';
+        if (packConsolPasses > 0) {
+          packText += ' + ' + packConsolPasses.toLocaleString() + ' consolidation pass' + (packConsolPasses === 1 ? '' : 'es');
+        }
+        packEl.textContent = packText;
       }
-      if (packRow) packRow.style.display = packBal > 0 ? '' : 'none';
+      if (packRow) packRow.style.display = (packBal > 0 || packConsolPasses > 0) ? '' : 'none';
 
       // Period
       if (periodEl) {

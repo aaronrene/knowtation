@@ -52,6 +52,7 @@ export async function handleBillingSummary(req, res, getUserId) {
     monthly_indexing_tokens_included: effectiveMonthlyIndexingTokensIncluded(u),
     monthly_indexing_tokens_used: Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0)),
     pack_indexing_tokens_balance: Math.max(0, Math.floor(Number(u.pack_indexing_tokens_balance) || 0)),
+    pack_consolidation_passes_balance: Math.max(0, Math.floor(Number(u.pack_consolidation_passes_balance) || 0)),
     monthly_searches_used: Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)),
     monthly_searches_included: effectiveMonthlySearchesIncluded(u),
     monthly_index_jobs_used: Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)),
