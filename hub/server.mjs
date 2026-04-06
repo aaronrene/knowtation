@@ -1319,7 +1319,11 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
         provider: config.daemon?.llm?.provider || '',
         model: config.daemon?.llm?.model || '',
         base_url: config.daemon?.llm?.base_url || '',
+        max_tokens: config.daemon?.llm?.max_tokens ?? 1024,
       },
+      lookback_hours: config.daemon?.lookback_hours ?? 24,
+      max_events_per_pass: config.daemon?.max_events_per_pass ?? 200,
+      max_topics_per_pass: config.daemon?.max_topics_per_pass ?? 10,
     },
   });
 });
@@ -1358,6 +1362,27 @@ app.post(
         if (body.passes.verify !== undefined) doc.daemon.passes.verify = Boolean(body.passes.verify);
         if (body.passes.discover !== undefined) doc.daemon.passes.discover = Boolean(body.passes.discover);
       }
+      if (body.lookback_hours !== undefined) {
+        const lb = Math.floor(Number(body.lookback_hours));
+        if (lb < 1 || lb > 8760) {
+          return res.status(400).json({ error: 'lookback_hours must be 1–8760', code: 'VALIDATION_ERROR' });
+        }
+        doc.daemon.lookback_hours = lb;
+      }
+      if (body.max_events_per_pass !== undefined) {
+        const me = Math.floor(Number(body.max_events_per_pass));
+        if (me < 1 || me > 10000) {
+          return res.status(400).json({ error: 'max_events_per_pass must be 1–10000', code: 'VALIDATION_ERROR' });
+        }
+        doc.daemon.max_events_per_pass = me;
+      }
+      if (body.max_topics_per_pass !== undefined) {
+        const mt = Math.floor(Number(body.max_topics_per_pass));
+        if (mt < 1 || mt > 500) {
+          return res.status(400).json({ error: 'max_topics_per_pass must be 1–500', code: 'VALIDATION_ERROR' });
+        }
+        doc.daemon.max_topics_per_pass = mt;
+      }
       if (body.llm !== undefined && typeof body.llm === 'object') {
         if (!doc.daemon.llm) doc.daemon.llm = {};
         if (body.llm.provider !== undefined) doc.daemon.llm.provider = String(body.llm.provider || '');
@@ -1367,6 +1392,13 @@ app.post(
           doc.daemon.llm.model = m;
         }
         if (body.llm.base_url !== undefined) doc.daemon.llm.base_url = String(body.llm.base_url || '');
+        if (body.llm.max_tokens !== undefined) {
+          const mxt = Math.floor(Number(body.llm.max_tokens));
+          if (mxt < 64 || mxt > 8192) {
+            return res.status(400).json({ error: 'llm.max_tokens must be 64–8192', code: 'VALIDATION_ERROR' });
+          }
+          doc.daemon.llm.max_tokens = mxt;
+        }
       }
       const dir = path.dirname(configPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

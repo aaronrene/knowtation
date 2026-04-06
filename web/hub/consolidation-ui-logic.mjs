@@ -26,7 +26,16 @@ export function populateConsolSettingsForm(settings, form) {
   if (form['consol-llm-provider']) form['consol-llm-provider'].value = d.llm?.provider || '';
   if (form['consol-llm-model']) form['consol-llm-model'].value = d.llm?.model || '';
   if (form['consol-llm-base-url']) form['consol-llm-base-url'].value = d.llm?.base_url || '';
+  if (form['consol-lookback-hours']) form['consol-lookback-hours'].value = d.lookback_hours ?? 24;
+  if (form['consol-max-events']) form['consol-max-events'].value = d.max_events_per_pass ?? 200;
+  if (form['consol-max-topics']) form['consol-max-topics'].value = d.max_topics_per_pass ?? 10;
+  if (form['consol-llm-max-tokens']) form['consol-llm-max-tokens'].value = d.llm?.max_tokens ?? 1024;
   if (form['consol-cost-cap']) form['consol-cost-cap'].value = d.max_cost_per_day_usd != null ? d.max_cost_per_day_usd : '';
+  if (form['consol-hosted-interval'] != null && d.interval_minutes != null) {
+    const v = String(d.interval_minutes);
+    const allowed = ['30', '60', '120', '360', '720', '1440', '10080'];
+    form['consol-hosted-interval'].value = allowed.includes(v) ? v : '120';
+  }
 
   return mode;
 }
@@ -38,10 +47,26 @@ export function populateConsolSettingsForm(settings, form) {
  * @returns {object} payload matching POST /api/v1/settings/consolidation schema
  */
 export function buildConsolSettingsPayload(form, mode) {
-  return {
+  const intervalRaw =
+    mode === 'hosted' && form['consol-hosted-interval'] != null
+      ? form['consol-hosted-interval'].value
+      : form['consol-interval']?.value;
+  const llm = {
+    provider: form['consol-llm-provider']?.value || '',
+    model: form['consol-llm-model']?.value || '',
+    base_url: form['consol-llm-base-url']?.value || '',
+  };
+  const maxTokClamped = Math.max(
+    64,
+    Math.min(8192, Math.floor(Number(form['consol-llm-max-tokens']?.value) || 1024)),
+  );
+  if (mode === 'daemon') {
+    llm.max_tokens = maxTokClamped;
+  }
+  const payload = {
     mode,
     enabled: mode === 'daemon',
-    interval_minutes: Math.max(1, Math.floor(Number(form['consol-interval']?.value) || 120)),
+    interval_minutes: Math.max(1, Math.floor(Number(intervalRaw) || 120)),
     idle_only: Boolean(form['consol-idle-only']?.checked),
     idle_threshold_minutes: Math.max(1, Math.floor(Number(form['consol-idle-threshold']?.value) || 15)),
     run_on_start: Boolean(form['consol-run-on-start']?.checked),
@@ -50,13 +75,27 @@ export function buildConsolSettingsPayload(form, mode) {
       verify: Boolean(form['pass-verify']?.checked),
       discover: Boolean(form['pass-discover']?.checked),
     },
-    llm: {
-      provider: form['consol-llm-provider']?.value || '',
-      model: form['consol-llm-model']?.value || '',
-      base_url: form['consol-llm-base-url']?.value || '',
-    },
+    llm,
     max_cost_per_day_usd: form['consol-cost-cap']?.value === '' ? null : Number(form['consol-cost-cap']?.value) || 0,
   };
+  if (mode === 'daemon' || mode === 'hosted') {
+    payload.lookback_hours = Math.max(
+      1,
+      Math.min(8760, Math.floor(Number(form['consol-lookback-hours']?.value) || 24)),
+    );
+    payload.max_events_per_pass = Math.max(
+      1,
+      Math.min(10000, Math.floor(Number(form['consol-max-events']?.value) || 200)),
+    );
+    payload.max_topics_per_pass = Math.max(
+      1,
+      Math.min(500, Math.floor(Number(form['consol-max-topics']?.value) || 10)),
+    );
+  }
+  if (mode === 'hosted') {
+    payload.llm = { ...llm, max_tokens: maxTokClamped };
+  }
+  return payload;
 }
 
 /**

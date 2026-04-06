@@ -207,6 +207,25 @@ describe('buildConsolidationPrompt', () => {
     const prompt = buildConsolidationPrompt('verbose', events);
     assert(prompt.length < 500 + 200);
   });
+
+  it('with encrypt true omits raw event data from the prompt', () => {
+    const secret = 'SECRET_QUERY_STRING_XYZ';
+    const events = [
+      { ts: '2026-04-01T10:00:00Z', type: 'search', data: { query: secret } },
+      { ts: '2026-04-01T11:00:00Z', type: 'write', data: { path: 'vault/notes/nope.md' } },
+    ];
+    const prompt = buildConsolidationPrompt('topic-a', events, { encrypt: true });
+    assert(!prompt.includes(secret), 'query must not appear');
+    assert(!prompt.includes('nope.md'), 'path must not appear');
+    assert(prompt.includes('encrypted memory mode'));
+    assert(prompt.includes('[2026-04-01T10:00:00Z] search'));
+  });
+
+  it('with encrypt false keeps JSON snippets (default)', () => {
+    const events = [{ ts: '2026-04-01T10:00:00Z', type: 'search', data: { query: 'visible' } }];
+    const prompt = buildConsolidationPrompt('t', events);
+    assert(prompt.includes('visible'));
+  });
 });
 
 // ───────────────────────────────────────────────────
@@ -364,6 +383,23 @@ describe('consolidateMemory', () => {
     assert(call.opts.system.includes('memory consolidation engine'));
     assert(call.opts.user.includes('Topic:'));
     assert(call.opts.user.includes('Events ('));
+  });
+
+  it('with memory.encrypt true omits event payload from LLM user prompt', async () => {
+    const mm = _createMemoryManager(config);
+    const secret = 'ULTRA_SECRET_CONSOLIDATION_PAYLOAD_XYZ';
+    mm.store('write', { path: 'crypto/a.md', note: secret });
+    mm.store('write', { path: 'crypto/b.md', note: 'ok' });
+    const encConfig = {
+      ...config,
+      memory: { enabled: true, provider: 'file', encrypt: true },
+    };
+    const mockLlm = makeMockLlmFn('["Merged crypto activity"]');
+    await consolidateMemory(encConfig, { llmFn: mockLlm });
+    assert(mockLlm.calls.length >= 1);
+    const user = mockLlm.calls[0].opts.user;
+    assert(!user.includes(secret), 'sensitive payload must not reach LLM prompt');
+    assert(user.includes('encrypted memory mode'));
   });
 
   it('dry-run does not store events or call LLM', async () => {

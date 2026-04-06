@@ -4,6 +4,7 @@
  * Index/search: pull vault from canister, chunk → embed → sqlite-vec per user; search via POST /api/v1/search.
  * On Netlify, tokens and vector DBs persist via Netlify Blobs (set by netlify/functions/bridge.mjs).
  * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional HUB_UI_ORIGIN, HUB_UI_PATH (default /hub), GITHUB_*, EMBEDDING_*, BRIDGE_PORT, DATA_DIR.
+ * Consolidation: CONSOLIDATION_LLM_API_KEY / OPENAI_API_KEY, CONSOLIDATION_LLM_MODEL; CONSOLIDATION_MEMORY_ENCRYPT=true omits raw event payloads from consolidation LLM prompts.
  */
 
 import fs from 'fs';
@@ -1948,16 +1949,19 @@ app.use((err, req, res, _next) => {
   if (res.headersSent) return;
   console.error('[bridge] unhandled error:', err?.stack || err?.message || err);
   let status = 500;
+  let clientMessage = 'Internal error';
   if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') status = 413;
-    else status = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') { status = 413; clientMessage = 'File too large'; }
+    else { status = 400; clientMessage = 'Upload error'; }
   } else if (typeof err.status === 'number' && err.status >= 400 && err.status < 600) {
     status = err.status;
+    if (status < 500) clientMessage = err.message || clientMessage;
   } else if (typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600) {
     status = err.statusCode;
+    if (status < 500) clientMessage = err.message || clientMessage;
   }
   res.status(status).json({
-    error: err.message || 'Internal error',
+    error: clientMessage,
     code: err.code || 'INTERNAL_ERROR',
   });
 });
@@ -2208,7 +2212,7 @@ async function recordConsolidationPass(uid, costUsd) {
 
 /**
  * POST /api/v1/memory/consolidate
- * Body: { dry_run?, passes?, lookback_hours? }
+ * Body: { dry_run?, passes?, lookback_hours?, max_events_per_pass?, max_topics_per_pass?, llm?: { max_tokens? } }
  * Response: { topics, total_events, verify, discover, cost_usd, pass_id }
  */
 app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
@@ -2223,7 +2227,10 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
     });
   }
 
-  const { dry_run, passes, lookback_hours } = req.body || {};
+  const mergedBody =
+    req.body && typeof req.body === 'object' ? { ...req.body } : {};
+
+  const { dry_run, passes } = mergedBody;
 
   // 30-minute server-side cooldown on real (non-dry-run) passes to prevent runaway costs.
   // Automated scheduler runs respect their own configured interval; this guards manual triggers.
@@ -2277,6 +2284,23 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
       mm = new MemoryManager(new FileMemoryProvider(bridgeMemoryDir(uid, vaultId)));
     }
 
+    const maxTok =
+      mergedBody.llm && typeof mergedBody.llm === 'object' && mergedBody.llm.max_tokens != null
+        ? Math.floor(Number(mergedBody.llm.max_tokens))
+        : 1024;
+    const lbH =
+      mergedBody.lookback_hours != null && Number.isFinite(Number(mergedBody.lookback_hours))
+        ? Number(mergedBody.lookback_hours)
+        : 24;
+    const maxEv =
+      mergedBody.max_events_per_pass != null && Number.isFinite(Number(mergedBody.max_events_per_pass))
+        ? Number(mergedBody.max_events_per_pass)
+        : 200;
+    const maxTop =
+      mergedBody.max_topics_per_pass != null && Number.isFinite(Number(mergedBody.max_topics_per_pass))
+        ? Number(mergedBody.max_topics_per_pass)
+        : 10;
+
     const consolidationConfig = {
       data_dir: isHostedBlobs ? os.tmpdir() : DATA_DIR,
       llm: {
@@ -2284,8 +2308,16 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
         api_key: llmApiKey,
         model: process.env.CONSOLIDATION_LLM_MODEL || 'gpt-4o-mini',
       },
-      daemon: {},
-      memory: { provider: 'file' },
+      daemon: {
+        lookback_hours: lbH,
+        max_events_per_pass: maxEv,
+        max_topics_per_pass: maxTop,
+        llm: { max_tokens: Number.isFinite(maxTok) ? maxTok : 1024 },
+      },
+      memory: {
+        provider: 'file',
+        encrypt: process.env.CONSOLIDATION_MEMORY_ENCRYPT === 'true',
+      },
     };
 
     // Track LLM call cost via a wrapping llmFn.
@@ -2301,7 +2333,6 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
       mm,
       dryRun: Boolean(dry_run),
       passes: passes ?? undefined,
-      lookbackHours: lookback_hours != null ? Number(lookback_hours) : undefined,
       llmFn: dry_run ? undefined : trackingLlmFn,
     });
 

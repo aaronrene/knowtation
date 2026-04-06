@@ -45,6 +45,10 @@ import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
 import { isAttestationConfigured, createAttestation, verifyAttestation, verifyWithIcp, anchorPendingAttestations } from './attest-store.mjs';
 import { loadBillingDb, mutateBillingDb } from './billing-store.mjs';
 import { normalizeBillingUser, defaultUserRecord } from './billing-logic.mjs';
+import {
+  mergeConsolidateRequestBodyWithBillingDefaults,
+  validateHostedSettingsConsolidationAdvanced,
+} from '../../lib/hosted-consolidation-advanced.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -479,6 +483,18 @@ if (BRIDGE_URL) {
   // Consolidation routes: proxy to bridge with billing gate on POST
   app.post('/api/v1/memory/consolidate', async (req, res) => {
     if (!(await runBillingGate(req, res, getUserId))) return;
+    const uid = getUserId(req);
+    try {
+      const db = await loadBillingDb();
+      const raw = db.users?.[uid] || defaultUserRecord(uid);
+      const u = normalizeBillingUser(raw);
+      req.body = mergeConsolidateRequestBodyWithBillingDefaults(
+        req.body && typeof req.body === 'object' ? req.body : {},
+        u,
+      );
+    } catch (_) {
+      /* fail open: bridge merges with billing file / defaults */
+    }
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/consolidate', req, res);
   });
   app.get('/api/v1/memory/consolidate/status', async (req, res) => {
@@ -1076,7 +1092,15 @@ app.get('/api/v1/settings', async (req, res) => {
           run_on_start: false,
           max_cost_per_day_usd: null,
           passes: u.consolidation_passes,
-          llm: { provider: '', model: '', base_url: '' },
+          lookback_hours: u.consolidation_lookback_hours,
+          max_events_per_pass: u.consolidation_max_events_per_pass,
+          max_topics_per_pass: u.consolidation_max_topics_per_pass,
+          llm: {
+            provider: '',
+            model: '',
+            base_url: '',
+            max_tokens: u.consolidation_llm_max_tokens,
+          },
           hosted_enabled: u.consolidation_enabled,
         };
       } catch (_) {
@@ -1088,7 +1112,10 @@ app.get('/api/v1/settings', async (req, res) => {
           run_on_start: false,
           max_cost_per_day_usd: null,
           passes: { consolidate: true, verify: true, discover: false },
-          llm: { provider: '', model: '', base_url: '' },
+          lookback_hours: 24,
+          max_events_per_pass: 200,
+          max_topics_per_pass: 10,
+          llm: { provider: '', model: '', base_url: '', max_tokens: 1024 },
           hosted_enabled: false,
         };
       }
@@ -1106,6 +1133,10 @@ app.post('/api/v1/settings/consolidation', express.json(), async (req, res) => {
   if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const mode = typeof body.mode === 'string' ? body.mode : (body.enabled ? 'daemon' : 'hosted');
+  const advCheck = validateHostedSettingsConsolidationAdvanced(body);
+  if (!advCheck.ok) {
+    return res.status(400).json({ error: advCheck.error, code: advCheck.code });
+  }
   try {
     let saved = {};
     await mutateBillingDb((db) => {
@@ -1126,10 +1157,32 @@ app.post('/api/v1/settings/consolidation', express.json(), async (req, res) => {
           discover: Boolean(body.passes.discover),
         };
       }
+      if (body.lookback_hours !== undefined) {
+        u.consolidation_lookback_hours = Math.floor(Number(body.lookback_hours));
+      }
+      if (body.max_events_per_pass !== undefined) {
+        u.consolidation_max_events_per_pass = Math.floor(Number(body.max_events_per_pass));
+      }
+      if (body.max_topics_per_pass !== undefined) {
+        u.consolidation_max_topics_per_pass = Math.floor(Number(body.max_topics_per_pass));
+      }
+      if (body.llm !== undefined && typeof body.llm === 'object' && body.llm.max_tokens !== undefined) {
+        u.consolidation_llm_max_tokens = Math.floor(Number(body.llm.max_tokens));
+      }
+      normalizeBillingUser(u);
       saved = {
         hosted_enabled: u.consolidation_enabled,
         interval_minutes: u.consolidation_interval_minutes,
         passes: u.consolidation_passes,
+        lookback_hours: u.consolidation_lookback_hours,
+        max_events_per_pass: u.consolidation_max_events_per_pass,
+        max_topics_per_pass: u.consolidation_max_topics_per_pass,
+        llm: {
+          provider: '',
+          model: '',
+          base_url: '',
+          max_tokens: u.consolidation_llm_max_tokens,
+        },
       };
     });
     res.json({ ok: true, hosted: true, daemon: { enabled: false, ...saved } });
@@ -2004,8 +2057,9 @@ app.use((err, req, res, next) => {
       : typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600
         ? err.statusCode
         : 500;
+  const clientMessage = status < 500 ? (err.message || 'Request error') : 'Internal error';
   res.status(status).json({
-    error: err.message || 'Internal error',
+    error: clientMessage,
     code: err.code || 'INTERNAL_ERROR',
   });
 });

@@ -869,6 +869,10 @@ Your note body here.</pre>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents (AgentCeption). Each block below explains how to connect.</p>
+            <div class="settings-callout" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; background: var(--surface-elevated, rgba(255,255,255,0.03));">
+              <p class="settings-intro small" style="margin: 0 0 0.5rem 0;"><strong>Token savings:</strong> Use <strong>memory consolidation</strong> (Settings → Consolidation) to compress activity into facts. Use <strong>tiered retrieval</strong> in agents—search with a small limit and short fields, then open only the notes you need. Optional <strong>Discover</strong> adds cross-topic insights inside the <em>same</em> consolidation run on hosted plans (one pass per run, not two).</p>
+              <button type="button" id="btn-integrations-how-token-savings" class="btn-link btn-link-small">How to use → Token savings</button>
+            </div>
             <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
             <p class="settings-intro small"><strong>Self-hosted Hub — audio import:</strong> Whisper accepts about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed where the Hub runs (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or use our Docker image which includes it), Knowtation can <strong>automatically compress</strong> larger files (e.g. bulky WAV) before sending to OpenAI. Disable with <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>. Set <code>FFMPEG_PATH</code> if the binary is not on <code>PATH</code>.</p>
             <h3 class="settings-h3">Hub API (agents, CLI, curl)</h3>
@@ -1170,6 +1174,7 @@ Your note body here.</pre>
         <div id="settings-panel-agents" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <p class="settings-intro">Agents shows the embedding config the Hub uses. Use the same config in your orchestrator or agent runtime so search behaves the same. Copy the env block below into the agent environment.</p>
+            <p class="settings-intro small"><strong>Save context tokens:</strong> Prefer a narrow <code>search</code> (few results, paths or snippets only) then <code>get_note</code> for one path—see <button type="button" id="btn-agents-how-token-savings" class="btn-link btn-link-small" style="vertical-align: baseline;">How to use → Token savings</button>. Consolidation and the optional Discover pass are under <strong>Settings → Consolidation</strong>.</p>
             <h3 class="settings-h3">Local model (for agents)</h3>
             <p class="settings-intro small">Current embedding provider and model. Read-only here; edit <code>config/local.yaml</code> to change. Match this in agents so they use the same embeddings.</p>
             <div class="settings-row">
@@ -1195,6 +1200,7 @@ Your note body here.</pre>
         <div id="settings-panel-consolidation" class="settings-panel" role="tabpanel">
           <div class="settings-body">
             <h3 class="settings-h3">Memory Consolidation</h3>
+            <p class="settings-intro small">Knowtation is built to reduce wasted context: consolidation merges noisy memory events into facts; agents should search narrowly then open specific notes. <button type="button" id="btn-consol-how-token-savings" class="btn-link btn-link-small">How to use → Token savings</button> · <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">docs/TOKEN-SAVINGS.md</a> (repo)</p>
 
             <div class="settings-form" style="gap: 0.75rem;">
               <div>
@@ -1223,6 +1229,28 @@ Your note body here.</pre>
                   <label class="settings-checkbox-label">
                     <input type="checkbox" id="consol-run-on-start"> Run on start <span class="muted small">— run one pass when daemon starts</span>
                   </label>
+                  <fieldset style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.5rem 0 0 0;">
+                    <legend style="font-weight: 600; font-size: 0.9rem; padding: 0 0.35rem;">Advanced <span class="muted small">(pass scope — saved to local.yaml)</span></legend>
+                    <p class="settings-intro small muted" style="margin: 0 0 0.5rem 0;">Tune how much each pass reads and how long model replies can be. See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>.</p>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                      <div>
+                        <label for="consol-lookback-hours" style="font-weight: 500;">Lookback <span class="muted small">(hours)</span></label>
+                        <input type="number" id="consol-lookback-hours" class="settings-input-inline" value="24" min="1" max="8760" style="width: 6rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                      <div>
+                        <label for="consol-max-events" style="font-weight: 500;">Max events per pass</label>
+                        <input type="number" id="consol-max-events" class="settings-input-inline" value="200" min="1" max="10000" style="width: 7rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                      <div>
+                        <label for="consol-max-topics" style="font-weight: 500;">Max topics per pass</label>
+                        <input type="number" id="consol-max-topics" class="settings-input-inline" value="10" min="1" max="500" style="width: 6rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                      <div>
+                        <label for="consol-llm-max-tokens" style="font-weight: 500;">Max LLM output tokens <span class="muted small">(per call)</span></label>
+                        <input type="number" id="consol-llm-max-tokens" class="settings-input-inline" value="1024" min="64" max="8192" style="width: 7rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                    </div>
+                  </fieldset>
                 </div>
               </div>
 
@@ -1246,8 +1274,9 @@ Your note body here.</pre>
                 <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                   <label class="settings-checkbox-label"><input type="checkbox" id="pass-consolidate" checked> Consolidate — merge &amp; deduplicate events (recommended)</label>
                   <label class="settings-checkbox-label"><input type="checkbox" id="pass-verify" checked> Verify — detect stale note references (recommended)</label>
-                  <label class="settings-checkbox-label"><input type="checkbox" id="pass-discover"> Discover — cross-topic insights (uses more LLM tokens, optional)</label>
+                  <label class="settings-checkbox-label"><input type="checkbox" id="pass-discover"> Discover — cross-topic insights (optional, off by default)</label>
                 </div>
+                <p class="settings-intro small muted" style="margin: 0.5rem 0 0 0;">Discover runs an <strong>extra AI step</strong> after Consolidate when topics were merged. On <strong>hosted</strong> plans it still counts as <strong>one consolidation pass per run</strong> (same allowance entry as without Discover)—you are not charged two passes. It increases provider token use; leave it off unless you want linkages and open questions across topics.</p>
               </fieldset>
 
               <fieldset id="consol-llm-settings" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0; display:none;">
@@ -1305,6 +1334,7 @@ Your note body here.</pre>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="knowledge-agents">Knowledge &amp; agents</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="media">Media &amp; images</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="consolidation">Memory consolidation</button>
+          <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="token-savings">Token savings</button>
         </nav>
         <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
           <div class="how-to-use-body">
@@ -1895,7 +1925,30 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Privacy</h3>
-              <p>Only memory event metadata is sent to the LLM (paths, query strings, timestamps). <strong>Your note content is never sent.</strong> For full privacy, use a local Ollama model.</p>
+              <p>Consolidation builds prompts from <strong>memory events</strong>. By default each line includes a <strong>short JSON snippet</strong> of that event’s <code>data</code> (capped in length). Your full note files are <strong>not</strong> uploaded as a single document, but <strong>fragments of text</strong> that were stored on those events (e.g. search queries, titles) <strong>can</strong> appear. With <strong><code>memory.encrypt: true</code></strong> in <code>config/local.yaml</code> (self-hosted) or <strong><code>CONSOLIDATION_MEMORY_ENCRYPT=true</code></strong> on the hosted bridge, consolidation <strong>omits raw event payloads</strong> from the model prompt (timestamps and event types only). See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>. For maximum privacy: self-hosted <strong>Ollama</strong>, turn consolidation <strong>off</strong>, or limit what gets captured into memory events.</p>
+            </section>
+          </div>
+        </div>
+
+        <div id="how-to-panel-token-savings" class="how-to-panel" role="tabpanel">
+          <div class="how-to-use-body">
+            <p class="how-to-intro">Knowtation is designed so agents and humans spend <strong>fewer tokens</strong> while still getting the right context. Use the three levers below together.</p>
+
+            <section class="how-to-step">
+              <h3>1. Compress memory (consolidation)</h3>
+              <p>Recent activity is stored as many small <strong>memory events</strong>. <strong>Consolidation</strong> groups them by topic and calls the model once per topic to produce a few <strong>fact</strong> lines. <strong>Verify</strong> checks paths (no extra model call). <strong>Discover</strong> (optional, default off) adds one more model pass to suggest connections and open questions across topics.</p>
+              <p><strong>Hosted:</strong> <strong>Settings → Consolidation → Hosted</strong>, pick a schedule, choose passes, Save. Each automated or manual run uses <strong>one</strong> consolidation pass from your plan. Discover does <strong>not</strong> consume a second pass—it runs inside the same run and uses more tokens on our side.</p>
+              <p><strong>Self-hosted:</strong> Same screen writes <code>config/local.yaml</code>, or use <code>knowtation daemon start</code>. Details: <button type="button" class="btn-link btn-link-small how-to-jump-consolidation">How to use → Memory consolidation</button>.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>2. Tiered retrieval (agents &amp; CLI)</h3>
+              <p>Do not pull huge context by default. <strong>Search</strong> with a small limit and paths or snippets only, then <strong>get-note</strong> for the one or two files that matter. Same idea for MCP tools. Reference: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener">RETRIEVAL-AND-CLI-REFERENCE.md</a> and <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">AGENT-INTEGRATION.md</a>.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>3. Full reference</h3>
+              <p>Canonical checklist and billing notes: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener"><strong>docs/TOKEN-SAVINGS.md</strong></a> in the repo.</p>
             </section>
           </div>
         </div>
@@ -1906,6 +1959,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260330b"></script>
+  <script src="hub.js?v=20260406c"></script>
 </body>
 </html>

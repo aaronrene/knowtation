@@ -26,6 +26,8 @@
 import { getStore } from '@netlify/blobs';
 import jwt from 'jsonwebtoken';
 import { loadBillingDb, mutateBillingDb } from '../../hub/gateway/billing-store.mjs';
+import { normalizeBillingUser } from '../../hub/gateway/billing-logic.mjs';
+import { mergeConsolidateRequestBodyWithBillingDefaults } from '../../lib/hosted-consolidation-advanced.mjs';
 
 export const config = { schedule: '0 * * * *' };
 
@@ -143,13 +145,19 @@ export async function runScheduler({
       // Issue a fresh 5-minute JWT per user — never reuse or forward stored credentials.
       const token = signServiceJwt(userId, sessionSecret);
 
+      const uNorm = normalizeBillingUser({ ...user });
+      const consolidatePayload = mergeConsolidateRequestBodyWithBillingDefaults(
+        { passes: uNorm.consolidation_passes || undefined },
+        uNorm,
+      );
+
       const res = await fetchFn(`${bridgeUrl}/api/v1/memory/consolidate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ passes: user.consolidation_passes || undefined }),
+        body: JSON.stringify(consolidatePayload),
         signal: AbortSignal.timeout(25_000),
       });
 

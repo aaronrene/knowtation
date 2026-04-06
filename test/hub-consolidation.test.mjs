@@ -22,6 +22,11 @@ describe('populateConsolSettingsForm', () => {
       'consol-llm-model': { value: '' },
       'consol-llm-base-url': { value: '' },
       'consol-cost-cap': { value: '' },
+      'consol-hosted-interval': { value: '120' },
+      'consol-lookback-hours': { value: '' },
+      'consol-max-events': { value: '' },
+      'consol-max-topics': { value: '' },
+      'consol-llm-max-tokens': { value: '' },
     };
   }
 
@@ -50,6 +55,16 @@ describe('populateConsolSettingsForm', () => {
     assert.equal(populateConsolSettingsForm(settings, makeForm()), 'hosted');
   });
 
+  it('syncs consol-hosted-interval when interval matches schedule options', () => {
+    const settings = {
+      daemon: { enabled: false, interval_minutes: 360 },
+      hosted_delegating: true,
+    };
+    const form = makeForm();
+    populateConsolSettingsForm(settings, form);
+    assert.equal(form['consol-hosted-interval'].value, '360');
+  });
+
   it('populates all form fields from daemon config', () => {
     const settings = {
       daemon: {
@@ -60,7 +75,15 @@ describe('populateConsolSettingsForm', () => {
         run_on_start: true,
         max_cost_per_day_usd: 0.05,
         passes: { consolidate: true, verify: false, discover: true },
-        llm: { provider: 'openai', model: 'gpt-4o-mini', base_url: 'https://api.openai.com/v1' },
+        lookback_hours: 48,
+        max_events_per_pass: 150,
+        max_topics_per_pass: 8,
+        llm: {
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          base_url: 'https://api.openai.com/v1',
+          max_tokens: 2048,
+        },
       },
     };
     const form = makeForm();
@@ -75,6 +98,10 @@ describe('populateConsolSettingsForm', () => {
     assert.equal(form['consol-llm-provider'].value, 'openai');
     assert.equal(form['consol-llm-model'].value, 'gpt-4o-mini');
     assert.equal(form['consol-llm-base-url'].value, 'https://api.openai.com/v1');
+    assert.equal(form['consol-lookback-hours'].value, 48);
+    assert.equal(form['consol-max-events'].value, 150);
+    assert.equal(form['consol-max-topics'].value, 8);
+    assert.equal(form['consol-llm-max-tokens'].value, 2048);
     assert.equal(form['consol-cost-cap'].value, 0.05);
   });
 
@@ -89,6 +116,10 @@ describe('populateConsolSettingsForm', () => {
     assert.equal(form['pass-verify'].checked, true);
     assert.equal(form['pass-discover'].checked, false);
     assert.equal(form['consol-cost-cap'].value, '');
+    assert.equal(form['consol-lookback-hours'].value, 24);
+    assert.equal(form['consol-max-events'].value, 200);
+    assert.equal(form['consol-max-topics'].value, 10);
+    assert.equal(form['consol-llm-max-tokens'].value, 1024);
   });
 });
 
@@ -96,6 +127,7 @@ describe('buildConsolSettingsPayload', () => {
   function makeForm(overrides = {}) {
     return {
       'consol-interval': { value: '120' },
+      'consol-hosted-interval': { value: '120' },
       'consol-idle-only': { checked: true },
       'consol-idle-threshold': { value: '15' },
       'consol-run-on-start': { checked: false },
@@ -106,6 +138,10 @@ describe('buildConsolSettingsPayload', () => {
       'consol-llm-model': { value: '' },
       'consol-llm-base-url': { value: '' },
       'consol-cost-cap': { value: '' },
+      'consol-lookback-hours': { value: '24' },
+      'consol-max-events': { value: '200' },
+      'consol-max-topics': { value: '10' },
+      'consol-llm-max-tokens': { value: '1024' },
       ...overrides,
     };
   }
@@ -119,7 +155,10 @@ describe('buildConsolSettingsPayload', () => {
     assert.equal(payload.idle_threshold_minutes, 15);
     assert.equal(payload.run_on_start, false);
     assert.deepEqual(payload.passes, { consolidate: true, verify: true, discover: false });
-    assert.deepEqual(payload.llm, { provider: '', model: '', base_url: '' });
+    assert.deepEqual(payload.llm, { provider: '', model: '', base_url: '', max_tokens: 1024 });
+    assert.equal(payload.lookback_hours, 24);
+    assert.equal(payload.max_events_per_pass, 200);
+    assert.equal(payload.max_topics_per_pass, 10);
     assert.equal(payload.max_cost_per_day_usd, null);
   });
 
@@ -129,10 +168,22 @@ describe('buildConsolSettingsPayload', () => {
     assert.equal(payload.enabled, false);
   });
 
-  it('builds hosted payload (not enabled as daemon, mode=hosted)', () => {
+  it('builds hosted payload with advanced knobs for gateway billing persistence', () => {
     const payload = buildConsolSettingsPayload(makeForm(), 'hosted');
     assert.equal(payload.mode, 'hosted');
     assert.equal(payload.enabled, false);
+    assert.equal(payload.lookback_hours, 24);
+    assert.equal(payload.max_events_per_pass, 200);
+    assert.equal(payload.max_topics_per_pass, 10);
+    assert.equal(payload.llm.max_tokens, 1024);
+  });
+
+  it('uses consol-hosted-interval for interval_minutes when mode is hosted', () => {
+    const payload = buildConsolSettingsPayload(
+      makeForm({ 'consol-hosted-interval': { value: '360' }, 'consol-interval': { value: '120' } }),
+      'hosted',
+    );
+    assert.equal(payload.interval_minutes, 360);
   });
 
   it('includes cost cap when set', () => {
@@ -152,9 +203,29 @@ describe('buildConsolSettingsPayload', () => {
       'consol-llm-provider': { value: 'ollama' },
       'consol-llm-model': { value: 'llama3' },
       'consol-llm-base-url': { value: 'http://localhost:11434' },
+      'consol-llm-max-tokens': { value: '2048' },
     });
     const payload = buildConsolSettingsPayload(form, 'daemon');
-    assert.deepEqual(payload.llm, { provider: 'ollama', model: 'llama3', base_url: 'http://localhost:11434' });
+    assert.deepEqual(payload.llm, {
+      provider: 'ollama',
+      model: 'llama3',
+      base_url: 'http://localhost:11434',
+      max_tokens: 2048,
+    });
+  });
+
+  it('clamps advanced daemon fields to server ranges', () => {
+    const form = makeForm({
+      'consol-lookback-hours': { value: '99999' },
+      'consol-max-events': { value: '50000' },
+      'consol-max-topics': { value: '900' },
+      'consol-llm-max-tokens': { value: '100000' },
+    });
+    const payload = buildConsolSettingsPayload(form, 'daemon');
+    assert.equal(payload.lookback_hours, 8760);
+    assert.equal(payload.max_events_per_pass, 10000);
+    assert.equal(payload.max_topics_per_pass, 500);
+    assert.equal(payload.llm.max_tokens, 8192);
   });
 
   it('clamps interval_minutes to at least 1', () => {
@@ -323,6 +394,10 @@ describe('gateway consolidation settings — billing store logic', () => {
     assert.deepEqual(u.consolidation_passes, { consolidate: true, verify: true, discover: false });
     assert.equal(u.consolidation_enabled, false);
     assert.equal(u.consolidation_interval_minutes, null);
+    assert.equal(u.consolidation_lookback_hours, 24);
+    assert.equal(u.consolidation_max_events_per_pass, 200);
+    assert.equal(u.consolidation_max_topics_per_pass, 10);
+    assert.equal(u.consolidation_llm_max_tokens, 1024);
   });
 
   it('normalizeBillingUser adds consolidation_passes when missing', () => {

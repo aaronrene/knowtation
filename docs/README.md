@@ -20,7 +20,9 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 |-----|---------|
 | [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Cursor — integrating agents |
 | [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) | MCP + orchestration patterns |
+| [ECOSYSTEM-VISION.md](./ECOSYSTEM-VISION.md) | Knowtation × Muse × MuseHub × AgentCeption × Stori — unified vision |
 | [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) | CLI reference and retrieval tips |
+| [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) | Consolidation, Discover, hosted billing per run, encrypt-aware prompts, advanced knobs, phased rollout |
 | [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | Import paths from ChatGPT, Claude, etc. |
 | [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) | MCP roadmap and phased features |
 
@@ -60,6 +62,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 
 | Doc | Purpose |
 |-----|---------|
+| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, OB1 analysis) — not loose in `.cursor/plans/` |
 | [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) | Proposal **review hints** vs **Enrich** (LLM); roadmap pointer to extended Enrich |
 | [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md) | Plan: Enrich → recommend project, chain, entity, episode, follows, title, … |
 | [openapi.yaml](./openapi.yaml) | OpenAPI sketch for Hub API |
