@@ -133,53 +133,54 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
     }
   }
 
-  if (!billingEnforced()) return true;
+  // Always track usage when the user is authenticated, regardless of enforcement mode.
+  // Enforcement (blocking) only fires when BILLING_ENFORCE=true.
+  if (uid && cost != null && cost > 0) {
+    try {
+      await resetMonthlyTokensIfNeeded(uid);
+      const db = await loadBillingDb();
+      const u = db.users[uid] || defaultUserRecord(uid);
+      if (!db.users[uid]) db.users[uid] = u;
 
-  if (!uid) {
-    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-    return false;
-  }
+      // Increment operation counters unconditionally so Usage this period is always accurate.
+      if (op === 'search') u.monthly_searches_used = Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)) + 1;
+      if (op === 'index')  u.monthly_index_jobs_used = Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
+      if (op === 'consolidation') {
+        u.monthly_consolidation_jobs_used = Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0)) + 1;
+        u.consolidation_last_pass_at = new Date().toISOString();
+      }
 
-  if (cost == null || cost <= 0) return true;
+      if (billingEnforced()) {
+        // Consolidation-specific cap check: free tier (cap=0) is always blocked.
+        if (op === 'consolidation') {
+          const passCap = effectiveMonthlyConsolidationPassesIncluded(u);
+          if (passCap !== null && passCap === 0) {
+            res.status(402).json({
+              error: 'Hosted memory consolidation is not available on the free tier. Upgrade to a paid plan.',
+              code: 'CONSOLIDATION_NOT_AVAILABLE',
+              tier: u.tier || 'free',
+            });
+            return false;
+          }
+        }
 
-  await resetMonthlyTokensIfNeeded(uid);
+        const result = tryDeduct(u, cost);
+        if (!result.ok) {
+          res.status(402).json({
+            error: 'Billing quota exceeded for this operation',
+            code: result.code || 'QUOTA_EXHAUSTED',
+          });
+          return false;
+        }
+      }
 
-  const db = await loadBillingDb();
-  const u = db.users[uid] || defaultUserRecord(uid);
-  if (!db.users[uid]) db.users[uid] = u;
-
-  // Consolidation-specific cap check: free tier (cap=0) is always blocked.
-  // Other tiers with cap exceeded use overage (addon_cents) via the standard tryDeduct flow.
-  if (op === 'consolidation') {
-    const passCap = effectiveMonthlyConsolidationPassesIncluded(u);
-    if (passCap !== null && passCap === 0) {
-      res.status(402).json({
-        error: 'Hosted memory consolidation is not available on the free tier. Upgrade to a paid plan.',
-        code: 'CONSOLIDATION_NOT_AVAILABLE',
-        tier: u.tier || 'free',
-      });
-      return false;
+      await saveBillingDb(db);
+    } catch (e) {
+      // Never block a request due to a billing tracking failure — fail open.
+      console.error('[billing] usage tracking failed (non-fatal):', e?.message || String(e));
     }
   }
 
-  const result = tryDeduct(u, cost);
-  if (!result.ok) {
-    res.status(402).json({
-      error: 'Billing quota exceeded for this operation',
-      code: result.code || 'QUOTA_EXHAUSTED',
-    });
-    return false;
-  }
-
-  // Increment operation counters in the same write cycle as tryDeduct (no extra blob round-trip).
-  if (op === 'search') u.monthly_searches_used = Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)) + 1;
-  if (op === 'index')  u.monthly_index_jobs_used = Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
-  if (op === 'consolidation') {
-    u.monthly_consolidation_jobs_used = Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0)) + 1;
-    u.consolidation_last_pass_at = new Date().toISOString();
-  }
-
-  await saveBillingDb(db);
   return true;
 }
 
