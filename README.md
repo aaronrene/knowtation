@@ -1,85 +1,204 @@
 # Knowtation
 
-**Knowtation** (*know* + *notation*) is a **personal knowledge and notation system**: one place to capture, transcribe, index, and search your notes and media. It is built to be an **open brain**—parseable by any agent—with a **CLI + Skill Manifest** interface so many AI agents can use it without tool-definition context bloat. Optional support for **memory** and **intent attestation (AIR)** keeps workflows traceable and authorized.
+**Accurate context. Lowest cost. Your data.**
 
-- **Source of truth:** Obsidian-style vault (Markdown + frontmatter + media). Use Obsidian or any Markdown vault editor (SilverBullet, Foam, VS Code, etc.); the format is agent-parseable and editor-agnostic.
-- **Search:** Vector store (Qdrant or sqlite-vec) for semantic and hybrid search.
-- **Interface:** Single CLI (`knowtation search`, `get-note`, `list-notes`, `index`, etc.) + **SKILL.md** for agent discovery (Cursor, Claude Code, and others). Optional MCP server for clients that only speak MCP.
-- **Multi-project:** One vault can hold multiple projects (e.g. Born Free, Dream Bold Network). Use folders and tags; filter by `--project` or `--tag` when you want scope, or query across everything.
-- **Capture & message interfaces:** Ingest from Telegram, WhatsApp, Discord into the vault; **JIRA** and **Slack** are recommended plugins. The design is open so you can add other message interfaces (Teams, email, etc.) that write to the same inbox contract.
-- **Import from other platforms:** Bring in ChatGPT and Claude exports, Mem0, NotebookLM, Google Drive, MIF, and generic Markdown. Any audio (smart glasses, wearables, past blogs/videos) via transcription. One vault; all content searchable and usable for any project. See **[docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md)**.
-- **Use cases:** Capture from chat and tools, transcription (audio/video → vault), **import from LLMs and knowledge bases**, content creation (blog, podcast, reels, book), marketing, analysis—all with one vault and one CLI. Optional integrations (e.g. Airtable, Mem) for structured data and agent memory.
+Knowtation (*know* + *notation*) was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Three mechanisms work together to fix this — two-step retrieval (narrow first, expand selectively), memory consolidation (compress history so future context is smaller), and memory-aware prompts (skip searches the agent already did). Everything else exists to make those levers practical: 14 importers, a 33-tool MCP server, five memory provider tiers, and an optional Hub — all backed by Markdown files you own.
 
-**Spec:** All data formats, CLI surface, and contracts are in **[docs/SPEC.md](./docs/SPEC.md)**. The **final document that lays out all phases** is **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** (Phases 1–11). Data ownership and vendor independence are in SPEC §0. Internal planning and optional archived doc copies live in **development/** (gitignored). A **simple landing page** (intent, open source, what’s included, mock pricing) is in **[web/index.html](./web/index.html)** — open in a browser or host it.
+---
 
-## Prerequisites
+## Why Knowtation exists
 
-- **Node.js 18+** (for CLI, Hub, MCP).
-- **Ollama** (optional but recommended for semantic search): install from [ollama.ai](https://ollama.ai), then run `ollama pull nomic-embed-text` so the indexer can embed. Alternatively use OpenAI embeddings (set `OPENAI_API_KEY` in `.env` and `embedding.provider: openai` in config).
+An agent that dumps 5,000 tokens of unfiltered context into every prompt is **expensive and inaccurate**. Knowtation gives agents the tools to fetch 500 tokens of the *right* context instead:
 
-## Quick start
+1. **Two-step retrieval** — Narrow search returns paths and snippets; selective `get-note` fetches only what matters. Filters (`--project`, `--tag`, `--since`, `--entity`) and token levers (`--fields`, `--snippet-chars`, `--count-only`) keep every request lean.
+2. **Memory consolidation** — Raw memory events pile up; the consolidation engine merges them by topic into compact summaries via LLM, verifies them against vault state, and optionally discovers cross-topic insights. Future sessions start with summaries, not raw logs.
+3. **Memory-aware prompts** — `resume-session`, `memory-informed-search`, and `memory-context` inject prior knowledge so agents avoid redundant searches and pick up where they left off.
 
-1. **Clone and install**
-   ```bash
-   git clone https://github.com/aaronrene/knowtation.git
-   cd knowtation
-   npm install
-   ```
-2. **Configure** — Copy `config/local.example.yaml` to `config/local.yaml`. Set `vault_path` (absolute). For vectors: **`sqlite-vec`** + `data_dir: data/` (no extra server) **or** **`qdrant`** + `qdrant_url`. Set **embedding** (Ollama or OpenAI — for search). Do not commit `config/local.yaml`.
-3. **Secrets (optional)** — Copy `.env.example` to `.env` (e.g. `OPENAI_API_KEY`, `HUB_JWT_SECRET`, `KNOWTATION_VAULT_PATH`). See [docs/setup.md](./docs/setup.md).
-4. **Index once** (semantic search) — `npm run index` (Ollama or OpenAI per config). Then `node cli/index.mjs search "your query"`. **Hosted** users skip this.
-5. **Hub (optional)** — `cd hub && npm install && cd ..`, set `KNOWTATION_VAULT_PATH` and `HUB_JWT_SECRET`, `npm run hub`, open **http://localhost:3333/**. OAuth: your own Google/GitHub app + `.env` ([hub/README.md](./hub/README.md)). **Hosted (knowtation.store):** admins are set via gateway env `HUB_ADMIN_USER_IDS` ([hub/gateway/README.md](./hub/gateway/README.md), [DEPLOY-HOSTED.md](./docs/DEPLOY-HOSTED.md)). In the Hub, **How to use** = seven steps (same story as [Quick start](./docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted) / [checklist](./docs/SELF-HOSTED-SETUP-CHECKLIST.md)).
-6. **Agents** — Skill in `.cursor/skills/knowtation/` is used by Cursor when this repo is open. For **MCP**: `npm run mcp` and configure per [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md).
+The result: agents get **better answers at a fraction of the cost**, and that advantage compounds with every session.
 
-**Step-by-step:** **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** (clone → config → index → search, plus Hub, landing, and multi-agent / orchestrator examples).  
-Full setup (transcription, OAuth, memory, capture): **[docs/setup.md](./docs/setup.md)**.
+---
+
+## How Knowtation is different
+
+Most knowledge tools put a database at the center. Knowtation puts **files** at the center.
+
+- **Your vault is Markdown.** Open it in Obsidian, VS Code, Foam, SilverBullet, or any text editor. Version it with Git. Copy it to another machine. No export step, no vendor lock.
+- **Agents get depth, not a thin wrapper.** 33 MCP tools, 23 resources, 13 prompts, a full CLI with JSON output, and a Hub REST API. Memory, consolidation, verification, proposals, enrichment, clustering, task extraction — not just search-and-return.
+- **Memory compounds.** Five provider tiers (file, vector, Mem0, Supabase, encrypted), 15 event types, LLM consolidation, session summaries. Your agent's second question costs less than the first.
+- **Trust is built in.** Proposals go through human review with rubric scoring. Attestation records can anchor to the Internet Computer blockchain for immutable audit.
+- **Self-hosted or hosted.** Same codebase, same vault format. Migrate by copying a folder.
+
+---
+
+## Quick start (~5 minutes)
+
+```bash
+git clone https://github.com/aaronrene/knowtation.git
+cd knowtation
+npm install
+```
+
+**Configure:** Copy `config/local.example.yaml` to `config/local.yaml`. Set `vault_path` (absolute path to your vault). For vectors: `sqlite-vec` + `data_dir: data/` (zero extra servers) or `qdrant` + `qdrant_url`. Set embedding provider: Ollama (`ollama pull nomic-embed-text`) or OpenAI (`OPENAI_API_KEY` in `.env`).
+
+```bash
+npm run index          # index your vault
+node cli/index.mjs search "your query"   # search it
+```
+
+**Hub (optional):**
+
+```bash
+cd hub && npm install && cd ..
+npm run hub            # http://localhost:3333
+```
+
+**MCP (optional):**
+
+```bash
+npm run mcp            # stdio transport
+# or
+npm run mcp:http       # HTTP transport
+```
+
+**Detailed guides:** [Getting Started](./docs/GETTING-STARTED.md) | [Setup (full)](./docs/setup.md) | [Self-Hosted Checklist](./docs/SELF-HOSTED-SETUP-CHECKLIST.md) | [Hosted](./docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)
+
+---
+
+## Feature highlights
+
+### Imports — 14 sources, one vault
+
+ChatGPT, Claude, Mem0, NotebookLM, Google Drive, Notion, Jira, Linear, MIF, Supabase, generic Markdown, audio (Whisper), video (Whisper), wallet/exchange CSV. Each import is idempotent with `source`, `source_id`, `date` frontmatter. Four capture channels (file, webhook, Slack/Discord/Telegram adapters) for live ingestion.
+
+### Search and retrieval
+
+Semantic search (vector similarity) and keyword search over an indexed vault. Filters: `--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`. Token levers: `--fields`, `--snippet-chars`, `--count-only`, `--body-only`, `--frontmatter-only`. Designed for agents that need precision without over-fetch.
+
+### Memory — 5 providers, persistent recall
+
+File (default), vector, Mem0, Supabase/pgvector, and AES-256-GCM encrypted. Fifteen event types captured automatically. CLI: `memory query|list|store|search|clear|export|stats|index|consolidate`. MCP: `memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`, `memory_verify`, `memory_consolidate`, `memory_summarize`. Cross-vault or per-vault scope. Retention enforcement.
+
+### Consolidation daemon
+
+Three-pass LLM engine: consolidate (merge by topic), verify (check against vault state), discover (surface insights). Runs as a background daemon with configurable interval and cost caps.
+
+### MCP — 33 tools, 23 resources, 13 prompts
+
+Full vault operations, memory operations, Hub proposal operations. Resources for vault browsing, templates, media, index stats, graph, tags, projects, config, AIR log, and memory. Prompts for daily briefs, search synthesis, project summaries, meeting notes, knowledge gaps, causal chains, content plans, and memory-aware sessions. Hosted MCP adds role-gated access with OAuth 2.1.
+
+### Hub — proposals, review, collaboration
+
+Web UI and REST API. Google/GitHub OAuth. Proposals with LLM-assisted enrichment and rubric scoring. Team roles (viewer, editor, admin), multi-vault, GitHub backup, settings, and Stripe billing.
+
+### Attestation and ICP
+
+Intent attestation before writes and exports. HMAC-signed records with optional ICP blockchain anchoring for immutable, decentralized audit trails.
+
+### Wallet and blockchain
+
+Import transaction CSVs from Coinbase, Binance, Ledger Live, and others. Per-transaction vault notes with chain, hash, amount, and date frontmatter — searchable and filterable alongside all other notes.
+
+### Billing
+
+Stripe-backed tiers (free, plus, growth, pro) with token packs, indexing quotas, consolidation pass limits, and note count caps. Shadow mode for usage tracking without enforcement.
+
+---
+
+## Agent integration
+
+Knowtation is designed as a **knowledge backend** for agents and orchestrators.
+
+- **CLI:** `knowtation search|write|import|export|memory|propose ... --json` — same commands for humans and agents.
+- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md).
+- **Hub API:** REST with JWT auth. `KNOWTATION_HUB_TOKEN` for agent access. Proposals for human-in-the-loop review.
+- **SKILL.md:** `.cursor/skills/knowtation/SKILL.md` teaches Cursor agents how to use Knowtation without tool-definition bloat.
+
+See [Agent Integration](./docs/AGENT-INTEGRATION.md) for patterns and examples.
+
+---
 
 ## Repository layout
 
 ```
 knowtation/
 ├── README.md
-├── COPY-TO-REPO.md       ← Optional: turn this seed into a new repo
 ├── ARCHITECTURE.md
-├── cli/                  ← CLI entry and subcommands
-├── .cursor/skills/knowtation/   ← SKILL.md for agent discovery
-├── vault/                ← Obsidian-style vault (inbox, projects, areas, media, …)
-├── config/               ← Example config (copy to local, do not commit)
-├── scripts/              ← Indexer, transcribe, capture/export
-├── docs/                 ← Spec, plan, clarifications, setup (public)
-├── web/                  ← Landing page (index.html)
-├── data/                 ← Generated (gitignored)
-└── development/          ← Local-only planning + optional archived doc copies (gitignored)
+├── cli/                  ← CLI entry point and routing
+├── lib/                  ← Core library (search, memory, importers, AIR, etc.)
+├── mcp/                  ← MCP server (33 tools, 23 resources, 13 prompts)
+├── hub/                  ← Hub: gateway, bridge, ICP canister
+│   ├── gateway/          ← Auth, billing, proxy, attestation
+│   ├── bridge/           ← Vault operations, teams, import, memory
+│   └── icp/              ← Motoko attestation canister
+├── scripts/              ← Indexer, transcription, capture adapters, seeding
+├── test/                 ← Test suite
+├── config/               ← Example config (copy to local.yaml)
+├── docs/                 ← Whitepaper, spec, guides, plans
+├── web/                  ← Landing page and Hub web UI
+│   └── hub/              ← Hub single-page app (HTML/CSS/JS)
+├── vault/                ← Example vault structure (inbox, projects, media, …)
+├── data/                 ← Generated index and memory data (gitignored)
+└── .cursor/skills/       ← SKILL.md for agent discovery
 ```
 
-## Message interfaces and plugins
+---
 
-- **Reference plugins:** `scripts/capture-file.mjs` (file/stdin) and `scripts/capture-webhook.mjs` (HTTP POST). Both write to `vault/inbox` per [docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md).
-- **Recommended (planned):** JIRA, Slack, Telegram—same inbox contract. See [ARCHITECTURE.md](./ARCHITECTURE.md) and [docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md).
+## Documentation
 
-## Docs
+| Document | What it covers |
+|----------|----------------|
+| **[Whitepaper](./docs/WHITEPAPER.md)** | Why vault-centric knowledge, thesis, full product inventory |
+| **[Getting Started](./docs/GETTING-STARTED.md)** | Clone → config → index → search → Hub → MCP |
+| **[Setup (full)](./docs/setup.md)** | Transcription, OAuth, memory, capture, all options |
+| **[Spec](./docs/SPEC.md)** | Frontmatter, CLI commands/flags, config, MCP, contracts |
+| **[Agent Integration](./docs/AGENT-INTEGRATION.md)** | CLI, MCP, Hub API patterns for agents |
+| **[Agent Orchestration](./docs/AGENT-ORCHESTRATION.md)** | Multi-agent setup with Cursor/Claude |
+| **[Import Sources](./docs/IMPORT-SOURCES.md)** | All 14 importers with formats and usage |
+| **[Memory Consolidation](./docs/MEMORY-CONSOLIDATION-GUIDE.md)** | Consolidation daemon operation |
+| **[Hub API](./docs/HUB-API.md)** | REST API, auth, proposals |
+| **[Self-Hosted Checklist](./docs/SELF-HOSTED-SETUP-CHECKLIST.md)** | Step-by-step self-hosted setup |
+| **[Hosted Deployment](./docs/DEPLOY-HOSTED.md)** | Hosted platform deployment |
+| **[Two Paths](./docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)** | Self-hosted vs hosted comparison |
+| **[Teams](./docs/TEAMS-AND-COLLABORATION.md)** | Team roles and collaboration |
+| **[Retrieval Reference](./docs/RETRIEVAL-AND-CLI-REFERENCE.md)** | All CLI commands, token levers |
+| **[Implementation Plan](./docs/IMPLEMENTATION-PLAN.md)** | Development phases and status |
+| **[AI-Assisted Setup](./docs/AI-ASSISTED-SETUP.md)** | Phased prompts for Cursor, Windsurf, Claude Code, etc. |
 
-- **[docs/README.md](./docs/README.md)** — **Documentation index** (spec, API, deploy, agents, hosted).
-- **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** — **Getting started:** clone → config → index → search; optional Hub, landing, MCP; multi-agent integration patterns.
-- **[docs/STATUS-HOSTED-AND-PLANS.md](./docs/STATUS-HOSTED-AND-PLANS.md)** — **Status:** canister/hosted (Phases 0–5 live; redeploy when Motoko changes); **hosted multi-vault (Phase 15.1)** partitioned in **repo** — verify **production** after ICP deploy ([docs/DEPLOY-HOSTED.md](./docs/DEPLOY-HOSTED.md) §5.1); Phase 12 blockchain (reserved, separate).
-- **[docs/WHITEPAPER.md](./docs/WHITEPAPER.md)** — **Whitepaper:** why fragmented knowledge and weak retrieval motivate a portable vault; Knowtation’s thesis (data liberation, CLI/MCP, indexing); who it’s for; questions for builders. Landing page links here from [web/index.html](./web/index.html).
-- **[docs/SPEC.md](./docs/SPEC.md)** — **Spec:** frontmatter, inbox contract, CLI (all commands/flags including `import`), config, indexer, MCP, memory/AIR hooks, import sources, versioning.
-- **[docs/IMPLEMENTATION-PLAN.md](./docs/IMPLEMENTATION-PLAN.md)** — **Final document: all phases** (1–11). Core (1–10) + optional Phase 11 (shared vault / hub). Phases 1–9 implemented.
-- **[docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md)** — Using Knowtation with agent orchestration: MCP (Cursor/Claude config) and CLI in agent environments; vault as knowledge backend, write-back patterns.
-- **[docs/CLARIFICATIONS.md](./docs/CLARIFICATIONS.md)** — Simple explanations: capture/import contracts, optional memory/AIR, backends behind an abstraction, “plug into any LLM or service.”
-- **[docs/INTENTION-AND-TEMPORAL.md](./docs/INTENTION-AND-TEMPORAL.md)** — Intention and temporal understanding: temporal sequence, causation, hierarchical memory, state compression, evals. Optional frontmatter and CLI filters; schema defined now so we don’t backtrack.
-- **[docs/RETRIEVAL-AND-CLI-REFERENCE.md](./docs/RETRIEVAL-AND-CLI-REFERENCE.md)** — All CLI commands and add-on features in one place; how they interact; how each helps the retrieval bottleneck and token cost; expansions (e.g. `--fields`, `--snippet-chars`, `--count-only`) for right information at best price token-wise.
-- **[docs/TOKEN-SAVINGS.md](./docs/TOKEN-SAVINGS.md)** — **Token savings:** consolidation passes, Discover vs billing, tiered retrieval, `memory.encrypt` and consolidation prompts, advanced knobs; phased implementation checklist.
-- **[docs/CAPTURE-CONTRACT.md](./docs/CAPTURE-CONTRACT.md)** — Capture plugin contract: output location, frontmatter, idempotency. Use when building Telegram, Slack, or custom capture plugins.
-- **[docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md)** — Import from ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, markdown, audio/video; formats and how to run.
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — High-level design; points to SPEC for details.
-- **[docs/STANDALONE-PLAN.md](./docs/STANDALONE-PLAN.md)** — Product plan (CLI-first, SKILL.md, memory, AIR, scenarios).
-- **[docs/PROVENANCE-AND-GIT.md](./docs/PROVENANCE-AND-GIT.md)** — What “provenance” and “vault under git” mean (traceability of outputs vs version history); inbox stays file-based.
-- **[docs/MUSE-STYLE-EXTENSION.md](./docs/MUSE-STYLE-EXTENSION.md)** — Optional Muse-style variation/review/commit layer for context, intention, and hub-style workflows; Hub proposals are Muse-<em>protocol</em>-aligned; optional Muse linkage (thin bridge) is documented there. Phase 11 (shared vault / hub) for simple agent-to-agent and agent-to-human without GitHub.
-- **[docs/setup.md](./docs/setup.md)** — Setup steps.
-- **[web/index.html](./web/index.html)** — Landing page: intent, open source, GitHub link, what’s included, phases summary, mock pricing. **To view locally:** run <code>npx -y serve web -p 8888</code> (or <code>python3 -m http.server 8888 --directory web</code>), then open **http://localhost:8888**. See [web/README.md](./web/README.md).
-- **[COPY-TO-REPO.md](./COPY-TO-REPO.md)** — Use when creating a new repo from this seed.
+Full docs index: **[docs/README.md](./docs/README.md)**
+
+---
+
+## Prerequisites
+
+- **Node.js 18+**
+- **Ollama** (optional, for local embeddings): [ollama.ai](https://ollama.ai) → `ollama pull nomic-embed-text`
+- **OpenAI API key** (alternative embeddings, transcription): set `OPENAI_API_KEY` in `.env`
+
+---
+
+## Set up with an AI coding assistant
+
+Knowtation can be installed and configured entirely through an AI-powered IDE. The **[AI-Assisted Setup Guide](./docs/AI-ASSISTED-SETUP.md)** provides copy-paste prompts organized into eight phases:
+
+| Phase | What it does | Time |
+|-------|-------------|------|
+| 1. Clone & configure | Repo, dependencies, `config/local.yaml` | ~3 min |
+| 2. Index & search | Embed vault, verify semantic search | ~2 min |
+| 3. Hub (optional) | Web UI, proposals, settings | ~3 min |
+| 4. MCP server | Connect agents to your vault | ~2 min |
+| 5. Memory (optional) | Persistent recall across sessions | ~2 min |
+| 6. Import (optional) | Bring in ChatGPT, Claude, Notion, audio, etc. | ~5 min |
+| 7. Consolidation (optional) | Background memory improvement | ~2 min |
+| 8. Git backup (optional) | Version your vault | ~2 min |
+
+Works with **Cursor**, **Windsurf**, **Claude Code**, **GitHub Copilot Workspace**, **Cline**, **Continue**, **Aider**, and any MCP-capable agent. Each prompt is self-contained — paste it into your assistant's chat and follow along.
+
+---
+
+## Contributing
+
+Contributions welcome. Please open an issue or PR on [GitHub](https://github.com/aaronrene/knowtation).
 
 ## License
 
-Use and extend as you like. Add a LICENSE file when you publish.
+Use and extend as you like. See LICENSE file for details.
