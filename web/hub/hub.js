@@ -6396,10 +6396,11 @@
           body: JSON.stringify({ dry_run: true }),
         });
         setButtonBusy(btnConsolNow, false);
-        const topics = preview.topics ?? 0;
+        const topicsRaw = preview.topics;
+        const topics = Array.isArray(topicsRaw) ? topicsRaw.length : (preview.topics_count ?? topicsRaw ?? 0);
         const events = preview.total_events ?? 0;
-        const cost = preview.cost_usd != null ? '$' + Number(preview.cost_usd).toFixed(4) : 'unknown';
-        const ok = confirm('Consolidation preview:\n\nTopics: ' + topics + '\nEvents to merge: ' + events + '\nEstimated cost: ' + cost + '\n\nProceed?');
+        // Cost is $0 in dry-run (no LLM called); actual cost is recorded after the real run.
+        const ok = confirm('Consolidation preview:\n\nTopics found: ' + topics + '\nEvents to merge: ' + events + '\nCost: calculated after run (see History)\n\nProceed?');
         if (!ok) return;
         setButtonBusy(btnConsolNow, true, 'Consolidating…');
         await api('/api/v1/memory/consolidate', {
