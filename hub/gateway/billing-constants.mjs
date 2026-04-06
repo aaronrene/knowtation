@@ -160,11 +160,11 @@ export const MONTHLY_INDEX_JOBS_INCLUDED_BY_TIER = {
 export const CONSOLIDATION_PASSES_BY_TIER = {
   beta:    null,   // unlimited (internal dev)
   free:    0,      // no hosted consolidation on free
-  plus:    10,
-  starter: 10,     // legacy alias → plus
-  growth:  30,
-  pro:     null,   // unlimited
-  team:    100,
+  plus:    30,
+  starter: 30,     // legacy alias → plus
+  growth:  100,
+  pro:     300,    // 300/mo; rate limit enforced server-side (30-min cooldown)
+  team:    300,
 };
 
 /** Metered operation → cost in cents (legacy credit ledger). Shadow-log only until BILLING_ENFORCE=true. */

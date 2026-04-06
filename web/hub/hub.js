@@ -2803,11 +2803,14 @@
   const TIER_ORDER = ['free', 'plus', 'growth', 'pro'];
 
   const TIER_PLAN_DATA = [
-    { tier: 'free',   price: 'Free',   searches: '100 searches/mo',       indexJobs: '5 index jobs/mo',        notes: '200 notes' },
-    { tier: 'plus',   price: '$9/mo',  searches: '2,000 searches/mo',     indexJobs: '50 index jobs/mo',       notes: '2,000 notes' },
-    { tier: 'growth', price: '$17/mo', searches: '8,000 searches/mo',     indexJobs: '200 index jobs/mo',      notes: '5,000 notes' },
-    { tier: 'pro',    price: '$25/mo', searches: 'Unlimited searches',    indexJobs: 'Unlimited index jobs',   notes: 'Unlimited notes' },
+    { tier: 'free',   price: 'Free',   searches: '100 searches/mo',       indexJobs: '5 index jobs/mo',        notes: '200 notes',       consolidations: null },
+    { tier: 'plus',   price: '$9/mo',  searches: '2,000 searches/mo',     indexJobs: '50 index jobs/mo',       notes: '2,000 notes',     consolidations: '30 memory consolidations/mo' },
+    { tier: 'growth', price: '$17/mo', searches: '8,000 searches/mo',     indexJobs: '200 index jobs/mo',      notes: '5,000 notes',     consolidations: '100 memory consolidations/mo' },
+    { tier: 'pro',    price: '$25/mo', searches: 'Unlimited searches',    indexJobs: 'Unlimited index jobs',   notes: 'Unlimited notes', consolidations: '300 memory consolidations/mo' },
   ];
+
+  /** Monthly consolidation pass limit by tier (mirrors billing-constants.mjs). */
+  const CONSOLIDATION_PASSES_BY_TIER = { free: 0, plus: 30, starter: 30, growth: 100, pro: 300, beta: null };
 
   /**
    * Render the plan comparison grid into #billing-plan-grid.
@@ -2823,7 +2826,7 @@
       : currentTier;
     const currentRank = TIER_ORDER.indexOf(normalized);
 
-    const cards = TIER_PLAN_DATA.map(({ tier, price, searches, indexJobs, notes }) => {
+    const cards = TIER_PLAN_DATA.map(({ tier, price, searches, indexJobs, notes, consolidations }) => {
       const rank = TIER_ORDER.indexOf(tier);
       const isCurrent = rank === currentRank;
       const isUpgrade = rank > currentRank && stripeConfigured && tier !== 'free';
@@ -2841,6 +2844,7 @@
       }
 
       const packLine = tier !== 'free' ? '<li>Token packs available</li>' : '';
+      const consolLine = consolidations ? '<li>' + consolidations + '</li>' : '';
 
       return (
         '<div class="billing-plan-card' + (isCurrent ? ' billing-plan-card-active' : '') + '">' +
@@ -2852,6 +2856,7 @@
             '<li>' + searches + '</li>' +
             '<li>' + indexJobs + '</li>' +
             '<li>' + notes + '</li>' +
+            consolLine +
             packLine +
           '</ul>' +
           '<div class="billing-plan-card-cta">' + ctaHtml + '</div>' +
@@ -6320,16 +6325,15 @@
       container.innerHTML = '<p class="muted">No consolidation history found.</p>';
       return;
     }
-    let html = '<table class="consol-history-table"><thead><tr><th>Date</th><th>Topics</th><th>Events Merged</th><th>Cost</th><th>Status</th></tr></thead><tbody>';
+    let html = '<table class="consol-history-table"><thead><tr><th>Date</th><th>Topics</th><th>Events Merged</th><th>Status</th></tr></thead><tbody>';
     events.forEach((ev) => {
       const ts = ev.ts || ev.timestamp || ev.created_at;
       const date = ts ? new Date(ts).toLocaleString() : '—';
       const rawTopics = ev.data?.topics_count;
       const topics = Array.isArray(rawTopics) ? rawTopics.length : (rawTopics ?? ev.data?.topics?.length ?? '—');
       const merged = ev.data?.total_events ?? ev.data?.event_count ?? '—';
-      const cost = ev.data?.cost_usd != null ? '$' + Number(ev.data.cost_usd).toFixed(4) : '—';
       const status = ev.data?.dry_run ? 'dry-run' : (ev.data?.error ? 'error' : 'complete');
-      html += '<tr><td>' + escapeHtml(date) + '</td><td>' + escapeHtml(String(topics)) + '</td><td>' + escapeHtml(String(merged)) + '</td><td>' + escapeHtml(cost) + '</td><td>' + escapeHtml(status) + '</td></tr>';
+      html += '<tr><td>' + escapeHtml(date) + '</td><td>' + escapeHtml(String(topics)) + '</td><td>' + escapeHtml(String(merged)) + '</td><td>' + escapeHtml(status) + '</td></tr>';
     });
     html += '</tbody></table>';
     container.innerHTML = html;
@@ -6340,10 +6344,10 @@
     const badge = el('consol-status-badge');
     const lastPass = el('consol-last-pass');
     const nextPass = el('consol-next-pass');
-    const costMeter = el('consol-cost-meter');
-    const costLabel = el('consol-cost-label');
-    const costFill = el('consol-cost-fill');
-    const costCapLabel = el('consol-cost-cap-label');
+    const quotaMeter = el('consol-quota-meter');
+    const quotaLabel = el('consol-quota-label');
+    const quotaFill = el('consol-quota-fill');
+    const btnNow = el('btn-consol-now');
     if (!card) return;
 
     try {
@@ -6364,11 +6368,32 @@
           }
           if (lastPass) lastPass.textContent = 'Last pass: ' + (st.last_pass ? new Date(st.last_pass).toLocaleString() : '—');
           if (nextPass) nextPass.textContent = 'Next pass: scheduled';
-          const meter = formatCostMeter(st.cost_today_usd, st.cost_cap_usd);
-          if (costMeter) costMeter.style.display = meter.showMeter ? '' : 'none';
-          if (costLabel) costLabel.textContent = meter.display;
-          if (costFill) costFill.style.width = meter.fillPercent + '%';
-          if (costCapLabel) costCapLabel.textContent = meter.capLabel;
+
+          // Quota display using tier limit from local constant (same source as billing-constants.mjs)
+          const passUsed = st.pass_count_month ?? 0;
+          const currentTier = (typeof window !== 'undefined' && window.__billing_tier) || 'free';
+          const passLimit = CONSOLIDATION_PASSES_BY_TIER[currentTier] ?? 0;
+          if (quotaMeter) {
+            if (passLimit === null) {
+              if (quotaLabel) quotaLabel.textContent = passUsed + ' consolidations this month (unlimited)';
+              if (quotaFill) quotaFill.style.width = '0%';
+            } else if (passLimit > 0) {
+              const pct = Math.min(100, Math.round((passUsed / passLimit) * 100));
+              if (quotaLabel) quotaLabel.textContent = passUsed + ' of ' + passLimit + ' consolidations used';
+              if (quotaFill) quotaFill.style.width = pct + '%';
+            }
+            quotaMeter.style.display = passLimit !== 0 ? '' : 'none';
+          }
+
+          // Disable "Consolidate Now" during cooldown; show time remaining.
+          const cooldown = st.cooldown_minutes ?? 0;
+          if (btnNow && cooldown > 0) {
+            btnNow.disabled = true;
+            btnNow.textContent = 'Available in ' + cooldown + ' min';
+          } else if (btnNow) {
+            btnNow.disabled = false;
+            btnNow.textContent = 'Consolidate Now';
+          }
         } catch (_) {
           if (badge) { badge.textContent = '● Hosted'; badge.className = 'consol-badge consol-badge-warning'; }
         }
@@ -6379,7 +6404,7 @@
         }
         if (lastPass) lastPass.textContent = 'Last pass: —';
         if (nextPass) nextPass.textContent = 'Next pass: ' + (s.daemon.enabled ? 'per daemon schedule' : '—');
-        if (costMeter) costMeter.style.display = 'none';
+        if (quotaMeter) quotaMeter.style.display = 'none';
       }
     } catch (_) {
       card.style.display = 'none';
@@ -6399,8 +6424,21 @@
         const topicsRaw = preview.topics;
         const topics = Array.isArray(topicsRaw) ? topicsRaw.length : (preview.topics_count ?? topicsRaw ?? 0);
         const events = preview.total_events ?? 0;
-        // Cost is $0 in dry-run (no LLM called); actual cost is recorded after the real run.
-        const ok = confirm('Consolidation preview:\n\nTopics found: ' + topics + '\nEvents to merge: ' + events + '\nCost: calculated after run (see History)\n\nProceed?');
+        // Fetch current quota to show remaining passes in the preview dialog.
+        let quotaLine = '';
+        try {
+          const st = await api('/api/v1/memory/consolidate/status');
+          const passUsed = st.pass_count_month ?? 0;
+          const currentTier = (typeof window !== 'undefined' && window.__billing_tier) || 'free';
+          const passLimit = CONSOLIDATION_PASSES_BY_TIER[currentTier] ?? 0;
+          if (passLimit === null) {
+            quotaLine = '\nConsolidations this month: ' + passUsed + ' (unlimited)';
+          } else if (passLimit > 0) {
+            const remaining = Math.max(0, passLimit - passUsed);
+            quotaLine = '\nConsolidations remaining: ' + remaining + ' of ' + passLimit;
+          }
+        } catch (_) {}
+        const ok = confirm('Consolidation preview:\n\nTopics found: ' + topics + '\nEvents to merge: ' + events + quotaLine + '\n\nProceed?');
         if (!ok) return;
         setButtonBusy(btnConsolNow, true, 'Consolidating…');
         await api('/api/v1/memory/consolidate', {
@@ -6410,7 +6448,10 @@
         if (typeof showToast === 'function') showToast('Consolidation complete.');
         refreshConsolidationCard();
       } catch (e) {
-        if (typeof showToast === 'function') showToast(e?.message || 'Consolidation failed', true);
+        const msg = e?.message || 'Consolidation failed';
+        if (typeof showToast === 'function') showToast(msg, true);
+        // Re-check cooldown after a rate-limit response so the button state updates.
+        refreshConsolidationCard();
       }
       setButtonBusy(btnConsolNow, false);
     });

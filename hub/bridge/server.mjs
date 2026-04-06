@@ -2225,6 +2225,29 @@ app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
 
   const { dry_run, passes, lookback_hours } = req.body || {};
 
+  // 30-minute server-side cooldown on real (non-dry-run) passes to prevent runaway costs.
+  // Automated scheduler runs respect their own configured interval; this guards manual triggers.
+  if (!dry_run) {
+    try {
+      const costRec = await loadConsolidationCost(uid);
+      const lastPassAt = costRec?.last_pass;
+      if (lastPassAt) {
+        const elapsedMs = Date.now() - new Date(lastPassAt).getTime();
+        const cooldownMs = 30 * 60 * 1000;
+        if (elapsedMs < cooldownMs) {
+          const waitMin = Math.ceil((cooldownMs - elapsedMs) / 60_000);
+          return res.status(429).json({
+            error: `Consolidation available again in ${waitMin} minute${waitMin === 1 ? '' : 's'}.`,
+            code: 'RATE_LIMITED',
+            retry_after_minutes: waitMin,
+          });
+        }
+      }
+    } catch (_) {
+      // If cost record can't be read, allow the pass through — don't block on a read error.
+    }
+  }
+
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
@@ -2339,13 +2362,26 @@ app.get('/api/v1/memory/consolidate/status', async (req, res) => {
     const rec = await loadConsolidationCost(uid);
     const today = utcDateString();
     const month = utcMonthString();
+    const passCountMonth = rec.pass_month === month ? (rec.pass_count_month || 0) : 0;
+
+    // Cooldown: minutes until the next manual consolidation is available.
+    const lastPass = rec.last_pass ?? null;
+    let cooldownMinutes = 0;
+    if (lastPass) {
+      const elapsedMs = Date.now() - new Date(lastPass).getTime();
+      const remaining = 30 * 60 * 1000 - elapsedMs;
+      cooldownMinutes = remaining > 0 ? Math.ceil(remaining / 60_000) : 0;
+    }
+
     return res.json({
-      last_pass: rec.last_pass ?? null,
+      last_pass: lastPass,
+      pass_count_month: passCountMonth,
+      cooldown_minutes: cooldownMinutes,
+      // Legacy cost fields kept for backward compat
       cost_today_usd: rec.cost_date === today ? (rec.cost_today_usd || 0) : 0,
       cost_cap_usd: process.env.CONSOLIDATION_COST_CAP_USD
         ? parseFloat(process.env.CONSOLIDATION_COST_CAP_USD)
         : null,
-      pass_count_month: rec.pass_month === month ? (rec.pass_count_month || 0) : 0,
     });
   } catch (e) {
     console.error('[bridge] GET /api/v1/memory/consolidate/status', e?.message);

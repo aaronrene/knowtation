@@ -38,24 +38,24 @@ describe('CONSOLIDATION_PASSES_BY_TIER', () => {
     assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.free, 0);
   });
 
-  it('plus tier has 10 passes', () => {
-    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.plus, 10);
+  it('plus tier has 30 passes', () => {
+    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.plus, 30);
   });
 
   it('starter (legacy alias) matches plus', () => {
     assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.starter, CONSOLIDATION_PASSES_BY_TIER.plus);
   });
 
-  it('growth tier has 30 passes', () => {
-    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.growth, 30);
+  it('growth tier has 100 passes', () => {
+    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.growth, 100);
   });
 
-  it('pro tier is null (unlimited)', () => {
-    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.pro, null);
+  it('pro tier has 300 passes', () => {
+    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.pro, 300);
   });
 
-  it('team tier has 100 passes', () => {
-    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.team, 100);
+  it('team tier has 300 passes', () => {
+    assert.strictEqual(CONSOLIDATION_PASSES_BY_TIER.team, 300);
   });
 
   it('beta tier is null (unlimited internal dev)', () => {
@@ -88,10 +88,10 @@ describe('effectiveMonthlyConsolidationPassesIncluded', () => {
     assert.strictEqual(effectiveMonthlyConsolidationPassesIncluded(u), 0);
   });
 
-  it('returns 10 for plus tier', () => {
+  it('returns 30 for plus tier', () => {
     const u = defaultUserRecord('u2');
     u.tier = 'plus';
-    assert.strictEqual(effectiveMonthlyConsolidationPassesIncluded(u), 10);
+    assert.strictEqual(effectiveMonthlyConsolidationPassesIncluded(u), 30);
   });
 
   it('returns null (unlimited) for beta tier', () => {
@@ -100,10 +100,10 @@ describe('effectiveMonthlyConsolidationPassesIncluded', () => {
     assert.strictEqual(effectiveMonthlyConsolidationPassesIncluded(u), null);
   });
 
-  it('returns null (unlimited) for pro tier', () => {
+  it('returns 300 for pro tier', () => {
     const u = defaultUserRecord('u4');
     u.tier = 'pro';
-    assert.strictEqual(effectiveMonthlyConsolidationPassesIncluded(u), null);
+    assert.strictEqual(effectiveMonthlyConsolidationPassesIncluded(u), 300);
   });
 });
 
@@ -278,7 +278,7 @@ describe('billing summary: consolidation fields exposed', () => {
     };
 
     assert.strictEqual(summary.monthly_consolidation_jobs_used, 0);
-    assert.strictEqual(summary.monthly_consolidation_jobs_included, 10);
+    assert.strictEqual(summary.monthly_consolidation_jobs_included, 30); // plus tier: 30/mo
     assert.strictEqual(summary.consolidation_last_pass_at, null);
   });
 
@@ -296,7 +296,7 @@ describe('billing summary: consolidation fields exposed', () => {
     };
 
     assert.strictEqual(summary.monthly_consolidation_jobs_used, 5);
-    assert.strictEqual(summary.monthly_consolidation_jobs_included, 30);
+    assert.strictEqual(summary.monthly_consolidation_jobs_included, 100); // growth tier: 100/mo
     assert.strictEqual(summary.consolidation_last_pass_at, '2026-04-05T10:00:00.000Z');
   });
 });
