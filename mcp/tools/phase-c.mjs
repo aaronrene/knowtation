@@ -110,7 +110,10 @@ export function registerPhaseCTools(server) {
     async (args) => {
       try {
         const config = loadConfig();
-        const text = await transcribe(args.path, { model: config.transcription?.model });
+        const { text, transcoded } = await transcribe(args.path, {
+          model: config.transcription?.model,
+          transcodeOversized: config.transcription?.transcode_oversized !== false,
+        });
         const base = path.basename(args.path, path.extname(args.path)).replace(/[^a-z0-9-_]+/gi, '-').slice(0, 60) || 'transcript';
         const dateStr = new Date().toISOString().slice(0, 10);
         let rel = args.output_path;
@@ -122,8 +125,12 @@ export function registerPhaseCTools(server) {
         const fm = { source: 'transcribe', date: dateStr, inbox: true };
         if (tagLine) fm.tags = tagLine;
         if (args.project) fm.project = args.project;
-        const out = writeNote(config.vault_path, rel, { body: text, frontmatter: fm });
-        return jsonResponse({ ...out, transcript_length: text.length, written: true });
+        const body =
+          transcoded
+            ? '> *Transcoded for Whisper (ffmpeg) before upload.*\n\n' + (text || '')
+            : text || '';
+        const out = writeNote(config.vault_path, rel, { body, frontmatter: fm });
+        return jsonResponse({ ...out, transcript_length: text.length, written: true, transcoded: transcoded === true });
       } catch (e) {
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');
       }

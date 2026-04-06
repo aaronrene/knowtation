@@ -4,6 +4,9 @@
 
 FROM node:20-alpine
 
+# ffmpeg: auto-transcode oversized audio for Whisper import
+RUN apk add --no-cache ffmpeg
+
 WORKDIR /app
 
 # Copy package files

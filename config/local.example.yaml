@@ -34,7 +34,11 @@
 # transcription:
 #   provider: openai
 #   model: whisper-1
-# Requires OPENAI_API_KEY in env. Get key: platform.openai.com → API Keys. New accounts get $5 free credits; Whisper ~$0.006/min.
+#   # When a file is over OpenAI's ~25MB limit, self-hosted Hub/CLI can auto-compress via ffmpeg (if installed on PATH or FFMPEG_PATH).
+#   transcode_oversized: true   # default true; set false to skip ffmpeg and fail fast on oversized files
+# Requires OPENAI_API_KEY in env. Optional: KNOWTATION_TRANSCODE_OVERSIZED=0 to disable transcode via env.
+# Get key: platform.openai.com → API Keys. New accounts get $5 free credits; Whisper ~$0.006/min.
+# ffmpeg: https://ffmpeg.org/download.html — Docker Hub image includes ffmpeg when built from hub/Dockerfile.
 
 # --- Optional: memory layer (timestamped event log, semantic recall) ---
 # memory:
