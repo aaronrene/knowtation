@@ -23,6 +23,7 @@ Transcription uses **OpenAI Whisper** via the API. You need an **OpenAI API key*
 1. **API key:** In project root, create `.env` with `OPENAI_API_KEY=sk-...` (see [Getting an OpenAI API key](#getting-an-openai-api-key)).
 2. **Config:** `config/local.yaml` with `vault_path` (see [PHASE4-MANUAL-TEST.md](./PHASE4-MANUAL-TEST.md)).
 3. **Audio/video file:** Formats supported by Whisper: mp3, mp4, mpeg, mpga, m4a, wav, webm.
+4. **Optional — oversized files (self-hosted):** OpenAI rejects uploads over **~25 MB**. If **ffmpeg** is installed ([download](https://ffmpeg.org/download.html)) and `transcription.transcode_oversized` is not `false`, Knowtation will try to transcode to a smaller M4A before calling Whisper. Set `KNOWTATION_TRANSCODE_OVERSIZED=0` or `FFMPEG_PATH` as needed. Hosted serverless typically has no ffmpeg—compress locally or import Markdown.
 
 ---
 

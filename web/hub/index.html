@@ -333,7 +333,7 @@
           <button type="button" id="modal-import-close" class="modal-close">×</button>
         </div>
         <div class="create-panel">
-        <p class="muted small import-modal-lead">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder. The file picker may gray out types that don’t match the selected source—<strong>PDF and Word</strong> are not imported directly. <strong>Audio (transcribe):</strong> self-hosted Hub with <code>OPENAI_API_KEY</code> (OpenAI ~25&nbsp;MB per file; prefer compressed M4A/MP3). <strong>Video</strong> here is <strong>coming soon</strong>. You must be signed in.</p>
+        <p class="muted small import-modal-lead">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder. The file picker may gray out types that don’t match the selected source—<strong>PDF and Word</strong> are not imported directly. <strong>Audio (transcribe):</strong> uses OpenAI Whisper (<code>OPENAI_API_KEY</code> on the Hub process). The limit is <strong>~25&nbsp;MB per file</strong> (OpenAI), which depends on <strong>file size</strong>, not length—uncompressed WAV, high-bitrate recordings, or screen captures can be huge even for short clips; use <strong>M4A/MP3</strong> or a shorter export. <strong>Self-hosted:</strong> if <code>ffmpeg</code> is on the server, Knowtation may auto-compress oversized audio before Whisper (see Settings → Integrations). <strong>Video (transcribe)</strong> is hidden here on purpose: the same limit applies and video files are usually over 25&nbsp;MB—extract audio (or transcribe elsewhere) and import as <strong>Audio</strong> or paste a transcript as Markdown; CLI still supports <code>knowtation import video</code> for small files. You must be signed in.</p>
         <details class="modal-projects-help-details import-pdf-hint">
           <summary>PDF or Word → get Markdown first</summary>
           <p class="small muted import-pdf-hint-p">Knowtation ingests <strong>.md</strong> / <strong>.markdown</strong> notes. For PDFs or Word docs, convert first, then import the Markdown file (or a ZIP that contains those files).</p>
@@ -354,7 +354,7 @@
           <option value="jira-export">Jira CSV export</option>
           <option value="linear-export">Linear CSV export</option>
           <option value="audio">Audio (transcribe)</option>
-          <option value="video" disabled>Video (transcribe) — coming soon</option>
+          <option value="video" disabled>Video (transcribe) — use Audio or CLI; see note above</option>
           <option value="wallet-csv">Wallet / exchange CSV (transaction history)</option>
         </select>
         <label for="import-file">File or ZIP</label>
@@ -870,6 +870,7 @@ Your note body here.</pre>
           <div class="settings-body">
             <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents (AgentCeption). Each block below explains how to connect.</p>
             <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
+            <p class="settings-intro small"><strong>Self-hosted Hub — audio import:</strong> Whisper accepts about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed where the Hub runs (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or use our Docker image which includes it), Knowtation can <strong>automatically compress</strong> larger files (e.g. bulky WAV) before sending to OpenAI. Disable with <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>. Set <code>FFMPEG_PATH</code> if the binary is not on <code>PATH</code>.</p>
             <h3 class="settings-h3">Hub API (agents, CLI, curl)</h3>
             <p class="settings-intro small">Agents and scripts use the <strong>same sign-in as this Hub</strong>—no separate API account. After you log in, use the button below to copy <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (JWT), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. The JWT expires; if requests return 401, sign in again and re-copy. Every REST call must send <code>Authorization: Bearer …</code> and, for vault-scoped routes, <code>X-Vault-Id</code> (match the copied vault id unless you use <code>default</code>).</p>
             <div class="settings-actions" style="margin-top: 0.5rem;">

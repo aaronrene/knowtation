@@ -33,19 +33,27 @@ async function main() {
   }
 
   try {
-    const text = await transcribe(input);
+    const { text, transcoded } = await transcribe(input);
+    if (transcoded) {
+      console.error('Transcoded with ffmpeg before Whisper (original file was over 25MB).');
+    }
+    const bodyText = text || '(No speech detected)';
     if (doWrite) {
       const config = loadConfig(projectRoot);
       const baseName = path.basename(input, path.extname(input));
       const relPath = outputPath || `media/audio/${baseName}.md`;
       const now = new Date().toISOString().slice(0, 10);
+      const body =
+        transcoded
+          ? '> *Transcoded for Whisper (ffmpeg) before upload.*\n\n' + bodyText
+          : bodyText;
       writeNote(config.vault_path, relPath, {
-        body: text || '(No speech detected)',
+        body,
         frontmatter: { source: 'audio', source_id: baseName, date: now, title: baseName },
       });
       console.log(`Written: ${relPath}`);
     } else {
-      process.stdout.write(text || '(No speech detected)\n');
+      process.stdout.write(bodyText + '\n');
     }
     process.exit(0);
   } catch (e) {
