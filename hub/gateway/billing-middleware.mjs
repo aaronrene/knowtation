@@ -143,8 +143,11 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
       if (!db.users[uid]) db.users[uid] = u;
 
       // Increment operation counters unconditionally so Usage this period is always accurate.
+      // NOTE: 'index' job counter is intentionally omitted here — it is incremented atomically
+      // in recordIndexingTokensAfterBridgeIndex (billing-index-usage.mjs) alongside the token
+      // counter in a single mutateBillingDb call. A second write here would race with that call
+      // and risk overwriting the counter back to 0 on Netlify's eventually-consistent Blob store.
       if (op === 'search') u.monthly_searches_used = Math.max(0, Math.floor(Number(u.monthly_searches_used) || 0)) + 1;
-      if (op === 'index')  u.monthly_index_jobs_used = Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
       if (op === 'consolidation') {
         u.monthly_consolidation_jobs_used = Math.max(0, Math.floor(Number(u.monthly_consolidation_jobs_used) || 0)) + 1;
         u.consolidation_last_pass_at = new Date().toISOString();

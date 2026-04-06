@@ -28,6 +28,11 @@ export async function recordIndexingTokensAfterBridgeIndex(uid, statusCode, body
     const u = db.users[uid] || defaultUserRecord(uid);
     normalizeBillingUser(u);
     if (!db.users[uid]) db.users[uid] = u;
+    // Increment both counters atomically in one write to avoid a race with runBillingGate.
+    // A separate write from the billing middleware risks reading a stale Blob snapshot and
+    // overwriting the job counter back to 0 on Netlify's eventually-consistent store.
+    u.monthly_index_jobs_used =
+      Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
     u.monthly_indexing_tokens_used =
       Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0)) + tokens;
   });
