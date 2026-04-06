@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: audit-hosted-mcp-search
     content: Hosted MCP POST search + parity fields (fields, snippet_chars, count_only)
-    status: pending
+    status: completed
   - id: run-tests-manual
     content: Full test run + consolidation dry_run hosted and self-hosted
     status: pending

@@ -63,25 +63,52 @@ export function createHostedMcpServer(ctx) {
     server.registerTool(
       'search',
       {
-        description: 'Search the hosted vault (semantic or keyword).',
+        description:
+          'Search the hosted vault: semantic (vector similarity, default) or keyword (substring / all-terms). Same filters as list-notes where applicable.',
         inputSchema: {
           query: z.string().describe('Search query'),
-          mode: z.enum(['semantic', 'keyword']).optional(),
+          mode: z.enum(['semantic', 'keyword']).optional().describe('semantic = meaning (indexed); keyword = literal text'),
+          match: z.enum(['phrase', 'all_terms']).optional().describe('Keyword only: phrase = whole query substring; all_terms = every token must appear (AND)'),
           limit: z.number().optional().describe('Max results (default 10)'),
-          project: z.string().optional(),
-          folder: z.string().optional(),
-          tag: z.string().optional(),
+          fields: z.enum(['path', 'path+snippet', 'full']).optional().describe('Result shape (default path+snippet)'),
+          snippet_chars: z.number().optional().describe('Max snippet length (default 300)'),
+          count_only: z.boolean().optional().describe('Return count only, no results array'),
+          folder: z.string().optional().describe('Filter by folder path prefix'),
+          project: z.string().optional().describe('Filter by project slug'),
+          tag: z.string().optional().describe('Filter by tag'),
+          since: z.string().optional().describe('Filter by date (YYYY-MM-DD)'),
+          until: z.string().optional().describe('Filter by date (YYYY-MM-DD)'),
+          order: z.enum(['date', 'date-asc']).optional(),
+          chain: z.string().optional().describe('Causal chain filter'),
+          entity: z.string().optional().describe('Entity filter'),
+          episode: z.string().optional().describe('Episode filter'),
+          content_scope: z.enum(['all', 'notes', 'approval_logs']).optional().describe('Restrict to note files vs approval logs'),
         },
       },
       async (args) => {
         try {
-          const params = new URLSearchParams({ q: args.query });
-          if (args.mode) params.set('mode', args.mode);
-          if (args.limit) params.set('limit', String(args.limit));
-          if (args.project) params.set('project', args.project);
-          if (args.folder) params.set('folder', args.folder);
-          if (args.tag) params.set('tag', args.tag);
-          const data = await upstreamFetch(`${bridgeUrl}/api/v1/search?${params}`, fetchOpts);
+          const body = { query: args.query };
+          if (args.mode != null) body.mode = args.mode;
+          if (args.match != null) body.match = args.match;
+          if (args.limit != null) body.limit = args.limit;
+          if (args.fields != null) body.fields = args.fields;
+          if (args.snippet_chars != null) body.snippetChars = args.snippet_chars;
+          if (args.count_only != null) body.count_only = args.count_only;
+          if (args.folder != null) body.folder = args.folder;
+          if (args.project != null) body.project = args.project;
+          if (args.tag != null) body.tag = args.tag;
+          if (args.since != null) body.since = args.since;
+          if (args.until != null) body.until = args.until;
+          if (args.order != null) body.order = args.order;
+          if (args.chain != null) body.chain = args.chain;
+          if (args.entity != null) body.entity = args.entity;
+          if (args.episode != null) body.episode = args.episode;
+          if (args.content_scope != null) body.content_scope = args.content_scope;
+          const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...fetchOpts,
+            method: 'POST',
+            body,
+          });
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');

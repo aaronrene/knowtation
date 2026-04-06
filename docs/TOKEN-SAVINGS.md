@@ -77,7 +77,7 @@ Work on branch `feature/token-savings` (or main after merge).
 | **B** | `buildConsolidationPrompt` encrypt redaction + tests + bridge env `CONSOLIDATION_MEMORY_ENCRYPT` | **Done** | `lib/memory-consolidate.mjs`, `hub/bridge/server.mjs`, `test/memory-consolidate.test.mjs` |
 | **C** | Self-hosted Advanced (YAML + GET/POST + UI + `consolidation-ui-logic`) | **Done** | — |
 | **D** | Hosted Advanced (billing + gateway + scheduler + bridge body) | **Done** | `lib/hosted-consolidation-advanced.mjs`, `hub/gateway/billing-logic.mjs`, `hub/gateway/server.mjs`, `netlify/functions/consolidation-scheduler.mjs`, `hub/bridge/server.mjs`, tests |
-| **E** | Hosted MCP `search`: POST + parity fields | Pending | Dedicated chat |
+| **E** | Hosted MCP `search`: POST + parity fields | **Done** | `hub/gateway/mcp-hosted-server.mjs`, `test/mcp-hosted-search.test.mjs` |
 | **F** | Pre-launch security/privacy review | Pending | Human or strongest model |
 
 Use a **stronger reasoning model or human review** for **Phase D** (billing correctness), **Phase E** (API contract), and **Phase F** (compliance-style copy).
