@@ -117,7 +117,7 @@ Audited on branch `feature/token-savings` by strongest-model review. Each row: r
 
 | Risk | Current behavior | Gap | Fix |
 |------|-----------------|-----|-----|
-| Error responses expose `e.message` to clients | Bridge returns `e.message` in ~25 error handlers. Gateway unhandled error handler returns `err.message` to client. | MEDIUM — internal error messages could leak file paths or DB errors to clients. | FIX APPLIED — unhandled error handlers now return generic message to client while keeping detailed server log. |
+| Error responses expose `e.message` to clients | Bridge returns `e.message` in ~25 error handlers. Gateway unhandled error handler returns `err.message` to client. | MEDIUM — internal error messages could leak file paths or DB errors to clients. | Phase F briefly used generic text for unhandled 5xx; **reverted** so operators see real `err.message` in JSON when debugging (e.g. OAuth). Prefer fixing root cause + Netlify logs. |
 | Billing shadow log | `billing-middleware.mjs:83-95` logs `user_id`, `operation`, `path`, `cost_cents` — no note body or JWT. | Acceptable operational data. | OK |
 
 ### 5. Auth boundaries
@@ -162,7 +162,7 @@ Audited on branch `feature/token-savings` by strongest-model review. Each row: r
 ### Summary
 
 - **High severity issues found:** 0
-- **Medium severity issues found:** 1 (error message leakage in unhandled error handlers — fixed)
+- **Medium severity issues found:** 1 (error message leakage in unhandled error handlers — mitigated in Phase F then **reverted** for operational debugging)
 - **Low severity / recommended improvements:** 3 (static scrypt salt, no CSP, no gateway rate-limit outside Netlify)
 - **Privacy claims vs code:** All match after Phase B encrypt-redaction.
 
