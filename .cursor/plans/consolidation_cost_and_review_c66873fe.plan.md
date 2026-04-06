@@ -43,7 +43,7 @@ todos:
     status: pending
   - id: launch-checklist
     content: Pre-launch security/privacy table (subprocessors, tokens, logs)
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -2057,8 +2057,9 @@ app.use((err, req, res, next) => {
       : typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600
         ? err.statusCode
         : 500;
+  const clientMessage = status < 500 ? (err.message || 'Request error') : 'Internal error';
   res.status(status).json({
-    error: err.message || 'Internal error',
+    error: clientMessage,
     code: err.code || 'INTERNAL_ERROR',
   });
 });

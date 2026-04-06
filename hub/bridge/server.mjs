@@ -1949,16 +1949,19 @@ app.use((err, req, res, _next) => {
   if (res.headersSent) return;
   console.error('[bridge] unhandled error:', err?.stack || err?.message || err);
   let status = 500;
+  let clientMessage = 'Internal error';
   if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') status = 413;
-    else status = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') { status = 413; clientMessage = 'File too large'; }
+    else { status = 400; clientMessage = 'Upload error'; }
   } else if (typeof err.status === 'number' && err.status >= 400 && err.status < 600) {
     status = err.status;
+    if (status < 500) clientMessage = err.message || clientMessage;
   } else if (typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600) {
     status = err.statusCode;
+    if (status < 500) clientMessage = err.message || clientMessage;
   }
   res.status(status).json({
-    error: err.message || 'Internal error',
+    error: clientMessage,
     code: err.code || 'INTERNAL_ERROR',
   });
 });
