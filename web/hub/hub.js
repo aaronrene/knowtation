@@ -652,25 +652,74 @@
     showLoginChrome();
   };
 
+  /** Top banner when knowtation.store cannot load /api/v1/auth/providers (gateway down, paused, non-JSON, CORS). */
+  function showHostedSignInBlockedBanner(detailHtml) {
+    const b = el('hub-api-base-footgun-banner');
+    if (!b) return;
+    const h = location.hostname || '';
+    if (h !== 'knowtation.store' && h !== 'www.knowtation.store') return;
+    b.classList.remove('hidden');
+    b.innerHTML =
+      '<p><strong>Sign-in is unavailable.</strong> This page could not load OAuth settings from the API at <code>' +
+      escapeHtml(apiBase) +
+      '</code>.</p>' +
+      (detailHtml ? '<p class="muted" style="margin:0.35rem 0 0 0">' + detailHtml + '</p>' : '') +
+      '<p class="muted" style="margin:0.5rem 0 0 0">Typical causes: the <strong>Netlify gateway</strong> is <strong>paused</strong> (usage/billing limits), still deploying, returning an error page instead of JSON, or <code>HUB_CORS_ORIGIN</code> on the gateway does not include <code>' +
+      escapeHtml(location.origin) +
+      '</code>. Open the gateway URL in a new tab; if you see a Netlify “paused” or limit message, fix billing in Netlify, then refresh here.</p>';
+  }
+
   async function initProviders() {
+    const providersUrl = apiBase + '/api/v1/auth/providers';
+    const fetchProvidersWithTimeout = async () => {
+      const ms = 15000;
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), ms);
+      try {
+        return await fetch(providersUrl, { cache: 'no-store', signal: ctrl.signal });
+      } finally {
+        clearTimeout(t);
+      }
+    };
+
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetch(apiBase + '/api/v1/auth/providers', { cache: 'no-store' });
-        if (!r.ok) throw new Error('providers');
-        providers = await r.json();
+        const r = await fetchProvidersWithTimeout();
+        const text = await r.text();
+        if (!r.ok) throw new Error('providers_http_' + r.status);
+        const trimmed = text.trim();
+        if (!trimmed.startsWith('{')) {
+          const paused =
+            /usage limits|site was paused|site not available|paused as it reached/i.test(text);
+          throw new Error(paused ? 'gateway_paused_or_html' : 'providers_non_json');
+        }
+        const data = JSON.parse(trimmed);
+        if (!data || typeof data.google !== 'boolean' || typeof data.github !== 'boolean') {
+          throw new Error('providers_shape');
+        }
+        providers = data;
         break;
-      } catch (_) {
+      } catch (err) {
         if (attempt < 2) {
-          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 3000));
+          await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 3000));
           continue;
         }
         providers = { google: false, github: false };
         oauthNotConfigured.classList.remove('hidden');
         if (loginIntro) loginIntro.classList.add('hidden');
         const first = oauthNotConfigured.querySelector('p');
+        const isHosted =
+          location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
+        const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
+        const errName = err && err.name === 'AbortError' ? 'timeout' : String(err && err.message ? err.message : err);
+        let detail = '';
+        if (errName === 'gateway_paused_or_html') {
+          detail =
+            'The API returned a <strong>web page</strong> instead of JSON (often Netlify “site paused” or usage limits). Unpause or upgrade the gateway deploy, then reload.';
+        } else if (errName === 'timeout' || errName === 'AbortError') {
+          detail = 'The request timed out after 15s — the gateway may be cold-starting, overloaded, or unreachable.';
+        }
         if (first) {
-          const isHosted = location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
-          const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
           if (isHosted && sameOrigin) {
             first.innerHTML =
               '<strong>Could not load OAuth status.</strong> The Hub at <code>' + escapeHtml(location.origin) +
@@ -678,13 +727,17 @@
           } else if (isHosted && !sameOrigin) {
             first.innerHTML =
               '<strong>Could not reach the gateway.</strong> Sign-in with Google or GitHub will appear once the gateway at <code>' + escapeHtml(apiBase) +
-              '</code> is deployed and allows this site (check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) + '</code>). If the gateway is still deploying on Netlify, wait a few minutes and refresh.';
+              '</code> returns JSON from <code>/api/v1/auth/providers</code>. Check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) +
+              '</code>. If the gateway is <strong>paused on Netlify</strong> (usage limits), restore it in Netlify billing and refresh.';
           } else {
             first.innerHTML =
               '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +
               escapeHtml(apiBase) +
               '</code>? Open this page from the same machine as <code>npm run hub</code> (e.g. <code>http://localhost:3333/</code>).';
           }
+        }
+        if (isHosted && !sameOrigin) {
+          showHostedSignInBlockedBanner(detail);
         }
         return;
       }
@@ -693,11 +746,20 @@
     if (!providers.google && !providers.github) {
       oauthNotConfigured.classList.remove('hidden');
       if (loginIntro) loginIntro.classList.add('hidden');
+      const isHosted =
+        location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
+      const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
+      if (isHosted && !sameOrigin) {
+        showHostedSignInBlockedBanner(
+          'The gateway responded but reports <strong>no OAuth clients</strong> configured (both providers false). Set <code>GOOGLE_*</code> and <code>GITHUB_*</code> on the gateway environment.',
+        );
+      }
     } else {
       oauthNotConfigured.classList.add('hidden');
       if (loginIntro) loginIntro.classList.remove('hidden');
       if (providers.google) btnLoginGoogle.classList.remove('hidden');
       if (providers.github) btnLoginGithub.classList.remove('hidden');
+      refreshApiBaseFootgunBanner();
     }
   }
 
