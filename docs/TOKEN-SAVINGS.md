@@ -45,7 +45,7 @@ These limit how much work each run does:
 | `max_topics_per_pass` | Cap topics sent to the LLM | 10 |
 | `daemon.llm.max_tokens` | Cap model output tokens per call | 1024 |
 
-**Self-hosted:** Set in `config/local.yaml` under `daemon:` or (when supported) via **Hub → Settings → Consolidation → Advanced** (writes YAML).
+**Self-hosted:** Set in `config/local.yaml` under `daemon:` or via **Hub → Settings → Consolidation → Advanced** (writes YAML through the Hub API).
 
 **Hosted:** Stored on the user record in the billing DB when implemented; the scheduler sends them in the consolidate request body so the bridge applies them.
 
@@ -75,7 +75,7 @@ Work on branch `feature/token-savings` (or main after merge).
 | **A0** | This doc + [README](../README.md) + [docs/README](./README.md) links | **Done** | — |
 | **A1** | Hub copy (How to use, Settings, Integrations) + privacy paragraph | **Done** (Hub `index.html` + `hub.js`; payload `mode` + hosted schedule sync) | — |
 | **B** | `buildConsolidationPrompt` encrypt redaction + tests + bridge env `CONSOLIDATION_MEMORY_ENCRYPT` | **Done** | `lib/memory-consolidate.mjs`, `hub/bridge/server.mjs`, `test/memory-consolidate.test.mjs` |
-| **C** | Self-hosted Advanced (YAML + GET/POST + UI + `consolidation-ui-logic`) | Pending | Same or new chat |
+| **C** | Self-hosted Advanced (YAML + GET/POST + UI + `consolidation-ui-logic`) | **Done** | — |
 | **D** | Hosted Advanced (billing + gateway + scheduler + bridge body) | Pending | **Dedicated chat; stronger review** |
 | **E** | Hosted MCP `search`: POST + parity fields | Pending | Dedicated chat |
 | **F** | Pre-launch security/privacy review | Pending | Human or strongest model |

@@ -13,7 +13,7 @@ todos:
   - id: advanced-settings-selfhosted
     content: >-
       Self-hosted — extend GET/POST /api/v1/settings/consolidation (hub/server.mjs) to read/write lookback_hours, max_events_per_pass, max_topics_per_pass, daemon.llm.max_tokens; extend GET /api/v1/settings daemon payload; Hub UI Advanced section + consolidation-ui-logic.mjs + tests
-    status: pending
+    status: completed
   - id: advanced-settings-hosted
     content: >-
       Hosted — add billing user fields (normalizeBillingUser, defaultUserRecord); POST /api/v1/settings/consolidation (gateway) save/load; GET settings merge into daemon display; consolidation-scheduler pass lookback + max opts in JSON body; bridge /memory/consolidate merge body with user defaults; tests

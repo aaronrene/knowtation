@@ -6267,6 +6267,14 @@
     if (lm) lm.value = d.llm?.model || '';
     const lb = el('consol-llm-base-url');
     if (lb) lb.value = d.llm?.base_url || '';
+    const lbh = el('consol-lookback-hours');
+    if (lbh) lbh.value = d.lookback_hours ?? 24;
+    const me = el('consol-max-events');
+    if (me) me.value = d.max_events_per_pass ?? 200;
+    const mt = el('consol-max-topics');
+    if (mt) mt.value = d.max_topics_per_pass ?? 10;
+    const lmt = el('consol-llm-max-tokens');
+    if (lmt) lmt.value = d.llm?.max_tokens ?? 1024;
     const cc = el('consol-cost-cap');
     if (cc) cc.value = d.max_cost_per_day_usd != null ? d.max_cost_per_day_usd : '';
     const chi = el('consol-hosted-interval');
@@ -6283,6 +6291,17 @@
     const hostedSel = el('consol-hosted-interval');
     const intervalRaw =
       mode === 'hosted' && hostedSel ? hostedSel.value : el('consol-interval')?.value;
+    const llm = {
+      provider: el('consol-llm-provider')?.value || '',
+      model: el('consol-llm-model')?.value || '',
+      base_url: el('consol-llm-base-url')?.value || '',
+    };
+    if (mode === 'daemon') {
+      llm.max_tokens = Math.max(
+        64,
+        Math.min(8192, Math.floor(Number(el('consol-llm-max-tokens')?.value) || 1024)),
+      );
+    }
     const payload = {
       mode,
       enabled: mode === 'daemon',
@@ -6295,13 +6314,23 @@
         verify: Boolean(el('pass-verify')?.checked),
         discover: Boolean(el('pass-discover')?.checked),
       },
-      llm: {
-        provider: el('consol-llm-provider')?.value || '',
-        model: el('consol-llm-model')?.value || '',
-        base_url: el('consol-llm-base-url')?.value || '',
-      },
+      llm,
       max_cost_per_day_usd: el('consol-cost-cap')?.value === '' ? null : Number(el('consol-cost-cap')?.value) || 0,
     };
+    if (mode === 'daemon') {
+      payload.lookback_hours = Math.max(
+        1,
+        Math.min(8760, Math.floor(Number(el('consol-lookback-hours')?.value) || 24)),
+      );
+      payload.max_events_per_pass = Math.max(
+        1,
+        Math.min(10000, Math.floor(Number(el('consol-max-events')?.value) || 200)),
+      );
+      payload.max_topics_per_pass = Math.max(
+        1,
+        Math.min(500, Math.floor(Number(el('consol-max-topics')?.value) || 10)),
+      );
+    }
     return payload;
   }
 

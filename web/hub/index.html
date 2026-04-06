@@ -1229,6 +1229,28 @@ Your note body here.</pre>
                   <label class="settings-checkbox-label">
                     <input type="checkbox" id="consol-run-on-start"> Run on start <span class="muted small">— run one pass when daemon starts</span>
                   </label>
+                  <fieldset style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.5rem 0 0 0;">
+                    <legend style="font-weight: 600; font-size: 0.9rem; padding: 0 0.35rem;">Advanced <span class="muted small">(pass scope — saved to local.yaml)</span></legend>
+                    <p class="settings-intro small muted" style="margin: 0 0 0.5rem 0;">Tune how much each pass reads and how long model replies can be. See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>.</p>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                      <div>
+                        <label for="consol-lookback-hours" style="font-weight: 500;">Lookback <span class="muted small">(hours)</span></label>
+                        <input type="number" id="consol-lookback-hours" class="settings-input-inline" value="24" min="1" max="8760" style="width: 6rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                      <div>
+                        <label for="consol-max-events" style="font-weight: 500;">Max events per pass</label>
+                        <input type="number" id="consol-max-events" class="settings-input-inline" value="200" min="1" max="10000" style="width: 7rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                      <div>
+                        <label for="consol-max-topics" style="font-weight: 500;">Max topics per pass</label>
+                        <input type="number" id="consol-max-topics" class="settings-input-inline" value="10" min="1" max="500" style="width: 6rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                      <div>
+                        <label for="consol-llm-max-tokens" style="font-weight: 500;">Max LLM output tokens <span class="muted small">(per call)</span></label>
+                        <input type="number" id="consol-llm-max-tokens" class="settings-input-inline" value="1024" min="64" max="8192" style="width: 7rem; display: block; margin-top: 0.25rem;">
+                      </div>
+                    </div>
+                  </fieldset>
                 </div>
               </div>
 
@@ -1937,6 +1959,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260406b"></script>
+  <script src="hub.js?v=20260406c"></script>
 </body>
 </html>
