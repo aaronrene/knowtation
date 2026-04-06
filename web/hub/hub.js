@@ -3022,7 +3022,14 @@
 
       // Pack balance
       const packBal = Math.max(0, Math.floor(Number(d.pack_indexing_tokens_balance) || 0));
-      if (packEl) packEl.textContent = formatTokenCountShort(packBal);
+      if (packEl) {
+        // Show token count + the equivalent index jobs and searches so the number is meaningful.
+        // Ratios from pack card descriptions: 50K tokens per index job, 1K tokens per search.
+        const packIndexJobs = Math.floor(packBal / 50_000).toLocaleString();
+        const packSearches = Math.floor(packBal / 1_000).toLocaleString();
+        packEl.textContent = formatTokenCountShort(packBal) +
+          ' rollover tokens (\u2248\u00a0' + packIndexJobs + ' index jobs or ' + packSearches + ' searches)';
+      }
       if (packRow) packRow.style.display = packBal > 0 ? '' : 'none';
 
       // Period
