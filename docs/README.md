@@ -61,6 +61,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 
 | Doc | Purpose |
 |-----|---------|
+| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, OB1 analysis) — not loose in `.cursor/plans/` |
 | [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) | Proposal **review hints** vs **Enrich** (LLM); roadmap pointer to extended Enrich |
 | [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md) | Plan: Enrich → recommend project, chain, entity, episode, follows, title, … |
 | [openapi.yaml](./openapi.yaml) | OpenAPI sketch for Hub API |
