@@ -24,6 +24,23 @@ npm run seed:hosted-showcase
 
 The script uploads every `.md` under `vault/showcase/` with the same paths (e.g. `showcase/inbox/quick-capture.md`). Re-running overwrites note content for those paths.
 
+## Starter vault templates
+
+Eight domain templates live under `vault/templates/`. Each has a README and 5+ example notes with proper frontmatter. Seed any of them into a hosted vault:
+
+```bash
+npm run seed:template-research-lab
+npm run seed:template-business-ops
+npm run seed:template-finance
+npm run seed:template-engineering-team
+npm run seed:template-personal-knowledge
+npm run seed:template-smart-home
+npm run seed:template-content-creation
+npm run seed:template-education
+```
+
+Templates complement agent skill packs and MCP prompts. See [TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md) for the full architecture.
+
 ## Other seed scripts
 
 - **`scripts/seed-hosted-c-data.mjs`** — older, C-themed notes under `seed/c-data/` (still valid if you prefer that namespace).

@@ -514,6 +514,45 @@
     @media (min-width: 821px) {
       .flow-visual-caption { margin-left: 0; }
     }
+    .flow-import-icons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem 0.55rem;
+      margin: 0.75rem auto 0;
+      max-width: 20rem;
+      justify-content: center;
+    }
+    @media (min-width: 821px) {
+      .flow-import-icons { justify-content: flex-start; margin-left: 0; max-width: 22rem; }
+    }
+    .flow-import-icon {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+    .flow-import-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+      gap: 0.45rem;
+      margin: 0.75rem 0;
+    }
+    .flow-import-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.45rem 0.35rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg, rgba(255,255,255,0.03));
+      text-align: center;
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+    .flow-import-tile small {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
     .flow-body h2 {
       font-family: var(--font-sans);
       font-size: clamp(1.35rem, 3vw, 1.65rem);
@@ -791,6 +830,22 @@
         <p class="flow-step-num">Step 2</p>
         <span class="flow-icon" aria-hidden="true">📥</span>
         <p class="flow-visual-caption">Pull notes in from the tools you already use.</p>
+        <p class="flow-import-icons" aria-label="Supported import sources">
+          <span class="flow-import-icon">🤖 ChatGPT</span>
+          <span class="flow-import-icon">🧠 Claude</span>
+          <span class="flow-import-icon">💾 Mem0</span>
+          <span class="flow-import-icon">📝 Notion</span>
+          <span class="flow-import-icon">🎫 Jira</span>
+          <span class="flow-import-icon">📓 NotebookLM</span>
+          <span class="flow-import-icon">📁 Google Drive</span>
+          <span class="flow-import-icon">📋 Linear</span>
+          <span class="flow-import-icon">🔗 MIF</span>
+          <span class="flow-import-icon">📄 Markdown</span>
+          <span class="flow-import-icon">🎙️ Audio</span>
+          <span class="flow-import-icon">💰 Wallet CSV</span>
+          <span class="flow-import-icon">🗄️ Supabase</span>
+          <span class="flow-import-icon">🐾 OpenClaw</span>
+        </p>
       </div>
       <div class="flow-body">
         <h2>Capture and import</h2>
@@ -799,6 +854,24 @@
           <summary>Technical details</summary>
           <div class="detail-inner">
             <p>Importers normalize to vault notes with <code>source</code>, <code>source_id</code>, and <code>date</code> for idempotent re-runs. Supabase memory tables can be imported for users coming from database-centric stacks.</p>
+            <div class="flow-import-grid">
+              <span class="flow-import-tile">🤖 <strong>ChatGPT</strong><br><small>ZIP or folder export</small></span>
+              <span class="flow-import-tile">🧠 <strong>Claude</strong><br><small>Chat + memory export</small></span>
+              <span class="flow-import-tile">💾 <strong>Mem0</strong><br><small>JSON memory export</small></span>
+              <span class="flow-import-tile">📝 <strong>Notion</strong><br><small>API; page IDs + key</small></span>
+              <span class="flow-import-tile">🎫 <strong>Jira</strong><br><small>CSV export</small></span>
+              <span class="flow-import-tile">📓 <strong>NotebookLM</strong><br><small>Markdown or JSON</small></span>
+              <span class="flow-import-tile">📁 <strong>Google Drive</strong><br><small>Markdown folder</small></span>
+              <span class="flow-import-tile">📋 <strong>Linear</strong><br><small>CSV export</small></span>
+              <span class="flow-import-tile">🔗 <strong>MIF</strong><br><small>Memory Interchange</small></span>
+              <span class="flow-import-tile">📄 <strong>Markdown</strong><br><small>File or folder</small></span>
+              <span class="flow-import-tile">🎙️ <strong>Audio</strong><br><small>Whisper transcription</small></span>
+              <span class="flow-import-tile">💰 <strong>Wallet CSV</strong><br><small>Tx history; 11 formats</small></span>
+              <span class="flow-import-tile">🗄️ <strong>Supabase</strong><br><small>Memory table import</small></span>
+              <span class="flow-import-tile">🐾 <strong>OpenClaw</strong><br><small>Agent memory + chats</small></span>
+              <span class="flow-import-tile">💻 <strong>Local</strong><br><small>Files from disk</small></span>
+              <span class="flow-import-tile">👥 <strong>Team</strong><br><small>Teammates contribute</small></span>
+            </div>
             <ul>
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/IMPORT-SOURCES.md" target="_blank" rel="noopener">All import sources and formats</a></li>
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/CAPTURE-CONTRACT.md" target="_blank" rel="noopener">Capture contract (webhooks, adapters)</a></li>
@@ -829,6 +902,7 @@
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">Token savings program</a> (consolidation, Discover, advanced knobs, hosted metering)</li>
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener">Retrieval and CLI reference</a></li>
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TEMPLATES-AND-SKILLS.md" target="_blank" rel="noopener">Starter vault templates and agent skill packs</a> — pre-built domain structures and agent playbooks for research, business, finance, marketing, education, and more</li>
             </ul>
           </div>
         </details>
