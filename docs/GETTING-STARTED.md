@@ -1,14 +1,16 @@
-# Getting started
+# 🚀 Getting started
 
 This page is the shortest path from **clone** to **using** Knowtation: CLI, search, optional Hub and landing, and **AgentCeption** integration with examples.
 
+**On this page:** Two paths → Prerequisites → **1–6** (clone through MCP) → **AgentCeption** → **Next steps** — headings below use emoji labels so you can scan quickly.
+
 ---
 
-## Two ways to follow the same setup
+## 🗺️ Two ways to follow the same setup
 
 | Path | Order | Best for |
 |------|--------|----------|
-| **This doc (CLI-first)** | §1 Clone → §2 Configure → §3 Index & search → §4 Hub → … | Terminal, agents, MCP |
+| **This doc (CLI-first)** | Section 1 Clone → Section 2 Configure → Section 3 Index & search → Section 4 Hub → … | Terminal, agents, MCP |
 | **Hub UI (“How to use”)** | Seven steps in the app: vault & config → run Hub → log in → **index & search** → import → use & automate → GitHub backup | Browser-first self-hosted |
 
 Both use the **same** `config/local.yaml`, `.env`, and vault folder. **Hosted** users (knowtation.store) skip local vault, Hub install, and local indexing — we run search for you. **Self-hosted:** semantic search needs §3 (index) after config; listing notes in the Hub works without indexing.
@@ -17,7 +19,7 @@ Both use the **same** `config/local.yaml`, `.env`, and vault folder. **Hosted** 
 
 ---
 
-## Prerequisites
+## ✅ Prerequisites
 
 - **Node.js 18+**
 - **Ollama** (for semantic search): [ollama.ai](https://ollama.ai) → install → run `ollama pull nomic-embed-text`.  
@@ -25,7 +27,7 @@ Both use the **same** `config/local.yaml`, `.env`, and vault folder. **Hosted** 
 
 ---
 
-## 1. Clone and install
+## 1️⃣ Clone and install
 
 ```bash
 git clone https://github.com/aaronrene/knowtation.git
@@ -35,7 +37,7 @@ npm install
 
 ---
 
-## 2. Configure
+## 2️⃣ Configure
 
 **Config (required for CLI and search):**
 
@@ -68,7 +70,7 @@ Add keys as needed (e.g. `OPENAI_API_KEY` for transcription, `HUB_JWT_SECRET` fo
 
 ---
 
-## 3. Index and search
+## 3️⃣ Index and search
 
 **Index once** (builds the vector store so **semantic search** works in the CLI and in the self-hosted Hub **Search vault**). Requires Ollama running with your chosen model, or `OPENAI_API_KEY` if you use OpenAI embeddings in config:
 
@@ -103,7 +105,7 @@ You can also use the `knowtation` binary if you install globally or use `npx kno
 
 ---
 
-## 4. Optional: Hub (web UI)
+## 4️⃣ Optional: Hub (web UI)
 
 From repo root:
 
@@ -122,11 +124,11 @@ Start the Hub:
 npm run hub
 ```
 
-Open **http://localhost:3333/** in a browser. You get the Rich Hub UI (list notes, search, proposals, settings). **Demo notes:** the repo includes **`vault/showcase/`** (inbox, projects, areas, tags)—visible immediately when `vault_path` points at this vault. **Hosted:** seed the same folder with `npm run seed:hosted-showcase` after login; see [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md). **OAuth:** credentials are **not** in the repo — register your own Google/GitHub OAuth app and add `GOOGLE_*` / `GITHUB_*` to `.env` plus callback URLs; see [hub/README.md](../hub/README.md). **Search in the Hub:** after §3 index (or **Re-index** in the UI), **Search vault** uses the same vector store as the CLI. In-app walkthrough: **How to use** (seven steps, matches [TWO-PATHS](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted)).
+Open **http://localhost:3333/** in a browser. You get the Rich Hub UI (list notes, search, proposals, settings). **Demo notes:** the repo includes **`vault/showcase/`** (inbox, projects, areas, tags)—visible immediately when `vault_path` points at this vault. **Hosted:** seed the same folder with `npm run seed:hosted-showcase` after login; see [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md). **OAuth:** credentials are **not** in the repo — register your own Google/GitHub OAuth app and add `GOOGLE_*` / `GITHUB_*` to `.env` plus callback URLs; see [hub/README.md](../hub/README.md). **Search in the Hub:** after Section 3 index (or **Re-index** in the UI), **Search vault** uses the same vector store as the CLI. In-app walkthrough: **How to use** (seven steps, matches [TWO-PATHS](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted)).
 
 ---
 
-## 5. Optional: Landing page (static site)
+## 5️⃣ Optional: Landing page (static site)
 
 From repo root:
 
@@ -138,7 +140,7 @@ Open **http://localhost:8888** for the landing page; **http://localhost:8888/hub
 
 ---
 
-## 6. Optional: MCP (for Cursor / Claude)
+## 6️⃣ Optional: MCP (for Cursor / Claude)
 
 Run the MCP server:
 
@@ -150,7 +152,7 @@ Configure your Cursor or Claude Desktop MCP config to point at this server. Then
 
 ---
 
-## AgentCeption
+## 🤝 AgentCeption
 
 [AgentCeption](https://github.com/cgcardona/agentception) turns a brain dump into a structured plan (PlanSpec), GitHub issues, and an agent org (CTO → coordinators → engineers) that work in isolated worktrees and open PRs. **Knowtation** acts as a shared context and memory layer: one vault for specs, decisions, and phase summaries; semantic search and filters so agents get a small, relevant slice; and write-back so the org’s understanding accumulates without blowing context windows.
 
@@ -230,7 +232,7 @@ No change to the orchestrator’s core flow; Knowtation is an optional **context
 
 ---
 
-## Next steps
+## 📌 Next steps
 
 - **Self-hosted checklist** — Quick start → config → index → OAuth → GitHub backup (How to use **Step 7**): [SELF-HOSTED-SETUP-CHECKLIST.md](./SELF-HOSTED-SETUP-CHECKLIST.md).
 - **Full setup** — Transcription, OAuth, memory, capture: [setup.md](./setup.md).

@@ -22,6 +22,7 @@
       --success: #34d399;
       --radius: 12px;
       --radius-lg: 20px;
+      --hero-grey: #8e8e8e;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -57,32 +58,33 @@
     }
     .hero-title-main-only {
       font-family: var(--font-sans);
-      font-size: clamp(1.75rem, 5vw, 2.5rem);
+      font-size: clamp(2.1rem, 6vw, 3rem);
       font-weight: 600;
       margin: 0 0 0.5rem;
       letter-spacing: -0.02em;
       line-height: 1.2;
     }
-    .tagline {
-      font-size: clamp(1.05rem, 2vw, 1.25rem);
+    .hero-brand-sub {
+      font-size: clamp(1.26rem, 2.4vw, 1.5rem);
       color: var(--text-muted);
-      margin: 0 auto 0.5rem;
-      max-width: 28em;
+      margin: 0 auto 1.15rem;
+      max-width: 30em;
+      font-weight: 400;
+      line-height: 1.45;
+    }
+    .hero-messages {
+      max-width: 38rem;
+      margin: 0 auto 1.5rem;
+      text-align: center;
+    }
+    .hero-messages p {
+      margin: 0 0 0.55rem;
+      font-size: 1.1rem;
+      color: var(--hero-grey);
+      line-height: 1.55;
       font-weight: 400;
     }
-    .tagline-sub { margin-bottom: 0.75rem; font-size: 0.95rem; }
-    .token-callout {
-      font-size: 0.92rem;
-      color: var(--accent);
-      margin: 0 auto 1.25rem;
-      max-width: 32em;
-      font-weight: 500;
-      line-height: 1.55;
-    }
-    .token-callout .token-callout-line2 {
-      display: block;
-      margin-top: 0.35rem;
-    }
+    .hero-messages p:last-child { margin-bottom: 0; }
 
     .cta {
       display: inline-flex;
@@ -200,6 +202,91 @@
       font-weight: 600;
       color: var(--accent);
       margin: 0;
+    }
+
+    .attestation-spotlight {
+      max-width: 40rem;
+      margin: 0 auto 2rem;
+      padding: 1.5rem 1.75rem;
+      text-align: center;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+    }
+    .attestation-spotlight-icon {
+      font-size: 2.25rem;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+    .attestation-spotlight h2 {
+      font-family: var(--font-sans);
+      font-size: clamp(1.15rem, 2.5vw, 1.35rem);
+      font-weight: 700;
+      margin: 0 0 0.6rem;
+      color: var(--text);
+    }
+    .attestation-spotlight p {
+      margin: 0;
+      font-size: 0.98rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .attestation-spotlight a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .attestation-spotlight a:hover { text-decoration: underline; }
+
+    .feature-highlights {
+      padding: 2.5rem 0 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .feature-highlights h2 {
+      font-family: var(--font-sans);
+      text-align: center;
+      font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+      color: var(--text);
+    }
+    .feature-highlights .feature-highlights-lead {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 34em;
+      margin: 0 auto 1.75rem;
+      line-height: 1.55;
+    }
+    .feature-highlights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-highlight-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.35rem 1.25rem;
+      background: var(--surface);
+      text-align: center;
+    }
+    .feature-highlight-card .fh-icon {
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+    .feature-highlight-card h3 {
+      font-family: var(--font-sans);
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0 0 0.45rem;
+      color: var(--text);
+    }
+    .feature-highlight-card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.55;
     }
     .flow-track {
       padding: 1rem 0 3rem;
@@ -386,9 +473,15 @@
   <div class="container">
     <header class="hero">
       <h1 class="hero-title-main-only">Knowtation</h1>
-      <p class="tagline">Your notes, searchable. One place for you and your agents.</p>
-      <p class="tagline tagline-sub">Precise retrieval means faster answers and lower token cost.</p>
-      <p class="token-callout">Narrow search first, open only what matters — your Markdown vault stays yours.<span class="token-callout-line2">Constant memory consolidation and context flexibility.</span></p>
+      <p class="hero-brand-sub">Your notes, searchable. One place for you and your agents.</p>
+      <div class="hero-messages">
+        <p>Precise retrieval means faster answers and lower token cost.</p>
+        <p>Narrow search first, open only what matters</p>
+        <p>Constant memory consolidation and context flexibility.</p>
+        <p>Your Markdown vault stays yours. Discover cross-topic insights.</p>
+        <p>Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
+        <p>Attestation records can anchor to the Internet Computer blockchain for immutable audit.</p>
+      </div>
       <div class="landing-ecosystem" aria-label="Knowtation at the center of your tools">
         <div class="landing-ecosystem-rings">
           <svg class="landing-ecosystem-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -433,9 +526,52 @@
     <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">Open source on GitHub</a>
   </div>
 
+  <section class="container wide attestation-spotlight" aria-labelledby="attestation-spotlight-heading">
+    <div class="attestation-spotlight-icon" aria-hidden="true">🔏</div>
+    <h2 id="attestation-spotlight-heading">Attestation for serious teams</h2>
+    <p>Legal, compliance, finance, and operations increasingly need proof of <strong>who approved a change</strong> and <strong>that the record was not silently altered</strong>. Knowtation pairs human-in-the-loop proposals with <strong>HMAC-signed attestation</strong> and optional <strong>Internet Computer blockchain anchoring</strong> — an audit trail you can point to, not just another row in a vendor database. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Read the whitepaper (attestation and ICP)</a></p>
+  </section>
+
+  <section class="feature-highlights wide" aria-labelledby="feature-highlights-heading">
+    <h2 id="feature-highlights-heading">What teams care about</h2>
+    <p class="feature-highlights-lead">Simple cards for the worries we hear most: cost, lock-in, trust, and “can my agents actually use this?”</p>
+    <div class="feature-highlights-grid">
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">💸</div>
+        <h3>Lower token spend</h3>
+        <p>Narrow search, then open only the notes you need. Memory consolidation and optional Discover keep future context smaller.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">📁</div>
+        <h3>Files you own</h3>
+        <p>Markdown in your vault — Git, editors, backups. No “export my life’s work” crisis when you switch tools.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">🔏</div>
+        <h3>Audit-ready trust</h3>
+        <p>Attestation plus optional IC anchoring for provable intent. Pair with proposals so agents never write unchecked.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">🤖</div>
+        <h3>Agents that go deep</h3>
+        <p>33 MCP tools, memory, consolidation, and the same CLI you use — not a thin search wrapper.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">📥</div>
+        <h3>Everything in one vault</h3>
+        <p>Imports, capture, digital wallet CSVs, Supabase bridge — one searchable corpus for humans and agents.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">🌐</div>
+        <h3>Hosted or self-hosted</h3>
+        <p>Same product: decentralized canisters when you want zero ops, or full control on your metal.</p>
+      </div>
+    </div>
+  </section>
+
   <div class="flow-intro-block">
     <p class="flow-intro-title">From first sign-in to agents, memory, and backup — one straight path.</p>
-    <p class="flow-intro-sub">Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
+    <p class="flow-intro-sub">Walk the steps in order — or skim the feature cards above first.</p>
     <p class="flow-intro-hint">Tap any step for technical detail.</p>
   </div>
 
@@ -516,15 +652,15 @@
       <div class="flow-visual">
         <p class="flow-step-num">Step 4</p>
         <span class="flow-icon" aria-hidden="true">🧠</span>
-        <p class="flow-visual-caption">Re-index when content changes; compress noisy memory over time.</p>
+        <p class="flow-visual-caption">Re-index when content changes; compress memory; Discover cross-topic insights.</p>
       </div>
       <div class="flow-body">
         <h2>Index, re-index, consolidate</h2>
-        <p>After imports or edits, indexing refreshes vectors so search stays accurate. A consolidation engine can merge memory events into compact facts, verify them against the vault, and optionally run a <strong>Discover</strong> pass that looks across topics for patterns, tensions, and follow-ups — on a schedule you control, with billing-aware limits when hosted. <strong>Discover is optional:</strong> when enabled, it enriches memory with cross-topic insight so agents can load sharper context in later sessions.</p>
+        <p>After imports or edits, indexing refreshes vectors so search stays accurate. A consolidation engine merges memory events into compact facts, verifies them against the vault, and can run an optional <strong>Discover</strong> pass that <strong>discovers cross-topic insights</strong> — patterns, tensions, and follow-ups across topics — on a schedule you control, with billing-aware limits when hosted. <strong>Discover is optional:</strong> when enabled, it enriches memory so agents load sharper, wider context in later sessions without pasting the whole vault into the prompt.</p>
         <details class="flow-details">
           <summary>Technical details</summary>
           <div class="detail-inner">
-            <p>Indexer writes chunks to Qdrant or sqlite-vec. Consolidation runs consolidate, verify, and optional Discover (insight events across topics) with cost guardrails. Hosted mode persists advanced knobs through billing and gateway settings; Discover runs inside the same consolidate request (not a second pass count) when turned on.</p>
+            <p>Indexer writes chunks to Qdrant or sqlite-vec. Consolidation runs consolidate, verify, and optional Discover — <strong>Discover discovers cross-topic insights</strong> by emitting <code>insight</code> events that connect themes a single-topic merge would miss. Cost guardrails apply throughout. Hosted mode persists advanced knobs through billing and gateway settings; Discover runs inside the same consolidate request (not a second pass count) when turned on.</p>
             <ul>
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/MEMORY-CONSOLIDATION-GUIDE.md" target="_blank" rel="noopener">Memory consolidation guide</a></li>
               <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/DAEMON-CONSOLIDATION-SPEC.md" target="_blank" rel="noopener">Daemon consolidation spec</a></li>
