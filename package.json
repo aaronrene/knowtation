@@ -18,6 +18,8 @@
     "hub": "node hub/server.mjs",
     "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
     "canister:preflight": "bash scripts/canister-predeploy.sh",
+    "canister:export-backup": "node scripts/canister-export-backup.mjs",
+    "canister:decrypt-operator-backup": "node scripts/canister-decrypt-operator-backup.mjs",
     "canister:release-prep": "bash scripts/canister-release-prep.sh",
     "release:post-merge-canister": "bash scripts/post-merge-hub-canister-release.sh",
     "seed:hosted-showcase": "node scripts/seed-vault-dir-to-hub.mjs",
@@ -46,6 +48,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1026.0",
     "@icp-sdk/core": "^5.2.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@netlify/blobs": "^10.7.0",

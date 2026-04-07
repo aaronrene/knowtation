@@ -1,0 +1,43 @@
+# Daily operator export: canister notes + full proposals (JSON); optional AES-GCM + S3.
+# Secrets: docs/DEPLOY-HOSTED.md §6.
+name: Canister export backup
+
+on:
+  schedule:
+    # 07:00 UTC daily — adjust cron if you prefer another window
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export canister vault(s)
+        env:
+          KNOWTATION_CANISTER_BACKUP_URL: ${{ secrets.KNOWTATION_CANISTER_BACKUP_URL }}
+          KNOWTATION_CANISTER_BACKUP_USER_ID: ${{ secrets.KNOWTATION_CANISTER_BACKUP_USER_ID }}
+          KNOWTATION_CANISTER_BACKUP_VAULT_IDS: ${{ secrets.KNOWTATION_CANISTER_BACKUP_VAULT_IDS }}
+          KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX }}
+          KNOWTATION_CANISTER_BACKUP_S3_BUCKET: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_BUCKET }}
+          KNOWTATION_CANISTER_BACKUP_S3_PREFIX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_PREFIX }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: node scripts/canister-export-backup.mjs
+
+      - name: Upload backup artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canister-export-${{ github.run_id }}
+          path: backups/canister-export-*
+          retention-days: 90
+          if-no-files-found: error

@@ -23,3 +23,45 @@ export function applyScopeFilterToNotes(notes, scope) {
     return false;
   });
 }
+
+/**
+ * Filter proposals the same way as notes for hosted team scope (folder prefix + project slug).
+ * Full proposal objects from GET /proposals/:id include `path`; `project` may appear in frontmatter.
+ *
+ * @param {Array<{ path?: string, project?: string | null, frontmatter?: string | object }>} proposals
+ * @param {{ projects?: string[], folders?: string[] } | null | undefined} scope
+ * @returns {typeof proposals}
+ */
+export function applyScopeFilterToProposals(proposals, scope) {
+  if (!scope || (!scope.projects?.length && !scope.folders?.length)) return proposals;
+  const list = Array.isArray(proposals) ? proposals : [];
+  return list.filter((p) => {
+    const pathStr = p.path && typeof p.path === 'string' ? p.path : '';
+    if (scope.folders?.length) {
+      const folder = pathStr.includes('/') ? pathStr.split('/').slice(0, -1).join('/') : '';
+      if (scope.folders.some((f) => folder === f || folder.startsWith(f + '/'))) return true;
+    }
+    if (scope.projects?.length) {
+      let proj = p.project && typeof p.project === 'string' ? p.project : null;
+      if (!proj && pathStr.startsWith('projects/')) {
+        const rest = pathStr.slice('projects/'.length);
+        proj = rest.split('/')[0] || null;
+      }
+      if (!proj && p.frontmatter) {
+        let fm = p.frontmatter;
+        if (typeof fm === 'string' && fm.trim()) {
+          try {
+            fm = JSON.parse(fm);
+          } catch {
+            fm = null;
+          }
+        }
+        if (fm && typeof fm === 'object' && !Array.isArray(fm) && fm.project) {
+          proj = String(fm.project);
+        }
+      }
+      if (proj && scope.projects.includes(proj)) return true;
+    }
+    return false;
+  });
+}

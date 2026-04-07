@@ -770,11 +770,11 @@ You can implement phases in sequence (1 → 2 → … → 11) or parallelize 5, 
 - `KNOWTATION_CANISTER_BACKUP_USER_ID` — Value sent as `X-User-Id` for export (the stable user id string the gateway uses for that partition, e.g. `google:…`). Not the same thing as a Hub JWT unless you deliberately align them.
 - `KNOWTATION_CANISTER_BACKUP_VAULT_ID` — Optional; defaults to `default` in `scripts/canister-predeploy.sh`.
 
-**Repo behavior:** `npm run canister:preflight` runs `scripts/canister-predeploy.sh`, which loads repo-root `.env` when present and can default `KNOWTATION_CANISTER_URL` from `hub/icp/canister_ids.json` if `KNOWTATION_CANISTER_BACKUP_USER_ID` is set but URL is not (parity with `canister:release-prep`). Backups land in `./backups/canister-export-<UTC-stamp>.json` (gitignored).
+**Repo behavior:** [`scripts/canister-export-backup.mjs`](../scripts/canister-export-backup.mjs) (`npm run canister:export-backup`) exports **notes + full proposals** (`format_version: 2`), optional **AES-GCM** (`.json.enc`) and **S3**. `scripts/canister-predeploy.sh` invokes it when `KNOWTATION_CANISTER_BACKUP_USER_ID` is set. URL defaults from `hub/icp/canister_ids.json` when omitted. Optional **`KNOWTATION_CANISTER_BACKUP_VAULT_IDS`**. See [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §6.
 
-**Daily backup (do after deploy, before or right after launch):**
+**Daily backup (implemented):**
 
-- **Option A — Cron on a trusted host:** `cd` to the repo (or a deploy directory), ensure `.env` exists with the three variables (or export them in the crontab wrapper), run the same export the predeploy script uses (e.g. thin `scripts/canister-export-backup.sh` that only curls export → `backups/`) on a fixed schedule; rotate or archive old files off-machine as policy requires.
-- **Option B — Scheduled CI:** GitHub Actions (or similar) on a schedule with repository secrets mirroring the same variable names; workflow runs `curl` or the thin script and uploads artifacts / pushes to encrypted storage — choose based on where secrets should live and retention needs.
+- **GitHub Actions:** [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) — daily schedule + `workflow_dispatch`; uploads artifacts. Secrets and scope: [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §6.
+- **Cron on a trusted host:** Same script and env vars; rotate or archive off-machine as policy requires.
 
-**Track:** Implement the dedicated export-only script and wire cron or Actions when operations are ready; credentials are the export headers above, not necessarily the same as other Hub gateway secrets.
+**Credentials:** The export headers above (`X-User-Id` / vault) are **not** the same as other Hub gateway secrets unless you deliberately align them; store them only in CI secrets or a locked-down host.
