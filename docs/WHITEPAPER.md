@@ -1,11 +1,24 @@
 # Knowtation — Whitepaper
 
-**Version:** 3.0 (April 2026)  
+**Version:** 3.2 (April 2026)  
 **Product:** Knowtation (*know* + *notation*) — a personal and team knowledge vault with CLI, MCP, semantic search, memory, attestation, and a full import pipeline. Self-hosted or hosted at [knowtation.store](https://knowtation.store).
 
 ---
 
-## Abstract
+## 📖 How to read this document
+
+| Block | What to expect |
+|--------|----------------|
+| **📌 Abstract** | Thesis in one pass — why Knowtation exists and what “good retrieval” means here. |
+| **§1–2** | The problem with naive context + the **three levers** (search → memory → prompts). |
+| **§3–4** | Why one vault, and how **persistence, fetch, and trust** fit together. |
+| **§5 onward** | **Imports, memory, consolidation, Hub, MCP, attestation, billing** — reference depth for builders and buyers. |
+
+**Tip:** Read the abstract first; open numbered sections when you need detail. Long subsections use **bold lead-ins** so you can scan.
+
+---
+
+## 📌 Abstract
 
 Knowtation was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Shoving a full history into the model window is expensive and often harmful — word overlap is not semantic relevance, and the wrong material produces confident but wrong answers. The bottleneck in agent-powered work is not model strength. It is **fetching the right context at the lowest cost.**
 
@@ -13,9 +26,11 @@ Knowtation addresses this with three mechanisms that work together: **two-step r
 
 Your canonical material lives in files you control (Markdown, frontmatter, media), gets indexed with filters for projects, tags, time, entities, causal chains, and episodes, and is invokable by any agent via a CLI, 33-tool MCP server, or Hub REST API — so your notation stays movable, auditable, and yours.
 
+**In plain terms:** *Precise retrieval* means faster answers and lower token cost — *narrow search first, open only what matters*; *constant memory consolidation* and flexible context; your Markdown vault stays yours, with optional **Discover** for **cross-topic insights**. **Run locally** or use **hosted** access on **decentralized Internet Computer canisters**. **Attestation records** can **anchor to the Internet Computer blockchain** for **immutable audit** — a differentiator for **legal, compliance, finance**, and any team that must show *who approved a change* and *that the record was not silently rewritten*.
+
 ---
 
-## 1. The founding problem: agents need better retrieval
+## 1. 🎯 The founding problem: agents need better retrieval
 
 AI agents need background context to do useful work. The naive approach — dump everything into the prompt — fails in two ways:
 
@@ -26,7 +41,7 @@ Knowtation was built from the start to give agents **the right information at th
 
 ---
 
-## 2. Three levers for token savings
+## 2. ⚡ Three levers for token savings
 
 Knowtation reduces agent cost and improves accuracy through three mechanisms that reinforce each other:
 
@@ -47,7 +62,7 @@ Raw memory events accumulate. Without compression, an agent's context grows line
 
 1. **Consolidate** (LLM) — Group events by topic, merge overlapping facts, deduplicate. One LLM call per topic (only topics with 2+ events). Output: compact `consolidation` fact strings that replace dozens of raw events.
 2. **Verify** (filesystem, no LLM) — Check consolidated memories against current vault state. Flag stale references. Emit `maintenance` events for cleanup.
-3. **Discover** (LLM, optional) — Surface connections, contradictions, and open questions across topics. Off by default; enable when insight value exceeds the additional LLM cost.
+3. **Discover** (LLM, optional) — **Discover discovers cross-topic insights:** surface connections, contradictions, and open questions across topics (as `insight` events). Off by default; enable when insight value exceeds the additional LLM cost.
 
 **Guardrails that cap spend:** configurable lookback hours, max events/topics per pass, daily USD cost cap, hosted 30-minute cooldown between manual runs, and billing meters that enforce consolidation pass quotas per tier.
 
@@ -87,9 +102,21 @@ flowchart TB
 
 **With Knowtation:** Agent narrows to 500 tokens via two-step retrieval, loads compressed memory from prior sessions, skips searches it already did, and gets a precise answer at a fraction of the cost.
 
+### 2.1 Operational program: token savings in production
+
+The three levers above are the thesis. **Shipped after the original v3.0 narrative**, Knowtation adds a concrete **operational layer** so teams can enforce and tune savings in hosted and self-hosted deployments:
+
+- **Advanced consolidation knobs** — Per-run scope caps: lookback hours, max events and topics per pass, and LLM output token limits. Self-hosted: `config/local.yaml` and Hub **Settings → Consolidation → Advanced**. Hosted: fields persisted on the billing user record and merged into gateway settings, scheduler payloads, and bridge requests so serverless runs honor the same limits.
+- **Discover pass** — Optional third stage after consolidate + verify: one additional model pass can emit **insight** events (cross-topic connections, contradictions, open questions). Default **off**; enabling it adds LLM cost inside the same consolidate operation (hosted billing counts one consolidate pass per request; Discover does not double the pass meter). See [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) and [MEMORY-CONSOLIDATION-GUIDE.md](./MEMORY-CONSOLIDATION-GUIDE.md).
+- **Encrypt-aware consolidation** — When `memory.encrypt` is enabled, consolidation prompts redact event payloads so ciphertext is not expanded into the model context; merge quality trades off against privacy. Configurable self-hosted and via bridge env on hosted.
+- **Hosted MCP parity** — Hosted `search` supports HTTP POST and field parity with self-hosted paths so agents can keep result sets small through the gateway without awkward workarounds.
+- **Metering and plans** — Stripe-backed tiers enforce or shadow-log searches, index jobs, consolidation allowances, and related caps; token packs can bundle extra headroom. Details evolve with product; authoritative behavior is in gateway and billing code plus [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md).
+
+The [Token savings](./TOKEN-SAVINGS.md) doc is the living checklist for this layer; the sections above remain the **why**, while 2.1 is the **what shipped** to make savings repeatable.
+
 ---
 
-## 3. The broader problem: knowledge is everywhere
+## 3. 🌍 The broader problem: knowledge is everywhere
 
 The token-savings problem exists because useful knowledge rarely lives in one place. It is distributed across tools and threads: what was decided, why an option was dropped, what changed last quarter. Each tool owns a piece. Weaving those pieces into answers still depends on people who were present. When they leave, the artifacts remain; the mental model degrades.
 
@@ -97,7 +124,7 @@ Knowtation provides **one place you choose** to bring notation together: imports
 
 ---
 
-## 4. Persistence, fetch, and trust
+## 4. 🗄️ Persistence, fetch, and trust
 
 **Persistence** is required but not enough. **Truth** — what is current — requires practice: dated notes, superseding documents, optional links (`follows`, `causal_chain_id`, entities, episodes). **Fetching** must mix embedding search with structure so "same term, different period" does not collapse into one undifferentiated mass.
 
@@ -110,7 +137,7 @@ Knowtation's stance:
 
 ---
 
-## 5. Imports: 14 sources, one vault
+## 5. 📥 Imports: 14 sources, one vault
 
 Knowtation ships importers for fourteen external sources. Each produces vault notes with `source`, `source_id`, `date`; re-imports are idempotent.
 
@@ -137,7 +164,7 @@ Beyond imports, four **capture channels** ingest live messages: file/stdin, HTTP
 
 ---
 
-## 6. Memory: five providers, persistent recall
+## 6. 🧠 Memory: five providers, persistent recall
 
 Unlike systems where memory is an afterthought bolted onto chat history, Knowtation treats operational memory as **structured, queryable data** with event types, timestamps, topics, and optional semantic search.
 
@@ -179,27 +206,29 @@ Seven `memory` subcommands: `query`, `list`, `store`, `search`, `clear`, `export
 
 ---
 
-## 7. Consolidation daemon: memory that gets smarter
+## 7. 🔄 Consolidation daemon: memory that gets smarter
 
 Raw memory events accumulate. The consolidation engine compresses them into actionable knowledge through three LLM-powered passes:
 
 1. **Consolidate** — Group events by topic, merge overlapping facts, deduplicate, and store summary `consolidation` events.
 2. **Verify** — Check consolidated memories against current vault state; flag stale references; emit `maintenance` events for cleanup.
-3. **Discover** — Surface connections, contradictions, and open questions across topics; emit `insight` events.
+3. **Discover** — **Discover discovers cross-topic insights:** surface connections, contradictions, and open questions across topics; emit `insight` events so agents and humans see patterns that per-topic consolidation alone would miss.
 
 The daemon runs as a background process (`knowtation daemon start`) with configurable interval, lookback window, and pass selection. Hosted mode enforces a 30-minute cooldown on manual runs, tracks LLM cost per pass, and respects a configurable cost cap (`CONSOLIDATION_COST_CAP_USD`).
 
 ---
 
-## 8. Wallet and blockchain imports
+## 8. 🔗 Wallet and blockchain imports
 
 The `wallet-csv` importer ingests transaction CSVs from major exchanges and wallets — Coinbase, Coinbase Pro, Binance, Ledger Live, and generic formats. Each row becomes a vault note under `inbox/wallet-import/` with blockchain-oriented frontmatter: transaction hash, date, amount, chain (Ethereum, Bitcoin, Solana, ICP, etc.), and labels. This gives agents and humans a searchable, filterable record of on-chain activity inside the same vault that holds meeting notes and project docs.
 
 ---
 
-## 9. Attestation and ICP anchoring
+## 9. 🔏 Attestation and ICP anchoring
 
 **AIR (Attestation Integrity Records)** provides an intent-attestation step before writes and exports. When `air.required` is enabled, every write to the vault records who authorized it and why.
+
+**Business, legal, and finance:** Teams under regulatory or contractual pressure need more than “we logged it in Postgres.” HMAC-signed attestations plus optional **Internet Computer blockchain anchoring** support a narrative of *provable intent* and *tamper-evident history* — who approved a write, when, and that the record was not silently replaced. This is **not legal advice** and does not replace counsel or your compliance program; it is a **technical control** that pairs well with human-in-the-loop **proposals** so agent-suggested changes do not land without review.
 
 - **Local mode:** `attestBeforeWrite` and `attestBeforeExport` hooks in the CLI and MCP.
 - **Hosted mode:** The gateway auto-provisions an attestation endpoint; HMAC-signed records are stored in Netlify Blobs or local JSON.
@@ -208,7 +237,7 @@ The `wallet-csv` importer ingests transaction CSVs from major exchanges and wall
 
 ---
 
-## 10. Supabase bridge: optional, not required
+## 10. 🔌 Supabase bridge: optional, not required
 
 Knowtation is vault-first. Supabase is an **optional bridge**, not a dependency.
 
@@ -220,7 +249,7 @@ The contrast with database-centric systems is architectural: in Knowtation, the 
 
 ---
 
-## 11. MCP: 33 tools, 23 resources, 13 prompts
+## 11. 🤖 MCP: 33 tools, 23 resources, 13 prompts
 
 Knowtation exposes one of the deepest MCP surfaces available for a knowledge tool.
 
@@ -248,7 +277,7 @@ The Hub gateway exposes a separate `knowtation-hosted` MCP server with role-gate
 
 ---
 
-## 12. Hub: proposals, review, and collaboration
+## 12. 🌐 Hub: proposals, review, and collaboration
 
 The Knowtation Hub is an optional web interface and API layer — self-hosted or hosted at [knowtation.store](https://knowtation.store).
 
@@ -268,7 +297,7 @@ The Knowtation Hub is an optional web interface and API layer — self-hosted or
 
 ---
 
-## 13. Billing and monetization
+## 13. 💳 Billing and monetization
 
 Knowtation includes a Stripe-backed billing system with tiered plans:
 
@@ -283,7 +312,7 @@ Token packs can be purchased for additional indexing capacity, bundled with cons
 
 ---
 
-## 14. Knowtation's thesis
+## 14. 💡 Knowtation's thesis
 
 1. **Right context, lowest cost** — The platform exists to give agents accurate retrieval without overspending. Two-step retrieval, memory consolidation, and memory-aware prompts are the three levers. Everything else supports them.
 
@@ -301,7 +330,7 @@ Token packs can be purchased for additional indexing capacity, bundled with cons
 
 ---
 
-## 15. Architecture at a glance
+## 15. 🏛️ Architecture at a glance
 
 ```mermaid
 flowchart LR
@@ -351,7 +380,7 @@ flowchart LR
 
 ---
 
-## 16. Deployment
+## 16. 🚀 Deployment
 
 Knowtation runs in two modes:
 
@@ -363,7 +392,7 @@ Both paths use the same codebase, the same vault format, and the same MCP surfac
 
 ---
 
-## 17. Who it serves — and who it does not
+## 17. 👥 Who it serves — and who it does not
 
 **Serves:** Individuals and teams who want **one movable vault**, **agent-invokable search and memory**, imports from common tools, transcription, wallet tracking, and optional Hub-style review — without betting organizational recall on a single hosted "reasoning layer" they cannot take with them.
 
@@ -371,7 +400,7 @@ Both paths use the same codebase, the same vault format, and the same MCP surfac
 
 ---
 
-## 18. Questions before you commit to a knowledge system
+## 18. ❓ Questions before you commit to a knowledge system
 
 1. **Where does your team's real understanding actually form?** If each team uses a different assistant with no shared corpus, you rebuild walls. A vault plus discipline is one way to unify notation while using any model for reasoning.
 
@@ -383,7 +412,7 @@ Both paths use the same codebase, the same vault format, and the same MCP surfac
 
 ---
 
-## References (in-repo)
+## 📚 References (in-repo)
 
 | Document | Role |
 |----------|------|

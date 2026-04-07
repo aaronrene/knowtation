@@ -3,33 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Knowtation: portable Markdown vault, search by meaning, and agent-ready MCP and CLI. Precise token use mean speed &amp; savings—your data stays yours.">
-  <meta name="theme-color" content="#050505">
+  <meta name="description" content="Knowtation: Markdown vault you own, semantic search, MCP and CLI for agents, memory consolidation, hosted or self-hosted.">
+  <meta name="theme-color" content="#0a192f">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <title>Knowtation — Know and own your data. Precise token use mean speed &amp; savings.</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Knowtation — Know and own your data</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('knowtation-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <style>
     :root {
-      --bg: #050505;
-      --surface: #0d0d0d;
-      --surface-elevated: #141414;
+      --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --bg: #0a192f;
+      --surface: #0d2138;
+      --surface-elevated: #152a45;
       --text: #fafafa;
       --text-muted: #a1a1a1;
-      --accent: #22d3ee;
-      --accent-dim: rgba(34, 211, 238, 0.15);
-      --accent-soft: rgba(34, 211, 238, 0.08);
-      --border: #262626;
+      --accent: #89cff0;
+      --accent-dim: rgba(137, 207, 240, 0.18);
+      --accent-soft: rgba(137, 207, 240, 0.1);
+      --accent-glow: color-mix(in srgb, var(--accent) 32%, transparent);
+      --cta-on-accent: #0a1628;
+      --border: #2a3f5c;
       --success: #34d399;
       --radius: 12px;
       --radius-lg: 20px;
+      --hero-grey-lines: #e4e4e4;
+    }
+    html[data-theme="light"] {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-elevated: #eef2f8;
+      --text: #0f172a;
+      --text-muted: #556070;
+      --border: #d8dee9;
+      --accent: #5eb8e8;
+      --accent-dim: rgba(94, 184, 232, 0.2);
+      --accent-soft: rgba(94, 184, 232, 0.12);
+      --accent-glow: color-mix(in srgb, var(--accent) 28%, transparent);
+      --cta-on-accent: #0a1628;
+      --hero-grey-lines: #4a5a6a;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      font-family: "Outfit", system-ui, sans-serif;
+      font-family: var(--font-sans);
       background: var(--bg);
       color: var(--text);
       line-height: 1.65;
@@ -37,17 +60,173 @@
       -webkit-font-smoothing: antialiased;
     }
     .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
-    .wide { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+    .wide { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 
-    /* Hero */
+    .landing-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 0.75rem 1.5rem;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .theme-toggle {
+      margin-right: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .theme-toggle:hover {
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: var(--surface-elevated);
+    }
+    .theme-toggle .theme-toggle-icon { font-size: 1rem; line-height: 1; }
+    .landing-header .cta-signin {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+
     .hero {
-      padding: 2rem 0 2rem;
+      padding: 2rem 0 1.5rem;
       text-align: center;
     }
-    .hero .tagline { margin: 0 auto 0.75rem; }
-    .hero .hero-intent-line { margin: 0 auto 0.75rem; }
-    .hero .token-callout { margin: 0 auto 1rem; }
-    .landing-ecosystem { margin: 1rem auto 0; }
+    .hero-title-main-only {
+      font-family: var(--font-sans);
+      font-size: clamp(2.1rem, 6vw, 3rem);
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .hero-brand-sub {
+      font-size: clamp(1.26rem, 2.4vw, 1.5rem);
+      color: var(--text-muted);
+      margin: 0 auto 1.15rem;
+      max-width: 30em;
+      font-weight: 400;
+      line-height: 1.45;
+    }
+    .hero-brand-sub-accent {
+      color: var(--accent);
+    }
+    .hero-messages {
+      max-width: 38rem;
+      margin: 0 auto 1.5rem;
+      text-align: center;
+    }
+    .hero-messages p {
+      margin: 0 0 0.5rem;
+      font-size: 1.1rem;
+      color: var(--hero-grey-lines);
+      line-height: 1.55;
+      font-weight: 400;
+    }
+    .hero-messages p:last-child { margin-bottom: 0; }
+
+    .deploy-headlines {
+      text-align: center;
+      max-width: 42rem;
+      margin: 0 auto 2.25rem;
+      padding: 2.5rem 1.5rem 2.35rem;
+    }
+    .deploy-headlines .deploy-title {
+      font-family: var(--font-sans);
+      font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+      margin: 0;
+    }
+    .spotlight-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      max-width: 1100px;
+      margin: 0 auto 2rem;
+      padding: 0 1.5rem;
+    }
+    @media (max-width: 768px) {
+      .spotlight-pair { grid-template-columns: 1fr; }
+    }
+    .spotlight-card {
+      padding: 1.5rem 1.35rem;
+      text-align: center;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+    }
+    .spotlight-card-icon {
+      font-size: 2.1rem;
+      line-height: 1;
+      margin-bottom: 0.45rem;
+    }
+    .spotlight-card h2 {
+      font-family: var(--font-sans);
+      font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+      font-weight: 700;
+      margin: 0 0 0.55rem;
+      color: var(--text);
+    }
+    .spotlight-card p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .spotlight-card a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .spotlight-card a:hover { text-decoration: underline; }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: var(--cta-on-accent);
+      padding: 0.85rem 1.75rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px var(--accent-glow);
+    }
+    .cta-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .cta-secondary:hover {
+      background: var(--accent-soft);
+      box-shadow: none;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -58,444 +237,19 @@
       border-radius: 999px;
       font-size: 0.8rem;
       font-weight: 600;
-      margin: 0;
       text-decoration: none;
       letter-spacing: 0.02em;
     }
-    .badge-wrap { text-align: center; padding: 1rem 0 1.25rem; }
-    .badge:hover { background: rgba(34, 211, 238, 0.25); color: var(--accent); }
-    h1 {
-      font-family: "Instrument Serif", serif;
-      font-size: clamp(2.5rem, 7vw, 4rem);
-      font-weight: 400;
-      margin: 0 0 1rem;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
-    }
-    .tagline {
-      font-size: clamp(1.1rem, 2vw, 1.35rem);
-      color: var(--text-muted);
-      margin: 0 auto 1.5rem;
-      max-width: 28em;
-      font-weight: 400;
-    }
-    .intent {
-      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.75rem 2rem;
-      margin: 2rem auto;
-      max-width: 36em;
-      font-size: 1rem;
-      text-align: left;
-    }
-    .intent strong { color: var(--accent); font-weight: 500; }
-    .cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: var(--accent);
-      color: #000;
-      padding: 0.85rem 1.75rem;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.95rem;
-      text-decoration: none;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25);
-    }
-    .cta-secondary {
-      background: transparent;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      margin-left: 0.75rem;
-    }
-    .cta-secondary:hover {
-      background: var(--accent-soft);
-      box-shadow: none;
-    }
-    .cta-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
-    .token-callout {
-      font-size: 0.95rem;
-      color: var(--accent);
-      margin: 0 auto 1.5rem;
-      max-width: 32em;
-      font-weight: 500;
-    }
-    /* Ecosystem diagram: tools → Knowtation → outcome */
-    .ecosystem {
-      margin: 2rem auto 2.5rem;
-      max-width: 640px;
-    }
-    .ecosystem-diagram {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem 0.75rem;
-      font-size: 0.8rem;
-    }
-    .ecosystem-tools {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      justify-content: center;
-    }
-    .ecosystem-tools span {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.35rem 0.65rem;
-      color: var(--text-muted);
-    }
-    .ecosystem-core {
-      background: var(--accent-dim);
-      border: 1px solid var(--accent);
-      border-radius: 8px;
-      padding: 0.5rem 1rem;
-      color: var(--accent);
-      font-weight: 600;
-    }
-    .ecosystem-outcome {
-      color: var(--success);
-      font-weight: 500;
-    }
-    .ecosystem-arrow { color: var(--border); font-size: 1rem; }
-    /* Icon-first ecosystem (less text clutter) */
-    .ecosystem-icons .ecosystem-icons-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-    .ecosystem-icons .ecosystem-icon {
-      font-size: 1.75rem;
-      line-height: 1;
-      opacity: 0.9;
-    }
-    .ecosystem-icons .ecosystem-center-wrap {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      margin: 0.5rem 0 0.75rem;
-    }
-    .ecosystem-icons .ecosystem-core-icon {
-      font-size: 2.5rem;
-      filter: grayscale(0.2);
-    }
-    .ecosystem-icons .ecosystem-core-label {
-      color: var(--accent);
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .ecosystem-icons .ecosystem-outcome-line {
-      font-size: 0.85rem;
-      color: var(--success);
-      margin: 0;
-      font-weight: 500;
-    }
-    .intent.compact {
-      padding: 1rem 1.25rem;
-      margin: 2rem auto;
-      font-size: 0.9rem;
-      max-width: 40em;
-    }
-
-    /* Product mock */
-    .mock-section {
-      padding: 3rem 0 5rem;
-    }
-    .mock-container {
-      position: relative;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
-      overflow: hidden;
-      background: var(--surface);
-      box-shadow: 0 32px 64px -12px rgba(0,0,0,0.5);
-    }
-    .mock-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.25rem;
-      background: var(--surface-elevated);
-      border-bottom: 1px solid var(--border);
-    }
-    .mock-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .mock-dot.r { background: #ef4444; }
-    .mock-dot.y { background: #eab308; }
-    .mock-dot.g { background: #22c55e; }
-    .mock-title {
-      flex: 1;
-      text-align: center;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-    .mock-content {
-      display: grid;
-      grid-template-columns: 1fr 1.4fr;
-      gap: 0;
-      min-height: 340px;
-    }
-    @media (max-width: 768px) {
-      .mock-content { grid-template-columns: 1fr; }
-    }
-    .mock-sidebar {
-      padding: 1.25rem;
-      background: var(--surface-elevated);
-      border-right: 1px solid var(--border);
-    }
-    .mock-sidebar-item {
-      padding: 0.5rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      margin-bottom: 0.25rem;
-      color: var(--text-muted);
-    }
-    .mock-sidebar-item.active {
-      background: var(--accent-soft);
+    .badge:hover {
+      background: color-mix(in srgb, var(--accent) 28%, transparent);
       color: var(--accent);
     }
-    .mock-main {
-      padding: 1.5rem;
-      font-family: ui-monospace, monospace;
-      font-size: 0.8rem;
-      line-height: 1.7;
-      overflow-x: auto;
-    }
-    .mock-prompt { color: var(--accent); }
-    .mock-output { color: var(--text-muted); }
-    .mock-output .path { color: var(--success); }
-    .mock-tracking-icons { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--surface-elevated); border-top: 1px solid var(--border); font-size: 1.1rem; }
-    .mock-tracking-icon { opacity: 0.85; }
+    .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
 
-    /* Why Knowtation — narrative */
-    .narrative-section {
-      padding: 4rem 0;
-      border-top: 1px solid var(--border);
-    }
-    .narrative-section h2 {
-      font-family: "Instrument Serif", serif;
-      font-size: clamp(1.75rem, 4vw, 2.25rem);
-      font-weight: 400;
-      text-align: center;
-      margin: 0 0 0.75rem;
-    }
-    .narrative-section .lead {
-      text-align: center;
-      color: var(--text-muted);
-      max-width: 40em;
-      margin: 0 auto 2.5rem;
-      font-size: 1rem;
-    }
-    .narrative-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.25rem;
-    }
-    .narrative-card {
-      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem 1.75rem;
-    }
-    .narrative-card h3 {
-      margin: 0 0 0.75rem;
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: var(--accent);
-    }
-    .narrative-card p {
-      margin: 0;
-      font-size: 0.92rem;
-      color: var(--text-muted);
-      line-height: 1.65;
-    }
-
-    /* Flywheel */
-    .flywheel-section {
-      padding: 3.5rem 0;
-      border-top: 1px solid var(--border);
-      background: linear-gradient(180deg, transparent 0%, var(--accent-soft) 50%, transparent 100%);
-    }
-    .flywheel-section h2 {
-      font-family: "Instrument Serif", serif;
-      font-size: clamp(1.5rem, 3.5vw, 2rem);
-      font-weight: 400;
-      text-align: center;
-      margin: 0 0 1rem;
-    }
-    .flywheel-section p {
-      text-align: center;
-      color: var(--text-muted);
-      max-width: 42em;
-      margin: 0 auto 1.5rem;
-      font-size: 0.95rem;
-      line-height: 1.65;
-    }
-    .flywheel-steps {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: center;
-      gap: 0.5rem 1rem;
-      font-size: 0.88rem;
-      color: var(--text-muted);
-    }
-    .flywheel-steps span { color: var(--accent); font-weight: 600; }
-    .flywheel-arrow { color: var(--border); }
-
-    /* Feature grid */
-    .features {
-      padding: 4rem 0;
-      border-top: 1px solid var(--border);
-    }
-    .features h2 {
-      font-family: "Instrument Serif", serif;
-      font-size: clamp(1.75rem, 4vw, 2.25rem);
-      font-weight: 400;
-      text-align: center;
-      margin: 0 0 2.5rem;
-    }
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.25rem;
-    }
-    .feature-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      transition: border-color 0.2s, transform 0.2s;
-    }
-    .feature-card:hover {
-      border-color: rgba(34, 211, 238, 0.3);
-      transform: translateY(-2px);
-    }
-    .feature-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: var(--accent-dim);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
-    }
-    .feature-card h3 {
-      margin: 0 0 0.5rem;
-      font-size: 1.05rem;
-      font-weight: 600;
-    }
-    .feature-card p {
-      margin: 0;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-    .feature-card code {
-      background: var(--surface-elevated);
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.85em;
-    }
-
-    /* Pricing cards */
-    .pricing-section {
-      padding: 4rem 0;
-      border-top: 1px solid var(--border);
-    }
-    .pricing-section h2 {
-      font-family: "Instrument Serif", serif;
-      font-size: clamp(1.75rem, 4vw, 2.25rem);
-      font-weight: 400;
-      text-align: center;
-      margin: 0 0 2rem;
-    }
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    .plan {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 2rem;
-    }
-    .plan.featured {
-      border-color: var(--accent);
-      background: linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 100%);
-    }
-    .plan h3 { margin: 0 0 0.5rem; font-size: 1.15rem; }
-    .plan .price { font-size: 1.75rem; font-weight: 700; margin: 0.5rem 0; }
-    .plan .price-note { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
-    .plan ul {
-      margin: 1rem 0 0;
-      padding-left: 1.2rem;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-    }
-    .plan li { margin-bottom: 0.5rem; }
-
-    /* Phases - compact visual */
-    .phases-section {
-      padding: 4rem 0;
-      border-top: 1px solid var(--border);
-    }
-    .phases-section h2 {
-      font-family: "Instrument Serif", serif;
-      font-size: clamp(1.75rem, 4vw, 2.25rem);
-      font-weight: 400;
-      text-align: center;
-      margin: 0 0 2rem;
-    }
-    .phases-flow {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    .phase-pill {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 0.5rem 1rem;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-    .phase-pill span { color: var(--accent); font-weight: 600; margin-right: 0.25rem; }
-
-    footer {
-      padding: 3rem 0;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      border-top: 1px solid var(--border);
-    }
-    footer a { color: var(--accent); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
-
-    /* Hub-style top fold: title equation + ecosystem rings (same as Hub login) */
-    .hero-title-equation { font-size: clamp(1.5rem, 4vw, 2.25rem); line-height: 1.3; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
-    .hero-title-equation .hero-title-main { display: block; font-family: "Instrument Serif", serif; font-weight: 400; font-size: 1.15em; }
-    .hero-title-equation .hero-title-eq { font-family: "Outfit", system-ui, sans-serif; font-weight: 500; color: var(--text-muted); font-size: 0.85em; }
-    .hero-title-main-only { font-family: "Instrument Serif", serif; font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 400; margin: 0 0 0.5rem; letter-spacing: -0.02em; line-height: 1.2; }
-    .tagline-sub { margin-bottom: 1rem; }
-    .hero-intent-line { font-size: 1rem; color: var(--text-muted); margin: 0 auto 1.5rem; max-width: 32em; line-height: 1.5; }
-    .landing-ecosystem { margin: 2rem auto 0; max-width: 320px; }
+    /* Ecosystem rings (hero graphic) */
+    .landing-ecosystem { margin: 1.5rem auto 0; max-width: 320px; }
     .landing-ecosystem-rings { position: relative; width: 320px; height: 320px; margin: 0 auto; }
     .landing-ecosystem-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-    .landing-ecosystem-svg circle { transition: stroke 0.2s ease; }
     .landing-ecosystem-center {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       display: flex; flex-direction: column; align-items: center; gap: 0.35rem; z-index: 2;
@@ -529,382 +283,723 @@
     .landing-ecosystem-icon-19 { transform: rotate(300deg) translate(0, -135px); }
     .landing-ecosystem-icon-20 { transform: rotate(330deg) translate(0, -135px); }
 
-    /* Top bar: sign-in buttons on the right */
-    .landing-header {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      padding: 0.75rem 1.5rem;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      border-bottom: 1px solid var(--border);
+    /* Vertical flow */
+    .flow-intro-block {
+      text-align: center;
+      padding: 2rem 1.5rem 1rem;
+      max-width: 44rem;
+      margin: 0 auto;
     }
-    .landing-header .cta-signin {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
+    .flow-intro-block--after-ecosystem {
+      padding-top: 2.75rem;
+      padding-bottom: 1.5rem;
     }
-    .cta-row.cta-row-center { justify-content: center; }
+    .flow-intro-title {
+      font-family: var(--font-sans);
+      font-size: clamp(1.45rem, 4.2vw, 2.15rem);
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+      margin: 0 0 0.65rem;
+      letter-spacing: -0.02em;
+    }
+    .flow-intro-sub {
+      font-size: clamp(0.88rem, 2vw, 1rem);
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin: 0 0 0.85rem;
+      font-weight: 400;
+    }
+    .feature-highlights {
+      padding: 2.5rem 0 2.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .feature-highlights h2 {
+      font-family: var(--font-sans);
+      text-align: center;
+      font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+      color: var(--text);
+    }
+    .feature-highlights .feature-highlights-lead {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 34em;
+      margin: 0 auto 1.75rem;
+      line-height: 1.55;
+    }
+    .feature-highlights-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+    }
+    @media (max-width: 1024px) {
+      .feature-highlights-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 520px) {
+      .feature-highlights-grid { grid-template-columns: 1fr; }
+    }
 
-    /* Password gate (main site only) */
-    #password-gate {
-      position: fixed; inset: 0; z-index: 9999;
-      background: var(--bg); display: flex; align-items: center; justify-content: center;
-      padding: 1.5rem;
+    .ecosystem-vision-section {
+      padding: 4.25rem 0 3.75rem;
+      margin-top: 1.5rem;
+      border-top: 1px solid var(--border);
     }
-    #password-gate.hidden { display: none; }
-    #main-content.gate-locked { display: none; }
-    .gate-form {
-      width: 100%; max-width: 360px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 2rem; text-align: center;
+    .ecosystem-vision-section > .flow-intro-title {
+      text-align: center;
+      max-width: 40rem;
+      margin-left: auto;
+      margin-right: auto;
     }
-    .gate-form h2 { font-family: "Instrument Serif", serif; font-size: 1.75rem; font-weight: 400; margin: 0 0 0.5rem; }
-    .gate-form p { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 1.5rem; }
-    .gate-form input[type="password"] {
-      width: 100%; padding: 0.75rem 1rem; margin-bottom: 1rem;
-      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
-      color: var(--text); font-size: 1rem;
+    .ecosystem-architecture-title {
+      font-family: var(--font-sans);
+      text-align: center;
+      font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+      font-weight: 700;
+      margin: 0 0 1.15rem;
+      color: var(--accent);
+      letter-spacing: -0.02em;
     }
-    .gate-form input[type="password"]:focus { outline: none; border-color: var(--accent); }
-    .gate-form button {
-      width: 100%; padding: 0.75rem 1rem;
-      background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius);
-      font-size: 1rem; font-weight: 600; cursor: pointer;
+    .ecosystem-vision-lead {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.98rem;
+      max-width: 40rem;
+      margin: 0 auto 1.5rem;
+      line-height: 1.6;
     }
-    .gate-form button:hover { opacity: 0.9; }
-    .gate-form .gate-error { color: #f87171; font-size: 0.9rem; margin-top: 0.75rem; }
+    .ecosystem-flow-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      justify-content: center;
+      gap: 0.65rem 0.5rem;
+      margin: 0 auto 1.25rem;
+      max-width: 56rem;
+    }
+    .ecosystem-flow-row.ecosystem-flow-row--in-card {
+      margin-top: 0;
+      margin-bottom: 1.35rem;
+      max-width: 100%;
+    }
+    .ecosystem-flow-node {
+      flex: 1 1 120px;
+      min-width: 100px;
+      max-width: 160px;
+      padding: 0.85rem 0.65rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .ecosystem-flow-node span {
+      display: block;
+      font-weight: 400;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .ecosystem-flow-arrow {
+      align-self: center;
+      color: var(--accent);
+      font-size: 1.1rem;
+      opacity: 0.85;
+    }
+    @media (max-width: 640px) {
+      .ecosystem-flow-arrow { display: none; }
+    }
+    .ecosystem-vision-card {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 0.5rem 0 0;
+      margin-top: 0.35rem;
+      max-width: 40rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .ecosystem-vision-card > p {
+      margin: 0 0 1rem;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .ecosystem-vision-card .flow-details { margin-top: 0.5rem; }
+    .ecosystem-doc-link-hint {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin: 0.75rem 0 0;
+    }
+    .feature-highlight-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.35rem 1.25rem;
+      background: var(--surface);
+      text-align: center;
+    }
+    .feature-highlight-card .fh-icon {
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+    .feature-highlight-card h3 {
+      font-family: var(--font-sans);
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0 0 0.45rem;
+      color: var(--text);
+    }
+    .feature-highlight-card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .flow-track {
+      padding: 1rem 0 3rem;
+    }
+    .flow-step {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      gap: 1.75rem 2.5rem;
+      align-items: start;
+      padding: 3rem 0;
+      margin-bottom: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .flow-step:first-of-type { border-top: none; padding-top: 1.5rem; }
+    @media (max-width: 820px) {
+      .flow-step {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+    }
+    .flow-visual {
+      text-align: center;
+      padding: 0.5rem 1rem;
+    }
+    @media (min-width: 821px) {
+      .flow-visual { text-align: left; padding-left: 0; }
+    }
+    .flow-step-num {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.5rem;
+    }
+    .flow-icon {
+      font-size: clamp(2.5rem, 6vw, 3.25rem);
+      line-height: 1.2;
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+    .flow-visual-caption {
+      font-size: clamp(1.05rem, 2.4vw, 1.7rem);
+      color: var(--text-muted);
+      margin: 0;
+      max-width: 18rem;
+      line-height: 1.4;
+      font-weight: 500;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    @media (min-width: 821px) {
+      .flow-visual-caption { margin-left: 0; }
+    }
+    .flow-body h2 {
+      font-family: var(--font-sans);
+      font-size: clamp(1.35rem, 3vw, 1.65rem);
+      font-weight: 700;
+      margin: 0 0 0.65rem;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+    .flow-body > p {
+      margin: 0 0 1rem;
+      color: var(--text-muted);
+      font-size: 0.98rem;
+      max-width: 38em;
+    }
+    .flow-details {
+      margin-top: 0.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .flow-details summary {
+      cursor: pointer;
+      padding: 0.85rem 1.1rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--accent);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      user-select: none;
+    }
+    .flow-details summary::-webkit-details-marker { display: none; }
+    .flow-details summary::after {
+      content: "▾";
+      font-size: 0.75rem;
+      opacity: 0.7;
+      transition: transform 0.2s;
+    }
+    .flow-details[open] summary::after { transform: rotate(180deg); }
+    .flow-details summary:hover { background: var(--surface-elevated); }
+    .flow-details .detail-inner {
+      padding: 0 1.1rem 1.1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .flow-details .detail-inner ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.2rem;
+    }
+    .flow-details .detail-inner li { margin-bottom: 0.4rem; }
+    .flow-details .detail-inner a { color: var(--accent); text-decoration: none; }
+    .flow-details .detail-inner a:hover { text-decoration: underline; }
+    .flow-details code {
+      background: var(--surface-elevated);
+      padding: 0.12rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.86em;
+    }
+
+    .flow-closing {
+      text-align: center;
+      padding: 2rem 1.5rem 3rem;
+      border-top: 1px solid var(--border);
+    }
+    .flow-closing p { color: var(--text-muted); font-size: 0.95rem; max-width: 32em; margin: 0 auto 1.25rem; }
+
+    footer {
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    footer .footer-links { margin-top: 0.75rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1rem; }
   </style>
 </head>
 <body>
-  <!-- Expected password hash (SHA-256 hex). Default: "knowtation". To change: echo -n 'yourpass' | shasum -a 256 -->
-  <div id="password-gate" aria-label="Site password" data-expected-hash="67aa5b2614155391b604c3f02fc05a56195cf769292eadef46057193b6a78746">
-    <div class="gate-form">
-      <h2>Knowtation</h2>
-      <p>Enter the site password to continue.</p>
-      <form id="gate-form" method="post" action="#" autocomplete="off">
-        <input type="password" id="gate-password" name="password" placeholder="Password" required autofocus>
-        <button type="submit">Continue</button>
-      </form>
-      <p id="gate-error" class="gate-error" role="alert" aria-live="polite" style="display: none;"></p>
-    </div>
-  </div>
-  <div id="main-content" class="gate-locked">
   <header class="landing-header">
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to light theme" aria-pressed="true" title="Day / night">
+      <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+      <span class="theme-toggle-label">Night</span>
+    </button>
     <a href="#" id="main-signin-google" class="cta cta-signin" data-provider="google">Sign in with Google</a>
     <a href="#" id="main-signin-github" class="cta cta-signin" data-provider="github">Sign in with GitHub</a>
   </header>
-  <!-- Repo: https://github.com/aaronrene/knowtation -->
+
   <div class="container">
     <header class="hero">
-      <h2 class="hero-title-main-only">Knowtation</h2>
-      <p class="tagline">Your notes, searchable. One place for you and your agents.</p>
-      <p class="tagline tagline-sub">Precise token use mean speed &amp; savings.</p>
-      <p class="token-callout">Fetch only what agents need. Streamlined requests mean lower cost.</p>
-      <div class="landing-ecosystem" aria-label="Knowtation at the center of your connections">
+      <h1 class="hero-title-main-only">Knowtation</h1>
+      <p class="hero-brand-sub"><span class="hero-brand-sub-accent">Your notes, become known.</span> One place for you and your agents.</p>
+      <div class="hero-messages">
+        <p>Precise retrieval - faster answers - lower token cost</p>
+        <p>Narrow search first - then discover insights</p>
+        <p>Memory consolidation - context flexibility</p>
+        <p>Own your Markdown vault</p>
+      </div>
+      <div class="landing-ecosystem" aria-label="Knowtation at the center of your tools">
         <div class="landing-ecosystem-rings">
           <svg class="landing-ecosystem-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle class="hub-ring" cx="160" cy="160" r="90" fill="none" stroke="var(--border)" stroke-width="1"/>
-            <circle class="hub-ring" cx="160" cy="160" r="135" fill="none" stroke="var(--border)" stroke-width="1"/>
-            <circle class="hub-ring" cx="160" cy="160" r="158" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
+            <circle cx="160" cy="160" r="90" fill="none" stroke="var(--border)" stroke-width="1"/>
+            <circle cx="160" cy="160" r="135" fill="none" stroke="var(--border)" stroke-width="1"/>
+            <circle cx="160" cy="160" r="158" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
           </svg>
           <div class="landing-ecosystem-center">
             <span class="landing-ecosystem-core-icon" aria-hidden="true">📁</span>
-            <span class="landing-ecosystem-core-label">Knowtation</span>
+            <span class="landing-ecosystem-core-label">Your vault</span>
           </div>
           <div class="landing-ecosystem-icon landing-ecosystem-icon-1" title="Cursor">✏️</div>
           <div class="landing-ecosystem-icon landing-ecosystem-icon-2" title="Claude">🤖</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-3" title="DeerFlow">🦌</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-4" title="Windsurf">🏄</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-5" title="MCP">🔌</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-6" title="CLI">💻</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-7" title="Search">🔍</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-8" title="Import">📥</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-9" title="Tags">🏷️</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-10" title="Project">📂</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-11" title="Causal chain">🔗</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-3" title="Agents">🦌</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-4" title="MCP">🔌</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-5" title="CLI">💻</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-6" title="Search">🔍</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-7" title="Import">📥</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-8" title="Memory">🧠</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-9" title="GitHub">🐙</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-10" title="Hub">🌐</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-11" title="Tags">🏷️</div>
           <div class="landing-ecosystem-icon landing-ecosystem-icon-12" title="Time">⏱️</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-13" title="Proposals">📋</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-14" title="GitHub">🐙</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-15" title="API">📡</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-16" title="Vault">🔐</div>
-          <div class="landing-ecosystem-icon landing-ecosystem-icon-17" title="Transcription">🎙️</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-13" title="Chains">🔗</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-14" title="Proposals">📋</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-15" title="ICP">⬡</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-16" title="Media">🎬</div>
+          <div class="landing-ecosystem-icon landing-ecosystem-icon-17" title="Transcribe">🎙️</div>
           <div class="landing-ecosystem-icon landing-ecosystem-icon-18" title="Sync">🔄</div>
           <div class="landing-ecosystem-icon landing-ecosystem-icon-19" title="Notes">📝</div>
           <div class="landing-ecosystem-icon landing-ecosystem-icon-20" title="Export">📤</div>
         </div>
       </div>
-      <div class="cta-row cta-row-center">
-        <a href="/hub/" class="cta cta-secondary">Use Knowtation in the decentralized cloud (beta)</a>
-        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Run it yourself</a>
+      <div class="cta-row">
+        <a href="/hub/" class="cta cta-secondary">Open the Hub (hosted beta)</a>
+        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
       </div>
-      <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Decentralized cloud is in beta with open usage while we learn. Later: a free tier plus paid plans—simple dollar-based credits (1 credit = $1 of usage) metering <strong>index, search, and writes</strong> (no hosted transcription; bring Markdown or exports from your recorder). Optional usage charts, rollover add-on credits, upgrades when you need more. Or run the Hub yourself (Quick start).</p>
     </header>
   </div>
 
   <div class="badge-wrap">
-    <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">★ Open source</a>
+    <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">Open source on GitHub</a>
   </div>
 
-  <section class="mock-section wide">
-    <div class="mock-container">
-      <div class="mock-bar">
-        <span class="mock-dot r"></span><span class="mock-dot y"></span><span class="mock-dot g"></span>
-        <span class="mock-title">Knowtation CLI + vault — filters and metadata (precise faster fetch, fewer tokens)</span>
+  <div class="deploy-headlines wide">
+    <p class="deploy-title">Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
+  </div>
+
+  <section class="spotlight-pair wide" aria-label="Trust and memory">
+    <article class="spotlight-card">
+      <div class="spotlight-card-icon" aria-hidden="true">🔏</div>
+      <h2>Attestation for serious teams</h2>
+      <p>Legal, compliance, finance, and operations increasingly need proof of <strong>who approved a change</strong> and <strong>that the record was not silently altered</strong>. Knowtation pairs human-in-the-loop proposals with <strong>HMAC-signed attestation</strong> and optional <strong>Internet Computer blockchain anchoring</strong> — an audit trail you can point to, not just another row in a vendor database. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper: attestation and ICP</a></p>
+    </article>
+    <article class="spotlight-card">
+      <div class="spotlight-card-icon" aria-hidden="true">🧠</div>
+      <h2>Notes that become truly known</h2>
+      <p>Your vault is searchable; <strong>memory</strong> keeps what agents and you did over time. <strong>Consolidation</strong> folds noisy events into compact facts so future context stays small. Optional <strong>Discover</strong> traces <strong>cross-topic insights</strong> — new paths between ideas — so yesterday’s notes actively inform tomorrow’s decisions instead of sitting in a forgotten folder. That is what “become known” means: interconnected, growing context, not a one-off chat dump.</p>
+    </article>
+  </section>
+
+  <section class="feature-highlights wide" aria-labelledby="feature-highlights-heading">
+    <h2 id="feature-highlights-heading">What teams care about</h2>
+    <p class="feature-highlights-lead">Simple cards for the worries we hear most: cost, lock-in, trust, and “can my agents actually use this?”</p>
+    <div class="feature-highlights-grid">
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">💸</div>
+        <h3>Lower token spend</h3>
+        <p>Narrow search - only notes you need. Memory consolidation continuously keeps future context smaller.</p>
       </div>
-      <div class="mock-content">
-        <div class="mock-sidebar">
-          <div class="mock-sidebar-item active">inbox/</div>
-          <div class="mock-sidebar-item">projects/</div>
-          <div class="mock-sidebar-item">imports/</div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">📁</div>
+        <h3>Files you own</h3>
+        <p>Markdown in your vault — Git, editors, backups. No “export my life’s work” crisis when you switch tools.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">🔏</div>
+        <h3>Audit-ready trust</h3>
+        <p>Attestation plus optional IC anchoring for provable intent. Pair with proposals - no unchecked agents</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">🤖</div>
+        <h3>Agents that go deep</h3>
+        <p>33 MCP tools, memory, consolidation, and the same CLI you use — not a thin search wrapper.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">📥</div>
+        <h3>Everything in one vault</h3>
+        <p>Imports, capture, digital wallet CSVs, Supabase bridge — one searchable corpus for humans and agents.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">🌐</div>
+        <h3>Hosted or self-hosted</h3>
+        <p>Same product: decentralized canisters when you want zero ops, or full control on your metal.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">⬡</div>
+        <h3>Decentralized online portal</h3>
+        <p>A Hosted Hub where you own the data: back up to GitHub anytime for portability.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">👥</div>
+        <h3>Teams online, fast</h3>
+        <p>Invite viewers, editors, and admins with scoped access in minutes.<br>No per-seat pricing</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="ecosystem-vision-section wide" aria-labelledby="ecosystem-vision-heading">
+    <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
+    <p class="ecosystem-vision-lead">Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
+    <div class="ecosystem-vision-card">
+      <h3 class="ecosystem-architecture-title">Future Facing Architecture</h3>
+      <div class="ecosystem-flow-row ecosystem-flow-row--in-card" aria-hidden="true">
+        <div class="ecosystem-flow-node">Knowtation<span>Brain · vault · memory</span></div>
+        <span class="ecosystem-flow-arrow">↔</span>
+        <div class="ecosystem-flow-node">Muse / MuseHub<span>Hands · VCS · review</span></div>
+        <span class="ecosystem-flow-arrow">↔</span>
+        <div class="ecosystem-flow-node">AgentCeption<span>Nerves · plans · agents</span></div>
+        <span class="ecosystem-flow-arrow">↔</span>
+        <div class="ecosystem-flow-node">Your Vision<span>Propel Projects</span></div>
+      </div>
+      <p>Use Knowtation any way you can imagine. Our vision was built around connecting open-source projects that share patterns: tiered retrieval, proposals before commit, and JSON-friendly automation. The use cases are infinite in business, research, legal, creative, personal life and more. We are curious to see how bridges may evolve.</p>
+      <p>Connect with our fellow community projects and partners to create an incredible future with supercharged tools. Adjust at will to fit your needs.</p>
+      <details class="flow-details">
+        <summary>Technical details and links</summary>
+        <div class="detail-inner">
+          <p><strong>Stack roles (from <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">ECOSYSTEM-VISION.md</a>):</strong></p>
+          <ul>
+            <li><strong>Knowtation</strong> — Vaults, semantic search, Hub, MCP/CLI (<a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">WHITEPAPER.md</a>)</li>
+            <li><strong>Muse / MuseHub</strong> — Domain-agnostic VCS, MuseHub collaboration — <a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">github.com/cgcardona/muse</a>, <a href="https://staging.musehub.ai/explore" target="_blank" rel="noopener">MuseHub (staging)</a></li>
+            <li><strong>AgentCeption</strong> — Brain dump → plan → issues → agents — <a href="https://github.com/cgcardona/agentception" target="_blank" rel="noopener">github.com/cgcardona/agentception</a></li>
+          </ul>
+          <p><strong>Knowtation integration docs:</strong> <a href="https://github.com/aaronrene/knowtation/blob/main/docs/MUSE-STYLE-EXTENSION.md" target="_blank" rel="noopener">MUSE-STYLE-EXTENSION.md</a> (Hub proposals, Muse-aligned fields), <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">AGENT-ORCHESTRATION.md</a>, <a href="https://github.com/aaronrene/knowtation/blob/main/docs/BACKLOG-MCP-SUPERCHARGE.md" target="_blank" rel="noopener">BACKLOG-MCP-SUPERCHARGE.md</a> (roadmap slices).</p>
+          <p class="ecosystem-doc-link-hint">Full narrative, use cases, triple loop, and phasing: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">docs/ECOSYSTEM-VISION.md</a></p>
         </div>
-        <div class="mock-main">
-          <div class="mock-prompt">$ knowtation list-notes --project myapp --since 2025-03-01 --limit 3 --fields path+metadata --json</div>
-          <div class="mock-output">
-            { "notes": [<br>
-            &nbsp;&nbsp;{ "path": "projects/myapp/decisions/auth.md", "project": "myapp", "tags": ["auth", "decisions"], "date": "2025-03-10", "causal_chain_id": "auth-decisions", "entity": ["auth"], "episode_id": "sprint-12" },<br>
-            &nbsp;&nbsp;{ "path": "inbox/auth-meeting-notes.md", "project": "myapp", "tags": ["meeting"], "date": "2025-03-08" },<br>
-            &nbsp;&nbsp;{ "path": "inbox/decisions-2025-03.md", "tags": ["decisions"], "date": "2025-03-01" }<br>
-            ], "total": 3 }
-          </div>
-          <br>
-          <div class="mock-prompt">$ knowtation get-note projects/myapp/decisions/auth.md</div>
-          <div class="mock-output">
-            <span class="path"># Auth decisions</span><br>
-            project: myapp · tags: auth, decisions · date: 2025-03-10 · causal_chain_id: auth-decisions · episode_id: sprint-12<br>
-            Chosen: OAuth + JWT. Rationale: ...
-          </div>
-        </div>
-      </div>
-      <div class="mock-tracking-icons" aria-label="Metadata and filters Knowtation tracks">
-        <span class="mock-tracking-icon" title="Date / time">⏱️</span>
-        <span class="mock-tracking-icon" title="Project">📁</span>
-        <span class="mock-tracking-icon" title="Tags">🏷️</span>
-        <span class="mock-tracking-icon" title="Folder">📂</span>
-        <span class="mock-tracking-icon" title="Causal chain">🔗</span>
-        <span class="mock-tracking-icon" title="Entity">👤</span>
-        <span class="mock-tracking-icon" title="Episode">📊</span>
-        <span class="mock-tracking-icon" title="Follows (links)">↪️</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="container" style="padding: 0 1.5rem 3rem;">
-    <div class="intent compact">
-      <strong>Intent:</strong> Knowtation is <strong>data liberation</strong> — your context, memory, and intention live in a vault you own. Use the <strong>Hub</strong> (web UI) to view notes, manage <strong>proposals</strong>, and review imports; use the <strong>CLI or MCP</strong> so any agent gets high-signal context with fewer tokens. You keep full control.
-    </div>
-  </section>
-
-  <section class="narrative-section container wide">
-    <h2>Why Knowtation</h2>
-    <p class="lead">Knowledge scatters across tools and chats. Models need context—but dumping everything in a window wastes tokens and hurts accuracy. The bet here is <strong style="color: var(--text); font-weight: 600;">notation you own</strong> plus <strong style="color: var(--text); font-weight: 600;">retrieval that returns the right slice</strong>: precise faster fetch, fewer tokens, lower cost.</p>
-    <div class="narrative-grid">
-      <div class="narrative-card">
-        <h3>The problem</h3>
-        <p>What matters is rarely one document—it is how decisions, rationale, and history connect. When that map lives only in people’s heads or inside a vendor’s closed session, you lose continuity when teams change or when you switch tools.</p>
-      </div>
-      <div class="narrative-card">
-        <h3>The shift</h3>
-        <p>Long context alone is not enough. Agents need <em>high-signal</em> segments: scoped by project, tag, time, and cause. Over-fetch wastes money; precise retrieval—<code>--limit</code>, <code>--fields</code>, then <code>get-note</code> only for what matters—saves tokens and keeps answers sharp.</p>
-      </div>
-      <div class="narrative-card">
-        <h3>What we built</h3>
-        <p>A vault of Markdown you control, indexed for search, callable from any agent via CLI or MCP. Tiered retrieval: narrow scope, cheap first (paths or count), fetch full content only when needed. Import from the tools you use; keep authority in files you can copy, diff, and move.</p>
-      </div>
-    </div>
-    <p style="text-align: center; margin-top: 2rem;">
-      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" class="cta" style="display: inline-flex;" target="_blank" rel="noopener">Read the whitepaper →</a>
-    </p>
-    <p style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem;">
-      <details class="landing-details" style="display: inline-block; text-align: left; max-width: 28em;">
-        <summary style="cursor: pointer; color: var(--accent);">Connect via CLI or MCP</summary>
-        <p style="margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.85rem;">CLI: <code>knowtation search</code>, <code>get-note</code>, <code>list-notes</code>. MCP: same tools in Cursor/Claude. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener" style="color: var(--accent);">AGENT-INTEGRATION.md</a> (in repo)</p>
       </details>
-      <span style="color: var(--border); margin: 0 0.5rem;">·</span>
-      <details class="landing-details" style="display: inline-block; text-align: left; max-width: 28em;">
-        <summary style="cursor: pointer; color: var(--accent);">Retrieval &amp; token levers</summary>
-        <p style="margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.85rem;"><code>--limit</code>, <code>--fields path</code>, <code>--since</code>/<code>--until</code>, <code>--count-only</code>. Tiered retrieval = fewer tokens. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener" style="color: var(--accent);">RETRIEVAL-AND-CLI-REFERENCE.md</a> (in repo)</p>
-      </details>
-    </p>
-  </section>
-
-  <section class="features container" style="border-top: 1px solid var(--border); padding-top: 4rem;">
-    <h2>Intention & temporal</h2>
-    <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: -1rem auto 2rem;">Agents often lack intention and an overarching view over time. Knowtation helps.</p>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">⏱️</div>
-        <h3>Time-bounded search</h3>
-        <p><code>--since</code>, <code>--until</code> to scope results to date ranges.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔗</div>
-        <h3>Causal chains</h3>
-        <p>Track decisions and events across time. Optional links: follows, caused by.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
-        <h3>Hierarchical memory</h3>
-        <p>Chunk, note, episode, project — reason at the right granularity.</p>
-      </div>
-    </div>
-    <details class="landing-details" style="max-width: 40em; margin: 1.5rem auto 0; text-align: left;">
-      <summary style="cursor: pointer; font-size: 0.9rem; color: var(--accent);">What we track (summary)</summary>
-      <p style="margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--text-muted);">All of these use <strong>optional frontmatter</strong>: <code>date</code>, <code>project</code>, <code>tags</code>, <code>causal_chain_id</code>, <code>entity</code>, <code>episode_id</code>, <code>follows</code>. Set them in the Hub (New note full form) or via CLI/API. Not auto-extracted—you or your agent add them. Filters: <code>--since</code>, <code>--until</code>, <code>--chain</code>, <code>--entity</code>, <code>--episode</code>. Full list and behavior: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener" style="color: var(--accent);">INTENTION-AND-TEMPORAL.md</a> (in repo) and How to use in the Hub.</p>
-    </details>
-  </section>
-
-  <section id="hosted" class="container" style="padding: 3rem 1.5rem; border-top: 1px solid var(--border);">
-    <h2 style="font-family: 'Instrument Serif', serif; font-size: clamp(1.5rem, 3vw, 1.75rem); text-align: center; margin: 0 0 1rem;">Knowtation Hub (hosted)</h2>
-    <p style="text-align: center; color: var(--text-muted); max-width: 36em; margin: 0 auto 1.5rem;">No servers to run. Sign in with Google or GitHub; your vault lives on the Internet Computer. Back up to GitHub anytime.</p>
-    <p style="text-align: center; margin-bottom: 0.5rem;"><a href="/hub/" id="hosted-hub-url" class="cta" rel="noopener">Use Knowtation in the decentralized cloud (beta)</a></p>
-    <p style="text-align: center; font-size: 0.9rem;"><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta-secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem;" target="_blank" rel="noopener">Run it yourself</a></p>
-  </section>
-
-  <section class="features container">
-    <h2>What you get</h2>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">📁</div>
-        <h3>Vault</h3>
-        <p>Markdown + frontmatter (Obsidian-style). Single source of truth. Use any editor.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🌐</div>
-        <h3>Hub</h3>
-        <p>Web UI to view and search the vault, manage proposals, and review imports. Self-host or use hosted when available.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔍</div>
-        <h3>CLI + MCP</h3>
-        <p>Search, get-note, list-notes, index, write, export, import. Same interface for you and agents.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📥</div>
-        <h3>Import</h3>
-        <p>ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, audio/video transcripts.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🏷️</div>
-        <h3>Multi-project</h3>
-        <p>One vault, many projects. Filter by project or tag. All content available when you need it.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🎙️</div>
-        <h3>Transcription</h3>
-        <p>Audio and video → one note per recording. Smart glasses and wearables supported.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔗</div>
-        <h3>Agent-ready</h3>
-        <p>Cursor, Claude, DeerFlow, Windsurf, MCP-Agent — any runtime that speaks CLI or MCP.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <h3>Savings and speed</h3>
-        <p>Tiered retrieval: narrow with <code>--limit</code>, <code>--fields path</code>, then fetch only what you need. Fewer tokens, lower cost, faster answers.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔌</div>
-        <h3>API for developers</h3>
-        <p>REST API for search, notes, and proposals. Integrate Knowtation into your app or pipeline; JWT auth and CORS for hosted deployments.</p>
-      </div>
     </div>
   </section>
 
-  <section class="pricing-section container">
-    <h2>Simple pricing</h2>
-    <div class="pricing-grid">
-      <div class="plan">
-        <h3>Self-hosted</h3>
-        <div class="price">$0</div>
-        <div class="price-note">Forever. Your machine, your data.</div>
-        <ul>
-          <li>Full CLI + vault + search + write</li>
-          <li>Indexer, capture, optional local audio transcription (your OpenAI key)</li>
-          <li>Optional MCP server</li>
-          <li>Data never leaves your machine</li>
-        </ul>
+  <div class="flow-intro-block flow-intro-block--after-ecosystem">
+    <p class="flow-intro-title">Control, customize and own your data, agents, memory, and backup.</p>
+    <p class="flow-intro-sub">Walk the steps in order — or skim the feature cards above first.</p>
+  </div>
+
+  <section class="flow-track wide" aria-label="How Knowtation works">
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 1</p>
+        <span class="flow-icon" aria-hidden="true">🔐</span>
+        <p class="flow-visual-caption">Sign in, invite teammates, pick who sees what.</p>
       </div>
-      <div class="plan featured">
-        <h3>Knowtation Hub (hosted)</h3>
-        <div class="price">TBD</div>
-        <div class="price-note">Per vault or per seat. No servers to run.</div>
-        <ul>
-          <li>Hosted vault + semantic search + API</li>
-          <li>Import Markdown and exports; you transcribe elsewhere</li>
-          <li>Proposals &amp; review queue</li>
-          <li>Web UI: view, search, approve</li>
-        </ul>
+      <div class="flow-body">
+        <h2>Sign in and set scope</h2>
+        <p>Use Google or GitHub to open the hosted Hub. Add people with viewer, editor, or admin roles. Multi-vault setups let each team or project keep its own boundary while you stay in one account. <strong>Teams are included at no additional cost.</strong></p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Hosted auth flows through the gateway; JWTs carry user id and role for API and Hub UI. Self-hosted Hub uses the same role model with <code>data/hub_roles.json</code> and optional invites.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TEAMS-AND-COLLABORATION.md" target="_blank" rel="noopener">Teams and collaboration</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md" target="_blank" rel="noopener">Hosted vs self-hosted paths</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-API.md" target="_blank" rel="noopener">Hub API and JWT</a></li>
+            </ul>
+          </div>
+        </details>
       </div>
-    </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 2</p>
+        <span class="flow-icon" aria-hidden="true">📥</span>
+        <p class="flow-visual-caption">Pull notes in from the tools you already use.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Capture and import</h2>
+        <p>Bring chats, docs, tickets, audio, and even digital wallet CSVs into one Markdown vault. Webhooks and capture adapters can drop new files into your inbox automatically. You keep the files; nothing is trapped in a single app.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Importers normalize to vault notes with <code>source</code>, <code>source_id</code>, and <code>date</code> for idempotent re-runs. Supabase memory tables can be imported for users coming from database-centric stacks.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/IMPORT-SOURCES.md" target="_blank" rel="noopener">All import sources and formats</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/CAPTURE-CONTRACT.md" target="_blank" rel="noopener">Capture contract (webhooks, adapters)</a></li>
+              <li>Digital wallet and exchange CSVs → per-transaction notes with chain and address metadata (see Import Sources)</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 3</p>
+        <span class="flow-icon" aria-hidden="true">🤖</span>
+        <p class="flow-visual-caption">Agents get the right context, not the whole vault.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Agent flow: context, memory, cost</h2>
+        <p>Agents connect through a large MCP surface and the same CLI you use. They are guided to search narrowly, then open specific notes. Memory prompts remind them what already happened so they skip redundant work. That pattern saves tokens and improves answers.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Knowtation ships many MCP tools (search, get-note, memory store/query/consolidate, proposals, and more), resources (vault listings, media URIs, config snapshots), and prompts for workflows like briefs, meetings, and session resume. Hosted MCP adds OAuth-gated access aligned with Hub roles.</p>
+            <p><strong>Token savings (operational layer).</strong> Beyond “search small, then open one note,” the product now wires savings into hosted and self-hosted operation: consolidation passes and quotas by plan, optional Discover inside the same consolidate run, advanced knobs (lookback, max events/topics, output token cap) persisted on billing records when hosted and in <code>config/local.yaml</code> when self-hosted, encrypt-aware consolidation prompts when memory encryption is on, and hosted MCP <code>search</code> over HTTP POST with parity fields so agents can keep payloads small in the browser path too.</p>
+            <ul>
+              <li>Two-step retrieval: <code>search</code> with <code>--fields</code>, <code>--limit</code>, filters → then <code>get_note</code> for bodies</li>
+              <li>Memory-aware prompts: <code>memory-context</code>, <code>memory-informed-search</code>, <code>resume-session</code></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">Token savings program</a> (consolidation, Discover, advanced knobs, hosted metering)</li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/RETRIEVAL-AND-CLI-REFERENCE.md" target="_blank" rel="noopener">Retrieval and CLI reference</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration</a></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 4</p>
+        <span class="flow-icon" aria-hidden="true">🧠</span>
+        <p class="flow-visual-caption">Re-index when content changes; compress memory; Discover cross-topic insights.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Index, re-index, consolidate</h2>
+        <p>After imports or edits, indexing refreshes vectors so search stays accurate. A consolidation engine merges memory events into compact facts, verifies them against the vault, and can run an optional <strong>Discover</strong> pass that <strong>discovers cross-topic insights</strong> — patterns, tensions, and follow-ups across topics — on a schedule you control, with billing-aware limits when hosted. <strong>Discover is optional:</strong> when enabled, it enriches memory so agents load sharper, wider context in later sessions without pasting the whole vault into the prompt.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Indexer writes chunks to Qdrant or sqlite-vec. Consolidation runs consolidate, verify, and optional Discover — <strong>Discover discovers cross-topic insights</strong> by emitting <code>insight</code> events that connect themes a single-topic merge would miss. Cost guardrails apply throughout. Hosted mode persists advanced knobs through billing and gateway settings; Discover runs inside the same consolidate request (not a second pass count) when turned on.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/MEMORY-CONSOLIDATION-GUIDE.md" target="_blank" rel="noopener">Memory consolidation guide</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/DAEMON-CONSOLIDATION-SPEC.md" target="_blank" rel="noopener">Daemon consolidation spec</a></li>
+              <li>CLI: <code>npm run index</code>; API routes under <code>/api/v1/memory/consolidate</code> (self-hosted Hub)</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 5</p>
+        <span class="flow-icon" aria-hidden="true">🐙</span>
+        <p class="flow-visual-caption">Tie the vault to GitHub for history and portability.</p>
+      </div>
+      <div class="flow-body">
+        <h2>GitHub backup to your vault</h2>
+        <p>Connect a repository so your vault — notes and media — is backed up and versioned the way engineers already work. Your canonical story stays in plain files and commits under your control, not an opaque database export.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>The Hub and bridge coordinate OAuth to GitHub, commits for backup, and (where configured) image upload paths. Proposals and review queues align with human-in-the-loop changes before writes land in the vault.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/PROVENANCE-AND-GIT.md" target="_blank" rel="noopener">Provenance and Git</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/DEPLOY-HOSTED.md" target="_blank" rel="noopener">Hosted deployment (bridge + gateway)</a></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 6</p>
+        <span class="flow-icon" aria-hidden="true">⬡</span>
+        <p class="flow-visual-caption">Hosted data on ICP; or run everything yourself.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Decentralized and self-hosted</h2>
+        <p>Hosted vaults can live on Internet Computer canisters with a gateway in front. Prefer your own machines? The same project runs locally with full control over config, keys, and network boundaries.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Motoko canisters store note payloads and proposal records; the gateway proxies with JWT verification and rate limits. Attestation records can be HMAC-signed and optionally anchored on-chain for audit.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper (architecture and trust)</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/SELF-HOSTED-SETUP-CHECKLIST.md" target="_blank" rel="noopener">Self-hosted checklist</a></li>
+              <li>ICP canister code under <code>hub/icp/</code> in the repo</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 7</p>
+        <span class="flow-icon" aria-hidden="true">🌐</span>
+        <p class="flow-visual-caption">Use it in the browser from anywhere; share at role granularity.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Hosted Hub and sharing</h2>
+        <p>The web Hub is the friendly face: browse, search, edit, imports, settings, and billing when you use the hosted service. Team members see only what their role allows; you are not sharing a single password to a pile of notes.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Stripe-backed plans meter searches, index jobs, consolidation passes, and scale with your tier. The bridge handles vault IO, memory events in serverless deployments, and parity with self-hosted behavior where documented.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-API.md" target="_blank" rel="noopener">Hub API</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/DEPLOY-HOSTED.md" target="_blank" rel="noopener">Deploy hosted</a></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 8</p>
+        <span class="flow-icon" aria-hidden="true">🏷️</span>
+        <p class="flow-visual-caption">Tags, entities, episodes, and causal chains — optional but powerful.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Structure: entities, episodes, causality</h2>
+        <p>Optional frontmatter links notes across time and topic: projects, tags, entities, episode ids, causal chains, and follow-on relationships. Agents and filters use the same fields, so “what happened next?” stays searchable without dumping everything into the prompt.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p>Fields are opt-in in Markdown YAML frontmatter. CLI and MCP accept filters such as <code>--entity</code>, <code>--episode</code>, and <code>--chain</code>. See the spec and intention doc for the full schema and examples.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener">Intention and temporal fields</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/SPEC.md" target="_blank" rel="noopener">SPEC (frontmatter and CLI)</a></li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
   </section>
 
-  <section class="flywheel-section container">
-    <h2>Building a flywheel</h2>
-    <p>Capture and import into the vault → index → query from agents with tight fields and filters → refine notes → index again. Each cycle improves what retrieval can see; nothing depends on a single model release or a single vendor’s memory.</p>
-    <div class="flywheel-steps">
-      <span>Index</span><span class="flywheel-arrow">→</span>
-      <span>Search</span><span class="flywheel-arrow">→</span>
-      <span>Write</span><span class="flywheel-arrow">→</span>
-      <span>Re-index</span>
+  <div class="flow-closing container">
+    <p><strong style="color: var(--text);">Read the full story</strong> in the whitepaper — thesis, token levers, imports, memory providers, attestation, and billing model.</p>
+    <div class="cta-row">
+      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" class="cta" target="_blank" rel="noopener">Whitepaper</a>
+      <a href="https://github.com/aaronrene/knowtation/blob/main/README.md" class="cta cta-secondary" target="_blank" rel="noopener">README</a>
+      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AI-ASSISTED-SETUP.md" class="cta cta-secondary" target="_blank" rel="noopener">AI-assisted setup</a>
     </div>
-  </section>
+  </div>
 
   <footer>
-    <p><a href="https://github.com/aaronrene/knowtation">Knowtation</a> — Data liberation. Your notation, your data, your context.</p>
-    <p style="margin-top: 1rem;"><a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper</a> (full narrative in the repo)</p>
+    <p><a href="https://github.com/aaronrene/knowtation">Knowtation</a> — Your notes, your data, your context.</p>
+    <div class="footer-links">
+      <a href="/hub/">Hub</a>
+      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">Getting started</a>
+      <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">Agent orchestration</a>
+    </div>
   </footer>
-  </div><!-- #main-content -->
 
   <script>
   (function () {
-    var gate = document.getElementById('password-gate');
-    var main = document.getElementById('main-content');
-    var form = document.getElementById('gate-form');
-    var input = document.getElementById('gate-password');
-    var errEl = document.getElementById('gate-error');
-    var expectedHash = (gate && gate.getAttribute('data-expected-hash')) || '';
+    var key = 'knowtation-theme';
+    var root = document.documentElement;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    var btn = document.getElementById('theme-toggle');
+    var icon = btn && btn.querySelector('.theme-toggle-icon');
+    var label = btn && btn.querySelector('.theme-toggle-label');
 
-    function showMain() {
-      if (gate) gate.classList.add('hidden');
-      if (main) main.classList.remove('gate-locked');
+    function currentTheme() {
+      return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
     }
 
-    function sha256Hex(str) {
-      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-        .then(function (buf) {
-          return Array.from(new Uint8Array(buf))
-            .map(function (b) { return ('0' + b.toString(16)).slice(-2); })
-            .join('');
-        });
+    function syncThemeButton() {
+      if (!btn) return;
+      var isDark = currentTheme() === 'dark';
+      btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+      btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+      if (icon) icon.textContent = isDark ? '🌙' : '☀️';
+      if (label) label.textContent = isDark ? 'Night' : 'Day';
     }
 
-    if (expectedHash && sessionStorage.getItem('knowtation_site_unlock') === expectedHash) {
-      showMain();
-      return;
+    function applyTheme(theme) {
+      root.setAttribute('data-theme', theme);
+      try { localStorage.setItem(key, theme); } catch (e) {}
+      if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f7fb' : '#0a192f');
+      syncThemeButton();
     }
 
-    if (form && expectedHash) {
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        errEl.style.display = 'none';
-        errEl.textContent = '';
-        var pwd = input && input.value;
-        if (!pwd) return;
-        sha256Hex(pwd).then(function (hash) {
-          if (hash === expectedHash) {
-            sessionStorage.setItem('knowtation_site_unlock', expectedHash);
-            showMain();
-          } else {
-            errEl.textContent = 'Incorrect password.';
-            errEl.style.display = 'block';
-            input.value = '';
-            input.focus();
-          }
-        });
+    syncThemeButton();
+    if (btn) {
+      btn.addEventListener('click', function () {
+        applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
       });
-    } else {
-      showMain();
     }
   })();
 
