@@ -244,26 +244,33 @@ The attestation canister is **separate** from the hub canister — it stores imm
 
 **Audience:** **Hosted (ICP) operators** only. **Self-hosted** deployments use disk + Git for the vault; they do **not** run this workflow unless you also operate a canister and choose to point the script at it.
 
-**Goal:** A **logical** JSON export of one or more vault partitions via **`GET /api/v1/export`** on a fixed schedule **without** your laptop. This complements per-user **Back up now** (GitHub) and preflight exports in [`scripts/canister-predeploy.sh`](../scripts/canister-predeploy.sh).
+**Goal:** On a schedule **without** your laptop, export each configured vault partition as **notes + full proposals** (same fields as **`GET /api/v1/proposals/:id`**), optionally **AES-256-GCM** encrypt the file, optionally **upload to S3** (SSE-S3). Complements per-user **Back up now** (GitHub) and preflight in [`scripts/canister-predeploy.sh`](../scripts/canister-predeploy.sh).
 
 | Mechanism | What runs |
 |-----------|-----------|
-| **Script** | [`scripts/canister-export-backup.sh`](../scripts/canister-export-backup.sh) — same env as below; `npm run canister:export-backup` |
-| **CI** | [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) — **07:00 UTC daily** + **workflow_dispatch** |
+| **Script** | [`scripts/canister-export-backup.mjs`](../scripts/canister-export-backup.mjs) — `npm run canister:export-backup`; shell wrapper [`scripts/canister-export-backup.sh`](../scripts/canister-export-backup.sh) |
+| **CI** | [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) — **07:00 UTC daily** + **workflow_dispatch** (runs **`npm ci`** then the script) |
+
+**Payload:** JSON **`format_version: 2`**, **`kind`: `knowtation-operator-vault-export`**, **`notes`**, **`proposals`**, timestamps. Plain: **`canister-export-<vault>-<UTC>.json`**. Encrypted: **`.json.enc`** (binary: magic **`KTB1`** + IV + ciphertext + GCM tag). Decrypt: **`KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX=... node scripts/canister-decrypt-operator-backup.mjs <file.json.enc> [out.json]`**.
 
 **GitHub Actions secrets** (repository **Settings → Secrets and variables → Actions**):
 
 | Secret | Required | Purpose |
 |--------|----------|---------|
-| `KNOWTATION_CANISTER_BACKUP_USER_ID` | **Yes** | Value for **`X-User-Id`** (same stable id the gateway uses for that partition, e.g. `google:…`). **Treat as highly sensitive:** anyone with this value and the public canister URL can read that partition’s exported notes via the canister HTTP API. |
-| `KNOWTATION_CANISTER_BACKUP_URL` | No | Base URL, no trailing slash. If unset, the workflow uses **`hub/icp/canister_ids.json`** (`hub.ic` + `https://…icp0.io`) from the checked-out branch. |
-| `KNOWTATION_CANISTER_BACKUP_VAULT_IDS` | No | Comma-separated vault ids (e.g. `default,team`). If unset, exports **`default`** only (or set a single id via `KNOWTATION_CANISTER_BACKUP_VAULT_ID` in local `.env`). |
+| `KNOWTATION_CANISTER_BACKUP_USER_ID` | **Yes** | **`X-User-Id`** for the partition to export. **Highly sensitive.** |
+| `KNOWTATION_CANISTER_BACKUP_URL` | No | Base URL, no trailing slash. If unset, workflow uses **`hub/icp/canister_ids.json`** on the branch. |
+| `KNOWTATION_CANISTER_BACKUP_VAULT_IDS` | No | Comma-separated vault ids. If unset, exports **`default`**. |
+| `KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX` | No | **64** hex chars (32-byte AES-256 key). If set, outputs **`.json.enc`**. |
+| `KNOWTATION_CANISTER_BACKUP_S3_BUCKET` | No | If set with **`AWS_*`**, uploads each file to this bucket (**SSE-S3**). |
+| `KNOWTATION_CANISTER_BACKUP_S3_PREFIX` | No | Key prefix (default **`knowtation-canister-backups/`**). |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | For S3 | IAM scoped to **`s3:PutObject`** on the prefix. |
+| `AWS_REGION` | For S3 | e.g. **`us-east-1`**. |
 
-**Artifacts:** Each run uploads **`backups/canister-export-<vault>-<UTC>.json`** with **90-day** retention. GitHub artifact access follows your org/repo permissions; for long-term or compliance storage, copy artifacts to **encrypted** object storage or offline media (e.g. Apricorn) per your runbook.
+**Artifacts:** **`backups/canister-export-*`**, **90-day** retention. Prefer **encryption** and/or **private S3**; do not treat Actions artifacts as public-safe.
 
-**Local / VPS cron:** Run `npm run canister:export-backup` from a clone with `.env` containing at least **`KNOWTATION_CANISTER_BACKUP_USER_ID`** (and optional URL / vault vars). Output directory: **`KNOWTATION_CANISTER_BACKUP_DIR`** (default `./backups`, gitignored).
+**Local / VPS cron:** **`npm ci`** then **`npm run canister:export-backup`** with `.env`. **`KNOWTATION_CANISTER_BACKUP_SKIP_S3=1`** skips S3 for local runs. Output dir: **`KNOWTATION_CANISTER_BACKUP_DIR`** (default **`backups/`**, gitignored).
 
-**Scope note:** **Back up now** (bridge → GitHub) writes vault **notes** as Markdown files and full **proposals** (status, review, enrich metadata, bodies) under **`.knowtation/backup/v1/snapshot.json`** — see [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md). The **scheduled** `canister-export-backup` workflow and `npm run canister:export-backup` still call **`GET /api/v1/export`** (notes only) until extended for operator parity. Bridge vectors, billing blobs, and one-click “restore from GitHub” are separate topics — [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md).
+**Parity note:** **Back up now** (GitHub) = Markdown notes + **`.knowtation/backup/v1/snapshot.json`** for proposals — [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md). **Operator** export = one JSON bundle (**notes + proposals**). Vectors, billing, automated restore — [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md).
 
 ---
 

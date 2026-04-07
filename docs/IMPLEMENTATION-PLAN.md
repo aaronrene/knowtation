@@ -770,7 +770,7 @@ You can implement phases in sequence (1 → 2 → … → 11) or parallelize 5, 
 - `KNOWTATION_CANISTER_BACKUP_USER_ID` — Value sent as `X-User-Id` for export (the stable user id string the gateway uses for that partition, e.g. `google:…`). Not the same thing as a Hub JWT unless you deliberately align them.
 - `KNOWTATION_CANISTER_BACKUP_VAULT_ID` — Optional; defaults to `default` in `scripts/canister-predeploy.sh`.
 
-**Repo behavior:** `scripts/canister-export-backup.sh` (also `npm run canister:export-backup`) performs the export; `scripts/canister-predeploy.sh` calls it when `KNOWTATION_CANISTER_BACKUP_USER_ID` is set. URL defaults from `hub/icp/canister_ids.json` when omitted (same as `canister:release-prep`). Optional **`KNOWTATION_CANISTER_BACKUP_VAULT_IDS`** (comma-separated). Files: `./backups/canister-export-<vault>-<UTC-stamp>.json` (gitignored).
+**Repo behavior:** [`scripts/canister-export-backup.mjs`](../scripts/canister-export-backup.mjs) (`npm run canister:export-backup`) exports **notes + full proposals** (`format_version: 2`), optional **AES-GCM** (`.json.enc`) and **S3**. `scripts/canister-predeploy.sh` invokes it when `KNOWTATION_CANISTER_BACKUP_USER_ID` is set. URL defaults from `hub/icp/canister_ids.json` when omitted. Optional **`KNOWTATION_CANISTER_BACKUP_VAULT_IDS`**. See [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §6.
 
 **Daily backup (implemented):**
 

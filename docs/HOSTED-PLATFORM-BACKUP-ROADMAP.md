@@ -27,7 +27,7 @@
 
 ## 3. Future implementation directions (no commitment to order)
 
-1. **Periodic logical export** — **Done (v1):** [`scripts/canister-export-backup.sh`](../scripts/canister-export-backup.sh) + GitHub Actions schedule + artifacts. **Still open:** optional push to **encrypted** object storage (S3-compatible, etc.), **admin/export** for multi-user dumps without embedding a partition `X-User-Id` in CI, and export shapes that include **proposals** alongside notes in one file.
+1. **Periodic logical export** — **Done (v2):** [`scripts/canister-export-backup.mjs`](../scripts/canister-export-backup.mjs) exports **notes + proposals**; optional **AES-GCM** (`.json.enc`) and **S3**; GitHub Actions + artifacts. **Still open:** **admin/export** without per-partition `X-User-Id` in CI, Arweave upload, automated **restore** from bundle.
 2. **Upgrade discipline** — Preflight scripts already exist (`npm run canister:preflight`, `canister:verify-migration`); extend runbooks to require a **snapshot or export checkpoint** before mainnet upgrades when data volume is non-trivial.
 3. **Key custody** — Separate **deployment / upgrade keys** from **day-to-day operator** logins; prefer **hardware-backed** key storage (e.g. encrypted USB/HSM-style devices — products such as **Apricorn**-style hardware-encrypted drives are one pattern teams use for **offline controller secrets**) so break-glass credentials are not only on laptops or CI.
 4. **Restore drill** — At least annually: restore a **non-production** canister or fixture from backup and verify note counts and hashes.
@@ -49,3 +49,4 @@ Per-user **canister byte** quotas are **not** the primary sold unit in [HOSTED-C
 | 2026-03-27 | Initial roadmap: user vs platform backup, canister scope, future export + key custody, pointer to private runbooks. |
 | 2026-04-07 | Daily export script + Actions workflow + DEPLOY-HOSTED §6; roadmap status updated to partially implemented. |
 | 2026-04-08 | Hosted **Back up now** includes full proposals in `.knowtation/backup/v1/snapshot.json` (bridge); scope filter parity for proposals. |
+| 2026-04-08 | Operator export v2: notes + proposals in one JSON; AES-GCM + optional S3 (`@aws-sdk/client-s3`). |
