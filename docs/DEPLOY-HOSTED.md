@@ -242,6 +242,8 @@ The attestation canister is **separate** from the hub canister — it stores imm
 
 ## 6. Daily canister export backup (operator)
 
+**Audience:** **Hosted (ICP) operators** only. **Self-hosted** deployments use disk + Git for the vault; they do **not** run this workflow unless you also operate a canister and choose to point the script at it.
+
 **Goal:** A **logical** JSON export of one or more vault partitions via **`GET /api/v1/export`** on a fixed schedule **without** your laptop. This complements per-user **Back up now** (GitHub) and preflight exports in [`scripts/canister-predeploy.sh`](../scripts/canister-predeploy.sh).
 
 | Mechanism | What runs |
@@ -261,7 +263,7 @@ The attestation canister is **separate** from the hub canister — it stores imm
 
 **Local / VPS cron:** Run `npm run canister:export-backup` from a clone with `.env` containing at least **`KNOWTATION_CANISTER_BACKUP_USER_ID`** (and optional URL / vault vars). Output directory: **`KNOWTATION_CANISTER_BACKUP_DIR`** (default `./backups`, gitignored).
 
-**Scope note:** The current canister export returns **notes** for the requested vault. Full platform DR (proposals-only recovery, bridge vectors, billing blobs) remains in [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md).
+**Scope note:** **Back up now** (bridge → GitHub) writes vault **notes** as Markdown files and full **proposals** (status, review, enrich metadata, bodies) under **`.knowtation/backup/v1/snapshot.json`** — see [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md). The **scheduled** `canister-export-backup` workflow and `npm run canister:export-backup` still call **`GET /api/v1/export`** (notes only) until extended for operator parity. Bridge vectors, billing blobs, and one-click “restore from GitHub” are separate topics — [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md).
 
 ---
 

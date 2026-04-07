@@ -10,7 +10,7 @@
 
 | Layer | User GitHub backup | Platform backup (this doc) |
 |-------|--------------------|----------------------------|
-| **Notes + proposals in canister** | Exported as files when the user runs backup/sync | Independent snapshot or export of **canister stable state** (or equivalent) |
+| **Notes + proposals in canister** | **Back up now:** notes as Markdown + proposals in **`.knowtation/backup/v1/snapshot.json`**. | Independent **operator** snapshot or export of **canister stable state** (scheduled job, S3, etc.) |
 | **Bridge index (sqlite-vec)** | Not the same as vault files; re-buildable via **Re-index** | Optional: archive vector DB blobs per policy |
 | **Gateway billing / roles blobs** | Not in user repo | Gateway/Netlify Blob or file store per deploy docs |
 
@@ -48,3 +48,4 @@ Per-user **canister byte** quotas are **not** the primary sold unit in [HOSTED-C
 |------|--------|
 | 2026-03-27 | Initial roadmap: user vs platform backup, canister scope, future export + key custody, pointer to private runbooks. |
 | 2026-04-07 | Daily export script + Actions workflow + DEPLOY-HOSTED §6; roadmap status updated to partially implemented. |
+| 2026-04-08 | Hosted **Back up now** includes full proposals in `.knowtation/backup/v1/snapshot.json` (bridge); scope filter parity for proposals. |

@@ -1,6 +1,6 @@
 /**
  * Knowtation Hub Bridge — Connect GitHub + Back up now + indexer + search for hosted product.
- * Stores GitHub token per user; sync fetches vault from canister and pushes to repo.
+ * Stores GitHub token per user; sync fetches notes + full proposals from canister and pushes to repo (snapshot JSON + markdown).
  * Index/search: pull vault from canister, chunk → embed → sqlite-vec per user; search via POST /api/v1/search.
  * On Netlify, tokens and vector DBs persist via Netlify Blobs (set by netlify/functions/bridge.mjs).
  * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional HUB_UI_ORIGIN, HUB_UI_PATH (default /hub), GITHUB_*, EMBEDDING_*, BRIDGE_PORT, DATA_DIR.
@@ -28,7 +28,7 @@ import {
   getScopeForUserVaultFromScopeMap,
   resolveAllowedVaultIdsForHostedContext,
 } from '../lib/hosted-workspace-resolve.mjs';
-import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
+import { applyScopeFilterToNotes, applyScopeFilterToProposals } from '../lib/scope-filter.mjs';
 import { actorMayApproveProposals } from '../lib/hub-evaluator-may-approve.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
@@ -1145,6 +1145,61 @@ app.delete('/api/v1/vaults/:vaultId', requireBridgeAuth, requireBridgeEditorOrAd
   }
 });
 
+/**
+ * Full proposal documents for GitHub backup (list + GET each id). Same scope as notes.
+ * @param {string} canisterUrl
+ * @param {string} canisterUid
+ * @param {string} vaultId
+ * @param {{ projects?: string[], folders?: string[] } | null | undefined} scope
+ */
+async function fetchFullProposalsForGithubBackup(canisterUrl, canisterUid, vaultId, scope) {
+  const base = String(canisterUrl || '').replace(/\/$/, '');
+  const headers = {
+    'X-User-Id': canisterUid,
+    'X-Vault-Id': vaultId,
+    Accept: 'application/json',
+  };
+  const listRes = await fetch(`${base}/api/v1/proposals`, { method: 'GET', headers });
+  if (!listRes.ok) {
+    const err = new Error(`Canister proposals list ${listRes.status}`);
+    err.status = 502;
+    throw err;
+  }
+  let listJson;
+  try {
+    listJson = await listRes.json();
+  } catch {
+    const err = new Error('Invalid canister proposals list JSON');
+    err.status = 502;
+    throw err;
+  }
+  const stubs = Array.isArray(listJson.proposals) ? listJson.proposals : [];
+  const full = [];
+  for (const stub of stubs) {
+    const id = stub && stub.proposal_id ? String(stub.proposal_id) : '';
+    if (!id) continue;
+    const oneRes = await fetch(`${base}/api/v1/proposals/${encodeURIComponent(id)}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!oneRes.ok) {
+      const err = new Error(`Canister proposal ${id} ${oneRes.status}`);
+      err.status = 502;
+      throw err;
+    }
+    let body;
+    try {
+      body = await oneRes.json();
+    } catch {
+      const err = new Error(`Invalid JSON for proposal ${id}`);
+      err.status = 502;
+      throw err;
+    }
+    full.push(body);
+  }
+  return applyScopeFilterToProposals(full, scope);
+}
+
 // ——— Back up now: fetch vault from canister, push to GitHub ———
 app.post('/api/v1/vault/sync', async (req, res) => {
   const auth = req.headers.authorization;
@@ -1175,10 +1230,11 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     return res.status(400).json({ error: 'Invalid repo format', code: 'BAD_REQUEST' });
   }
 
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
+
   // Fetch vault from canister (export)
   let exportRes;
   try {
-    const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
       headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
@@ -1198,6 +1254,17 @@ app.post('/api/v1/vault/sync', async (req, res) => {
   let notes = vault.notes || [];
   if (hctx.scope) {
     notes = applyScopeFilterToNotes(notes, hctx.scope);
+  }
+
+  let proposals = [];
+  try {
+    proposals = await fetchFullProposalsForGithubBackup(CANISTER_URL, canisterUid, vaultId, hctx.scope);
+  } catch (e) {
+    console.error('[bridge] vault/sync proposals fetch', e?.message);
+    return res.status(e.status || 502).json({
+      error: e.message || 'Could not fetch proposals for backup',
+      code: 'BAD_GATEWAY',
+    });
   }
 
   // Store repo for next time
@@ -1285,11 +1352,41 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     tree.push({ path, mode: '100644', type: 'blob', sha: blob.sha });
   }
 
+  const snapshotObj = {
+    format_version: 1,
+    kind: 'knowtation-hosted-backup',
+    exported_at: new Date().toISOString(),
+    vault_id: vaultId,
+    proposals,
+  };
+  const snapshotJson = JSON.stringify(snapshotObj);
+  const snapBlobRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/blobs`, {
+    method: 'POST',
+    headers: ghHeaders,
+    body: JSON.stringify({
+      content: Buffer.from(snapshotJson, 'utf8').toString('base64'),
+      encoding: 'base64',
+    }),
+  });
+  if (!snapBlobRes.ok) {
+    return res.status(502).json({ error: 'GitHub blob failed (snapshot)', code: 'BAD_GATEWAY' });
+  }
+  const snapBlob = await snapBlobRes.json();
+  tree.push({
+    path: '.knowtation/backup/v1/snapshot.json',
+    mode: '100644',
+    type: 'blob',
+    sha: snapBlob.sha,
+  });
+
   const isInitialCommit = !baseSha;
-  if (isInitialCommit && tree.length === 0) {
+  if (isInitialCommit && notes.length === 0 && proposals.length === 0) {
     const placeholder =
       '# Knowtation vault backup\n\n'
-      + 'Your hosted vault had no notes yet. Add notes in the Hub and run **Back up now** again to sync them here.\n';
+      + 'This folder is written by **Back up now** on hosted Knowtation.\n\n'
+      + '- **Markdown files** elsewhere in this repo are your vault **notes**.\n'
+      + '- **`.knowtation/backup/v1/snapshot.json`** holds full **proposal** records (status, review, enrich metadata, bodies).\n\n'
+      + 'Your vault had no notes or proposals yet. Add content in the Hub and run **Back up now** again.\n';
     const blobRes = await fetch(`${ghApi}/repos/${owner}/${name}/git/blobs`, {
       method: 'POST',
       headers: ghHeaders,
@@ -1348,7 +1445,12 @@ app.post('/api/v1/vault/sync', async (req, res) => {
     return res.status(502).json({ error: 'GitHub push failed', code: 'BAD_GATEWAY' });
   }
 
-  res.json({ ok: true, message: 'Synced', notesCount: notes.length });
+  res.json({
+    ok: true,
+    message: 'Synced',
+    notesCount: notes.length,
+    proposalsCount: proposals.length,
+  });
 });
 
 // Optional: GET status for Settings (connected + repo)

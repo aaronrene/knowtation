@@ -82,7 +82,7 @@ The **same seven steps** appear in the Hub UI under **How to use** (after you op
 **What “git” does under the hood (we run it, not the user):**
 
 - **Connect GitHub:** OAuth to GitHub; we store a token (scope `repo`) and optionally the repo you want (e.g. `owner/repo-name`).
-- **Back up now:** We fetch your vault from the canister (GET `/api/v1/export`), then create a commit with all note files and push to your repo via the **GitHub API** (we don’t run a local `git` binary; we use GitHub’s “create blob / tree / commit / push” API). So the **commands** are effectively: create blobs, build tree, create commit, update ref (push). No raw `git add` / `git commit` in a terminal — it’s all through the API.
+- **Back up now:** We fetch **notes** from the canister (`GET /api/v1/export`) and **full proposals** (list + one GET per id), then create a commit: **Markdown files** for each note plus **`.knowtation/backup/v1/snapshot.json`** (all proposal fields: status, review, enrich metadata, bodies). Push uses the **GitHub API** (blobs / tree / commit / ref), not a local `git` binary.
 
 **Storage and limits:**
 
