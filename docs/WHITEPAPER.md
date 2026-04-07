@@ -1,158 +1,385 @@
 # Knowtation — Whitepaper
 
-**Version:** 2.2 (April 2026)  
-**Product:** Knowtation (*know* + *notation*) — personal and team knowledge vault with CLI, optional MCP, indexing, search, and imports.
+**Version:** 3.0 (April 2026)  
+**Product:** Knowtation (*know* + *notation*) — a personal and team knowledge vault with CLI, MCP, semantic search, memory, attestation, and a full import pipeline. Self-hosted or hosted at [knowtation.store](https://knowtation.store).
 
 ---
 
 ## Abstract
 
-What teams and individuals know ends up in a wide variety of places: messaging apps, ticketing tools, wikis, inboxes, and AI-assisted sessions. The scarce resource is not the bytes—it is **the relationships** among decisions, reasoning, and changes over time. Modern language models can work with large inputs, but **volume** is not the same as **precision**. Knowtation takes a different approach: **your canonical material lives in files you control** (Markdown, frontmatter, media), gets **indexed** with filters for projects, tags, time, and optional causal links, and is **invokable by any agent** via a lightweight CLI and skill manifest—so your notation stays movable, auditable, and yours. This document outlines the problem behind that design, how Knowtation responds to it without claiming to replace full enterprise platforms, and next steps.
+Knowtation was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Shoving a full history into the model window is expensive and often harmful — word overlap is not semantic relevance, and the wrong material produces confident but wrong answers. The bottleneck in agent-powered work is not model strength. It is **fetching the right context at the lowest cost.**
+
+Knowtation addresses this with three mechanisms that work together: **two-step retrieval** (narrow search, then selective expansion), **memory consolidation** (compress operational history so future context is smaller), and **memory-aware prompts** (avoid re-searching what the agent already knows). These three levers — retrieval precision, history compression, and session continuity — are the founding thesis of the platform. Everything else (vault, imports, MCP, Hub, attestation, billing) exists to make those levers practical and production-ready.
+
+Your canonical material lives in files you control (Markdown, frontmatter, media), gets indexed with filters for projects, tags, time, entities, causal chains, and episodes, and is invokable by any agent via a CLI, 33-tool MCP server, or Hub REST API — so your notation stays movable, auditable, and yours.
 
 ---
 
-## 1. The problem: knowledge is everywhere
+## 1. The founding problem: agents need better retrieval
 
-Useful knowledge rarely lives in one place. It is distributed across tools and threads: what was decided, why an option was dropped, what changed last quarter. Each tool owns a piece. **Weaving those pieces into answers**—e.g., "why did we do X?" or "what preceded Y?"—still depends on people who were present. When they leave, the artifacts often remain; the **mental model** of how things fit degrades.
+AI agents need background context to do useful work. The naive approach — dump everything into the prompt — fails in two ways:
 
-The shortage is not information. It is a lack of **shared, lasting coherence** at the layer where work happens. Knowtation provides **one place you choose** to bring notation together: imports, captures, transcripts, and notes in a single vault with a consistent shape—so coherence can rest on a stable foundation instead of transient UI state alone.
+1. **Cost.** Every token costs money. An agent that pulls 5,000 tokens of context when 500 would suffice is 10x more expensive per call. Over thousands of agent interactions, this adds up to real budget impact.
+2. **Accuracy.** More context is not better context. Irrelevant material dilutes the signal, causes the model to latch onto the wrong passage, and produces answers that sound right but are not. Retrieval precision is the difference between an agent that helps and an agent that confidently misleads.
 
----
-
-## 2. The shift with AI
-
-Assistants and agents need background. Shoving a full history into the model window costs money and often **hurts**: word overlap is not semantic relevance; the wrong material leads to assertive but false answers. The bottleneck is not only model strength—it is **fetching**: bringing **a small, relevant subset** that matches intent, time, and (where modeled) cause and effect.
-
-Knowtation treats **fetching as a core problem**: semantic search over an index, with CLI knobs for payload size and scope (`--project`, `--tag`, `--fields`, snippet length, count-only). Optional metadata and filters enable **time-bounded** and **chain-aware** queries so the system can address "what preceded this?" without pretending the vault is a limitless opaque pile. See [INTENTION-AND-TEMPORAL.md](./INTENTION-AND-TEMPORAL.md) and [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
+Knowtation was built from the start to give agents **the right information at the best cost** — not the most information at any cost.
 
 ---
 
-## 3. Persistence, fetch, and truth
+## 2. Three levers for token savings
 
-**Persistence** is required but not enough. **Truth**—what is current—requires practice: dated notes, superseding docs, optional links (`follows`, `causal_chain_id`, entities, episodes). **Fetching** must mix embedding search with structure so "same term, different period" does not get flattened into one undifferentiated mass.
+Knowtation reduces agent cost and improves accuracy through three mechanisms that reinforce each other:
 
-Knowtation’s stance:
+### Lever 1: Two-step retrieval — narrow first, expand selectively
 
-- **Vault as canonical source** — Markdown on disk; editor-agnostic; versionable for audit and rollback ([PROVENANCE-AND-GIT.md](./PROVENANCE-AND-GIT.md)).
-- **Index** — Chunks embedded in a vector store (Qdrant or sqlite-vec); metadata for path, project, tags, dates, optional causal chains and entities.
+Instead of fetching full documents, agents follow a **cheap-then-precise** pattern:
+
+1. **Narrow search** — `search "auth decisions" --entity auth --limit 5 --fields path` returns only paths and short snippets. Cost: minimal tokens.
+2. **Selective expansion** — `get-note <path> --body-only` fetches the one or two documents that actually matter. Cost: only the tokens you need.
+
+**Filters** make the first step cheaper and more accurate: `--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`. **Token levers** control payload size: `--fields`, `--snippet-chars`, `--count-only`, `--body-only`, `--frontmatter-only`.
+
+The result: an agent answering "what did we decide about auth?" sends two small requests instead of one large dump — fewer tokens in, better answer out.
+
+### Lever 2: Memory consolidation — compress history, shrink future context
+
+Raw memory events accumulate. Without compression, an agent's context grows linearly with usage. The **consolidation engine** addresses this with three passes:
+
+1. **Consolidate** (LLM) — Group events by topic, merge overlapping facts, deduplicate. One LLM call per topic (only topics with 2+ events). Output: compact `consolidation` fact strings that replace dozens of raw events.
+2. **Verify** (filesystem, no LLM) — Check consolidated memories against current vault state. Flag stale references. Emit `maintenance` events for cleanup.
+3. **Discover** (LLM, optional) — Surface connections, contradictions, and open questions across topics. Off by default; enable when insight value exceeds the additional LLM cost.
+
+**Guardrails that cap spend:** configurable lookback hours, max events/topics per pass, daily USD cost cap, hosted 30-minute cooldown between manual runs, and billing meters that enforce consolidation pass quotas per tier.
+
+After consolidation, future context includes compact summaries instead of raw event logs — so the next session starts cheaper.
+
+### Lever 3: Memory-aware prompts — don't re-search what you already know
+
+Three MCP prompts inject recent memory into agent context:
+
+- **`memory-context`** — What has the agent been doing? Recent events formatted for context.
+- **`memory-informed-search`** — Vault search augmented with memory: what was searched before, what is new.
+- **`resume-session`** — Pick up where you left off: recent events and session summaries.
+
+Session summaries (`memory_summarize`) compress a session into one event, so the next session loads a paragraph instead of replaying a conversation. The result: agents avoid redundant searches and start with relevant context pre-loaded.
+
+### How the three levers work together
+
+```mermaid
+flowchart TB
+  subgraph consolidation [Lever 2 — Memory consolidation]
+    E[Raw events pile up] --> C[Consolidate: merge by topic via LLM]
+    E --> V[Verify: check against vault state]
+    C --> Facts[Compact fact summaries]
+  end
+  subgraph retrieval [Lever 1 — Two-step retrieval]
+    S[Narrow search: paths + snippets] --> G[Selective get-note: only what matters]
+  end
+  subgraph memory [Lever 3 — Memory-aware prompts]
+    Facts --> MP[Resume session / memory context]
+    MP --> Skip[Skip redundant searches]
+  end
+  G --> Agent[Agent gets right context at lowest cost]
+  Skip --> Agent
+```
+
+**Without Knowtation:** Agent dumps 5,000 tokens of unfiltered context, pays for all of it, gets a mediocre answer, and starts from scratch next session.
+
+**With Knowtation:** Agent narrows to 500 tokens via two-step retrieval, loads compressed memory from prior sessions, skips searches it already did, and gets a precise answer at a fraction of the cost.
+
+---
+
+## 3. The broader problem: knowledge is everywhere
+
+The token-savings problem exists because useful knowledge rarely lives in one place. It is distributed across tools and threads: what was decided, why an option was dropped, what changed last quarter. Each tool owns a piece. Weaving those pieces into answers still depends on people who were present. When they leave, the artifacts remain; the mental model degrades.
+
+Knowtation provides **one place you choose** to bring notation together: imports, captures, transcripts, media pointers, and notes in a single vault with a consistent shape — so coherence rests on a stable foundation and agents have a single, well-organized corpus to search against.
+
+---
+
+## 4. Persistence, fetch, and trust
+
+**Persistence** is required but not enough. **Truth** — what is current — requires practice: dated notes, superseding documents, optional links (`follows`, `causal_chain_id`, entities, episodes). **Fetching** must mix embedding search with structure so "same term, different period" does not collapse into one undifferentiated mass.
+
+Knowtation's stance:
+
+- **Vault as canonical source** — Markdown on disk; editor-agnostic (Obsidian, SilverBullet, Foam, VS Code); versionable via Git for audit and rollback.
+- **Index** — Chunks embedded in a vector store (Qdrant or sqlite-vec); metadata for path, project, tags, dates, optional causal chains, entities, and episodes.
 - **CLI** — Same operations for humans and agents; JSON output for pipelines; no vendor lock on a single chat surface.
-
-Naive "load all and ask" RAG breaks on long-horizon, causal questions; Knowtation’s schema and flags are a **concrete step** toward structured recall at vault scale.
-
----
-## 4. Token minimization: right information at best cost
-
-The bottleneck in many agent setups is **over-fetch**—pulling 2000+ tokens for a simple question wastes cost and context. Knowtation gives agents explicit knobs to stay lean.
-
-**Tiered retrieval pattern:** (1) **Narrow scope** — `--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`; (2) **Cheap first** — `search` or `list-notes` with `--limit 5 --fields path` returns paths or short snippets; (3) **Fetch only what's needed** — `get-note <path>` for the 1–2 paths that matter; use `--body-only` or `--frontmatter-only` when one part is enough.
-
-**Examples:** *"What did we decide about auth?"* → `search "decisions about auth" --entity auth --limit 5 --json` → then `get-note` for top paths. *"How many match X?"* → `search "X" --count-only --json`. **Levers:** `--fields`, `--snippet-chars`, `--count-only`; optional `summarizes` / `state_snapshot` for range compression. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
+- **Trust pipeline** — Proposals, human review with LLM-assisted rubric scoring, and optional attestation before anything commits.
 
 ---
 
-## 5. Imports, capture, and transcription
+## 5. Imports: 14 sources, one vault
 
-**Imports:** ChatGPT, Claude, Mem0, NotebookLM, Google Drive, MIF, generic Markdown. Each produces vault notes with `source`, `source_id`, `date`; re-imports idempotent. **Capture:** Message-interface plugins (file, webhooks for Slack/Discord) write to `vault/inbox/` per [CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md). **Transcription:** Audio/video → one note per recording; smart glasses, wearables, webhooks supported. All lands in one vault, one index. See [IMPORT-SOURCES.md](./IMPORT-SOURCES.md).
+Knowtation ships importers for fourteen external sources. Each produces vault notes with `source`, `source_id`, `date`; re-imports are idempotent.
 
----
+| Source | What it imports |
+|--------|-----------------|
+| **ChatGPT export** | `conversations.json` from the OpenAI data export |
+| **Claude export** | Markdown or JSON from Anthropic export or third-party tools |
+| **Mem0 export** | JSON export — one note per memory |
+| **NotebookLM** | Folder of Markdown or JSON array export |
+| **Google Drive** | Folder of Markdown (e.g. Docs export) |
+| **Notion** | Pages via Notion API (`NOTION_API_KEY`) |
+| **Jira export** | CSV export from Jira |
+| **Linear export** | CSV from Linear's "Export Data" |
+| **MIF** | Memory Interchange Format `.memory.md` files |
+| **Supabase memory** | Any Supabase table → memory event log + optional vault notes |
+| **Generic Markdown** | Markdown files or folders |
+| **Audio** | Audio file → Whisper transcription → vault note |
+| **Video** | Video file → Whisper transcription → vault note |
+| **Wallet CSV** | Exchange/wallet transaction CSV (Coinbase, Binance, Ledger Live, etc.) → per-transaction notes with blockchain frontmatter |
 
-## 6. Agent integration
+Beyond imports, four **capture channels** ingest live messages: file/stdin, HTTP webhooks, and adapter scripts for Slack, Discord, and Telegram — all writing to `vault/inbox/` per a documented contract.
 
-Knowtation is designed as a **knowledge backend** for multi-agent orchestration systems. Any orchestrator and its agents can read from and write to the vault via **CLI** or **MCP**.
-
-- **Vault as input** — Brain dumps, specs, or prior context can live in the vault. A planner (or human) pulls from the vault to build plans; agents run as usual with that context.
-- **Agents read** — Search and list with filters; `get-note` for chosen paths. Use tiered retrieval to minimize tokens.
-- **Agents write** — Pipe summaries, decisions, or phase outputs into `knowtation write ... --stdin` with frontmatter so the vault accumulates shared context.
-- **MCP** — When the runtime speaks MCP (Cursor, Claude, or an orchestrator), tools (`search`, `get_note`, `list_notes`, `write`, etc.) appear directly. **CLI** — When agents run in containers or worktrees without MCP, they exec `knowtation ... --json` and parse output.
-- **Hub as agent backend** — Agents can use the Hub REST API with `KNOWTATION_HUB_TOKEN` (JWT). `knowtation propose --hub <url>` creates a proposal for human review before commit; approved proposals are written to the vault. See [HUB-API.md](./HUB-API.md), [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
-
-See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) for setup and patterns.
-
----
-
-## 7. Vault Git and messaging
-
-**Vault under Git:** The vault can live in a Git repo for backup and version history. Config: `vault.git.enabled`, `vault.git.remote`; optional `knowtation vault sync` to commit and push. No PR creation—proposals remain Hub-only. See [PROVENANCE-AND-GIT.md](./PROVENANCE-AND-GIT.md).
-
-**Messaging integration:** Slack, Discord, Telegram (and similar) can send messages into the vault via Hub capture (`POST /api/v1/capture`) or standalone adapters. Inbox notes get `source`, `source_id`, `date`. See [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md).
-
----
-
-## 8. Knowtation's thesis
-
-
-1. **Data liberation** — Your vault is yours. Export, copy, and host where policy demands. SPEC §0 and the README state vendor independence explicitly.
-2. **Open brain** — Agents learn behavior via `SKILL.md` and invoke `knowtation` (or MCP) without stuffing large tool specs into every prompt. The memory layer gives agents **persistent recall** across sessions — what was searched, written, exported, and why — so context compounds instead of resetting.
-3. **Notation over hype** — Value comes from **regular capture**, **re-indexing after edits**, and **queries that match how you organize**—not from any one model drop.
-4. **Memory as a first-class primitive** — Unlike systems where memory is an afterthought bolted onto chat history, Knowtation treats operational memory as structured, queryable data with event types, timestamps, and optional semantic search — bridging the gap between "what's in the vault" and "what has the agent been doing."
+**Transcription** uses OpenAI Whisper. Audio and video files become vault notes; the same pipeline backs the `transcribe` MCP tool and the CLI `npm run transcribe` script.
 
 ---
 
-## 9. Architecture at a glance
+## 6. Memory: five providers, persistent recall
+
+Unlike systems where memory is an afterthought bolted onto chat history, Knowtation treats operational memory as **structured, queryable data** with event types, timestamps, topics, and optional semantic search.
+
+### Event model
+
+Fifteen event types are captured automatically after search, export, write, import, index, propose, capture, and error operations: `search`, `export`, `write`, `import`, `index`, `propose`, `agent_interaction`, `capture`, `error`, `session_summary`, `user`, `consolidation`, `consolidation_pass`, `maintenance`, `insight`. Each event carries an `air_id` when attestation is active, enabling provenance tracking across the memory layer.
+
+### Providers
+
+| Provider | Storage | Semantic search | Encryption |
+|----------|---------|-----------------|------------|
+| **file** (default) | Append-only `events.jsonl` + `state.json`; optional topic-partitioned JSONL | — | — |
+| **vector** | File + embeddings in vector store (`_memory` collection) | Yes | — |
+| **mem0** | File + Mem0 REST API dual-write | Yes (via Mem0) | — |
+| **supabase** | File + `knowtation_memory_events` table with pgvector | Yes (via `match_memory_events` RPC) | — |
+| **encrypted** | AES-256-GCM at rest (`events.jsonl.enc`, `state.json.enc`); scrypt key derivation | — | Yes |
+
+Provider selection is config-driven (`memory.provider`). When `memory.encrypt` is set with a secret, the encrypted provider wraps file storage with AES-256-GCM — the secret never leaves the local environment.
+
+### Cross-vault and global scope
+
+`memory.scope` can be `vault` (per-vault directory) or `global` (shared `memory/_global`). Hosted mode partitions by user ID regardless, so one user's memory never leaks to another.
+
+### Retention enforcement
+
+`pruneExpired(retentionDays)` is implemented across all providers. The memory manager throttles pruning to once per hour to avoid I/O on every write.
+
+### Session summaries
+
+`memory_summarize` generates an LLM-powered summary of recent session activity and stores it as a `session_summary` event — giving agents a compressed starting point for the next session.
+
+### Memory-aware MCP prompts
+
+Three prompts — `memory-context`, `memory-informed-search`, and `resume-session` — inject recent memory events and session summaries into agent context, so agents pick up where they left off without re-searching.
+
+### CLI surface
+
+Seven `memory` subcommands: `query`, `list`, `store`, `search`, `clear`, `export`, `stats`, plus `index` (regenerates a lightweight pointer index) and `consolidate`.
+
+---
+
+## 7. Consolidation daemon: memory that gets smarter
+
+Raw memory events accumulate. The consolidation engine compresses them into actionable knowledge through three LLM-powered passes:
+
+1. **Consolidate** — Group events by topic, merge overlapping facts, deduplicate, and store summary `consolidation` events.
+2. **Verify** — Check consolidated memories against current vault state; flag stale references; emit `maintenance` events for cleanup.
+3. **Discover** — Surface connections, contradictions, and open questions across topics; emit `insight` events.
+
+The daemon runs as a background process (`knowtation daemon start`) with configurable interval, lookback window, and pass selection. Hosted mode enforces a 30-minute cooldown on manual runs, tracks LLM cost per pass, and respects a configurable cost cap (`CONSOLIDATION_COST_CAP_USD`).
+
+---
+
+## 8. Wallet and blockchain imports
+
+The `wallet-csv` importer ingests transaction CSVs from major exchanges and wallets — Coinbase, Coinbase Pro, Binance, Ledger Live, and generic formats. Each row becomes a vault note under `inbox/wallet-import/` with blockchain-oriented frontmatter: transaction hash, date, amount, chain (Ethereum, Bitcoin, Solana, ICP, etc.), and labels. This gives agents and humans a searchable, filterable record of on-chain activity inside the same vault that holds meeting notes and project docs.
+
+---
+
+## 9. Attestation and ICP anchoring
+
+**AIR (Attestation Integrity Records)** provides an intent-attestation step before writes and exports. When `air.required` is enabled, every write to the vault records who authorized it and why.
+
+- **Local mode:** `attestBeforeWrite` and `attestBeforeExport` hooks in the CLI and MCP.
+- **Hosted mode:** The gateway auto-provisions an attestation endpoint; HMAC-signed records are stored in Netlify Blobs or local JSON.
+- **ICP blockchain anchor:** Attestation records can be dual-written to an Internet Computer canister (`hub/icp/src/attestation/main.mo`) for immutable, decentralized audit trails. Pending attestations are anchored in batch via `POST /api/v1/attest/anchor-pending`.
+- **Memory integration:** Supabase memory events carry `air_id` fields, linking memory provenance to attestation records.
+
+---
+
+## 10. Supabase bridge: optional, not required
+
+Knowtation is vault-first. Supabase is an **optional bridge**, not a dependency.
+
+- **Import:** `supabase-memory` imports from any Supabase table into the memory event log and optionally into vault notes.
+- **Memory provider:** `SupabaseMemoryProvider` dual-writes events to a `knowtation_memory_events` table with pgvector columns for semantic search.
+- **Migration path:** Users with existing PostgreSQL-based memory stores (from any tool) can import into Knowtation's event log or keep dual-write active during transition.
+
+The contrast with database-centric systems is architectural: in Knowtation, the vault is the canonical source and the database is a performance layer. In database-centric systems, the database *is* the source, and portability depends on the vendor's export tools.
+
+---
+
+## 11. MCP: 33 tools, 23 resources, 13 prompts
+
+Knowtation exposes one of the deepest MCP surfaces available for a knowledge tool.
+
+### Tools (33)
+
+**Vault operations:** `search`, `get_note`, `list_notes`, `write`, `export`, `import`, `capture`, `transcribe`, `vault_sync`, `index`, `relate`, `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `summarize`, `enrich`.
+
+**Memory operations:** `memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`, `memory_verify`, `memory_consolidate`, `memory_summarize`, `daemon_status`, `consolidation_history`, `consolidation_settings`.
+
+**Hub operations:** `hub_list_proposals`, `hub_get_proposal`, `hub_create_proposal`, `hub_submit_proposal_evaluation`.
+
+### Resources (23)
+
+Vault browsing (`knowtation://vault/`, `/inbox`, `/captures`, `/imports`, `/media/audio`, `/media/video`, `/templates`), template and note access by path (`knowtation://vault/{+path}`, `knowtation://vault/templates/{+name}`), media access (`knowtation://vault/{+notePath}/image/{index}`, `…/video/{index}`), index stats and graph (`knowtation://index/stats`, `knowtation://index/graph`), tags and projects (`knowtation://tags`, `knowtation://projects`), config snapshot (`knowtation://config`), AIR log (`knowtation://air/log`), and seven memory resources including topic-partitioned access (`knowtation://memory/topic/{slug}`).
+
+### Prompts (13)
+
+**Workflow prompts:** `daily-brief`, `search-and-synthesize`, `project-summary`, `write-from-capture`, `temporal-summary`, `extract-entities`, `meeting-notes`, `knowledge-gap`, `causal-chain`, `content-plan`.
+
+**Memory-aware prompts:** `memory-context`, `memory-informed-search`, `resume-session`.
+
+### Hosted MCP
+
+The Hub gateway exposes a separate `knowtation-hosted` MCP server with role-gated tool access (viewer, editor, admin) and a `knowtation://hosted/vault-info` resource. Both stdio and HTTP transports are supported; the hosted variant adds OAuth 2.1 authentication.
+
+---
+
+## 12. Hub: proposals, review, and collaboration
+
+The Knowtation Hub is an optional web interface and API layer — self-hosted or hosted at [knowtation.store](https://knowtation.store).
+
+**Authentication:** Google and GitHub OAuth via Passport; JWT-based API access; admin designation via `HUB_ADMIN_USER_IDS`.
+
+**Proposals and review:** Agents and users create proposals (`knowtation propose` or `hub_create_proposal` via MCP). Proposals enter a review queue with:
+- LLM-assisted enrichment and review hints
+- Configurable evaluation rubric with pass/fail/needs-changes outcomes
+- Admin-configurable proposal policy
+- Merge into the vault only after human approval
+
+**Team collaboration:** Role-based access control (viewer, editor, admin), team invites, workspace scoping, and multi-vault support with per-vault isolation.
+
+**Notes UX:** Faceted browsing, folder navigation, project rename and bulk delete, image upload and proxy, GitHub backup connection.
+
+**Settings:** Consolidation preferences, proposal policy, integrations, and billing — all configurable through the Hub web interface.
+
+---
+
+## 13. Billing and monetization
+
+Knowtation includes a Stripe-backed billing system with tiered plans:
+
+| Tier | Included |
+|------|----------|
+| **Free** | Basic note count cap, limited monthly searches and index jobs |
+| **Plus** | Higher caps, monthly indexing tokens, consolidation passes |
+| **Growth** | Expanded limits across all dimensions |
+| **Pro** | Highest caps, priority access |
+
+Token packs can be purchased for additional indexing capacity, bundled with consolidation passes. The billing gate classifies operations (search, index, consolidation, note write, proposal write) and enforces caps when `BILLING_ENFORCE=true`; shadow mode logs usage without blocking.
+
+---
+
+## 14. Knowtation's thesis
+
+1. **Right context, lowest cost** — The platform exists to give agents accurate retrieval without overspending. Two-step retrieval, memory consolidation, and memory-aware prompts are the three levers. Everything else supports them.
+
+2. **Data liberation** — Your vault is yours. Export, copy, and host where policy demands. The format is Markdown and frontmatter; migration means copying a folder.
+
+3. **Agent depth** — 33 MCP tools, 23 resources, 13 prompts, a full CLI with JSON output, and a Hub REST API. Agents do not need a thin search-and-return interface; they get memory, verification, consolidation, proposals, enrichment, clustering, and task extraction.
+
+4. **Memory as a first-class primitive** — Structured, queryable operational memory with five provider tiers, encrypted storage, cross-vault scope, retention enforcement, LLM consolidation, and session summaries. Memory is not an afterthought — it is what lets context compound instead of reset.
+
+5. **Trust pipeline** — Proposals, human review with rubric scoring, attestation with optional ICP blockchain anchoring. Agents can suggest; humans approve; the audit trail is immutable.
+
+6. **Vault-centric vs. database-centric** — Some systems put a PostgreSQL database at the center and treat files as an export artifact. Knowtation puts files at the center and treats databases as optional performance layers. The difference shows at exit: vault users copy a folder; database users hope the vendor's export is complete.
+
+7. **Notation over hype** — Value comes from regular capture, re-indexing after edits, and queries that match how you organize — not from any one model drop.
+
+---
+
+## 15. Architecture at a glance
 
 ```mermaid
 flowchart LR
-  subgraph sources [Sources]
-    A[Imports: ChatGPT, Claude, Mem0, MIF, audio/video]
-    B[Inbox capture, webhooks]
-    C[Transcription pipeline]
+  subgraph sources [Sources — 14 importers + 4 capture channels]
+    A[ChatGPT, Claude, Mem0, Notion, Jira, Linear, NotebookLM, GDrive, MIF, Supabase, Markdown, Audio, Video, Wallet CSV]
+    B[Inbox capture: file, webhook, Slack, Discord, Telegram]
+    C[Whisper transcription pipeline]
   end
   subgraph vault [Vault you own]
-    V[Markdown plus frontmatter]
+    V[Markdown + frontmatter + media]
   end
   subgraph index [Index]
-    I[Chunk embed store]
+    I[Chunk → embed → vector store]
   end
-  subgraph memory [Memory]
-    M[Event log + semantic recall]
+  subgraph memory [Memory — 5 providers]
+    M[Event log + semantic recall + consolidation]
   end
-  subgraph use [Use]
-    CLI[CLI and MCP]
-    AG[Agents]
+  subgraph trust [Trust pipeline]
+    T[Proposals → review → attestation → ICP]
+  end
+  subgraph use [Agent surface]
+    CLI[CLI — 25+ commands]
+    MCP[MCP — 33 tools, 23 resources, 13 prompts]
+    HUB[Hub — REST API + web UI]
   end
   sources --> V
   V --> I
   I --> CLI
-  CLI --> AG
+  I --> MCP
   CLI --> M
+  MCP --> M
   M --> CLI
+  M --> MCP
+  CLI --> T
+  MCP --> T
+  T --> HUB
+  HUB --> V
 ```
 
-- **Config** — `config/local.yaml`; vault path, embedding provider, vector backend (Qdrant or sqlite-vec), memory provider and capture settings, optional AIR ([SPEC.md](./SPEC.md)).
-- **Indexer** — Walk vault, chunk by heading or size, embed, upsert idempotently; metadata includes date, optional `causal_chain_id`, `entity`, `episode_id`.
-- **Search / list / get-note** — Ranked hits with filters (`--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`); token levers: `--fields`, `--snippet-chars`, `--count-only`, `--body-only`, `--frontmatter-only`.
-- **Write / export / import** — Create notes, export to md/html with provenance; import from external platforms.
-- **Memory** — Append-only event log of user and agent operations; five provider tiers (file, vector, mem0, encrypted, Supabase/pgvector); semantic recall; auto-capture; cross-vault or per-vault scope; LLM session summaries; AES-256-GCM encryption at rest; retention enforcement; memory-aware MCP prompts for session continuity; Supabase migration path for users with existing PostgreSQL-based memory stores.
-
-Full detail: [ARCHITECTURE.md](../ARCHITECTURE.md), [SPEC.md](./SPEC.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
-
----
-
-## 10. Who it serves — and who it does not
-
-**Serves:** Individuals and teams who want **one movable vault**, **agent-invocable search**, imports from common tools, transcription pipelines, and optional Hub-style review—without betting organizational recall on a single hosted "reasoning layer" they cannot take with them.
-
-**Does not serve:** Replacing ERP, CRM, or org-wide canonical-source mandates. Knowtation is **not** a hyperscale enterprise recall platform competing with cloud giants; it is a **practical tool** for notation, fetch, and ownership at repo and team scale.
+- **Config** — `config/local.yaml`; vault path, embedding provider (Ollama or OpenAI), vector backend (Qdrant or sqlite-vec), memory provider and settings, AIR, billing, daemon, capture.
+- **Indexer** — Walk vault, chunk by heading or size, embed, upsert idempotently; optional post-index enrichment (per-note summaries via LLM sampling).
+- **Search / list / get-note** — Ranked hits with filters; token levers; keyword and semantic modes.
+- **Write / export / import** — Create notes, export to Markdown/HTML with provenance; import from fourteen external platforms.
+- **Memory** — Five provider tiers; fifteen event types; session summaries; three-pass consolidation; retention enforcement; topic partitioning; AES-256-GCM encryption at rest.
+- **Attestation** — Intent attestation before write/export; HMAC-signed records; optional ICP canister anchor for immutable audit trail.
+- **Hub** — OAuth, proposals, review queue, rubric scoring, team roles, multi-vault, billing, settings, GitHub backup.
 
 ---
 
-## 11. Roadmap, Hub, and optional layers
+## 16. Deployment
 
-Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Phases 1–10 complete (config, vault, indexer, search, write, export, capture, import, transcription, memory, AIR, MCP, sqlite-vec); Phase 8 memory augmented to full three-tier provider system with event log, semantic recall, and hosted path. Phase 11: **Knowtation Hub** — hosted or self-hosted vault, proposals, review queue, web UI. Hub is **convenience**; file semantics and export remain the portability story. **Multi-agent orchestration:** Knowtation as a knowledge backend via CLI and MCP — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
+Knowtation runs in two modes:
 
-**Memory augmentation (Phase 8):** Three-tier memory layer — `file` (zero-dependency JSONL event log + JSON state overlay), `vector` (semantic search over memory via existing embedding/vector infrastructure), `mem0` (external Mem0 API integration). Eleven event types captured automatically after search, export, write, import, index, and propose operations. CLI offers seven `memory` subcommands (`query`, `list`, `store`, `search`, `clear`, `export`, `stats`); MCP exposes five tools (`memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`) and resource URIs. Hosted path provides per-user/vault isolation. Privacy controls include secret detection, configurable capture types, and retention limits. See [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md).
+**Self-hosted:** Clone the repo, `npm install`, configure `config/local.yaml`, run `npm run index` and optionally `npm run hub`. Everything stays on your machine. Vault under Git for backup. Full control, zero dependencies on external services beyond your chosen embedding provider.
 
-**AIR (Attestation Integrity Records):** Intent attestation before write/export with optional ICP blockchain anchor for immutable audit trail. **Phase 12:** Blockchain/wallet frontmatter and filters for agent payments. **Hosted plug-and-play:** A future offering where we host and maintain the platform; paid users get a zero-config experience (no YAML, no server setup), with optional "Connect GitHub" for backup and "Connect an agent" for API access. See [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md).
+**Hosted:** [knowtation.store](https://knowtation.store) runs the Hub gateway, bridge, and ICP canister. Users sign in with Google or GitHub OAuth, get a managed vault with billing, and can optionally connect GitHub for backup. The same CLI and MCP tools work against the hosted API.
+
+Both paths use the same codebase, the same vault format, and the same MCP surface. Migration between them is copying a folder.
 
 ---
 
-## 12. Questions before you commit to a knowledge system
+## 17. Who it serves — and who it does not
 
-1. **Where does your team’s real understanding actually form?** If each team uses a different assistant with no shared corpus, you rebuild walls. A vault plus discipline is one way to **unify notation** while using any model for reasoning.
+**Serves:** Individuals and teams who want **one movable vault**, **agent-invokable search and memory**, imports from common tools, transcription, wallet tracking, and optional Hub-style review — without betting organizational recall on a single hosted "reasoning layer" they cannot take with them.
 
-2. **Does fetch quality improve over time?** Re-index after edits; use projects, tags, and dates; narrow agent input with `--fields` and filters so each call brings **clarity**, not clutter.
+**Does not serve:** Replacing ERP, CRM, or org-wide canonical-source mandates. Knowtation is not a hyperscale enterprise recall platform competing with cloud giants; it is a practical tool for notation, fetch, memory, and ownership at repo and team scale.
 
-3. **How expensive is exit?** If your recall lives only inside a vendor’s closed graph, migration will lose data. Markdown, git, and explicit frontmatter keep **egress** defined: copy the folder, re-embed elsewhere, preserve meaning in the files.
+---
+
+## 18. Questions before you commit to a knowledge system
+
+1. **Where does your team's real understanding actually form?** If each team uses a different assistant with no shared corpus, you rebuild walls. A vault plus discipline is one way to unify notation while using any model for reasoning.
+
+2. **Does fetch quality improve over time?** Re-index after edits; use projects, tags, and dates; narrow agent input with `--fields` and filters so each call brings clarity, not clutter. Layer memory on top so agents learn from their own history.
+
+3. **How expensive is exit?** If your recall lives only inside a vendor's closed graph, migration will lose data. Markdown, Git, and explicit frontmatter keep egress defined: copy the folder, re-embed elsewhere, preserve meaning in the files.
+
+4. **Does your agent remember?** If every session starts from scratch, you are paying for the same context assembly over and over. Persistent memory with semantic search, consolidation, and session summaries means the agent's second question costs less than the first.
 
 ---
 
@@ -167,12 +394,17 @@ Core development follows [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): Pha
 | [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | Import types and how to run |
 | [CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md) | Message-interface plugin contract |
 | [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) | MCP and CLI for agent orchestration |
+| [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Hub API for agents |
 | [PROVENANCE-AND-GIT.md](./PROVENANCE-AND-GIT.md) | Provenance and version history |
 | [HUB-API.md](./HUB-API.md) | Hub REST API and auth |
-| [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Hub API for agents |
 | [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md) | Slack, Discord, capture adapters |
-| [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md) | Memory architecture, providers, CLI, MCP, hosted path |
+| [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md) | Memory architecture and providers |
+| [MEMORY-CONSOLIDATION-GUIDE.md](./MEMORY-CONSOLIDATION-GUIDE.md) | Consolidation daemon operation |
+| [DAEMON-CONSOLIDATION-SPEC.md](./DAEMON-CONSOLIDATION-SPEC.md) | Daemon spec and configuration |
+| [TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md) | Team roles and collaboration |
+| [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) | Multi-vault and scoped access |
+| [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Self-hosted vs hosted deployment |
 
 ---
 
-*Knowtation: your notation, your data, your fetch path.*
+*Knowtation: accurate context, lowest cost, your data.*

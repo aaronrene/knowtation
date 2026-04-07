@@ -445,7 +445,6 @@ Your note body here.</pre>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="integrations">Integrations</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="billing">Billing</button>
-          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="agents">Agents</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="consolidation">Consolidation</button>
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
@@ -951,6 +950,26 @@ Your note body here.</pre>
               </div>
             </div>
             <p class="settings-intro small"><button type="button" id="btn-integrations-how-to-agentception" class="btn-link btn-link-small">Full setup → How to use (AgentCeption)</button></p>
+            <hr class="settings-hr">
+            <h3 class="settings-h3">Agent Configuration</h3>
+            <p class="settings-intro small">Embedding config the Hub uses. Match this in your agent runtime so search behaves the same.</p>
+            <div class="settings-row">
+              <span class="settings-label">Provider</span>
+              <span id="agents-embedding-provider" class="settings-value">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Model</span>
+              <span id="agents-embedding-model" class="settings-value">—</span>
+            </div>
+            <div class="settings-row" id="agents-ollama-row">
+              <span class="settings-label">Ollama URL</span>
+              <span id="agents-embedding-ollama-url" class="settings-value">—</span>
+            </div>
+            <p class="settings-intro small">Use <strong>Hub API</strong> above for <code>KNOWTATION_HUB_URL</code>, JWT, and vault id. The button below copies <em>only</em> embedding-related lines so indexers match this Hub.</p>
+            <div class="settings-actions" style="margin-top: 0.5rem;">
+              <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy embedding env</button>
+              <span id="agents-copy-msg" class="settings-msg"></span>
+            </div>
           </div>
         </div>
         <div id="settings-panel-appearance" class="settings-panel" role="tabpanel">
@@ -1203,32 +1222,6 @@ Your note body here.</pre>
 
             <!-- Born Free blurb -->
             <p class="billing-bornfree-blurb">Knowtation is presented by <a href="https://bornfree.io" target="_blank" rel="noopener">Born Free Communities</a>. We developed this for our use and thought we should share it with everyone.</p>
-          </div>
-        </div>
-        <div id="settings-panel-agents" class="settings-panel" role="tabpanel">
-          <div class="settings-body">
-            <p class="settings-intro">Agents shows the embedding config the Hub uses. Use the same config in your orchestrator or agent runtime so search behaves the same. Copy the env block below into the agent environment.</p>
-            <p class="settings-intro small"><strong>Save context tokens:</strong> Prefer a narrow <code>search</code> (few results, paths or snippets only) then <code>get_note</code> for one path—see <button type="button" id="btn-agents-how-token-savings" class="btn-link btn-link-small" style="vertical-align: baseline;">How to use → Token savings</button>. Consolidation and the optional Discover pass are under <strong>Settings → Consolidation</strong>.</p>
-            <h3 class="settings-h3">Local model (for agents)</h3>
-            <p class="settings-intro small">Current embedding provider and model. Read-only here; edit <code>config/local.yaml</code> to change. Match this in agents so they use the same embeddings.</p>
-            <div class="settings-row">
-              <span class="settings-label">Provider</span>
-              <span id="agents-embedding-provider" class="settings-value">—</span>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Model</span>
-              <span id="agents-embedding-model" class="settings-value">—</span>
-            </div>
-            <div class="settings-row" id="agents-ollama-row">
-              <span class="settings-label">Ollama URL</span>
-              <span id="agents-embedding-ollama-url" class="settings-value">—</span>
-            </div>
-            <h4 class="settings-h4">How to connect agents</h4>
-            <p class="settings-intro small">Use <strong>Integrations → Hub API → Copy Hub URL, token &amp; vault</strong> for <code>KNOWTATION_HUB_URL</code>, JWT, and vault id. The button below copies <em>only</em> embedding-related lines (e.g. Ollama base URL and a model comment) so indexers match this Hub—<strong>not</strong> the Hub JWT. For AgentCeption paths and MCP, see Integrations → AgentCeption and How to use.</p>
-            <div class="settings-actions" style="margin-top: 1rem;">
-              <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy embedding env</button>
-              <span id="agents-copy-msg" class="settings-msg"></span>
-            </div>
           </div>
         </div>
         <div id="settings-panel-consolidation" class="settings-panel" role="tabpanel">
