@@ -226,6 +226,30 @@
       gap: 0.75rem;
       margin-top: 1.25rem;
     }
+    .hero .cta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: stretch;
+      width: 100%;
+      max-width: 26rem;
+      margin-left: auto;
+      margin-right: auto;
+      gap: 0.75rem;
+    }
+    .hero .cta-row .cta {
+      justify-content: center;
+      text-align: center;
+      width: 100%;
+      box-sizing: border-box;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    @media (max-width: 480px) {
+      .hero .cta-row {
+        grid-template-columns: 1fr;
+        max-width: 20rem;
+      }
+    }
 
     .badge {
       display: inline-flex;
@@ -247,16 +271,63 @@
     .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
 
     /* Ecosystem rings (hero graphic) */
-    .landing-ecosystem { margin: 1.5rem auto 0; max-width: 320px; }
-    .landing-ecosystem-rings { position: relative; width: 320px; height: 320px; margin: 0 auto; }
+    .landing-ecosystem {
+      position: relative;
+      margin: 1.5rem auto 0;
+      max-width: 360px;
+      padding: 1rem;
+      isolation: isolate;
+    }
+    .landing-ecosystem::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: min(100%, 340px);
+      height: min(100%, 340px);
+      max-width: 340px;
+      max-height: 340px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(
+        ellipse 58% 58% at 50% 50%,
+        color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+        transparent 72%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    .landing-ecosystem-rings {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      margin: 0 auto;
+      z-index: 1;
+      filter:
+        drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 28%, transparent))
+        drop-shadow(0 0 32px color-mix(in srgb, var(--accent) 12%, transparent));
+    }
     .landing-ecosystem-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .landing-ecosystem-center {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       display: flex; flex-direction: column; align-items: center; gap: 0.35rem; z-index: 2;
       padding: 1.25rem; min-width: 100px; min-height: 90px; box-sizing: border-box;
     }
-    .landing-ecosystem-core-icon { font-size: 2.75rem; line-height: 1; filter: grayscale(0.15); }
-    .landing-ecosystem-core-label { color: var(--accent); font-weight: 600; font-size: 0.95rem; }
+    .landing-ecosystem-core-icon {
+      font-size: 2.75rem;
+      line-height: 1;
+      filter: grayscale(0.15)
+        drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 40%, transparent))
+        drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 18%, transparent));
+    }
+    .landing-ecosystem-core-label {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-shadow:
+        0 0 12px color-mix(in srgb, var(--accent) 45%, transparent),
+        0 0 24px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
     .landing-ecosystem-icon {
       position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin-left: -18px; margin-top: -18px;
       display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
@@ -347,7 +418,34 @@
       margin-top: 1.5rem;
       border-top: 1px solid var(--border);
     }
-    .ecosystem-vision-section > .flow-intro-title {
+    .ecosystem-vision-heading-wrap {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      padding: 1.25rem 1rem 0.35rem;
+      margin: 0 auto;
+      max-width: 44rem;
+    }
+    .ecosystem-vision-heading-wrap::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 45%;
+      width: min(100%, 28rem);
+      height: 5.5rem;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(
+        ellipse 85% 100% at 50% 50%,
+        color-mix(in srgb, var(--accent) 12%, transparent) 0%,
+        color-mix(in srgb, var(--accent) 4%, transparent) 45%,
+        transparent 72%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    .ecosystem-vision-heading-wrap .flow-intro-title {
+      position: relative;
+      z-index: 1;
       text-align: center;
       max-width: 40rem;
       margin-left: auto;
@@ -699,7 +797,7 @@
         </div>
       </div>
       <div class="cta-row">
-        <a href="/hub/" class="cta cta-secondary">Open the Hub (hosted beta)</a>
+        <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
         <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
       </div>
     </header>
@@ -774,7 +872,9 @@
   </section>
 
   <section class="ecosystem-vision-section wide" aria-labelledby="ecosystem-vision-heading">
-    <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
+    <div class="ecosystem-vision-heading-wrap">
+      <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
+    </div>
     <p class="ecosystem-vision-lead">Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
     <div class="ecosystem-vision-card">
       <h3 class="ecosystem-architecture-title">Future Facing Architecture</h3>
