@@ -1,4 +1,4 @@
-# Knowtation
+# Knowtation 📓
 
 **Accurate context. Lowest cost. Your data.**
 
@@ -6,7 +6,7 @@ Knowtation (*know* + *notation*) was built to solve one problem: **agents waste 
 
 ---
 
-## Why Knowtation exists
+## 💡 Why Knowtation exists
 
 An agent that dumps 5,000 tokens of unfiltered context into every prompt is **expensive and inaccurate**. Knowtation gives agents the tools to fetch 500 tokens of the *right* context instead:
 
@@ -18,7 +18,7 @@ The result: agents get **better answers at a fraction of the cost**, and that ad
 
 ---
 
-## How Knowtation is different
+## ✨ How Knowtation is different
 
 Most knowledge tools put a database at the center. Knowtation puts **files** at the center.
 
@@ -30,7 +30,9 @@ Most knowledge tools put a database at the center. Knowtation puts **files** at 
 
 ---
 
-## Quick start (~5 minutes)
+## 🚀 Quick start (~5 minutes)
+
+**At a glance:** clone the repo → `npm install` → copy `config/local.example.yaml` to `config/local.yaml` (set **`vault_path`**, vector store, embeddings) → **`npm run index`** → run **`node cli/index.mjs search "your query"`**. Optional: **Hub** (`npm run hub`) and **MCP** (`npm run mcp`).
 
 ```bash
 git clone https://github.com/aaronrene/knowtation.git
@@ -64,47 +66,47 @@ npm run mcp:http       # HTTP transport
 
 ---
 
-## Feature highlights
+## 🧩 Feature highlights
 
-### Imports — 14 sources, one vault
+### 📥 Imports — 14 sources, one vault
 
 ChatGPT, Claude, Mem0, NotebookLM, Google Drive, Notion, Jira, Linear, MIF, Supabase, generic Markdown, audio (Whisper), video (Whisper), wallet/exchange CSV. Each import is idempotent with `source`, `source_id`, `date` frontmatter. Four capture channels (file, webhook, Slack/Discord/Telegram adapters) for live ingestion.
 
-### Search and retrieval
+### 🔍 Search and retrieval
 
 Semantic search (vector similarity) and keyword search over an indexed vault. Filters: `--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`. Token levers: `--fields`, `--snippet-chars`, `--count-only`, `--body-only`, `--frontmatter-only`. Designed for agents that need precision without over-fetch.
 
-### Memory — 5 providers, persistent recall
+### 🧠 Memory — 5 providers, persistent recall
 
 File (default), vector, Mem0, Supabase/pgvector, and AES-256-GCM encrypted. Fifteen event types captured automatically. CLI: `memory query|list|store|search|clear|export|stats|index|consolidate`. MCP: `memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`, `memory_verify`, `memory_consolidate`, `memory_summarize`. Cross-vault or per-vault scope. Retention enforcement.
 
-### Consolidation daemon
+### 🔄 Consolidation daemon
 
 Three-pass LLM engine: consolidate (merge by topic), verify (check against vault state), discover (surface insights). Runs as a background daemon with configurable interval and cost caps.
 
-### MCP — 33 tools, 23 resources, 13 prompts
+### 🤖 MCP — 33 tools, 23 resources, 13 prompts
 
 Full vault operations, memory operations, Hub proposal operations. Resources for vault browsing, templates, media, index stats, graph, tags, projects, config, AIR log, and memory. Prompts for daily briefs, search synthesis, project summaries, meeting notes, knowledge gaps, causal chains, content plans, and memory-aware sessions. Hosted MCP adds role-gated access with OAuth 2.1.
 
-### Hub — proposals, review, collaboration
+### 🌐 Hub — proposals, review, collaboration
 
 Web UI and REST API. Google/GitHub OAuth. Proposals with LLM-assisted enrichment and rubric scoring. Team roles (viewer, editor, admin), multi-vault, GitHub backup, settings, and Stripe billing.
 
-### Attestation and ICP
+### 🔏 Attestation and ICP
 
 Intent attestation before writes and exports. HMAC-signed records with optional ICP blockchain anchoring for immutable, decentralized audit trails.
 
-### Wallet and blockchain
+### 🔗 Wallet and blockchain
 
 Import transaction CSVs from Coinbase, Binance, Ledger Live, and others. Per-transaction vault notes with chain, hash, amount, and date frontmatter — searchable and filterable alongside all other notes.
 
-### Billing
+### 💳 Billing
 
 Stripe-backed tiers (free, plus, growth, pro) with token packs, indexing quotas, consolidation pass limits, and note count caps. Shadow mode for usage tracking without enforcement.
 
 ---
 
-## Agent integration
+## 🤝 Agent integration
 
 Knowtation is designed as a **knowledge backend** for agents and orchestrators.
 
@@ -117,7 +119,7 @@ See [Agent Integration](./docs/AGENT-INTEGRATION.md) for patterns and examples.
 
 ---
 
-## Repository layout
+## 📂 Repository layout
 
 ```
 knowtation/
@@ -143,7 +145,7 @@ knowtation/
 
 ---
 
-## Documentation
+## 📖 Documentation
 
 | Document | What it covers |
 |----------|----------------|
@@ -168,7 +170,7 @@ Full docs index: **[docs/README.md](./docs/README.md)**
 
 ---
 
-## Prerequisites
+## ✅ Prerequisites
 
 - **Node.js 18+**
 - **Ollama** (optional, for local embeddings): [ollama.ai](https://ollama.ai) → `ollama pull nomic-embed-text`
@@ -176,7 +178,7 @@ Full docs index: **[docs/README.md](./docs/README.md)**
 
 ---
 
-## Set up with an AI coding assistant
+## 🧭 Set up with an AI coding assistant
 
 Knowtation can be installed and configured entirely through an AI-powered IDE. The **[AI-Assisted Setup Guide](./docs/AI-ASSISTED-SETUP.md)** provides copy-paste prompts organized into eight phases:
 
@@ -195,10 +197,10 @@ Works with **Cursor**, **Windsurf**, **Claude Code**, **GitHub Copilot Workspace
 
 ---
 
-## Contributing
+## 🙌 Contributing
 
 Contributions welcome. Please open an issue or PR on [GitHub](https://github.com/aaronrene/knowtation).
 
-## License
+## ⚖️ License
 
 Use and extend as you like. See LICENSE file for details.

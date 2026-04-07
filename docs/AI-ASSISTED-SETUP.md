@@ -1,40 +1,48 @@
-# AI-Assisted Setup Guide
+# 🤖 AI-Assisted Setup Guide
 
-Set up Knowtation with the help of an AI coding assistant. This guide provides **copy-paste prompts** organized into phases so your assistant handles the details while you make the decisions.
+Set up Knowtation with an AI coding assistant. Each phase below has a **simple title**, a **one-line goal**, a **copy-paste prompt**, then **technical notes** in short bullets so nothing feels like a wall of text.
+
+**How to use this page:** Pick a phase → paste the prompt into your assistant → skim the technical notes only if something fails or you want to know *why*.
 
 ---
 
-## Compatible AI IDEs and agents
+## 🖥️ Compatible AI IDEs and agents
 
-This guide works with any AI-powered development environment that can run terminal commands and edit files:
+Works anywhere you can run shell commands and edit files:
 
-- **Cursor** (recommended — includes SKILL.md auto-discovery)
-- **Windsurf**
-- **Claude Code**
-- **GitHub Copilot Workspace**
+- **Cursor** (recommended — auto-discovers `.cursor/skills/knowtation/SKILL.md`)
+- **Windsurf**, **Claude Code**, **GitHub Copilot Workspace**
 - **Cline / Continue / Aider**
-- **Any MCP-capable agent** that can execute shell commands
+- **Any MCP-capable agent** that can execute commands
 
-The prompts below are IDE-agnostic. Paste them into your assistant's chat and follow along.
+Prompts are IDE-agnostic unless noted.
 
 ---
 
-## Before you start
+## ✅ Before you start
 
-**What you need:**
-- Node.js 18+ installed
+**Goal:** Confirm you have the basics before phase 1.
+
+**You need**
+- Node.js **18+**
 - A terminal
-- An AI IDE with the Knowtation repo open
-- (Optional) An OpenAI API key for transcription and cloud embeddings
-- (Optional) Ollama installed for local embeddings
+- This repo open in your AI IDE
+- *(Optional)* `OPENAI_API_KEY` — cloud embeddings + transcription
+- *(Optional)* **Ollama** — local embeddings (`nomic-embed-text`)
 
-**Time estimate:** ~15 minutes with an AI assistant (vs ~30 minutes manually).
+**Time:** ~15 minutes with an assistant (~30 manual).
+
+**Technical notes**
+- Knowtation never requires committing `config/local.yaml` or `.env`.
+- Default path in docs assumes repo root as current directory.
 
 ---
 
-## Phase 1 — Clone, install, and configure (~3 minutes)
+## 📦 Phase 1 — Clone, install, and configure (~3 min)
 
-Paste this prompt into your AI assistant:
+**Goal:** Dependencies installed + `config/local.yaml` points at your vault.
+
+**Paste this prompt into your assistant**
 
 ```
 Clone and set up Knowtation for local use. Run these steps in order:
@@ -52,11 +60,18 @@ Clone and set up Knowtation for local use. Run these steps in order:
 Show me the final config before moving on.
 ```
 
-**What this does:** Sets up the repo, dependencies, and your personal config file. The assistant will ask you for your vault path and embedding preference.
+**Technical notes**
+- **`sqlite-vec`** keeps vectors on disk under `data/` — no separate vector DB process.
+- **Ollama:** run `ollama serve` and `ollama pull nomic-embed-text` before first index if you pick Ollama.
+- **`vault_path`** must be absolute on most setups.
 
 ---
 
-## Phase 2 — Index and verify search (~2 minutes)
+## 🔎 Phase 2 — Index and verify search (~2 min)
+
+**Goal:** Embeddings built; search returns real rows.
+
+**Paste this prompt**
 
 ```
 Now index my vault and verify search works:
@@ -68,13 +83,19 @@ Now index my vault and verify search works:
 5. Show me the results and confirm indexing worked (check note count and chunk count)
 ```
 
-**What this does:** Embeds your vault content into the vector store and confirms semantic search returns results.
+**Technical notes**
+- Re-run **`npm run index`** after bulk imports or config changes to embedding model.
+- **`--json`** makes output agent-friendly; omit for human-readable CLI text.
 
 ---
 
-## Phase 3 — Hub setup (optional, ~3 minutes)
+## 🌐 Phase 3 — Hub setup (optional, ~3 min)
 
-Skip this phase if you only want CLI/MCP access.
+**Goal:** Browser UI at `http://localhost:3333`.
+
+Skip if you only want CLI/MCP.
+
+**Paste this prompt**
 
 ```
 Set up the Knowtation Hub for web-based access:
@@ -92,11 +113,17 @@ For OAuth (Google/GitHub sign-in), I'll need my own OAuth app credentials later.
 See docs/setup.md for OAuth configuration details.
 ```
 
-**What this does:** Starts the Hub web interface where you can browse notes, review proposals, manage settings, and run searches from a browser.
+**Technical notes**
+- **OAuth** is optional for local smoke tests; full sign-in flow needs app credentials (see [setup.md](./setup.md)).
+- Port **3333** must be free; change in hub config if you collide.
 
 ---
 
-## Phase 4 — MCP server for AI agents (~2 minutes)
+## 🔌 Phase 4 — MCP server for AI agents (~2 min)
+
+**Goal:** Your IDE can call Knowtation’s **33 tools** over MCP.
+
+**Paste this prompt**
 
 ```
 Set up the Knowtation MCP server so AI agents can use my vault:
@@ -111,13 +138,18 @@ Set up the Knowtation MCP server so AI agents can use my vault:
 Reference: docs/AGENT-ORCHESTRATION.md has full MCP configuration examples.
 ```
 
-**What this does:** Connects your vault to any MCP-compatible AI agent. After this, your assistant can search, read, and write to your vault through MCP tools.
-
-**Cursor-specific:** Knowtation includes a SKILL.md at `.cursor/skills/knowtation/SKILL.md` that Cursor auto-discovers when the repo is open. This teaches the agent how to use Knowtation commands without needing MCP.
+**Technical notes**
+- **Cursor:** `.cursor/skills/knowtation/SKILL.md` teaches the agent Knowtation patterns even before MCP is wired.
+- **HTTP MCP:** `npm run mcp:http` when your client needs a URL instead of stdio.
+- Full examples: [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
 
 ---
 
-## Phase 5 — Memory layer (optional, ~2 minutes)
+## 🧠 Phase 5 — Memory layer (optional, ~2 min)
+
+**Goal:** Persistent **memory** events across sessions.
+
+**Paste this prompt**
 
 ```
 Enable the Knowtation memory layer so my agents have persistent recall:
@@ -138,11 +170,18 @@ For encrypted memory, also set:
    KNOWTATION_MEMORY_SECRET=<your-secret> in .env
 ```
 
-**What this does:** Enables persistent memory so agents remember what they searched, wrote, and exported across sessions. The consolidation daemon can later compress these events into insights.
+**Technical notes**
+- **`provider: file`** is the simplest; **vector / Mem0 / Supabase** scale up with extra config.
+- **Encryption:** set `KNOWTATION_MEMORY_SECRET` in `.env`; never commit it.
+- Consolidation (phase 7) compresses these events later.
 
 ---
 
-## Phase 6 — Import existing knowledge (optional, ~5 minutes)
+## 📥 Phase 6 — Import existing knowledge (optional, ~5 min)
+
+**Goal:** External exports land in your vault as Markdown + frontmatter.
+
+**Paste this prompt**
 
 ```
 Help me import my existing knowledge into Knowtation. I want to import from:
@@ -168,11 +207,18 @@ For each source:
 Reference: docs/IMPORT-SOURCES.md has formats and details for each source.
 ```
 
-**What this does:** Brings your existing knowledge from other platforms into one vault. Each import is idempotent — safe to re-run.
+**Technical notes**
+- Imports are **idempotent** (`source`, `source_id`, `date` in frontmatter).
+- Always **`npm run index`** after large imports.
+- Per-source flags and formats: [IMPORT-SOURCES.md](./IMPORT-SOURCES.md).
 
 ---
 
-## Phase 7 — Consolidation daemon (optional, ~2 minutes)
+## 🔄 Phase 7 — Consolidation daemon (optional, ~2 min)
+
+**Goal:** Background job merges memory events (and optional **Discover** insights).
+
+**Paste this prompt**
 
 ```
 Set up the consolidation daemon for automatic memory improvement:
@@ -189,9 +235,17 @@ The daemon runs three passes:
 - Discover: surface insights, contradictions, and open questions
 ```
 
+**Technical notes**
+- **Discover** adds LLM cost; often off until you want cross-topic insights.
+- Hosted deployments may enforce cooldowns and cost caps — see [MEMORY-CONSOLIDATION-GUIDE.md](./MEMORY-CONSOLIDATION-GUIDE.md).
+
 ---
 
-## Phase 8 — Vault Git backup (optional, ~2 minutes)
+## 📤 Phase 8 — Vault Git backup (optional, ~2 min)
+
+**Goal:** Vault directory tracked and pushable to a remote.
+
+**Paste this prompt**
 
 ```
 Set up Git backup for my vault:
@@ -208,11 +262,17 @@ Set up Git backup for my vault:
 4. Confirm the vault committed and pushed to the remote
 ```
 
+**Technical notes**
+- Start with **`auto_commit: false`** until you trust the flow.
+- Remote URL is your **vault** repo, not necessarily the Knowtation app repo.
+
 ---
 
-## Verification checklist
+## ✔️ Verification checklist
 
-After completing the phases you chose, paste this final prompt:
+**Goal:** One prompt to sanity-check everything you enabled.
+
+**Paste this prompt**
 
 ```
 Run a health check on my Knowtation setup. For each item, tell me pass/fail:
@@ -225,13 +285,17 @@ Run a health check on my Knowtation setup. For each item, tell me pass/fail:
 6. Show me a summary of what's working and what needs attention
 ```
 
+**Technical notes**
+- **`/health`** path assumes default Hub; adjust host/port if you customized them.
+
 ---
 
-## Troubleshooting prompts
+## 🔧 Troubleshooting prompts
 
-If something goes wrong, paste the relevant prompt:
+**Goal:** Drop-in debug prompts — still one block per issue.
 
-**Search returns zero results:**
+**Search returns zero results**
+
 ```
 My Knowtation search returns no results. Debug this:
 1. Check if the vault has any .md files: find <vault_path> -name "*.md" | head -10
@@ -240,7 +304,8 @@ My Knowtation search returns no results. Debug this:
 4. If needed, re-index: npm run index -- and show me the output
 ```
 
-**Hub won't start:**
+**Hub won't start**
+
 ```
 The Knowtation Hub won't start. Debug this:
 1. Check if port 3333 is already in use: lsof -i :3333
@@ -250,7 +315,8 @@ The Knowtation Hub won't start. Debug this:
 5. Show me any error messages
 ```
 
-**Memory not capturing events:**
+**Memory not capturing events**
+
 ```
 Knowtation memory isn't capturing events. Debug this:
 1. Check config: is memory.enabled true in config/local.yaml?
@@ -261,16 +327,14 @@ Knowtation memory isn't capturing events. Debug this:
 
 ---
 
-## Next steps
+## 🧭 Next steps
 
-Once your setup is verified:
-
-- **Read the whitepaper** for the full thesis and architecture: [docs/WHITEPAPER.md](./WHITEPAPER.md)
-- **Explore MCP tools** in your AI IDE — try `search`, `memory_query`, `daily-brief` prompt
-- **Set up imports** from your existing tools: [docs/IMPORT-SOURCES.md](./IMPORT-SOURCES.md)
-- **Review the CLI reference** for all commands and flags: [docs/RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md)
-- **Configure team access** if collaborating: [docs/TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md)
+- **Whitepaper (thesis + depth):** [WHITEPAPER.md](./WHITEPAPER.md)
+- **MCP tools to try:** `search`, `memory_query`, **`daily-brief`** prompt
+- **Imports:** [IMPORT-SOURCES.md](./IMPORT-SOURCES.md)
+- **All CLI flags:** [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md)
+- **Teams / roles:** [TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md)
 
 ---
 
-*This guide is designed to be pasted into any AI coding assistant. The prompts are self-contained — your assistant has everything it needs to execute each phase.*
+*Prompts are self-contained — your assistant can run each phase end-to-end. Technical notes are optional reading.*

@@ -1,12 +1,14 @@
-# Knowtation and agent orchestration
+# 🤖 Knowtation and agent orchestration
 
 **What this page is:** A practical guide for builders wiring Knowtation into **agent systems**—whether the agent talks over **MCP** (like Cursor) or runs **`knowtation` CLI** commands in a container. If you only want a one-page overview of CLI vs MCP vs Hub API, see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) first.
 
 Knowtation is designed as a **knowledge backend** for multi-agent orchestration systems. Orchestrators and their agents can read from and write to the vault via **CLI** or **MCP**. This doc describes both options and how to integrate with systems like [AgentCeption](https://github.com/cgcardona/agentception).
 
+**On this page:** Why both surfaces → **Option A (MCP)** → **Option B (CLI)** → **Patterns** → **AgentCeption** → **Summary** — scroll to the matching emoji heading.
+
 ---
 
-## Why both CLI and MCP?
+## 🧭 Why both CLI and MCP?
 
 | Context | Use |
 |--------|-----|
@@ -17,7 +19,7 @@ Recommendation: support **both**. Use MCP where the runtime already has MCP; use
 
 ---
 
-## Option A: MCP
+## 🔌 Option A: MCP
 
 1. **Run the Knowtation MCP server** (e.g. `knowtation mcp` or your package’s MCP entry point).
 2. **Configure your client** (Cursor, Claude Desktop, or the orchestrator’s MCP client) to use it. Example (Cursor / Claude):
@@ -44,7 +46,7 @@ Use **tiered retrieval** from the SKILL: small `limit`, `--fields path` or path+
 
 ---
 
-## Option B: CLI in the agent environment
+## 💻 Option B: CLI in the agent environment
 
 1. **Install Knowtation** in the environment where the agent runs (e.g. in the Docker image used by engineer agents, or on the host that runs the orchestrator).
 2. **Set env (and optional config):**  
@@ -60,24 +62,24 @@ Same **tiered retrieval** pattern: use `--limit`, `--fields path`, `--count-only
 
 ---
 
-## Patterns
+## 🎯 Patterns
 
-### Vault as knowledge backend (read)
+### 📖 Vault as knowledge backend (read)
 
 - **Before or during planning:** Search the vault for requirements, decisions, or prior context (e.g. `search "decisions about X" --project myapp --limit 5 --json`). Use results to enrich the plan or the brain dump.
 - **During execution:** When an engineer agent runs, it can call Knowtation (CLI or MCP) to get notes for the current project/component so code and PRs align with existing decisions.
 
-### Write-back (plans and summaries)
+### ✍️ Write-back (plans and summaries)
 
 - After a phase or after “Create Issues,” write a short summary or the plan into the vault so the next phase or the next run can search it. Example: pipe a phase summary into `knowtation write` with frontmatter `source: agentception`, `date`, `project`. See the optional bridge script in `scripts/write-to-vault.sh` (or equivalent in this repo).
 
-### Token and cost
+### 💸 Token and cost
 
 - Use retrieval levers: `--limit`, `--fields path`, `--snippet-chars`, `--count-only` for search/list-notes; `--body-only` or `--frontmatter-only` for get-note when you only need one part. This keeps context small and cost low when agents pull vault content into their context.
 
 ---
 
-## AgentCeption specifically
+## 🔗 AgentCeption specifically
 
 For integration patterns with external orchestrators, see **[AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)** and **[GETTING-STARTED.md](./GETTING-STARTED.md)** (agents section).
 
@@ -91,7 +93,7 @@ No change to AgentCeption’s core flow; Knowtation is an optional **context and
 
 ---
 
-## Summary
+## 📋 Summary
 
 | Goal | Use |
 |------|-----|
