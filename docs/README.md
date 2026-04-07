@@ -47,6 +47,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | Doc | Purpose |
 |-----|---------|
 | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases 1–16+ roadmap |
+| [archive/cursor-plans/ob1_vs_knowtation_analysis_ed7b7af1.plan.md](./archive/cursor-plans/ob1_vs_knowtation_analysis_ed7b7af1.plan.md) | Marketing + interop execution: Phases 1–5 **complete**; Phase 6 on **`feature/phase6-product-depth`** |
 | [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
 | [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Test checklist: notes to add, Hub UI checks, CLI commands |

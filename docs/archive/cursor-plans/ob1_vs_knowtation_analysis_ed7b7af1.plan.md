@@ -19,13 +19,15 @@ todos:
     status: completed
   - id: phase6-future
     content: "Phase 6 (Future): Import Guides, Integrations UX, starter templates, skill packs, setup wizard"
-    status: pending
+    status: in_progress
 isProject: false
 ---
 
 # Knowtation — Execution Plan (Phased)
 
 This plan covers UI polish, content (whitepaper + README), marketing site redesign, and interop docs. Sections 1-9 from the analysis are preserved below for reference; the execution phases start at section 10.
+
+**Current branch (Phase 6):** `feature/phase6-product-depth` — split from `main` after Phases 4–5 merged (2026-04).
 
 ---
 
@@ -127,9 +129,11 @@ Add to [`docs/AGENT-INTEGRATION.md`](docs/AGENT-INTEGRATION.md):
 
 ---
 
-### Phase 6 — Future work (deferred)
+### Phase 6 — Product depth (in progress)
 
-Not in this session. Tracked for later:
+**Branch:** `feature/phase6-product-depth` (from `main`, 2026-04).
+
+Tracked deliverables:
 - Per-source Import Guides with icons
 - Hub Integrations tab UX (icons, status indicators, grouping)
 - Starter vault templates (3-5) + seed script extension
