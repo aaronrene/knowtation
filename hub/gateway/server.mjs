@@ -300,7 +300,7 @@ app.get('/api/v1/auth/login', (req, res) => {
 // serverless function model (26s timeout, no shared memory between invocations).
 // On Netlify, only the OAuth discovery endpoints are mounted (lightweight, stateless).
 // The full /mcp session endpoint requires a persistent Express server (local dev, Docker, VPS,
-// or a dedicated MCP host like Railway/Fly.io). See docs/BACKLOG-MCP-SUPERCHARGE.md.
+// or a dedicated MCP host like Railway/Fly.io). See docs/AGENT-INTEGRATION.md §2 (hosted MCP).
 if (SESSION_SECRET && !process.env.NETLIFY) {
   import('./mcp-oauth-provider.mjs').then(async ({ KnowtationOAuthProvider }) => {
     const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');

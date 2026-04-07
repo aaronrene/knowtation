@@ -1,6 +1,8 @@
 # Backlog: MCP supercharge (from GitHub Issues #1, #2)
 
-**Sequencing:** [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) · [PARITY-PLAN.md](./PARITY-PLAN.md) — tests → hosted parity → multi-vault → MCP D2/D3.
+> **Archived — sequencing / issue history.** For **how to use** MCP and the Hub today, start with **[AGENT-INTEGRATION.md](../AGENT-INTEGRATION.md)** and **[AGENT-ORCHESTRATION.md](../AGENT-ORCHESTRATION.md)**. This file remains for the original phase tables and GitHub issue cross-reference.
+
+**Sequencing:** [STATUS-HOSTED-AND-PLANS.md](../STATUS-HOSTED-AND-PLANS.md) · [PARITY-PLAN.md](../PARITY-PLAN.md) — tests → hosted parity → multi-vault → MCP D2/D3.
 
 **What this doc is for:** If you are not deep in MCP jargon, think of it as a **roadmap checklist**: which “superpowers” (browseable resources, reusable prompts, live file updates, HTTP transport, etc.) are already in the Knowtation repo versus still planned. Engineers use it to sequence work; everyone else can skim the tables to see **done vs next**.
 
@@ -19,8 +21,8 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 **Practical order:**
 
 1. **Merge to `main`** — When the branch is ready, open a PR (or merge) so MCP improvements are not stranded; self-hosted users and Cursor clients benefit immediately.
-2. **Hosted parity first** — Follow [PARITY-PLAN.md](./PARITY-PLAN.md), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md), and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5: bridge deployed, `BRIDGE_URL` on the gateway, pre-roll checklist, redeploys as needed.
-2b. **Phase 15.1 — hosted multi-vault** (if product goal is parity with local): canister partitions by `vault_id`; vault list/access on hosted; see [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted multi-vault — what to build. Early deploys with almost no data: **minimal migration** (redeploy or one-shot default vault) is fine.
+2. **Hosted parity first** — Follow [PARITY-PLAN.md](../PARITY-PLAN.md), [STATUS-HOSTED-AND-PLANS.md](../STATUS-HOSTED-AND-PLANS.md), and [DEPLOY-HOSTED.md](../DEPLOY-HOSTED.md) §5: bridge deployed, `BRIDGE_URL` on the gateway, pre-roll checklist, redeploys as needed.
+2b. **Phase 15.1 — hosted multi-vault** (if product goal is parity with local): canister partitions by `vault_id`; vault list/access on hosted; see [MULTI-VAULT-AND-SCOPED-ACCESS.md](../MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted multi-vault — what to build. Early deploys with almost no data: **minimal migration** (redeploy or one-shot default vault) is fine.
 3. **Finish Issue #1 leftovers** — **D2/D3** (authenticated MCP via Hub), then **F2–F5** (extra sampling). Intentionally **after** hosted behavior (including multi-vault if shipped) is stable.
 4. **Issue #2** — Only **small, explicit slices** after the above; not the full “Infinite Machine Brain” in one go.
 
@@ -76,7 +78,7 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 ## Current state in the repo
 
 - **MCP today (Phase 9):** **Stdio** (default) + **Streamable HTTP** (D1) + **Hub MCP gateway** (D2/D3); base + Phase C tools + `enrich` (F2) + 6 memory tools; Phase A resources + 3 memory resources; Phase B prompts + 3 memory-aware prompts + F5 sampling prefill; Phase E; Phase H; Phase G; Phase **F1–F5** sampling (generic `trySampling`, enrich, search rerank, prompt prefill, index-enrich). **Hub MCP proxy** (`/mcp` endpoint with session pool, JWT auth, role-based ACL) and **OAuth 2.1** (`KnowtationOAuthProvider` with dynamic client registration, PKCE, MCP-scoped JWTs) both implemented.
-- **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](./PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
+- **Phase 2 (hosted):** Bridge deploy and pre-roll still in progress. [PARITY-PLAN.md](../PARITY-PLAN.md) says do not start Phase 3 (multi-vault) until Phase 2 is complete.
 - **IMPLEMENTATION-PLAN:** References this backlog; suggested prompts for agents is separate optional backlog item.
 
 ---
@@ -91,8 +93,8 @@ This doc tracks the **supercharge MCP** work from [GitHub Issue #1](https://gith
 
 ## Links
 
-- [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — main plan; Issues #1 and #2 point here.
-- [PARITY-PLAN.md](./PARITY-PLAN.md) — Phase 2 (deploy, bridge), Phase 3 (multi-vault).
-- [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) — current MCP/CLI usage.
-- [docs/README.md](./README.md) — documentation index.
+- [IMPLEMENTATION-PLAN.md](../IMPLEMENTATION-PLAN.md) — main plan; Issues #1 and #2 point here.
+- [PARITY-PLAN.md](../PARITY-PLAN.md) — Phase 2 (deploy, bridge), Phase 3 (multi-vault).
+- [AGENT-ORCHESTRATION.md](../AGENT-ORCHESTRATION.md) — MCP/CLI patterns.
+- [Documentation index](../README.md) — all docs.
 - Phase 9 (MCP server): IMPLEMENTATION-PLAN § Phase 9 — stdio transport, 7 tools.

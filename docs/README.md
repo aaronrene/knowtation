@@ -24,7 +24,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) | CLI reference and retrieval tips |
 | [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) | Consolidation, Discover, hosted billing per run, encrypt-aware prompts, advanced knobs, phased rollout |
 | [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | Import paths from ChatGPT, Claude, etc. |
-| [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md) | MCP roadmap and phased features |
+| [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md) | Hub proposals: states, review, approve/discard |
 
 ## Hosted product (ICP + gateway + bridge)
 
@@ -47,6 +47,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | Doc | Purpose |
 |-----|---------|
 | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases 1–16+ roadmap |
+| [archive/cursor-plans/marketing-interop-execution_ed7b7af1.plan.md](./archive/cursor-plans/marketing-interop-execution_ed7b7af1.plan.md) | Marketing + interop execution: Phases 1–5 **complete**; Phase 6 on **`feature/phase6-product-depth`** |
 | [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
 | [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Test checklist: notes to add, Hub UI checks, CLI commands |
@@ -62,11 +63,12 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 
 | Doc | Purpose |
 |-----|---------|
-| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, OB1 analysis) — not loose in `.cursor/plans/` |
+| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, marketing/interop execution) — not loose in `.cursor/plans/` |
+| [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md) | Archived: original MCP GitHub issue phase tables (historical sequencing) |
+| [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) | Archived: long-form Muse × Knowtation design notes |
 | [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) | Proposal **review hints** vs **Enrich** (LLM); roadmap pointer to extended Enrich |
 | [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md) | Plan: Enrich → recommend project, chain, entity, episode, follows, title, … |
 | [openapi.yaml](./openapi.yaml) | OpenAPI sketch for Hub API |
 | [CLI-JSON-SCHEMA.md](./CLI-JSON-SCHEMA.md) | CLI JSON shapes |
-| [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) | Proposals / variation protocol notes |
 
 Session-only notes, forensic write-ups, and per-phase MCP implementation memos were **removed from this tree** for a cleaner OSS repo; maintainers may keep copies under **`development/`** (see repo `.gitignore`).

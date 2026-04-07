@@ -2,7 +2,7 @@
 
 This document defines the **Hub REST API contract** and **auth model** for Phase 11. The same contract is implemented by (a) the self-hosted Node server (Docker) and (b) the ICP canister(s). The Hub UI and CLI talk to either deployment using the same routes and JSON shapes.
 
-**Reference:** [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) (proposals, review, commit), [SPEC.md](./SPEC.md) §4 (CLI semantics), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 11.
+**Reference:** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (proposals), [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md), [SPEC.md](./SPEC.md) §4 (CLI semantics), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 11.
 
 ---
 
@@ -159,7 +159,7 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
 
 **Lifecycle reference:** [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md) (states, roles, `kn1_` / `base_state_id` semantics).
 
-**Optional Muse linkage (operators).** A deployment may configure a **read-only** connection to a Muse instance for **lineage / structural history** queries (e.g. Git-replayed history in Muse’s model). That path is **not** required for JWT login, proposal CRUD, vault writes, or search. See [MUSE-STYLE-EXTENSION.md](./MUSE-STYLE-EXTENSION.md) §6.3.
+**Optional Muse linkage (operators).** A deployment may configure a **read-only** connection to a Muse instance for **lineage / structural history** queries (e.g. Git-replayed history in Muse’s model). That path is **not** required for JWT login, proposal CRUD, vault writes, or search. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (*Optional external lineage*).
 
 - **POST /proposals** — Create a proposal (variation). Body: `{ "path?", "body?", "frontmatter?", "intent?", "base_state_id?", "external_ref?", "labels?" (string[]), "source?" (e.g. agent|human|import) }`. If path omitted, proposal may be a new note (server assigns path or client sends path).  
   **Response:** `{ "proposal_id": "...", "path": "...", "status": "proposed", ... }`.  

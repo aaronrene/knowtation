@@ -1,6 +1,6 @@
 ---
-name: OB1 vs Knowtation Analysis
-overview: Strategic comparison with OB1, interop, product inventory, aligned README/whitepaper/site refresh, and Hub UI polish — phased for execution.
+name: Knowtation marketing & interop execution
+overview: Phased UI polish, README/whitepaper, marketing site, agent interop docs, and product-depth follow-ups — execution checklist.
 todos:
   - id: phase1-ui-polish
     content: "Phase 1 (Sonnet): Hub UI polish — merge Agents into Integrations, widen settings, section spacing, border brightness +10-20%, button visibility, media toolbar borders, search hover, chip/label boldness"
@@ -13,19 +13,21 @@ todos:
     status: completed
   - id: phase4-website
     content: "Phase 4 (Opus): Redesign web/index.html — vertical flow, 8 sections, icons + plain language + accordions"
-    status: pending
+    status: completed
   - id: phase5-interop-docs
     content: "Phase 5 (Sonnet): Dual MCP + Supabase bridge documentation in docs/AGENT-INTEGRATION.md"
-    status: pending
+    status: completed
   - id: phase6-future
     content: "Phase 6 (Future): Import Guides, Integrations UX, starter templates, skill packs, setup wizard"
-    status: pending
+    status: in_progress
 isProject: false
 ---
 
 # Knowtation — Execution Plan (Phased)
 
 This plan covers UI polish, content (whitepaper + README), marketing site redesign, and interop docs. Sections 1-9 from the analysis are preserved below for reference; the execution phases start at section 10.
+
+**Current branch (Phase 6):** `feature/phase6-product-depth` — split from `main` after Phases 4–5 merged (2026-04).
 
 ---
 
@@ -75,7 +77,7 @@ Revise [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) to incorporate:
 - The full product inventory from section 4 of this plan
 - Shipped features replace "planned" language
 - New sections on: encrypted memory, consolidation daemon, wallet/blockchain imports, attestation/ICP, Supabase bridge, MCP depth (tools/resources/prompts), media pointers
-- Positioning vs OB1 and similar tools (without naming OB1 directly — frame as "database-centric vs vault-centric")
+- Positioning vs database-centric stacks — frame as "database-centric vs vault-centric"
 
 **Why Opus:** This requires thesis-quality prose, architectural reasoning, and the ability to weave dozens of technical features into a coherent narrative. The whitepaper sets the tone for everything downstream.
 
@@ -105,8 +107,8 @@ Restructure [`README.md`](README.md) to:
 Replace [`web/index.html`](web/index.html) with the vertical-flow design from section 6 of the analysis:
 - 8 sections, each: icon (SVG or emoji) → headline → 2-3 plain sentences → `<details>` accordion with technical depth
 - Mobile-first single column; optional two-column on desktop where natural
-- No tables anywhere
-- Password gate preserved if still needed
+- No tables anywhere (marketing page may use cards/grids; principle: scannable layout)
+- Password gate removed for public landing (ship ungated `web/index.html`)
 - Sign-in links preserved
 - Fonts: keep Instrument Serif + Outfit (or upgrade if better pairing found)
 
@@ -121,15 +123,17 @@ Replace [`web/index.html`](web/index.html) with the vertical-flow design from se
 Add to [`docs/AGENT-INTEGRATION.md`](docs/AGENT-INTEGRATION.md):
 - Dual MCP configuration examples (Knowtation + a second brain in Claude Desktop / Cursor)
 - Supabase bridge documentation (import from any Supabase table, optional memory dual-write)
-- Not framed as OB1-specific; general interoperability
+- Vendor-neutral interoperability (any host combining vault + Postgres)
 
 **Files touched:** [`docs/AGENT-INTEGRATION.md`](docs/AGENT-INTEGRATION.md)
 
 ---
 
-### Phase 6 — Future work (deferred)
+### Phase 6 — Product depth (in progress)
 
-Not in this session. Tracked for later:
+**Branch:** `feature/phase6-product-depth` (from `main`, 2026-04).
+
+Tracked deliverables:
 - Per-source Import Guides with icons
 - Hub Integrations tab UX (icons, status indicators, grouping)
 - Starter vault templates (3-5) + seed script extension
@@ -147,7 +151,7 @@ Not in this session. Tracked for later:
 ## Original analysis sections (reference)
 
 ### Architecture comparison
-OB1: PostgreSQL + pgvector (Supabase). Knowtation: Markdown vault + optional vector store. Supabase is optional bridge in Knowtation.
+**Database-centric pattern:** PostgreSQL + pgvector (Supabase). **Knowtation:** Markdown vault + optional vector store. Supabase is an optional bridge in Knowtation.
 
 ### Interoperability
 Dual MCP (both servers in one client). Supabase import ([`lib/importers/supabase-memory.mjs`](lib/importers/supabase-memory.mjs)) + optional memory provider ([`lib/memory-provider-supabase.mjs`](lib/memory-provider-supabase.mjs)).
@@ -165,6 +169,8 @@ See section 4 in the previous plan revision — all items from authentication th
 7. Propose, review, and trust (proposals workflow, attestation, ICP anchoring)
 8. Your data, your infrastructure (self-hosted, hosted, GitHub, billing)
 
-### Differentiation vs OB1
-Knowtation: data portability, agent depth, memory intelligence, trust pipeline, monetization, deployment flexibility, Supabase bridge, wallet/blockchain.
-OB1: README polish, community framework, multiple dashboards, domain skill packs.
+### Differentiation (positioning)
+
+**Knowtation:** data portability, agent depth, memory intelligence, trust pipeline, monetization, deployment flexibility, Supabase bridge, wallet/blockchain.
+
+**Common patterns in comparable products:** README polish, community framework, multiple dashboards, domain skill packs.

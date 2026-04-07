@@ -100,7 +100,7 @@
   const ACCENT_STORAGE_KEY = 'hub_accent_color';
   const THEME_STORAGE_KEY = 'hub_theme';
   const COLOR_PALETTE_STORAGE_KEY = 'hub_color_palette';
-  const DEFAULT_ACCENT = '#22d3ee';
+  const DEFAULT_ACCENT = '#89cff0';
   const DEFAULT_THEME = 'dark';
   const DEFAULT_COLOR_PALETTE = 'default';
   const VALID_COLOR_PALETTES = new Set([
@@ -2150,8 +2150,8 @@
       maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#a1a1a1' } } },
       scales: {
-        x: { ticks: { color: '#a1a1a1' }, grid: { color: '#262626' } },
-        y: { ticks: { color: '#a1a1a1' }, grid: { color: '#262626' } },
+        x: { ticks: { color: '#a1a1a1' }, grid: { color: '#2a3f5c' } },
+        y: { ticks: { color: '#a1a1a1' }, grid: { color: '#2a3f5c' } },
       },
     };
 
@@ -2161,7 +2161,7 @@
         type: 'bar',
         data: {
           labels: topProjects.map((x) => x[0]),
-          datasets: [{ label: 'Notes', data: topProjects.map((x) => x[1]), backgroundColor: 'rgba(34, 211, 238, 0.5)', borderColor: '#22d3ee' }],
+          datasets: [{ label: 'Notes', data: topProjects.map((x) => x[1]), backgroundColor: 'rgba(137, 207, 240, 0.5)', borderColor: '#89cff0' }],
         },
         options: { ...commonOpts, plugins: { ...commonOpts.plugins, title: { display: true, text: 'By project', color: '#fafafa' } } },
       })
@@ -2173,7 +2173,7 @@
         type: 'doughnut',
         data: {
           labels: topTags.map((x) => x[0]),
-          datasets: [{ data: topTags.map((x) => x[1]), backgroundColor: ['#22d3ee', '#22c55e', '#a78bfa', '#f472b6', '#fb923c', '#38bdf8', '#4ade80', '#c084fc'] }],
+          datasets: [{ data: topTags.map((x) => x[1]), backgroundColor: ['#89cff0', '#22c55e', '#a78bfa', '#f472b6', '#fb923c', '#6b9dc4', '#4ade80', '#c084fc'] }],
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a1a1a1' } }, title: { display: true, text: 'Top tags', color: '#fafafa' } } },
       })
@@ -2185,7 +2185,7 @@
         type: 'line',
         data: {
           labels: weeks,
-          datasets: [{ label: 'Notes per month', data: weeks.map((w) => byWeek[w]), borderColor: '#22d3ee', backgroundColor: 'rgba(34, 211, 238, 0.1)', fill: true, tension: 0.2 }],
+          datasets: [{ label: 'Notes per month', data: weeks.map((w) => byWeek[w]), borderColor: '#89cff0', backgroundColor: 'rgba(137, 207, 240, 0.1)', fill: true, tension: 0.2 }],
         },
         options: { ...commonOpts, plugins: { ...commonOpts.plugins, title: { display: true, text: 'By month (note date)', color: '#fafafa' } } },
       })
@@ -4718,7 +4718,12 @@
     };
   }
 
-  const currentAccent = () => document.documentElement.style.getPropertyValue('--accent').trim() || DEFAULT_ACCENT;
+  const currentAccent = () => {
+    const inline = document.documentElement.style.getPropertyValue('--accent').trim();
+    if (inline) return inline;
+    const fromCss = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    return fromCss || DEFAULT_ACCENT;
+  };
   function paintAccentSwatches() {
     document.querySelectorAll('.accent-swatch').forEach((btn) => {
       const hex = btn.dataset.accent;
@@ -6310,6 +6315,9 @@
       } else if (el('modal-projects-help') && !el('modal-projects-help').classList.contains('hidden')) {
         closeProjectsHelpModal();
         e.preventDefault();
+      } else if (el('search-key-help')?.open) {
+        el('search-key-help').open = false;
+        e.preventDefault();
       }
       return;
     }
@@ -6348,6 +6356,13 @@
         e.preventDefault();
       }
     }
+  });
+
+  document.addEventListener('click', (e) => {
+    const keyHelp = el('search-key-help');
+    if (!keyHelp || !keyHelp.open) return;
+    if (keyHelp.contains(e.target)) return;
+    keyHelp.open = false;
   });
 
   document.querySelectorAll('.tab').forEach((tab) => {
