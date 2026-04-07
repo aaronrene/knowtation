@@ -135,19 +135,7 @@
           <button id="btn-search" type="button" class="btn-primary" title="Run search (mode from dropdown: Meaning or Keyword). Results appear under the Notes tab. Respects filters. Enter also runs search." aria-label="Search vault">Search</button>
           <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear search, list filters (project/tag/folder/etc.), and content scope — show the full note list" aria-label="Clear search and list filters">Clear</button>
           <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
-          <span class="search-reindex-key-cluster">
-            <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
-            <details id="search-key-help" class="search-key-details">
-              <summary class="search-key-summary" title="How Notes, Activity, search modes, filters, and re-index work">
-                <span class="search-key-word">Key</span>
-                <span class="search-key-chevron" aria-hidden="true">▼</span>
-              </summary>
-              <div class="search-key-body muted small">
-                <p class="search-key-body-lead"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. Use <strong>All</strong> in Quick (or <strong>Clear</strong>) to drop filters and see the full list again. <strong>Meaning</strong> needs an up-to-date index (re-index after big changes). <strong>Keyword</strong> scans note text on the server.</p>
-                <p><strong>Re-index</strong> rebuilds the search index from your vault. Run it after big imports, many edits, or path renames so <strong>Meaning</strong> search and snippets match what is on disk.</p>
-              </div>
-            </details>
-          </span>
+          <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
         </div>
       </section>
 
@@ -157,6 +145,30 @@
           <button type="button" class="view-tab active" data-view="list">List</button>
           <button type="button" class="view-tab" data-view="calendar">Calendar</button>
           <button type="button" class="view-tab" data-view="graph">Overview</button>
+          <div class="browse-key-wrap">
+            <details id="search-key-help" class="browse-toolbar-key-details">
+              <summary class="search-key-summary" aria-label="Help: Notes, filters, search modes, and re-index. Click again to close." title="How Notes, Activity, search modes, filters, and re-index work">
+                <svg class="search-key-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="7.5" cy="12.5" r="3.5"/>
+                  <path d="M10.5 12.5H21"/>
+                  <path d="M16.5 12.5v3"/>
+                  <path d="M19.5 12.5v1.5"/>
+                </svg>
+                <span class="search-key-collapse-cue" aria-hidden="true">▲</span>
+              </summary>
+              <div class="search-key-body">
+                <ul class="search-key-list">
+                  <li><strong class="search-key-term">Notes</strong> — Vault files (including <code>approvals/</code> logs).</li>
+                  <li><strong class="search-key-term">Activity</strong> — Proposal workflow only. Search does not filter it.</li>
+                  <li><strong class="search-key-term">Quick</strong> chips and the content dropdown apply to the Notes list and Search.</li>
+                  <li><strong class="search-key-term">All</strong> — Use in Quick (or <strong class="search-key-term">Clear</strong>) to drop filters and see the full list again.</li>
+                  <li><strong class="search-key-term">Meaning</strong> search needs an up-to-date index (use <strong class="search-key-term">Re-index</strong> after big changes).</li>
+                  <li><strong class="search-key-term">Keyword</strong> scans note text on the server.</li>
+                </ul>
+                <p class="search-key-reindex"><strong class="search-key-term">Re-index</strong> rebuilds the search index from your vault. Run it after big imports, many edits, or path renames so <strong class="search-key-term">Meaning</strong> search and snippets match what is on disk.</p>
+              </div>
+            </details>
+          </div>
         </div>
         <div id="filter-chips" class="filter-chips"></div>
         <div class="presets-row">
