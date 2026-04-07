@@ -626,63 +626,6 @@
       font-size: 0.86em;
     }
 
-    .flow-templates-skills {
-      margin-top: 1.35rem;
-      padding-top: 1.2rem;
-      border-top: 1px solid var(--border);
-      max-width: 38em;
-    }
-    .flow-ts-kicker {
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--text-muted);
-      margin: 0 0 0.5rem;
-    }
-    .flow-ts-heading {
-      font-family: var(--font-sans);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text);
-      margin: 0 0 0.45rem;
-      letter-spacing: -0.02em;
-      line-height: 1.25;
-    }
-    .flow-ts-heading--skills {
-      margin-top: 1rem;
-    }
-    .flow-ts-list {
-      margin: 0;
-      padding-left: 1.15rem;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      line-height: 1.55;
-    }
-    .flow-ts-list li { margin-bottom: 0.32rem; }
-    .flow-ts-list strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-    .flow-ts-skills-summary {
-      margin: 0 0 0.5rem;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      line-height: 1.55;
-    }
-    .flow-ts-doc {
-      margin: 0.9rem 0 0;
-      font-size: 0.86rem;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-    .flow-ts-doc a {
-      color: var(--accent);
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .flow-ts-doc a:hover { text-decoration: underline; }
-
     .flow-closing {
       text-align: center;
       padding: 2rem 1.5rem 3rem;
@@ -961,30 +904,48 @@
             </ul>
           </div>
         </details>
-        <section class="flow-templates-skills" aria-labelledby="flow-ts-templates-heading">
-          <p class="flow-ts-kicker">Skills and templates</p>
-          <h3 id="flow-ts-templates-heading" class="flow-ts-heading">Templates</h3>
-          <p class="flow-ts-skills-summary">Ready-made folder layouts and example notes—copy into a vault or seed a hosted account with <code>npm run seed:template-*</code>.</p>
-          <ul class="flow-ts-list">
-            <li><strong>Research lab</strong> — Literature, protocols, experiments, meetings</li>
-            <li><strong>Business ops</strong> — Decisions, customers, playbooks, competitive intel</li>
-            <li><strong>Finance</strong> — Thesis, positions, transactions, tax and reports</li>
-            <li><strong>Engineering team</strong> — Architecture, runbooks, incidents, retros</li>
-            <li><strong>Personal knowledge</strong> — Inbox, projects, areas, journal</li>
-            <li><strong>Smart home</strong> — Devices, automations, energy, maintenance</li>
-            <li><strong>Content creation</strong> — Drafts, research, outlines, style guide</li>
-            <li><strong>Education</strong> — Courses, assignments, study notes, schedule</li>
-          </ul>
-          <h3 class="flow-ts-heading flow-ts-heading--skills">Skill packs</h3>
-          <p class="flow-ts-skills-summary"><strong>Domain:</strong> research assistant, business analyst, financial ops. <strong>Marketing pipeline:</strong> research, strategy, writer, editor, visual, distribution, analytics—agent playbooks that use MCP prompts and your vault structure.</p>
-          <p class="flow-ts-doc"><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TEMPLATES-AND-SKILLS.md" target="_blank" rel="noopener">Templates and skills — full reference</a> (how templates, skills, and MCP prompts fit together, seed commands, activation).</p>
-        </section>
       </div>
     </article>
 
     <article class="flow-step">
       <div class="flow-visual">
         <p class="flow-step-num">Step 3</p>
+        <span class="flow-icon" aria-hidden="true">📚</span>
+        <p class="flow-visual-caption">Starter vault layouts and agent skill packs—before agents run wide.</p>
+      </div>
+      <div class="flow-body">
+        <h2>Templates and Skills</h2>
+        <p><strong>Templates</strong> are example folders and notes you copy or seed into a vault. <strong>Skill packs</strong> are agent playbooks (Cursor and similar) that say how to search, which MCP prompts to use, and how outputs should look. Together they give you a sane default between importing data and letting agents work the vault.</p>
+        <details class="flow-details">
+          <summary>Technical details</summary>
+          <div class="detail-inner">
+            <p class="flow-detail-heading">Vault templates</p>
+            <p>Each template lives under <code>vault/templates/&lt;name&gt;/</code> with a README and sample notes. Hosted: set <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code>, then <code>npm run seed:template-research-lab</code> (or <code>business-ops</code>, <code>finance</code>, <code>engineering-team</code>, <code>personal-knowledge</code>, <code>smart-home</code>, <code>content-creation</code>, <code>education</code>).</p>
+            <ul>
+              <li><strong>Research lab</strong> — literature, protocols, experiments, meetings</li>
+              <li><strong>Business ops</strong> — decisions, customers, playbooks, competitive</li>
+              <li><strong>Finance</strong> — thesis, positions, transactions, tax, reports</li>
+              <li><strong>Engineering team</strong> — architecture, runbooks, incidents, retros</li>
+              <li><strong>Personal knowledge</strong> — inbox, projects, areas, journal</li>
+              <li><strong>Smart home</strong> — devices, automations, energy, maintenance</li>
+              <li><strong>Content creation</strong> — drafts, research, outlines, style guide</li>
+              <li><strong>Education</strong> — courses, assignments, study notes, schedule</li>
+            </ul>
+            <p class="flow-detail-heading">Skill packs</p>
+            <p>Domain skills: <strong>research-assistant</strong>, <strong>business-analyst</strong>, <strong>financial-ops</strong>. Marketing pipeline (seven): <strong>marketing-research</strong>, <strong>marketing-strategy</strong>, <strong>marketing-writer</strong>, <strong>marketing-editor</strong>, <strong>marketing-visual</strong>, <strong>marketing-distribution</strong>, <strong>marketing-analytics</strong>. Files live under <code>.cursor/skills/packs/&lt;name&gt;/SKILL.md</code>; they compose with MCP prompts and the base knowtation skill.</p>
+            <ul>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TEMPLATES-AND-SKILLS.md" target="_blank" rel="noopener">Templates and skills — architecture, lists, seed and activation</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/SHOWCASE-VAULT.md" target="_blank" rel="noopener">Showcase vault and seed scripts</a></li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration</a> (CLI, MCP, Hub API)</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <article class="flow-step">
+      <div class="flow-visual">
+        <p class="flow-step-num">Step 4</p>
         <span class="flow-icon" aria-hidden="true">🤖</span>
         <p class="flow-visual-caption">Agents get the right context, not the whole vault.</p>
       </div>
@@ -1011,7 +972,7 @@
 
     <article class="flow-step">
       <div class="flow-visual">
-        <p class="flow-step-num">Step 4</p>
+        <p class="flow-step-num">Step 5</p>
         <span class="flow-icon" aria-hidden="true">🧠</span>
         <p class="flow-visual-caption">Re-index when content changes; compress memory; Discover cross-topic insights.</p>
       </div>
@@ -1034,7 +995,7 @@
 
     <article class="flow-step">
       <div class="flow-visual">
-        <p class="flow-step-num">Step 5</p>
+        <p class="flow-step-num">Step 6</p>
         <span class="flow-icon" aria-hidden="true">🐙</span>
         <p class="flow-visual-caption">Tie the vault to GitHub for history and portability.</p>
       </div>
@@ -1056,7 +1017,7 @@
 
     <article class="flow-step">
       <div class="flow-visual">
-        <p class="flow-step-num">Step 6</p>
+        <p class="flow-step-num">Step 7</p>
         <span class="flow-icon" aria-hidden="true">⬡</span>
         <p class="flow-visual-caption">Hosted data on ICP; or run everything yourself.</p>
       </div>
@@ -1079,7 +1040,7 @@
 
     <article class="flow-step">
       <div class="flow-visual">
-        <p class="flow-step-num">Step 7</p>
+        <p class="flow-step-num">Step 8</p>
         <span class="flow-icon" aria-hidden="true">🌐</span>
         <p class="flow-visual-caption">Use it in the browser from anywhere; share at role granularity.</p>
       </div>
@@ -1101,7 +1062,7 @@
 
     <article class="flow-step">
       <div class="flow-visual">
-        <p class="flow-step-num">Step 8</p>
+        <p class="flow-step-num">Step 9</p>
         <span class="flow-icon" aria-hidden="true">🏷️</span>
         <p class="flow-visual-caption">Tags, entities, episodes, and causal chains — optional but powerful.</p>
       </div>
