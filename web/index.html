@@ -4,25 +4,49 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Knowtation: Markdown vault you own, semantic search, MCP and CLI for agents, memory consolidation, hosted or self-hosted.">
-  <meta name="theme-color" content="#050505">
+  <meta name="theme-color" content="#0a192f">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <title>Knowtation — Know and own your data</title>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('knowtation-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <style>
     :root {
       --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      --bg: #050505;
-      --surface: #0d0d0d;
-      --surface-elevated: #141414;
+      --bg: #0a192f;
+      --surface: #0d2138;
+      --surface-elevated: #152a45;
       --text: #fafafa;
       --text-muted: #a1a1a1;
-      --accent: #22d3ee;
-      --accent-dim: rgba(34, 211, 238, 0.15);
-      --accent-soft: rgba(34, 211, 238, 0.08);
-      --border: #2e2e2e;
+      --accent: #89cff0;
+      --accent-dim: rgba(137, 207, 240, 0.18);
+      --accent-soft: rgba(137, 207, 240, 0.1);
+      --accent-glow: color-mix(in srgb, var(--accent) 32%, transparent);
+      --cta-on-accent: #0a1628;
+      --border: #2a3f5c;
       --success: #34d399;
       --radius: 12px;
       --radius-lg: 20px;
-      --hero-grey: #8e8e8e;
+      --hero-grey-lines: #e4e4e4;
+    }
+    html[data-theme="light"] {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-elevated: #eef2f8;
+      --text: #0f172a;
+      --text-muted: #556070;
+      --border: #d8dee9;
+      --accent: #5eb8e8;
+      --accent-dim: rgba(94, 184, 232, 0.2);
+      --accent-soft: rgba(94, 184, 232, 0.12);
+      --accent-glow: color-mix(in srgb, var(--accent) 28%, transparent);
+      --cta-on-accent: #0a1628;
+      --hero-grey-lines: #4a5a6a;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -47,6 +71,28 @@
       flex-wrap: wrap;
       border-bottom: 1px solid var(--border);
     }
+    .theme-toggle {
+      margin-right: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .theme-toggle:hover {
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: var(--surface-elevated);
+    }
+    .theme-toggle .theme-toggle-icon { font-size: 1rem; line-height: 1; }
     .landing-header .cta-signin {
       padding: 0.5rem 1rem;
       font-size: 0.9rem;
@@ -72,26 +118,86 @@
       font-weight: 400;
       line-height: 1.45;
     }
+    .hero-brand-sub-accent {
+      color: var(--accent);
+    }
     .hero-messages {
       max-width: 38rem;
       margin: 0 auto 1.5rem;
       text-align: center;
     }
     .hero-messages p {
-      margin: 0 0 0.55rem;
+      margin: 0 0 0.5rem;
       font-size: 1.1rem;
-      color: var(--hero-grey);
+      color: var(--hero-grey-lines);
       line-height: 1.55;
       font-weight: 400;
     }
     .hero-messages p:last-child { margin-bottom: 0; }
+
+    .deploy-headlines {
+      text-align: center;
+      max-width: 42rem;
+      margin: 0 auto 2.25rem;
+      padding: 2.5rem 1.5rem 2.35rem;
+    }
+    .deploy-headlines .deploy-title {
+      font-family: var(--font-sans);
+      font-size: clamp(1.05rem, 2.2vw, 1.28rem);
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+      margin: 0;
+    }
+    .spotlight-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      max-width: 1100px;
+      margin: 0 auto 2rem;
+      padding: 0 1.5rem;
+    }
+    @media (max-width: 768px) {
+      .spotlight-pair { grid-template-columns: 1fr; }
+    }
+    .spotlight-card {
+      padding: 1.5rem 1.35rem;
+      text-align: center;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+    }
+    .spotlight-card-icon {
+      font-size: 2.1rem;
+      line-height: 1;
+      margin-bottom: 0.45rem;
+    }
+    .spotlight-card h2 {
+      font-family: var(--font-sans);
+      font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+      font-weight: 700;
+      margin: 0 0 0.55rem;
+      color: var(--text);
+    }
+    .spotlight-card p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .spotlight-card a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .spotlight-card a:hover { text-decoration: underline; }
 
     .cta {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
       background: var(--accent);
-      color: #000;
+      color: var(--cta-on-accent);
       padding: 0.85rem 1.75rem;
       border-radius: 10px;
       font-weight: 600;
@@ -101,7 +207,7 @@
     }
     .cta:hover {
       transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25);
+      box-shadow: 0 8px 24px var(--accent-glow);
     }
     .cta-secondary {
       background: transparent;
@@ -134,7 +240,10 @@
       text-decoration: none;
       letter-spacing: 0.02em;
     }
-    .badge:hover { background: rgba(34, 211, 238, 0.25); color: var(--accent); }
+    .badge:hover {
+      background: color-mix(in srgb, var(--accent) 28%, transparent);
+      color: var(--accent);
+    }
     .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
 
     /* Ecosystem rings (hero graphic) */
@@ -181,6 +290,10 @@
       max-width: 44rem;
       margin: 0 auto;
     }
+    .flow-intro-block--after-ecosystem {
+      padding-top: 2.75rem;
+      padding-bottom: 1.5rem;
+    }
     .flow-intro-title {
       font-family: var(--font-sans);
       font-size: clamp(1.45rem, 4.2vw, 2.15rem);
@@ -197,49 +310,8 @@
       margin: 0 0 0.85rem;
       font-weight: 400;
     }
-    .flow-intro-hint {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--accent);
-      margin: 0;
-    }
-
-    .attestation-spotlight {
-      max-width: 40rem;
-      margin: 0 auto 2rem;
-      padding: 1.5rem 1.75rem;
-      text-align: center;
-      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-      border-radius: var(--radius-lg);
-      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
-    }
-    .attestation-spotlight-icon {
-      font-size: 2.25rem;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-    }
-    .attestation-spotlight h2 {
-      font-family: var(--font-sans);
-      font-size: clamp(1.15rem, 2.5vw, 1.35rem);
-      font-weight: 700;
-      margin: 0 0 0.6rem;
-      color: var(--text);
-    }
-    .attestation-spotlight p {
-      margin: 0;
-      font-size: 0.98rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-    .attestation-spotlight a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .attestation-spotlight a:hover { text-decoration: underline; }
-
     .feature-highlights {
-      padding: 2.5rem 0 1rem;
+      padding: 2.5rem 0 2.75rem;
       border-top: 1px solid var(--border);
     }
     .feature-highlights h2 {
@@ -260,8 +332,109 @@
     }
     .feature-highlights-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 1.25rem;
+    }
+    @media (max-width: 1024px) {
+      .feature-highlights-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 520px) {
+      .feature-highlights-grid { grid-template-columns: 1fr; }
+    }
+
+    .ecosystem-vision-section {
+      padding: 4.25rem 0 3.75rem;
+      margin-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .ecosystem-vision-section > .flow-intro-title {
+      text-align: center;
+      max-width: 40rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .ecosystem-architecture-title {
+      font-family: var(--font-sans);
+      text-align: center;
+      font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+      font-weight: 700;
+      margin: 0 0 1.15rem;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .ecosystem-vision-lead {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.98rem;
+      max-width: 40rem;
+      margin: 0 auto 1.5rem;
+      line-height: 1.6;
+    }
+    .ecosystem-flow-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      justify-content: center;
+      gap: 0.65rem 0.5rem;
+      margin: 0 auto 1.25rem;
+      max-width: 56rem;
+    }
+    .ecosystem-flow-row.ecosystem-flow-row--in-card {
+      margin-top: 0;
+      margin-bottom: 1.35rem;
+      max-width: 100%;
+    }
+    .ecosystem-flow-node {
+      flex: 1 1 120px;
+      min-width: 100px;
+      max-width: 160px;
+      padding: 0.85rem 0.65rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .ecosystem-flow-node span {
+      display: block;
+      font-weight: 400;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .ecosystem-flow-arrow {
+      align-self: center;
+      color: var(--accent);
+      font-size: 1.1rem;
+      opacity: 0.85;
+    }
+    @media (max-width: 640px) {
+      .ecosystem-flow-arrow { display: none; }
+    }
+    .ecosystem-vision-card {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 0.5rem 0 0;
+      margin-top: 0.35rem;
+      max-width: 40rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .ecosystem-vision-card > p {
+      margin: 0 0 1rem;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .ecosystem-vision-card .flow-details { margin-top: 0.5rem; }
+    .ecosystem-doc-link-hint {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin: 0.75rem 0 0;
     }
     .feature-highlight-card {
       border: 1px solid var(--border);
@@ -422,50 +595,14 @@
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
     footer .footer-links { margin-top: 0.75rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1rem; }
-
-    #password-gate {
-      position: fixed; inset: 0; z-index: 9999;
-      background: var(--bg); display: flex; align-items: center; justify-content: center;
-      padding: 1.5rem;
-    }
-    #password-gate.hidden { display: none; }
-    #main-content.gate-locked { display: none; }
-    .gate-form {
-      width: 100%; max-width: 360px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 2rem; text-align: center;
-    }
-    .gate-form h2 { font-family: var(--font-sans); font-size: 1.75rem; font-weight: 600; margin: 0 0 0.5rem; }
-    .gate-form p { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 1.5rem; }
-    .gate-form input[type="password"] {
-      width: 100%; padding: 0.75rem 1rem; margin-bottom: 1rem;
-      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
-      color: var(--text); font-size: 1rem;
-    }
-    .gate-form input[type="password"]:focus { outline: none; border-color: var(--accent); }
-    .gate-form button {
-      width: 100%; padding: 0.75rem 1rem;
-      background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius);
-      font-size: 1rem; font-weight: 600; cursor: pointer;
-    }
-    .gate-form button:hover { opacity: 0.9; }
-    .gate-form .gate-error { color: #f87171; font-size: 0.9rem; margin-top: 0.75rem; }
   </style>
 </head>
 <body>
-  <div id="password-gate" aria-label="Site password" data-expected-hash="67aa5b2614155391b604c3f02fc05a56195cf769292eadef46057193b6a78746">
-    <div class="gate-form">
-      <h2>Knowtation</h2>
-      <p>Enter the site password to continue.</p>
-      <form id="gate-form" method="post" action="#" autocomplete="off">
-        <input type="password" id="gate-password" name="password" placeholder="Password" required autofocus>
-        <button type="submit">Continue</button>
-      </form>
-      <p id="gate-error" class="gate-error" role="alert" aria-live="polite" style="display: none;"></p>
-    </div>
-  </div>
-  <div id="main-content" class="gate-locked">
   <header class="landing-header">
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to light theme" aria-pressed="true" title="Day / night">
+      <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+      <span class="theme-toggle-label">Night</span>
+    </button>
     <a href="#" id="main-signin-google" class="cta cta-signin" data-provider="google">Sign in with Google</a>
     <a href="#" id="main-signin-github" class="cta cta-signin" data-provider="github">Sign in with GitHub</a>
   </header>
@@ -473,14 +610,12 @@
   <div class="container">
     <header class="hero">
       <h1 class="hero-title-main-only">Knowtation</h1>
-      <p class="hero-brand-sub">Your notes, searchable. One place for you and your agents.</p>
+      <p class="hero-brand-sub"><span class="hero-brand-sub-accent">Your notes, become known.</span> One place for you and your agents.</p>
       <div class="hero-messages">
-        <p>Precise retrieval means faster answers and lower token cost.</p>
-        <p>Narrow search first, open only what matters</p>
-        <p>Constant memory consolidation and context flexibility.</p>
-        <p>Your Markdown vault stays yours. Discover cross-topic insights.</p>
-        <p>Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
-        <p>Attestation records can anchor to the Internet Computer blockchain for immutable audit.</p>
+        <p>Precise retrieval - faster answers - lower token cost</p>
+        <p>Narrow search first - then discover insights</p>
+        <p>Memory consolidation - context flexibility</p>
+        <p>Own your Markdown vault</p>
       </div>
       <div class="landing-ecosystem" aria-label="Knowtation at the center of your tools">
         <div class="landing-ecosystem-rings">
@@ -526,10 +661,21 @@
     <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">Open source on GitHub</a>
   </div>
 
-  <section class="container wide attestation-spotlight" aria-labelledby="attestation-spotlight-heading">
-    <div class="attestation-spotlight-icon" aria-hidden="true">🔏</div>
-    <h2 id="attestation-spotlight-heading">Attestation for serious teams</h2>
-    <p>Legal, compliance, finance, and operations increasingly need proof of <strong>who approved a change</strong> and <strong>that the record was not silently altered</strong>. Knowtation pairs human-in-the-loop proposals with <strong>HMAC-signed attestation</strong> and optional <strong>Internet Computer blockchain anchoring</strong> — an audit trail you can point to, not just another row in a vendor database. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Read the whitepaper (attestation and ICP)</a></p>
+  <div class="deploy-headlines wide">
+    <p class="deploy-title">Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
+  </div>
+
+  <section class="spotlight-pair wide" aria-label="Trust and memory">
+    <article class="spotlight-card">
+      <div class="spotlight-card-icon" aria-hidden="true">🔏</div>
+      <h2>Attestation for serious teams</h2>
+      <p>Legal, compliance, finance, and operations increasingly need proof of <strong>who approved a change</strong> and <strong>that the record was not silently altered</strong>. Knowtation pairs human-in-the-loop proposals with <strong>HMAC-signed attestation</strong> and optional <strong>Internet Computer blockchain anchoring</strong> — an audit trail you can point to, not just another row in a vendor database. <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">Whitepaper: attestation and ICP</a></p>
+    </article>
+    <article class="spotlight-card">
+      <div class="spotlight-card-icon" aria-hidden="true">🧠</div>
+      <h2>Notes that become truly known</h2>
+      <p>Your vault is searchable; <strong>memory</strong> keeps what agents and you did over time. <strong>Consolidation</strong> folds noisy events into compact facts so future context stays small. Optional <strong>Discover</strong> traces <strong>cross-topic insights</strong> — new paths between ideas — so yesterday’s notes actively inform tomorrow’s decisions instead of sitting in a forgotten folder. That is what “become known” means: interconnected, growing context, not a one-off chat dump.</p>
+    </article>
   </section>
 
   <section class="feature-highlights wide" aria-labelledby="feature-highlights-heading">
@@ -539,7 +685,7 @@
       <div class="feature-highlight-card">
         <div class="fh-icon" aria-hidden="true">💸</div>
         <h3>Lower token spend</h3>
-        <p>Narrow search, then open only the notes you need. Memory consolidation and optional Discover keep future context smaller.</p>
+        <p>Narrow search - only notes you need. Memory consolidation continuously keeps future context smaller.</p>
       </div>
       <div class="feature-highlight-card">
         <div class="fh-icon" aria-hidden="true">📁</div>
@@ -549,7 +695,7 @@
       <div class="feature-highlight-card">
         <div class="fh-icon" aria-hidden="true">🔏</div>
         <h3>Audit-ready trust</h3>
-        <p>Attestation plus optional IC anchoring for provable intent. Pair with proposals so agents never write unchecked.</p>
+        <p>Attestation plus optional IC anchoring for provable intent. Pair with proposals - no unchecked agents</p>
       </div>
       <div class="feature-highlight-card">
         <div class="fh-icon" aria-hidden="true">🤖</div>
@@ -566,13 +712,54 @@
         <h3>Hosted or self-hosted</h3>
         <p>Same product: decentralized canisters when you want zero ops, or full control on your metal.</p>
       </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">⬡</div>
+        <h3>Decentralized online portal</h3>
+        <p>A Hosted Hub where you own the data: back up to GitHub anytime for portability.</p>
+      </div>
+      <div class="feature-highlight-card">
+        <div class="fh-icon" aria-hidden="true">👥</div>
+        <h3>Teams online, fast</h3>
+        <p>Invite viewers, editors, and admins with scoped access in minutes.<br>No per-seat pricing</p>
+      </div>
     </div>
   </section>
 
-  <div class="flow-intro-block">
-    <p class="flow-intro-title">From first sign-in to agents, memory, and backup — one straight path.</p>
+  <section class="ecosystem-vision-section wide" aria-labelledby="ecosystem-vision-heading">
+    <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
+    <p class="ecosystem-vision-lead">Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
+    <div class="ecosystem-vision-card">
+      <h3 class="ecosystem-architecture-title">Future Facing Architecture</h3>
+      <div class="ecosystem-flow-row ecosystem-flow-row--in-card" aria-hidden="true">
+        <div class="ecosystem-flow-node">Knowtation<span>Brain · vault · memory</span></div>
+        <span class="ecosystem-flow-arrow">↔</span>
+        <div class="ecosystem-flow-node">Muse / MuseHub<span>Hands · VCS · review</span></div>
+        <span class="ecosystem-flow-arrow">↔</span>
+        <div class="ecosystem-flow-node">AgentCeption<span>Nerves · plans · agents</span></div>
+        <span class="ecosystem-flow-arrow">↔</span>
+        <div class="ecosystem-flow-node">Your Vision<span>Propel Projects</span></div>
+      </div>
+      <p>Use Knowtation any way you can imagine. Our vision was built around connecting open-source projects that share patterns: tiered retrieval, proposals before commit, and JSON-friendly automation. The use cases are infinite in business, research, legal, creative, personal life and more. We are curious to see how bridges may evolve.</p>
+      <p>Connect with our fellow community projects and partners to create an incredible future with supercharged tools. Adjust at will to fit your needs.</p>
+      <details class="flow-details">
+        <summary>Technical details and links</summary>
+        <div class="detail-inner">
+          <p><strong>Stack roles (from <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">ECOSYSTEM-VISION.md</a>):</strong></p>
+          <ul>
+            <li><strong>Knowtation</strong> — Vaults, semantic search, Hub, MCP/CLI (<a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">WHITEPAPER.md</a>)</li>
+            <li><strong>Muse / MuseHub</strong> — Domain-agnostic VCS, MuseHub collaboration — <a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">github.com/cgcardona/muse</a>, <a href="https://staging.musehub.ai/explore" target="_blank" rel="noopener">MuseHub (staging)</a></li>
+            <li><strong>AgentCeption</strong> — Brain dump → plan → issues → agents — <a href="https://github.com/cgcardona/agentception" target="_blank" rel="noopener">github.com/cgcardona/agentception</a></li>
+          </ul>
+          <p><strong>Knowtation integration docs:</strong> <a href="https://github.com/aaronrene/knowtation/blob/main/docs/MUSE-STYLE-EXTENSION.md" target="_blank" rel="noopener">MUSE-STYLE-EXTENSION.md</a> (Hub proposals, Muse-aligned fields), <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">AGENT-ORCHESTRATION.md</a>, <a href="https://github.com/aaronrene/knowtation/blob/main/docs/BACKLOG-MCP-SUPERCHARGE.md" target="_blank" rel="noopener">BACKLOG-MCP-SUPERCHARGE.md</a> (roadmap slices).</p>
+          <p class="ecosystem-doc-link-hint">Full narrative, use cases, triple loop, and phasing: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">docs/ECOSYSTEM-VISION.md</a></p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <div class="flow-intro-block flow-intro-block--after-ecosystem">
+    <p class="flow-intro-title">Control, customize and own your data, agents, memory, and backup.</p>
     <p class="flow-intro-sub">Walk the steps in order — or skim the feature cards above first.</p>
-    <p class="flow-intro-hint">Tap any step for technical detail.</p>
   </div>
 
   <section class="flow-track wide" aria-label="How Knowtation works">
@@ -771,64 +958,48 @@
   </div>
 
   <footer>
-    <p><a href="https://github.com/aaronrene/knowtation">Knowtation</a> — Your notation, your data, your context.</p>
+    <p><a href="https://github.com/aaronrene/knowtation">Knowtation</a> — Your notes, your data, your context.</p>
     <div class="footer-links">
       <a href="/hub/">Hub</a>
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">Getting started</a>
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">Agent orchestration</a>
     </div>
   </footer>
-  </div><!-- #main-content -->
 
   <script>
   (function () {
-    var gate = document.getElementById('password-gate');
-    var main = document.getElementById('main-content');
-    var form = document.getElementById('gate-form');
-    var input = document.getElementById('gate-password');
-    var errEl = document.getElementById('gate-error');
-    var expectedHash = (gate && gate.getAttribute('data-expected-hash')) || '';
+    var key = 'knowtation-theme';
+    var root = document.documentElement;
+    var meta = document.querySelector('meta[name="theme-color"]');
+    var btn = document.getElementById('theme-toggle');
+    var icon = btn && btn.querySelector('.theme-toggle-icon');
+    var label = btn && btn.querySelector('.theme-toggle-label');
 
-    function showMain() {
-      if (gate) gate.classList.add('hidden');
-      if (main) main.classList.remove('gate-locked');
+    function currentTheme() {
+      return root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
     }
 
-    function sha256Hex(str) {
-      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-        .then(function (buf) {
-          return Array.from(new Uint8Array(buf))
-            .map(function (b) { return ('0' + b.toString(16)).slice(-2); })
-            .join('');
-        });
+    function syncThemeButton() {
+      if (!btn) return;
+      var isDark = currentTheme() === 'dark';
+      btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+      btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+      if (icon) icon.textContent = isDark ? '🌙' : '☀️';
+      if (label) label.textContent = isDark ? 'Night' : 'Day';
     }
 
-    if (expectedHash && sessionStorage.getItem('knowtation_site_unlock') === expectedHash) {
-      showMain();
-      return;
+    function applyTheme(theme) {
+      root.setAttribute('data-theme', theme);
+      try { localStorage.setItem(key, theme); } catch (e) {}
+      if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f7fb' : '#0a192f');
+      syncThemeButton();
     }
 
-    if (form && expectedHash) {
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        errEl.style.display = 'none';
-        errEl.textContent = '';
-        var pwd = input && input.value;
-        if (!pwd) return;
-        sha256Hex(pwd).then(function (hash) {
-          if (hash === expectedHash) {
-            sessionStorage.setItem('knowtation_site_unlock', expectedHash);
-            showMain();
-          } else {
-            errEl.textContent = 'Incorrect password.';
-            errEl.style.display = 'block';
-            input.value = '';
-            input.focus();
-          }
-        });
+    syncThemeButton();
+    if (btn) {
+      btn.addEventListener('click', function () {
+        applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
       });
-    } else {
-      showMain();
     }
   })();
 
