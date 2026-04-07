@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Knowtation: Markdown vault you own, semantic search, MCP and CLI for agents, memory consolidation, hosted or self-hosted.">
   <meta name="theme-color" content="#0a192f">
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation — Know and own your data</title>
   <script>
     (function () {
@@ -71,8 +71,40 @@
       flex-wrap: wrap;
       border-bottom: 1px solid var(--border);
     }
-    .theme-toggle {
+    .landing-header-start {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem;
       margin-right: auto;
+    }
+    .landing-header-social {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+    }
+    .social-icon-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      color: var(--text-muted);
+      border-radius: 10px;
+      border: 1px solid transparent;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .social-icon-link:hover {
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: var(--surface-elevated);
+    }
+    .social-icon-link svg {
+      width: 1.15rem;
+      height: 1.15rem;
+      fill: currentColor;
+    }
+    .theme-toggle {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
@@ -226,6 +258,30 @@
       gap: 0.75rem;
       margin-top: 1.25rem;
     }
+    .hero .cta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: stretch;
+      width: 100%;
+      max-width: 26rem;
+      margin-left: auto;
+      margin-right: auto;
+      gap: 0.75rem;
+    }
+    .hero .cta-row .cta {
+      justify-content: center;
+      text-align: center;
+      width: 100%;
+      box-sizing: border-box;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    @media (max-width: 480px) {
+      .hero .cta-row {
+        grid-template-columns: 1fr;
+        max-width: 20rem;
+      }
+    }
 
     .badge {
       display: inline-flex;
@@ -247,16 +303,63 @@
     .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
 
     /* Ecosystem rings (hero graphic) */
-    .landing-ecosystem { margin: 1.5rem auto 0; max-width: 320px; }
-    .landing-ecosystem-rings { position: relative; width: 320px; height: 320px; margin: 0 auto; }
+    .landing-ecosystem {
+      position: relative;
+      margin: 1.5rem auto 0;
+      max-width: 360px;
+      padding: 1rem;
+      isolation: isolate;
+    }
+    .landing-ecosystem::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: min(100%, 340px);
+      height: min(100%, 340px);
+      max-width: 340px;
+      max-height: 340px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(
+        ellipse 58% 58% at 50% 50%,
+        color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+        transparent 72%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    .landing-ecosystem-rings {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      margin: 0 auto;
+      z-index: 1;
+      filter:
+        drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 28%, transparent))
+        drop-shadow(0 0 32px color-mix(in srgb, var(--accent) 12%, transparent));
+    }
     .landing-ecosystem-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .landing-ecosystem-center {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       display: flex; flex-direction: column; align-items: center; gap: 0.35rem; z-index: 2;
       padding: 1.25rem; min-width: 100px; min-height: 90px; box-sizing: border-box;
     }
-    .landing-ecosystem-core-icon { font-size: 2.75rem; line-height: 1; filter: grayscale(0.15); }
-    .landing-ecosystem-core-label { color: var(--accent); font-weight: 600; font-size: 0.95rem; }
+    .landing-ecosystem-core-icon {
+      font-size: 2.75rem;
+      line-height: 1;
+      filter: grayscale(0.15)
+        drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 40%, transparent))
+        drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 18%, transparent));
+    }
+    .landing-ecosystem-core-label {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-shadow:
+        0 0 12px color-mix(in srgb, var(--accent) 45%, transparent),
+        0 0 24px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
     .landing-ecosystem-icon {
       position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin-left: -18px; margin-top: -18px;
       display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
@@ -343,15 +446,46 @@
     }
 
     .ecosystem-vision-section {
+      position: relative;
+      isolation: isolate;
+      overflow: visible;
       padding: 4.25rem 0 3.75rem;
       margin-top: 1.5rem;
       border-top: 1px solid var(--border);
     }
-    .ecosystem-vision-section > .flow-intro-title {
+    .ecosystem-vision-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      /* Ellipse must stay ≤100% wide or the fade clips as sharp vertical edges. */
+      background: radial-gradient(
+        ellipse 72% 70% at 50% 54%,
+        color-mix(in srgb, var(--accent) 15%, transparent) 0%,
+        color-mix(in srgb, var(--accent) 4.5%, transparent) 48%,
+        transparent 72%
+      );
+    }
+    .ecosystem-vision-section > * {
+      position: relative;
+      z-index: 1;
+    }
+    .ecosystem-vision-heading-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 1.25rem 1rem 0.35rem;
+      margin: 0 auto;
+      max-width: 44rem;
+    }
+    .ecosystem-vision-heading-wrap .flow-intro-title {
       text-align: center;
       max-width: 40rem;
       margin-left: auto;
       margin-right: auto;
+      text-shadow:
+        0 0 5px color-mix(in srgb, var(--accent) 58%, transparent),
+        0 0 12px color-mix(in srgb, var(--accent) 32%, transparent);
     }
     .ecosystem-architecture-title {
       font-family: var(--font-sans);
@@ -642,15 +776,67 @@
     }
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+    footer .footer-community { margin: 0 0 0.9rem; }
+    footer .footer-discord-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      color: var(--accent);
+    }
+    footer .footer-discord-link:hover { text-decoration: underline; }
+    footer .footer-discord-icon {
+      width: 1.2em;
+      height: 1.2em;
+      flex-shrink: 0;
+    }
+    footer .footer-social-icons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin: 0 0 0.85rem;
+    }
+    footer .footer-social-icons a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3rem;
+      color: var(--accent);
+      text-decoration: none;
+      border-radius: 10px;
+      transition: color 0.15s, background 0.15s;
+    }
+    footer .footer-social-icons a:hover {
+      background: var(--surface-elevated);
+    }
+    footer .footer-social-icons svg {
+      width: 1.35rem;
+      height: 1.35rem;
+      fill: currentColor;
+    }
     footer .footer-links { margin-top: 0.75rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1rem; }
   </style>
 </head>
 <body>
   <header class="landing-header">
-    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to light theme" aria-pressed="true" title="Day / night">
-      <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
-      <span class="theme-toggle-label">Night</span>
-    </button>
+    <div class="landing-header-start">
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to light theme" aria-pressed="true" title="Day / night">
+        <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle-label">Night</span>
+      </button>
+      <nav class="landing-header-social" aria-label="Social links">
+        <a href="https://discord.gg/NrtzhZtrED" class="social-icon-link" target="_blank" rel="noopener noreferrer" aria-label="Knowtation on Discord" title="Discord">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.168 0 2.176 1.096 2.157 2.42 0 1.333-.948 2.418-2.157 2.418z"/></svg>
+        </a>
+        <a href="https://www.youtube.com/@Knowtation" class="social-icon-link" target="_blank" rel="noopener noreferrer" aria-label="Knowtation on YouTube" title="YouTube">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+        </a>
+        <a href="https://x.com/Knowtation1111" class="social-icon-link" target="_blank" rel="noopener noreferrer" aria-label="Knowtation on X (@Knowtation1111)" title="X (Twitter)">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932L18.901 1.153zm-1.292 19.494h2.039L6.486 3.24H4.298l13.311 17.407z"/></svg>
+        </a>
+      </nav>
+    </div>
     <a href="#" id="main-signin-google" class="cta cta-signin" data-provider="google">Sign in with Google</a>
     <a href="#" id="main-signin-github" class="cta cta-signin" data-provider="github">Sign in with GitHub</a>
   </header>
@@ -699,7 +885,7 @@
         </div>
       </div>
       <div class="cta-row">
-        <a href="/hub/" class="cta cta-secondary">Open the Hub (hosted beta)</a>
+        <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
         <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
       </div>
     </header>
@@ -774,7 +960,9 @@
   </section>
 
   <section class="ecosystem-vision-section wide" aria-labelledby="ecosystem-vision-heading">
-    <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
+    <div class="ecosystem-vision-heading-wrap">
+      <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
+    </div>
     <p class="ecosystem-vision-lead">Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
     <div class="ecosystem-vision-card">
       <h3 class="ecosystem-architecture-title">Future Facing Architecture</h3>
@@ -1093,6 +1281,22 @@
   </div>
 
   <footer>
+    <p class="footer-community">
+      <a href="https://discord.gg/NrtzhZtrED" class="footer-discord-link" target="_blank" rel="noopener noreferrer">
+        <svg class="footer-discord-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="currentColor">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.168 0 2.176 1.096 2.157 2.42 0 1.333-.948 2.418-2.157 2.418z"/>
+        </svg>
+        <strong>Join the community</strong>
+      </a>
+    </p>
+    <div class="footer-social-icons" role="navigation" aria-label="YouTube and X">
+      <a href="https://www.youtube.com/@Knowtation" target="_blank" rel="noopener noreferrer" aria-label="Knowtation on YouTube" title="YouTube">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <a href="https://x.com/Knowtation1111" target="_blank" rel="noopener noreferrer" aria-label="Knowtation on X (@Knowtation1111)" title="X (Twitter)">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932L18.901 1.153zm-1.292 19.494h2.039L6.486 3.24H4.298l13.311 17.407z"/></svg>
+      </a>
+    </div>
     <p><a href="https://github.com/aaronrene/knowtation">Knowtation</a> — Your notes, your data, your context.</p>
     <div class="footer-links">
       <a href="/hub/">Hub</a>
