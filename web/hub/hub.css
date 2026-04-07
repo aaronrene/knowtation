@@ -492,7 +492,52 @@ button.btn-new-note.btn-busy::after {
 .presets-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .preset-pill { font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--border); color: var(--text); border: none; cursor: pointer; }
 .preset-pill:hover { background: var(--accent); color: #000; }
-.tabs { display: flex; gap: 0.25rem; padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.tabs { padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); }
+.tabs-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  width: 100%;
+}
+.tabs-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+.tabs-list-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.hub-sort-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.tabs-list-controls select {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  min-width: 11rem;
+}
+.proposal-filters-bar {
+  padding: 0.5rem 1.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.proposal-filters-bar.hidden {
+  display: none;
+}
+.proposal-filters-bar .proposal-list-filters {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
 .tab { padding: 0.5rem 1rem; border: none; background: transparent; color: var(--muted); }
 .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); margin-bottom: -1px; }
 .tab-panel { padding: 1rem 1.5rem; }

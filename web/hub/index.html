@@ -178,12 +178,33 @@
         </div>
       </section>
 
-      <section class="tabs">
-        <button type="button" data-tab="notes" class="tab active" title="Vault markdown + approval log files; Search shows results here">Notes</button>
-        <button type="button" data-tab="activity" class="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
-        <button type="button" data-tab="suggested" class="tab" title="Proposals waiting for review">Suggested</button>
-        <button type="button" data-tab="problem" class="tab" title="Discarded proposals">Discarded</button>
+      <section class="tabs" aria-label="Main sections">
+        <div class="tabs-inner">
+          <div class="tabs-buttons">
+            <button type="button" data-tab="notes" class="tab active" title="Vault markdown + approval log files; Search shows results here">Notes</button>
+            <button type="button" data-tab="activity" class="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
+            <button type="button" data-tab="suggested" class="tab" title="Proposals waiting for review">Suggested</button>
+            <button type="button" data-tab="problem" class="tab" title="Discarded proposals">Discarded</button>
+          </div>
+          <div class="tabs-list-controls">
+            <label class="hub-sort-label" for="hub-list-sort">Sort</label>
+            <select id="hub-list-sort" aria-label="Sort list"></select>
+          </div>
+        </div>
       </section>
+      <div id="proposal-filters-bar" class="proposal-filters-bar hidden" role="region" aria-label="Proposal filters">
+        <div class="proposal-list-filters" id="proposal-list-filters">
+          <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Path prefix <input type="text" id="proposal-filter-path-prefix" placeholder="e.g. inbox" autocomplete="off" /></label>
+          <label class="proposal-filter-label proposal-filter-checkbox"><input type="checkbox" id="proposal-filter-pending-eval" /> Pending evaluation only</label>
+          <label class="proposal-filter-label">Review queue <input type="text" id="proposal-filter-review-queue" placeholder="e.g. legal" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Severity <input type="text" id="proposal-filter-review-severity" placeholder="standard or elevated" autocomplete="off" /></label>
+          <button type="button" id="proposal-filter-apply" class="btn-secondary">Apply filters</button>
+          <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
+          <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
+        </div>
+      </div>
 
       <section id="tab-notes" class="tab-panel">
         <div id="notes-view-list" class="notes-view-panel">
@@ -241,22 +262,12 @@
       </section>
       <section id="tab-activity" class="tab-panel hidden">
         <p class="muted"><strong>Activity</strong> lists proposal records (same data as Approve/Discard)—not semantic search hits. Vault <code>approvals/*.md</code> logs: open <strong>Notes</strong>, set content to <strong>Approval logs only</strong>, Apply filters or Search.</p>
+        <p class="muted">Use the <strong>proposal filters</strong> row (shown above when this tab, Suggested, or Discarded is active) to narrow by label, source, path, evaluation, queue, or severity. <strong>Sort</strong> (top right) applies here too.</p>
         <p class="muted">Sources: Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), CLI, API.</p>
         <div id="proposals-activity" class="list activity-timeline"></div>
       </section>
       <section id="tab-suggested" class="tab-panel hidden">
         <p class="muted">Proposals needing your review. Create one with <strong>New proposal</strong> or from a note (<strong>Propose change</strong> in the detail panel); the CLI and agents can still create them via the API. Open a row, then Approve (writes to vault) or Discard.</p>
-        <div class="proposal-list-filters" id="proposal-list-filters">
-          <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
-          <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
-          <label class="proposal-filter-label">Path prefix <input type="text" id="proposal-filter-path-prefix" placeholder="e.g. inbox" autocomplete="off" /></label>
-          <label class="proposal-filter-label proposal-filter-checkbox"><input type="checkbox" id="proposal-filter-pending-eval" /> Pending evaluation only</label>
-          <label class="proposal-filter-label">Review queue <input type="text" id="proposal-filter-review-queue" placeholder="e.g. legal" autocomplete="off" /></label>
-          <label class="proposal-filter-label">Severity <input type="text" id="proposal-filter-review-severity" placeholder="standard or elevated" autocomplete="off" /></label>
-          <button type="button" id="proposal-filter-apply" class="btn-secondary">Apply filters</button>
-          <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
-          <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
-        </div>
         <div id="proposals-suggested" class="list"></div>
       </section>
       <section id="tab-problem" class="tab-panel hidden">
@@ -1982,6 +1993,10 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260406c"></script>
+  <script type="module">
+    import * as HubListSort from './hub-list-sort.mjs';
+    globalThis.HubListSort = HubListSort;
+  </script>
+  <script defer src="hub.js?v=20260406d"></script>
 </body>
 </html>
