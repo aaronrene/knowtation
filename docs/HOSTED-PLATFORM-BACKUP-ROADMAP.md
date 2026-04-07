@@ -1,6 +1,6 @@
 # Hosted platform backup and disaster recovery (roadmap)
 
-**Status:** Planning only — **not implemented** in this repository. **Users** can already back up vault content via **Connect GitHub** and **Back up now** (bridge → Git export). This document is for **operator / platform** responsibility: recovering from canister loss, bad upgrades, or account-level incidents without relying on each user’s Git remote.
+**Status:** **Partially implemented.** **Users** can back up vault content via **Connect GitHub** and **Back up now** (bridge → Git export). **Operators** can run **`npm run canister:export-backup`** and the scheduled workflow in [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) (see [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §6) for daily **note** JSON export per vault partition. **Not** yet covered here: full stable-memory dumps, automatic **proposal**-only archives, bridge vector blobs, billing blobs — see §2–§3.
 
 **Related:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md), [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) (checklist §4), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md).
 
@@ -27,7 +27,7 @@
 
 ## 3. Future implementation directions (no commitment to order)
 
-1. **Periodic logical export** — Scheduled job (controller identity) calling **`GET /api/v1/export`**-equivalent or a dedicated **admin/export** canister method that dumps per-user or full vault JSON to encrypted object storage (S3-compatible, Arweave, etc.), with retention and encryption at rest.
+1. **Periodic logical export** — **Done (v1):** [`scripts/canister-export-backup.sh`](../scripts/canister-export-backup.sh) + GitHub Actions schedule + artifacts. **Still open:** optional push to **encrypted** object storage (S3-compatible, etc.), **admin/export** for multi-user dumps without embedding a partition `X-User-Id` in CI, and export shapes that include **proposals** alongside notes in one file.
 2. **Upgrade discipline** — Preflight scripts already exist (`npm run canister:preflight`, `canister:verify-migration`); extend runbooks to require a **snapshot or export checkpoint** before mainnet upgrades when data volume is non-trivial.
 3. **Key custody** — Separate **deployment / upgrade keys** from **day-to-day operator** logins; prefer **hardware-backed** key storage (e.g. encrypted USB/HSM-style devices — products such as **Apricorn**-style hardware-encrypted drives are one pattern teams use for **offline controller secrets**) so break-glass credentials are not only on laptops or CI.
 4. **Restore drill** — At least annually: restore a **non-production** canister or fixture from backup and verify note counts and hashes.
@@ -47,3 +47,4 @@ Per-user **canister byte** quotas are **not** the primary sold unit in [HOSTED-C
 | Date | Change |
 |------|--------|
 | 2026-03-27 | Initial roadmap: user vs platform backup, canister scope, future export + key custody, pointer to private runbooks. |
+| 2026-04-07 | Daily export script + Actions workflow + DEPLOY-HOSTED §6; roadmap status updated to partially implemented. |

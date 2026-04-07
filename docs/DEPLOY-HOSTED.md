@@ -240,7 +240,32 @@ The attestation canister is **separate** from the hub canister — it stores imm
 
 ---
 
-## 6. Reference
+## 6. Daily canister export backup (operator)
+
+**Goal:** A **logical** JSON export of one or more vault partitions via **`GET /api/v1/export`** on a fixed schedule **without** your laptop. This complements per-user **Back up now** (GitHub) and preflight exports in [`scripts/canister-predeploy.sh`](../scripts/canister-predeploy.sh).
+
+| Mechanism | What runs |
+|-----------|-----------|
+| **Script** | [`scripts/canister-export-backup.sh`](../scripts/canister-export-backup.sh) — same env as below; `npm run canister:export-backup` |
+| **CI** | [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) — **07:00 UTC daily** + **workflow_dispatch** |
+
+**GitHub Actions secrets** (repository **Settings → Secrets and variables → Actions**):
+
+| Secret | Required | Purpose |
+|--------|----------|---------|
+| `KNOWTATION_CANISTER_BACKUP_USER_ID` | **Yes** | Value for **`X-User-Id`** (same stable id the gateway uses for that partition, e.g. `google:…`). **Treat as highly sensitive:** anyone with this value and the public canister URL can read that partition’s exported notes via the canister HTTP API. |
+| `KNOWTATION_CANISTER_BACKUP_URL` | No | Base URL, no trailing slash. If unset, the workflow uses **`hub/icp/canister_ids.json`** (`hub.ic` + `https://…icp0.io`) from the checked-out branch. |
+| `KNOWTATION_CANISTER_BACKUP_VAULT_IDS` | No | Comma-separated vault ids (e.g. `default,team`). If unset, exports **`default`** only (or set a single id via `KNOWTATION_CANISTER_BACKUP_VAULT_ID` in local `.env`). |
+
+**Artifacts:** Each run uploads **`backups/canister-export-<vault>-<UTC>.json`** with **90-day** retention. GitHub artifact access follows your org/repo permissions; for long-term or compliance storage, copy artifacts to **encrypted** object storage or offline media (e.g. Apricorn) per your runbook.
+
+**Local / VPS cron:** Run `npm run canister:export-backup` from a clone with `.env` containing at least **`KNOWTATION_CANISTER_BACKUP_USER_ID`** (and optional URL / vault vars). Output directory: **`KNOWTATION_CANISTER_BACKUP_DIR`** (default `./backups`, gitignored).
+
+**Scope note:** The current canister export returns **notes** for the requested vault. Full platform DR (proposals-only recovery, bridge vectors, billing blobs) remains in [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md).
+
+---
+
+## 7. Reference
 
 - [HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) — Verify static Hub bundle, gateway facets, canister frontmatter (scripts + apex `www` caveat).
 - [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved billing fields (Phase 16).

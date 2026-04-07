@@ -18,6 +18,7 @@
     "hub": "node hub/server.mjs",
     "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
     "canister:preflight": "bash scripts/canister-predeploy.sh",
+    "canister:export-backup": "bash scripts/canister-export-backup.sh",
     "canister:release-prep": "bash scripts/canister-release-prep.sh",
     "release:post-merge-canister": "bash scripts/post-merge-hub-canister-release.sh",
     "seed:hosted-showcase": "node scripts/seed-vault-dir-to-hub.mjs",

@@ -92,26 +92,10 @@ else
 fi
 
 echo "==> [4/4] Optional canister export backup"
-BACKUP_DIR="$REPO_ROOT/backups"
-mkdir -p "$BACKUP_DIR"
-if [[ -n "${KNOWTATION_CANISTER_URL:-}" && -n "${KNOWTATION_CANISTER_BACKUP_USER_ID:-}" ]]; then
-  BASE="${KNOWTATION_CANISTER_URL%/}"
-  VID="${KNOWTATION_CANISTER_BACKUP_VAULT_ID:-default}"
-  STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-  OUT="$BACKUP_DIR/canister-export-${STAMP}.json"
-  echo "    Fetching GET $BASE/api/v1/export (X-User-Id + X-Vault-Id=$VID) -> $OUT"
-  if curl -fsS -o "$OUT" \
-    -H "X-User-Id: ${KNOWTATION_CANISTER_BACKUP_USER_ID}" \
-    -H "X-Vault-Id: ${VID}" \
-    -H "Accept: application/json" \
-    "$BASE/api/v1/export"; then
-    echo "    Backup written ($(wc -c < "$OUT" | tr -d ' ') bytes)."
-  else
-    echo "ERROR: Backup curl failed. Fix URL/auth or unset backup env vars."
-    exit 1
-  fi
+if [[ -n "${KNOWTATION_CANISTER_BACKUP_USER_ID:-}" ]]; then
+  bash "$SCRIPT_DIR/canister-export-backup.sh"
 else
-  echo "    Skipped (set KNOWTATION_CANISTER_URL + KNOWTATION_CANISTER_BACKUP_USER_ID to export one vault to ./backups/)"
+  echo "    Skipped (set KNOWTATION_CANISTER_BACKUP_USER_ID to export; URL defaults from hub/icp/canister_ids.json if omitted)"
 fi
 
 echo ""

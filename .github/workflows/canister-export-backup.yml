@@ -1,0 +1,34 @@
+# Daily logical export of hub canister vault(s) via GET /api/v1/export.
+# Configure repository secrets (Settings → Secrets and variables → Actions); see docs/DEPLOY-HOSTED.md §6.
+name: Canister export backup
+
+on:
+  schedule:
+    # 07:00 UTC daily — adjust cron if you prefer another window
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export canister vault(s)
+        env:
+          KNOWTATION_CANISTER_BACKUP_URL: ${{ secrets.KNOWTATION_CANISTER_BACKUP_URL }}
+          KNOWTATION_CANISTER_BACKUP_USER_ID: ${{ secrets.KNOWTATION_CANISTER_BACKUP_USER_ID }}
+          KNOWTATION_CANISTER_BACKUP_VAULT_IDS: ${{ secrets.KNOWTATION_CANISTER_BACKUP_VAULT_IDS }}
+        run: bash scripts/canister-export-backup.sh
+
+      - name: Upload JSON artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canister-export-${{ github.run_id }}
+          path: backups/canister-export-*.json
+          retention-days: 90
+          if-no-files-found: error
