@@ -1,6 +1,6 @@
 # Knowtation — Whitepaper
 
-**Version:** 3.0 (April 2026)  
+**Version:** 3.1 (April 2026)  
 **Product:** Knowtation (*know* + *notation*) — a personal and team knowledge vault with CLI, MCP, semantic search, memory, attestation, and a full import pipeline. Self-hosted or hosted at [knowtation.store](https://knowtation.store).
 
 ---
@@ -86,6 +86,18 @@ flowchart TB
 **Without Knowtation:** Agent dumps 5,000 tokens of unfiltered context, pays for all of it, gets a mediocre answer, and starts from scratch next session.
 
 **With Knowtation:** Agent narrows to 500 tokens via two-step retrieval, loads compressed memory from prior sessions, skips searches it already did, and gets a precise answer at a fraction of the cost.
+
+### 2.1 Operational program: token savings in production
+
+The three levers above are the thesis. **Shipped after the original v3.0 narrative**, Knowtation adds a concrete **operational layer** so teams can enforce and tune savings in hosted and self-hosted deployments:
+
+- **Advanced consolidation knobs** — Per-run scope caps: lookback hours, max events and topics per pass, and LLM output token limits. Self-hosted: `config/local.yaml` and Hub **Settings → Consolidation → Advanced**. Hosted: fields persisted on the billing user record and merged into gateway settings, scheduler payloads, and bridge requests so serverless runs honor the same limits.
+- **Discover pass** — Optional third stage after consolidate + verify: one additional model pass can emit **insight** events (cross-topic connections, contradictions, open questions). Default **off**; enabling it adds LLM cost inside the same consolidate operation (hosted billing counts one consolidate pass per request; Discover does not double the pass meter). See [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) and [MEMORY-CONSOLIDATION-GUIDE.md](./MEMORY-CONSOLIDATION-GUIDE.md).
+- **Encrypt-aware consolidation** — When `memory.encrypt` is enabled, consolidation prompts redact event payloads so ciphertext is not expanded into the model context; merge quality trades off against privacy. Configurable self-hosted and via bridge env on hosted.
+- **Hosted MCP parity** — Hosted `search` supports HTTP POST and field parity with self-hosted paths so agents can keep result sets small through the gateway without awkward workarounds.
+- **Metering and plans** — Stripe-backed tiers enforce or shadow-log searches, index jobs, consolidation allowances, and related caps; token packs can bundle extra headroom. Details evolve with product; authoritative behavior is in gateway and billing code plus [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md).
+
+The [Token savings](./TOKEN-SAVINGS.md) doc is the living checklist for this layer; the sections above remain the **why**, while 2.1 is the **what shipped** to make savings repeatable.
 
 ---
 
