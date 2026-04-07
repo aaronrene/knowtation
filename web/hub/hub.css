@@ -2053,3 +2053,90 @@ button.btn-new-note.btn-busy::after {
   max-height: 80vh;
   overflow: auto;
 }
+
+/* ── Integrations tab: section headings with icons ─────────── */
+.integ-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.integ-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+.integ-section-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Status dot (green = active, gray = inactive) */
+.integ-status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+}
+.integ-status-dot.active {
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+}
+
+/* ── Integrations: source tile grid ────────────────────────── */
+.integ-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.25rem;
+}
+.integ-source-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.65rem 0.5rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.integ-source-tile:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.integ-source-tile-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.integ-source-tile-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.integ-source-tile-desc {
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+/* Capture tiles are wider (fewer per row) for the extra CLI hint */
+.integ-capture-grid {
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+}
+
+@media (max-width: 480px) {
+  .integ-source-grid {
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  }
+}

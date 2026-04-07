@@ -1,6 +1,6 @@
 # Knowtation — Import Sources and External Knowledge Bases
 
-This document specifies how to bring data and memory **into** the Knowtation vault from other platforms and devices. It complements the [Message-interface contract](./SPEC.md#3-message-interface-capture-plugin-contract) (live capture) with **batch and one-time imports**. All importers output vault notes that conform to [SPEC §1–2](./SPEC.md) (frontmatter, project, tags).
+This document specifies how to bring data and memory **into** the Knowtation vault from other platforms and devices. It covers **live capture** (messages and events → inbox) and **batch and one-time imports** (exports and files). Capture and import both produce vault notes that conform to [SPEC §1–2](./SPEC.md) (frontmatter, project, tags). The inbox contract for capture plugins is [CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md).
 
 ---
 
@@ -13,7 +13,34 @@ This document specifies how to bring data and memory **into** the Knowtation vau
 
 ---
 
-## 2. Supported import sources (spec)
+## 2. Live capture (messages → inbox)
+
+**Capture** is the real-time path: platform messages and webhooks become **inbox notes** as they arrive. **Import** (§3) is for exports, uploads, and CLI batch runs. Both use the same frontmatter ideas (`source`, `source_id`, `date`).
+
+**Hub endpoint:** `POST /api/v1/capture` with a JSON body. If the Hub has **`CAPTURE_WEBHOOK_SECRET`** set in its environment, clients must send header **`X-Webhook-Secret: <secret>`**.
+
+### Capture at a glance
+
+| | Channel | Setup |
+|--|---------|--------|
+| 💬 | **Slack** | Adapter default port **3132**; **`SLACK_SIGNING_SECRET`**; Slack Events API → adapter → Hub capture. Or Zapier/n8n: Slack trigger → HTTP POST to capture. |
+| 🎮 | **Discord** | Adapter default port **3133**; webhook or bot POST → capture. Or Zapier/n8n → capture. |
+| ✈️ | **Telegram** | Adapter default port **3134**; Bot API webhook or simplified JSON → capture. |
+| 📱 | **WhatsApp** | No first-party adapter; use **Zapier**, **n8n**, or similar to forward messages to **`POST /api/v1/capture`**. |
+
+**Scripts (self-hosted):** `scripts/capture-slack-adapter.mjs`, `capture-discord-adapter.mjs`, `capture-telegram-adapter.mjs`. Standalone local webhook: `node scripts/capture-webhook.mjs --port 3131` (see [CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md)).
+
+**Minimal JSON example:**
+
+```json
+{"body": "text", "source": "slack"}
+```
+
+**Details:** [CAPTURE-CONTRACT.md](./CAPTURE-CONTRACT.md) (plugin contract), [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md) (Slack / Discord / Telegram), [HUB-API.md](./HUB-API.md) §3.5 Capture.
+
+---
+
+## 3. Supported import sources (spec)
 
 The CLI command **`knowtation import <source-type> <input> [options]`** accepts the following source types. Each maps an external format to vault notes.
 
@@ -21,72 +48,102 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 **Manual verification:** See [IMPORT-MANUAL-CHECKLIST.md](./IMPORT-MANUAL-CHECKLIST.md).
 
+### At a glance
+
+| | Source | Type | Format |
+|--|--------|------|--------|
+| 🤖 | **ChatGPT** | `chatgpt-export` | ZIP or folder export |
+| 🧠 | **Claude** | `claude-export` | Chat + memory export |
+| 💾 | **Mem0** | `mem0-export` | JSON memory export |
+| 📝 | **Notion** | `notion` | API; page IDs + key |
+| 🎫 | **Jira** | `jira-export` | CSV export |
+| 📓 | **NotebookLM** | `notebooklm` | Markdown or JSON |
+| 📁 | **Google Drive** | `gdrive` | Markdown folder |
+| 📋 | **Linear** | `linear-export` | CSV export |
+| 🔗 | **MIF** | `mif` | Memory Interchange Format |
+| 📄 | **Markdown** | `markdown` | File or folder |
+| 🎙️ | **Audio** | `audio` | Whisper transcription |
+| 💰 | **Wallet CSV** | `wallet-csv` | Tx history; 11 formats |
+| 🗄️ | **Supabase** | `supabase-memory` | Memory table import |
+| 🦞 | **OpenClaw** | `openclaw` | Agent memory + chats |
+| 💻 | **Local** | `markdown` | Files from disk |
+| 👥 | **Team** | _(Hub UI)_ | Teammates contribute |
+
+**Live inbox capture** (Slack, Discord, Telegram, WhatsApp via automation) is not a CLI `import` type: use **`POST /api/v1/capture`** and the adapters in **§2**.
+
+### Full reference
+
 | Source type       | Input (path or URI)     | Description |
 |-------------------|-------------------------|-------------|
-| `chatgpt-export`  | Path to OpenAI export ZIP or folder with `conversations.json` | ChatGPT data export (Settings → Export Data). One note per conversation or per message thread; frontmatter: `source: chatgpt`, `source_id`, `date`, optional `project`, `tags`. |
-| `claude-export`   | Path to Claude export ZIP or folder (chat history / memory) | Claude data export (Settings → Privacy → Export) and/or memory export. One note per conversation or per memory entry; `source: claude`, `source_id`, `date`. |
-| `mem0-export`     | Path to Mem0 export JSON | Mem0 memory export. One note per memory; `source: mem0`, `source_id`, `date`. |
-| `notion`          | Comma-separated Notion page IDs | Fetches pages as markdown via Notion API. Requires `NOTION_API_KEY`. One note per page; `source: notion`, `source_id: page_id`. |
-| `jira-export`     | Path to Jira CSV file (or folder with one .csv) | Jira Cloud/Server CSV export. One note per issue; `source: jira`, `source_id: issue key`, summary, description. |
-| `notebooklm`      | Path to folder of .md files or to a .json export | NotebookLM: folder of markdown (e.g. from takeout/Apify) or JSON with sources/conversations array. One note per file or entry; `source: notebooklm`. |
-| `gdrive`          | Path to folder of Markdown files | Google Drive: folder of .md files (e.g. from export or pandoc). One note per file; `source: gdrive`, `source_id` from filename. |
-| `linear-export`   | Path to Linear CSV file | Linear workspace export (CSV). One note per issue; `source: linear`, `source_id`, title, description. |
-| `mif`             | Path to `.memory.md` or `.memory.json` or folder of MIF files | [Memory Interchange Format](https://mif-spec.dev/). MIF is Obsidian-native; files can be copied in as-is or normalized to our frontmatter. |
-| `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. |
-| `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | **Primary path for in-Hub transcription** (self-hosted). OpenAI Whisper; **max ~25&nbsp;MB** per file. One note per file; frontmatter: `source: audio`, `source_id`, `date`. |
-| `video`           | Path to video file or URL | Same Whisper pipeline as audio; files are often **over 25&nbsp;MB**—export **audio** or use another service, then import Markdown. **Hub UI:** video option *coming soon*; **CLI/MCP** still support `video`. |
-| `wallet-csv`      | Path to wallet/exchange transaction history CSV (or folder containing one .csv) | Converts wallet export files into vault notes with blockchain frontmatter. One note per row; `source: wallet-csv-import`, `source_id: tx_hash`, blockchain fields (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`). Notes land in `inbox/wallet-import/`. Auto-detects named formats: **Coinbase**, **Coinbase Pro**, **Exodus**, **ICP Rosetta**, **Kraken**, **Binance**, **MetaMask/Etherscan**, **Phantom (Solana)**, **Ledger Live**. Falls back to generic column alias matching for any other CSV. Re-import is safe: duplicate rows (same output path) are skipped. |
+| 🤖 `chatgpt-export`  | Path to OpenAI export ZIP or folder with `conversations.json` | ChatGPT data export (Settings → Export Data). One note per conversation or per message thread; frontmatter: `source: chatgpt`, `source_id`, `date`, optional `project`, `tags`. |
+| 🧠 `claude-export`   | Path to Claude export ZIP or folder (chat history / memory) | Claude data export (Settings → Privacy → Export) and/or memory export. One note per conversation or per memory entry; `source: claude`, `source_id`, `date`. |
+| 💾 `mem0-export`     | Path to Mem0 export JSON | Mem0 memory export. One note per memory; `source: mem0`, `source_id`, `date`. |
+| 📝 `notion`          | Comma-separated Notion page IDs | Fetches pages as markdown via Notion API. Requires `NOTION_API_KEY`. One note per page; `source: notion`, `source_id: page_id`. |
+| 🎫 `jira-export`     | Path to Jira CSV file (or folder with one .csv) | Jira Cloud/Server CSV export. One note per issue; `source: jira`, `source_id: issue key`, summary, description. |
+| 📓 `notebooklm`      | Path to folder of .md files or to a .json export | NotebookLM: folder of markdown (e.g. from takeout/Apify) or JSON with sources/conversations array. One note per file or entry; `source: notebooklm`. |
+| 📁 `gdrive`          | Path to folder of Markdown files | Google Drive: folder of .md files (e.g. from export or pandoc). One note per file; `source: gdrive`, `source_id` from filename. |
+| 📋 `linear-export`   | Path to Linear CSV file | Linear workspace export (CSV). One note per issue; `source: linear`, `source_id`, title, description. |
+| 🔗 `mif`             | Path to `.memory.md` or `.memory.json` or folder of MIF files | [Memory Interchange Format](https://mif-spec.dev/). MIF is Obsidian-native; files can be copied in as-is or normalized to our frontmatter. |
+| 📄 `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. |
+| 🎙️ `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | **Primary path for in-Hub transcription** (self-hosted). OpenAI Whisper; **max ~25 MB** per file. One note per file; frontmatter: `source: audio`, `source_id`, `date`. |
+| 💰 `wallet-csv`      | Path to wallet/exchange transaction history CSV (or folder containing one .csv) | Converts wallet export files into vault notes with blockchain frontmatter. One note per row; `source: wallet-csv-import`, `source_id: tx_hash`, blockchain fields (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`). Notes land in `inbox/wallet-import/`. Auto-detects named formats: **Coinbase**, **Coinbase Pro**, **Exodus**, **ICP Rosetta**, **Kraken**, **Binance**, **MetaMask/Etherscan**, **Phantom (Solana)**, **Ledger Live**. Falls back to generic column alias matching for any other CSV. Re-import is safe: duplicate rows (same output path) are skipped. |
+| 🗄️ `supabase-memory` | Supabase connection + table name | Import memory rows from a Supabase table. For users coming from database-centric stacks. |
+| 🦞 `openclaw`        | Path to OpenClaw data export or memory dump | Import agent conversations and memory from [OpenClaw](https://github.com/openclaw/openclaw). One note per conversation or memory entry; `source: openclaw`, `source_id`, `date`. |
+
+> **Video:** CLI and MCP still support `knowtation import video <file>` (same Whisper pipeline as audio), but video files are usually over 25 MB. Export audio first or transcribe with another service and import as Markdown.
 
 **Options (common):** `--project <slug>`, `--output-dir <vault-path>`, `--tags tag1,tag2`, `--dry-run`, `--json`. If `--output-dir` is omitted, default is `vault/inbox/` or `vault/projects/<project>/inbox/` when `--project` is set.
 
+> **See also:** [Templates and Skills](./TEMPLATES-AND-SKILLS.md) — starter vault templates, agent skill packs, and how they compose with import sources.
+
 ---
 
-## 3. Platform-specific notes
+## 4. Platform-specific notes
 
-### 3.1 ChatGPT (OpenAI)
+### 🤖 4.1 ChatGPT (OpenAI)
 
 - **How users get data:** Settings → Data Controls → Export Data (or Privacy Portal). Email link to ZIP containing `conversations.json` (and sometimes `chat.html`). Link expires in 24 hours; export can take up to 7 days.
 - **Format:** `conversations.json` is a tree of messages (mapping of id → { message, parent, children }). Each message has `content.parts`, `author.role`, timestamps.
 - **Importer behavior:** Parse `conversations.json`; for each conversation, produce one note (or one per thread) with body = concatenated or structured transcript. Frontmatter: `source: chatgpt`, `source_id: <conversation-id>`, `date`, `title` from conversation title. Optional: one note per message for fine-grained search (heavier).
 - **Third-party:** Browser extensions (e.g. ChatGPT Exporter) can export per-conversation JSON/Markdown/HTML; importer can accept a folder of such files and treat as `chatgpt-export` or `markdown` with `source: chatgpt`.
 
-### 3.2 Claude (Anthropic)
+### 🧠 4.2 Claude (Anthropic)
 
 - **How users get data:** Settings → Privacy → Export data (chat history). Memory: Settings → Capabilities → View and edit your memory → export (and Claude supports importing memory from other AI providers via a prompt).
 - **Format:** Export is account data (format may vary). Memory export is a user-facing list that can be copied; API or file format TBD.
 - **Importer behavior:** Same pattern as ChatGPT: one note per conversation or per memory entry; `source: claude`, `source_id`, `date`. Third-party tools (e.g. claude-exporter) produce JSON/Markdown; we can accept that as `claude-export` or `markdown` with `source: claude`.
 
-### 3.3 Mem0
+### 💾 4.3 Mem0
 
 - **How users get data:** Mem0 API: `create_memory_export()` with schema; then retrieve via `get_memory_export()`. Returns JSON (Pydantic-style schema).
 - **Importer behavior:** Map Mem0 memories to vault notes. Each memory → one note; frontmatter can include Mem0 metadata (e.g. `mem0_id`, `user_id`) and our `source: mem0`, `source_id`, `date`. Optionally support MIF as output so Mem0 users can later use MIF-native tools.
 
-### 3.4 Notion
+### 📝 4.4 Notion
 
 - **How users get data:** Notion API: create an integration at notion.so/my-integrations, share pages with it, then use page IDs (from the page URL: notion.so/workspace/page_id).
 - **Importer behavior:** `knowtation import notion <page_id>` or `knowtation import notion "id1,id2,id3"`. Requires `NOTION_API_KEY`. Fetches each page as markdown via `GET /v1/pages/{page_id}/markdown`; one note per page with `source: notion`, `source_id: page_id`.
 
-### 3.5 Jira and Linear
+### 🎫📋 4.5 Jira and Linear
 
 - **Jira:** Export from Jira (list or search → Export CSV). Importer: `knowtation import jira-export /path/to/export.csv --output-dir imports/jira`. Maps Issue key, Summary, Description, Project to vault notes.
 - **Linear:** Export from Linear (Command menu → Export data → CSV). Importer: `knowtation import linear-export /path/to/linear-export.csv --project myproject`.
 
-### 3.6 NotebookLM and Google Drive
+### 📓📁 4.6 NotebookLM and Google Drive
 
 - **NotebookLM:** Accepts (1) a folder of markdown files (e.g. from Google takeout or third-party Apify export), or (2) a JSON file with an array of entries (`content`, `id`, `title`). One note per file or entry; `source: notebooklm`.
 - **Google Drive:** Accepts a folder of Markdown files. Export Docs as .docx then convert to .md (e.g. pandoc), or use a sync script. Importer: `knowtation import gdrive /path/to/folder`; `source: gdrive`, `source_id` from filename.
 
-### 3.7 Confluence
+### 📚 4.7 Confluence
 
 - **How users get data:** Confluence has no native markdown export. Use third-party tools (e.g. confluence-cli, nodejs-confluence-export) to export a space or page to a folder of markdown files.
 - **Importer behavior:** Export to a folder with one of those tools, then run `knowtation import markdown /path/to/confluence-export --output-dir imports/confluence --tags confluence`. Optional: add a thin `confluence-export` importer that accepts the same folder and sets `source: confluence`, `source_id` from filename.
 
-### 3.8 MIF (Memory Interchange Format)
+### 🔗 4.8 MIF (Memory Interchange Format)
 
 - **What it is:** [mif-spec.dev](https://mif-spec.dev/) — vendor-neutral AI memory format. Dual representation: `.memory.md` (Markdown + YAML frontmatter) and `.memory.json` (JSON-LD). Obsidian-native.
 - **Importer behavior:** Copy `.memory.md` into vault (they are already valid Obsidian notes). Optional: normalize to our frontmatter (e.g. map `mif:id` to `source_id`, add `source: mif`). No need to change body. Enables future interop with Mem0, Zep, etc. if they adopt MIF.
 
-### 3.9 Audio and video (including wearables)
+### 🎙️ 4.9 Audio and video (including wearables)
 
 - **Product note:** **Audio** is the recommended path for in-app transcription (smaller files, usually under OpenAI’s **25&nbsp;MB** per-request limit). **Video** in the **self-hosted Hub** import dialog is **coming soon**; use **`knowtation import video`** from the CLI (same limit), or strip audio / transcribe elsewhere and import **Markdown**.
 - **Smart glasses / wearables:** Devices (e.g. TranscribeGlass, Omi, Ray-Ban + GlassFlow, ViveGlass) often produce transcripts via app, webhook, or export. Omi supports webhooks for real-time transcript delivery. TranscribeGlass and similar may export text or send to a URL.
@@ -95,7 +152,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 ---
 
-## 4. CLI surface (summary)
+## 5. CLI surface (summary)
 
 - **Command:** `knowtation import <source-type> <input> [--project <slug>] [--output-dir <path>] [--tags t1,t2] [--dry-run] [--json]`
 - **Behavior:** Run the importer for the given source type; write notes to vault; optionally run indexer after (config or flag). Output: list of written paths; with `--json`, machine-readable summary.
@@ -103,7 +160,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 ---
 
-## 5. What we're not forgetting
+## 6. What we're not forgetting
 
 - **Any audio:** Smart glasses, wearables, past blogs/videos, recordings → transcription (when under **25&nbsp;MB**) or external transcript → vault note with `source` and `source_id`.
 - **Any knowledge base:** Google Drive, NotebookLM, ChatGPT, Claude, Mem0, Evernote/Standard Notes (as Markdown), MIF → all have a defined `import` path into the vault.
@@ -113,7 +170,7 @@ Implementors: see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) for the pha
 
 ---
 
-## 6. How to run (examples)
+## 7. How to run (examples)
 
 **Markdown** (file or folder):
 ```bash

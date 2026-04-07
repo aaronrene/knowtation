@@ -357,7 +357,7 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 - `lib/importers/audio.mjs` / video: Placeholder note (Phase 7 transcription not yet implemented).
 - `lib/importers/notebooklm.mjs`, gdrive.mjs: Stub (throws with guidance).
 - CLI: import subcommand with --project, --output-dir, --tags, --dry-run, --json.
-- docs/IMPORT-SOURCES.md: Added §6 "How to run" examples.
+- docs/IMPORT-SOURCES.md: Added §7 "How to run" examples.
 - docs/PHASE6-MANUAL-TEST.md: Manual testing guide.
 
 ---
