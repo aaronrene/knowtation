@@ -134,7 +134,7 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 - **Enrich (Phase F2):** The **`enrich`** tool auto-categorizes a note: suggests project slug, tags, and title via sampling (client LLM) or server-side LLM fallback. Use `apply: true` to write suggestions to frontmatter.
 - **Index enrichment (Phase F3):** The **`index`** tool accepts `enrich: true` to generate per-note AI summaries after indexing (opt-in, expensive). Summaries are stored in `ai_summary` frontmatter.
 - **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant's context matches Knowtation.
-- **Sampling (Phase F1–F5):** Tools that benefit from LLM intelligence (`summarize`, `enrich`, `search` rerank) delegate to the host's LLM when the client supports **sampling**; otherwise they use Ollama/OpenAI on the server. Prompts (`search-and-synthesize`, `project-summary`, `knowledge-gap`) may include a sampling-based assistant prefill (Phase F5). See [MCP-PHASE-F.md](./MCP-PHASE-F.md).
+- **Sampling:** Tools that benefit from LLM intelligence (`summarize`, `enrich`, `search` rerank) delegate to the host's LLM when the client supports **sampling**; otherwise they use Ollama/OpenAI on the server. Prompts (`search-and-synthesize`, `project-summary`, `knowledge-gap`) may include a sampling-based assistant prefill. Code: `mcp/sampling.mjs` and tool modules under `mcp/tools/`.
 - **Use case:** When the agent runtime speaks MCP; no need to shell out to CLI.
 
 See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
@@ -231,6 +231,16 @@ curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
 - **Create:** CLI `knowtation propose`, Hub `POST /api/v1/proposals`, or the Hub UI (**Suggested → New proposal**, or open a note and **Propose change**). Agents use the same API contract.
 - **Review:** In Hub UI: **Suggested** = proposals to review; **Discarded** = rejected; **Activity** = timeline.
 - **Apply:** Approve in Hub (or API `POST /proposals/:id/approve`); content is written to vault.
+
+**Metadata you can rely on:** Proposals support **`intent`** (why the change exists), **`base_state_id`** (optimistic concurrency against a known vault snapshot), and optional **`external_ref`** (stable id in another system after approve). Same fields in REST and MCP; full shapes in [HUB-API.md](./HUB-API.md) and [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md).
+
+### Optional external lineage ([Muse](https://github.com/cgcardona/muse))
+
+**Not required** for sign-in, search, or normal proposal workflows. The vault and Hub stay canonical.
+
+Some teams run [Muse](https://github.com/cgcardona/muse) alongside Knowtation for **structural / Git-replayed history** (read-only lineage queries). If you do, keep Muse on **operator-controlled** credentials—never on an unauthenticated public URL for end users. When you **approve** a proposal, you may set **`external_ref`** to a Muse commit or branch id so the approved change is traceable across systems.
+
+A **full Knowtation domain plugin inside Muse** (variations stored in Muse’s DAG, merge engine owned by Muse) is **not** a supported product path unless a concrete partner or deployment needs it. Long-form background for maintainers: [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md).
 
 ---
 

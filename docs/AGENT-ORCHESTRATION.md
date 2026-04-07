@@ -40,7 +40,7 @@ Recommendation: support **both**. Use MCP where the runtime already has MCP; use
 
 4. **Scope (Phase G):** The server includes **`instructions`** with `file://` paths for the vault and index data directory. Hosts that support MCP **roots** may also receive a one-time structured log of the client’s `roots/list` response (for debugging alignment).
 
-5. **Sampling (Phase F1):** If the host supports MCP **sampling**, the **`summarize`** tool may run the summary in the **client’s** LLM (host approval may be required). If sampling is unavailable, Knowtation falls back to server-side Ollama/OpenAI as before. Implementation: `mcp/tools/phase-c.mjs`; roadmap: [BACKLOG-MCP-SUPERCHARGE.md](./BACKLOG-MCP-SUPERCHARGE.md).
+5. **Sampling:** If the host supports MCP **sampling**, tools such as **`summarize`** may run the summary in the **client’s** LLM (host approval may be required). If sampling is unavailable, Knowtation falls back to server-side Ollama/OpenAI. Implementation lives under `mcp/tools/` and `mcp/sampling.mjs`. Hosted MCP (OAuth, session pool) is documented in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2.
 
 Use **tiered retrieval** from the SKILL: small `limit`, `--fields path` or path+snippet, then `get_note` only for chosen paths. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 

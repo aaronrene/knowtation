@@ -64,7 +64,7 @@ All planned phases are done. The remaining work is:
 
 3. **MCP Phase C (enhanced tools) — Issue #1** — The remaining backlog item from MCP Supercharge:
    `mcp/tools/phase-c.mjs` — relate, backlinks, capture, transcribe, vault_sync, summarize,
-   extract_tasks, cluster, memory_query, tag_suggest. See `docs/BACKLOG-MCP-SUPERCHARGE.md`.
+   extract_tasks, cluster, memory_query, tag_suggest. See `docs/AGENT-INTEGRATION.md` §2 and `docs/archive/BACKLOG-MCP-SUPERCHARGE.md` for historical phase tables.
 
 4. **Ops verification** — After merging, redeploy gateway + bridge + static Hub to pick up:
    - Consolidation bridge endpoints (`POST /api/v1/memory/consolidate`, GET status)
@@ -79,7 +79,7 @@ All planned phases are done. The remaining work is:
 - `docs/IMPLEMENTATION-PLAN.md` — master plan (all phases)
 - `docs/SESSION-10-PLAN.md` — Session 10 detailed spec (all streams)
 - `docs/MEMORY-CONSOLIDATION-GUIDE.md` — technical reference for the daemon
-- `docs/BACKLOG-MCP-SUPERCHARGE.md` — MCP Phase C backlog
+- `docs/archive/BACKLOG-MCP-SUPERCHARGE.md` — archived MCP issue phase tables
 - `docs/DEPLOY-HOSTED.md` — deploy and smoke test checklist
 
 **Test runner:** `node --test` (Node 22). Current passing count: **1077**.
