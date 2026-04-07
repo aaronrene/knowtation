@@ -47,7 +47,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | Doc | Purpose |
 |-----|---------|
 | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases 1–16+ roadmap |
-| [archive/cursor-plans/ob1_vs_knowtation_analysis_ed7b7af1.plan.md](./archive/cursor-plans/ob1_vs_knowtation_analysis_ed7b7af1.plan.md) | Marketing + interop execution: Phases 1–5 **complete**; Phase 6 on **`feature/phase6-product-depth`** |
+| [archive/cursor-plans/marketing-interop-execution_ed7b7af1.plan.md](./archive/cursor-plans/marketing-interop-execution_ed7b7af1.plan.md) | Marketing + interop execution: Phases 1–5 **complete**; Phase 6 on **`feature/phase6-product-depth`** |
 | [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
 | [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Test checklist: notes to add, Hub UI checks, CLI commands |
@@ -63,7 +63,7 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 
 | Doc | Purpose |
 |-----|---------|
-| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, OB1 analysis) — not loose in `.cursor/plans/` |
+| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, marketing/interop execution) — not loose in `.cursor/plans/` |
 | [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md) | Archived: original MCP GitHub issue phase tables (historical sequencing) |
 | [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) | Archived: long-form Muse × Knowtation design notes |
 | [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) | Proposal **review hints** vs **Enrich** (LLM); roadmap pointer to extended Enrich |
