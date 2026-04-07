@@ -96,7 +96,7 @@
     <main id="main" class="hidden">
       <section class="search-section">
         <div class="search-row search-row-filters" role="group" aria-label="Search query and filters">
-          <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query" aria-describedby="search-semantic-hint">
+          <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query">
           <select id="search-mode" class="search-mode-select" title="Meaning = similar ideas (indexed). Keyword = text in path, body, and key frontmatter fields." aria-label="Search mode">
             <option value="semantic">Meaning</option>
             <option value="keyword">Keyword</option>
@@ -133,11 +133,10 @@
           <label for="filter-until" class="filter-date-label">Until</label>
           <input type="date" id="filter-until" aria-label="Filter notes until this date">
           <button id="btn-search" type="button" class="btn-primary" title="Run search (mode from dropdown: Meaning or Keyword). Results appear under the Notes tab. Respects filters. Enter also runs search." aria-label="Search vault">Search</button>
-          <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear the search box and show the filtered note list again" aria-label="Clear search">Clear</button>
+          <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear search, list filters (project/tag/folder/etc.), and content scope — show the full note list" aria-label="Clear search and list filters">Clear</button>
           <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
           <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
         </div>
-        <p id="search-semantic-hint" class="search-hint muted small"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. <strong>Meaning</strong> needs an up-to-date index (re-index after big changes). <strong>Keyword</strong> scans note text on the server. <strong>Clear</strong> resets search + content filter.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
@@ -146,6 +145,30 @@
           <button type="button" class="view-tab active" data-view="list">List</button>
           <button type="button" class="view-tab" data-view="calendar">Calendar</button>
           <button type="button" class="view-tab" data-view="graph">Overview</button>
+          <div class="browse-key-wrap">
+            <details id="search-key-help" class="browse-toolbar-key-details">
+              <summary class="search-key-summary" aria-label="Help: Notes, filters, search modes, and re-index. Click again to close." title="How Notes, Activity, search modes, filters, and re-index work">
+                <svg class="search-key-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="7.5" cy="12.5" r="3.5"/>
+                  <path d="M10.5 12.5H21"/>
+                  <path d="M16.5 12.5v3"/>
+                  <path d="M19.5 12.5v1.5"/>
+                </svg>
+                <span class="search-key-collapse-cue" aria-hidden="true">▲</span>
+              </summary>
+              <div class="search-key-body">
+                <ul class="search-key-list">
+                  <li><strong class="search-key-term">Notes</strong> — Vault files (including <code>approvals/</code> logs).</li>
+                  <li><strong class="search-key-term">Activity</strong> — Proposal workflow only. Search does not filter it.</li>
+                  <li><strong class="search-key-term">Quick</strong> chips and the content dropdown apply to the Notes list and Search.</li>
+                  <li><strong class="search-key-term">All</strong> — Use in Quick (or <strong class="search-key-term">Clear</strong>) to drop filters and see the full list again.</li>
+                  <li><strong class="search-key-term">Meaning</strong> search needs an up-to-date index (use <strong class="search-key-term">Re-index</strong> after big changes).</li>
+                  <li><strong class="search-key-term">Keyword</strong> scans note text on the server.</li>
+                </ul>
+                <p class="search-key-reindex"><strong class="search-key-term">Re-index</strong> rebuilds the search index from your vault. Run it after big imports, many edits, or path renames so <strong class="search-key-term">Meaning</strong> search and snippets match what is on disk.</p>
+              </div>
+            </details>
+          </div>
         </div>
         <div id="filter-chips" class="filter-chips"></div>
         <div class="presets-row">
@@ -155,12 +178,33 @@
         </div>
       </section>
 
-      <section class="tabs">
-        <button type="button" data-tab="notes" class="tab active" title="Vault markdown + approval log files; Search shows results here">Notes</button>
-        <button type="button" data-tab="activity" class="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
-        <button type="button" data-tab="suggested" class="tab" title="Proposals waiting for review">Suggested</button>
-        <button type="button" data-tab="problem" class="tab" title="Discarded proposals">Discarded</button>
+      <section class="tabs" aria-label="Main sections">
+        <div class="tabs-inner">
+          <div class="tabs-buttons">
+            <button type="button" data-tab="notes" class="tab active" title="Vault markdown + approval log files; Search shows results here">Notes</button>
+            <button type="button" data-tab="activity" class="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
+            <button type="button" data-tab="suggested" class="tab" title="Proposals waiting for review">Suggested</button>
+            <button type="button" data-tab="problem" class="tab" title="Discarded proposals">Discarded</button>
+          </div>
+          <div class="tabs-list-controls">
+            <label class="hub-sort-label" for="hub-list-sort">Sort</label>
+            <select id="hub-list-sort" aria-label="Sort list"></select>
+          </div>
+        </div>
       </section>
+      <div id="proposal-filters-bar" class="proposal-filters-bar hidden" role="region" aria-label="Proposal filters">
+        <div class="proposal-list-filters" id="proposal-list-filters">
+          <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Path prefix <input type="text" id="proposal-filter-path-prefix" placeholder="e.g. inbox" autocomplete="off" /></label>
+          <label class="proposal-filter-label proposal-filter-checkbox"><input type="checkbox" id="proposal-filter-pending-eval" /> Pending evaluation only</label>
+          <label class="proposal-filter-label">Review queue <input type="text" id="proposal-filter-review-queue" placeholder="e.g. legal" autocomplete="off" /></label>
+          <label class="proposal-filter-label">Severity <input type="text" id="proposal-filter-review-severity" placeholder="standard or elevated" autocomplete="off" /></label>
+          <button type="button" id="proposal-filter-apply" class="btn-secondary">Apply filters</button>
+          <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
+          <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
+        </div>
+      </div>
 
       <section id="tab-notes" class="tab-panel">
         <div id="notes-view-list" class="notes-view-panel">
@@ -218,22 +262,12 @@
       </section>
       <section id="tab-activity" class="tab-panel hidden">
         <p class="muted"><strong>Activity</strong> lists proposal records (same data as Approve/Discard)—not semantic search hits. Vault <code>approvals/*.md</code> logs: open <strong>Notes</strong>, set content to <strong>Approval logs only</strong>, Apply filters or Search.</p>
+        <p class="muted">Use the <strong>proposal filters</strong> row (shown above when this tab, Suggested, or Discarded is active) to narrow by label, source, path, evaluation, queue, or severity. <strong>Sort</strong> (top right) applies here too.</p>
         <p class="muted">Sources: Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), CLI, API.</p>
         <div id="proposals-activity" class="list activity-timeline"></div>
       </section>
       <section id="tab-suggested" class="tab-panel hidden">
         <p class="muted">Proposals needing your review. Create one with <strong>New proposal</strong> or from a note (<strong>Propose change</strong> in the detail panel); the CLI and agents can still create them via the API. Open a row, then Approve (writes to vault) or Discard.</p>
-        <div class="proposal-list-filters" id="proposal-list-filters">
-          <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
-          <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
-          <label class="proposal-filter-label">Path prefix <input type="text" id="proposal-filter-path-prefix" placeholder="e.g. inbox" autocomplete="off" /></label>
-          <label class="proposal-filter-label proposal-filter-checkbox"><input type="checkbox" id="proposal-filter-pending-eval" /> Pending evaluation only</label>
-          <label class="proposal-filter-label">Review queue <input type="text" id="proposal-filter-review-queue" placeholder="e.g. legal" autocomplete="off" /></label>
-          <label class="proposal-filter-label">Severity <input type="text" id="proposal-filter-review-severity" placeholder="standard or elevated" autocomplete="off" /></label>
-          <button type="button" id="proposal-filter-apply" class="btn-secondary">Apply filters</button>
-          <button type="button" id="proposal-filter-clear" class="btn-secondary">Clear</button>
-          <button type="button" id="btn-new-proposal" class="btn-secondary hidden">New proposal</button>
-        </div>
         <div id="proposals-suggested" class="list"></div>
       </section>
       <section id="tab-problem" class="tab-panel hidden">
@@ -1959,6 +1993,10 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
-  <script src="hub.js?v=20260406c"></script>
+  <script type="module">
+    import * as HubListSort from './hub-list-sort.mjs';
+    globalThis.HubListSort = HubListSort;
+  </script>
+  <script defer src="hub.js?v=20260406d"></script>
 </body>
 </html>

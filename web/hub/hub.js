@@ -542,8 +542,7 @@
     lastBackupSettingsPayload = s;
     if (s.role) window.__hubUserRole = String(s.role);
     refreshDeleteProjectPanelVisibility();
-    const btnNewProposal = el('btn-new-proposal');
-    if (btnNewProposal) btnNewProposal.classList.toggle('hidden', !hubUserCanWriteNotes());
+    refreshNewProposalTabVisibility();
     const allowed = (s.allowed_vault_ids || []).map(String);
     const current = String(getCurrentVaultId());
     if (allowed.length && !allowed.includes(current)) {
@@ -652,74 +651,25 @@
     showLoginChrome();
   };
 
-  /** Top banner when knowtation.store cannot load /api/v1/auth/providers (gateway down, paused, non-JSON, CORS). */
-  function showHostedSignInBlockedBanner(detailHtml) {
-    const b = el('hub-api-base-footgun-banner');
-    if (!b) return;
-    const h = location.hostname || '';
-    if (h !== 'knowtation.store' && h !== 'www.knowtation.store') return;
-    b.classList.remove('hidden');
-    b.innerHTML =
-      '<p><strong>Sign-in is unavailable.</strong> This page could not load OAuth settings from the API at <code>' +
-      escapeHtml(apiBase) +
-      '</code>.</p>' +
-      (detailHtml ? '<p class="muted" style="margin:0.35rem 0 0 0">' + detailHtml + '</p>' : '') +
-      '<p class="muted" style="margin:0.5rem 0 0 0">Typical causes: the <strong>Netlify gateway</strong> is <strong>paused</strong> (usage/billing limits), still deploying, returning an error page instead of JSON, or <code>HUB_CORS_ORIGIN</code> on the gateway does not include <code>' +
-      escapeHtml(location.origin) +
-      '</code>. Open the gateway URL in a new tab; if you see a Netlify “paused” or limit message, fix billing in Netlify, then refresh here.</p>';
-  }
-
   async function initProviders() {
-    const providersUrl = apiBase + '/api/v1/auth/providers';
-    const fetchProvidersWithTimeout = async () => {
-      const ms = 15000;
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), ms);
-      try {
-        return await fetch(providersUrl, { cache: 'no-store', signal: ctrl.signal });
-      } finally {
-        clearTimeout(t);
-      }
-    };
-
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetchProvidersWithTimeout();
-        const text = await r.text();
-        if (!r.ok) throw new Error('providers_http_' + r.status);
-        const trimmed = text.trim();
-        if (!trimmed.startsWith('{')) {
-          const paused =
-            /usage limits|site was paused|site not available|paused as it reached/i.test(text);
-          throw new Error(paused ? 'gateway_paused_or_html' : 'providers_non_json');
-        }
-        const data = JSON.parse(trimmed);
-        if (!data || typeof data.google !== 'boolean' || typeof data.github !== 'boolean') {
-          throw new Error('providers_shape');
-        }
-        providers = data;
+        const r = await fetch(apiBase + '/api/v1/auth/providers', { cache: 'no-store' });
+        if (!r.ok) throw new Error('providers');
+        providers = await r.json();
         break;
-      } catch (err) {
+      } catch (_) {
         if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 3000));
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 3000));
           continue;
         }
         providers = { google: false, github: false };
         oauthNotConfigured.classList.remove('hidden');
         if (loginIntro) loginIntro.classList.add('hidden');
         const first = oauthNotConfigured.querySelector('p');
-        const isHosted =
-          location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
-        const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
-        const errName = err && err.name === 'AbortError' ? 'timeout' : String(err && err.message ? err.message : err);
-        let detail = '';
-        if (errName === 'gateway_paused_or_html') {
-          detail =
-            'The API returned a <strong>web page</strong> instead of JSON (often Netlify “site paused” or usage limits). Unpause or upgrade the gateway deploy, then reload.';
-        } else if (errName === 'timeout' || errName === 'AbortError') {
-          detail = 'The request timed out after 15s — the gateway may be cold-starting, overloaded, or unreachable.';
-        }
         if (first) {
+          const isHosted = location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
+          const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
           if (isHosted && sameOrigin) {
             first.innerHTML =
               '<strong>Could not load OAuth status.</strong> The Hub at <code>' + escapeHtml(location.origin) +
@@ -727,17 +677,13 @@
           } else if (isHosted && !sameOrigin) {
             first.innerHTML =
               '<strong>Could not reach the gateway.</strong> Sign-in with Google or GitHub will appear once the gateway at <code>' + escapeHtml(apiBase) +
-              '</code> returns JSON from <code>/api/v1/auth/providers</code>. Check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) +
-              '</code>. If the gateway is <strong>paused on Netlify</strong> (usage limits), restore it in Netlify billing and refresh.';
+              '</code> is deployed and allows this site (check <strong>HUB_CORS_ORIGIN</strong> includes <code>' + escapeHtml(location.origin) + '</code>). If the gateway is still deploying on Netlify, wait a few minutes and refresh.';
           } else {
             first.innerHTML =
               '<strong>Could not load OAuth status.</strong> Is the Hub running at <code>' +
               escapeHtml(apiBase) +
               '</code>? Open this page from the same machine as <code>npm run hub</code> (e.g. <code>http://localhost:3333/</code>).';
           }
-        }
-        if (isHosted && !sameOrigin) {
-          showHostedSignInBlockedBanner(detail);
         }
         return;
       }
@@ -746,20 +692,11 @@
     if (!providers.google && !providers.github) {
       oauthNotConfigured.classList.remove('hidden');
       if (loginIntro) loginIntro.classList.add('hidden');
-      const isHosted =
-        location.origin !== 'http://localhost:3333' && location.origin !== 'http://127.0.0.1:3333';
-      const sameOrigin = apiBase === location.origin || apiBase === location.origin + '/';
-      if (isHosted && !sameOrigin) {
-        showHostedSignInBlockedBanner(
-          'The gateway responded but reports <strong>no OAuth clients</strong> configured (both providers false). Set <code>GOOGLE_*</code> and <code>GITHUB_*</code> on the gateway environment.',
-        );
-      }
     } else {
       oauthNotConfigured.classList.add('hidden');
       if (loginIntro) loginIntro.classList.remove('hidden');
       if (providers.google) btnLoginGoogle.classList.remove('hidden');
       if (providers.github) btnLoginGithub.classList.remove('hidden');
-      refreshApiBaseFootgunBanner();
     }
   }
 
@@ -806,6 +743,9 @@
         const s = await api('/api/v1/settings');
         applySettingsPayloadToHubChrome(s);
       } catch (_) {}
+      syncHubListSortUI('notes');
+      setProposalFiltersBarVisible(false);
+      refreshNewProposalTabVisibility();
       loadFacets();
       loadNotes();
       loadProposals();
@@ -976,6 +916,73 @@
   function noteSortOrCalendarDay(n) {
     const raw = n.date || n.updated || '';
     return calendarDisplayDayKey(raw) || dateSlice(raw);
+  }
+
+  const HUB_SORT_STORAGE_NOTES = 'hub_list_sort_notes';
+  const HUB_SORT_STORAGE_PROPOSALS = 'hub_list_sort_proposals';
+  const HUB_SORT_NOTES_OPTS = [
+    { v: 'date_desc', l: 'Newest first' },
+    { v: 'date_asc', l: 'Oldest first' },
+    { v: 'year_desc', l: 'Year (newest first)' },
+    { v: 'year_asc', l: 'Year (oldest first)' },
+    { v: 'path_asc', l: 'Path A–Z' },
+    { v: 'title_asc', l: 'Title A–Z' },
+  ];
+  const HUB_SORT_PROP_OPTS = [
+    { v: 'updated_desc', l: 'Newest first' },
+    { v: 'updated_asc', l: 'Oldest first' },
+    { v: 'path_asc', l: 'Path A–Z' },
+    { v: 'status_asc', l: 'Status A–Z' },
+  ];
+
+  function hubListSortGetSelect() {
+    return el('hub-list-sort');
+  }
+
+  function syncHubListSortUI(activeTab) {
+    const sel = hubListSortGetSelect();
+    if (!sel) return;
+    const isNotes = activeTab === 'notes';
+    const opts = isNotes ? HUB_SORT_NOTES_OPTS : HUB_SORT_PROP_OPTS;
+    const key = isNotes ? HUB_SORT_STORAGE_NOTES : HUB_SORT_STORAGE_PROPOSALS;
+    let saved = '';
+    try {
+      saved = localStorage.getItem(key) || '';
+    } catch (_) {}
+    sel.innerHTML = opts.map((o) => '<option value="' + o.v + '">' + o.l + '</option>').join('');
+    if (!saved || !opts.some((o) => o.v === saved)) saved = opts[0].v;
+    sel.value = saved;
+  }
+
+  function setProposalFiltersBarVisible(show) {
+    const bar = el('proposal-filters-bar');
+    if (bar) bar.classList.toggle('hidden', !show);
+  }
+
+  function refreshNewProposalTabVisibility() {
+    const btn = el('btn-new-proposal');
+    if (!btn) return;
+    const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const show = tab === 'suggested' && hubUserCanWriteNotes();
+    btn.classList.toggle('hidden', !show);
+  }
+
+  function applySortedNotesClient(notes) {
+    const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    if (tab !== 'notes') return notes;
+    const S = globalThis.HubListSort;
+    const sel = hubListSortGetSelect();
+    const mode = sel && sel.value ? sel.value : 'date_desc';
+    if (!S || typeof S.sortNotesList !== 'function') return notes;
+    return S.sortNotesList(notes, mode, noteSortOrCalendarDay);
+  }
+
+  function applySortedProposalsClient(list) {
+    const S = globalThis.HubListSort;
+    const sel = hubListSortGetSelect();
+    const mode = sel && sel.value ? sel.value : 'updated_desc';
+    if (!S || typeof S.sortProposalsList !== 'function') return list;
+    return S.sortProposalsList(list, mode);
   }
 
   function normalizeHubListItem(n) {
@@ -1244,8 +1251,51 @@
       .replace(/^-|-$/g, '');
   }
 
+  /** True when any list filter used by loadNotes / Quick chips is set. */
+  function listFacetFiltersActive() {
+    if (filterProject.value) return true;
+    if (filterTag.value) return true;
+    if (filterFolder.value) return true;
+    if (filterNetwork && filterNetwork.value) return true;
+    if (filterWallet && filterWallet.value) return true;
+    const fps = el('filter-payment-status');
+    if (fps && fps.value) return true;
+    if (filterSince && filterSince.value) return true;
+    if (filterUntil && filterUntil.value) return true;
+    if (filterContentScope && filterContentScope.value) return true;
+    return false;
+  }
+
+  function clearListFacetFilters() {
+    filterProject.value = '';
+    filterTag.value = '';
+    filterFolder.value = '';
+    if (filterNetwork) filterNetwork.value = '';
+    if (filterWallet) filterWallet.value = '';
+    const fps = el('filter-payment-status');
+    if (fps) fps.value = '';
+    if (filterSince) filterSince.value = '';
+    if (filterUntil) filterUntil.value = '';
+    if (filterContentScope) filterContentScope.value = '';
+  }
+
   function renderFilterChips(facets) {
     filterChipsEl.innerHTML = '<span class="toolbar-label">Quick</span>';
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'chip-btn chip-all' + (listFacetFiltersActive() ? '' : ' active');
+    allBtn.textContent = 'All';
+    allBtn.title =
+      'Show all notes: clear project, tag, folder, dates, content scope, and blockchain list filters';
+    allBtn.onclick = () => {
+      searchQuery.value = '';
+      clearListFacetFilters();
+      switchNotesView('list');
+      loadNotes();
+      renderFilterChips(null);
+    };
+    filterChipsEl.appendChild(allBtn);
+
     const apply = (f) => {
       if (!f) return;
       (f.projects || []).slice(0, 12).forEach((p) => {
@@ -1473,6 +1523,7 @@
         wallet_address: walletVal,
         payment_status: paymentStatusVal,
       });
+      notes = applySortedNotesClient(notes);
       const totalCount = notes.length;
       notes = notes.slice(0, 100);
       if (notes.length === 0) {
@@ -1545,10 +1596,10 @@
   if (btnClearSearch) {
     btnClearSearch.onclick = () => {
       searchQuery.value = '';
+      clearListFacetFilters();
       switchNotesView('list');
       document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-      if (filterContentScope) filterContentScope.value = '';
       const notesTab = document.querySelector('[data-tab="notes"]');
       if (notesTab) notesTab.classList.add('active');
       const tabNotes = el('tab-notes');
@@ -1575,6 +1626,7 @@
   if (proposalFilterApply) {
     proposalFilterApply.onclick = () => {
       loadProposals();
+      loadActivity();
     };
   }
   const proposalFilterClear = el('proposal-filter-clear');
@@ -1593,7 +1645,24 @@
       if (rq) rq.value = '';
       if (rs) rs.value = '';
       loadProposals();
+      loadActivity();
     };
+  }
+
+  const hubListSortEl = hubListSortGetSelect();
+  if (hubListSortEl) {
+    hubListSortEl.addEventListener('change', () => {
+      const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+      try {
+        if (tab === 'notes') localStorage.setItem(HUB_SORT_STORAGE_NOTES, hubListSortEl.value);
+        else if (tab === 'activity' || tab === 'suggested' || tab === 'problem') {
+          localStorage.setItem(HUB_SORT_STORAGE_PROPOSALS, hubListSortEl.value);
+        }
+      } catch (_) {}
+      if (tab === 'notes') loadNotes();
+      else if (tab === 'activity') loadActivity();
+      else if (tab === 'suggested' || tab === 'problem') loadProposals();
+    });
   }
 
   if (btnReindex) {
@@ -1661,9 +1730,10 @@
       const container = el('proposals-' + kind);
       if (!container) return;
       container.innerHTML = loadingHtml;
-      api('/api/v1/proposals?status=' + encodeURIComponent(status) + '&limit=20' + fq)
+      api('/api/v1/proposals?status=' + encodeURIComponent(status) + '&limit=100' + fq)
         .then((out) => {
-          const list = out.proposals || [];
+          let list = out.proposals || [];
+          list = applySortedProposalsClient(list);
           if (list.length === 0) {
             container.innerHTML = emptyHtml;
             return;
@@ -1725,8 +1795,10 @@
     if (!container) return;
     container.innerHTML = loadingHtml;
     try {
-      const out = await api('/api/v1/proposals?limit=50');
-      const list = (out.proposals || []).sort((a, b) => (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || ''));
+      const fq = proposalFilterQuerySuffix();
+      const out = await api('/api/v1/proposals?limit=100' + fq);
+      let list = out.proposals || [];
+      list = applySortedProposalsClient(list);
       if (list.length === 0) {
         container.innerHTML = '<div class="empty-state">No proposal activity yet.</div>';
         return;
@@ -2232,6 +2304,9 @@
           const suggestedPanel = el('tab-suggested');
           if (suggestedTab) suggestedTab.classList.add('active');
           if (suggestedPanel) suggestedPanel.classList.remove('hidden');
+          syncHubListSortUI('suggested');
+          setProposalFiltersBarVisible(true);
+          refreshNewProposalTabVisibility();
           loadProposals();
         } catch (e) {
           if (msgEl) {
@@ -6281,8 +6356,14 @@
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
       tab.classList.add('active');
       const name = tab.dataset.tab;
+      syncHubListSortUI(name);
+      setProposalFiltersBarVisible(
+        name === 'activity' || name === 'suggested' || name === 'problem',
+      );
+      refreshNewProposalTabVisibility();
       const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'suggested' ? 'suggested' : 'problem'));
       if (panel) panel.classList.remove('hidden');
+      if (name === 'notes') loadNotes();
       if (name === 'activity') loadActivity();
       if (name === 'suggested' || name === 'problem') loadProposals();
     };
