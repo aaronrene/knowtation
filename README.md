@@ -32,6 +32,8 @@ Most knowledge tools put a database at the center. Knowtation puts **files** at 
 
 ## 🚀 Quick start (~5 minutes)
 
+**At a glance:** clone the repo → `npm install` → copy `config/local.example.yaml` to `config/local.yaml` (set **`vault_path`**, vector store, embeddings) → **`npm run index`** → run **`node cli/index.mjs search "your query"`**. Optional: **Hub** (`npm run hub`) and **MCP** (`npm run mcp`).
+
 ```bash
 git clone https://github.com/aaronrene/knowtation.git
 cd knowtation

@@ -5,6 +5,19 @@
 
 ---
 
+## 📖 How to read this document
+
+| Block | What to expect |
+|--------|----------------|
+| **📌 Abstract** | Thesis in one pass — why Knowtation exists and what “good retrieval” means here. |
+| **§1–2** | The problem with naive context + the **three levers** (search → memory → prompts). |
+| **§3–4** | Why one vault, and how **persistence, fetch, and trust** fit together. |
+| **§5 onward** | **Imports, memory, consolidation, Hub, MCP, attestation, billing** — reference depth for builders and buyers. |
+
+**Tip:** Read the abstract first; open numbered sections when you need detail. Long subsections use **bold lead-ins** so you can scan.
+
+---
+
 ## 📌 Abstract
 
 Knowtation was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Shoving a full history into the model window is expensive and often harmful — word overlap is not semantic relevance, and the wrong material produces confident but wrong answers. The bottleneck in agent-powered work is not model strength. It is **fetching the right context at the lowest cost.**
