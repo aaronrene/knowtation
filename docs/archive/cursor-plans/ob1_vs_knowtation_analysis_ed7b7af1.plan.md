@@ -13,10 +13,10 @@ todos:
     status: completed
   - id: phase4-website
     content: "Phase 4 (Opus): Redesign web/index.html — vertical flow, 8 sections, icons + plain language + accordions"
-    status: pending
+    status: completed
   - id: phase5-interop-docs
     content: "Phase 5 (Sonnet): Dual MCP + Supabase bridge documentation in docs/AGENT-INTEGRATION.md"
-    status: pending
+    status: completed
   - id: phase6-future
     content: "Phase 6 (Future): Import Guides, Integrations UX, starter templates, skill packs, setup wizard"
     status: pending
@@ -105,8 +105,8 @@ Restructure [`README.md`](README.md) to:
 Replace [`web/index.html`](web/index.html) with the vertical-flow design from section 6 of the analysis:
 - 8 sections, each: icon (SVG or emoji) → headline → 2-3 plain sentences → `<details>` accordion with technical depth
 - Mobile-first single column; optional two-column on desktop where natural
-- No tables anywhere
-- Password gate preserved if still needed
+- No tables anywhere (marketing page may use cards/grids; principle: scannable layout)
+- Password gate removed for public landing (ship ungated `web/index.html`)
 - Sign-in links preserved
 - Fonts: keep Instrument Serif + Outfit (or upgrade if better pairing found)
 

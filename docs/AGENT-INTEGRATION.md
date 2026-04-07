@@ -4,6 +4,94 @@
 
 Integrate Knowtation with any agent (OpenAI, Claude, LangChain, LlamaIndex, custom runners). **Precise retrieval = fewer tokens:** use filters and limits so agents fetch only what they need; see [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) for token levers. Three entry points: **CLI**, **MCP**, **Hub API**.
 
+**Coming from Supabase?** Start with [**Migrating from Supabase → Knowtation**](#migrating-from-supabase--knowtation) below, then wire agents using sections 2–3.
+
+---
+
+## Migrating from Supabase → Knowtation
+
+Many teams store AI memories, chat snippets, or app content in **Supabase (Postgres)**. Knowtation’s model is **Markdown files you own** plus an optional **search index** and **structured memory**. This section is the supported path to **move table rows into your vault** and then use the same agent surfaces (CLI, MCP, Hub API) as everyone else.
+
+### What you can migrate
+
+| Source in Supabase | What Knowtation does | Mechanism |
+|--------------------|----------------------|-----------|
+| A table of text blobs (e.g. `memories`, `messages`, custom name) | One **vault note per row** with `source: supabase`, `source_id`, `date` | **`supabase-memory` import** ([`lib/importers/supabase-memory.mjs`](../lib/importers/supabase-memory.mjs)) |
+| New operational memory after cutover | Optional: keep events in **Postgres** via Knowtation’s Supabase memory provider | `memory.provider: supabase` + [`scripts/supabase-memory-migration.sql`](../scripts/supabase-memory-migration.sql) |
+
+General **Postgres → Markdown** flows that are not row-per-memory (e.g. arbitrary schemas) are not a single CLI flag; use SQL **views** that expose the column names this importer expects, or export to CSV and use another importer where applicable ([IMPORT-SOURCES.md](./IMPORT-SOURCES.md)).
+
+### Step 1 — Import table rows into the vault
+
+Run the **`supabase-memory`** importer. From the **repo root**, `knowtation` resolves to `cli/index.mjs` via `npm install` / `npx`; you can also call `node cli/index.mjs import …` explicitly.
+
+```bash
+# Dry run first (no writes)
+knowtation import supabase-memory '{"url":"'"$SUPABASE_URL"'","key":"'"$SUPABASE_SERVICE_ROLE_KEY"'","table":"memories"}' --dry-run --json
+
+# Write notes under the vault (default: one .md per row)
+knowtation import supabase-memory '{"url":"'"$SUPABASE_URL"'","key":"'"$SUPABASE_SERVICE_ROLE_KEY"'","table":"memories"}' --project migrated-from-supabase --json
+```
+
+You can pass a **path to a JSON file** instead of inline JSON (keep that file **out of git**; it contains secrets):
+
+```json
+{
+  "url": "https://YOUR_PROJECT.supabase.co",
+  "key": "YOUR_SERVICE_ROLE_KEY",
+  "table": "memories",
+  "vault_notes": true
+}
+```
+
+```bash
+knowtation import supabase-memory ./config/supabase-import.secret.json --dry-run --json
+```
+
+**Config fields**
+
+| Field | Required | Default | Meaning |
+|-------|----------|---------|---------|
+| `url` | Yes | — | Project URL (`https://xxx.supabase.co`) |
+| `key` | Yes | — | API key with read access to the table (service role for full reads) |
+| `table` | No | `memories` | Table name |
+| `vault_notes` | No | `true` | If `false`, skips writing `.md` files (memory callback only, advanced) |
+
+**Row → note mapping (current importer behavior)**
+
+- **Body:** first of `memory`, `content`, `text`; otherwise JSON of the whole row.
+- **`source_id`:** `id` or `memory_id`, else a generated id.
+- **`date`:** `created_at` or `updated_at` (supports ISO strings or numeric epoch seconds).
+
+If your columns use different names, create a **SQL view** in Supabase that aliases them to `memory`/`content`/`text`, `id`, and `created_at`, then set `"table": "your_view_name"`.
+
+**Dependency:** `@supabase/supabase-js` (see repo `package.json`). After import, run **`knowtation index`** / `npm run index` so search sees new notes.
+
+### Step 2 — Point agents at Knowtation (not at raw Supabase for vault reads)
+
+After migration, agents should use **MCP** or **Hub API** for **search / get-note / write / propose** so retrieval goes through Knowtation’s filters and token levers ([§2 MCP](#2-mcp-cursor-claude-code-etc), [§3 Hub API](#3-hub-api-rest)).
+
+You may still run a **second MCP server** (e.g. generic SQL or an internal Supabase tool) alongside Knowtation for legacy queries during transition — see [Dual MCP (interop)](#dual-mcp-interop-knowtation--another-server) under §2.
+
+### Step 3 — (Optional) Keep new memory events in Supabase
+
+If you want **semantic memory** stored in Postgres while the vault stays canonical Markdown:
+
+1. Run [`scripts/supabase-memory-migration.sql`](../scripts/supabase-memory-migration.sql) in the Supabase SQL editor (creates `knowtation_memory_events` + `match_memory_events`).
+2. Set in `config/local.yaml` (or env):
+
+```yaml
+memory:
+  enabled: true
+  provider: supabase
+  supabase_url: https://YOUR_PROJECT.supabase.co
+  supabase_key: YOUR_KEY   # prefer KNOWTATION_SUPABASE_URL / KNOWTATION_SUPABASE_KEY in env
+```
+
+Details and event model: [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md).
+
+This is **not** required to use the vault or MCP; it is an optional backend for `memory_*` tools.
+
 ---
 
 ## 1. CLI (agents in containers / worktrees)
@@ -61,6 +149,41 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Rate limiting:** 60 requests/min per user on the `/mcp` endpoint.
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
+
+### Dual MCP (interop): Knowtation + another server
+
+Cursor, Claude Desktop, and other MCP hosts can load **multiple MCP servers** in one app. A common pattern during or after a **Supabase → Knowtation** migration:
+
+- **Knowtation MCP** — vault search, notes, proposals, memory tools, imports (canonical knowledge).
+- **A second MCP** — legacy Postgres/Supabase dashboards, internal tools, or another “second brain” product.
+
+**Cursor** (`.cursor/mcp.json`): use a top-level `mcpServers` object with **two entries** (names are arbitrary):
+
+```json
+{
+  "mcpServers": {
+    "knowtation": {
+      "command": "node",
+      "args": ["/ABS/PATH/TO/knowtation/cli/index.mjs", "mcp"],
+      "env": {
+        "KNOWTATION_VAULT_PATH": "/ABS/PATH/TO/your-vault"
+      }
+    },
+    "other": {
+      "command": "npx",
+      "args": ["-y", "some-other-mcp-package"]
+    }
+  }
+}
+```
+
+**Claude Desktop:** merge a second server into `mcpServers` in `claude_desktop_config.json` the same way (OS-specific path — see [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md)).
+
+**Operational tips**
+
+- Give servers **distinct names** so the model can choose `knowtation`-scoped tools vs the other package.
+- **Secrets:** put Supabase **service role** keys in env vars or host-specific secret stores, not in committed JSON.
+- Hosted Knowtation MCP uses **OAuth or Hub JWT** against your gateway URL instead of a local `node … mcp` command — same dual-server idea: one config block for Knowtation hosted, one for the other tool.
 
 ---
 
@@ -137,3 +260,6 @@ curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
 | [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) | Token levers, retrieval options |
 | [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) | MCP, multi-agent usage |
 | [MESSAGING-INTEGRATION.md](./MESSAGING-INTEGRATION.md) | Slack, Discord, capture adapters |
+| [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md) | Memory providers, optional Supabase backend |
+| [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | All import types and formats |
+| [`scripts/supabase-memory-migration.sql`](../scripts/supabase-memory-migration.sql) | SQL for `knowtation_memory_events` + pgvector RPC |
