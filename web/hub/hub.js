@@ -2540,6 +2540,7 @@
     syncAccentUI();
     syncThemeUI();
     syncColorPaletteUI();
+    refreshIntegApiStatus();
     el('settings-sync-msg').textContent = '';
     el('settings-sync-msg').className = 'settings-msg';
     el('settings-save-msg').textContent = '';
@@ -2838,6 +2839,14 @@
     }
   };
 
+  function refreshIntegApiStatus() {
+    var dot = el('integ-api-status');
+    if (!dot) return;
+    var hasToken = Boolean(token || (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')));
+    dot.classList.toggle('active', hasToken);
+    dot.title = hasToken ? 'Token available — signed in' : 'No token — sign in to enable';
+  }
+
   const btnCopyHubApiEnv = el('btn-copy-hub-api-env');
   if (btnCopyHubApiEnv) {
     btnCopyHubApiEnv.onclick = () => {
@@ -2869,6 +2878,7 @@
             msg.textContent = 'Copied URL, token, and vault id.';
             msg.className = 'settings-msg';
           }
+          refreshIntegApiStatus();
           setTimeout(() => {
             if (msg) msg.textContent = '';
           }, 2500);

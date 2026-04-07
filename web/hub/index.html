@@ -932,7 +932,11 @@ Your note body here.</pre>
             </div>
             <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
             <p class="settings-intro small"><strong>Self-hosted Hub — audio import:</strong> Whisper accepts about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed where the Hub runs (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or use our Docker image which includes it), Knowtation can <strong>automatically compress</strong> larger files (e.g. bulky WAV) before sending to OpenAI. Disable with <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>. Set <code>FFMPEG_PATH</code> if the binary is not on <code>PATH</code>.</p>
-            <h3 class="settings-h3">Hub API (agents, CLI, curl)</h3>
+            <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 0 10h-3"/><path d="M9 17H6a5 5 0 0 1 0-10h3"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+              Hub API
+              <span id="integ-api-status" class="integ-status-dot" title="No token copied yet"></span>
+            </h3>
             <p class="settings-intro small">Agents and scripts use the <strong>same sign-in as this Hub</strong>—no separate API account. After you log in, use the button below to copy <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (JWT), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. The JWT expires; if requests return 401, sign in again and re-copy. Every REST call must send <code>Authorization: Bearer …</code> and, for vault-scoped routes, <code>X-Vault-Id</code> (match the copied vault id unless you use <code>default</code>).</p>
             <div class="settings-actions" style="margin-top: 0.5rem;">
               <button type="button" id="btn-copy-hub-api-env" class="btn-secondary">Copy Hub URL, token &amp; vault</button>
@@ -940,29 +944,117 @@ Your note body here.</pre>
             </div>
             <p class="settings-intro small">Full agent reference (CLI, MCP, Hub API, no separate signup): <code>docs/AGENT-INTEGRATION.md</code>.</p>
             <hr class="settings-hr">
-            <h3 class="settings-h3">Capture (messages → inbox)</h3>
-            <p class="settings-intro small">Send messages or events into the vault as notes. When the Hub is running, the capture URL is <code>POST /api/v1/capture</code> (e.g. <code>http://localhost:3333/api/v1/capture</code>). Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> in the server and send header <code>X-Webhook-Secret</code>.</p>
-            <h4 class="settings-h4">How to connect capture</h4>
-            <p class="settings-intro small">Run an adapter (or Zapier/n8n) that converts platform events to the capture format, then POSTs to the Hub. Body format: <code>{"body": "text", "source": "slack", "project": "optional"}</code>. Full format: How to use → Step 5 (Import).</p>
-            <ul class="settings-list">
-              <li><strong>Slack:</strong> Run <code>node scripts/capture-slack-adapter.mjs --port 3132</code>. Set env <code>CAPTURE_URL</code> (Hub URL), <code>SLACK_SIGNING_SECRET</code>, and optionally <code>CAPTURE_WEBHOOK_SECRET</code>. Point Slack Events API at the adapter URL.</li>
-              <li><strong>Discord:</strong> Run <code>node scripts/capture-discord-adapter.mjs --port 3133</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Point your Discord webhook or bot at the adapter.</li>
-              <li><strong>Telegram:</strong> Run <code>node scripts/capture-telegram-adapter.mjs --port 3134</code>. Set <code>CAPTURE_URL</code> and <code>CAPTURE_WEBHOOK_SECRET</code>. Or any bot that POSTs to <code>/api/v1/capture</code> with <code>{"body": "...", "source": "telegram"}</code>.</li>
-              <li><strong>WhatsApp:</strong> Use Zapier or n8n: WhatsApp trigger → HTTP POST to <code>https://your-hub/api/v1/capture</code> with <code>{"body": "message text", "source": "whatsapp"}</code>. See <code>docs/MESSAGING-INTEGRATION.md</code>.</li>
-            </ul>
+            <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              Capture (messages → inbox)
+            </h3>
+            <p class="settings-intro small">Send messages or events into the vault as notes. Capture URL: <code>POST /api/v1/capture</code>. Optional: <code>CAPTURE_WEBHOOK_SECRET</code> + header <code>X-Webhook-Secret</code>.</p>
+            <div class="integ-source-grid integ-capture-grid">
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">💬</span>
+                <span class="integ-source-tile-name">Slack</span>
+                <span class="integ-source-tile-desc">Adapter on port 3132; <code>SLACK_SIGNING_SECRET</code></span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🎮</span>
+                <span class="integ-source-tile-name">Discord</span>
+                <span class="integ-source-tile-desc">Adapter on port 3133; webhook or bot</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">✈️</span>
+                <span class="integ-source-tile-name">Telegram</span>
+                <span class="integ-source-tile-desc">Adapter on port 3134; or any bot → capture</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">📱</span>
+                <span class="integ-source-tile-name">WhatsApp</span>
+                <span class="integ-source-tile-desc">Via Zapier/n8n → <code>POST /capture</code></span>
+              </div>
+            </div>
+            <p class="settings-intro small" style="margin-top: 0.5rem;">Run an adapter (or Zapier/n8n) that converts platform events to the capture format, then POSTs to the Hub. Body: <code>{"body": "text", "source": "slack"}</code>. Full details: How to use → Step 5 (Import).</p>
             <hr class="settings-hr">
-            <h3 class="settings-h3">Import sources (files → vault)</h3>
-            <p class="settings-intro small">Bring data into the vault from exports and platforms using the CLI.</p>
-            <h4 class="settings-h4">How to connect imports</h4>
-            <p class="settings-intro small">From a terminal: <code>knowtation import &lt;source-type&gt; &lt;input&gt;</code>. Use <code>--project</code>, <code>--output-dir</code>, <code>--tags</code> as needed. Source types:</p>
-            <ul class="settings-list">
-              <li><strong>Chats:</strong> <code>chatgpt-export</code>, <code>claude-export</code>, <code>mem0-export</code> — point at exported folder or file.</li>
-              <li><strong>Platforms:</strong> <code>notion</code>, <code>jira-export</code>, <code>notebooklm</code>, <code>gdrive</code>, <code>linear-export</code> — use API keys or export files as required.</li>
-              <li><strong>Generic:</strong> <code>markdown</code>, <code>mif</code>, <code>audio</code> (transcribe in Hub when self-hosted), <code>video</code> (CLI for now; Hub UI coming soon).</li>
-            </ul>
-            <p class="settings-intro small">Full list and options: How to use (Import data) or <code>docs/IMPORT-SOURCES.md</code>.</p>
+            <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+              Import sources (files → vault)
+            </h3>
+            <p class="settings-intro small">CLI: <code>knowtation import &lt;source-type&gt; &lt;input&gt;</code>. Options: <code>--project</code>, <code>--output-dir</code>, <code>--tags</code>. Hub UI: Import modal. Full reference: <code>docs/IMPORT-SOURCES.md</code>.</p>
+            <div class="integ-source-grid">
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🤖</span>
+                <span class="integ-source-tile-name">ChatGPT</span>
+                <span class="integ-source-tile-desc">ZIP or folder export</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🧠</span>
+                <span class="integ-source-tile-name">Claude</span>
+                <span class="integ-source-tile-desc">Chat + memory export</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">💾</span>
+                <span class="integ-source-tile-name">Mem0</span>
+                <span class="integ-source-tile-desc">JSON memory export</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">📝</span>
+                <span class="integ-source-tile-name">Notion</span>
+                <span class="integ-source-tile-desc">API; page IDs + key</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🎫</span>
+                <span class="integ-source-tile-name">Jira</span>
+                <span class="integ-source-tile-desc">CSV export</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">📓</span>
+                <span class="integ-source-tile-name">NotebookLM</span>
+                <span class="integ-source-tile-desc">Markdown or JSON</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">📁</span>
+                <span class="integ-source-tile-name">Google Drive</span>
+                <span class="integ-source-tile-desc">Markdown folder</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">📋</span>
+                <span class="integ-source-tile-name">Linear</span>
+                <span class="integ-source-tile-desc">CSV export</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🔗</span>
+                <span class="integ-source-tile-name">MIF</span>
+                <span class="integ-source-tile-desc">Memory Interchange Format</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">📄</span>
+                <span class="integ-source-tile-name">Markdown</span>
+                <span class="integ-source-tile-desc">File or folder</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🎙️</span>
+                <span class="integ-source-tile-name">Audio</span>
+                <span class="integ-source-tile-desc">Whisper transcription</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🎬</span>
+                <span class="integ-source-tile-name">Video</span>
+                <span class="integ-source-tile-desc">CLI only; extract audio</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">💰</span>
+                <span class="integ-source-tile-name">Wallet CSV</span>
+                <span class="integ-source-tile-desc">Tx history; 11 formats</span>
+              </div>
+              <div class="integ-source-tile">
+                <span class="integ-source-tile-icon">🗄️</span>
+                <span class="integ-source-tile-name">Supabase</span>
+                <span class="integ-source-tile-desc">Memory table import</span>
+              </div>
+            </div>
             <hr class="settings-hr">
-            <h3 class="settings-h3">AgentCeption (shared vault for agents)</h3>
+            <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+              AgentCeption (shared vault for agents)
+            </h3>
             <p class="settings-intro small">Use Knowtation as the shared context for planner and engineer agents. One vault path for the whole setup.</p>
             <h4 class="settings-h4">How to connect AgentCeption</h4>
             <p class="settings-intro small">Set the same vault path in the planner and every engineer. Copy the env snippet below into each environment.</p>
@@ -975,7 +1067,10 @@ Your note body here.</pre>
             </div>
             <p class="settings-intro small"><button type="button" id="btn-integrations-how-to-agentception" class="btn-link btn-link-small">Full setup → How to use (AgentCeption)</button></p>
             <hr class="settings-hr">
-            <h3 class="settings-h3">Agent Configuration</h3>
+            <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></span>
+              Agent Configuration
+            </h3>
             <p class="settings-intro small">Embedding config the Hub uses. Match this in your agent runtime so search behaves the same.</p>
             <div class="settings-row">
               <span class="settings-label">Provider</span>
