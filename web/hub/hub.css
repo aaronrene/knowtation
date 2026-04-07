@@ -219,8 +219,15 @@ button.btn-new-note.btn-busy::after {
   flex-direction: column;
   gap: 0.5rem;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-bottom-style: solid;
+  border-bottom-color: var(--border);
   align-items: stretch;
+}
+@supports (color: color-mix(in srgb, white 50%, black 50%)) {
+  .search-section {
+    border-bottom-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
+  }
 }
 .search-row {
   display: flex;
@@ -247,6 +254,80 @@ button.btn-new-note.btn-busy::after {
 .search-section .filter-date-label { font-size: 0.8rem; color: var(--muted); margin-right: 0.2rem; }
 .search-section input[type="date"] { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .search-section .search-hint { margin: 0.25rem 0 0; line-height: 1.45; max-width: 72rem; }
+.search-reindex-key-cluster {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.search-key-details {
+  margin: 0;
+}
+.search-key-summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.35rem 0.15rem;
+  line-height: 1.2;
+}
+.search-key-summary::-webkit-details-marker {
+  display: none;
+}
+.search-key-summary::marker {
+  content: '';
+}
+.search-key-word,
+.search-key-chevron {
+  color: #4ade80;
+  font-weight: 600;
+}
+[data-theme="light"] .search-key-word,
+[data-theme="light"] .search-key-chevron {
+  color: #15803d;
+}
+.search-key-chevron {
+  display: inline-block;
+  font-size: 0.65rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.search-key-details[open] .search-key-chevron {
+  transform: rotate(-180deg);
+}
+.search-key-body {
+  margin: 0.5rem 0 0;
+  padding: 0.65rem 0.85rem;
+  max-width: min(42rem, 100%);
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.search-key-body p {
+  margin: 0 0 0.5rem;
+}
+.search-key-body p:last-child {
+  margin-bottom: 0;
+}
+.search-key-body-lead {
+  margin-bottom: 0.65rem !important;
+}
+@supports selector(:has(*)) {
+  .search-row-dates-actions:has(.search-key-details[open]) .search-reindex-key-cluster {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .search-row-dates-actions:has(.search-key-details[open]) .search-key-details {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .search-row-dates-actions:has(.search-key-details[open]) .search-key-body {
+    max-width: 100%;
+  }
+}
 .search-row-dates-actions { align-items: center; }
 .filter-project-wrap {
   display: inline-flex;

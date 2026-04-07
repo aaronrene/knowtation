@@ -96,7 +96,7 @@
     <main id="main" class="hidden">
       <section class="search-section">
         <div class="search-row search-row-filters" role="group" aria-label="Search query and filters">
-          <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query" aria-describedby="search-semantic-hint">
+          <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query">
           <select id="search-mode" class="search-mode-select" title="Meaning = similar ideas (indexed). Keyword = text in path, body, and key frontmatter fields." aria-label="Search mode">
             <option value="semantic">Meaning</option>
             <option value="keyword">Keyword</option>
@@ -135,9 +135,20 @@
           <button id="btn-search" type="button" class="btn-primary" title="Run search (mode from dropdown: Meaning or Keyword). Results appear under the Notes tab. Respects filters. Enter also runs search." aria-label="Search vault">Search</button>
           <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear search, list filters (project/tag/folder/etc.), and content scope — show the full note list" aria-label="Clear search and list filters">Clear</button>
           <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
-          <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
+          <span class="search-reindex-key-cluster">
+            <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
+            <details id="search-key-help" class="search-key-details">
+              <summary class="search-key-summary" title="How Notes, Activity, search modes, filters, and re-index work">
+                <span class="search-key-word">Key</span>
+                <span class="search-key-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="search-key-body muted small">
+                <p class="search-key-body-lead"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. Use <strong>All</strong> in Quick (or <strong>Clear</strong>) to drop filters and see the full list again. <strong>Meaning</strong> needs an up-to-date index (re-index after big changes). <strong>Keyword</strong> scans note text on the server.</p>
+                <p><strong>Re-index</strong> rebuilds the search index from your vault. Run it after big imports, many edits, or path renames so <strong>Meaning</strong> search and snippets match what is on disk.</p>
+              </div>
+            </details>
+          </span>
         </div>
-        <p id="search-semantic-hint" class="search-hint muted small"><strong>Notes</strong> = vault files (including <code>approvals/</code> logs). <strong>Activity</strong> = proposal workflow only—Search does not filter it. <strong>Quick</strong> chips + content dropdown apply to the Notes list and Search. Use <strong>All</strong> in Quick (or <strong>Clear</strong>) to drop filters and see the full list again. <strong>Meaning</strong> needs an up-to-date index (re-index after big changes). <strong>Keyword</strong> scans note text on the server.</p>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
