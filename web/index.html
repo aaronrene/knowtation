@@ -553,6 +553,15 @@
       font-size: 0.65rem;
       color: var(--text-muted);
     }
+    .flow-detail-heading {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin: 1rem 0 0.35rem;
+      letter-spacing: -0.02em;
+    }
+    .detail-inner > .flow-detail-heading:first-of-type {
+      margin-top: 0;
+    }
     .flow-body h2 {
       font-family: var(--font-sans);
       font-size: clamp(1.35rem, 3vw, 1.65rem);
@@ -829,7 +838,13 @@
       <div class="flow-visual">
         <p class="flow-step-num">Step 2</p>
         <span class="flow-icon" aria-hidden="true">📥</span>
-        <p class="flow-visual-caption">Pull notes in from the tools you already use.</p>
+        <p class="flow-visual-caption">Stream messages to your inbox and pull exports into one vault.</p>
+        <p class="flow-import-icons" aria-label="Live capture channels">
+          <span class="flow-import-icon">💬 Slack</span>
+          <span class="flow-import-icon">🎮 Discord</span>
+          <span class="flow-import-icon">✈️ Telegram</span>
+          <span class="flow-import-icon">📱 WhatsApp</span>
+        </p>
         <p class="flow-import-icons" aria-label="Supported import sources">
           <span class="flow-import-icon">🤖 ChatGPT</span>
           <span class="flow-import-icon">🧠 Claude</span>
@@ -849,10 +864,20 @@
       </div>
       <div class="flow-body">
         <h2>Capture and import</h2>
-        <p>Bring chats, docs, tickets, audio, and even digital wallet CSVs into one Markdown vault. Webhooks and capture adapters can drop new files into your inbox automatically. You keep the files; nothing is trapped in a single app.</p>
+        <p><strong>Capture</strong> sends Slack, Discord, Telegram, or WhatsApp (via automation) straight to your inbox through the Hub. <strong>Import</strong> brings batch exports—chats, docs, tickets, audio, wallet CSVs—into the same Markdown vault. Webhooks and adapters write inbox notes automatically; you keep the files.</p>
         <details class="flow-details">
           <summary>Technical details</summary>
           <div class="detail-inner">
+            <p class="flow-detail-heading">Capture (messages → inbox)</p>
+            <p>Hub endpoint: <code>POST /api/v1/capture</code> with JSON. Optional: set <code>CAPTURE_WEBHOOK_SECRET</code> in Hub env and send header <code>X-Webhook-Secret</code>.</p>
+            <div class="flow-import-grid">
+              <span class="flow-import-tile">💬 <strong>Slack</strong><br><small>Adapter port 3132; <code>SLACK_SIGNING_SECRET</code></small></span>
+              <span class="flow-import-tile">🎮 <strong>Discord</strong><br><small>Adapter port 3133; webhook or bot</small></span>
+              <span class="flow-import-tile">✈️ <strong>Telegram</strong><br><small>Adapter port 3134; bot → capture</small></span>
+              <span class="flow-import-tile">📱 <strong>WhatsApp</strong><br><small>Zapier / n8n → POST capture</small></span>
+            </div>
+            <p>Run a capture adapter (<code>scripts/capture-slack-adapter.mjs</code>, <code>capture-discord-adapter.mjs</code>, <code>capture-telegram-adapter.mjs</code>) or any automation that maps events to the capture format. Example body: <code>{"body":"text","source":"slack"}</code>. Full contract: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/CAPTURE-CONTRACT.md" target="_blank" rel="noopener">Capture contract</a>; platform wiring: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/MESSAGING-INTEGRATION.md" target="_blank" rel="noopener">Messaging integration</a>.</p>
+            <p class="flow-detail-heading">Batch import (exports and files)</p>
             <p>Importers normalize to vault notes with <code>source</code>, <code>source_id</code>, and <code>date</code> for idempotent re-runs. Supabase memory tables can be imported for users coming from database-centric stacks.</p>
             <div class="flow-import-grid">
               <span class="flow-import-tile">🤖 <strong>ChatGPT</strong><br><small>ZIP or folder export</small></span>
