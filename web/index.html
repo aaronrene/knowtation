@@ -626,6 +626,63 @@
       font-size: 0.86em;
     }
 
+    .flow-templates-skills {
+      margin-top: 1.35rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid var(--border);
+      max-width: 38em;
+    }
+    .flow-ts-kicker {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin: 0 0 0.5rem;
+    }
+    .flow-ts-heading {
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 0.45rem;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+    .flow-ts-heading--skills {
+      margin-top: 1rem;
+    }
+    .flow-ts-list {
+      margin: 0;
+      padding-left: 1.15rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .flow-ts-list li { margin-bottom: 0.32rem; }
+    .flow-ts-list strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .flow-ts-skills-summary {
+      margin: 0 0 0.5rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .flow-ts-doc {
+      margin: 0.9rem 0 0;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .flow-ts-doc a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .flow-ts-doc a:hover { text-decoration: underline; }
+
     .flow-closing {
       text-align: center;
       padding: 2rem 1.5rem 3rem;
@@ -904,6 +961,24 @@
             </ul>
           </div>
         </details>
+        <section class="flow-templates-skills" aria-labelledby="flow-ts-templates-heading">
+          <p class="flow-ts-kicker">Skills and templates</p>
+          <h3 id="flow-ts-templates-heading" class="flow-ts-heading">Templates</h3>
+          <p class="flow-ts-skills-summary">Ready-made folder layouts and example notes—copy into a vault or seed a hosted account with <code>npm run seed:template-*</code>.</p>
+          <ul class="flow-ts-list">
+            <li><strong>Research lab</strong> — Literature, protocols, experiments, meetings</li>
+            <li><strong>Business ops</strong> — Decisions, customers, playbooks, competitive intel</li>
+            <li><strong>Finance</strong> — Thesis, positions, transactions, tax and reports</li>
+            <li><strong>Engineering team</strong> — Architecture, runbooks, incidents, retros</li>
+            <li><strong>Personal knowledge</strong> — Inbox, projects, areas, journal</li>
+            <li><strong>Smart home</strong> — Devices, automations, energy, maintenance</li>
+            <li><strong>Content creation</strong> — Drafts, research, outlines, style guide</li>
+            <li><strong>Education</strong> — Courses, assignments, study notes, schedule</li>
+          </ul>
+          <h3 class="flow-ts-heading flow-ts-heading--skills">Skill packs</h3>
+          <p class="flow-ts-skills-summary"><strong>Domain:</strong> research assistant, business analyst, financial ops. <strong>Marketing pipeline:</strong> research, strategy, writer, editor, visual, distribution, analytics—agent playbooks that use MCP prompts and your vault structure.</p>
+          <p class="flow-ts-doc"><a href="https://github.com/aaronrene/knowtation/blob/main/docs/TEMPLATES-AND-SKILLS.md" target="_blank" rel="noopener">Templates and skills — full reference</a> (how templates, skills, and MCP prompts fit together, seed commands, activation).</p>
+        </section>
       </div>
     </article>
 
