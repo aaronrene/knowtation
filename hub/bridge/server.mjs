@@ -17,6 +17,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import AdmZip from 'adm-zip';
+import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
 import { runImport } from '../../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../../lib/github-commit-image.mjs';
@@ -1187,13 +1188,10 @@ async function fetchFullProposalsForGithubBackup(canisterUrl, canisterUid, vault
       err.status = 502;
       throw err;
     }
-    let body;
-    try {
-      body = await oneRes.json();
-    } catch {
-      const err = new Error(`Invalid JSON for proposal ${id}`);
-      err.status = 502;
-      throw err;
+    const text = await oneRes.text();
+    const body = parseCanisterProposalGetBody(id, text, stub);
+    if (body._knowtation_backup_json_unparseable) {
+      console.error('[bridge] vault/sync proposal JSON parse failed', { id, preview: text.slice(0, 300) });
     }
     full.push(body);
   }

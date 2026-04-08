@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import crypto from 'node:crypto';
+import { parseCanisterProposalGetBody } from '../lib/canister-proposal-response-parse.mjs';
 import {
   OPERATOR_BACKUP_MAGIC,
   buildOperatorVaultPayload,
@@ -48,5 +49,22 @@ describe('utcBackupStamp', () => {
   it('matches YYYYMMDDTHHMMSSZ shape', () => {
     const s = utcBackupStamp(new Date('2026-04-08T15:30:22.000Z'));
     assert.strictEqual(s, '20260408T153022Z');
+  });
+});
+
+describe('parseCanisterProposalGetBody', () => {
+  it('parses valid JSON', () => {
+    const o = parseCanisterProposalGetBody('p1', '{"proposal_id":"p1","path":"a.md"}', {});
+    assert.strictEqual(o.proposal_id, 'p1');
+    assert.strictEqual(o.path, 'a.md');
+  });
+
+  it('returns placeholder when canister response is invalid JSON', () => {
+    const bad = '{"proposal_id":"p1","suggested_labels":[broken}';
+    const o = parseCanisterProposalGetBody('p1', bad, { path: 'inbox/x.md', status: 'proposed' });
+    assert.strictEqual(o._knowtation_backup_json_unparseable, true);
+    assert.strictEqual(o.path, 'inbox/x.md');
+    assert.strictEqual(o.status, 'proposed');
+    assert.ok(String(o._knowtation_backup_upstream_preview).includes('broken'));
   });
 });
