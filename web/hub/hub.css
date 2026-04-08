@@ -203,6 +203,13 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
 .btn-new-note:hover { filter: brightness(1.08); border-color: #4ade80; }
 .btn-secondary { background: var(--surface); }
 .btn-primary { background: var(--accent); color: var(--cta-on-accent); border-color: var(--accent); font-weight: 600; }
+.btn-primary:hover:not(:disabled):not(.btn-busy) {
+  filter: brightness(1.1);
+  border-color: var(--accent);
+}
+.btn-primary:active:not(:disabled):not(.btn-busy) {
+  filter: brightness(0.95);
+}
 .muted { color: var(--muted); font-size: 0.9rem; }
 .small { font-size: 0.8rem; }
 .hidden { display: none !important; }
@@ -268,6 +275,19 @@ button.btn-new-note.btn-busy::after {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+}
+/* Dark theme: improve native date control contrast (Firefox + WebKit) */
+html:not([data-theme="light"]) .search-section input[type="date"] {
+  color-scheme: dark;
+}
+html:not([data-theme="light"]) .search-section input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.95;
+  filter: invert(1);
+  cursor: pointer;
+}
+html[data-theme="light"] .search-section input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.85;
 }
 .search-section select {
   padding: 0.5rem 0.75rem;

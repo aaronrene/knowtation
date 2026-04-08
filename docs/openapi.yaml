@@ -535,6 +535,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProposalDetail' }
+        '400':
+          description: >-
+            ICP canister — suggested_labels_json or assistant_suggested_frontmatter_json is valid JSON
+            but exceeds max length (4000 / 14000 characters) after validation.
         '404':
 
   /proposals/{id}/discard:

@@ -19,6 +19,7 @@ import Nat32 "mo:base/Nat32";
 import Option "mo:base/Option";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+import JsonValidate "JsonValidate";
 import Migration "Migration";
 
 (with migration = Migration.migration)
@@ -938,12 +939,8 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
         } else {
           "\"evaluation_waiver\":null";
         };
-        let sugJson = if (Text.size(p.suggested_labels_json) > 0) { p.suggested_labels_json } else { "[]" };
-        let fmJson = if (Text.size(p.assistant_suggested_frontmatter_json) > 0) {
-          p.assistant_suggested_frontmatter_json;
-        } else {
-          "{}";
-        };
+        let sugJson = JsonValidate.normalizeJsonArrayFragment(p.suggested_labels_json);
+        let fmJson = JsonValidate.normalizeJsonObjectFragment(p.assistant_suggested_frontmatter_json);
         let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\",\"assistant_notes\":\"" # escapeJson(p.assistant_notes) # "\",\"assistant_model\":\"" # escapeJson(p.assistant_model) # "\",\"assistant_at\":\"" # escapeJson(p.assistant_at) # "\",\"suggested_labels\":" # sugJson # ",\"assistant_suggested_frontmatter\":" # fmJson # "}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
@@ -1386,16 +1383,44 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         let nowEn = nowIsoUtc();
         let notesTrim = if (Text.size(notes) > 16_000) { textSlice(notes, 0, 16_000) } else { notes };
         let modelTrim = if (Text.size(modelEn) > 128) { textSlice(modelEn, 0, 128) } else { modelEn };
-        let sugTrim = if (Text.size(sugRaw) > 4000) { textSlice(sugRaw, 0, 4000) } else { sugRaw };
-        let fmTrim = if (Text.size(fmRaw) > 14_000) { textSlice(fmRaw, 0, 14_000) } else { fmRaw };
+        let sugFinal = switch (JsonValidate.prepareEnrichJsonArray(sugRaw, 4000)) {
+          case (#ok(t)) { t };
+          case (#coercedDefault) { "[]" };
+          case (#tooLarge) {
+            return {
+              status_code = 400;
+              headers = corsHeaders();
+              body = jsonBody(
+                "{\"error\":\"suggested_labels_json exceeds maximum length after validation (4000 characters)\",\"code\":\"BAD_REQUEST\"}",
+              );
+              streaming_strategy = null;
+              upgrade = null;
+            };
+          };
+        };
+        let fmFinal = switch (JsonValidate.prepareEnrichJsonObject(fmRaw, 14_000)) {
+          case (#ok(t)) { t };
+          case (#coercedDefault) { "{}" };
+          case (#tooLarge) {
+            return {
+              status_code = 400;
+              headers = corsHeaders();
+              body = jsonBody(
+                "{\"error\":\"assistant_suggested_frontmatter_json exceeds maximum length after validation (14000 characters)\",\"code\":\"BAD_REQUEST\"}",
+              );
+              streaming_strategy = null;
+              upgrade = null;
+            };
+          };
+        };
         listEn := Array.map<ProposalRecord, ProposalRecord>(listEn, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) {
             {
               x with
               assistant_notes = notesTrim;
               assistant_model = modelTrim;
-              suggested_labels_json = sugTrim;
-              assistant_suggested_frontmatter_json = fmTrim;
+              suggested_labels_json = sugFinal;
+              assistant_suggested_frontmatter_json = fmFinal;
               assistant_at = nowEn;
               updated_at = nowEn;
             }

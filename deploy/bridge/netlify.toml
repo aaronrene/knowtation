@@ -24,6 +24,11 @@
     "sqlite-vec-windows-x64"
   ]
 
+# Back up now (/api/v1/vault/sync) can exceed the default ~10s limit (export + N proposal GETs + GitHub API).
+# Align with gateway proxy budget (root netlify.toml [functions."gateway"] timeout = 26).
+[functions."bridge"]
+  timeout = 26
+
 # Send all requests to the bridge function with path preserved (/:splat).
 [[redirects]]
   from = "/*"
