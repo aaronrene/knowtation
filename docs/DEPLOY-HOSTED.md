@@ -72,7 +72,7 @@ The gateway strips `/.netlify/functions/gateway` from `req.url` when present so 
 - `CANISTER_URL`, **`SESSION_SECRET`** (must be the **exact same** value as the gateway — if they differ, the bridge cannot verify the user JWT and Settings will show "GitHub: Not connected" even after a successful Connect GitHub), `HUB_BASE_URL`, `HUB_UI_ORIGIN` — same as gateway logic; bridge callback URL must be on `HUB_BASE_URL` of the bridge (e.g. `https://bridge.knowtation.com/auth/callback/github-connect`)
 - `HUB_ADMIN_USER_IDS` (optional) — Same comma-separated list as the gateway so bridge role store and Settings role stay in sync. Required for full Team and invite links on hosted. See [hub/bridge/README.md](../hub/bridge/README.md).
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — for Connect GitHub (can be same app as gateway or separate)
-- `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `OLLAMA_URL` or `OPENAI_API_KEY` — for index/search (see **Bridge: semantic index/search** below)
+- `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `OLLAMA_URL` or `OPENAI_API_KEY` or **`VOYAGE_API_KEY`** — for index/search (see **Bridge: semantic index/search** below). Providers: `ollama`, `openai`, **`voyage`**.
 - `DATA_DIR` — persistent dir for tokens and per-user vector DBs (ensure backup/restore if needed)
 
 ### Bridge: semantic index/search (Netlify / serverless)
@@ -85,13 +85,15 @@ Hub **Re-index** and **Search** call the gateway, which proxies to the **bridge*
 - `OPENAI_API_KEY` — your secret
 - `EMBEDDING_MODEL=text-embedding-3-small` (or another OpenAI embeddings model)
 
+**Voyage instead (non-OpenAI cloud vectors):** `EMBEDDING_PROVIDER=voyage`, **`VOYAGE_API_KEY`**, and e.g. `EMBEDDING_MODEL=voyage-4-lite` (see [Voyage embeddings](https://docs.voyageai.com/docs/embeddings)). **Re-index** after switching embedding provider or model (dimension must match the sqlite-vec store).
+
 **Ollama instead:** `OLLAMA_URL` must be a full absolute URL including scheme, reachable from the public internet (e.g. `https://embeddings.example.com:11434`). It must **not** be `http://localhost:11434` on Netlify (the function cannot reach your laptop). **`https://ollama.com`** is the marketing site, not the Ollama HTTP API.
 
 **Operator checklist (bridge site env):**
 
 1. `CANISTER_URL` — same working canister base URL as the gateway (e.g. raw `icp0.io` if that is what you use in production).
 2. `SESSION_SECRET` — **exact match** with the gateway (JWT verification).
-3. Embeddings: **OpenAI** vars above **or** a valid public **`OLLAMA_URL`** with `http://` or `https://`.
+3. Embeddings: **OpenAI** vars above, **or** **Voyage** (`EMBEDDING_PROVIDER=voyage` + `VOYAGE_API_KEY`), **or** a valid public **`OLLAMA_URL`** with `http://` or `https://`.
 4. Redeploy the bridge, then in the Hub run **Re-index** once, then **Search**.
 
 #### Troubleshooting: "Index failed: Invalid URL" or "Search failed: Invalid URL"
@@ -120,7 +122,7 @@ Use this list **before first launch** and **again after** any production env cha
 - [ ] Canister deployed and healthy (`GET /health`).
 - [ ] Gateway env set; OAuth callback URLs registered with Google/GitHub.
 - [ ] Bridge env set; GitHub OAuth callback for Connect GitHub registered.
-- [ ] Bridge: **`EMBEDDING_PROVIDER=openai`** + **`OPENAI_API_KEY`** (and model), **or** a reachable **`OLLAMA_URL`** with a full `http://` / `https://` base (not localhost on Netlify).
+- [ ] Bridge: **`EMBEDDING_PROVIDER=openai`** + **`OPENAI_API_KEY`**, **or** **`EMBEDDING_PROVIDER=voyage`** + **`VOYAGE_API_KEY`**, **or** a reachable **`OLLAMA_URL`** with a full `http://` / `https://` base (not localhost on Netlify).
 - [ ] Hub (logged in): **Re-index** completes, then **meaning-search** (green Search) returns results; Network tab shows **no** `ERR_CONTENT_DECODING_FAILED` on `/api/v1/index` or `/api/v1/search` (gateway must strip upstream **Content-Encoding** when proxying decoded bodies — see repo `hub/gateway/upstream-response-headers.mjs`).
 - [ ] Hub UI deployed with correct `HUB_API_BASE_URL`.
 - [ ] Landing deployed; "Open Knowtation Hub" points to Hub URL.

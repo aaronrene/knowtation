@@ -103,6 +103,44 @@ describe('loadConfig', () => {
     }
   });
 
+  it('sets embedding.provider and default model from EMBEDDING_PROVIDER env', () => {
+    const prevProv = process.env.EMBEDDING_PROVIDER;
+    const prevModel = process.env.EMBEDDING_MODEL;
+    process.env.KNOWTATION_VAULT_PATH = path.join(fixturesDir, 'vault-fs');
+    process.env.EMBEDDING_PROVIDER = 'voyage';
+    delete process.env.EMBEDDING_MODEL;
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.embedding.provider, 'voyage');
+      assert.strictEqual(config.embedding.model, 'voyage-4-lite');
+    } finally {
+      delete process.env.KNOWTATION_VAULT_PATH;
+      if (prevProv !== undefined) process.env.EMBEDDING_PROVIDER = prevProv;
+      else delete process.env.EMBEDDING_PROVIDER;
+      if (prevModel !== undefined) process.env.EMBEDDING_MODEL = prevModel;
+      else delete process.env.EMBEDDING_MODEL;
+    }
+  });
+
+  it('EMBEDDING_MODEL env overrides default for voyage provider', () => {
+    const prevProv = process.env.EMBEDDING_PROVIDER;
+    const prevModel = process.env.EMBEDDING_MODEL;
+    process.env.KNOWTATION_VAULT_PATH = path.join(fixturesDir, 'vault-fs');
+    process.env.EMBEDDING_PROVIDER = 'voyage';
+    process.env.EMBEDDING_MODEL = 'voyage-3-lite';
+    try {
+      const config = loadConfig(fixturesDir);
+      assert.strictEqual(config.embedding.provider, 'voyage');
+      assert.strictEqual(config.embedding.model, 'voyage-3-lite');
+    } finally {
+      delete process.env.KNOWTATION_VAULT_PATH;
+      if (prevProv !== undefined) process.env.EMBEDDING_PROVIDER = prevProv;
+      else delete process.env.EMBEDDING_PROVIDER;
+      if (prevModel !== undefined) process.env.EMBEDDING_MODEL = prevModel;
+      else delete process.env.EMBEDDING_MODEL;
+    }
+  });
+
   it('merges hub_setup.yaml (vault.git) over config when present', () => {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(

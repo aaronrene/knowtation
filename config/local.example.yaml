@@ -24,6 +24,8 @@
 #   # ollama_url: http://localhost:11434   # optional override
 # Or env: OLLAMA_URL (overrides ollama_url in file when set; same as hub bridge)
 # For OpenAI: set OPENAI_API_KEY in env and use provider: openai, model: text-embedding-3-small
+# For Voyage (cloud vectors, non-OpenAI): set VOYAGE_API_KEY and provider: voyage, model: voyage-4-lite
+# Env overrides: EMBEDDING_PROVIDER=ollama|openai|voyage  EMBEDDING_MODEL=...  (same as hosted bridge)
 
 # --- Indexer chunking (optional) ---
 # indexer:

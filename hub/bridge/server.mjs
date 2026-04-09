@@ -83,6 +83,13 @@ function sanitizeVaultId(vaultId) {
 
 let warnedOllamaLocalhostOnNetlify = false;
 
+function defaultEmbeddingModelForBridge(provider) {
+  const p = String(provider || 'ollama').toLowerCase();
+  if (p === 'openai') return 'text-embedding-3-small';
+  if (p === 'voyage') return 'voyage-4-lite';
+  return 'nomic-embed-text';
+}
+
 /** Trim + default empty env so accidental whitespace does not break provider matching or Ollama URL. */
 function getBridgeEmbeddingConfig() {
   const pEnv = process.env.EMBEDDING_PROVIDER;
@@ -91,7 +98,7 @@ function getBridgeEmbeddingConfig() {
   ).toLowerCase();
   const mEnv = process.env.EMBEDDING_MODEL;
   const model =
-    mEnv == null || String(mEnv).trim() === '' ? 'nomic-embed-text' : String(mEnv).trim();
+    mEnv == null || String(mEnv).trim() === '' ? defaultEmbeddingModelForBridge(provider) : String(mEnv).trim();
   const oEnv = process.env.OLLAMA_URL;
   const ollama_url =
     oEnv == null || String(oEnv).trim() === '' ? 'http://localhost:11434' : String(oEnv).trim();
@@ -131,10 +138,12 @@ function bridgeEmbedFailureMessage(err, kind) {
   const hasOpenAiKey = Boolean(
     process.env.OPENAI_API_KEY && String(process.env.OPENAI_API_KEY).trim(),
   );
+  const hasVoyageKey = Boolean(process.env.VOYAGE_API_KEY && String(process.env.VOYAGE_API_KEY).trim());
   return (
     `${raw} (${kind}). On Netlify, Invalid URL often means sqlite-vec was esbuild-bundled ` +
     '(stack: getLoadablePath / input ".") — set [functions].external_node_modules for sqlite-vec and better-sqlite3 in netlify.toml. ' +
-    `Resolved EMBEDDING_PROVIDER="${c.provider}"; OPENAI_API_KEY ${hasOpenAiKey ? 'is set' : 'is missing'}. ` +
+    `Resolved EMBEDDING_PROVIDER="${c.provider}"; OPENAI_API_KEY ${hasOpenAiKey ? 'is set' : 'is missing'}; ` +
+    `VOYAGE_API_KEY ${hasVoyageKey ? 'is set' : 'is missing'}. ` +
     'If provider is ollama, OLLAMA_URL must be a full http(s) URL. Remove bad HTTP_PROXY/HTTPS_PROXY if set. ' +
     'See docs/DEPLOY-HOSTED.md (bridge semantic index/search).'
   );
@@ -1851,6 +1860,7 @@ app.post('/api/v1/index', async (req, res) => {
       const { vectors: batchVectors, embedding_input_tokens: batchTok } = await embedWithUsage(
         texts,
         embeddingConfig,
+        { voyageInputType: 'document' },
       );
       embedding_input_tokens += batchTok;
       for (let j = 0; j < batch.length; j++) {
@@ -1992,7 +2002,7 @@ app.post('/api/v1/search', async (req, res) => {
     const vectorsDir = await getVectorsDirForUser(req, canisterUid);
     const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
     const store = await createVectorStore(storeConfig);
-    const [queryVector] = await embed([query], storeConfig.embedding);
+    const [queryVector] = await embed([query], storeConfig.embedding, { voyageInputType: 'query' });
     if (!queryVector) {
       return res.status(500).json({ error: 'Embedding failed', code: 'INTERNAL_ERROR' });
     }
