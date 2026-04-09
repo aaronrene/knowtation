@@ -872,18 +872,47 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .chart-wide { margin-bottom: 1rem; min-height: 240px; }
 .dashboard-footnote { font-size: 0.8rem; margin-top: 0.5rem; }
 
-.detail-panel { position: fixed; top: 0; right: 0; width: min(420px, 100vw); height: 100vh; background: var(--surface); border-left: 1px solid var(--border); overflow: auto; z-index: 10; }
+.detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 100vw);
+  height: 100vh;
+  max-height: 100dvh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
 .detail-resize-handle { position: absolute; top: 0; left: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 11; }
 .detail-resize-handle:hover, .detail-resize-handle.dragging { background: color-mix(in srgb, var(--accent) 42%, transparent); opacity: 0.45; }
 .list-item { position: relative; }
 .list-item-delete { position: absolute; top: 50%; right: 0.5rem; transform: translateY(-50%); background: none; border: none; color: var(--text-muted, #888); font-size: 0.75rem; line-height: 1; padding: 0.25rem 0.35rem; border-radius: 4px; cursor: pointer; opacity: 0; transition: opacity 0.15s, color 0.15s; }
 .list-item:hover .list-item-delete { opacity: 0.6; }
 .list-item-delete:hover { opacity: 1 !important; color: var(--danger, #f66); }
-.detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; padding: 1rem; border-bottom: 1px solid var(--border); }
+.detail-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
 .detail-header h2 { margin: 0; font-size: 1rem; word-break: break-all; flex: 1; }
 .detail-header-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .detail-header-actions button { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
-#detail-body { padding: 1rem; white-space: pre-wrap; font-size: 0.9rem; }
+#detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+}
 
 /* Rendered markdown note body */
 #detail-body.note-rendered-body { white-space: normal; line-height: 1.65; }
@@ -922,8 +951,33 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .detail-edit-container label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.25rem; }
 .detail-edit-body, .detail-edit-fm { width: 100%; min-height: 8rem; padding: 0.5rem; font-family: inherit; font-size: 0.9rem; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
 .detail-edit-fm { min-height: 6rem; font-family: ui-monospace, monospace; }
-.detail-actions { padding: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.detail-actions { flex-shrink: 0; padding: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .detail-actions button { flex: 1; min-width: 6rem; }
+.detail-footer {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 12;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.detail-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.detail-footer-hint {
+  flex: 1;
+  min-width: 10rem;
+  margin: 0;
+  line-height: 1.4;
+}
+.detail-close-bottom {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 5rem;
+}
 
 .detail-panel.detail-panel-proposal-wide { width: min(560px, 100vw); }
 

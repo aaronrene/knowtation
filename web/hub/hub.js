@@ -93,6 +93,22 @@
   let currentNotePathForCopy = '';
   /** @type {{ path: string, body: string, frontmatter: Record<string, string> } | null} */
   let currentOpenNote = null;
+
+  /** Hide the detail drawer (does not clear currentOpenNote). */
+  function hideDetailPanelChrome() {
+    const dp = el('detail-panel');
+    if (dp) {
+      dp.classList.add('hidden');
+      dp.classList.remove('detail-panel-proposal-wide');
+    }
+  }
+
+  /** User dismisses the drawer (Escape, Close): clear open-note state. */
+  function closeDetailPanel() {
+    currentOpenNote = null;
+    hideDetailPanelChrome();
+  }
+
   let listSelectedIndex = 0;
   /** @type {import('chart.js').Chart[]} */
   let chartInstances = [];
@@ -1532,8 +1548,7 @@
             if (typeof showToast === 'function') showToast('Deleted: ' + path);
             if (currentOpenNote && currentOpenNote.path === path) {
               currentOpenNote = null;
-              const panel = el('detail-panel');
-              if (panel) panel.classList.add('hidden');
+              hideDetailPanelChrome();
             }
             loadNotes();
             loadFacets();
@@ -1761,9 +1776,7 @@
       if (typeof showToast === 'function') showToast('Proposal discarded.');
       const panel = el('detail-panel');
       if (panel && !panel.classList.contains('hidden')) {
-        // If this proposal was open in the detail panel, close it.
-        panel.classList.add('hidden');
-        panel.classList.remove('detail-panel-proposal-wide');
+        hideDetailPanelChrome();
       }
       loadProposals();
       loadActivity();
@@ -2248,8 +2261,7 @@
 
   function openCreateModal() {
     closeCreateProposalModal();
-    const panel = el('detail-panel');
-    if (panel) panel.classList.add('hidden');
+    hideDetailPanelChrome();
     el('modal-create').classList.remove('hidden');
     el('create-msg-quick').textContent = '';
     el('create-msg-quick').className = 'create-msg';
@@ -2278,8 +2290,7 @@
     }
     closeCreateModal();
     closeImportModal();
-    const panel = el('detail-panel');
-    if (panel) panel.classList.add('hidden');
+    hideDetailPanelChrome();
     const modal = el('modal-create-proposal');
     const pathInput = el('proposal-create-path');
     const hint = el('modal-create-proposal-hint');
@@ -2379,8 +2390,7 @@
     }
     closeCreateModal();
     closeCreateProposalModal();
-    const panel = el('detail-panel');
-    if (panel) panel.classList.add('hidden');
+    hideDetailPanelChrome();
     el('modal-import').classList.remove('hidden');
     el('import-msg').textContent = '';
     el('import-file').value = '';
@@ -2399,8 +2409,7 @@
   function openProjectsHelpModal() {
     closeCreateModal();
     closeCreateProposalModal();
-    const panel = el('detail-panel');
-    if (panel) panel.classList.add('hidden');
+    hideDetailPanelChrome();
     const m = el('modal-projects-help');
     if (m) m.classList.remove('hidden');
   }
@@ -5370,7 +5379,7 @@
       if (typeof showToast === 'function') showToast('Note deleted');
       currentOpenNote = null;
       currentNotePathForCopy = '';
-      el('detail-panel').classList.add('hidden');
+      hideDetailPanelChrome();
       el('btn-copy-path').classList.add('hidden');
       loadNotes();
       loadFacets();
@@ -6230,7 +6239,8 @@
       loadProposals();
       // Scroll the detail panel to the top so enriched content (labels, frontmatter, hints)
       // is visible instead of the browser staying at whatever scroll position it was at.
-      if (panel) requestAnimationFrame(() => panel.scrollTo({ top: 0, behavior: 'smooth' }));
+      const scrollHost = el('detail-body');
+      if (scrollHost) requestAnimationFrame(() => scrollHost.scrollTo({ top: 0, behavior: 'smooth' }));
       // Also highlight the matching row in the Suggested/Activity list so the user can see which
       // proposal was enriched.
       requestAnimationFrame(() => {
@@ -6264,8 +6274,7 @@
           true,
         );
       }
-      panel.classList.add('hidden');
-      panel.classList.remove('detail-panel-proposal-wide');
+      hideDetailPanelChrome();
       loadProposals();
       loadNotes();
       loadActivity();
@@ -6285,8 +6294,7 @@
       await withButtonBusy(btn, 'Discarding…', async () => {
         await api('/api/v1/proposals/' + encodeURIComponent(id) + '/discard', { method: 'POST' });
       });
-      panel.classList.add('hidden');
-      panel.classList.remove('detail-panel-proposal-wide');
+      hideDetailPanelChrome();
       loadProposals();
       loadActivity();
     } catch (e) {
@@ -6300,12 +6308,14 @@
     }
   }
 
-  el('detail-close').onclick = () => {
-    currentOpenNote = null;
-    const dp = el('detail-panel');
-    dp.classList.add('hidden');
-    dp.classList.remove('detail-panel-proposal-wide');
-  };
+  el('detail-close').onclick = () => closeDetailPanel();
+  // Footer close must be resolved inside #detail-panel only: note/proposal HTML can inject ids
+  // (e.g. markdown heading ids) that collide with getElementById and steal the handler.
+  (function wireDetailPanelFooterClose() {
+    const panel = el('detail-panel');
+    const footBtn = panel && panel.querySelector('button[data-hub-detail-close]');
+    if (footBtn) footBtn.addEventListener('click', () => closeDetailPanel());
+  })();
 
   // Resizable detail panel — drag the left edge to widen/narrow.
   (function initDetailPanelResize() {
@@ -6359,10 +6369,7 @@
     const inInput = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
     if (e.key === 'Escape') {
       if (el('detail-panel') && !el('detail-panel').classList.contains('hidden')) {
-        currentOpenNote = null;
-        const dpEsc = el('detail-panel');
-        dpEsc.classList.add('hidden');
-        dpEsc.classList.remove('detail-panel-proposal-wide');
+        closeDetailPanel();
         e.preventDefault();
       } else if (el('modal-create') && !el('modal-create').classList.contains('hidden')) {
         closeCreateModal();
