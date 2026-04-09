@@ -865,9 +865,9 @@ func queryParamFromUrl(url : Text, paramName : Text) : ?Text {
       let qStart = qi + 1;
       if (qStart > urlLen) { return null };
       let qLen = urlLen - qStart;
-      let query = textSlice(url, qStart, qLen);
+      let qs = textSlice(url, qStart, qLen);
       let keyEq = paramName # "=";
-      let pairs = Iter.toArray(Text.split(query, #char '&'));
+      let pairs = Iter.toArray(Text.split(qs, #char '&'));
       var pi : Nat = 0;
       while (pi < pairs.size()) {
         let pair = pairs[pi];
