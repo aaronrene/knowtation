@@ -104,6 +104,26 @@ Hub **Re-index** and **Search** call the gateway, which proxies to the **bridge*
 
 If it still fails, open **Netlify → bridge site → Functions → logs**, trigger **Re-index** once, and capture **`Bridge index error`** (full stack).
 
+#### Troubleshooting: `better-sqlite3` / `NODE_MODULE_VERSION` / "Module did not self-register"
+
+**What it means:** Meaning search and Re-index load **sqlite-vec** and **`better-sqlite3`** (a **native** addon). The file `better_sqlite3.node` must be compiled for the **same** Node.js ABI as the **Netlify Functions runtime**. If the build used **Node 22** (`NODE_MODULE_VERSION` **127**) but the function runs on **Node 20** (**115**), Node throws errors like:
+
+- `was compiled against a different Node.js version using NODE_MODULE_VERSION 127 … requires … 115`
+- `Module did not self-register: '…/better_sqlite3.node'`
+
+**This is not caused by JavaScript embedding or search logic changes** (e.g. a merged PR that only touched `lib/embedding.mjs`). It appears after a deploy when **build-time Node** and **function runtime Node** diverge—often when Netlify’s **default build Node moves to 22** while the Lambda runtime is still **20**, or when a site env var pins an older runtime. Stale **build cache** can also leave a wrong `.node` binary in the deploy bundle.
+
+**What to do (pick one consistent strategy):**
+
+1. **Align on Node 20 (matches repo `netlify.toml`, `.nvmrc`, and `deploy/bridge/netlify.toml`):**  
+   - In Netlify → **bridge** site (and **gateway** if you want parity): **Project configuration → Environment variables** — set **`NODE_VERSION`** = **`20`** if anything else is set, and **remove** **`AWS_LAMBDA_JS_RUNTIME`** unless you intend to override the runtime.  
+   - **Deploys → Clear cache and deploy site** on the **bridge** site (required for Re-index / Meaning search).  
+   - In the deploy log, confirm the line that installs Node (e.g. “Now using node v20…”) before `npm install`.
+
+2. **Align on Node 22:** If your build already uses Node **22**, set **`AWS_LAMBDA_JS_RUNTIME`** = **`nodejs22.x`** in the Netlify **UI** for the **bridge** site (this variable is **not** read from `netlify.toml`), then **clear cache and redeploy**. Update repo **`NODE_VERSION` / `.nvmrc`** to `22` in a follow-up commit so the next operator does not fight the UI.
+
+**Remember:** The Hub calls the **gateway**, which proxies search/index to the **bridge**. Fix the **bridge** deploy first; the error text may still mention `/var/task/` because that is the Lambda path inside whichever function failed.
+
 ---
 
 ## 4. DNS
