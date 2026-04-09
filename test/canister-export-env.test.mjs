@@ -17,8 +17,8 @@ describe('hubBaseUrlFromCanisterIds', () => {
   it('reads hub.ic from canister_ids.json in this repo', () => {
     const ids = JSON.parse(readFileSync(join(repoRoot, 'hub/icp/canister_ids.json'), 'utf8'));
     const url = hubBaseUrlFromCanisterIds(repoRoot);
-    assert.match(url, /^https:\/\/.+\.icp0\.io$/);
-    assert.strictEqual(url, `https://${ids.hub.ic}.icp0.io`);
+    assert.match(url, /^https:\/\/.+\.raw\.icp0\.io$/);
+    assert.strictEqual(url, `https://${ids.hub.ic}.raw.icp0.io`);
   });
 
   it('throws when hub.ic is missing', () => {
@@ -92,7 +92,7 @@ describe('resolveCanisterBackupBaseUrl', () => {
       { KNOWTATION_CANISTER_BACKUP_USER_ID: 'google:1' },
       repoRoot,
     );
-    assert.strictEqual(u, `https://${ids.hub.ic}.icp0.io`);
+    assert.strictEqual(u, `https://${ids.hub.ic}.raw.icp0.io`);
   });
 });
 
