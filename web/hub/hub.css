@@ -192,10 +192,17 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-bottom-style: solid;
+  border-bottom-color: var(--border);
   flex-wrap: wrap;
   gap: 0.75rem;
   background: var(--surface);
+}
+@supports (color: color-mix(in srgb, white 50%, black 50%)) {
+  .hub-header {
+    border-bottom-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
+  }
 }
 .hub-header h1 { margin: 0; font-size: 1.25rem; }
 .hub-auth { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
@@ -276,23 +283,44 @@ button.btn-new-note.btn-busy::after {
   background: var(--surface);
   color: var(--text);
 }
-/* Date inputs: native calendar glyph is often near-black; on dark surfaces it disappears. Use accent + filter so the picker stays visible in every palette. */
+/* Date inputs: native calendar glyph ignores theme (often black). Paint accent via mask + background (WebKit/Blink). */
+input[type="date"] {
+  accent-color: var(--accent);
+}
 html:not([data-theme="light"]) input[type="date"] {
   color-scheme: dark;
-  accent-color: var(--accent);
 }
-html:not([data-theme="light"]) input[type="date"]::-webkit-calendar-picker-indicator {
+/* Calendar icon: mask SVG (white = visible) × background-color = theme accent — works on dark + light + palettes */
+input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   opacity: 1;
-  filter: invert(1) brightness(1.2) sepia(0.4) saturate(2.8) hue-rotate(175deg);
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0.12rem;
+  box-sizing: content-box;
+  margin-left: 0.15rem;
+  background-color: var(--accent);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2zm0 18H4V10h16v11zM4 6V5h16v1H4z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2zm0 18H4V10h16v11zM4 6V5h16v1H4z'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
 }
-html[data-theme="light"] input[type="date"] {
-  accent-color: var(--accent);
-}
-html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+input[type="date"]::-moz-calendar-picker-indicator {
   cursor: pointer;
-  opacity: 0.9;
-  filter: none;
+  opacity: 1;
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0.12rem;
+  margin-left: 0.15rem;
+  background-color: var(--accent);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2zm0 18H4V10h16v11zM4 6V5h16v1H4z'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
 }
 .search-section select {
   padding: 0.5rem 0.75rem;
