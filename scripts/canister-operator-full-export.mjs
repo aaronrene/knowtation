@@ -58,6 +58,18 @@ const outDir = path.isAbsolute(rawDir) ? rawDir : path.resolve(repoRoot, rawDir)
 fs.mkdirSync(outDir, { recursive: true });
 
 const keyHex = (process.env.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX ?? '').trim();
+if (keyHex) {
+  const k = Buffer.from(keyHex, 'hex');
+  if (k.length !== 32) {
+    console.error(
+      'ERROR: KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX must be exactly 64 hex characters (32-byte AES key).',
+      `Decoded length is ${k.length} bytes (hex string length ${keyHex.length}).`,
+      'Generate with: openssl rand -hex 32',
+    );
+    process.exit(1);
+  }
+}
+
 const s3Bucket = (process.env.KNOWTATION_CANISTER_BACKUP_S3_BUCKET ?? '').trim();
 const s3Prefix = (process.env.KNOWTATION_CANISTER_BACKUP_S3_PREFIX ?? 'knowtation-canister-backups/')
   .trim()
@@ -67,34 +79,66 @@ const skipS3 = (process.env.KNOWTATION_CANISTER_BACKUP_SKIP_S3 ?? '').trim() ===
 const stamp = utcBackupStamp();
 const baseName = `operator-full-export-${stamp}`;
 
-console.log(`==> Full operator export (${baseUrl})`);
-const payload = await buildFullOperatorExportJson(baseUrl, operatorKey, console.log);
-const json = JSON.stringify(payload);
+async function run() {
+  const urlSource = explicitUrl
+    ? 'KNOWTATION_OPERATOR_EXPORT_URL or CANISTER_* URL env'
+    : 'hub/icp/canister_ids.json (raw.icp0.io)';
+  console.log(`==> Full operator export — hub ${baseUrl} (from ${urlSource})`);
+  console.log(`==> Output directory: ${outDir}`);
 
-let outBuf;
-let outFile;
-if (keyHex) {
-  outBuf = encryptOperatorBackupUtf8(json, keyHex);
-  outFile = `${baseName}.json.enc`;
-  console.log(`    Encrypted ${json.length} bytes JSON → ${outBuf.length} bytes (${outFile})`);
-} else {
-  outBuf = Buffer.from(json, 'utf8');
-  outFile = `${baseName}.json`;
-  console.log(`    Wrote ${outBuf.length} bytes (${outFile})`);
+  const payload = await buildFullOperatorExportJson(baseUrl, operatorKey, console.log);
+  const json = JSON.stringify(payload);
+
+  let outBuf;
+  let outFile;
+  if (keyHex) {
+    outBuf = encryptOperatorBackupUtf8(json, keyHex);
+    outFile = `${baseName}.json.enc`;
+    console.log(`    Encrypted ${json.length} bytes JSON → ${outBuf.length} bytes (${outFile})`);
+  } else {
+    outBuf = Buffer.from(json, 'utf8');
+    outFile = `${baseName}.json`;
+    console.log(`    Wrote ${outBuf.length} bytes (${outFile})`);
+  }
+
+  const outPath = path.join(outDir, outFile);
+  fs.writeFileSync(outPath, outBuf);
+
+  if (s3Bucket && !skipS3) {
+    const key = `${s3Prefix}${outFile}`;
+    console.log(`    S3: s3://${s3Bucket}/${key}`);
+    await putS3Object({
+      bucket: s3Bucket,
+      key,
+      body: outBuf,
+      region: process.env.AWS_REGION,
+    });
+  }
+
+  console.log(`canister-operator-full-export: OK (${outPath})`);
 }
 
-const outPath = path.join(outDir, outFile);
-fs.writeFileSync(outPath, outBuf);
-
-if (s3Bucket && !skipS3) {
-  const key = `${s3Prefix}${outFile}`;
-  console.log(`    S3: s3://${s3Bucket}/${key}`);
-  await putS3Object({
-    bucket: s3Bucket,
-    key,
-    body: outBuf,
-    region: process.env.AWS_REGION,
-  });
+try {
+  await run();
+} catch (err) {
+  const msg = err && typeof err.message === 'string' ? err.message : String(err);
+  console.error('canister-operator-full-export: FAILED');
+  console.error(msg);
+  if (err && err.stack) console.error(err.stack);
+  if (/^export \d+/.test(msg) || /^proposals list \d+/.test(msg) || /^proposal .+ \d+/.test(msg)) {
+    console.error(
+      'Hint: Per-user GET /api/v1/export and /api/v1/proposals failed. Confirm hub base URL uses https://<canister-id>.raw.icp0.io (not .icp0.io without raw).',
+    );
+  }
+  if (msg.includes('operator user index')) {
+    console.error(
+      'Hint: For 401, KNOWTATION_OPERATOR_EXPORT_KEY must match admin_set_operator_export_secret exactly.',
+    );
+  }
+  if (/S3|AWS|credentials|AccessDenied|PutObject/i.test(msg)) {
+    console.error(
+      'Hint: S3 upload failed. Check AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, bucket name, and IAM policy (s3:PutObject on prefix/*). Or set KNOWTATION_CANISTER_BACKUP_SKIP_S3=1 to skip S3.',
+    );
+  }
+  process.exit(1);
 }
-
-console.log(`canister-operator-full-export: OK (${outPath})`);
