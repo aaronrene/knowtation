@@ -8,6 +8,9 @@
   publish = "public"
 
 [build.environment]
+  # Netlify’s build tooling can error on Node 22 (e.g. @netlify/build internal TypeError).
+  # Gateway site uses root netlify.toml with NODE_VERSION=20; bridge must pin the same.
+  NODE_VERSION = "20"
   USE_BRIDGE_FUNCTION = "true"
 
 # Bridge index/search loads sqlite-vec + better-sqlite3 native code; must not be esbuild-bundled
