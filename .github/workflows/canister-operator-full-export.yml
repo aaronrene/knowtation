@@ -24,10 +24,13 @@ jobs:
         env:
           KNOWTATION_OPERATOR_EXPORT_KEY: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_KEY || vars.KNOWTATION_OPERATOR_EXPORT_KEY }}
         run: |
-          if [ -z "$KNOWTATION_OPERATOR_EXPORT_KEY" ]; then
-            echo "::error::KNOWTATION_OPERATOR_EXPORT_KEY is missing. Add Repository secret or variable (see docs/OPERATOR-BACKUP.md)."
-            exit 1
-          fi
+          python3 << 'PY'
+          import os
+          k = (os.environ.get("KNOWTATION_OPERATOR_EXPORT_KEY") or "").strip()
+          if not k:
+              print("::error::KNOWTATION_OPERATOR_EXPORT_KEY is missing or whitespace-only. Add Actions secret or variable.")
+              raise SystemExit(1)
+          PY
           echo "KNOWTATION_OPERATOR_EXPORT_KEY is set (value not shown)."
 
       - name: Probe operator export (HTTP status only)
@@ -37,12 +40,12 @@ jobs:
         run: |
           set -e
           ID="$(python3 -c "import json; print(json.load(open('hub/icp/canister_ids.json'))['hub']['ic'])")"
-          BASE="${KNOWTATION_OPERATOR_EXPORT_URL:-}"
-          BASE="${BASE%/}"
+          BASE="$(python3 -c "import os; u=(os.environ.get('KNOWTATION_OPERATOR_EXPORT_URL') or '').strip().rstrip('/'); print(u)")"
           if [ -z "$BASE" ]; then
             BASE="https://${ID}.raw.icp0.io"
             echo "KNOWTATION_OPERATOR_EXPORT_URL unset; using ${BASE} from canister_ids.json"
           fi
+          echo "Probe base URL: ${BASE}"
           code="$(curl -sS -o /tmp/op-export-body -w '%{http_code}' \
             -H "X-Operator-Export-Key: ${KNOWTATION_OPERATOR_EXPORT_KEY}" \
             "${BASE}/api/v1/operator/export?limit=1")"
@@ -65,6 +68,22 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || vars.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION || vars.AWS_REGION }}
         run: node scripts/canister-operator-full-export.mjs
+
+      - name: Debug on failure (backup files and hub URL resolution)
+        if: failure()
+        env:
+          KNOWTATION_OPERATOR_EXPORT_URL: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_URL || vars.KNOWTATION_OPERATOR_EXPORT_URL }}
+          KNOWTATION_CANISTER_URL: ${{ secrets.KNOWTATION_CANISTER_URL || vars.KNOWTATION_CANISTER_URL }}
+          KNOWTATION_CANISTER_BACKUP_URL: ${{ secrets.KNOWTATION_CANISTER_BACKUP_URL || vars.KNOWTATION_CANISTER_BACKUP_URL }}
+        run: |
+          echo "=== backups/ (if any) ==="
+          ls -la backups 2>/dev/null || echo "(no backups directory)"
+          find . -maxdepth 4 -name 'operator-full-export*' -print 2>/dev/null || true
+          echo "=== URL env (values may be empty) ==="
+          echo "KNOWTATION_OPERATOR_EXPORT_URL length: ${#KNOWTATION_OPERATOR_EXPORT_URL}"
+          echo "KNOWTATION_CANISTER_URL length: ${#KNOWTATION_CANISTER_URL}"
+          echo "KNOWTATION_CANISTER_BACKUP_URL length: ${#KNOWTATION_CANISTER_BACKUP_URL}"
+          echo "(Script resolves base URL as: OPERATOR_EXPORT_URL, then CANISTER_URL, then CANISTER_BACKUP_URL, then canister_ids.)"
 
       - name: Upload export artifact
         if: success()
