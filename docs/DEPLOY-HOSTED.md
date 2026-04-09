@@ -240,7 +240,9 @@ The attestation canister is **separate** from the hub canister — it stores imm
 
 ---
 
-## 6. Daily canister export backup (operator)
+## 6. Scheduled HTTP vault export (operator) — not full canister backup
+
+> **Full canister backup / rollback** uses **ICP canister snapshots** (controller, `dfx canister stop` → `snapshot create` → `start`). See [ICP-CANISTER-SNAPSHOT-RUNBOOK.md](./ICP-CANISTER-SNAPSHOT-RUNBOOK.md) and `npm run canister:snapshot-backup`. This section is a **logical JSON export** for **one `X-User-Id` + vault** via HTTP — useful for samples or a single partition, **not** a binary copy of the whole canister.
 
 **Audience:** **Hosted (ICP) operators** only. **Self-hosted** deployments use disk + Git for the vault; they do **not** run this workflow unless you also operate a canister and choose to point the script at it.
 
@@ -276,6 +278,8 @@ The attestation canister is **separate** from the hub canister — it stores imm
 
 ## 7. Reference
 
+- [ICP-CANISTER-SNAPSHOT-RUNBOOK.md](./ICP-CANISTER-SNAPSHOT-RUNBOOK.md) — Full **hub** + **attestation** snapshot backup and rollback (`dfx`).
+- [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md) — **Daily** full logical export (all users) + snapshot pillar; GitHub Actions: `canister-operator-full-export.yml`.
 - [HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) — Verify static Hub bundle, gateway facets, canister frontmatter (scripts + apex `www` caveat).
 - [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) — Single Motoko migration plan: multi-vault + reserved billing fields (Phase 16).
 - [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) — **Free** + Stripe paid tiers, **indexing token** quotas (target), **`BILLING_SHADOW_LOG`**, **rollover token** packs; gateway may still expose legacy **cent** scaffold until Phase 16 completes.

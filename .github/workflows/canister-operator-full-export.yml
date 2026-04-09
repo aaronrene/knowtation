@@ -1,0 +1,52 @@
+# Daily full logical export: all hub user ids + per-user notes/proposals (canister stays up).
+# Requires: deployed hub WASM with operator export + secret set via admin_set_operator_export_secret.
+# Secrets: KNOWTATION_OPERATOR_EXPORT_KEY (matches canister); URL optional (defaults from canister_ids.json).
+name: Operator full hub export
+
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify operator export secret
+        env:
+          KNOWTATION_OPERATOR_EXPORT_KEY: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_KEY || vars.KNOWTATION_OPERATOR_EXPORT_KEY }}
+        run: |
+          if [ -z "$KNOWTATION_OPERATOR_EXPORT_KEY" ]; then
+            echo "::error::KNOWTATION_OPERATOR_EXPORT_KEY is missing. Add Repository secret or variable (see docs/OPERATOR-BACKUP.md)."
+            exit 1
+          fi
+          echo "KNOWTATION_OPERATOR_EXPORT_KEY is set (value not shown)."
+
+      - name: Full operator export
+        env:
+          KNOWTATION_OPERATOR_EXPORT_URL: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_URL || vars.KNOWTATION_OPERATOR_EXPORT_URL }}
+          KNOWTATION_OPERATOR_EXPORT_KEY: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_KEY || vars.KNOWTATION_OPERATOR_EXPORT_KEY }}
+          KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX || vars.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX }}
+          KNOWTATION_CANISTER_BACKUP_S3_BUCKET: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_BUCKET || vars.KNOWTATION_CANISTER_BACKUP_S3_BUCKET }}
+          KNOWTATION_CANISTER_BACKUP_S3_PREFIX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_PREFIX || vars.KNOWTATION_CANISTER_BACKUP_S3_PREFIX }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || vars.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || vars.AWS_REGION }}
+        run: node scripts/canister-operator-full-export.mjs
+
+      - name: Upload export artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-full-export-${{ github.run_id }}
+          path: backups/operator-full-export-*
+          retention-days: 90
+          if-no-files-found: error

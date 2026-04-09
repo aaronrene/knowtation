@@ -14,6 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..');
 const MIGRATION = path.join(REPO_ROOT, 'hub/icp/src/hub/Migration.mo');
 const MAIN = path.join(REPO_ROOT, 'hub/icp/src/hub/main.mo');
+const JSON_VALIDATE = path.join(REPO_ROOT, 'hub/icp/src/hub/JsonValidate.mo');
 
 function readUtf8(p) {
   return fs.readFileSync(p, 'utf8');
@@ -45,8 +46,16 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorage }) — identity hook for V5-stable repeat deploys',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
+    name: 'migration(old : { var storage : StableStorageV5 }) — V5→V6 adds operator_export_secret',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorageV5 })'),
+  },
+  {
+    name: 'StableStorageV5 — pre-V6 on-chain layout',
+    ok: (s) => s.includes('public type StableStorageV5'),
+  },
+  {
+    name: 'StableStorage (V6) includes operator_export_secret',
+    ok: (s) => s.includes('operator_export_secret : Text'),
   },
   {
     name: 'StableStorageV4 type (pre-V5 proposals)',
@@ -83,6 +92,13 @@ const mainChecks = [
     ok: (s) => s.includes('import Migration "Migration"'),
   },
   {
+    name: 'Imports JsonValidate + normalizes enrich fragments on GET proposal',
+    ok: (s) =>
+      s.includes('import JsonValidate "JsonValidate"') &&
+      s.includes('JsonValidate.normalizeJsonArrayFragment') &&
+      s.includes('JsonValidate.prepareEnrichJsonArray'),
+  },
+  {
     name: 'Stable storage type matches Migration.StableStorage',
     ok: (s) => s.includes('type StableStorage = Migration.StableStorage'),
   },
@@ -103,6 +119,30 @@ for (const { name, ok } of mainChecks) {
   if (!ok(text)) {
     console.error(`FAIL: ${name}\n  file: ${MAIN}`);
     failed++;
+  }
+}
+
+const jsonValidateChecks = [
+  {
+    name: 'JsonValidate.mo: enrich prepare + GET normalize helpers',
+    ok: (s) =>
+      s.includes('prepareEnrichJsonArray') &&
+      s.includes('prepareEnrichJsonObject') &&
+      s.includes('normalizeJsonArrayFragment') &&
+      s.includes('normalizeJsonObjectFragment'),
+  },
+];
+
+if (!fs.existsSync(JSON_VALIDATE)) {
+  console.error(`FAIL: JsonValidate.mo missing\n  file: ${JSON_VALIDATE}`);
+  failed++;
+} else {
+  const jv = readUtf8(JSON_VALIDATE);
+  for (const { name, ok } of jsonValidateChecks) {
+    if (!ok(jv)) {
+      console.error(`FAIL: ${name}\n  file: ${JSON_VALIDATE}`);
+      failed++;
+    }
   }
 }
 

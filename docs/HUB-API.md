@@ -185,7 +185,7 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
 - **POST /proposals/:id/discard** — Discard proposal (do not apply). **Admin** (Node Hub).  
   **Response:** `{ "proposal_id", "status": "discarded" }`.
 
-- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When **enrich** is enabled (env `KNOWTATION_HUB_PROPOSAL_ENRICH` or admin-saved prefs; see **GET /settings**), **editor**, **admin**, or **evaluator** may request an LLM **summary**, **suggested labels**, and **suggested frontmatter** (versioned JSON envelope parsed via [lib/proposal-enrich-llm.mjs](../lib/proposal-enrich-llm.mjs)). **404** if the feature is disabled (`NOT_FOUND` body). **Self-hosted:** Node Hub runs the model and updates local proposal storage. **Hosted:** The **gateway** runs `completeChat` ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `{ "assistant_notes", "assistant_model", "suggested_labels_json", "assistant_suggested_frontmatter_json" }` to the canister (`assistant_suggested_frontmatter_json` is a JSON **string** of the normalized object, capped like Node); **response** is the same shape as **GET /proposals/:id** from the canister. Chat backends: **OpenAI** (`OPENAI_API_KEY`), else **Anthropic** (`ANTHROPIC_API_KEY`), else **Ollama** (local). **Canister** route stores enrich fields only (trusted caller is the gateway with user headers). Suggestions are **advisory** — they are **not** merged into the vault on approve unless operators copy them manually (or a future product feature adds an explicit apply step).
+- **POST /proposals/:id/enrich** — *(Optional Tier 2)* When **enrich** is enabled (env `KNOWTATION_HUB_PROPOSAL_ENRICH` or admin-saved prefs; see **GET /settings**), **editor**, **admin**, or **evaluator** may request an LLM **summary**, **suggested labels**, and **suggested frontmatter** (versioned JSON envelope parsed via [lib/proposal-enrich-llm.mjs](../lib/proposal-enrich-llm.mjs)). **404** if the feature is disabled (`NOT_FOUND` body). **Self-hosted:** Node Hub runs the model and updates local proposal storage. **Hosted:** The **gateway** runs `completeChat` ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `{ "assistant_notes", "assistant_model", "suggested_labels_json", "assistant_suggested_frontmatter_json" }` to the canister (`assistant_suggested_frontmatter_json` is a JSON **string** of the normalized object, capped like Node); **response** is the same shape as **GET /proposals/:id** from the canister. Chat backends: **OpenAI** (`OPENAI_API_KEY`), else **Anthropic** (`ANTHROPIC_API_KEY`), else **Ollama** (local). **Canister** route stores enrich fields only (trusted caller is the gateway with user headers). **ICP canister:** [hub/icp/src/hub/JsonValidate.mo](../hub/icp/src/hub/JsonValidate.mo) validates that `suggested_labels_json` is a JSON **array** and `assistant_suggested_frontmatter_json` is a JSON **object** before persisting (invalid values are coerced to `[]` / `{}`; **400** if valid JSON but over **4000** / **14000** characters so nothing is truncated mid-token). **GET /proposals/:id** on the canister always splices **valid** JSON fragments for those two fields (legacy bad rows fall back to `[]` / `{}`). Suggestions are **advisory** — they are **not** merged into the vault on approve unless operators copy them manually (or a future product feature adds an explicit apply step).
 
 ### 3.5 Capture (webhook, no JWT)
 
@@ -237,6 +237,20 @@ The UI is a single front-end; it is configured with the Hub base URL (self-hoste
 - **Internet Identity:** On ICP, the auth canister (or gateway) produces a principal or JWT that the Hub canister(s) trust. Document the exact flow (II login → session/JWT → API calls) in deployment docs.
 - **CORS:** Canisters must allow the Hub UI origin; self-hosted Node must set CORS for the UI origin.
 - **Storage:** Vault and proposals on ICP are stored in canister state (e.g. Documents/Assets patterns from bornfree-hub). Same API contract; implementation in Motoko (or Rust).
+
+### 5.1 Operator full export (ICP hub canister only)
+
+**Not** implemented on the self-hosted Node Hub. Used for **scheduled logical backups** of **all** tenant user ids without stopping the canister. See [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md).
+
+- **`GET /api/v1/operator/export`**  
+  - **Headers:** `X-Operator-Export-Key: <secret>` — must match the value set via `admin_set_operator_export_secret` (see below).  
+  - **Query:** `cursor` (optional, default `0`) — index into the sorted list of user ids; `limit` (optional, default `100`, max `500`) — page size.  
+  - **Response `200`:** JSON `format_version: 3`, `kind: knowtation-operator-user-index`, `user_ids` (array of strings), `next_cursor` (string, empty when `done`), `done` (boolean), `exported_at_ns` (wall clock nanoseconds text).  
+  - **Errors:** `401` if the key is wrong; `503` if the operator secret was never configured (`operator_export_secret` empty on canister).
+
+After listing user ids, the operator runner calls existing **`GET /api/v1/export`**, **`GET /api/v1/vaults`**, and **`GET /api/v1/proposals`** with **`X-User-Id`** / **`X-Vault-Id`** per user (see [`lib/operator-full-export.mjs`](../lib/operator-full-export.mjs)).
+
+- **Candid (controllers only):** `admin_set_operator_export_secret(secret: text)` — only the canister’s **controllers** may call this (via `dfx canister call`). Sets the shared secret checked by `X-Operator-Export-Key`. **Do not** expose the secret in client apps or public repos.
 
 ---
 

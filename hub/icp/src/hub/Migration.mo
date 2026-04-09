@@ -195,10 +195,18 @@ module Migration {
     billingByUser : [(Text, BillingRecord)];
   };
 
+  /// Stable layout on mainnet **before** `operator_export_secret` (V5 on-chain).
+  public type StableStorageV5 = {
+    vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
+    proposalEntries : [(Text, [ProposalRecord])];
+    billingByUser : [(Text, BillingRecord)];
+  };
+
   public type StableStorage = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
     proposalEntries : [(Text, [ProposalRecord])];
     billingByUser : [(Text, BillingRecord)];
+    operator_export_secret : Text;
   };
 
   func _proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecord {
@@ -348,8 +356,15 @@ module Migration {
   };
 
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
-  /// Identity on `StableStorage` (V5 layout) after the one-time V4→V5 upgrade has run on a canister.
-  public func migration(old : { var storage : StableStorage }) : { var storage : StableStorage } {
-    old
-  }
+  /// V5→V6: add `operator_export_secret` (empty until set via `admin_set_operator_export_secret`).
+  public func migration(old : { var storage : StableStorageV5 }) : { var storage : StableStorage } {
+    {
+      var storage = {
+        vaultEntries = old.storage.vaultEntries;
+        proposalEntries = old.storage.proposalEntries;
+        billingByUser = old.storage.billingByUser;
+        operator_export_secret = "";
+      };
+    };
+  };
 }

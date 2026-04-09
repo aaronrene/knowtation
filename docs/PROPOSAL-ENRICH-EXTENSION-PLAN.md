@@ -32,7 +32,7 @@ Older models returning only `summary` + `suggested_labels` still parse; `suggest
 | Surface | Field |
 |--------|--------|
 | Node proposals file | `assistant_suggested_frontmatter` (object); cleared on re-enrich when the normalized object is empty (`in` check in [hub/proposals-store.mjs](../hub/proposals-store.mjs)). |
-| Canister `ProposalRecord` | `assistant_suggested_frontmatter_json` (`Text`), default `"{}"`; POST enrich trims to **14000** characters (aligned with `ENRICH_SUGGESTED_FRONTMATTER_MAX_JSON_CHARS`). |
+| Canister `ProposalRecord` | `assistant_suggested_frontmatter_json` (`Text`), default `"{}"`; POST enrich validates JSON then enforces **14000** characters (aligned with `ENRICH_SUGGESTED_FRONTMATTER_MAX_JSON_CHARS`); invalid JSON coerces to `{}`, oversized valid JSON returns **400** (no mid-token truncation). Same pattern for `suggested_labels_json` (**4000** / array). See `hub/icp/src/hub/JsonValidate.mo`. |
 | **GET /proposals/:id** | `assistant_suggested_frontmatter` as **embedded JSON object** (same pattern as `suggested_labels` array inlining on the canister). |
 
 ### Gateway → canister POST body (hosted enrich)

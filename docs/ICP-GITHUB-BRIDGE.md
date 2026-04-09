@@ -46,7 +46,22 @@ The **bridge** is a small service that connects the hosted Knowtation vault (in 
 
 ---
 
-## 6. Reference
+## 6. Backup reliability (2026-04) — shipped behavior
+
+These changes are **independent of Wi‑Fi**; flaky networks can still cause `Failed to fetch` / connection drops in the browser. Successful backup requires a stable path: **browser → Netlify gateway → Netlify bridge → canister + GitHub**.
+
+| Layer | What changed |
+|--------|----------------|
+| **Canister (`hub`)** | `JsonValidate.mo` validates enrich JSON on **POST …/enrich**; **GET …/proposals/:id** always splices valid JSON for `suggested_labels` / `assistant_suggested_frontmatter` (legacy bad rows fall back to `[]` / `{}`). |
+| **Bridge** | `lib/canister-proposal-response-parse.mjs`: if a proposal GET body is still not parseable, backup records a placeholder row instead of failing the whole run (belt-and-suspenders). |
+| **Bridge Netlify** | `deploy/bridge/netlify.toml` sets **`[functions."bridge"] timeout = 26`** so **Back up now** (`POST /api/v1/vault/sync`) can finish export + per-proposal GETs + GitHub API within the same ballpark as the gateway proxy (default ~10s was too tight for larger vaults). |
+| **PR #126** (merge when ready) | Brings tolerant proposal parsing into **production** bridge builds; merge and redeploy **bridge** (+ gateway if monorepo build) after CI passes. |
+
+**Verify backup:** `POST https://<gateway>/api/v1/vault/sync` with a real Hub JWT (`hub_token` from the browser after login — **not** `HUB_JWT_SECRET`) returns `200` with `notesCount` / `proposalsCount`; repo should contain `.knowtation/backup/v1/snapshot.json`.
+
+---
+
+## 7. Reference
 
 - [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md) — gateway/canister auth
 - [HUB-API.md](./HUB-API.md) — POST /vault/sync contract (self-hosted; hosted uses bridge)

@@ -19,6 +19,8 @@
     "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
     "canister:preflight": "bash scripts/canister-predeploy.sh",
     "canister:export-backup": "node scripts/canister-export-backup.mjs",
+    "canister:snapshot-backup": "bash scripts/icp-canister-snapshot-backup.sh",
+    "canister:operator-full-export": "node scripts/canister-operator-full-export.mjs",
     "canister:decrypt-operator-backup": "node scripts/canister-decrypt-operator-backup.mjs",
     "canister:release-prep": "bash scripts/canister-release-prep.sh",
     "release:post-merge-canister": "bash scripts/post-merge-hub-canister-release.sh",
