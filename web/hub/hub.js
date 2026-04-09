@@ -97,6 +97,14 @@
   /** @type {import('chart.js').Chart[]} */
   let chartInstances = [];
 
+  const FILTER_CHIPS_EXPANDED_KEY = 'hub_filter_chips_expanded';
+  let filterChipsExpanded = false;
+  try {
+    filterChipsExpanded = localStorage.getItem(FILTER_CHIPS_EXPANDED_KEY) === '1';
+  } catch (_) {
+    filterChipsExpanded = false;
+  }
+
   const ACCENT_STORAGE_KEY = 'hub_accent_color';
   const THEME_STORAGE_KEY = 'hub_theme';
   const COLOR_PALETTE_STORAGE_KEY = 'hub_color_palette';
@@ -1280,7 +1288,53 @@
   }
 
   function renderFilterChips(facets) {
-    filterChipsEl.innerHTML = '<span class="toolbar-label">Quick</span>';
+    filterChipsEl.innerHTML = '';
+    filterChipsEl.classList.toggle('is-expanded', filterChipsExpanded);
+
+    const header = document.createElement('div');
+    header.className = 'filter-chips-header';
+
+    const label = document.createElement('span');
+    label.className = 'toolbar-label';
+    label.textContent = 'Quick';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'filter-chips-toggle';
+    toggle.setAttribute('aria-expanded', filterChipsExpanded ? 'true' : 'false');
+    toggle.setAttribute('aria-controls', 'filter-chips-panel');
+    toggle.title = filterChipsExpanded ? 'Hide quick filter chips' : 'Show quick filter chips';
+    toggle.setAttribute(
+      'aria-label',
+      filterChipsExpanded ? 'Collapse quick filter chips' : 'Expand quick filter chips',
+    );
+    toggle.innerHTML =
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+    toggle.onclick = () => {
+      filterChipsExpanded = !filterChipsExpanded;
+      try {
+        localStorage.setItem(FILTER_CHIPS_EXPANDED_KEY, filterChipsExpanded ? '1' : '0');
+      } catch (_) {}
+      filterChipsEl.classList.toggle('is-expanded', filterChipsExpanded);
+      toggle.setAttribute('aria-expanded', filterChipsExpanded ? 'true' : 'false');
+      toggle.title = filterChipsExpanded ? 'Hide quick filter chips' : 'Show quick filter chips';
+      toggle.setAttribute(
+        'aria-label',
+        filterChipsExpanded ? 'Collapse quick filter chips' : 'Expand quick filter chips',
+      );
+    };
+
+    header.appendChild(label);
+    header.appendChild(toggle);
+    filterChipsEl.appendChild(header);
+
+    const panel = document.createElement('div');
+    panel.id = 'filter-chips-panel';
+    panel.className = 'filter-chips-panel';
+    panel.setAttribute('role', 'region');
+    panel.setAttribute('aria-label', 'Quick filter chips');
+    filterChipsEl.appendChild(panel);
+
     const allBtn = document.createElement('button');
     allBtn.type = 'button';
     allBtn.className = 'chip-btn chip-all' + (listFacetFiltersActive() ? '' : ' active');
@@ -1294,7 +1348,7 @@
       loadNotes();
       renderFilterChips(null);
     };
-    filterChipsEl.appendChild(allBtn);
+    panel.appendChild(allBtn);
 
     const apply = (f) => {
       if (!f) return;
@@ -1312,7 +1366,7 @@
           loadNotes();
           renderFilterChips(null);
         };
-        filterChipsEl.appendChild(b);
+        panel.appendChild(b);
       });
       (f.tags || []).slice(0, 10).forEach((t) => {
         const b = document.createElement('button');
@@ -1328,7 +1382,7 @@
           loadNotes();
           renderFilterChips(null);
         };
-        filterChipsEl.appendChild(b);
+        panel.appendChild(b);
       });
       (f.folders || []).slice(0, 12).forEach((folder) => {
         const b = document.createElement('button');
@@ -1344,7 +1398,7 @@
           loadNotes();
           renderFilterChips(null);
         };
-        filterChipsEl.appendChild(b);
+        panel.appendChild(b);
       });
       // Phase 12 — network chips
       (f.networks || []).slice(0, 8).forEach((net) => {
@@ -1359,7 +1413,7 @@
           loadNotes();
           renderFilterChips(null);
         };
-        filterChipsEl.appendChild(b);
+        panel.appendChild(b);
       });
       // Phase 12 — payment_status Quick chips (fixed enum, shown when vault has any blockchain notes)
       if ((f.networks || []).length > 0 || (f.wallets || []).length > 0) {
@@ -1377,7 +1431,7 @@
             loadNotes();
             renderFilterChips(null);
           };
-          filterChipsEl.appendChild(b);
+          panel.appendChild(b);
         });
       }
     };
