@@ -572,17 +572,16 @@ html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .view-tab { padding: 0.35rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.875rem; font-weight: 600; }
 .view-tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+/* In .view-modes: Quick + chevron sit on the Browse row after the key; children join parent flex via contents */
 .filter-chips {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.35rem;
+  display: contents;
 }
 .filter-chips-header {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.2rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .filter-chips-toggle {
   display: inline-flex;
@@ -620,6 +619,8 @@ html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .filter-chips.is-expanded .filter-chips-panel {
   display: flex;
+  flex-basis: 100%;
+  width: 100%;
 }
 .filter-chips .chip-btn {
   cursor: pointer;
