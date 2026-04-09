@@ -276,14 +276,13 @@ button.btn-new-note.btn-busy::after {
   background: var(--surface);
   color: var(--text);
 }
-/* Dark theme: improve native date control contrast (Firefox + WebKit) */
+/* Dark Hub theme: native `type="date"` + `color-scheme: dark` paints a dark calendar glyph on a dark field (invisible in Safari/Chrome). Force light *control chrome* only so the picker icon stays visible; text still uses var(--text) below. */
 html:not([data-theme="light"]) .search-section input[type="date"] {
-  color-scheme: dark;
+  color-scheme: light;
 }
 html:not([data-theme="light"]) .search-section input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0.95;
-  filter: invert(1);
   cursor: pointer;
+  opacity: 1;
 }
 html[data-theme="light"] .search-section input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;

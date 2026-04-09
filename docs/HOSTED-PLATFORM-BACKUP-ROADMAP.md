@@ -1,8 +1,8 @@
 # Hosted platform backup and disaster recovery (roadmap)
 
-**Status:** **Partially implemented.** **Users** can back up vault content via **Connect GitHub** and **Back up now** (bridge → Git export). **Operators** can run **`npm run canister:export-backup`** and the scheduled workflow in [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) (see [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §6) for daily **note** JSON export per vault partition. **Not** yet covered here: full stable-memory dumps, automatic **proposal**-only archives, bridge vector blobs, billing blobs — see §2–§3.
+**Status:** **Partially implemented.** **Users** can back up vault content via **Connect GitHub** and **Back up now** (bridge → Git export). **Operators** use **[ICP canister snapshots](https://docs.internetcomputer.org/building-apps/canister-management/snapshots)** for **full hub + attestation** state (see [ICP-CANISTER-SNAPSHOT-RUNBOOK.md](./ICP-CANISTER-SNAPSHOT-RUNBOOK.md), `npm run canister:snapshot-backup`). Separately, **`npm run canister:export-backup`** and [`.github/workflows/canister-export-backup.yml`](../.github/workflows/canister-export-backup.yml) ([DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §6) perform **HTTP logical export** for **one configured `X-User-Id` partition** — not a substitute for snapshots. **Still open:** admin HTTP export of **all** tenants, automatic restore from logical JSON, bridge vector blobs, billing blobs — see §2–§3.
 
-**Related:** [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md), [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) (checklist §4), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md).
+**Related:** [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md) (two pillars: snapshots + daily full logical export), [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md), [ICP-CANISTER-SNAPSHOT-AUTOMATION.md](./ICP-CANISTER-SNAPSHOT-AUTOMATION.md), [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) (checklist §4), [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [ICP-GITHUB-BRIDGE.md](./ICP-GITHUB-BRIDGE.md).
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Layer | User GitHub backup | Platform backup (this doc) |
 |-------|--------------------|----------------------------|
-| **Notes + proposals in canister** | **Back up now:** notes as Markdown + proposals in **`.knowtation/backup/v1/snapshot.json`**. | Independent **operator** snapshot or export of **canister stable state** (scheduled job, S3, etc.) |
+| **Notes + proposals in canister** | **Back up now:** notes as Markdown + proposals in **`.knowtation/backup/v1/snapshot.json`**. | **Full state:** [ICP snapshots](./ICP-CANISTER-SNAPSHOT-RUNBOOK.md) (hub + attestation). **Logical sample:** HTTP export §6 ([DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md)) — one partition only. |
 | **Bridge index (sqlite-vec)** | Not the same as vault files; re-buildable via **Re-index** | Optional: archive vector DB blobs per policy |
 | **Gateway billing / roles blobs** | Not in user repo | Gateway/Netlify Blob or file store per deploy docs |
 
@@ -27,10 +27,11 @@
 
 ## 3. Future implementation directions (no commitment to order)
 
-1. **Periodic logical export** — **Done (v2):** [`scripts/canister-export-backup.mjs`](../scripts/canister-export-backup.mjs) exports **notes + proposals**; optional **AES-GCM** (`.json.enc`) and **S3**; GitHub Actions + artifacts. **Still open:** **admin/export** without per-partition `X-User-Id` in CI, Arweave upload, automated **restore** from bundle.
-2. **Upgrade discipline** — Preflight scripts already exist (`npm run canister:preflight`, `canister:verify-migration`); extend runbooks to require a **snapshot or export checkpoint** before mainnet upgrades when data volume is non-trivial.
-3. **Key custody** — Separate **deployment / upgrade keys** from **day-to-day operator** logins; prefer **hardware-backed** key storage (e.g. encrypted USB/HSM-style devices — products such as **Apricorn**-style hardware-encrypted drives are one pattern teams use for **offline controller secrets**) so break-glass credentials are not only on laptops or CI.
-4. **Restore drill** — At least annually: restore a **non-production** canister or fixture from backup and verify note counts and hashes.
+1. **Full canister snapshots (ICP-native)** — **Runbook + script:** [ICP-CANISTER-SNAPSHOT-RUNBOOK.md](./ICP-CANISTER-SNAPSHOT-RUNBOOK.md), [`scripts/icp-canister-snapshot-backup.sh`](../scripts/icp-canister-snapshot-backup.sh). Controller-operated; optional `snapshot download` for off-chain archives.
+2. **Periodic logical export (HTTP)** — **All tenants:** [`scripts/canister-operator-full-export.mjs`](../scripts/canister-operator-full-export.mjs) + [`GET /api/v1/operator/export`](../docs/HUB-API.md) + [`.github/workflows/canister-operator-full-export.yml`](../.github/workflows/canister-operator-full-export.yml) (see [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md)). **Single partition (smoke):** [`scripts/canister-export-backup.mjs`](../scripts/canister-export-backup.mjs) + scheduled HTTP vault export workflow. Optional **AES-GCM** and **S3** for both. **Still open:** automated **restore** from full-export JSON, Arweave upload.
+3. **Upgrade discipline** — Preflight scripts already exist (`npm run canister:preflight`, `canister:verify-migration`); extend runbooks to require a **snapshot** (or logical export checkpoint) before mainnet upgrades when data volume is non-trivial.
+4. **Key custody** — Separate **deployment / upgrade keys** from **day-to-day operator** logins; prefer **hardware-backed** key storage (e.g. encrypted USB/HSM-style devices — products such as **Apricorn**-style hardware-encrypted drives are one pattern teams use for **offline controller secrets**) so break-glass credentials are not only on laptops or CI.
+5. **Restore drill** — At least annually: restore a **non-production** canister or fixture from backup and verify note counts and hashes. Checklist: [ICP-CANISTER-SNAPSHOT-DRILL-CHECKLIST.md](./ICP-CANISTER-SNAPSHOT-DRILL-CHECKLIST.md).
 
 **Operational detail** (exact key lists, bucket names, controller principals) belongs in **private** runbooks — e.g. a copy under **`development/`** (gitignored in this repo per [.gitignore](../.gitignore)) or a secure team vault — **not** in this public doc.
 
@@ -50,3 +51,5 @@ Per-user **canister byte** quotas are **not** the primary sold unit in [HOSTED-C
 | 2026-04-07 | Daily export script + Actions workflow + DEPLOY-HOSTED §6; roadmap status updated to partially implemented. |
 | 2026-04-08 | Hosted **Back up now** includes full proposals in `.knowtation/backup/v1/snapshot.json` (bridge); scope filter parity for proposals. |
 | 2026-04-08 | Operator export v2: notes + proposals in one JSON; AES-GCM + optional S3 (`@aws-sdk/client-s3`). |
+| 2026-04-09 | ICP **canister snapshot** runbook + helper script; DEPLOY-HOSTED §6 clarified vs full backup; automation decision doc. |
+| 2026-04-09 | **Operator full export:** Motoko `GET /api/v1/operator/export` + `admin_set_operator_export_secret`; `canister-operator-full-export` script + daily workflow; [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md). |

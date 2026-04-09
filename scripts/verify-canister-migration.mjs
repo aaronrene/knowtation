@@ -46,8 +46,16 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorage }) — identity hook for V5-stable repeat deploys',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
+    name: 'migration(old : { var storage : StableStorageV5 }) — V5→V6 adds operator_export_secret',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorageV5 })'),
+  },
+  {
+    name: 'StableStorageV5 — pre-V6 on-chain layout',
+    ok: (s) => s.includes('public type StableStorageV5'),
+  },
+  {
+    name: 'StableStorage (V6) includes operator_export_secret',
+    ok: (s) => s.includes('operator_export_secret : Text'),
   },
   {
     name: 'StableStorageV4 type (pre-V5 proposals)',

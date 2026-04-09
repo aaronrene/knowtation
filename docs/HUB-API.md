@@ -238,6 +238,20 @@ The UI is a single front-end; it is configured with the Hub base URL (self-hoste
 - **CORS:** Canisters must allow the Hub UI origin; self-hosted Node must set CORS for the UI origin.
 - **Storage:** Vault and proposals on ICP are stored in canister state (e.g. Documents/Assets patterns from bornfree-hub). Same API contract; implementation in Motoko (or Rust).
 
+### 5.1 Operator full export (ICP hub canister only)
+
+**Not** implemented on the self-hosted Node Hub. Used for **scheduled logical backups** of **all** tenant user ids without stopping the canister. See [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md).
+
+- **`GET /api/v1/operator/export`**  
+  - **Headers:** `X-Operator-Export-Key: <secret>` — must match the value set via `admin_set_operator_export_secret` (see below).  
+  - **Query:** `cursor` (optional, default `0`) — index into the sorted list of user ids; `limit` (optional, default `100`, max `500`) — page size.  
+  - **Response `200`:** JSON `format_version: 3`, `kind: knowtation-operator-user-index`, `user_ids` (array of strings), `next_cursor` (string, empty when `done`), `done` (boolean), `exported_at_ns` (wall clock nanoseconds text).  
+  - **Errors:** `401` if the key is wrong; `503` if the operator secret was never configured (`operator_export_secret` empty on canister).
+
+After listing user ids, the operator runner calls existing **`GET /api/v1/export`**, **`GET /api/v1/vaults`**, and **`GET /api/v1/proposals`** with **`X-User-Id`** / **`X-Vault-Id`** per user (see [`lib/operator-full-export.mjs`](../lib/operator-full-export.mjs)).
+
+- **Candid (controllers only):** `admin_set_operator_export_secret(secret: text)` — only the canister’s **controllers** may call this (via `dfx canister call`). Sets the shared secret checked by `X-Operator-Export-Key`. **Do not** expose the secret in client apps or public repos.
+
 ---
 
 ## 6. CLI integration

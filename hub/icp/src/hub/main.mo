@@ -1,7 +1,7 @@
 /**
  * Knowtation Hub canister — minimal Hub API (vault + proposals) for ICP.
  * Phase 15.1: notes partitioned by (userId, vault_id); X-Vault-Id on requests (default vault id: default).
- * Implements GET /health, GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/:path, GET /api/v1/vaults, DELETE /api/v1/vaults/:id (non-default), GET /api/v1/export,
+ * Implements GET /health, GET /api/v1/operator/export (operator backup key), GET/POST /api/v1/notes, DELETE /api/v1/notes/:path, POST /api/v1/notes/batch, POST /api/v1/notes/delete-by-prefix, GET /api/v1/notes/:path, GET /api/v1/vaults, DELETE /api/v1/vaults/:id (non-default), GET /api/v1/export,
  * GET/POST /api/v1/proposals, evaluation, approve, discard.
  * Auth: for dev use X-Test-User or X-User-Id header; canister validates proof from gateway in production.
  * See docs/HUB-API.md and docs/CANISTER-AUTH-CONTRACT.md.
@@ -19,8 +19,10 @@ import Nat32 "mo:base/Nat32";
 import Option "mo:base/Option";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+import Debug "mo:base/Debug";
 import JsonValidate "JsonValidate";
 import Migration "Migration";
+import Principal "mo:base/Principal";
 
 (with migration = Migration.migration)
 persistent actor Hub {
@@ -63,7 +65,12 @@ type ProposalRecord = Migration.ProposalRecord;
 type BillingRecord = Migration.BillingRecord;
 type StableStorage = Migration.StableStorage;
 
-var storage : StableStorage = { vaultEntries = []; proposalEntries = []; billingByUser = [] };
+var storage : StableStorage = {
+  vaultEntries = [];
+  proposalEntries = [];
+  billingByUser = [];
+  operator_export_secret = "";
+};
 
 /// userId -> vaultId -> path -> (frontmatter, body)
 transient var byUser = HashMap.HashMap<Text, HashMap.HashMap<Text, HashMap.HashMap<Text, (Text, Text)>>>(10, Text.equal, Text.hash);
@@ -103,6 +110,7 @@ func loadStable() {
 /// Serialize transient maps into stable storage. Uses Buffer for vault rows — `Array.append` in a loop is
 /// quadratic and exceeds the per-message instruction limit (40B) on mainnet for large multi-user vaults.
 func saveStable() {
+  let keepSecret = storage.operator_export_secret;
   let vaultBuf = Buffer.Buffer<(Text, Text, [(Text, (Text, Text))])>(8);
   for ((uid, um) in byUser.entries()) {
     for ((vaultId, m) in um.entries()) {
@@ -121,6 +129,7 @@ func saveStable() {
         (uid, b);
       }),
     );
+    operator_export_secret = keepSecret;
   };
 };
 
@@ -192,7 +201,7 @@ func corsHeaders() : [Header] {
   [
     ("Access-Control-Allow-Origin", "*"),
     ("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"),
-    ("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Vault-Id, X-User-Id, X-Test-User"),
+    ("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Vault-Id, X-User-Id, X-Test-User, X-Operator-Export-Key"),
     ("Content-Type", "application/json"),
   ];
 };
@@ -396,6 +405,8 @@ func parsePath(url : Text) : (Text, Text) {
     ("proposals", "");
   } else if (path == "/api/v1/export" or path == "/api/v1/export/") {
     ("export", "");
+  } else if (path == "/api/v1/operator/export" or path == "/api/v1/operator/export/") {
+    ("operator_export", "");
   } else { ("unknown", "") };
 };
 
@@ -845,6 +856,113 @@ func vaultListJson(uid : Text) : Text {
   "{\"vaults\":[" # items # "]}";
 };
 
+/// Query string parameter from full request URL (path may include `?`).
+func queryParamFromUrl(url : Text, paramName : Text) : ?Text {
+  switch (textFind(url, "?")) {
+    case null { null };
+    case (?qi) {
+      let urlLen = Text.size(url);
+      let qStart = qi + 1;
+      if (qStart > urlLen) { return null };
+      let qLen = urlLen - qStart;
+      let query = textSlice(url, qStart, qLen);
+      let keyEq = paramName # "=";
+      let pairs = Iter.toArray(Text.split(query, #char '&'));
+      var pi : Nat = 0;
+      while (pi < pairs.size()) {
+        let pair = pairs[pi];
+        if (Text.startsWith(pair, #text keyEq)) {
+          let keyLen = Text.size(keyEq);
+          let pairLen = Text.size(pair);
+          if (pairLen >= keyLen) {
+            return ?textSlice(pair, keyLen, pairLen - keyLen);
+          };
+        };
+        pi += 1;
+      };
+      null;
+    };
+  };
+};
+
+func natFromTextDec(t0 : Text) : ?Nat {
+  let t = Text.trim(t0, #predicate isAsciiSpace);
+  if (Text.size(t) == 0) { return null };
+  let chars = Text.toArray(t);
+  var out : Nat = 0;
+  var i : Nat = 0;
+  while (i < chars.size()) {
+    let c = chars[i];
+    let d = Nat32.toNat(Char.toNat32(c));
+    if (d < 48 or d > 57) { return null };
+    out := out * 10 + (d - 48);
+    i += 1;
+  };
+  ?out;
+};
+
+func operatorExportAuthorized(req : HttpRequest) : Bool {
+  let expected = storage.operator_export_secret;
+  if (Text.size(expected) == 0) { return false };
+  switch (getHeader(req, "X-Operator-Export-Key")) {
+    case null { false };
+    case (?got) {
+      if (Text.size(got) != Text.size(expected)) { false } else { got == expected };
+    };
+  };
+};
+
+func sortedOperatorUserIds() : [Text] {
+  let keys = Iter.toArray(byUser.keys());
+  Array.sort<Text>(keys, Text.compare)
+};
+
+func clampOperatorUserPageLimit(maybe : ?Text) : Nat {
+  let cap : Nat = 500;
+  let def : Nat = 100;
+  switch (maybe) {
+    case null { def };
+    case (?t) {
+      switch (natFromTextDec(t)) {
+        case null { def };
+        case (?n) {
+          if (n < 1) { 1 } else if (n > cap) { cap } else { n };
+        };
+      };
+    };
+  };
+};
+
+func operatorUserIndexJson(req : HttpRequest) : Text {
+  let lim = clampOperatorUserPageLimit(queryParamFromUrl(req.url, "limit"));
+  let cursorStart : Nat = switch (queryParamFromUrl(req.url, "cursor")) {
+    case null { 0 };
+    case (?c) {
+      switch (natFromTextDec(c)) {
+        case null { 0 };
+        case (?n) { n };
+      };
+    };
+  };
+  let ids = sortedOperatorUserIds();
+  let total = ids.size();
+  var start : Nat = cursorStart;
+  if (start > total) { start := total };
+  var end : Nat = start + lim;
+  if (end > total) { end := total };
+  var items : Text = "";
+  var j = start;
+  while (j < end) {
+    if (items != "") { items := items # "," };
+    items := items # "\"" # escapeJson(ids[j]) # "\"";
+    j += 1;
+  };
+  let done = end >= total;
+  let nextCur = if (done) { "" } else { Nat.toText(end) };
+  let ts = Int.toText(Time.now());
+  "{\"format_version\":3,\"kind\":\"knowtation-operator-user-index\",\"exported_at_ns\":\"" # ts # "\",\"user_ids\":[" # items # "],\"next_cursor\":\"" # nextCur # "\",\"done\":" # (if (done) { "true" } else { "false" }) # "}";
+};
+
 public query func http_request(req : HttpRequest) : async HttpResponse {
   let uid = userId(req);
   let vid = vaultIdFromRequest(req);
@@ -880,6 +998,24 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     };
     let json = "{\"notes\":[" # items # "]}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
+  };
+
+  if (pathKind == "operator_export" and req.method == "GET") {
+    if (not operatorExportAuthorized(req)) {
+      let (code, msg) = if (Text.size(storage.operator_export_secret) == 0) {
+        (503 : Nat16, "{\"error\":\"Operator export not configured\",\"code\":\"SERVICE_UNAVAILABLE\"}");
+      } else {
+        (401 : Nat16, "{\"error\":\"Unauthorized\",\"code\":\"UNAUTHORIZED\"}");
+      };
+      return { status_code = code; headers = corsHeaders(); body = jsonBody(msg); streaming_strategy = null; upgrade = null };
+    };
+    return {
+      status_code = 200;
+      headers = corsHeaders();
+      body = jsonBody(operatorUserIndexJson(req));
+      streaming_strategy = null;
+      upgrade = null;
+    };
   };
 
   if (pathKind == "notes" and req.method == "GET") {
@@ -1520,6 +1656,19 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   };
 
   return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
+};
+
+/// Controllers only. Sets `X-Operator-Export-Key` value the HTTP endpoint checks (constant-length compare via `==` after length match).
+public shared ({ caller }) func admin_set_operator_export_secret(secret : Text) : async () {
+  if (not Principal.isController(caller)) {
+    Debug.trap("FORBIDDEN");
+  };
+  storage := {
+    vaultEntries = storage.vaultEntries;
+    proposalEntries = storage.proposalEntries;
+    billingByUser = storage.billingByUser;
+    operator_export_secret = secret;
+  };
 };
 
 }

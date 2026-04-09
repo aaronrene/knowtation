@@ -57,9 +57,17 @@ The gateway must send, with every canister request, something that uniquely iden
 
 - **hub/gateway/** — Node (Express) service: OAuth at `/auth/login`, `/auth/callback/google`, `/auth/callback/github`; issues JWT; proxies `/api/v1/*` to canister with **X-User-Id** from JWT. See [hub/gateway/README.md](../hub/gateway/README.md) for env and deploy.
 
-## 6. Reference
+## 6. Operator export key (ICP hub only)
+
+- **Purpose:** Allow an **automated job** (CI or cron) to discover **all** `user_id` values and then call existing per-user HTTP routes (`/api/v1/export`, `/api/v1/proposals`, …) for a **full logical backup** without OAuth per user.
+- **Mechanism:** Stable field `operator_export_secret` on the hub canister. **`GET /api/v1/operator/export`** requires header **`X-Operator-Export-Key`** equal to that value (length check then `==`). If unset, the endpoint returns **503**.
+- **Bootstrap:** Controllers call **`admin_set_operator_export_secret`** via `dfx canister call` after deploy. Rotate by calling again with a new secret; update the same value in GitHub Actions / `.env` for the export job.
+- **Security:** Treat the secret like a **database backup credential**. HTTPS only; encrypt artifacts (see [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md)). This is **not** an end-user feature and must not ship to browsers.
+
+## 7. Reference
 
 - [HUB-API.md](./HUB-API.md) — API contract the canister implements.
+- [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md) — Snapshots + daily logical export.
 - [hub/icp/README.md](../hub/icp/README.md) — ICP canister implementation and deploy.
 - [hub/gateway/README.md](../hub/gateway/README.md) — Gateway env and routes.
 - Plan: Canister-based hosted product (gateway OAuth + proof, canister validates).

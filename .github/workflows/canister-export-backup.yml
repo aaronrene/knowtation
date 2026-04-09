@@ -1,6 +1,10 @@
-# Daily operator export: canister notes + full proposals (JSON); optional AES-GCM + S3.
+# Scheduled HTTP logical export: one X-User-Id vault partition → JSON (not full ICP canister snapshots).
+# Full canister backup: docs/ICP-CANISTER-SNAPSHOT-RUNBOOK.md + npm run canister:snapshot-backup (controller, dfx).
 # Secrets: docs/DEPLOY-HOSTED.md §6.
-name: Canister export backup
+#
+# Repository **Secrets** → `${{ secrets.* }}`. Repository **Variables** → `${{ vars.* }}` — they are not interchangeable.
+# This workflow uses `secrets.X || vars.X` so either tab works. Prefer **Secrets** for USER_ID / encrypt key / AWS (less exposure in UI).
+name: Scheduled HTTP vault export (operator)
 
 on:
   schedule:
@@ -20,17 +24,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Missing secrets expand to empty env vars — the script only prints a generic exit 1. Fail here with an annotation.
+      - name: Verify required backup secret
+        env:
+          KNOWTATION_CANISTER_BACKUP_USER_ID: ${{ secrets.KNOWTATION_CANISTER_BACKUP_USER_ID || vars.KNOWTATION_CANISTER_BACKUP_USER_ID }}
+        run: |
+          if [ -z "$KNOWTATION_CANISTER_BACKUP_USER_ID" ]; then
+            echo "::error::KNOWTATION_CANISTER_BACKUP_USER_ID is unset. Under Settings - Secrets and variables - Actions, add Repository secrets or Repository variables with this exact name (Variables do not fill secrets.*; this workflow reads secrets or vars). See docs/DEPLOY-HOSTED.md section 6."
+            exit 1
+          fi
+          echo "KNOWTATION_CANISTER_BACKUP_USER_ID is set (value not shown)."
+
       - name: Export canister vault(s)
         env:
-          KNOWTATION_CANISTER_BACKUP_URL: ${{ secrets.KNOWTATION_CANISTER_BACKUP_URL }}
-          KNOWTATION_CANISTER_BACKUP_USER_ID: ${{ secrets.KNOWTATION_CANISTER_BACKUP_USER_ID }}
-          KNOWTATION_CANISTER_BACKUP_VAULT_IDS: ${{ secrets.KNOWTATION_CANISTER_BACKUP_VAULT_IDS }}
-          KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX }}
-          KNOWTATION_CANISTER_BACKUP_S3_BUCKET: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_BUCKET }}
-          KNOWTATION_CANISTER_BACKUP_S3_PREFIX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_PREFIX }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          KNOWTATION_CANISTER_BACKUP_URL: ${{ secrets.KNOWTATION_CANISTER_BACKUP_URL || vars.KNOWTATION_CANISTER_BACKUP_URL }}
+          KNOWTATION_CANISTER_BACKUP_USER_ID: ${{ secrets.KNOWTATION_CANISTER_BACKUP_USER_ID || vars.KNOWTATION_CANISTER_BACKUP_USER_ID }}
+          KNOWTATION_CANISTER_BACKUP_VAULT_IDS: ${{ secrets.KNOWTATION_CANISTER_BACKUP_VAULT_IDS || vars.KNOWTATION_CANISTER_BACKUP_VAULT_IDS }}
+          KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX || vars.KNOWTATION_CANISTER_BACKUP_ENCRYPT_KEY_HEX }}
+          KNOWTATION_CANISTER_BACKUP_S3_BUCKET: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_BUCKET || vars.KNOWTATION_CANISTER_BACKUP_S3_BUCKET }}
+          KNOWTATION_CANISTER_BACKUP_S3_PREFIX: ${{ secrets.KNOWTATION_CANISTER_BACKUP_S3_PREFIX || vars.KNOWTATION_CANISTER_BACKUP_S3_PREFIX }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || vars.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || vars.AWS_REGION }}
         run: node scripts/canister-export-backup.mjs
 
       - name: Upload backup artifacts
