@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   hubBaseUrlFromCanisterIds,
   parseBackupVaultIds,
+  resolveBackupS3Prefix,
   resolveCanisterBackupBaseUrl,
 } from '../lib/canister-export-env.mjs';
 
@@ -30,6 +31,19 @@ describe('hubBaseUrlFromCanisterIds', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('resolveBackupS3Prefix', () => {
+  it('defaults when unset or empty (GitHub empty var)', () => {
+    assert.strictEqual(resolveBackupS3Prefix({}), 'knowtation-canister-backups/');
+    assert.strictEqual(resolveBackupS3Prefix({ KNOWTATION_CANISTER_BACKUP_S3_PREFIX: '' }), 'knowtation-canister-backups/');
+    assert.strictEqual(resolveBackupS3Prefix({ KNOWTATION_CANISTER_BACKUP_S3_PREFIX: '  ' }), 'knowtation-canister-backups/');
+  });
+
+  it('normalizes custom prefix to single trailing slash', () => {
+    assert.strictEqual(resolveBackupS3Prefix({ KNOWTATION_CANISTER_BACKUP_S3_PREFIX: 'my/prefix' }), 'my/prefix/');
+    assert.strictEqual(resolveBackupS3Prefix({ KNOWTATION_CANISTER_BACKUP_S3_PREFIX: 'my/prefix//' }), 'my/prefix/');
   });
 });
 

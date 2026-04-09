@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import { resolveCanisterBackupBaseUrl } from '../lib/canister-export-env.mjs';
+import { resolveBackupS3Prefix, resolveCanisterBackupBaseUrl } from '../lib/canister-export-env.mjs';
 import {
   buildFullOperatorExportJson,
   encryptOperatorBackupUtf8,
@@ -71,9 +71,7 @@ if (keyHex) {
 }
 
 const s3Bucket = (process.env.KNOWTATION_CANISTER_BACKUP_S3_BUCKET ?? '').trim();
-const s3Prefix = (process.env.KNOWTATION_CANISTER_BACKUP_S3_PREFIX ?? 'knowtation-canister-backups/')
-  .trim()
-  .replace(/\/?$/, '/');
+const s3Prefix = resolveBackupS3Prefix(process.env);
 const skipS3 = (process.env.KNOWTATION_CANISTER_BACKUP_SKIP_S3 ?? '').trim() === '1';
 
 const stamp = utcBackupStamp();
