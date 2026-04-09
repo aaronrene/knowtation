@@ -30,6 +30,30 @@ jobs:
           fi
           echo "KNOWTATION_OPERATOR_EXPORT_KEY is set (value not shown)."
 
+      - name: Probe operator export (HTTP status only)
+        env:
+          KNOWTATION_OPERATOR_EXPORT_URL: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_URL || vars.KNOWTATION_OPERATOR_EXPORT_URL }}
+          KNOWTATION_OPERATOR_EXPORT_KEY: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_KEY || vars.KNOWTATION_OPERATOR_EXPORT_KEY }}
+        run: |
+          set -e
+          ID="$(python3 -c "import json; print(json.load(open('hub/icp/canister_ids.json'))['hub']['ic'])")"
+          BASE="${KNOWTATION_OPERATOR_EXPORT_URL:-}"
+          BASE="${BASE%/}"
+          if [ -z "$BASE" ]; then
+            BASE="https://${ID}.raw.icp0.io"
+            echo "KNOWTATION_OPERATOR_EXPORT_URL unset; using ${BASE} from canister_ids.json"
+          fi
+          code="$(curl -sS -o /tmp/op-export-body -w '%{http_code}' \
+            -H "X-Operator-Export-Key: ${KNOWTATION_OPERATOR_EXPORT_KEY}" \
+            "${BASE}/api/v1/operator/export?limit=1")"
+          echo "GET /api/v1/operator/export?limit=1 → HTTP ${code}"
+          head -c 300 /tmp/op-export-body || true
+          echo ""
+          if [ "$code" != "200" ]; then
+            echo "::error::Operator export returned HTTP ${code}. 401 = GitHub KNOWTATION_OPERATOR_EXPORT_KEY does not match admin_set_operator_export_secret. 503 = secret not set on canister."
+            exit 1
+          fi
+
       - name: Full operator export
         env:
           KNOWTATION_OPERATOR_EXPORT_URL: ${{ secrets.KNOWTATION_OPERATOR_EXPORT_URL || vars.KNOWTATION_OPERATOR_EXPORT_URL }}
