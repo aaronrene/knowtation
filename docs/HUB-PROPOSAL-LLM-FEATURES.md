@@ -1,6 +1,15 @@
 # Hub: proposal review hints vs Enrich (LLM)
 
-Two **optional** features use a chat-capable model (Ollama or OpenAI) for **proposals only**. Neither is a merge gate; humans still approve or discard.
+Two **optional** features use a **chat**-capable model for **proposals only** (not the same subsystem as **Meaning search embeddings**). Neither is a merge gate; humans still approve or discard.
+
+### Embeddings vs chat (operators)
+
+| Lane | Purpose | Typical env / config |
+|------|---------|----------------------|
+| **Embeddings** | Indexer + **Meaning** search vectors | `embedding.provider`: `ollama`, `openai`, or `voyage`; keys `OPENAI_API_KEY` (OpenAI), `VOYAGE_API_KEY` (Voyage), or local Ollama. **Anthropic does not expose a public embeddings API** — use another provider for vectors. |
+| **Chat** | Review hints + **Enrich** (`completeChat` in [`lib/llm-complete.mjs`](../lib/llm-complete.mjs)) | `OPENAI_API_KEY` → `ANTHROPIC_API_KEY` → Ollama. If both OpenAI and Anthropic keys are set, OpenAI wins by default; set **`KNOWTATION_CHAT_PREFER_ANTHROPIC=1`** to try Claude first (OpenAI used as fallback if Claude fails). |
+
+Hosted **bridge** index/search uses **`EMBEDDING_PROVIDER`** / **`EMBEDDING_MODEL`** (see [`docs/DEPLOY-HOSTED.md`](./DEPLOY-HOSTED.md)); **`voyage`** is supported the same way as `openai` with **`VOYAGE_API_KEY`**.
 
 ## Review hints (plain text for reviewers)
 
@@ -11,7 +20,7 @@ Two **optional** features use a chat-capable model (Ollama or OpenAI) for **prop
 **Self-hosted (Node Hub):**
 
 1. Set **`KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1`** in the environment where **`npm run hub`** runs.
-2. Configure chat the same way as other LLM features: **Ollama** (e.g. `OLLAMA_URL`, `OLLAMA_CHAT_MODEL`) and/or **OpenAI** (`OPENAI_API_KEY`, optional `OPENAI_CHAT_MODEL`). See `lib/llm-complete.mjs` and `config/local.yaml` / env used by the Hub process.
+2. Configure **chat** the same way as other LLM features: **OpenAI** (`OPENAI_API_KEY`, optional `OPENAI_CHAT_MODEL`), **Anthropic** (`ANTHROPIC_API_KEY`, optional `ANTHROPIC_CHAT_MODEL`), and/or **Ollama** (`OLLAMA_URL`, `OLLAMA_CHAT_MODEL`). Optional **`KNOWTATION_CHAT_PREFER_ANTHROPIC=1`** when both OpenAI and Anthropic keys exist. See `lib/llm-complete.mjs` and `config/local.yaml` / env used by the Hub process. (**Meaning search** still follows `embedding.*` / `EMBEDDING_PROVIDER`, not these chat keys.)
 3. Creating a proposal via **`POST /api/v1/proposals`** on that Hub triggers `setImmediate(() => runProposalReviewHintsJob(...))` in `hub/server.mjs`. Hints are written to **`data/hub_proposals.json`** (local file store).
 4. Refresh the proposal in the UI after a few seconds; hints are not a modal—they appear **inline** in the drawer when present.
 

@@ -15,6 +15,7 @@ describe('formatEmbeddingFetchFailure', () => {
     assert.match(s, /ollama serve/);
     assert.match(s, /ollama pull nomic-embed-text/);
     assert.match(s, /EMBEDDING_PROVIDER=openai/);
+    assert.match(s, /VOYAGE_API_KEY/);
     assert.match(s, /ECONNREFUSED|fetch failed/);
   });
 
@@ -30,5 +31,14 @@ describe('formatEmbeddingFetchFailure', () => {
     const s = formatEmbeddingFetchFailure('openai', 'https://api.openai.com/v1/embeddings', 'text-embedding-3-small', err);
     assert.match(s, /OpenAI embeddings request failed/);
     assert.match(s, /OPENAI_API_KEY/);
+  });
+
+  it('Voyage path mentions API key, provider, and re-index', () => {
+    const err = new TypeError('fetch failed');
+    const s = formatEmbeddingFetchFailure('voyage', 'https://api.voyageai.com/v1/embeddings', 'voyage-4-lite', err);
+    assert.match(s, /Voyage embeddings unreachable/);
+    assert.match(s, /VOYAGE_API_KEY/);
+    assert.match(s, /EMBEDDING_PROVIDER=voyage/);
+    assert.match(s, /re-index/);
   });
 });
