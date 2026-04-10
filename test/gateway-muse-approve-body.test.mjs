@@ -182,3 +182,75 @@ test('gateway POST proposals/:id/approve still proxies when Muse lineage fails',
   const parsed = JSON.parse(/** @type {string} */ (capturedBody));
   assert.strictEqual(parsed.external_ref ?? '', '');
 });
+
+test('gateway POST proposals/:id/approve keeps client external_ref when Muse would return a different ref', async (t) => {
+  let museHits = 0;
+  const mockMuse = http.createServer((req, res) => {
+    museHits += 1;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ external_ref: 'from-muse-server' }));
+  });
+  await new Promise((resolve, reject) => {
+    mockMuse.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => mockMuse.close(() => r())));
+  const musePort = /** @type {import('net').AddressInfo} */ (mockMuse.address()).port;
+  const museUrl = `http://127.0.0.1:${musePort}`;
+
+  /** @type {string | null} */
+  let capturedBody = null;
+  const mockCanister = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url.startsWith('/api/v1/proposals/prop-client-wins/approve')) {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        capturedBody = Buffer.concat(chunks).toString('utf8');
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ proposal_id: 'prop-client-wins', status: 'approved' }));
+      });
+      return;
+    }
+    res.statusCode = 404;
+    res.end('{}');
+  });
+  await new Promise((resolve, reject) => {
+    mockCanister.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => mockCanister.close(() => r())));
+  const canisterPort = /** @type {import('net').AddressInfo} */ (mockCanister.address()).port;
+  const canisterUrl = `http://127.0.0.1:${canisterPort}`;
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = canisterUrl;
+  process.env.SESSION_SECRET = SECRET;
+  process.env.MUSE_URL = museUrl;
+  process.env.HUB_ADMIN_USER_IDS = 'google:gw-muse-client-wins';
+  delete process.env.BRIDGE_URL;
+
+  const gwEntry = pathToFileURL(path.join(projectRoot, 'hub', 'gateway', 'server.mjs')).href;
+  const { app: gwApp } = await import(`${gwEntry}?gwmuseClient=${Date.now()}`);
+
+  const gwSrv = http.createServer(gwApp);
+  await new Promise((resolve, reject) => {
+    gwSrv.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => gwSrv.close(() => r())));
+  const gwPort = /** @type {import('net').AddressInfo} */ (gwSrv.address()).port;
+
+  const token = signTestJwt({ sub: 'google:gw-muse-client-wins' });
+  const res = await fetch(`http://127.0.0.1:${gwPort}/api/v1/proposals/prop-client-wins/approve`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Vault-Id': 'default',
+    },
+    body: JSON.stringify({ external_ref: 'client-chosen-ref' }),
+  });
+
+  assert.strictEqual(res.status, 200, await res.text());
+  assert.ok(capturedBody);
+  const parsed = JSON.parse(/** @type {string} */ (capturedBody));
+  assert.strictEqual(parsed.external_ref, 'client-chosen-ref');
+  assert.strictEqual(museHits, 0, 'Muse lineage must not be called when client supplies external_ref');
+});

@@ -123,4 +123,17 @@ describe('hub proposal evaluation', () => {
     assert(u);
     assert.strictEqual(u.external_ref, 'branch:abc123');
   });
+
+  it('updateProposalStatus approve without external_ref extras preserves prior external_ref', () => {
+    cleanup();
+    const p = createProposal(dataDir, {
+      path: 'inbox/keep-ref.md',
+      body: 'x',
+      evaluationRequired: false,
+      external_ref: 'pre-set-at-create',
+    });
+    const u = updateProposalStatus(dataDir, p.proposal_id, 'approved', {});
+    assert(u);
+    assert.strictEqual(u.external_ref, 'pre-set-at-create');
+  });
 });
