@@ -331,6 +331,40 @@ describe('3.5 Canister CORS locked to gateway origin when auth secret set', () =
 // ---------------------------------------------------------------------------
 // 3.6  path-to-regexp ReDoS CVE resolved
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Bridge → canister X-Gateway-Auth header (Phase 0 compatibility fix)
+// ---------------------------------------------------------------------------
+describe('Bridge canister calls include X-Gateway-Auth header', () => {
+  let bridgeSrc;
+  const load = () => {
+    if (!bridgeSrc) bridgeSrc = fs.readFileSync(path.join(ROOT, 'hub/bridge/server.mjs'), 'utf8');
+    return bridgeSrc;
+  };
+
+  test('bridge defines GATEWAY_AUTH_SECRET from env', () => {
+    const src = load();
+    assert.ok(src.includes('GATEWAY_AUTH_SECRET'), 'bridge must read GATEWAY_AUTH_SECRET env var');
+  });
+
+  test('bridge has canisterHeaders() helper that injects X-Gateway-Auth', () => {
+    const src = load();
+    assert.ok(src.includes("function canisterHeaders"), 'bridge must define canisterHeaders helper');
+    assert.ok(src.includes("'X-Gateway-Auth'"), 'canisterHeaders must set X-Gateway-Auth');
+  });
+
+  test('canisterHeaders() is used at every canister fetch call site', () => {
+    const src = load();
+    // Count how many times we call fetch on the canister URL (CANISTER_URL or ${base}/api)
+    const fetchCanisterCount = (src.match(/fetch\(CANISTER_URL|fetch\(`\$\{CANISTER_URL\}|fetch\(`\$\{base\}/g) || []).length;
+    // Count how many times canisterHeaders appears near those calls
+    const canisterHeadersCount = (src.match(/canisterHeaders\(/g) || []).length;
+    assert.ok(
+      canisterHeadersCount >= fetchCanisterCount,
+      `canisterHeaders() must appear at least as many times as canister fetch calls (fetches: ${fetchCanisterCount}, canisterHeaders: ${canisterHeadersCount})`,
+    );
+  });
+});
+
 describe('3.6 path-to-regexp ReDoS CVE resolved', () => {
   test('hub/package-lock.json has path-to-regexp >= 0.1.13', () => {
     const lockPath = path.join(ROOT, 'hub/package-lock.json');

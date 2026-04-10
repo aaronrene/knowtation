@@ -51,6 +51,18 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 // Path under HUB_UI_ORIGIN where the Hub app lives (e.g. /hub). Empty string = root.
 const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
+const GATEWAY_AUTH_SECRET = process.env.GATEWAY_AUTH_SECRET || '';
+
+/**
+ * Base headers for all bridge→canister requests.
+ * Includes X-Gateway-Auth when the secret is configured so the canister's
+ * gatewayAuthorized() check (added in Phase 0) passes.
+ */
+function canisterHeaders(extra = {}) {
+  const h = { Accept: 'application/json', ...extra };
+  if (GATEWAY_AUTH_SECRET) h['X-Gateway-Auth'] = GATEWAY_AUTH_SECRET;
+  return h;
+}
 // On Netlify Lambda /var/task/ is read-only; only /tmp is writable.
 // Use /tmp/knowtation-bridge-data when serverless and DATA_DIR is not explicitly set.
 const DATA_DIR = process.env.DATA_DIR
@@ -585,7 +597,7 @@ async function fetchCanisterVaultIdsForUser(canisterUserId) {
   try {
     const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
       method: 'GET',
-      headers: { 'X-User-Id': canisterUserId, Accept: 'application/json' },
+      headers: canisterHeaders({ 'X-User-Id': canisterUserId }),
     });
     if (!vRes.ok) return ['default'];
     const data = await vRes.json();
@@ -1141,7 +1153,7 @@ app.delete('/api/v1/vaults/:vaultId', requireBridgeAuth, requireBridgeEditorOrAd
   try {
     canRes = await fetch(`${CANISTER_URL}/api/v1/vaults/${encodeURIComponent(vaultId)}`, {
       method: 'DELETE',
-      headers: { Accept: 'application/json', 'X-User-Id': hctx.effectiveCanisterUid },
+      headers: canisterHeaders({ 'X-User-Id': hctx.effectiveCanisterUid }),
     });
   } catch (e) {
     console.error('[bridge] DELETE vault canister fetch', e?.message);
@@ -1181,11 +1193,7 @@ app.delete('/api/v1/vaults/:vaultId', requireBridgeAuth, requireBridgeEditorOrAd
  */
 async function fetchFullProposalsForGithubBackup(canisterUrl, canisterUid, vaultId, scope) {
   const base = String(canisterUrl || '').replace(/\/$/, '');
-  const headers = {
-    'X-User-Id': canisterUid,
-    'X-Vault-Id': vaultId,
-    Accept: 'application/json',
-  };
+  const headers = canisterHeaders({ 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId });
   const listRes = await fetch(`${base}/api/v1/proposals`, { method: 'GET', headers });
   if (!listRes.ok) {
     const err = new Error(`Canister proposals list ${listRes.status}`);
@@ -1256,7 +1264,7 @@ app.post('/api/v1/vault/sync', requireBridgeAuth, requireBridgeEditorOrAdmin, as
   try {
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
-      headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
+      headers: canisterHeaders({ 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId }),
     });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
@@ -1524,13 +1532,12 @@ async function postNotesBatchToCanister(canisterUid, actorUid, vaultId, notes) {
     const chunk = notes.slice(offset, offset + CANISTER_NOTES_BATCH_MAX);
     const r = await fetch(CANISTER_URL + '/api/v1/notes/batch', {
       method: 'POST',
-      headers: {
+      headers: canisterHeaders({
         'Content-Type': 'application/json',
-        Accept: 'application/json',
         'X-User-Id': canisterUid,
         'X-Actor-Id': actorUid,
         'X-Vault-Id': vaultId,
-      },
+      }),
       body: JSON.stringify({ notes: chunk }),
     });
     const text = await r.text();
@@ -1811,7 +1818,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
   try {
     exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
       method: 'GET',
-      headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId, Accept: 'application/json' },
+      headers: canisterHeaders({ 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId }),
     });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
@@ -1974,7 +1981,7 @@ app.post('/api/v1/search', async (req, res) => {
       try {
         exportRes = await fetch(CANISTER_URL + '/api/v1/export', {
           method: 'GET',
-          headers: { 'X-User-Id': canisterUid, 'X-Vault-Id': bridgeVaultId, Accept: 'application/json' },
+          headers: canisterHeaders({ 'X-User-Id': canisterUid, 'X-Vault-Id': bridgeVaultId }),
         });
       } catch (_e) {
         return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
