@@ -37,10 +37,13 @@
     }
     return (localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333').replace(/\/$/, '');
   })();
-  let token = params.get('token') || localStorage.getItem('hub_token');
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  let token = hashParams.get('token') || params.get('token') || localStorage.getItem('hub_token');
   if (token) {
     localStorage.setItem('hub_token', token);
-    if (params.has('token')) {
+    if (hashParams.has('token')) {
+      history.replaceState({}, '', location.pathname + location.search);
+    } else if (params.has('token')) {
       const u = new URL(location.href);
       u.searchParams.delete('token');
       history.replaceState({}, '', u.toString());
@@ -762,6 +765,7 @@
       })();
     }
     showMain();
+    getImageProxyToken().catch(function () {});
     (async function ensureVaultAndSwitcherThenLoad() {
       try {
         const s = await api('/api/v1/settings');
@@ -827,12 +831,12 @@
     initProviders();
   }
   refreshApiBaseFootgunBanner();
-  if (token && params.get('invite_accepted') === '1') {
+  if (token && (params.get('invite_accepted') === '1' || hashParams.get('invite_accepted') === '1')) {
     setTimeout(() => {
       if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
       const u = new URL(location.href);
       u.searchParams.delete('invite_accepted');
-      history.replaceState({}, '', u.toString());
+      history.replaceState({}, '', u.pathname + u.search);
     }, 500);
   }
 
@@ -5301,22 +5305,35 @@
    * Blocks javascript: and data: URIs; allows standard https:// image and link URLs.
    * Phase 18: bare video URLs (.mp4/.webm/.mov) become inline <video> players.
    */
+  var _imageProxyToken = null;
+  var _imageProxyTokenExp = 0;
+
+  async function getImageProxyToken() {
+    if (_imageProxyToken && Date.now() < _imageProxyTokenExp) return _imageProxyToken;
+    var proxyBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
+    var jwt = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    if (!jwt) return '';
+    try {
+      var res = await fetch(proxyBase + '/api/v1/vault/image-proxy-token', {
+        headers: { authorization: 'Bearer ' + jwt },
+      });
+      if (!res.ok) return '';
+      var data = await res.json();
+      _imageProxyToken = data.token || '';
+      _imageProxyTokenExp = Date.now() + ((data.expires_in || 240) - 30) * 1000;
+      return _imageProxyToken;
+    } catch (_) { return ''; }
+  }
+
   /**
    * Rewrite raw.githubusercontent.com <img> src attributes to go through the
-   * Hub's image proxy. This makes images from private GitHub repos display
-   * correctly — the browser loads /api/v1/vault/image-proxy which fetches
-   * with the stored GitHub token. The raw URL stays in the markdown source.
-   *
-   * Only rewrites raw.githubusercontent.com (no other hosts are proxied),
-   * and only for <img> tags produced by marked (already sanitised by DOMPurify).
-   * The Hub JWT is appended as ?token= so the browser can load it directly.
+   * Hub's image proxy. Uses a short-lived HMAC-signed token (not the session JWT).
+   * Falls back to no rewrite if no cached image token is available yet.
    */
   function rewriteGitHubImageUrls(html) {
-    var tok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    var tok = _imageProxyToken || '';
     if (!tok) return html;
     var encodedTok = encodeURIComponent(tok);
-    // Use the resolved apiBase so the proxy request reaches the gateway even when
-    // the frontend is served from a different origin (e.g. knowtation.store → ICP canister).
     var proxyBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
     return html.replace(
       /(<img\b[^>]*?\ssrc=")https?:\/\/raw\.githubusercontent\.com\/([^"]+)"/gi,
