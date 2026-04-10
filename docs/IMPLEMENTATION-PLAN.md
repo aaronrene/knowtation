@@ -182,14 +182,16 @@ Use this as a living checklist. As we implement each item, mark it or move it to
 | **How to use visible before login** | Phase 11 (Hub UX) ✅ | Link or button on login screen opens How to use modal so new users can read before signing in. |
 | **OAuth message for hosted users** | Phase 11 (Hub UX) ✅ | When OAuth not configured, add one line: "If you're on a hosted Knowtation site, the provider has set this up—just sign in above." |
 | **Empty states (Notes, Suggested, Activity)** | Phase 11 (Hub UX) ✅ | Friendly copy when no notes or no proposals (e.g. Suggested mentions + New note and agent/CLI; Notes already had "Add a note or clear filters."). |
-| **First-run / onboarding wizard (hosted)** | Hosted (HOSTED-PLUG-AND-PLAY) | After sign-up: optional "Get started" flow (create first note, connect GitHub, connect agent). Not for self-hosted. |
-| **Guided Setup in Hub** | Phase 11.1 or later | For self-hosted: wizard or checklist in Setup (vault path → run Hub → log in → backup) with "Done" state per step. |
-| **Help entry point everywhere** | Phase 11 (Hub UX) / Phase 11.1 | How to use and Knowledge & agents reachable from header and from login screen ✅. Optional "?" or link in Settings modal (Phase 11.1). |
+| **First-run / onboarding wizard (hosted)** | Hosted (HOSTED-PLUG-AND-PLAY) ✅ | Hub: setup wizard after first successful settings load; reopen via **How to use → Getting started** or **Settings → Backup → Setup guide**. Plain-language steps; state in `localStorage` key `knowtation_onboarding_v1`. Invite links defer auto-open ~2.2s. |
+| **Guided Setup in Hub** | Phase 11.1 or later ✅ | Same wizard for **self-hosted** (5 steps) plus existing Settings checklist; hosted checklist step 1 label is **Account ready** (not “vault path”). |
+| **Help entry point everywhere** | Phase 11 (Hub UX) / Phase 11.1 ✅ | How to use and Knowledge & agents reachable from header and from login screen ✅. Settings → Backup → **Setup guide** opens the wizard ✅. |
 | **Teams: invite and roles UX** | Phase 13 | When we add roles and invite: "Invite teammate" and role labels (viewer / editor / admin) in plain language; no technical jargon. |
 | **Landing page: clear value and CTA** | Phase 11 (web/) | Landing explains what Knowtation is and who it's for (humans + agents); primary CTA for hosted sign-up or self-host docs. |
 | **Hub first screen (login): simple, user-friendly CTA** | Phase 11.1 ✅ | First thing at Hub URL: hero (title, tagline, intent), sign-in as primary CTA (header buttons), "How to use" secondary. Done. |
 | **Proposals: verify with agents/repos** | When integrating agents/repos | Proposals (create/approve/discard) not yet verified with agent integrations or repo flows. When we connect agents or repo workflows, verify end-to-end and update UI copy if needed. |
 | **Accessibility and i18n** | Ongoing | Semantic HTML, ARIA, keyboard nav; optional i18n later. |
+
+**Deferred (evaluation): in-app “Load example notes” for hosted.** Seeding today is CLI-only (`npm run seed:hosted-showcase`, see [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md)). A Hub-authenticated bulk-upload endpoint would duplicate [scripts/seed-vault-dir-to-hub.mjs](../scripts/seed-vault-dir-to-hub.mjs) logic behind auth, rate limits, and idempotency review—not shipped in this pass.
 
 **Phase 11 (Hub UX)** in the table means: do it as part of the current Hub work (this plan update and the next step). **Phase 11.1** is an optional follow-on for a fuller "Hub UX and onboarding" pass (e.g. guided Setup wizard, **Hub first screen** with landing-style CTA). **Hosted** items live in [HOSTED-PLUG-AND-PLAY.md](./HOSTED-PLUG-AND-PLAY.md) and the multi-tenant phase.
 
