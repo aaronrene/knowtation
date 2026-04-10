@@ -650,6 +650,12 @@ if (BRIDGE_URL) {
     }
     if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
+    // When uid is known but no JWT to forward (HMAC token auth path), mint a
+    // short-lived gateway JWT so the bridge can identify the user.
+    if (!jwtTokenForBridge && SESSION_SECRET) {
+      try { jwtTokenForBridge = jwt.sign({ sub: uid }, SESSION_SECRET, { expiresIn: '5m' }); } catch (_) {}
+    }
+
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
     if (!rawUrl) return res.status(400).json({ error: 'url parameter required', code: 'BAD_REQUEST' });
 
