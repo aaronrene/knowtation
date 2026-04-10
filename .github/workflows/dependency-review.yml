@@ -11,6 +11,10 @@ permissions:
 jobs:
   dependency-review:
     runs-on: ubuntu-latest
+    # Requires Dependency Graph + GitHub Advanced Security (free on public repos,
+    # paid on private). The npm audit step in ci.yml already catches the same CVEs,
+    # so this is supplementary — don't block PRs if GHAS is unavailable.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Dependency Review
