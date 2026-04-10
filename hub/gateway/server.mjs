@@ -643,6 +643,11 @@ if (BRIDGE_URL) {
     if (!uid && queryToken && SESSION_SECRET) {
       uid = verifyImageProxyToken(SESSION_SECRET, queryToken);
     }
+    // Backward compat: old hub.js sends full JWT as ?token= (pre-signed-token change).
+    if (!uid && queryToken) {
+      const fromJwt = getUserId({ headers: { authorization: `Bearer ${queryToken}` } });
+      if (fromJwt) { uid = fromJwt; jwtTokenForBridge = queryToken; }
+    }
     if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';

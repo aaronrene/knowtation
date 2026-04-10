@@ -228,6 +228,12 @@ function jwtAuthFlex(req, res, next) {
       req.user = { sub: uid };
       return next();
     }
+    // Backward compat: old hub.js sends full JWT as ?token= (pre-signed-token change).
+    try {
+      const decoded = jwt.verify(queryToken, JWT_SECRET);
+      req.user = decoded;
+      return next();
+    } catch (_) { /* not a valid JWT either */ }
   }
   return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
 }
