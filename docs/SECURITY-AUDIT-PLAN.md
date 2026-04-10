@@ -49,7 +49,7 @@ Each phase commits at completion. Model recommendations reflect task complexity.
 |---|------|---------|--------|
 | 2.1 | Add `npm audit` gate to CI — fail on high/critical CVEs | `.github/workflows/ci.yml` | ✅ |
 | 2.2 | Add secret scanning to CI (TruffleHog action) | `.github/workflows/ci.yml` | ✅ |
-| 2.3 | Add dependency review action on PRs (`actions/dependency-review-action`) | `.github/workflows/dependency-review.yml` | ✅ |
+| 2.3 | Add dependency review action on PRs (`actions/dependency-review-action`) | `.github/workflows/dependency-review.yml` | ✅ (workflow later removed — `dependency-review-action` requires GitHub Advanced Security, which is unavailable on private repos; `npm audit` gate in `ci.yml` covers this) |
 | 2.4 | Dockerfile: non-root user (`knowtation`), pinned tag (`node:20.19.0-alpine3.21`), `npm ci` | `hub/Dockerfile` | ✅ |
 | 2.5 | Fix GitHub token encryption salt — random 16-byte per-token salt embedded in ciphertext; v1 tokens gracefully fall back to reconnect | `hub/bridge/server.mjs` | ✅ |
 | 2.6 | Upgraded `multer@1.x` → `multer@2.1.1`; added `sanitizeUploadFilename()` — strips path traversal, replaces unsafe chars, truncates to 200 chars | `hub/bridge/server.mjs`, `package.json` | ✅ |

@@ -19,7 +19,7 @@ KNOWTATION_HUB_TOKEN="PASTE_JWT_HERE" \
 npm run seed:hosted-showcase
 ```
 
-- **JWT:** Browser devtools → Application → Local Storage → `hub_token`, or copy from the post-login URL `?token=...`.
+- **JWT:** Browser devtools → Application → Local Storage → `hub_token`, or copy from the post-login URL hash `#token=...` (Phase 3.1 changed the OAuth redirect from `?token=` query param to `#token=` URL fragment).
 - **Multi-vault:** set `KNOWTATION_VAULT_ID` if you use a non-default vault (default is `default`).
 
 The script uploads every `.md` under `vault/showcase/` with the same paths (e.g. `showcase/inbox/quick-capture.md`). Re-running overwrites note content for those paths.

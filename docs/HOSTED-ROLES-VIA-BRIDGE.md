@@ -1,5 +1,7 @@
 # Hosted roles and invites via the bridge
 
+> **Note (Phase 3.1):** References to `?token=JWT` throughout this doc reflect the original design. The OAuth redirect mechanism was updated in Phase 3.1 to use a URL fragment (`#token=JWT`) instead of a query parameter to prevent tokens appearing in server logs and referrer headers.
+
 **Summary:** Yes — adding full Team/invites to the **hosted** product is relatively quick because the **bridge** is already deployed and has the right building blocks. This doc explains why and what to implement.
 
 **Reference:** [PARITY-PLAN.md](./PARITY-PLAN.md) (Phase 4 optional, Option B), [hub/bridge/README.md](../hub/bridge/README.md), [hub/gateway/README.md](../hub/gateway/README.md).
