@@ -71,6 +71,7 @@ var storage : StableStorage = {
   billingByUser = [];
   operator_export_secret = "";
   gateway_auth_secret = "";
+  cors_allowed_origin = "";
 };
 
 /// userId -> vaultId -> path -> (frontmatter, body)
@@ -113,6 +114,7 @@ func loadStable() {
 func saveStable() {
   let keepOperatorSecret = storage.operator_export_secret;
   let keepGatewaySecret = storage.gateway_auth_secret;
+  let keepCorsOrigin = storage.cors_allowed_origin;
   let vaultBuf = Buffer.Buffer<(Text, Text, [(Text, (Text, Text))])>(8);
   for ((uid, um) in byUser.entries()) {
     for ((vaultId, m) in um.entries()) {
@@ -133,6 +135,7 @@ func saveStable() {
     );
     operator_export_secret = keepOperatorSecret;
     gateway_auth_secret = keepGatewaySecret;
+    cors_allowed_origin = keepCorsOrigin;
   };
 };
 
@@ -196,8 +199,13 @@ func effectiveVaultId(stored : Text) : Text {
 };
 
 func corsHeaders() : [Header] {
+  let origin = if (Text.size(storage.gateway_auth_secret) > 0 and Text.size(storage.cors_allowed_origin) > 0) {
+    storage.cors_allowed_origin;
+  } else {
+    "*";
+  };
   [
-    ("Access-Control-Allow-Origin", "*"),
+    ("Access-Control-Allow-Origin", origin),
     ("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"),
     ("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Vault-Id, X-User-Id, X-Gateway-Auth, X-Operator-Export-Key"),
     ("Content-Type", "application/json"),
@@ -1691,6 +1699,7 @@ public shared ({ caller }) func admin_set_operator_export_secret(secret : Text) 
     billingByUser = storage.billingByUser;
     operator_export_secret = secret;
     gateway_auth_secret = storage.gateway_auth_secret;
+    cors_allowed_origin = storage.cors_allowed_origin;
   };
 };
 
@@ -1706,6 +1715,24 @@ public shared ({ caller }) func admin_set_gateway_auth_secret(secret : Text) : a
     billingByUser = storage.billingByUser;
     operator_export_secret = storage.operator_export_secret;
     gateway_auth_secret = secret;
+    cors_allowed_origin = storage.cors_allowed_origin;
+  };
+};
+
+/// Controllers only. Sets the `Access-Control-Allow-Origin` value for CORS responses.
+/// When both this and `gateway_auth_secret` are non-empty, `corsHeaders()` returns this
+/// origin instead of `*`. Call after deploy with the gateway origin (e.g. "https://hub.knowtation.com").
+public shared ({ caller }) func admin_set_cors_origin(origin : Text) : async () {
+  if (not Principal.isController(caller)) {
+    Debug.trap("FORBIDDEN");
+  };
+  storage := {
+    vaultEntries = storage.vaultEntries;
+    proposalEntries = storage.proposalEntries;
+    billingByUser = storage.billingByUser;
+    operator_export_secret = storage.operator_export_secret;
+    gateway_auth_secret = storage.gateway_auth_secret;
+    cors_allowed_origin = origin;
   };
 };
 

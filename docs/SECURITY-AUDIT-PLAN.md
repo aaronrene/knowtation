@@ -57,18 +57,19 @@ Each phase commits at completion. Model recommendations reflect task complexity.
 
 ---
 
-## Phase 3 — Defense in Depth
-**Model:** claude-sonnet (incremental hardening)
+## Phase 3 — Defense in Depth ✅ COMPLETE
+**Model:** claude-4.6-opus-high-thinking
+**Branch:** `feature/security-audit`
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| 3.1 | JWT token-in-URL: move OAuth redirect token to cookie or fragment; shorten expiry from `7d` | `hub/gateway/server.mjs`, `hub/server.mjs` | ⬜ |
-| 3.2 | Image proxy `?token=` query param — replace with short-lived signed URL or cookie auth | `hub/bridge/server.mjs`, `hub/gateway/server.mjs` | ⬜ |
-| 3.3 | Bridge write routes missing `requireBridgeEditorOrAdmin` — viewer role can mutate | `hub/bridge/server.mjs` | ⬜ |
-| 3.4 | MCP in-memory refresh token store — add periodic sweep for expired entries | `hub/gateway/mcp-oauth-provider.mjs` | ⬜ |
-| 3.5 | CORS on canister: lock `Access-Control-Allow-Origin` to gateway origin when secret is set | `hub/icp/src/hub/main.mo` | ⬜ |
-| 3.6 | Resolve high-severity `path-to-regexp` ReDoS CVE — upgrade or replace | `hub/package.json`, `hub/gateway/package.json` | ⬜ |
-| — | Tests for all Phase 3 changes | `test/phase3-security.test.mjs` | ⬜ |
+| 3.1 | JWT token-in-URL: OAuth redirect uses URL fragment `#token=`; gateway JWT expiry shortened from `7d` → `24h` | `hub/gateway/server.mjs`, `hub/server.mjs` | ✅ |
+| 3.2 | Image proxy `?token=` — short-lived HMAC-signed image token (5 min TTL) replaces full JWT in query param; new `/api/v1/vault/image-proxy-token` endpoint | `hub/gateway/server.mjs`, `hub/server.mjs` | ✅ |
+| 3.3 | Bridge write routes: `requireBridgeEditorOrAdmin` added to `/vault/sync`, `/index`, `/memory/store`, `/memory/clear`, `/memory/consolidate` — viewer role can no longer mutate | `hub/bridge/server.mjs` | ✅ |
+| 3.4 | MCP in-memory refresh token store: periodic sweep every 10 min deletes expired entries; `destroy()` cleans up timer | `hub/gateway/mcp-oauth-provider.mjs` | ✅ |
+| 3.5 | CORS on canister: `corsHeaders()` locks `Access-Control-Allow-Origin` to stored origin when `gateway_auth_secret` + `cors_allowed_origin` are both set; new `admin_set_cors_origin` function; V7→V8 migration | `hub/icp/src/hub/main.mo`, `hub/icp/src/hub/Migration.mo` | ✅ |
+| 3.6 | `path-to-regexp` ReDoS CVE resolved: `npm audit fix` upgraded `0.1.12` → `0.1.13` in all three lock files | `hub/package-lock.json`, `hub/gateway/package-lock.json`, `package-lock.json` | ✅ |
+| — | 33 new unit tests; 1380 total tests passing | `test/phase3-security.test.mjs` | ✅ |
 
 ---
 
@@ -112,3 +113,4 @@ curl -s https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health
 - Phase 0: `6749166` — canister gateway auth, timing-safe secrets, fail-closed webhook, attest auth
 - Phase 1: `9b37569` — trust proxy, zip-slip, default-admin warning, header allowlist, billing warning
 - Phase 2: (see commit on `feature/landing-overview-video-ui`) — npm audit CI gate, TruffleHog, dependency review, Dockerfile hardening, per-token salt, multer@2
+- Phase 3: (see commit on `feature/security-audit`) — token-in-URL fragment, image proxy signed token, bridge RBAC, MCP token sweep, canister CORS lock, path-to-regexp fix

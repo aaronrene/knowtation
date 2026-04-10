@@ -1225,13 +1225,8 @@ async function fetchFullProposalsForGithubBackup(canisterUrl, canisterUid, vault
 }
 
 // ——— Back up now: fetch vault from canister, push to GitHub ———
-app.post('/api/v1/vault/sync', async (req, res) => {
-  const auth = req.headers.authorization;
-  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  const uid = token ? userIdFromJwt(token) : null;
-  if (!uid) {
-    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  }
+app.post('/api/v1/vault/sync', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const uid = req.uid;
 
   const hctx = await resolveHostedBridgeContext(req, uid);
   if (!hctx.ok) {
@@ -1804,13 +1799,8 @@ app.post(
 const BATCH_EMBED = 10;
 const BATCH_UPSERT = 50;
 
-app.post('/api/v1/index', async (req, res) => {
-  const auth = req.headers.authorization;
-  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  const uid = token ? userIdFromJwt(token) : null;
-  if (!uid) {
-    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  }
+app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const uid = req.uid;
   const hctx = await resolveHostedBridgeContext(req, uid);
   if (!hctx.ok) {
     return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
@@ -2170,9 +2160,8 @@ app.get('/api/v1/memory/:key', async (req, res) => {
   }
 });
 
-app.post('/api/v1/memory/store', express.json(), async (req, res) => {
+app.post('/api/v1/memory/store', requireBridgeAuth, requireBridgeEditorOrAdmin, express.json(), async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
@@ -2224,9 +2213,8 @@ app.post('/api/v1/memory/search', express.json(), async (req, res) => {
   res.json({ results: [], count: 0, note: 'Hosted memory search requires vector provider (future).' });
 });
 
-app.delete('/api/v1/memory/clear', async (req, res) => {
+app.delete('/api/v1/memory/clear', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
@@ -2360,9 +2348,8 @@ async function recordConsolidationPass(uid, costUsd) {
  * Body: { dry_run?, passes?, lookback_hours?, max_events_per_pass?, max_topics_per_pass?, llm?: { max_tokens? } }
  * Response: { topics, total_events, verify, discover, cost_usd, pass_id }
  */
-app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
+app.post('/api/v1/memory/consolidate', requireBridgeAuth, requireBridgeEditorOrAdmin, express.json(), async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
   const llmApiKey = process.env.CONSOLIDATION_LLM_API_KEY || process.env.OPENAI_API_KEY;
   if (!llmApiKey) {

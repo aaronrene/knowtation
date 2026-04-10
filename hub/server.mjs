@@ -183,25 +183,53 @@ function jwtAuth(req, res, next) {
   }
 }
 
-/**
- * Like jwtAuth but also accepts ?token= in the query string.
- * Required for media proxy endpoints where the browser loads the URL directly
- * in an <img> tag and cannot attach custom Authorization headers.
- */
+const IMAGE_PROXY_TOKEN_TTL_SECONDS = 300;
+
+function signImageProxyToken(secret, uid) {
+  const exp = Math.floor(Date.now() / 1000) + IMAGE_PROXY_TOKEN_TTL_SECONDS;
+  const payload = `img\0${uid}\0${exp}`;
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${exp}.${Buffer.from(uid).toString('base64url')}.${sig}`;
+}
+
+function verifyImageProxyToken(secret, token) {
+  if (typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [expStr, uidB64, sig] = parts;
+  const exp = parseInt(expStr, 10);
+  if (!exp || Math.floor(Date.now() / 1000) > exp) return null;
+  let uid;
+  try { uid = Buffer.from(uidB64, 'base64url').toString(); } catch (_) { return null; }
+  if (!uid) return null;
+  const payload = `img\0${uid}\0${exp}`;
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+  return uid;
+}
+
 function jwtAuthFlex(req, res, next) {
   const auth = req.headers.authorization;
   const headerToken = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
-  const token = headerToken || queryToken;
-  if (!token) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
+  if (headerToken) {
+    try {
+      req.user = jwt.verify(headerToken, JWT_SECRET);
+      return next();
+    } catch (_) {
+      return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
+    }
   }
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch (_) {
-    return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
+  if (queryToken) {
+    const uid = verifyImageProxyToken(JWT_SECRET, queryToken);
+    if (uid) {
+      req.user = { sub: uid };
+      return next();
+    }
   }
+  return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
 }
 
 /**
@@ -331,10 +359,10 @@ function handleAuthCallback(req, res) {
     if (consumed) {
       roleMap = loadRoleMap(config.data_dir);
       token = issueToken(req.user);
-      return res.redirect(`${redirect}/?token=${encodeURIComponent(token)}&invite_accepted=1`);
+      return res.redirect(`${redirect}/#token=${encodeURIComponent(token)}&invite_accepted=1`);
     }
   }
-  res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
+  res.redirect(`${redirect}/#token=${encodeURIComponent(token)}`);
 }
 app.get(
   '/api/v1/auth/callback/google',
@@ -932,10 +960,14 @@ app.post(
   },
 );
 
-// GET /api/v1/vault/image-proxy — proxy raw.githubusercontent.com images for private-repo support.
-// Uses jwtAuthFlex so the browser can load the URL in an <img> tag (query-param token).
-// The Hub fetches using the logged-in user's stored GitHub token; raw URL stays in the note markdown.
-const IMAGE_PROXY_SIZE_LIMIT = 10 * 1024 * 1024; // 10 MB
+app.get('/api/v1/vault/image-proxy-token', jwtAuth, (req, res) => {
+  const uid = req.user?.sub ?? '';
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const token = signImageProxyToken(JWT_SECRET, uid);
+  res.json({ token, expires_in: IMAGE_PROXY_TOKEN_TTL_SECONDS });
+});
+
+const IMAGE_PROXY_SIZE_LIMIT = 10 * 1024 * 1024;
 app.get('/api/v1/vault/image-proxy', jwtAuthFlex, apiLimiter, async (req, res) => {
   const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
   // Accept only raw.githubusercontent.com URLs to prevent SSRF.

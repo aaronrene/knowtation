@@ -5,6 +5,7 @@
  * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional GOOGLE_*, GITHUB_*, HUB_UI_ORIGIN, GATEWAY_PORT.
  */
 
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -94,7 +95,7 @@ if (BRIDGE_URL) {
 }
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
-const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '7d';
+const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
 
 // Optional: comma-separated list of user IDs (e.g. google:123,github:456) who get role admin on hosted. Others get member.
 const HUB_ADMIN_USER_IDS = (process.env.HUB_ADMIN_USER_IDS || '')
@@ -173,6 +174,33 @@ function verifyToken(token) {
   } catch (_) {
     return null;
   }
+}
+
+const IMAGE_PROXY_TOKEN_TTL_SECONDS = 300;
+
+function signImageProxyToken(secret, uid) {
+  const exp = Math.floor(Date.now() / 1000) + IMAGE_PROXY_TOKEN_TTL_SECONDS;
+  const payload = `img\0${uid}\0${exp}`;
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${exp}.${Buffer.from(uid).toString('base64url')}.${sig}`;
+}
+
+function verifyImageProxyToken(secret, token) {
+  if (typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [expStr, uidB64, sig] = parts;
+  const exp = parseInt(expStr, 10);
+  if (!exp || Math.floor(Date.now() / 1000) > exp) return null;
+  let uid;
+  try { uid = Buffer.from(uidB64, 'base64url').toString(); } catch (_) { return null; }
+  if (!uid) return null;
+  const payload = `img\0${uid}\0${exp}`;
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+  return uid;
 }
 
 const app = express();
@@ -260,10 +288,10 @@ app.get('/auth/login', (req, res, next) => {
 
 function postLoginRedirect(token, req) {
   if (!token) return HUB_UI_ORIGIN + '/hub/?auth_error=1';
-  let url = `${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`;
   const invite = typeof req.query.state === 'string' ? req.query.state.trim() : '';
-  if (invite && invite.length > 0) url += '&invite=' + encodeURIComponent(invite);
-  return url;
+  let fragment = `token=${encodeURIComponent(token)}`;
+  if (invite && invite.length > 0) fragment += '&invite=' + encodeURIComponent(invite);
+  return `${HUB_UI_ORIGIN}/hub/#${fragment}`;
 }
 
 app.get(
@@ -598,17 +626,23 @@ if (BRIDGE_URL) {
     }
   });
 
-  // Image proxy: instead of buffering the image through Lambda (which hits the 6 MB
-  // response-size limit for real photos), we fetch a short-lived signed download_url
-  // from the GitHub Contents API and issue a 302 redirect.  The browser then fetches
-  // the image directly from GitHub — no Lambda body involved at all.
+  app.get('/api/v1/vault/image-proxy-token', (req, res) => {
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    if (!SESSION_SECRET) return res.status(503).json({ error: 'Not configured', code: 'NOT_CONFIGURED' });
+    const token = signImageProxyToken(SESSION_SECRET, uid);
+    res.json({ token, expires_in: IMAGE_PROXY_TOKEN_TTL_SECONDS });
+  });
+
   app.get('/api/v1/vault/image-proxy', async (req, res) => {
-    // Accept JWT from Authorization header OR ?token= query param (img tags can't send headers).
     const auth = req.headers.authorization || '';
     const headerToken = auth.startsWith('Bearer ') ? auth.slice(7) : null;
     const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
-    const jwtToken = headerToken || queryToken || '';
-    const uid = getUserId({ headers: { authorization: `Bearer ${jwtToken}` } });
+    let uid = headerToken ? getUserId({ headers: { authorization: `Bearer ${headerToken}` } }) : null;
+    let jwtTokenForBridge = headerToken || '';
+    if (!uid && queryToken && SESSION_SECRET) {
+      uid = verifyImageProxyToken(SESSION_SECRET, queryToken);
+    }
     if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
@@ -623,17 +657,18 @@ if (BRIDGE_URL) {
     }
     const [, owner, repo, ref, filePath] = rawMatch;
 
-    // Get the user's GitHub token from the bridge.
     let ghToken = null;
-    try {
-      const tokenRes = await fetch(`${BRIDGE_URL}/api/v1/vault/github-token`, {
-        headers: { authorization: `Bearer ${jwtToken}` },
-      });
-      if (tokenRes.ok) {
-        const data = await tokenRes.json();
-        ghToken = data.token || null;
-      }
-    } catch (_) { /* bridge unreachable — fall through, public repos still work */ }
+    if (jwtTokenForBridge) {
+      try {
+        const tokenRes = await fetch(`${BRIDGE_URL}/api/v1/vault/github-token`, {
+          headers: { authorization: `Bearer ${jwtTokenForBridge}` },
+        });
+        if (tokenRes.ok) {
+          const data = await tokenRes.json();
+          ghToken = data.token || null;
+        }
+      } catch (_) { /* bridge unreachable — fall through, public repos still work */ }
+    }
 
     if (!ghToken) {
       // No stored GitHub token — assume the repo is public and redirect directly.
