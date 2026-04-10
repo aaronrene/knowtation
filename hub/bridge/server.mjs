@@ -1685,6 +1685,14 @@ app.post(
         const extractDir = path.join(tempDir, 'extracted');
         fs.mkdirSync(extractDir, { recursive: true });
         const zip = new AdmZip(req.file.path);
+        // Zip-slip protection: every entry must resolve inside extractDir
+        const extractDirResolved = path.resolve(extractDir) + path.sep;
+        for (const entry of zip.getEntries()) {
+          const entryResolved = path.resolve(extractDir, entry.entryName);
+          if (entryResolved !== path.resolve(extractDir) && !entryResolved.startsWith(extractDirResolved)) {
+            return res.status(400).json({ error: 'Invalid zip entry: path traversal detected', code: 'BAD_REQUEST' });
+          }
+        }
         zip.extractAllTo(extractDir, true);
         inputPath = extractDir;
       }

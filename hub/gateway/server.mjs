@@ -17,7 +17,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { stripeWebhookHandler, createCheckoutSession, createPortalSession } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
-import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand } from './billing-constants.mjs';
+import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand, billingEnforced } from './billing-constants.mjs';
 import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, isNoteWriteRequest } from './apply-note-provenance.mjs';
@@ -176,6 +176,9 @@ function verifyToken(token) {
 }
 
 const app = express();
+// Trust the first downstream proxy so express-rate-limit (and any future IP-based middleware)
+// reads the real client IP from X-Forwarded-For instead of the CDN/load-balancer address.
+app.set('trust proxy', 1);
 
 // Netlify rewrites /* -> /.netlify/functions/gateway/:splat, so the function may receive
 // a path like /.netlify/functions/gateway/api/v1/notes. Express would not match /api/v1/* routes.
@@ -669,6 +672,18 @@ if (BRIDGE_URL) {
 }
 
 /**
+ * Safe client request headers that may be forwarded to upstream services.
+ * Using an explicit allowlist prevents host-header injection, internal proxy header leakage,
+ * and forwarding of security-sensitive headers (cookies, x-forwarded-for, etc.) to upstreams.
+ */
+const PROXY_HEADER_ALLOWLIST = new Set([
+  'content-type',
+  'accept',
+  'accept-language',
+  'accept-encoding',
+]);
+
+/**
  * Incoming headers describe the *client* body. We often re-serialize JSON (provenance merge), so
  * length and transfer-related headers must not be forwarded: Undici can hang or mis-send if
  * Content-Length still matches the old, shorter body.
@@ -687,9 +702,14 @@ function stripStaleOutboundBodyHeaders(headers) {
 }
 
 async function proxyTo(baseUrl, url, req, res) {
-  const headers = { ...req.headers, host: new URL(baseUrl).host };
-  delete headers.origin;
-  delete headers.referer;
+  const headers = { host: new URL(baseUrl).host };
+  // Allowlist: only forward safe headers; also forward authorization for bridge JWT auth
+  // and x-vault-id for vault routing. Never forward origin, referer, cookies, or proxy headers.
+  for (const k of PROXY_HEADER_ALLOWLIST) {
+    if (req.headers[k] !== undefined) headers[k] = req.headers[k];
+  }
+  if (req.headers.authorization) headers.authorization = req.headers.authorization;
+  if (req.headers['x-vault-id']) headers['x-vault-id'] = req.headers['x-vault-id'];
   const opts = { method: req.method, headers };
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
     opts.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
@@ -1721,16 +1741,17 @@ async function proxyToCanister(req, res) {
 
   const url = CANISTER_URL + upstreamPathAndQuery(req);
   const headers = {
-    ...req.headers,
     host: new URL(CANISTER_URL).host,
     'x-user-id': effective,
     'x-actor-id': uid,
     'x-vault-id': req.headers['x-vault-id'] || 'default',
     ...canisterAuthHeaders(),
   };
-  delete headers.origin;
-  delete headers.referer;
-  delete headers['x-test-user'];
+  // Allowlist: only forward safe body/content headers; canister auth is via x-user-id + x-gateway-auth.
+  // Never forward origin, referer, cookies, authorization, or other proxy headers to the canister.
+  for (const k of PROXY_HEADER_ALLOWLIST) {
+    if (req.headers[k] !== undefined) headers[k] = req.headers[k];
+  }
   const opts = { method: req.method, headers };
   let bodyOut = req.body;
   const pathOnlyForBody = pathPartNoQuery(req);
@@ -2095,6 +2116,13 @@ if (!process.env.NETLIFY) {
       '\x1b[33m[SECURITY] CANISTER_AUTH_SECRET is not set. ' +
       'The canister will not verify gateway identity. ' +
       'Set CANISTER_AUTH_SECRET and call admin_set_gateway_auth_secret on the canister before public launch.\x1b[0m'
+    );
+  }
+  if (CANISTER_URL && !billingEnforced()) {
+    console.warn(
+      '\x1b[33m[SECURITY] BILLING_ENFORCE is not set to true. ' +
+      'Billing limits (storage cap, usage gates) are not enforced. ' +
+      'Set BILLING_ENFORCE=true before public launch on hosted deployment.\x1b[0m'
     );
   }
   app.listen(PORT, () => {

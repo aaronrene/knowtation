@@ -259,6 +259,9 @@ function requireVaultAccess(req, res, next) {
 }
 
 const app = express();
+// Trust the first downstream proxy so express-rate-limit reads the real client IP from
+// X-Forwarded-For instead of the CDN/load-balancer address.
+app.set('trust proxy', 1);
 const corsOrigin = process.env.HUB_CORS_ORIGIN;
 const jsonBodyLimit = process.env.HUB_JSON_BODY_LIMIT || '5mb';
 app.use(cors({ origin: corsOrigin ? corsOrigin.split(',') : true, credentials: true }));
@@ -789,6 +792,14 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
       const extractDir = path.join(tempDir, 'extracted');
       fs.mkdirSync(extractDir, { recursive: true });
       const zip = new AdmZip(req.file.path);
+      // Zip-slip protection: every entry must resolve inside extractDir
+      const extractDirResolved = path.resolve(extractDir) + path.sep;
+      for (const entry of zip.getEntries()) {
+        const entryResolved = path.resolve(extractDir, entry.entryName);
+        if (entryResolved !== path.resolve(extractDir) && !entryResolved.startsWith(extractDirResolved)) {
+          return res.status(400).json({ error: 'Invalid zip entry: path traversal detected', code: 'BAD_REQUEST' });
+        }
+      }
       zip.extractAllTo(extractDir, true);
       inputPath = extractDir;
     }
@@ -1895,4 +1906,11 @@ app.listen(PORT, () => {
   console.log('  Health: GET /health');
   console.log('  Login:  GET /api/v1/auth/login?provider=google|github');
   console.log('  API:    /api/v1/notes, /api/v1/search, /api/v1/proposals (Bearer JWT)');
+  if (isProduction && roleMap.size === 0) {
+    console.warn(
+      '\x1b[33m[SECURITY] No roles configured (data/hub_roles.json is empty or missing). ' +
+      'All authenticated users currently have admin access. ' +
+      'Add at least one role via POST /api/v1/roles before public launch.\x1b[0m'
+    );
+  }
 });

@@ -26,18 +26,18 @@ Each phase commits at completion. Model recommendations reflect task complexity.
 
 ---
 
-## Phase 1 — High Priority (Same Release Train)
-**Model:** claude-sonnet (fast model — well-scoped, no architectural decisions)
-**Branch:** new branch off `feature/landing-overview-video-ui` or off main after merge
+## Phase 1 — High Priority (Same Release Train) ✅ COMPLETE
+**Model:** claude-4.6-sonnet-medium-thinking
+**Branch:** `feature/landing-overview-video-ui`
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| 1.1 | Trust proxy for Express rate limiting — real client IPs behind Netlify CDN | `hub/gateway/server.mjs`, `hub/server.mjs` | ⬜ |
-| 1.2 | Zip-slip protection — validate each AdmZip entry stays under extract dir | `hub/bridge/server.mjs` | ⬜ |
-| 1.3 | Self-hosted default-admin startup warning when `roleMap.size === 0` in production | `hub/server.mjs` | ⬜ |
-| 1.4 | Header allowlist for `proxyToCanister` and `proxyTo` — replace `...req.headers` spread | `hub/gateway/server.mjs` | ⬜ |
-| 1.5 | Billing enforcement startup warning when `BILLING_ENFORCE` unset in hosted mode | `hub/gateway/billing-constants.mjs`, `hub/gateway/server.mjs` | ⬜ |
-| — | Tests for all Phase 1 changes | `test/phase1-security.test.mjs` | ⬜ |
+| 1.1 | Trust proxy for Express rate limiting — real client IPs behind Netlify CDN | `hub/gateway/server.mjs`, `hub/server.mjs` | ✅ |
+| 1.2 | Zip-slip protection — validate each AdmZip entry stays under extract dir | `hub/bridge/server.mjs`, `hub/server.mjs` | ✅ |
+| 1.3 | Self-hosted default-admin startup warning when `roleMap.size === 0` in production | `hub/server.mjs` | ✅ |
+| 1.4 | Header allowlist for `proxyToCanister` and `proxyTo` — replace `...req.headers` spread | `hub/gateway/server.mjs` | ✅ |
+| 1.5 | Billing enforcement startup warning when `BILLING_ENFORCE` unset in hosted mode | `hub/gateway/billing-constants.mjs`, `hub/gateway/server.mjs` | ✅ |
+| — | 36 new unit tests; 1306 total tests passing | `test/phase1-security.test.mjs` | ✅ |
 
 ---
 
