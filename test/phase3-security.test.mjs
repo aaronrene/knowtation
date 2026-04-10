@@ -341,15 +341,15 @@ describe('Bridge canister calls include X-Gateway-Auth header', () => {
     return bridgeSrc;
   };
 
-  test('bridge defines GATEWAY_AUTH_SECRET from env', () => {
+  test('bridge reads CANISTER_AUTH_SECRET from env (same var name as gateway)', () => {
     const src = load();
-    assert.ok(src.includes('GATEWAY_AUTH_SECRET'), 'bridge must read GATEWAY_AUTH_SECRET env var');
+    assert.ok(src.includes('CANISTER_AUTH_SECRET'), 'bridge must read CANISTER_AUTH_SECRET env var');
   });
 
-  test('bridge has canisterHeaders() helper that injects X-Gateway-Auth', () => {
+  test('bridge has canisterHeaders() helper that injects x-gateway-auth', () => {
     const src = load();
-    assert.ok(src.includes("function canisterHeaders"), 'bridge must define canisterHeaders helper');
-    assert.ok(src.includes("'X-Gateway-Auth'"), 'canisterHeaders must set X-Gateway-Auth');
+    assert.ok(src.includes('function canisterHeaders'), 'bridge must define canisterHeaders helper');
+    assert.ok(src.includes("'x-gateway-auth'"), 'canisterHeaders must set x-gateway-auth header');
   });
 
   test('canisterHeaders() is used at every canister fetch call site', () => {
