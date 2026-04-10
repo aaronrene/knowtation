@@ -82,38 +82,16 @@ describe('2.2 secret scanning — TruffleHog step in CI', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.3  Dependency review workflow
+// 2.3  Dependency review — removed (requires GHAS on private repos);
+//      npm audit in ci.yml covers the same CVEs.
 // ---------------------------------------------------------------------------
-describe('2.3 dependency review workflow exists and is correctly configured', () => {
-  const depReviewPath = path.join(ROOT, '.github/workflows/dependency-review.yml');
-  let yml;
-  const load = () => {
-    if (!yml) yml = fs.readFileSync(depReviewPath, 'utf8');
-    return yml;
-  };
+describe('2.3 dependency review covered by npm audit in CI', () => {
+  const ciPath = path.join(ROOT, '.github/workflows/ci.yml');
 
-  test('dependency-review.yml exists', () => {
-    assert.ok(fs.existsSync(depReviewPath), 'dependency-review.yml must be present');
-  });
-
-  test('workflow triggers on pull_request to main', () => {
-    const content = load();
-    assert.ok(content.includes('pull_request'), 'must trigger on pull_request');
-    assert.ok(content.includes('main'), 'must target the main branch');
-  });
-
-  test('workflow uses actions/dependency-review-action', () => {
-    const content = load();
-    assert.ok(
-      content.includes('dependency-review-action'),
-      'must use actions/dependency-review-action'
-    );
-  });
-
-  test('workflow fails on high severity', () => {
-    const content = load();
-    assert.ok(content.includes('fail-on-severity'), 'must configure fail-on-severity');
-    assert.ok(content.includes('high'), 'must fail on high severity vulnerabilities');
+  test('CI workflow includes npm audit gate for high/critical CVEs', () => {
+    const ci = fs.readFileSync(ciPath, 'utf8');
+    assert.ok(ci.includes('npm audit'), 'CI must run npm audit');
+    assert.ok(ci.includes('audit-level'), 'CI must set audit-level threshold');
   });
 });
 
