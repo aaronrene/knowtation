@@ -115,4 +115,12 @@ describe('hub proposal evaluation', () => {
     assert(u);
     assert.deepStrictEqual(u.evaluation_waiver, w);
   });
+
+  it('updateProposalStatus persists external_ref on approve when valid', () => {
+    cleanup();
+    const p = createProposal(dataDir, { path: 'inbox/muse.md', body: 'x', evaluationRequired: false });
+    const u = updateProposalStatus(dataDir, p.proposal_id, 'approved', { external_ref: 'branch:abc123' });
+    assert(u);
+    assert.strictEqual(u.external_ref, 'branch:abc123');
+  });
 });

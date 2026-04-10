@@ -50,6 +50,12 @@ import {
   mergeConsolidateRequestBodyWithBillingDefaults,
   validateHostedSettingsConsolidationAdvanced,
 } from '../../lib/hosted-consolidation-advanced.mjs';
+import {
+  parseMuseConfigFromEnv,
+  resolveExternalRefForApprove,
+  proposalIdFromApprovePath,
+  fetchMuseProxiedGet,
+} from '../../lib/muse-thin-bridge.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -1384,6 +1390,41 @@ app.post('/api/v1/invites', requireAdmin, (_req, res) => {
   });
 });
 
+// Optional Muse read-only proxy (admin; Option C). 404 when MUSE_URL unset.
+app.get(
+  '/api/v1/operator/muse/proxy',
+  (req, res, next) => {
+    if (!parseMuseConfigFromEnv()) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    requireAdmin(req, res, next);
+  },
+  async (req, res) => {
+    const cfg = parseMuseConfigFromEnv();
+    if (!cfg) return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    const rel = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+    if (!rel) return res.status(400).json({ error: 'path query required', code: 'BAD_REQUEST' });
+    const result = await fetchMuseProxiedGet({ config: cfg, relativePath: rel });
+    if (!result.ok && result.code === 'BAD_REQUEST') {
+      return res.status(400).json({ error: 'Invalid path', code: 'BAD_REQUEST' });
+    }
+    if (!result.ok && !result.body) {
+      return res.status(result.status).json({ error: 'Bad gateway', code: result.code });
+    }
+    if (!result.ok && result.body && result.contentType) {
+      res.status(result.status).set('Content-Type', result.contentType);
+      res.set('X-Content-Type-Options', 'nosniff');
+      return res.send(result.body);
+    }
+    if (result.ok && result.body) {
+      res.status(200).set('Content-Type', result.contentType);
+      res.set('X-Content-Type-Options', 'nosniff');
+      return res.send(result.body);
+    }
+    return res.status(502).json({ error: 'Bad gateway', code: 'BAD_GATEWAY' });
+  },
+);
+
 // DELETE /api/v1/invites/:token — no-op on hosted
 app.delete('/api/v1/invites/:token', requireAdmin, (_req, res) => {
   res.json({ ok: true });
@@ -1867,6 +1908,26 @@ async function proxyToCanister(req, res) {
         ? { evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir) }
         : {};
     bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
+    if (req.method === 'POST') {
+      const approveId = proposalIdFromApprovePath(pathOnlyForBody);
+      if (approveId) {
+        try {
+          const museCfg = parseMuseConfigFromEnv();
+          const resolved = await resolveExternalRefForApprove({
+            clientRef: bodyOut.external_ref,
+            proposalId: approveId,
+            vaultId,
+            config: museCfg,
+            logWarn: (msg, extra) => console.warn(msg, extra != null ? JSON.stringify(extra) : ''),
+          });
+          if (resolved) {
+            bodyOut = { ...bodyOut, external_ref: resolved };
+          }
+        } catch (e) {
+          console.warn('[gateway] muse approve merge (non-fatal):', e?.message || String(e));
+        }
+      }
+    }
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && bodyOut !== undefined) {
     opts.body = typeof bodyOut === 'string' ? bodyOut : JSON.stringify(bodyOut);

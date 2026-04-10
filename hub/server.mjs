@@ -81,6 +81,11 @@ import {
   writeEvaluatorMayApprove,
   actorMayApproveProposals,
 } from './lib/hub-evaluator-may-approve.mjs';
+import {
+  parseMuseConfigFromEnv,
+  resolveExternalRefForApprove,
+  fetchMuseProxiedGet,
+} from '../lib/muse-thin-bridge.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -1020,6 +1025,32 @@ app.get('/api/v1/vault/image-proxy', jwtAuthFlex, apiLimiter, async (req, res) =
   res.send(buf);
 });
 
+// Optional Muse read-only proxy (admin; Option C). 404 when MUSE_URL unset.
+app.get('/api/v1/operator/muse/proxy', jwtAuth, apiLimiter, requireRole('admin'), async (req, res) => {
+  const cfg = parseMuseConfigFromEnv();
+  if (!cfg) return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+  const rel = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!rel) return res.status(400).json({ error: 'path query required', code: 'BAD_REQUEST' });
+  const result = await fetchMuseProxiedGet({ config: cfg, relativePath: rel });
+  if (!result.ok && result.code === 'BAD_REQUEST') {
+    return res.status(400).json({ error: 'Invalid path', code: 'BAD_REQUEST' });
+  }
+  if (!result.ok && !result.body) {
+    return res.status(result.status).json({ error: 'Bad gateway', code: result.code });
+  }
+  if (!result.ok && result.body && result.contentType) {
+    res.status(result.status).set('Content-Type', result.contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.send(result.body);
+  }
+  if (result.ok && result.body) {
+    res.status(200).set('Content-Type', result.contentType);
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.send(result.body);
+  }
+  return res.status(502).json({ error: 'Bad gateway', code: 'BAD_GATEWAY' });
+});
+
 // Proposals (vault-scoped)
 app.get('/api/v1/proposals', parseQueryBounds, (req, res) => {
   try {
@@ -1142,7 +1173,7 @@ app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
   }
 });
 
-app.post('/api/v1/proposals/:id/approve', requireApproveRole, (req, res) => {
+app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) => {
   const proposal = getProposal(config.data_dir, req.params.id);
   if (!proposal) return res.status(404).json({ error: 'Proposal not found', code: 'NOT_FOUND' });
   const approveVaultPath = config.resolveVaultPath(proposal.vault_id ?? 'default');
@@ -1241,14 +1272,29 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, (req, res) => {
         reason: waiverReason.slice(0, 2000),
       };
     }
+    const museCfg = parseMuseConfigFromEnv();
+    const resolvedExternalRef = await resolveExternalRefForApprove({
+      clientRef: approveBody.external_ref,
+      proposalId: req.params.id,
+      vaultId: proposal.vault_id ?? 'default',
+      config: museCfg,
+    });
     const updated = updateProposalStatus(config.data_dir, req.params.id, 'approved', {
       ...(evaluation_waiver ? { evaluation_waiver } : {}),
+      ...(resolvedExternalRef ? { external_ref: resolvedExternalRef } : {}),
     });
+    /** @type {Record<string, unknown>} */
+    const approveDetail = {};
+    if (evaluation_waiver) approveDetail.reason_len = waiverReason.length;
+    if (resolvedExternalRef) {
+      approveDetail.external_ref_set = true;
+      approveDetail.external_ref_len = resolvedExternalRef.length;
+    }
     appendAudit(config.data_dir, {
       userId: req.user?.sub ?? 'unknown',
       action: evaluation_waiver ? 'approve_waiver' : 'approve',
       proposalId: req.params.id,
-      ...(evaluation_waiver ? { detail: { reason_len: waiverReason.length } } : {}),
+      ...(Object.keys(approveDetail).length ? { detail: approveDetail } : {}),
     });
     invalidateFacetsCache();
     maybeAutoSync({ ...config, vault_path: approveVaultPath });
