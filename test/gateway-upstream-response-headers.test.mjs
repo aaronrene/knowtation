@@ -24,4 +24,21 @@ describe('filterUpstreamResponseHeadersForDecodedBody', () => {
     ]);
     assert.deepStrictEqual(out, [['ETag', '"abc"']]);
   });
+
+  it('strips upstream CORS headers so gateway CORS middleware is authoritative', () => {
+    const out = filterUpstreamResponseHeadersForDecodedBody([
+      ['Access-Control-Allow-Origin', 'https://canister-origin.example'],
+      ['access-control-allow-methods', 'GET, POST'],
+      ['Access-Control-Allow-Headers', 'Authorization'],
+      ['access-control-allow-credentials', 'true'],
+      ['Access-Control-Expose-Headers', 'X-Custom'],
+      ['Access-Control-Max-Age', '3600'],
+      ['Content-Type', 'application/json'],
+      ['X-Custom', 'kept'],
+    ]);
+    assert.deepStrictEqual(out, [
+      ['Content-Type', 'application/json'],
+      ['X-Custom', 'kept'],
+    ]);
+  });
 });
