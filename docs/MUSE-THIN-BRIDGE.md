@@ -8,14 +8,22 @@ This document describes the **thin bridge** shipped in-repo: optional env vars, 
 
 | State | Behavior |
 |-------|----------|
-| **`MUSE_URL` unset** | No outbound Muse calls. **`GET /api/v1/operator/muse/proxy`** returns **404** `NOT_FOUND` (generic). Approve works as before; optional **`external_ref`** from the client is still accepted on approve when valid. |
-| **`MUSE_URL` set** | Server may call **`GET {MUSE_URL}/knowtation/v1/lineage-ref?proposal_id=…&vault_id=…`** during approve when the client did not supply a valid **`external_ref`**. **Approve never fails** if Muse is down or returns an error; logs contain **`[knowtation:muse-bridge]`** warnings. Admin proxy is available. |
+| **No effective base URL** | No outbound Muse calls. **`GET /api/v1/operator/muse/proxy`** returns **404** `NOT_FOUND` (generic). Approve works as before; optional **`external_ref`** from the client is still accepted on approve when valid. |
+| **Effective base URL set** | Server may call **`GET {base}/knowtation/v1/lineage-ref?proposal_id=…&vault_id=…`** during approve when the client did not supply a valid **`external_ref`**. **Approve never fails** if Muse is down or returns an error; logs contain **`[knowtation:muse-bridge]`** warnings. Admin proxy is available. |
+
+**Where the base URL comes from (self-hosted Node Hub):**
+
+1. **`MUSE_URL`** in the Hub process environment (wins when set).
+2. Otherwise **`muse.url`** in **`config/local.yaml`** (Hub **Settings → Integrations → Muse** writes this for admins when `MUSE_URL` is **not** set on the process).
+
+**Hosted (gateway):** only **`MUSE_URL`** / related env on the gateway (operators). The Hub UI shows status only; **`POST /api/v1/settings/muse`** returns **501** on the gateway.
 
 ## Environment variables
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| **`MUSE_URL`** | For Muse features | Base URL (`https://…`), no trailing slash required. Must be `http:` or `https:`. |
+| **`MUSE_URL`** | For Muse features (or use YAML below) | Base URL (`https://…`), no trailing slash required. Must be `http:` or `https:`. Overrides **`muse.url`** in **`config/local.yaml`**. |
+| **`muse.url` (YAML)** | Self-hosted alternative to **`MUSE_URL`** | Same shape as **`MUSE_URL`**. Editable in **Settings → Integrations** when the process does **not** set **`MUSE_URL`**. |
 | **`MUSE_API_KEY`** | No | If set, sent as **`Authorization: Bearer …`** on server-to-server calls (lineage ref + proxy). **Never** expose to browsers or end users. |
 | **`MUSE_LINEAGE_TIMEOUT_MS`** | No | Timeout for lineage `GET` (default **5000**, clamped 1000–60000). |
 | **`MUSE_PROXY_MAX_BYTES`** | No | Max bytes read for **`GET /api/v1/operator/muse/proxy`** (default **1 MiB**, capped at 10 MiB). |

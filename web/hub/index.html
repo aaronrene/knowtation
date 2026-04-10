@@ -973,6 +973,23 @@ Your note body here.</pre>
             <p class="settings-intro small">Full agent reference (CLI, MCP, Hub API, no separate signup): <code>docs/AGENT-INTEGRATION.md</code>.</p>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+              Muse (optional link)
+            </h3>
+            <div id="settings-muse-panel" class="settings-form" style="margin-top: 0.35rem;">
+              <p class="settings-intro small" style="margin-top: 0;">When enabled on the <strong>server</strong>, Knowtation can attach a small <strong>cross-reference id</strong> (<code>external_ref</code>) to <strong>approved proposals</strong> so the same change can be looked up in <strong>Muse / MuseHub</strong> (structure, lineage, blast radius). Your notes still live in Knowtation; nothing is moved automatically.</p>
+              <p class="settings-intro small"><strong>Not your Git backup URL.</strong> Enter the <strong>HTTP base URL of the Muse service</strong> (the API root your operator exposes), e.g. <code>https://muse.yourcompany.com</code> — same host that serves <code>GET …/knowtation/v1/lineage-ref</code> per <code>docs/MUSE-THIN-BRIDGE.md</code>. The ref stored on the proposal is a <strong>short opaque string</strong> (letters, numbers, common safe punctuation; no control characters), up to 512 characters.</p>
+              <p id="settings-muse-status" class="settings-intro small" style="margin: 0.35rem 0 0 0;">—</p>
+              <p id="settings-muse-env-hint" class="settings-intro small hidden" style="margin: 0.25rem 0 0 0; color: var(--muted, #888);"></p>
+              <label for="settings-muse-url" style="margin-top: 0.65rem;">Muse base URL <span class="settings-label-hint">(self-hosted admins; saved to <code>config/local.yaml</code>)</span></label>
+              <input type="url" id="settings-muse-url" class="settings-input-wide" placeholder="https://your-muse-host.example" autocomplete="off" spellcheck="false">
+              <div class="settings-form-actions" style="margin-top: 0.5rem;">
+                <button type="button" id="btn-settings-muse-save" class="btn-primary hidden">Save Muse URL</button>
+                <span id="settings-muse-msg" class="settings-msg"></span>
+              </div>
+            </div>
+            <hr class="settings-hr">
+            <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
               Capture (messages → inbox)
             </h3>

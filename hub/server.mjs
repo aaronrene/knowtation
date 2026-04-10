@@ -111,6 +111,37 @@ try {
   process.exit(1);
 }
 
+/** Muse bridge: use merged `config.muse.url` (local.yaml + env) when parsing bridge options. */
+function museEnvForBridge() {
+  const u = config?.muse?.url;
+  if (u != null && String(u).trim() !== '') {
+    return { ...process.env, MUSE_URL: String(u).trim().replace(/\/+$/, '') };
+  }
+  return process.env;
+}
+
+function museBridgePublicSettings() {
+  const envOverride = process.env.MUSE_URL != null && String(process.env.MUSE_URL).trim() !== '';
+  const mc = parseMuseConfigFromEnv(museEnvForBridge());
+  let origin = null;
+  if (mc) {
+    try {
+      origin = new URL(mc.baseUrl).origin;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  const yamlOnly = !envOverride && Boolean(config.muse?.url);
+  return {
+    enabled: Boolean(mc),
+    origin,
+    source: envOverride ? 'env' : yamlOnly ? 'yaml' : 'none',
+    env_override_active: envOverride,
+    url_editable: !envOverride,
+    yaml_url_for_edit: envOverride ? '' : String(config.muse?.url || ''),
+  };
+}
+
 /** Phase 13: role store (data/hub_roles.json). Reloaded when config is reloaded (e.g. after POST setup). */
 let roleMap = loadRoleMap(config.data_dir);
 
@@ -1027,7 +1058,7 @@ app.get('/api/v1/vault/image-proxy', jwtAuthFlex, apiLimiter, async (req, res) =
 
 // Optional Muse read-only proxy (admin; Option C). 404 when MUSE_URL unset.
 app.get('/api/v1/operator/muse/proxy', jwtAuth, apiLimiter, requireRole('admin'), async (req, res) => {
-  const cfg = parseMuseConfigFromEnv();
+  const cfg = parseMuseConfigFromEnv(museEnvForBridge());
   if (!cfg) return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
   const rel = typeof req.query.path === 'string' ? req.query.path.trim() : '';
   if (!rel) return res.status(400).json({ error: 'path query required', code: 'BAD_REQUEST' });
@@ -1272,7 +1303,7 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
         reason: waiverReason.slice(0, 2000),
       };
     }
-    const museCfg = parseMuseConfigFromEnv();
+    const museCfg = parseMuseConfigFromEnv(museEnvForBridge());
     const resolvedExternalRef = await resolveExternalRefForApprove({
       clientRef: approveBody.external_ref,
       proposalId: req.params.id,
@@ -1409,6 +1440,7 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
       hubEnvEvaluatorMayApprove(),
     ),
     proposal_rubric: loadProposalRubric(config.data_dir),
+    muse_bridge: museBridgePublicSettings(),
     daemon: {
       enabled: Boolean(config.daemon?.enabled),
       interval_minutes: config.daemon?.interval_minutes ?? 120,
@@ -1511,6 +1543,72 @@ app.post(
       fs.writeFileSync(configPath, yaml.dump(doc), 'utf8');
       config = loadConfig(projectRoot);
       res.json({ ok: true, daemon: doc.daemon });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to save', code: 'RUNTIME_ERROR' });
+    }
+  },
+);
+
+/**
+ * Validate optional Muse base URL for config/local.yaml (self-hosted Settings).
+ * @param {unknown} raw
+ * @returns {{ ok: true, url: string } | { ok: false, error: string, code: string }}
+ */
+function validateMuseUrlForYaml(raw) {
+  if (raw == null) return { ok: true, url: '' };
+  const s = String(raw).trim();
+  if (!s) return { ok: true, url: '' };
+  if (s.length > 2048) return { ok: false, error: 'URL too long (max 2048)', code: 'VALIDATION_ERROR' };
+  const normalized = s.replace(/\/+$/, '');
+  const parsed = parseMuseConfigFromEnv({ ...process.env, MUSE_URL: normalized });
+  if (!parsed) {
+    return {
+      ok: false,
+      error: 'Muse URL must start with https:// or http:// and be a valid URL.',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+  return { ok: true, url: parsed.baseUrl };
+}
+
+app.post(
+  '/api/v1/settings/muse',
+  jwtAuth,
+  apiLimiter,
+  requireRole('admin'),
+  express.json(),
+  async (req, res) => {
+    try {
+      if (process.env.MUSE_URL != null && String(process.env.MUSE_URL).trim() !== '') {
+        return res.status(409).json({
+          error:
+            'MUSE_URL is set in the Hub process environment. Unset it to save the Muse URL in config/local.yaml from Settings.',
+          code: 'ENV_CONFLICT',
+        });
+      }
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const v = validateMuseUrlForYaml(body.url);
+      if (!v.ok) return res.status(400).json({ error: v.error, code: v.code });
+      const yaml = (await import('js-yaml')).default;
+      const configPath = process.env.KNOWTATION_CONFIG || path.join(projectRoot, 'config', 'local.yaml');
+      let doc = {};
+      if (fs.existsSync(configPath)) {
+        doc = yaml.load(fs.readFileSync(configPath, 'utf8')) || {};
+      }
+      if (!v.url) {
+        if (doc.muse && typeof doc.muse === 'object') {
+          delete doc.muse.url;
+          if (Object.keys(doc.muse).length === 0) delete doc.muse;
+        }
+      } else {
+        doc.muse = { ...(doc.muse && typeof doc.muse === 'object' ? doc.muse : {}), url: v.url };
+      }
+      const dir = path.dirname(configPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(configPath, yaml.dump(doc), 'utf8');
+      config = loadConfig(projectRoot);
+      roleMap = loadRoleMap(config.data_dir);
+      res.json({ ok: true, muse_bridge: museBridgePublicSettings() });
     } catch (e) {
       res.status(500).json({ error: e.message || 'Failed to save', code: 'RUNTIME_ERROR' });
     }

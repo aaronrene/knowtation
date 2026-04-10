@@ -586,6 +586,61 @@
     window.__hubProposalRubricItems = Array.isArray(s.proposal_rubric?.items) ? s.proposal_rubric.items : [];
     const metaSelf = el('settings-bulk-metadata-self-only');
     if (metaSelf) metaSelf.classList.remove('hidden');
+    applyMuseBridgePanel(s);
+  }
+
+  /** Settings → Integrations: Muse thin bridge status + self-hosted admin URL field. */
+  function applyMuseBridgePanel(s) {
+    if (!s || typeof s !== 'object') return;
+    const mb = s.muse_bridge;
+    const statusEl = el('settings-muse-status');
+    const envHint = el('settings-muse-env-hint');
+    const input = el('settings-muse-url');
+    const saveBtn = el('btn-settings-muse-save');
+    const msg = el('settings-muse-msg');
+    if (msg) {
+      msg.textContent = '';
+      msg.className = 'settings-msg';
+    }
+    if (!mb) {
+      if (statusEl) statusEl.textContent = '—';
+      if (input) {
+        input.value = '';
+        input.disabled = true;
+      }
+      if (saveBtn) saveBtn.classList.add('hidden');
+      return;
+    }
+    const isHosted = String(s.vault_path_display || '').toLowerCase() === 'canister';
+    const isAdmin = s.role === 'admin';
+    if (statusEl) {
+      statusEl.textContent =
+        mb.enabled && mb.origin
+          ? 'Server status: linked — ' + mb.origin
+          : 'Server status: Muse link not configured for this Hub.';
+    }
+    if (envHint) {
+      envHint.classList.toggle('hidden', !mb.env_override_active);
+      envHint.textContent = mb.env_override_active
+        ? 'This Hub process has MUSE_URL set in its environment; that value overrides config/local.yaml. Change or unset it on the server to edit the field below.'
+        : '';
+    }
+    if (input) {
+      input.value = mb.yaml_url_for_edit != null ? String(mb.yaml_url_for_edit) : '';
+      const canEdit = !isHosted && isAdmin && mb.url_editable === true;
+      input.disabled = !canEdit;
+      input.title = canEdit
+        ? ''
+        : isHosted
+          ? 'Knowtation Cloud: the Muse base URL is set by the operator, not here.'
+          : !isAdmin
+            ? 'Only admins can save the Muse URL.'
+            : 'Unset MUSE_URL in the Hub environment to allow saving from Settings.';
+    }
+    if (saveBtn) {
+      const show = !isHosted && isAdmin && mb.url_editable === true;
+      saveBtn.classList.toggle('hidden', !show);
+    }
   }
 
   function showLoginChrome() {
@@ -3057,6 +3112,7 @@
       p.classList.toggle('active', p.id === 'settings-panel-integrations');
     });
     refreshIntegApiStatus();
+    applyMuseBridgePanel(lastBackupSettingsPayload);
   }
 
   if (btnSettings) btnSettings.onclick = openSettings;
@@ -3207,6 +3263,42 @@
     };
   }
 
+  const btnSettingsMuseSave = el('btn-settings-muse-save');
+  if (btnSettingsMuseSave && !btnSettingsMuseSave.dataset.knowtationMuseBound) {
+    btnSettingsMuseSave.dataset.knowtationMuseBound = '1';
+    btnSettingsMuseSave.addEventListener('click', async () => {
+      const msg = el('settings-muse-msg');
+      if (msg) {
+        msg.textContent = '';
+        msg.className = 'settings-msg';
+      }
+      const input = el('settings-muse-url');
+      const url = input ? String(input.value || '').trim() : '';
+      await withButtonBusy(btnSettingsMuseSave, 'Saving…', async () => {
+        try {
+          await api('/api/v1/settings/muse', {
+            method: 'POST',
+            body: JSON.stringify({ url }),
+          });
+          if (msg) {
+            msg.textContent = 'Saved.';
+            msg.className = 'settings-msg ok';
+          }
+          const s = await api('/api/v1/settings');
+          applySettingsPayloadToHubChrome(s);
+        } catch (e) {
+          if (msg) {
+            msg.textContent =
+              e && e.code === 'ENV_CONFLICT'
+                ? 'MUSE_URL is set on the server; unset it to save from Settings.'
+                : (e && e.message) || 'Save failed';
+            msg.className = 'settings-msg err';
+          }
+        }
+      });
+    });
+  }
+
   document.querySelectorAll('.settings-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.dataset.settingsTab;
@@ -3225,6 +3317,7 @@
       if (id === 'billing') loadBillingPanel();
       if (id === 'backup') void refreshBulkDeletePresetDropdowns();
       if (id === 'consolidation') loadConsolidationSettings();
+      if (id === 'integrations') applyMuseBridgePanel(lastBackupSettingsPayload);
     });
   });
 

@@ -1200,6 +1200,34 @@ app.get('/api/v1/settings', async (req, res) => {
         };
       }
     })(),
+    muse_bridge: (() => {
+      const envOverride = process.env.MUSE_URL != null && String(process.env.MUSE_URL).trim() !== '';
+      const mc = parseMuseConfigFromEnv();
+      let origin = null;
+      if (mc) {
+        try {
+          origin = new URL(mc.baseUrl).origin;
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      return {
+        enabled: Boolean(mc),
+        origin,
+        source: envOverride ? 'env' : 'none',
+        env_override_active: envOverride,
+        url_editable: false,
+        yaml_url_for_edit: '',
+      };
+    })(),
+  });
+});
+
+/** Hosted: Muse base URL is operator env only (not writable from Hub Settings). */
+app.post('/api/v1/settings/muse', express.json(), (req, res) => {
+  res.status(501).json({
+    error: 'Knowtation Cloud configures the optional Muse link on the server; it cannot be set from this screen.',
+    code: 'NOT_IMPLEMENTED',
   });
 });
 
