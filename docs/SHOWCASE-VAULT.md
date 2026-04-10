@@ -10,6 +10,8 @@ Run **`npm run index`** if you want those notes included in semantic search.
 
 ## Hosted (canister, empty new account)
 
+There is **no in-app “load demo notes” button** yet; onboarding points users to **+ New note**, **Import**, or the CLI seed below. A future Hub endpoint would need auth, quotas, and abuse review before wrapping this upload path.
+
 Hosted storage is **per user** on the canister, so new accounts do not see your local `vault/` folder. After you sign in once:
 
 ```bash

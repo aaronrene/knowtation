@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260407b">
+  <link rel="stylesheet" href="hub.css?v=20260410d">
 </head>
 <body>
   <div id="app">
@@ -432,6 +432,28 @@
       </div>
     </div>
 
+    <div id="modal-onboarding" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="onboarding-title" aria-describedby="onboarding-live">
+      <div class="modal-backdrop" id="modal-onboarding-backdrop"></div>
+      <div class="modal-card modal-onboarding-card">
+        <div class="modal-header">
+          <h2 id="onboarding-title">Get started</h2>
+          <button type="button" id="modal-onboarding-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div id="onboarding-progress" class="onboarding-progress" aria-label="Progress"></div>
+        <div id="onboarding-step-body" class="onboarding-step-body"></div>
+        <p id="onboarding-live" class="sr-only" aria-live="polite"></p>
+        <div id="onboarding-secondary-actions" class="onboarding-secondary-actions"></div>
+        <div class="onboarding-footer">
+          <button type="button" id="btn-onboarding-skip" class="btn-link">Skip for now</button>
+          <div class="onboarding-nav">
+            <button type="button" id="btn-onboarding-back" class="btn-secondary">Back</button>
+            <button type="button" id="btn-onboarding-next" class="btn-primary">Next</button>
+          </div>
+        </div>
+        <p class="onboarding-resume-hint muted small"><strong>Prefer an AI assistant?</strong> <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AI-ASSISTED-SETUP.md" target="_blank" rel="noopener">AI-assisted setup</a> — phased, copy-paste prompts for Cursor, Windsurf, and similar tools.</p>
+      </div>
+    </div>
+
     <div id="modal-projects-help" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-projects-help-title">
       <div class="modal-backdrop" id="modal-projects-help-backdrop"></div>
       <div class="modal-card modal-card-projects-help">
@@ -481,11 +503,12 @@ Your note body here.</pre>
             <p class="settings-intro">Backup connects your vault to a Git repo (e.g. GitHub) so your notes are versioned and safe. Follow the checklist and configure steps below.</p>
             <h3 class="settings-h3">Setup checklist</h3>
             <p class="settings-intro small">Get from zero to using the Hub and (optionally) backing up. Complete each step; optional steps can be skipped.</p>
+            <p class="settings-intro small"><button type="button" id="btn-settings-setup-guide" class="btn-link btn-link-small">Setup guide</button> — short walkthrough (hosted and self-hosted).</p>
             <ul class="setup-checklist" aria-label="Setup progress">
               <li id="setup-step-1" class="setup-step">
                 <span class="setup-step-icon" aria-hidden="true"></span>
-                <span class="setup-step-label">Vault path set</span>
-                <span class="setup-step-hint">Set below under Configure backup</span>
+                <span id="setup-step-1-label" class="setup-step-label">Vault path set</span>
+                <span id="setup-step-1-hint" class="setup-step-hint">Set below under Configure backup</span>
               </li>
               <li id="setup-step-2" class="setup-step setup-step-done">
                 <span class="setup-step-icon" aria-hidden="true">✓</span>
@@ -1492,11 +1515,19 @@ Your note body here.</pre>
         </div>
         <nav class="how-to-tabs" role="tablist" aria-label="How to use sections">
           <button type="button" class="how-to-tab active" role="tab" aria-selected="true" data-how-to-tab="setup">Setup</button>
+          <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="getting-started">Getting started</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="knowledge-agents">Knowledge &amp; agents</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="media">Media &amp; images</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="consolidation">Memory consolidation</button>
           <button type="button" class="how-to-tab" role="tab" aria-selected="false" data-how-to-tab="token-savings">Token savings</button>
         </nav>
+        <div id="how-to-panel-getting-started" class="how-to-panel" role="tabpanel">
+          <div class="how-to-use-body">
+            <p class="how-to-intro">Short walkthrough for hosted and self-hosted: your vault, first notes, optional backup, and connecting tools. Resume where you left off, or restart from step 1 via Settings.</p>
+            <p><button type="button" id="btn-how-to-open-onboarding" class="btn-primary">Open setup walkthrough</button></p>
+            <p class="how-to-note small" style="margin-bottom:0;">Restart from step 1: <strong>Settings → Backup → Setup guide</strong>.</p>
+          </div>
+        </div>
         <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
           <div class="how-to-use-body">
           <div class="how-to-two-paths-box" role="region" aria-label="Two paths">
@@ -1574,7 +1605,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             </div>
           </section>
 
-          <section class="how-to-step">
+          <section id="how-to-step-selfhosted-oauth" class="how-to-step">
             <h3><span class="step-num">Step 3</span> Log in (OAuth)</h3>
             <p class="step-what">What this does: Proves who you are so the Hub can show your vault and let you approve proposals.</p>
             <ul>
@@ -1585,7 +1616,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p class="how-to-note"><strong>Hosted users</strong> (knowtation.store) use our gateway’s OAuth — you do not add client IDs on your machine.</p>
           </section>
 
-          <section class="how-to-step">
+          <section id="how-to-step-selfhosted-index" class="how-to-step">
             <h3><span class="step-num">Step 4</span> Index and semantic search (self-hosted)</h3>
             <p class="step-what">What this does: Turns your notes into searchable vectors. <strong>Listing and opening notes</strong> works without this. <strong>Search vault</strong> in the Hub (and CLI <code>knowtation search</code>) needs an index.</p>
             <p class="how-to-note"><strong>Hosted:</strong> skip this — we run indexing for you.</p>
@@ -2124,6 +2155,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     import * as HubListSort from './hub-list-sort.mjs';
     globalThis.HubListSort = HubListSort;
   </script>
-  <script defer src="hub.js?v=20260407b"></script>
+  <script defer src="hub.js?v=20260410c"></script>
 </body>
 </html>
