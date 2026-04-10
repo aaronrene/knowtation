@@ -51,16 +51,17 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 // Path under HUB_UI_ORIGIN where the Hub app lives (e.g. /hub). Empty string = root.
 const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
-const GATEWAY_AUTH_SECRET = process.env.GATEWAY_AUTH_SECRET || '';
+const CANISTER_AUTH_SECRET = process.env.CANISTER_AUTH_SECRET || '';
 
 /**
  * Base headers for all bridge→canister requests.
- * Includes X-Gateway-Auth when the secret is configured so the canister's
- * gatewayAuthorized() check (added in Phase 0) passes.
+ * Includes x-gateway-auth when CANISTER_AUTH_SECRET is configured so the
+ * canister's gatewayAuthorized() check (Phase 0) passes.
+ * Uses the same env var name as the gateway (CANISTER_AUTH_SECRET).
  */
 function canisterHeaders(extra = {}) {
   const h = { Accept: 'application/json', ...extra };
-  if (GATEWAY_AUTH_SECRET) h['X-Gateway-Auth'] = GATEWAY_AUTH_SECRET;
+  if (CANISTER_AUTH_SECRET) h['x-gateway-auth'] = CANISTER_AUTH_SECRET;
   return h;
 }
 // On Netlify Lambda /var/task/ is read-only; only /tmp is writable.
