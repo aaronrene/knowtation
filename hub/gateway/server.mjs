@@ -75,6 +75,7 @@ if (
   console.log('[gateway] AIR auto-configured: KNOWTATION_AIR_ENDPOINT =', process.env.KNOWTATION_AIR_ENDPOINT);
 }
 const CANISTER_URL = (process.env.CANISTER_URL || '').replace(/\/$/, '');
+const CANISTER_AUTH_SECRET = process.env.CANISTER_AUTH_SECRET || '';
 const BRIDGE_URL = (process.env.BRIDGE_URL || '').replace(/\/$/, '');
 if (BRIDGE_URL) {
   try {
@@ -104,6 +105,11 @@ const adminUserIdsSet = new Set(HUB_ADMIN_USER_IDS);
 
 function roleForSub(sub) {
   return sub && adminUserIdsSet.has(sub) ? 'admin' : 'member';
+}
+
+function canisterAuthHeaders() {
+  if (!CANISTER_AUTH_SECRET) return {};
+  return { 'x-gateway-auth': CANISTER_AUTH_SECRET };
 }
 
 passport.serializeUser((user, done) => done(null, user));
@@ -328,6 +334,7 @@ if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
       getUserId,
       getHostedAccessContext,
       canisterUrl: CANISTER_URL,
+      canisterAuthSecret: CANISTER_AUTH_SECRET,
       bridgeUrl: BRIDGE_URL,
       sessionSecret: SESSION_SECRET || '',
     });
@@ -826,6 +833,7 @@ async function getHostedAccessContext(req) {
 
 const metadataBulkHandlers = createMetadataBulkHandlers({
   CANISTER_URL,
+  CANISTER_AUTH_SECRET,
   BRIDGE_URL,
   SESSION_SECRET: SESSION_SECRET || '',
   getUserId,
@@ -985,7 +993,7 @@ app.get('/api/v1/settings', async (req, res) => {
     try {
       const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
         method: 'GET',
-        headers: { 'X-User-Id': canisterVaultUserId, Accept: 'application/json' },
+        headers: { 'X-User-Id': canisterVaultUserId, Accept: 'application/json', ...canisterAuthHeaders() },
       });
       if (vRes.ok) {
         const data = await vRes.json();
@@ -1448,6 +1456,7 @@ async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
         'x-user-id': effective,
         'x-actor-id': uid,
         'x-vault-id': vaultId,
+        ...canisterAuthHeaders(),
       },
     });
     const text = await upstream.text();
@@ -1513,6 +1522,7 @@ async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
         'x-user-id': effective,
         'x-actor-id': uid,
         'x-vault-id': vaultId,
+        ...canisterAuthHeaders(),
       },
     });
     const body = await upstream.text();
@@ -1664,6 +1674,7 @@ async function getNoteCountForUser(userId, req) {
         'x-user-id': effective,
         'x-actor-id': userId,
         'x-vault-id': vaultId,
+        ...canisterAuthHeaders(),
       },
     });
     if (!upstream.ok) return 0;
@@ -1715,9 +1726,11 @@ async function proxyToCanister(req, res) {
     'x-user-id': effective,
     'x-actor-id': uid,
     'x-vault-id': req.headers['x-vault-id'] || 'default',
+    ...canisterAuthHeaders(),
   };
   delete headers.origin;
   delete headers.referer;
+  delete headers['x-test-user'];
   const opts = { method: req.method, headers };
   let bodyOut = req.body;
   const pathOnlyForBody = pathPartNoQuery(req);
@@ -1935,6 +1948,10 @@ app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.post('/api/v1/attest', async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
   if (!isAttestationConfigured()) {
     return res.status(503).json({
       error: 'Attestation service not configured (ATTESTATION_SECRET missing or too short).',
@@ -2072,6 +2089,13 @@ if (!process.env.NETLIFY) {
   if (!SESSION_SECRET) {
     console.error('Gateway: SESSION_SECRET or HUB_JWT_SECRET is required');
     process.exit(1);
+  }
+  if (!CANISTER_AUTH_SECRET && CANISTER_URL) {
+    console.warn(
+      '\x1b[33m[SECURITY] CANISTER_AUTH_SECRET is not set. ' +
+      'The canister will not verify gateway identity. ' +
+      'Set CANISTER_AUTH_SECRET and call admin_set_gateway_auth_secret on the canister before public launch.\x1b[0m'
+    );
   }
   app.listen(PORT, () => {
     console.log(`Knowtation Hub Gateway listening on http://localhost:${PORT}`);

@@ -271,10 +271,19 @@ const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { er
 
 function captureAuth(req, res, next) {
   const secret = process.env.CAPTURE_WEBHOOK_SECRET;
-  if (!secret) return next();
+  if (!secret) {
+    return res.status(503).json({ error: 'Capture webhook not configured (CAPTURE_WEBHOOK_SECRET missing)', code: 'NOT_CONFIGURED' });
+  }
   const provided = req.headers['x-webhook-secret'];
-  if (provided === secret) return next();
-  return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+  if (typeof provided !== 'string' || provided.length === 0) {
+    return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+  }
+  const a = Buffer.from(secret);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+  }
+  return next();
 }
 
 function sanitizeForFilename(id) {
@@ -347,7 +356,9 @@ function verifyState(stateStr, maxAgeMs = 600000) {
   try {
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(JSON.stringify(payload)).digest('hex');
-    if (expected !== sig) return null;
+    const sigBuf = Buffer.from(sig, 'utf8');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
     if (Date.now() - (payload.ts || 0) > maxAgeMs) return null;
     return payload;
   } catch (_) {
