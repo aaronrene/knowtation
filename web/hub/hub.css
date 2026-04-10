@@ -2090,6 +2090,13 @@ input[type="date"]::-moz-calendar-picker-indicator {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
+.media-toolbar-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted, color-mix(in srgb, var(--text) 55%, transparent));
+  align-self: center;
+  cursor: help;
+  border-bottom: 1px dashed currentColor;
+}
 .media-url-dialog {
   background: var(--surface);
   border: 1px solid var(--border);

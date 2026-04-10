@@ -5332,6 +5332,10 @@
    */
   function rewriteGitHubImageUrls(html) {
     var tok = _imageProxyToken || '';
+    if (!tok) {
+      // Fallback: use session JWT — gateway accepts it via backward-compat path.
+      tok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    }
     if (!tok) return html;
     var encodedTok = encodeURIComponent(tok);
     var proxyBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
@@ -5480,6 +5484,12 @@
       uploadBtn.title = 'Upload an image (JPEG, PNG, GIF, WebP) and commit it to your connected GitHub repo. The image embeds inline in the note. Requires a public GitHub repo for the image to display.';
       uploadBtn.onclick = function () { triggerImageUpload(textarea); };
       toolbar.appendChild(uploadBtn);
+    } else if (s && s.github_connect_available && hubUserCanWriteNotes()) {
+      var connectHint = document.createElement('span');
+      connectHint.className = 'media-toolbar-hint';
+      connectHint.title = 'Connect GitHub in Settings → Backup to enable image uploads.';
+      connectHint.textContent = 'Connect GitHub to upload images';
+      toolbar.appendChild(connectHint);
     }
 
     textarea.parentNode.insertBefore(toolbar, textarea.nextSibling);
