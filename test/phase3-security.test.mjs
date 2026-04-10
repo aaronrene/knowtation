@@ -154,6 +154,16 @@ describe('3.2 Image proxy: HMAC-signed token replaces full JWT in query param', 
     const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
     assert.ok(src.includes('verifyImageProxyToken'), 'gateway image proxy must use verifyImageProxyToken');
   });
+
+  test('gateway image proxy has backward-compat JWT fallback for ?token=', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
+    assert.ok(src.includes('Backward compat'), 'gateway must include JWT fallback for pre-signed-token hub.js');
+  });
+
+  test('self-hosted image proxy has backward-compat JWT fallback for ?token=', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hub/server.mjs'), 'utf8');
+    assert.ok(src.includes('Backward compat'), 'self-hosted must include JWT fallback for pre-signed-token hub.js');
+  });
 });
 
 // ---------------------------------------------------------------------------
