@@ -183,25 +183,53 @@ function jwtAuth(req, res, next) {
   }
 }
 
-/**
- * Like jwtAuth but also accepts ?token= in the query string.
- * Required for media proxy endpoints where the browser loads the URL directly
- * in an <img> tag and cannot attach custom Authorization headers.
- */
+const IMAGE_PROXY_TOKEN_TTL_SECONDS = 300;
+
+function signImageProxyToken(secret, uid) {
+  const exp = Math.floor(Date.now() / 1000) + IMAGE_PROXY_TOKEN_TTL_SECONDS;
+  const payload = `img\0${uid}\0${exp}`;
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${exp}.${Buffer.from(uid).toString('base64url')}.${sig}`;
+}
+
+function verifyImageProxyToken(secret, token) {
+  if (typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [expStr, uidB64, sig] = parts;
+  const exp = parseInt(expStr, 10);
+  if (!exp || Math.floor(Date.now() / 1000) > exp) return null;
+  let uid;
+  try { uid = Buffer.from(uidB64, 'base64url').toString(); } catch (_) { return null; }
+  if (!uid) return null;
+  const payload = `img\0${uid}\0${exp}`;
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+  return uid;
+}
+
 function jwtAuthFlex(req, res, next) {
   const auth = req.headers.authorization;
   const headerToken = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
-  const token = headerToken || queryToken;
-  if (!token) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
+  if (headerToken) {
+    try {
+      req.user = jwt.verify(headerToken, JWT_SECRET);
+      return next();
+    } catch (_) {
+      return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
+    }
   }
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch (_) {
-    return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHORIZED' });
+  if (queryToken) {
+    const uid = verifyImageProxyToken(JWT_SECRET, queryToken);
+    if (uid) {
+      req.user = { sub: uid };
+      return next();
+    }
   }
+  return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHORIZED' });
 }
 
 /**
@@ -259,6 +287,9 @@ function requireVaultAccess(req, res, next) {
 }
 
 const app = express();
+// Trust the first downstream proxy so express-rate-limit reads the real client IP from
+// X-Forwarded-For instead of the CDN/load-balancer address.
+app.set('trust proxy', 1);
 const corsOrigin = process.env.HUB_CORS_ORIGIN;
 const jsonBodyLimit = process.env.HUB_JSON_BODY_LIMIT || '5mb';
 app.use(cors({ origin: corsOrigin ? corsOrigin.split(',') : true, credentials: true }));
@@ -271,10 +302,19 @@ const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { er
 
 function captureAuth(req, res, next) {
   const secret = process.env.CAPTURE_WEBHOOK_SECRET;
-  if (!secret) return next();
+  if (!secret) {
+    return res.status(503).json({ error: 'Capture webhook not configured (CAPTURE_WEBHOOK_SECRET missing)', code: 'NOT_CONFIGURED' });
+  }
   const provided = req.headers['x-webhook-secret'];
-  if (provided === secret) return next();
-  return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+  if (typeof provided !== 'string' || provided.length === 0) {
+    return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+  }
+  const a = Buffer.from(secret);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Invalid or missing X-Webhook-Secret', code: 'UNAUTHORIZED' });
+  }
+  return next();
 }
 
 function sanitizeForFilename(id) {
@@ -319,10 +359,10 @@ function handleAuthCallback(req, res) {
     if (consumed) {
       roleMap = loadRoleMap(config.data_dir);
       token = issueToken(req.user);
-      return res.redirect(`${redirect}/?token=${encodeURIComponent(token)}&invite_accepted=1`);
+      return res.redirect(`${redirect}/#token=${encodeURIComponent(token)}&invite_accepted=1`);
     }
   }
-  res.redirect(`${redirect}/?token=${encodeURIComponent(token)}`);
+  res.redirect(`${redirect}/#token=${encodeURIComponent(token)}`);
 }
 app.get(
   '/api/v1/auth/callback/google',
@@ -347,7 +387,9 @@ function verifyState(stateStr, maxAgeMs = 600000) {
   try {
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(JSON.stringify(payload)).digest('hex');
-    if (expected !== sig) return null;
+    const sigBuf = Buffer.from(sig, 'utf8');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
     if (Date.now() - (payload.ts || 0) > maxAgeMs) return null;
     return payload;
   } catch (_) {
@@ -778,6 +820,14 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
       const extractDir = path.join(tempDir, 'extracted');
       fs.mkdirSync(extractDir, { recursive: true });
       const zip = new AdmZip(req.file.path);
+      // Zip-slip protection: every entry must resolve inside extractDir
+      const extractDirResolved = path.resolve(extractDir) + path.sep;
+      for (const entry of zip.getEntries()) {
+        const entryResolved = path.resolve(extractDir, entry.entryName);
+        if (entryResolved !== path.resolve(extractDir) && !entryResolved.startsWith(extractDirResolved)) {
+          return res.status(400).json({ error: 'Invalid zip entry: path traversal detected', code: 'BAD_REQUEST' });
+        }
+      }
       zip.extractAllTo(extractDir, true);
       inputPath = extractDir;
     }
@@ -910,10 +960,14 @@ app.post(
   },
 );
 
-// GET /api/v1/vault/image-proxy — proxy raw.githubusercontent.com images for private-repo support.
-// Uses jwtAuthFlex so the browser can load the URL in an <img> tag (query-param token).
-// The Hub fetches using the logged-in user's stored GitHub token; raw URL stays in the note markdown.
-const IMAGE_PROXY_SIZE_LIMIT = 10 * 1024 * 1024; // 10 MB
+app.get('/api/v1/vault/image-proxy-token', jwtAuth, (req, res) => {
+  const uid = req.user?.sub ?? '';
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const token = signImageProxyToken(JWT_SECRET, uid);
+  res.json({ token, expires_in: IMAGE_PROXY_TOKEN_TTL_SECONDS });
+});
+
+const IMAGE_PROXY_SIZE_LIMIT = 10 * 1024 * 1024;
 app.get('/api/v1/vault/image-proxy', jwtAuthFlex, apiLimiter, async (req, res) => {
   const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
   // Accept only raw.githubusercontent.com URLs to prevent SSRF.
@@ -1884,4 +1938,11 @@ app.listen(PORT, () => {
   console.log('  Health: GET /health');
   console.log('  Login:  GET /api/v1/auth/login?provider=google|github');
   console.log('  API:    /api/v1/notes, /api/v1/search, /api/v1/proposals (Bearer JWT)');
+  if (isProduction && roleMap.size === 0) {
+    console.warn(
+      '\x1b[33m[SECURITY] No roles configured (data/hub_roles.json is empty or missing). ' +
+      'All authenticated users currently have admin access. ' +
+      'Add at least one role via POST /api/v1/roles before public launch.\x1b[0m'
+    );
+  }
 });

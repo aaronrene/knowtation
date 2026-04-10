@@ -46,16 +46,27 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorageV5 }) — V5→V6 adds operator_export_secret',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorageV5 })'),
+    name: 'migration(old : { var storage : StableStorageV7 }) — V7→V8 adds cors_allowed_origin',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorageV7 })'),
   },
   {
     name: 'StableStorageV5 — pre-V6 on-chain layout',
     ok: (s) => s.includes('public type StableStorageV5'),
   },
   {
-    name: 'StableStorage (V6) includes operator_export_secret',
-    ok: (s) => s.includes('operator_export_secret : Text'),
+    name: 'StableStorageV6 — pre-V7 on-chain layout (has operator_export_secret)',
+    ok: (s) => s.includes('public type StableStorageV6'),
+  },
+  {
+    name: 'StableStorageV7 — pre-V8 on-chain layout (has gateway_auth_secret)',
+    ok: (s) => s.includes('public type StableStorageV7'),
+  },
+  {
+    name: 'StableStorage (V8) includes operator_export_secret, gateway_auth_secret, cors_allowed_origin',
+    ok: (s) =>
+      s.includes('operator_export_secret : Text') &&
+      s.includes('gateway_auth_secret : Text') &&
+      s.includes('cors_allowed_origin : Text'),
   },
   {
     name: 'StableStorageV4 type (pre-V5 proposals)',

@@ -173,21 +173,38 @@ function ensureDataDir() {
 const ALGO = 'aes-256-gcm';
 const IV_LEN = 16;
 const TAG_LEN = 16;
+const SALT_LEN = 16;
+// Ciphertext format (v2): saltB64url.ivB64url.tagB64url.encB64url  (4 parts)
+// Legacy format (v1):     ivB64url.tagB64url.encB64url             (3 parts — decrypt will return null → graceful reconnect)
 function encrypt(text, secret) {
-  const key = crypto.scryptSync(secret, 'salt', 32);
+  const salt = crypto.randomBytes(SALT_LEN);
+  const key = crypto.scryptSync(secret, salt, 32);
   const iv = crypto.randomBytes(IV_LEN);
   const cipher = crypto.createCipheriv(ALGO, key, iv);
   const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return iv.toString('base64url') + '.' + tag.toString('base64url') + '.' + enc.toString('base64url');
+  return (
+    salt.toString('base64url') + '.' +
+    iv.toString('base64url') + '.' +
+    tag.toString('base64url') + '.' +
+    enc.toString('base64url')
+  );
 }
 function decrypt(encrypted, secret) {
-  const [ivB, tagB, encB] = encrypted.split('.');
-  if (!ivB || !tagB || !encB) return null;
-  const key = crypto.scryptSync(secret, 'salt', 32);
-  const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tagB, 'base64url'));
-  return decipher.update(Buffer.from(encB, 'base64url')) + decipher.final('utf8');
+  const parts = encrypted.split('.');
+  // v1 ciphertexts had 3 parts (hardcoded salt); treat as not-found so the
+  // caller falls through to "prompt reconnect" without crashing.
+  if (parts.length !== 4) return null;
+  const [saltB, ivB, tagB, encB] = parts;
+  if (!saltB || !ivB || !tagB || !encB) return null;
+  try {
+    const key = crypto.scryptSync(secret, Buffer.from(saltB, 'base64url'), 32);
+    const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagB, 'base64url'));
+    return decipher.update(Buffer.from(encB, 'base64url')) + decipher.final('utf8');
+  } catch {
+    return null;
+  }
 }
 
 function parseAndDecryptTokens(raw) {
@@ -1208,13 +1225,8 @@ async function fetchFullProposalsForGithubBackup(canisterUrl, canisterUid, vault
 }
 
 // ——— Back up now: fetch vault from canister, push to GitHub ———
-app.post('/api/v1/vault/sync', async (req, res) => {
-  const auth = req.headers.authorization;
-  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  const uid = token ? userIdFromJwt(token) : null;
-  if (!uid) {
-    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  }
+app.post('/api/v1/vault/sync', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const uid = req.uid;
 
   const hctx = await resolveHostedBridgeContext(req, uid);
   if (!hctx.ok) {
@@ -1528,6 +1540,19 @@ async function postNotesBatchToCanister(canisterUid, actorUid, vaultId, notes) {
   }
 }
 
+/**
+ * Sanitize a user-supplied filename before writing it to disk.
+ * - Strips all directory components (path traversal prevention).
+ * - Removes every character that is not alphanumeric, a dot, hyphen, or underscore.
+ * - Truncates to 200 chars so filesystem limits are never approached.
+ * - Falls back to 'upload' when the result would be empty.
+ */
+function sanitizeUploadFilename(rawName) {
+  const base = path.basename(rawName || '');
+  const safe = base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+  return safe || 'upload';
+}
+
 const importTempDirMiddleware = (req, _res, next) => {
   req._importTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-bridge-import-'));
   next();
@@ -1535,7 +1560,7 @@ const importTempDirMiddleware = (req, _res, next) => {
 const bridgeImportUpload = multer({
   storage: multer.diskStorage({
     destination: (req, _file, cb) => cb(null, req._importTempDir),
-    filename: (_req, file, cb) => cb(null, file.originalname || 'upload'),
+    filename: (_req, file, cb) => cb(null, sanitizeUploadFilename(file.originalname)),
   }),
   limits: { fileSize: 100 * 1024 * 1024 },
 }).single('file');
@@ -1685,6 +1710,14 @@ app.post(
         const extractDir = path.join(tempDir, 'extracted');
         fs.mkdirSync(extractDir, { recursive: true });
         const zip = new AdmZip(req.file.path);
+        // Zip-slip protection: every entry must resolve inside extractDir
+        const extractDirResolved = path.resolve(extractDir) + path.sep;
+        for (const entry of zip.getEntries()) {
+          const entryResolved = path.resolve(extractDir, entry.entryName);
+          if (entryResolved !== path.resolve(extractDir) && !entryResolved.startsWith(extractDirResolved)) {
+            return res.status(400).json({ error: 'Invalid zip entry: path traversal detected', code: 'BAD_REQUEST' });
+          }
+        }
         zip.extractAllTo(extractDir, true);
         inputPath = extractDir;
       }
@@ -1766,13 +1799,8 @@ app.post(
 const BATCH_EMBED = 10;
 const BATCH_UPSERT = 50;
 
-app.post('/api/v1/index', async (req, res) => {
-  const auth = req.headers.authorization;
-  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  const uid = token ? userIdFromJwt(token) : null;
-  if (!uid) {
-    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  }
+app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const uid = req.uid;
   const hctx = await resolveHostedBridgeContext(req, uid);
   if (!hctx.ok) {
     return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
@@ -2132,9 +2160,8 @@ app.get('/api/v1/memory/:key', async (req, res) => {
   }
 });
 
-app.post('/api/v1/memory/store', express.json(), async (req, res) => {
+app.post('/api/v1/memory/store', requireBridgeAuth, requireBridgeEditorOrAdmin, express.json(), async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
@@ -2186,9 +2213,8 @@ app.post('/api/v1/memory/search', express.json(), async (req, res) => {
   res.json({ results: [], count: 0, note: 'Hosted memory search requires vector provider (future).' });
 });
 
-app.delete('/api/v1/memory/clear', async (req, res) => {
+app.delete('/api/v1/memory/clear', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   try {
     const { FileMemoryProvider } = await import('../../lib/memory-provider-file.mjs');
     const { MemoryManager } = await import('../../lib/memory.mjs');
@@ -2322,9 +2348,8 @@ async function recordConsolidationPass(uid, costUsd) {
  * Body: { dry_run?, passes?, lookback_hours?, max_events_per_pass?, max_topics_per_pass?, llm?: { max_tokens? } }
  * Response: { topics, total_events, verify, discover, cost_usd, pass_id }
  */
-app.post('/api/v1/memory/consolidate', express.json(), async (req, res) => {
+app.post('/api/v1/memory/consolidate', requireBridgeAuth, requireBridgeEditorOrAdmin, express.json(), async (req, res) => {
   const { uid, vaultId } = bridgeMemoryAuth(req);
-  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
 
   const llmApiKey = process.env.CONSOLIDATION_LLM_API_KEY || process.env.OPENAI_API_KEY;
   if (!llmApiKey) {
