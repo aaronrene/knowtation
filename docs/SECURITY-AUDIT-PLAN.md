@@ -60,6 +60,7 @@ Each phase commits at completion. Model recommendations reflect task complexity.
 ## Phase 3 — Defense in Depth ✅ COMPLETE
 **Model:** claude-4.6-opus-high-thinking
 **Branch:** `feature/security-audit`
+**Deployed:** Canister V7→V8 migration live on IC mainnet. CORS origin locked to gateway.
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
@@ -94,9 +95,10 @@ curl -s https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health
 
 ## Open verification items (resolve before public launch)
 
-- [ ] Production canister URL confirmed as `raw.icp0.io` in all Netlify env vars ✅
-- [ ] `CANISTER_AUTH_SECRET` set in Netlify gateway env ✅
-- [ ] `admin_set_gateway_auth_secret` called on IC mainnet canister ✅
+- [x] Production canister URL confirmed as `raw.icp0.io` in all Netlify env vars
+- [x] `CANISTER_AUTH_SECRET` set in Netlify gateway env
+- [x] `admin_set_gateway_auth_secret` called on IC mainnet canister
+- [x] `admin_set_cors_origin` called on IC mainnet canister (Phase 3.5 — locked to `https://knowtation-gateway.netlify.app`)
 - [ ] Netlify function IAM and blob access policies reviewed (not visible in code)
 - [ ] Content Security Policy and cookie flags for Hub static hosting
 - [ ] Log pipeline confirmed — no `Authorization` or `?token=` values logged
@@ -113,4 +115,6 @@ curl -s https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health
 - Phase 0: `6749166` — canister gateway auth, timing-safe secrets, fail-closed webhook, attest auth
 - Phase 1: `9b37569` — trust proxy, zip-slip, default-admin warning, header allowlist, billing warning
 - Phase 2: (see commit on `feature/landing-overview-video-ui`) — npm audit CI gate, TruffleHog, dependency review, Dockerfile hardening, per-token salt, multer@2
-- Phase 3: (see commit on `feature/security-audit`) — token-in-URL fragment, image proxy signed token, bridge RBAC, MCP token sweep, canister CORS lock, path-to-regexp fix
+- Phase 3: `9a362e5` — token-in-URL fragment, image proxy signed token, bridge RBAC, MCP token sweep, canister CORS lock, path-to-regexp fix
+
+**All four audit phases complete. Remaining items above are operational verification, not code changes.**
