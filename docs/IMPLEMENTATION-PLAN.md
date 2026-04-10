@@ -97,9 +97,10 @@ Stubs done now mean we don't change JWT shape or add new data files later in a b
 
 **Tasks (when prioritized):**
 
-- [x] Document thin bridge for operators: [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (*Optional external lineage*); maintainer depth in [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) §6.3.
-- [ ] Optional: one gateway or bridge **proxy route** or CLI subcommand that forwards to Muse **only** when env is set; graceful **no-op** when unset.
-- [ ] Optional: MCP tool stub for “history summary” that calls the same delegate (after Muse API shape is stable).
+- [x] Document thin bridge for operators: [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (*Optional external lineage*); maintainer depth in [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) §6.3; operator runbook [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md).
+- [x] Optional: **proxy route** — admin **`GET /api/v1/operator/muse/proxy`** on **gateway + Node Hub** when **`MUSE_URL`** is set; **404** when unset; path allowlist + size cap ([MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md)).
+- [x] Optional: **`external_ref` on approve** — Node Hub + gateway merge + canister persist; non-blocking lineage **`GET`** when env set ([HUB-API.md](./HUB-API.md) §3.4).
+- [ ] **Deferred (second PR):** MCP tool stub for “history summary” that calls the same delegate (after Muse API shape is stable). **CLI subcommand** for Muse remains optional/future.
 
 ### Option B+ — Proposal evaluation stage (lifecycle extension)
 

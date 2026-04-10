@@ -414,3 +414,48 @@ describe('3.6 path-to-regexp ReDoS CVE resolved', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3.7  Muse thin bridge (Option C): operator proxy route markers
+// ---------------------------------------------------------------------------
+describe('3.7 Muse thin bridge: operator proxy present on gateway and Node Hub', () => {
+  test('gateway registers GET /api/v1/operator/muse/proxy with requireAdmin', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
+    assert.ok(
+      src.includes('/api/v1/operator/muse/proxy'),
+      'gateway must expose operator Muse proxy path',
+    );
+    assert.ok(
+      src.includes('fetchMuseProxiedGet') && src.includes('parseMuseConfigFromEnv'),
+      'gateway must use muse-thin-bridge helpers for proxy',
+    );
+  });
+
+  test('self-hosted Hub registers GET /api/v1/operator/muse/proxy with jwtAuth and admin role', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hub/server.mjs'), 'utf8');
+    assert.ok(
+      src.includes('/api/v1/operator/muse/proxy'),
+      'Node Hub must expose operator Muse proxy path',
+    );
+    assert.ok(
+      src.includes('fetchMuseProxiedGet') && src.includes("requireRole('admin')"),
+      'Node Hub must gate Muse proxy with admin role',
+    );
+  });
+
+  test('Node Hub exposes POST /api/v1/settings/muse for self-hosted YAML Muse URL', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hub/server.mjs'), 'utf8');
+    assert.ok(
+      src.includes("'/api/v1/settings/muse'"),
+      'Node Hub must allow admins to persist muse.url in config/local.yaml',
+    );
+  });
+
+  test('gateway rejects POST /api/v1/settings/muse (hosted operator-only)', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
+    assert.ok(
+      src.includes("'/api/v1/settings/muse'") && src.includes('501'),
+      'gateway must not allow browser clients to set Muse URL',
+    );
+  });
+});

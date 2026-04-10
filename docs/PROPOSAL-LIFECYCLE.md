@@ -42,6 +42,10 @@ When a proposal targets an **existing** note path, the client may send **`base_s
 
 **Hosted canister:** Approve does **not** recompute `kn1_` in Motoko today (frontmatter serialization may differ from Node). Clients should rely on Node Hub for strict checks, or treat `base_state_id` as advisory on canister-only flows until parity is implemented.
 
+## `external_ref` on approve (optional Muse bridge)
+
+Besides setting **`external_ref`** at **`POST /api/v1/proposals`** (create), operators may set or resolve it at **`POST /api/v1/proposals/:id/approve`**: the client can send **`external_ref`** in the approve body, or the server may fill it from an optional Muse lineage callback when **`MUSE_URL`** is configured. Approve **never** fails because Muse is unreachable. See [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md).
+
 ## Optional fields (augmentation)
 
 | Field | Purpose |

@@ -265,6 +265,15 @@ func textSlice(t : Text, start : Nat, len : Nat) : Text {
   Text.fromIter(buf.vals());
 };
 
+func capProposalExternalRef(t : Text) : Text {
+  let max : Nat = 512;
+  if (Text.size(t) <= max) {
+    t;
+  } else {
+    textSlice(t, 0, max);
+  };
+};
+
 /// Vault-relative path under prefix (exact match or prefix/...).
 func notePathUnderProjectPrefix(p : Text, base : Text) : Bool {
   if (p == base) { true } else { Text.startsWith(p, #text (base # "/")) };
@@ -1653,11 +1662,18 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         } else {
           ""
         };
+        let extBodyRaw = Option.get(extractJsonString(bodyText, "external_ref"), "");
+        let extFinal = if (Text.size(extBodyRaw) > 0) {
+          capProposalExternalRef(extBodyRaw);
+        } else {
+          p.external_ref;
+        };
         list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) {
             {
               x with status = "approved";
               updated_at = nowAp;
+              external_ref = extFinal;
               evaluation_waiver_json = if (Text.size(waiverJson) > 0) { waiverJson } else { x.evaluation_waiver_json };
             }
           } else {
@@ -1666,7 +1682,21 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         });
         setProposalsList(uid, list);
         saveStable();
-        return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"approved\",\"approval_log_path\":\"" # escapeJson(logPath) # "\",\"approval_log_written\":true}"); streaming_strategy = null; upgrade = null };
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody(
+            "{\"proposal_id\":\""
+            # pathArg
+            # "\",\"status\":\"approved\",\"approval_log_path\":\""
+            # escapeJson(logPath)
+            # "\",\"approval_log_written\":true,\"external_ref\":\""
+            # escapeJson(extFinal)
+            # "\"}",
+          );
+          streaming_strategy = null;
+          upgrade = null;
+        };
       };
       case null {
         return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
