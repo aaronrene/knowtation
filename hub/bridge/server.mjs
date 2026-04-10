@@ -173,21 +173,38 @@ function ensureDataDir() {
 const ALGO = 'aes-256-gcm';
 const IV_LEN = 16;
 const TAG_LEN = 16;
+const SALT_LEN = 16;
+// Ciphertext format (v2): saltB64url.ivB64url.tagB64url.encB64url  (4 parts)
+// Legacy format (v1):     ivB64url.tagB64url.encB64url             (3 parts — decrypt will return null → graceful reconnect)
 function encrypt(text, secret) {
-  const key = crypto.scryptSync(secret, 'salt', 32);
+  const salt = crypto.randomBytes(SALT_LEN);
+  const key = crypto.scryptSync(secret, salt, 32);
   const iv = crypto.randomBytes(IV_LEN);
   const cipher = crypto.createCipheriv(ALGO, key, iv);
   const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return iv.toString('base64url') + '.' + tag.toString('base64url') + '.' + enc.toString('base64url');
+  return (
+    salt.toString('base64url') + '.' +
+    iv.toString('base64url') + '.' +
+    tag.toString('base64url') + '.' +
+    enc.toString('base64url')
+  );
 }
 function decrypt(encrypted, secret) {
-  const [ivB, tagB, encB] = encrypted.split('.');
-  if (!ivB || !tagB || !encB) return null;
-  const key = crypto.scryptSync(secret, 'salt', 32);
-  const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tagB, 'base64url'));
-  return decipher.update(Buffer.from(encB, 'base64url')) + decipher.final('utf8');
+  const parts = encrypted.split('.');
+  // v1 ciphertexts had 3 parts (hardcoded salt); treat as not-found so the
+  // caller falls through to "prompt reconnect" without crashing.
+  if (parts.length !== 4) return null;
+  const [saltB, ivB, tagB, encB] = parts;
+  if (!saltB || !ivB || !tagB || !encB) return null;
+  try {
+    const key = crypto.scryptSync(secret, Buffer.from(saltB, 'base64url'), 32);
+    const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagB, 'base64url'));
+    return decipher.update(Buffer.from(encB, 'base64url')) + decipher.final('utf8');
+  } catch {
+    return null;
+  }
 }
 
 function parseAndDecryptTokens(raw) {
@@ -1528,6 +1545,19 @@ async function postNotesBatchToCanister(canisterUid, actorUid, vaultId, notes) {
   }
 }
 
+/**
+ * Sanitize a user-supplied filename before writing it to disk.
+ * - Strips all directory components (path traversal prevention).
+ * - Removes every character that is not alphanumeric, a dot, hyphen, or underscore.
+ * - Truncates to 200 chars so filesystem limits are never approached.
+ * - Falls back to 'upload' when the result would be empty.
+ */
+function sanitizeUploadFilename(rawName) {
+  const base = path.basename(rawName || '');
+  const safe = base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+  return safe || 'upload';
+}
+
 const importTempDirMiddleware = (req, _res, next) => {
   req._importTempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-bridge-import-'));
   next();
@@ -1535,7 +1565,7 @@ const importTempDirMiddleware = (req, _res, next) => {
 const bridgeImportUpload = multer({
   storage: multer.diskStorage({
     destination: (req, _file, cb) => cb(null, req._importTempDir),
-    filename: (_req, file, cb) => cb(null, file.originalname || 'upload'),
+    filename: (_req, file, cb) => cb(null, sanitizeUploadFilename(file.originalname)),
   }),
   limits: { fileSize: 100 * 1024 * 1024 },
 }).single('file');

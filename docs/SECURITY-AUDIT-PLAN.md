@@ -41,18 +41,19 @@ Each phase commits at completion. Model recommendations reflect task complexity.
 
 ---
 
-## Phase 2 — CI/CD & Infrastructure
-**Model:** claude-sonnet (mechanical, well-defined tasks)
+## Phase 2 — CI/CD & Infrastructure ✅ COMPLETE
+**Model:** claude-4.6-sonnet-medium-thinking
+**Branch:** `feature/landing-overview-video-ui`
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| 2.1 | Add `npm audit` gate to CI — fail on high/critical CVEs | `.github/workflows/ci.yml` | ⬜ |
-| 2.2 | Add secret scanning to CI (gitleaks or trufflehog action) | `.github/workflows/ci.yml` | ⬜ |
-| 2.3 | Add dependency review action on PRs (`actions/dependency-review-action`) | `.github/workflows/` | ⬜ |
-| 2.4 | Dockerfile: non-root user, pinned image tag, `npm ci` instead of `npm install` | `hub/Dockerfile` | ⬜ |
-| 2.5 | Fix GitHub token encryption salt — replace hardcoded `'salt'` with random per-token salt | `hub/bridge/server.mjs` | ⬜ |
-| 2.6 | Upgrade/replace deprecated `multer@1.x`; validate `file.originalname` before disk use | `hub/bridge/server.mjs` | ⬜ |
-| — | Tests for all Phase 2 changes | `test/phase2-security.test.mjs` | ⬜ |
+| 2.1 | Add `npm audit` gate to CI — fail on high/critical CVEs | `.github/workflows/ci.yml` | ✅ |
+| 2.2 | Add secret scanning to CI (TruffleHog action) | `.github/workflows/ci.yml` | ✅ |
+| 2.3 | Add dependency review action on PRs (`actions/dependency-review-action`) | `.github/workflows/dependency-review.yml` | ✅ |
+| 2.4 | Dockerfile: non-root user (`knowtation`), pinned tag (`node:20.19.0-alpine3.21`), `npm ci` | `hub/Dockerfile` | ✅ |
+| 2.5 | Fix GitHub token encryption salt — random 16-byte per-token salt embedded in ciphertext; v1 tokens gracefully fall back to reconnect | `hub/bridge/server.mjs` | ✅ |
+| 2.6 | Upgraded `multer@1.x` → `multer@2.1.1`; added `sanitizeUploadFilename()` — strips path traversal, replaces unsafe chars, truncates to 200 chars | `hub/bridge/server.mjs`, `package.json` | ✅ |
+| — | 41 new unit tests; 1347 total tests passing | `test/phase2-security.test.mjs` | ✅ |
 
 ---
 
@@ -109,3 +110,5 @@ curl -s https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health
 
 ## Key commits
 - Phase 0: `6749166` — canister gateway auth, timing-safe secrets, fail-closed webhook, attest auth
+- Phase 1: `9b37569` — trust proxy, zip-slip, default-admin warning, header allowlist, billing warning
+- Phase 2: (see commit on `feature/landing-overview-video-ui`) — npm audit CI gate, TruffleHog, dependency review, Dockerfile hardening, per-token salt, multer@2
