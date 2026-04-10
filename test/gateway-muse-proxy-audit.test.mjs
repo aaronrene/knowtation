@@ -108,6 +108,49 @@ test('GET operator/muse/proxy returns 400 when path missing', async (t) => {
   assert.strictEqual(res.status, 400);
 });
 
+test('GET operator/muse/proxy returns 200 and upstream body for admin when path allowed', async (t) => {
+  const mockMuse = http.createServer((req, res) => {
+    if (req.url && req.url.startsWith('/knowtation/v1/hello')) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true, from: 'mock-muse' }));
+      return;
+    }
+    res.statusCode = 404;
+    res.end();
+  });
+  await new Promise((resolve, reject) => {
+    mockMuse.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => mockMuse.close(() => r())));
+  const musePort = /** @type {import('net').AddressInfo} */ (mockMuse.address()).port;
+  const museUrl = `http://127.0.0.1:${musePort}`;
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = 'http://127.0.0.1:9';
+  process.env.SESSION_SECRET = SECRET;
+  process.env.MUSE_URL = museUrl;
+  process.env.HUB_ADMIN_USER_IDS = 'google:muse-proxy-ok-admin';
+  delete process.env.BRIDGE_URL;
+
+  const gwEntry = pathToFileURL(path.join(projectRoot, 'hub', 'gateway', 'server.mjs')).href;
+  const { app: gwApp } = await import(`${gwEntry}?gwMuseProxyOk=${Date.now()}`);
+
+  const srv = http.createServer(gwApp);
+  await new Promise((resolve, reject) => srv.listen(0, '127.0.0.1', (e) => (e ? reject(e) : resolve())));
+  t.after(() => new Promise((r) => srv.close(() => r())));
+  const port = /** @type {import('net').AddressInfo} */ (srv.address()).port;
+
+  const token = signTestJwt({ sub: 'google:muse-proxy-ok-admin' });
+  const pathQ = encodeURIComponent('/knowtation/v1/hello');
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/operator/muse/proxy?path=${pathQ}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  assert.strictEqual(res.status, 200);
+  const j = await res.json();
+  assert.strictEqual(j.from, 'mock-muse');
+});
+
 test('GET operator/muse/proxy returns 400 for disallowed path prefix', async (t) => {
   process.env.NETLIFY = '1';
   process.env.CANISTER_URL = 'http://127.0.0.1:9';
