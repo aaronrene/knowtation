@@ -67,8 +67,6 @@ The gateway strips `/.netlify/functions/gateway` from `req.url` when present so 
   - When both are set, every `POST /api/v1/attest` call dual-writes to Blobs (fast) and the ICP canister (1–3 s, best-effort with timeout). Verify via `GET /api/v1/attest/:id/verify` which checks both sources and returns a `consensus` field (`match`, `mismatch`, `icp_pending`, etc.).
   - When either is unset, the system operates exactly as Improvement D (Blobs-only). No ICP calls are made.
 
-- **Muse thin bridge (optional, Option C):** **`MUSE_URL`**, optional **`MUSE_API_KEY`**, optional **`MUSE_LINEAGE_TIMEOUT_MS`**, **`MUSE_PROXY_MAX_BYTES`**, **`MUSE_PROXY_PATH_PREFIXES`**. When set, the gateway resolves optional **`external_ref`** on **`POST /api/v1/proposals/:id/approve`** (non-blocking) and exposes **`GET /api/v1/operator/muse/proxy`** for admins. **Redeploy the hub canister** from this repo so Motoko approve persists **`external_ref`**. Details: [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md).
-
 **Bridge env (production):**
 
 - `CANISTER_URL`, **`SESSION_SECRET`** (must be the **exact same** value as the gateway — if they differ, the bridge cannot verify the user JWT and Settings will show "GitHub: Not connected" even after a successful Connect GitHub), `HUB_BASE_URL`, `HUB_UI_ORIGIN` — same as gateway logic; bridge callback URL must be on `HUB_BASE_URL` of the bridge (e.g. `https://bridge.knowtation.com/auth/callback/github-connect`)

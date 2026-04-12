@@ -25,8 +25,6 @@ async function upstreamFetch(url, opts = {}) {
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
   if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`;
   if (opts.vaultId) headers['X-Vault-Id'] = opts.vaultId;
-  if (opts.userId) headers['X-User-Id'] = opts.userId;
-  if (opts.canisterAuthSecret) headers['X-Gateway-Auth'] = opts.canisterAuthSecret;
   const res = await fetch(url, {
     method: opts.method || 'GET',
     headers,
@@ -48,20 +46,18 @@ async function upstreamFetch(url, opts = {}) {
  *   role: 'viewer' | 'editor' | 'admin',
  *   token: string,
  *   canisterUrl: string,
- *   canisterAuthSecret?: string,
  *   bridgeUrl: string,
  *   scope?: Record<string, unknown>,
  * }} ctx
  * @returns {McpServer}
  */
 export function createHostedMcpServer(ctx) {
-  const { userId, vaultId, role, token, canisterUrl, canisterAuthSecret, bridgeUrl } = ctx;
+  const { userId, vaultId, role, token, canisterUrl, bridgeUrl } = ctx;
   const server = new McpServer(
     { name: 'knowtation-hosted', version: '0.1.0' },
     { capabilities: { logging: {} } }
   );
   const fetchOpts = { token, vaultId };
-  const canisterFetchOpts = { ...fetchOpts, userId, canisterAuthSecret: canisterAuthSecret || '' };
 
   if (isToolAllowed('search', role)) {
     server.registerTool(
@@ -134,7 +130,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const data = await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-            canisterFetchOpts
+            fetchOpts
           );
           return jsonResponse(data);
         } catch (e) {
@@ -169,7 +165,7 @@ export function createHostedMcpServer(ctx) {
           if (args.until) params.set('until', args.until);
           if (args.limit) params.set('limit', String(args.limit));
           if (args.offset) params.set('offset', String(args.offset));
-          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, fetchOpts);
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
@@ -192,7 +188,7 @@ export function createHostedMcpServer(ctx) {
       async (args) => {
         try {
           const data = await upstreamFetch(`${canisterUrl}/api/v1/notes`, {
-            ...canisterFetchOpts,
+            ...fetchOpts,
             method: 'POST',
             body: { path: args.path, body: args.body, frontmatter: args.frontmatter },
           });
@@ -247,7 +243,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                fetchOpts
               );
               bodies.push(`## ${p}\n${note.body || ''}`);
             } catch (_) {}
@@ -284,7 +280,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const note = await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-            canisterFetchOpts
+            fetchOpts
           );
           const body = (note.body || '').slice(0, 32000);
           const existingFm = note.frontmatter || {};

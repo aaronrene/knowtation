@@ -5,7 +5,6 @@
  * Env: SESSION_SECRET, CANISTER_URL, HUB_BASE_URL; optional GOOGLE_*, GITHUB_*, HUB_UI_ORIGIN, GATEWAY_PORT.
  */
 
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,7 +17,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { stripeWebhookHandler, createCheckoutSession, createPortalSession } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
-import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand, billingEnforced } from './billing-constants.mjs';
+import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand } from './billing-constants.mjs';
 import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, isNoteWriteRequest } from './apply-note-provenance.mjs';
@@ -50,12 +49,6 @@ import {
   mergeConsolidateRequestBodyWithBillingDefaults,
   validateHostedSettingsConsolidationAdvanced,
 } from '../../lib/hosted-consolidation-advanced.mjs';
-import {
-  parseMuseConfigFromEnv,
-  resolveExternalRefForApprove,
-  proposalIdFromApprovePath,
-  fetchMuseProxiedGet,
-} from '../../lib/muse-thin-bridge.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -82,7 +75,6 @@ if (
   console.log('[gateway] AIR auto-configured: KNOWTATION_AIR_ENDPOINT =', process.env.KNOWTATION_AIR_ENDPOINT);
 }
 const CANISTER_URL = (process.env.CANISTER_URL || '').replace(/\/$/, '');
-const CANISTER_AUTH_SECRET = process.env.CANISTER_AUTH_SECRET || '';
 const BRIDGE_URL = (process.env.BRIDGE_URL || '').replace(/\/$/, '');
 if (BRIDGE_URL) {
   try {
@@ -101,7 +93,7 @@ if (BRIDGE_URL) {
 }
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
-const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
+const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '7d';
 
 // Optional: comma-separated list of user IDs (e.g. google:123,github:456) who get role admin on hosted. Others get member.
 const HUB_ADMIN_USER_IDS = (process.env.HUB_ADMIN_USER_IDS || '')
@@ -112,11 +104,6 @@ const adminUserIdsSet = new Set(HUB_ADMIN_USER_IDS);
 
 function roleForSub(sub) {
   return sub && adminUserIdsSet.has(sub) ? 'admin' : 'member';
-}
-
-function canisterAuthHeaders() {
-  if (!CANISTER_AUTH_SECRET) return {};
-  return { 'x-gateway-auth': CANISTER_AUTH_SECRET };
 }
 
 passport.serializeUser((user, done) => done(null, user));
@@ -182,37 +169,7 @@ function verifyToken(token) {
   }
 }
 
-const IMAGE_PROXY_TOKEN_TTL_SECONDS = 300;
-
-function signImageProxyToken(secret, uid) {
-  const exp = Math.floor(Date.now() / 1000) + IMAGE_PROXY_TOKEN_TTL_SECONDS;
-  const payload = `img\0${uid}\0${exp}`;
-  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-  return `${exp}.${Buffer.from(uid).toString('base64url')}.${sig}`;
-}
-
-function verifyImageProxyToken(secret, token) {
-  if (typeof token !== 'string') return null;
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [expStr, uidB64, sig] = parts;
-  const exp = parseInt(expStr, 10);
-  if (!exp || Math.floor(Date.now() / 1000) > exp) return null;
-  let uid;
-  try { uid = Buffer.from(uidB64, 'base64url').toString(); } catch (_) { return null; }
-  if (!uid) return null;
-  const payload = `img\0${uid}\0${exp}`;
-  const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-  const sigBuf = Buffer.from(sig);
-  const expectedBuf = Buffer.from(expected);
-  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
-  return uid;
-}
-
 const app = express();
-// Trust the first downstream proxy so express-rate-limit (and any future IP-based middleware)
-// reads the real client IP from X-Forwarded-For instead of the CDN/load-balancer address.
-app.set('trust proxy', 1);
 
 // Netlify rewrites /* -> /.netlify/functions/gateway/:splat, so the function may receive
 // a path like /.netlify/functions/gateway/api/v1/notes. Express would not match /api/v1/* routes.
@@ -294,10 +251,10 @@ app.get('/auth/login', (req, res, next) => {
 
 function postLoginRedirect(token, req) {
   if (!token) return HUB_UI_ORIGIN + '/hub/?auth_error=1';
+  let url = `${HUB_UI_ORIGIN}/hub/?token=${encodeURIComponent(token)}`;
   const invite = typeof req.query.state === 'string' ? req.query.state.trim() : '';
-  let fragment = `token=${encodeURIComponent(token)}`;
-  if (invite && invite.length > 0) fragment += '&invite=' + encodeURIComponent(invite);
-  return `${HUB_UI_ORIGIN}/hub/#${fragment}`;
+  if (invite && invite.length > 0) url += '&invite=' + encodeURIComponent(invite);
+  return url;
 }
 
 app.get(
@@ -371,7 +328,6 @@ if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
       getUserId,
       getHostedAccessContext,
       canisterUrl: CANISTER_URL,
-      canisterAuthSecret: CANISTER_AUTH_SECRET,
       bridgeUrl: BRIDGE_URL,
       sessionSecret: SESSION_SECRET || '',
     });
@@ -632,35 +588,18 @@ if (BRIDGE_URL) {
     }
   });
 
-  app.get('/api/v1/vault/image-proxy-token', (req, res) => {
-    const uid = getUserId(req);
-    if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-    if (!SESSION_SECRET) return res.status(503).json({ error: 'Not configured', code: 'NOT_CONFIGURED' });
-    const token = signImageProxyToken(SESSION_SECRET, uid);
-    res.json({ token, expires_in: IMAGE_PROXY_TOKEN_TTL_SECONDS });
-  });
-
+  // Image proxy: instead of buffering the image through Lambda (which hits the 6 MB
+  // response-size limit for real photos), we fetch a short-lived signed download_url
+  // from the GitHub Contents API and issue a 302 redirect.  The browser then fetches
+  // the image directly from GitHub — no Lambda body involved at all.
   app.get('/api/v1/vault/image-proxy', async (req, res) => {
+    // Accept JWT from Authorization header OR ?token= query param (img tags can't send headers).
     const auth = req.headers.authorization || '';
     const headerToken = auth.startsWith('Bearer ') ? auth.slice(7) : null;
     const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
-    let uid = headerToken ? getUserId({ headers: { authorization: `Bearer ${headerToken}` } }) : null;
-    let jwtTokenForBridge = headerToken || '';
-    if (!uid && queryToken && SESSION_SECRET) {
-      uid = verifyImageProxyToken(SESSION_SECRET, queryToken);
-    }
-    // Backward compat: old hub.js sends full JWT as ?token= (pre-signed-token change).
-    if (!uid && queryToken) {
-      const fromJwt = getUserId({ headers: { authorization: `Bearer ${queryToken}` } });
-      if (fromJwt) { uid = fromJwt; jwtTokenForBridge = queryToken; }
-    }
+    const jwtToken = headerToken || queryToken || '';
+    const uid = getUserId({ headers: { authorization: `Bearer ${jwtToken}` } });
     if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-
-    // When uid is known but no JWT to forward (HMAC token auth path), mint a
-    // short-lived gateway JWT so the bridge can identify the user.
-    if (!jwtTokenForBridge && SESSION_SECRET) {
-      try { jwtTokenForBridge = jwt.sign({ sub: uid }, SESSION_SECRET, { expiresIn: '5m' }); } catch (_) {}
-    }
 
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
     if (!rawUrl) return res.status(400).json({ error: 'url parameter required', code: 'BAD_REQUEST' });
@@ -674,18 +613,17 @@ if (BRIDGE_URL) {
     }
     const [, owner, repo, ref, filePath] = rawMatch;
 
+    // Get the user's GitHub token from the bridge.
     let ghToken = null;
-    if (jwtTokenForBridge) {
-      try {
-        const tokenRes = await fetch(`${BRIDGE_URL}/api/v1/vault/github-token`, {
-          headers: { authorization: `Bearer ${jwtTokenForBridge}` },
-        });
-        if (tokenRes.ok) {
-          const data = await tokenRes.json();
-          ghToken = data.token || null;
-        }
-      } catch (_) { /* bridge unreachable — fall through, public repos still work */ }
-    }
+    try {
+      const tokenRes = await fetch(`${BRIDGE_URL}/api/v1/vault/github-token`, {
+        headers: { authorization: `Bearer ${jwtToken}` },
+      });
+      if (tokenRes.ok) {
+        const data = await tokenRes.json();
+        ghToken = data.token || null;
+      }
+    } catch (_) { /* bridge unreachable — fall through, public repos still work */ }
 
     if (!ghToken) {
       // No stored GitHub token — assume the repo is public and redirect directly.
@@ -724,18 +662,6 @@ if (BRIDGE_URL) {
 }
 
 /**
- * Safe client request headers that may be forwarded to upstream services.
- * Using an explicit allowlist prevents host-header injection, internal proxy header leakage,
- * and forwarding of security-sensitive headers (cookies, x-forwarded-for, etc.) to upstreams.
- */
-const PROXY_HEADER_ALLOWLIST = new Set([
-  'content-type',
-  'accept',
-  'accept-language',
-  'accept-encoding',
-]);
-
-/**
  * Incoming headers describe the *client* body. We often re-serialize JSON (provenance merge), so
  * length and transfer-related headers must not be forwarded: Undici can hang or mis-send if
  * Content-Length still matches the old, shorter body.
@@ -754,14 +680,9 @@ function stripStaleOutboundBodyHeaders(headers) {
 }
 
 async function proxyTo(baseUrl, url, req, res) {
-  const headers = { host: new URL(baseUrl).host };
-  // Allowlist: only forward safe headers; also forward authorization for bridge JWT auth
-  // and x-vault-id for vault routing. Never forward origin, referer, cookies, or proxy headers.
-  for (const k of PROXY_HEADER_ALLOWLIST) {
-    if (req.headers[k] !== undefined) headers[k] = req.headers[k];
-  }
-  if (req.headers.authorization) headers.authorization = req.headers.authorization;
-  if (req.headers['x-vault-id']) headers['x-vault-id'] = req.headers['x-vault-id'];
+  const headers = { ...req.headers, host: new URL(baseUrl).host };
+  delete headers.origin;
+  delete headers.referer;
   const opts = { method: req.method, headers };
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
     opts.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
@@ -905,7 +826,6 @@ async function getHostedAccessContext(req) {
 
 const metadataBulkHandlers = createMetadataBulkHandlers({
   CANISTER_URL,
-  CANISTER_AUTH_SECRET,
   BRIDGE_URL,
   SESSION_SECRET: SESSION_SECRET || '',
   getUserId,
@@ -1065,7 +985,7 @@ app.get('/api/v1/settings', async (req, res) => {
     try {
       const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
         method: 'GET',
-        headers: { 'X-User-Id': canisterVaultUserId, Accept: 'application/json', ...canisterAuthHeaders() },
+        headers: { 'X-User-Id': canisterVaultUserId, Accept: 'application/json' },
       });
       if (vRes.ok) {
         const data = await vRes.json();
@@ -1200,34 +1120,6 @@ app.get('/api/v1/settings', async (req, res) => {
         };
       }
     })(),
-    muse_bridge: (() => {
-      const envOverride = process.env.MUSE_URL != null && String(process.env.MUSE_URL).trim() !== '';
-      const mc = parseMuseConfigFromEnv();
-      let origin = null;
-      if (mc) {
-        try {
-          origin = new URL(mc.baseUrl).origin;
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      return {
-        enabled: Boolean(mc),
-        origin,
-        source: envOverride ? 'env' : 'none',
-        env_override_active: envOverride,
-        url_editable: false,
-        yaml_url_for_edit: '',
-      };
-    })(),
-  });
-});
-
-/** Hosted: Muse base URL is operator env only (not writable from Hub Settings). */
-app.post('/api/v1/settings/muse', express.json(), (req, res) => {
-  res.status(501).json({
-    error: 'Knowtation Cloud configures the optional Muse link on the server; it cannot be set from this screen.',
-    code: 'NOT_IMPLEMENTED',
   });
 });
 
@@ -1418,41 +1310,6 @@ app.post('/api/v1/invites', requireAdmin, (_req, res) => {
   });
 });
 
-// Optional Muse read-only proxy (admin; Option C). 404 when MUSE_URL unset.
-app.get(
-  '/api/v1/operator/muse/proxy',
-  (req, res, next) => {
-    if (!parseMuseConfigFromEnv()) {
-      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-    }
-    requireAdmin(req, res, next);
-  },
-  async (req, res) => {
-    const cfg = parseMuseConfigFromEnv();
-    if (!cfg) return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-    const rel = typeof req.query.path === 'string' ? req.query.path.trim() : '';
-    if (!rel) return res.status(400).json({ error: 'path query required', code: 'BAD_REQUEST' });
-    const result = await fetchMuseProxiedGet({ config: cfg, relativePath: rel });
-    if (!result.ok && result.code === 'BAD_REQUEST') {
-      return res.status(400).json({ error: 'Invalid path', code: 'BAD_REQUEST' });
-    }
-    if (!result.ok && !result.body) {
-      return res.status(result.status).json({ error: 'Bad gateway', code: result.code });
-    }
-    if (!result.ok && result.body && result.contentType) {
-      res.status(result.status).set('Content-Type', result.contentType);
-      res.set('X-Content-Type-Options', 'nosniff');
-      return res.send(result.body);
-    }
-    if (result.ok && result.body) {
-      res.status(200).set('Content-Type', result.contentType);
-      res.set('X-Content-Type-Options', 'nosniff');
-      return res.send(result.body);
-    }
-    return res.status(502).json({ error: 'Bad gateway', code: 'BAD_GATEWAY' });
-  },
-);
-
 // DELETE /api/v1/invites/:token — no-op on hosted
 app.delete('/api/v1/invites/:token', requireAdmin, (_req, res) => {
   res.json({ ok: true });
@@ -1591,7 +1448,6 @@ async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
         'x-user-id': effective,
         'x-actor-id': uid,
         'x-vault-id': vaultId,
-        ...canisterAuthHeaders(),
       },
     });
     const text = await upstream.text();
@@ -1657,7 +1513,6 @@ async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
         'x-user-id': effective,
         'x-actor-id': uid,
         'x-vault-id': vaultId,
-        ...canisterAuthHeaders(),
       },
     });
     const body = await upstream.text();
@@ -1809,7 +1664,6 @@ async function getNoteCountForUser(userId, req) {
         'x-user-id': effective,
         'x-actor-id': userId,
         'x-vault-id': vaultId,
-        ...canisterAuthHeaders(),
       },
     });
     if (!upstream.ok) return 0;
@@ -1856,17 +1710,14 @@ async function proxyToCanister(req, res) {
 
   const url = CANISTER_URL + upstreamPathAndQuery(req);
   const headers = {
+    ...req.headers,
     host: new URL(CANISTER_URL).host,
     'x-user-id': effective,
     'x-actor-id': uid,
     'x-vault-id': req.headers['x-vault-id'] || 'default',
-    ...canisterAuthHeaders(),
   };
-  // Allowlist: only forward safe body/content headers; canister auth is via x-user-id + x-gateway-auth.
-  // Never forward origin, referer, cookies, authorization, or other proxy headers to the canister.
-  for (const k of PROXY_HEADER_ALLOWLIST) {
-    if (req.headers[k] !== undefined) headers[k] = req.headers[k];
-  }
+  delete headers.origin;
+  delete headers.referer;
   const opts = { method: req.method, headers };
   let bodyOut = req.body;
   const pathOnlyForBody = pathPartNoQuery(req);
@@ -1936,26 +1787,6 @@ async function proxyToCanister(req, res) {
         ? { evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir) }
         : {};
     bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
-    if (req.method === 'POST') {
-      const approveId = proposalIdFromApprovePath(pathOnlyForBody);
-      if (approveId) {
-        try {
-          const museCfg = parseMuseConfigFromEnv();
-          const resolved = await resolveExternalRefForApprove({
-            clientRef: bodyOut.external_ref,
-            proposalId: approveId,
-            vaultId,
-            config: museCfg,
-            logWarn: (msg, extra) => console.warn(msg, extra != null ? JSON.stringify(extra) : ''),
-          });
-          if (resolved) {
-            bodyOut = { ...bodyOut, external_ref: resolved };
-          }
-        } catch (e) {
-          console.warn('[gateway] muse approve merge (non-fatal):', e?.message || String(e));
-        }
-      }
-    }
   }
   if (req.method !== 'GET' && req.method !== 'HEAD' && bodyOut !== undefined) {
     opts.body = typeof bodyOut === 'string' ? bodyOut : JSON.stringify(bodyOut);
@@ -2104,10 +1935,6 @@ app.post('/api/v1/proposals/:proposalId/enrich', async (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.post('/api/v1/attest', async (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) {
-    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
-  }
   if (!isAttestationConfigured()) {
     return res.status(503).json({
       error: 'Attestation service not configured (ATTESTATION_SECRET missing or too short).',
@@ -2245,20 +2072,6 @@ if (!process.env.NETLIFY) {
   if (!SESSION_SECRET) {
     console.error('Gateway: SESSION_SECRET or HUB_JWT_SECRET is required');
     process.exit(1);
-  }
-  if (!CANISTER_AUTH_SECRET && CANISTER_URL) {
-    console.warn(
-      '\x1b[33m[SECURITY] CANISTER_AUTH_SECRET is not set. ' +
-      'The canister will not verify gateway identity. ' +
-      'Set CANISTER_AUTH_SECRET and call admin_set_gateway_auth_secret on the canister before public launch.\x1b[0m'
-    );
-  }
-  if (CANISTER_URL && !billingEnforced()) {
-    console.warn(
-      '\x1b[33m[SECURITY] BILLING_ENFORCE is not set to true. ' +
-      'Billing limits (storage cap, usage gates) are not enforced. ' +
-      'Set BILLING_ENFORCE=true before public launch on hosted deployment.\x1b[0m'
-    );
   }
   app.listen(PORT, () => {
     console.log(`Knowtation Hub Gateway listening on http://localhost:${PORT}`);
