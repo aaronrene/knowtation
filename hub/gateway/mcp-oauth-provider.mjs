@@ -13,7 +13,6 @@ const MCP_REFRESH_TOKEN_EXPIRY_SECONDS = 86400;
 const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 const MAX_CLIENTS = 500;
 const MAX_PENDING_CODES = 1000;
-const REFRESH_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
 function sha256(s) {
   return createHash('sha256').update(s).digest('base64url');
@@ -79,9 +78,6 @@ export class KnowtationOAuthProvider {
     this._pendingCodes = new Map();
     /** @type {Map<string, { clientId: string, userId: string, scopes: string[], expires: number }>} */
     this._refreshTokens = new Map();
-
-    this._sweepTimer = setInterval(() => this._sweepExpiredRefreshTokens(), REFRESH_SWEEP_INTERVAL_MS);
-    if (this._sweepTimer.unref) this._sweepTimer.unref();
   }
 
   get clientsStore() {
@@ -271,20 +267,6 @@ export class KnowtationOAuthProvider {
     const now = Date.now();
     for (const [code, pending] of this._pendingCodes) {
       if (now > pending.expires) this._pendingCodes.delete(code);
-    }
-  }
-
-  _sweepExpiredRefreshTokens() {
-    const nowSec = Math.floor(Date.now() / 1000);
-    for (const [token, stored] of this._refreshTokens) {
-      if (nowSec > stored.expires) this._refreshTokens.delete(token);
-    }
-  }
-
-  destroy() {
-    if (this._sweepTimer) {
-      clearInterval(this._sweepTimer);
-      this._sweepTimer = null;
     }
   }
 }

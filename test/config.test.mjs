@@ -4,7 +4,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from '../lib/config.mjs';
@@ -26,12 +25,10 @@ describe('loadConfig', () => {
     delete process.env.KNOWTATION_DATA_DIR;
     delete process.env.KNOWTATION_VECTOR_STORE;
     delete process.env.OLLAMA_URL;
-    delete process.env.MUSE_URL;
     if (envBackup.KNOWTATION_VAULT_PATH !== undefined) process.env.KNOWTATION_VAULT_PATH = envBackup.KNOWTATION_VAULT_PATH;
     if (envBackup.KNOWTATION_DATA_DIR !== undefined) process.env.KNOWTATION_DATA_DIR = envBackup.KNOWTATION_DATA_DIR;
     if (envBackup.KNOWTATION_VECTOR_STORE !== undefined) process.env.KNOWTATION_VECTOR_STORE = envBackup.KNOWTATION_VECTOR_STORE;
     if (envBackup.OLLAMA_URL !== undefined) process.env.OLLAMA_URL = envBackup.OLLAMA_URL;
-    if (envBackup.MUSE_URL !== undefined) process.env.MUSE_URL = envBackup.MUSE_URL;
   });
 
   it('loads from fixture config when cwd is fixtures', () => {
@@ -177,60 +174,6 @@ describe('loadConfig', () => {
       delete process.env.KNOWTATION_VAULT_PATH;
       try { fs.unlinkSync(hubSetupPath); } catch (_) {}
       try { fs.rmdirSync(dataDir); } catch (_) {}
-    }
-  });
-
-  it('merges muse.url from config/local.yaml when MUSE_URL env is unset', () => {
-    const prevVault = process.env.KNOWTATION_VAULT_PATH;
-    const prevMuse = process.env.MUSE_URL;
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kt-muse-yaml-'));
-    const cfgDir = path.join(tmp, 'config');
-    fs.mkdirSync(cfgDir, { recursive: true });
-    const vaultAbs = path.join(fixturesDir, 'vault-fs');
-    const dataAbs = path.join(fixturesDir, 'data');
-    fs.writeFileSync(
-      path.join(cfgDir, 'local.yaml'),
-      `vault_path: ${JSON.stringify(vaultAbs)}\ndata_dir: ${JSON.stringify(dataAbs)}\nmuse:\n  url: https://muse.from-yaml.example/\n`,
-      'utf8',
-    );
-    delete process.env.MUSE_URL;
-    delete process.env.KNOWTATION_VAULT_PATH;
-    try {
-      const config = loadConfig(tmp);
-      assert.strictEqual(config.muse.url, 'https://muse.from-yaml.example');
-    } finally {
-      if (prevVault !== undefined) process.env.KNOWTATION_VAULT_PATH = prevVault;
-      else delete process.env.KNOWTATION_VAULT_PATH;
-      if (prevMuse !== undefined) process.env.MUSE_URL = prevMuse;
-      else delete process.env.MUSE_URL;
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
-  it('MUSE_URL env overrides muse.url in YAML', () => {
-    const prevVault = process.env.KNOWTATION_VAULT_PATH;
-    const prevMuse = process.env.MUSE_URL;
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kt-muse-env-'));
-    const cfgDir = path.join(tmp, 'config');
-    fs.mkdirSync(cfgDir, { recursive: true });
-    const vaultAbs = path.join(fixturesDir, 'vault-fs');
-    const dataAbs = path.join(fixturesDir, 'data');
-    fs.writeFileSync(
-      path.join(cfgDir, 'local.yaml'),
-      `vault_path: ${JSON.stringify(vaultAbs)}\ndata_dir: ${JSON.stringify(dataAbs)}\nmuse:\n  url: https://muse.from-yaml.example/\n`,
-      'utf8',
-    );
-    process.env.MUSE_URL = 'https://muse.from-env.example/';
-    delete process.env.KNOWTATION_VAULT_PATH;
-    try {
-      const config = loadConfig(tmp);
-      assert.strictEqual(config.muse.url, 'https://muse.from-env.example');
-    } finally {
-      if (prevVault !== undefined) process.env.KNOWTATION_VAULT_PATH = prevVault;
-      else delete process.env.KNOWTATION_VAULT_PATH;
-      if (prevMuse !== undefined) process.env.MUSE_URL = prevMuse;
-      else delete process.env.MUSE_URL;
-      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 });

@@ -10,8 +10,6 @@ Run **`npm run index`** if you want those notes included in semantic search.
 
 ## Hosted (canister, empty new account)
 
-There is **no in-app “load demo notes” button** yet; onboarding points users to **+ New note**, **Import**, or the CLI seed below. A future Hub endpoint would need auth, quotas, and abuse review before wrapping this upload path.
-
 Hosted storage is **per user** on the canister, so new accounts do not see your local `vault/` folder. After you sign in once:
 
 ```bash
@@ -21,7 +19,7 @@ KNOWTATION_HUB_TOKEN="PASTE_JWT_HERE" \
 npm run seed:hosted-showcase
 ```
 
-- **JWT:** Browser devtools → Application → Local Storage → `hub_token`, or copy from the post-login URL hash `#token=...` (Phase 3.1 changed the OAuth redirect from `?token=` query param to `#token=` URL fragment).
+- **JWT:** Browser devtools → Application → Local Storage → `hub_token`, or copy from the post-login URL `?token=...`.
 - **Multi-vault:** set `KNOWTATION_VAULT_ID` if you use a non-default vault (default is `default`).
 
 The script uploads every `.md` under `vault/showcase/` with the same paths (e.g. `showcase/inbox/quick-capture.md`). Re-running overwrites note content for those paths.

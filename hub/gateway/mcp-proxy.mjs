@@ -50,7 +50,6 @@ function createRateLimiter(maxReqs = DEFAULT_RATE_LIMIT, windowMs = RATE_WINDOW_
  *   getUserId: (req: import('express').Request) => string | null,
  *   getHostedAccessContext: (req: import('express').Request) => Promise<Record<string, unknown> | null>,
  *   canisterUrl: string,
- *   canisterAuthSecret?: string,
  *   bridgeUrl: string,
  *   sessionSecret: string,
  *   rateLimit?: number,
@@ -63,7 +62,6 @@ export function createMcpProxyRouter(deps) {
     getUserId,
     getHostedAccessContext,
     canisterUrl,
-    canisterAuthSecret,
     bridgeUrl,
     rateLimit = DEFAULT_RATE_LIMIT,
     sessionTtlMs = SESSION_TTL_MS,
@@ -147,7 +145,6 @@ export function createMcpProxyRouter(deps) {
       role,
       token,
       canisterUrl,
-      canisterAuthSecret: canisterAuthSecret || '',
       bridgeUrl,
       scope: ctx.scope || {},
     });
