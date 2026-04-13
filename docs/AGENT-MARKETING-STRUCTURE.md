@@ -3,7 +3,7 @@
 **Branch:** `agent-birthday`  
 **Audience:** Internal team standing up marketing agents for the first time, using **Knowtation** as the knowledge spine and third-party tools for capture, creative, and distribution.
 
-This document merges two anonymized inputs: a **YouTube-first growth** narrative (long-form video, repurposing, lead magnet, email ladder, paid offers, scale) and a **content multiplication** playbook (curation, script pipeline, optional avatar + cloned voice, 30-day operational rhythm). Proprietary names, communities, testimonials, and promotional URLs from those sources are **not** reproduced here.
+This document merges two approaches: a **YouTube-first growth** narrative (long-form video, repurposing, lead magnet, email ladder, paid offers, scale) and a **content multiplication** playbook (curation, script pipeline, optional avatar + cloned voice, 30-day operational rhythm). 
 
 ---
 
@@ -48,7 +48,7 @@ Think of three layers that **sound** similar but are **not** the same:
 
 ### 2.2 Seven marketing roles ↔ our skill packs
 
-These match the “seven agents” workflow (research → … → analytics) described in your reference material. Each row is **one skill pack** you can enable in Cursor; the same roles can be mirrored in [Abacus](https://apps.abacus.ai/) as separate deep agents or stages.
+These match the “seven agents” workflow (research → … → analytics)that is our agent crew. Each row is **one skill pack** you can enable in Cursor; the same roles can be mirrored in [Abacus](https://apps.abacus.ai/) as separate deep agents or stages.
 
 | # | Role | Skill pack path (this repo) | Main job |
 |---|------|------------------------------|----------|
@@ -70,8 +70,25 @@ Knowtation can also expose **MCP prompts** (server-side prompt templates that pu
 
 Do these in order. Stop if any step fails and fix it before moving on.
 
-**Step A1 — Open this repo in Cursor**  
-You should see folders like `docs/`, `.cursor/skills/`, and (if present) your vault or `vault/templates/`.
+**Step A1 — Open the correct folder in Cursor (the application repo root)**
+
+**What “Knowtation” means here:** two different things confuse people:
+
+| Name | What it is | Typical path on disk |
+|------|------------|----------------------|
+| **Knowtation application repo** | The **full source tree** you clone from git: Hub, MCP server, CLI, `docs/`, `.cursor/skills/`, `vault/templates/`, etc. | A folder whose **root** contains `package.json` with `"name": "knowtation"` and this file at `docs/AGENT-MARKETING-STRUCTURE.md`. |
+| **Your vault** | The **Markdown notes** Knowtation indexes (can live **inside** this repo under `vault/` or **outside** it—your choice via `KNOWTATION_VAULT_PATH`). | e.g. `…/knowtation/vault/` or `…/MyNotes/` |
+
+**You must open the application repo root in Cursor** (or a multi-root workspace that **includes** that root). If you open only a subfolder (e.g. only `hub/`) or only an **external** vault directory, you will **not** see `docs/` and `.cursor/skills/` next to each other—they are not generated on demand; they ship in the clone.
+
+**Quick checks you are in the right place:**
+
+1. In Cursor’s file explorer, you see **`docs/`** at the top level of the open folder.  
+2. You see **`vault/`** at the same level (templates live at `vault/templates/…`).  
+3. You see **`.cursor/skills/`** — a folder whose name **starts with a dot**. If you use macOS **Finder**, dot folders are **hidden** by default; use Cursor’s tree or Terminal: `ls -la` at the repo root. Some editors also hide dotfiles in settings—turn “show hidden” on if needed.  
+4. At the repo root, **`package.json`** exists and starts with `"name": "knowtation"`.
+
+If **none** of the above is true, you are not in the application repo root: clone your team’s Knowtation **application** repository (full tree, not a vault-only export), then use **File → Open Folder** in Cursor and select that clone’s **top-level** directory—the one that contains `package.json`, `docs/`, and `vault/`.
 
 **Step A2 — Choose your vault directory**  
 Knowtation needs a folder of Markdown notes. Either use an existing vault or create an empty folder and point config at it. Your env or `config/local.yaml` should set vault path per [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) (`KNOWTATION_VAULT_PATH`).
@@ -472,6 +489,7 @@ Use a spreadsheet; do not treat these as benchmarks.
 |---------|--------|--------|
 | 1.0 | `agent-birthday` | Initial merged playbook + agent birth / Knowtation test-flight framing |
 | 1.1 | `agent-birthday` | §2 beginner setup (skills vs MCP vs templates; Cursor vs Abacus); seven-role table; staged setup steps—extend §2 as detailed vendor instructions arrive |
+| 1.2 | `agent-birthday` | §2.4 A1: clarify app repo root vs vault-only folder; dot-folder `.cursor`; open full clone in Cursor |
 
 When this merges to `main`, update the table row if your process requires it.
 
