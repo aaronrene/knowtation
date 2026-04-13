@@ -24,10 +24,6 @@ Instead of dumping large context into the model, **search narrowly** (small limi
 - **MCP** — same operations in Cursor / Claude Code; use `fields`, `snippet_chars`, `count_only` on **search** where available.
 - **Hub** — hosted consolidation and billing; self-hosted Hub can edit daemon settings into `config/local.yaml`.
 
-### 4. Optional — MuseHub (workflow, not a token meter)
-
-If you use **MuseHub** as canonical version control, you reduce thrash from duplicate Git/Muse states and get to correct changes faster. When you still need **GitHub** for CI or Netlify, use a **one-way mirror** (repo script `scripts/muse-export-to-git.sh` or `.github/workflows/muse-mirror-to-github.yml`). See [MUSE-GITHUB-MIRROR.md](./MUSE-GITHUB-MIRROR.md).
-
 ## Discover pass — behavior, billing, recommendation
 
 | Question | Answer |
@@ -104,7 +100,7 @@ Audited on branch `feature/token-savings` by strongest-model review. Each row: r
 | Risk | Current behavior | Gap | Fix |
 |------|-----------------|-----|-----|
 | GitHub tokens encrypted at rest | `encrypt`/`decrypt` (`hub/bridge/server.mjs:166-181`) use AES-256-GCM with `scryptSync(secret, 'salt', 32)` | Static salt `'salt'` reduces brute-force resistance. Acceptable when SESSION_SECRET is strong (≥32 chars). | LOW — recommend per-record random salt in future pass (requires migration). |
-| JWT signing | Gateway and self-hosted hub sign with SESSION_SECRET / HUB_JWT_SECRET. Both require the secret in production. | Gateway default expiry is `7d`; self-hosted is `1h`. 7d is long for a bearer token. | LOW — acceptable for hosted OAuth flow; configurable via `HUB_JWT_EXPIRY`. |
+| JWT signing | Gateway and self-hosted hub sign with SESSION_SECRET / HUB_JWT_SECRET. Both require the secret in production. | Gateway default expiry is `24h`; self-hosted is `1h`. | LOW — acceptable for hosted OAuth flow; configurable via `HUB_JWT_EXPIRY`. |
 | No API keys logged | Verified: `console.log` calls never include `api_key`, `access_token`, `secret`, or JWT values. Bridge embedding log explicitly logs `openai_key_set: Boolean(…)` — never the key itself. | No gap found. | OK |
 | LLM API key in bridge env | `CONSOLIDATION_LLM_API_KEY` / `OPENAI_API_KEY` read from env only, never stored to disk or returned in responses. | No gap. | OK |
 

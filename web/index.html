@@ -181,6 +181,133 @@
       line-height: 1.4;
       margin: 0;
     }
+
+    /* Overview video: full-width within .wide, 16:9, continues with channel uploads playlist */
+    .landing-overview-video {
+      margin: 0 auto 0;
+    }
+    .landing-video-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+      background: #0a0f18;
+      box-shadow: 0 12px 40px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .landing-video-frame iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .landing-channel-strip {
+      margin-top: 1.25rem;
+    }
+    .landing-channel-strip-title {
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 0.65rem;
+    }
+    .landing-channel-scroll {
+      display: flex;
+      gap: 0.75rem;
+      overflow-x: auto;
+      padding-bottom: 0.35rem;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .landing-channel-scroll::-webkit-scrollbar {
+      height: 6px;
+    }
+    .landing-channel-scroll::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--accent) 45%, var(--border));
+      border-radius: 3px;
+    }
+    .landing-channel-card {
+      flex: 0 0 min(240px, 72vw);
+      scroll-snap-align: start;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+      background: var(--surface-elevated);
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .landing-channel-card:hover {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+      transform: translateY(-2px);
+    }
+    .landing-channel-card:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .landing-channel-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #111;
+    }
+    .landing-channel-card span {
+      display: block;
+      padding: 0.5rem 0.65rem 0.65rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .landing-channel-card--subscribe span {
+      color: var(--accent);
+    }
+    .landing-channel-card--text {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 8.5rem;
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+    }
+    .landing-channel-card--text span {
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .spotlight-intro {
+      text-align: center;
+      max-width: 52rem;
+      margin: 5.5rem auto 1.75rem;
+      padding: 0 1.5rem;
+    }
+    .spotlight-intro-title {
+      font-family: var(--font-sans);
+      font-size: clamp(1.65rem, 4.8vw, 2.65rem);
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.22;
+      margin: 0 0 0.85rem;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+    .spotlight-intro-subtitle {
+      font-family: var(--font-sans);
+      font-size: clamp(0.95rem, 2.1vw, 1.12rem);
+      font-weight: 500;
+      color: var(--hero-grey-lines);
+      line-height: 1.5;
+      margin: 0 auto;
+      max-width: 38rem;
+      text-wrap: balance;
+    }
+    html[data-theme="light"] .spotlight-intro-subtitle {
+      color: var(--text-muted);
+    }
+
     .spotlight-pair {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -257,6 +384,14 @@
       align-items: center;
       gap: 0.75rem;
       margin-top: 1.25rem;
+    }
+    .landing-onboard-hint {
+      max-width: 36rem;
+      margin: 0.85rem auto 0;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      text-align: center;
     }
     .hero .cta-row {
       display: grid;
@@ -412,6 +547,10 @@
       line-height: 1.55;
       margin: 0 0 0.85rem;
       font-weight: 400;
+    }
+    .flow-intro-sub--accent {
+      color: var(--accent);
+      font-weight: 600;
     }
     .feature-highlights {
       padding: 2.5rem 0 2.75rem;
@@ -888,6 +1027,7 @@
         <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
         <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
       </div>
+      <p class="landing-onboard-hint">First time in the Hub? After you sign in, a short setup guide may open automatically. Reopen anytime from <strong>How to use → Getting started</strong> or <strong>Settings → Backup → Setup guide</strong>.</p>
     </header>
   </div>
 
@@ -898,6 +1038,37 @@
   <div class="deploy-headlines wide">
     <p class="deploy-title">Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
   </div>
+
+  <section class="landing-overview-video wide" aria-label="Knowtation overview video">
+    <!-- If the iframe shows "Video unavailable" but youtube.com/watch?v=… works: YouTube Studio → Content → this video → Details → Allow embedding must be ON. -->
+    <div class="landing-video-frame">
+      <iframe
+        src="https://www.youtube.com/embed/LPHBkyZmvVo?rel=0&amp;modestbranding=1&amp;playsinline=1"
+        title="KNOWTATION Overview (embedded)"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+        loading="lazy"
+      ></iframe>
+    </div>
+    <div class="landing-channel-strip">
+      <p class="landing-channel-strip-title">Channel</p>
+      <div class="landing-channel-scroll" role="list">
+        <!-- Add another <a class="landing-channel-card" role="listitem"> when you publish more videos (copy thumbnail URL pattern below). -->
+        <a class="landing-channel-card" role="listitem" href="https://www.youtube.com/watch?v=LPHBkyZmvVo&amp;list=UUW-qQC8z_QcBz5QfDi2zapw" target="_blank" rel="noopener noreferrer">
+          <img src="https://i.ytimg.com/vi/LPHBkyZmvVo/mqdefault.jpg" width="320" height="180" alt="Thumbnail: KNOWTATION Overview on YouTube" decoding="async" />
+          <span>KNOWTATION Overview</span>
+        </a>
+        <a class="landing-channel-card landing-channel-card--subscribe landing-channel-card--text" role="listitem" href="https://www.youtube.com/@Knowtation/videos" target="_blank" rel="noopener noreferrer">
+          <span>Open the channel on YouTube — subscribe for new uploads</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <header class="spotlight-intro wide">
+    <h2 class="spotlight-intro-title">Know thyself... and your agents</h2>
+    <p class="spotlight-intro-subtitle">Proposals, Evaluations, and Scoped Access =<br />Security, Savings, and Ownership and Control</p>
+  </header>
 
   <section class="spotlight-pair wide" aria-label="Trust and memory">
     <article class="spotlight-card">
@@ -914,7 +1085,7 @@
 
   <section class="feature-highlights wide" aria-labelledby="feature-highlights-heading">
     <h2 id="feature-highlights-heading">What teams care about</h2>
-    <p class="feature-highlights-lead">Simple cards for the worries we hear most: cost, lock-in, trust, and “can my agents actually use this?”</p>
+    <p class="feature-highlights-lead">Solutions for the worries we hear most: cost, lock-in, trust, and “can my agents actually use this?”</p>
     <div class="feature-highlights-grid">
       <div class="feature-highlight-card">
         <div class="fh-icon" aria-hidden="true">💸</div>
@@ -995,7 +1166,7 @@
 
   <div class="flow-intro-block flow-intro-block--after-ecosystem">
     <p class="flow-intro-title">Control, customize and own your data, agents, memory, and backup.</p>
-    <p class="flow-intro-sub">Walk the steps in order — or skim the feature cards above first.</p>
+    <p class="flow-intro-sub flow-intro-sub--accent">Discover new paths with cross-topic insights</p>
   </div>
 
   <section class="flow-track wide" aria-label="How Knowtation works">

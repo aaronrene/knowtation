@@ -12,6 +12,7 @@ import { mergeHostedNoteBodyForCanister } from './apply-note-provenance.mjs';
 /**
  * @param {{
  *   CANISTER_URL: string,
+ *   CANISTER_AUTH_SECRET: string,
  *   BRIDGE_URL: string,
  *   SESSION_SECRET: string,
  *   getUserId: (req: import('express').Request) => string | null,
@@ -19,7 +20,7 @@ import { mergeHostedNoteBodyForCanister } from './apply-note-provenance.mjs';
  * }} deps
  */
 export function createMetadataBulkHandlers(deps) {
-  const { CANISTER_URL, BRIDGE_URL, SESSION_SECRET, getUserId, getHostedAccessContext } = deps;
+  const { CANISTER_URL, CANISTER_AUTH_SECRET, BRIDGE_URL, SESSION_SECRET, getUserId, getHostedAccessContext } = deps;
 
   async function resolveRole(req) {
     const auth = req.headers.authorization;
@@ -90,12 +91,14 @@ export function createMetadataBulkHandlers(deps) {
    * @param {string} vaultId
    */
   function readHeaders(uid, effective, vaultId) {
-    return {
+    const h = {
       Accept: 'application/json',
       'x-user-id': effective,
       'x-actor-id': uid,
       'x-vault-id': vaultId,
     };
+    if (CANISTER_AUTH_SECRET) h['x-gateway-auth'] = CANISTER_AUTH_SECRET;
+    return h;
   }
 
   /**

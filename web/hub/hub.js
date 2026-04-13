@@ -37,10 +37,15 @@
     }
     return (localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333').replace(/\/$/, '');
   })();
-  let token = params.get('token') || localStorage.getItem('hub_token');
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  /** Used to defer onboarding until invite consume has run (see scheduleMaybeShowOnboardingWizard). */
+  const pageLoadHadInviteQuery = Boolean(params.get('invite'));
+  let token = hashParams.get('token') || params.get('token') || localStorage.getItem('hub_token');
   if (token) {
     localStorage.setItem('hub_token', token);
-    if (params.has('token')) {
+    if (hashParams.has('token')) {
+      history.replaceState({}, '', location.pathname + location.search);
+    } else if (params.has('token')) {
       const u = new URL(location.href);
       u.searchParams.delete('token');
       history.replaceState({}, '', u.toString());
@@ -581,6 +586,61 @@
     window.__hubProposalRubricItems = Array.isArray(s.proposal_rubric?.items) ? s.proposal_rubric.items : [];
     const metaSelf = el('settings-bulk-metadata-self-only');
     if (metaSelf) metaSelf.classList.remove('hidden');
+    applyMuseBridgePanel(s);
+  }
+
+  /** Settings → Integrations: Muse thin bridge status + self-hosted admin URL field. */
+  function applyMuseBridgePanel(s) {
+    if (!s || typeof s !== 'object') return;
+    const mb = s.muse_bridge;
+    const statusEl = el('settings-muse-status');
+    const envHint = el('settings-muse-env-hint');
+    const input = el('settings-muse-url');
+    const saveBtn = el('btn-settings-muse-save');
+    const msg = el('settings-muse-msg');
+    if (msg) {
+      msg.textContent = '';
+      msg.className = 'settings-msg';
+    }
+    if (!mb) {
+      if (statusEl) statusEl.textContent = '—';
+      if (input) {
+        input.value = '';
+        input.disabled = true;
+      }
+      if (saveBtn) saveBtn.classList.add('hidden');
+      return;
+    }
+    const isHosted = String(s.vault_path_display || '').toLowerCase() === 'canister';
+    const isAdmin = s.role === 'admin';
+    if (statusEl) {
+      statusEl.textContent =
+        mb.enabled && mb.origin
+          ? 'Server status: linked — ' + mb.origin
+          : 'Server status: Muse link not configured for this Hub.';
+    }
+    if (envHint) {
+      envHint.classList.toggle('hidden', !mb.env_override_active);
+      envHint.textContent = mb.env_override_active
+        ? 'This Hub process has MUSE_URL set in its environment; that value overrides config/local.yaml. Change or unset it on the server to edit the field below.'
+        : '';
+    }
+    if (input) {
+      input.value = mb.yaml_url_for_edit != null ? String(mb.yaml_url_for_edit) : '';
+      const canEdit = !isHosted && isAdmin && mb.url_editable === true;
+      input.disabled = !canEdit;
+      input.title = canEdit
+        ? ''
+        : isHosted
+          ? 'Knowtation Cloud: the Muse base URL is set by the operator, not here.'
+          : !isAdmin
+            ? 'Only admins can save the Muse URL.'
+            : 'Unset MUSE_URL in the Hub environment to allow saving from Settings.';
+    }
+    if (saveBtn) {
+      const show = !isHosted && isAdmin && mb.url_editable === true;
+      saveBtn.classList.toggle('hidden', !show);
+    }
   }
 
   function showLoginChrome() {
@@ -593,6 +653,209 @@
       oauthNotConfigured.classList.remove('hidden');
       if (loginIntro) loginIntro.classList.add('hidden');
     }
+  }
+
+  /** Onboarding wizard — logic module: ./onboarding-wizard.mjs */
+  let onboardingModulePromise = null;
+  function loadOnboardingModule() {
+    if (!onboardingModulePromise) {
+      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260410a');
+    }
+    return onboardingModulePromise;
+  }
+
+  function getOnboardingUserKey() {
+    if (!token) return '';
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return String(payload.sub || payload.email || 'unknown');
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
+  function persistOnboardingProgress(mod, partial) {
+    const userKey = getOnboardingUserKey();
+    const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+    const hostingPath = isHosted ? 'hosted' : 'selfhosted';
+    let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
+    if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
+      st = mod.createFreshState(userKey, hostingPath);
+    }
+    Object.assign(st, partial);
+    localStorage.setItem(mod.ONBOARDING_LS_KEY, mod.serializeOnboardingState(st));
+  }
+
+  let onboardingWizardBindingsDone = false;
+  let onboardingRenderStep = function () {};
+
+  function closeOnboardingWizardResume() {
+    const modal = el('modal-onboarding');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+  }
+
+  function closeOnboardingWizardDismiss() {
+    loadOnboardingModule()
+      .then((mod) => {
+        persistOnboardingProgress(mod, { status: 'dismissed', dismissedAt: Date.now() });
+      })
+      .catch(function () {});
+    const modal = el('modal-onboarding');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function bindOnboardingWizardOnce(mod) {
+    if (onboardingWizardBindingsDone) return;
+    onboardingWizardBindingsDone = true;
+    const modal = el('modal-onboarding');
+    const closeBtn = el('modal-onboarding-close');
+    const backdrop = el('modal-onboarding-backdrop');
+    const btnSkip = el('btn-onboarding-skip');
+    const btnBack = el('btn-onboarding-back');
+    const btnNext = el('btn-onboarding-next');
+    const body = el('onboarding-step-body');
+    const progress = el('onboarding-progress');
+    const live = el('onboarding-live');
+    const secondary = el('onboarding-secondary-actions');
+
+    function handleSecondaryAction(id) {
+      /* Keep onboarding open underneath: Settings / How to use / Projects stack on top (DOM order + z-index). Close the top modal to return to the guide. */
+      if (id === 'projectsHelp') {
+        openProjectsHelpModal();
+        return;
+      }
+      if (id === 'howToKnowledge') {
+        openHowToUse('knowledge-agents');
+        return;
+      }
+      if (id === 'openSettingsBackup') {
+        openSettings();
+        return;
+      }
+      if (id === 'openSettingsIntegrations') {
+        openSettingsIntegrationsTab();
+        return;
+      }
+      if (id === 'howToSetup4') {
+        openHowToUse('setup', 'how-to-step-selfhosted-index');
+        return;
+      }
+      if (id === 'howToSetup3') {
+        openHowToUse('setup', 'how-to-step-selfhosted-oauth');
+        return;
+      }
+    }
+
+    onboardingRenderStep = function renderOnboardingStep() {
+      const userKey = getOnboardingUserKey();
+      const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+      const hostingPath = isHosted ? 'hosted' : 'selfhosted';
+      let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
+      if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
+        st = mod.createFreshState(userKey, hostingPath);
+      }
+      const total = mod.getStepCount(isHosted);
+      const idx = Math.min(Math.max(0, st.stepIndex), total - 1);
+      const content = mod.getStepContent(isHosted, idx);
+      if (body) body.innerHTML = content ? content.bodyHtml : '';
+
+      if (progress) {
+        progress.innerHTML = '';
+        for (let i = 0; i < total; i++) {
+          const d = document.createElement('span');
+          d.className = 'onboarding-dot' + (i === idx ? ' onboarding-dot-active' : '');
+          d.title = 'Step ' + (i + 1) + ' of ' + total;
+          progress.appendChild(d);
+        }
+      }
+      if (live && content) live.textContent = content.title + ', step ' + (idx + 1) + ' of ' + total;
+
+      if (btnBack) btnBack.disabled = idx <= 0;
+      if (btnNext) btnNext.textContent = idx >= total - 1 ? 'Done' : 'Next';
+
+      if (secondary) {
+        secondary.innerHTML = '';
+        mod.getStepSecondaryActions(isHosted, idx).forEach((a) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn-link btn-link-small';
+          b.textContent = a.label;
+          b.addEventListener('click', () => handleSecondaryAction(a.id));
+          secondary.appendChild(b);
+        });
+      }
+    };
+
+    if (btnBack) {
+      btnBack.addEventListener('click', () => {
+        const st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
+        if (!st || st.status !== 'in_progress') return;
+        persistOnboardingProgress(mod, { status: 'in_progress', stepIndex: Math.max(0, st.stepIndex - 1) });
+        onboardingRenderStep();
+      });
+    }
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        const userKey = getOnboardingUserKey();
+        const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+        const hostingPath = isHosted ? 'hosted' : 'selfhosted';
+        let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY)) || mod.createFreshState(userKey, hostingPath);
+        if (st.userKey !== userKey || st.hostingPath !== hostingPath) st = mod.createFreshState(userKey, hostingPath);
+        const total = mod.getStepCount(isHosted);
+        if (st.stepIndex >= total - 1) {
+          persistOnboardingProgress(mod, { status: 'completed', completedAt: Date.now(), stepIndex: total - 1 });
+          if (modal) modal.classList.add('hidden');
+          return;
+        }
+        persistOnboardingProgress(mod, { status: 'in_progress', stepIndex: st.stepIndex + 1 });
+        onboardingRenderStep();
+      });
+    }
+    if (btnSkip) btnSkip.addEventListener('click', closeOnboardingWizardDismiss);
+    if (closeBtn) closeBtn.addEventListener('click', closeOnboardingWizardResume);
+    if (backdrop) backdrop.addEventListener('click', closeOnboardingWizardResume);
+  }
+
+  async function openOnboardingWizard(opts) {
+    const restart = opts && opts.restart;
+    const mod = await loadOnboardingModule();
+    bindOnboardingWizardOnce(mod);
+    const userKey = getOnboardingUserKey();
+    const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+    const hostingPath = isHosted ? 'hosted' : 'selfhosted';
+    if (restart) {
+      localStorage.setItem(mod.ONBOARDING_LS_KEY, mod.serializeOnboardingState(mod.createFreshState(userKey, hostingPath)));
+    } else {
+      let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
+      if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
+        localStorage.setItem(mod.ONBOARDING_LS_KEY, mod.serializeOnboardingState(mod.createFreshState(userKey, hostingPath)));
+      }
+    }
+    const modal = el('modal-onboarding');
+    if (modal) modal.classList.remove('hidden');
+    onboardingRenderStep();
+    const btnNext = el('btn-onboarding-next');
+    if (btnNext) setTimeout(() => btnNext.focus(), 50);
+  }
+
+  async function scheduleMaybeShowOnboardingWizard(s) {
+    if (!token) return;
+    if (params.get('open') === 'billing') return;
+    try {
+      const mod = await loadOnboardingModule();
+      const userKey = getOnboardingUserKey();
+      const isHosted = String(s.vault_path_display || '').toLowerCase() === 'canister';
+      const hostingPath = isHosted ? 'hosted' : 'selfhosted';
+      let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
+      if (st && st.userKey !== userKey) st = null;
+      if (st && st.hostingPath !== hostingPath) st = null;
+      if (!mod.shouldAutoOpenWizard(st, userKey, hostingPath)) return;
+      const delayMs = pageLoadHadInviteQuery ? 2200 : 0;
+      setTimeout(() => {
+        void openOnboardingWizard({ restart: false });
+      }, delayMs);
+    } catch (_) {}
   }
 
   function showMain() {
@@ -670,6 +933,7 @@
     if (btnImport) btnImport.classList.add('hidden');
     if (btnHowToUse) btnHowToUse.classList.add('hidden');
     if (btnSettings) btnSettings.classList.add('hidden');
+    closeOnboardingWizardResume();
     loginRequired.classList.remove('hidden');
     if (loginIntro) loginIntro.classList.remove('hidden');
     showLoginChrome();
@@ -762,10 +1026,12 @@
       })();
     }
     showMain();
+    getImageProxyToken().catch(function () {});
     (async function ensureVaultAndSwitcherThenLoad() {
+      let settingsPayload = null;
       try {
-        const s = await api('/api/v1/settings');
-        applySettingsPayloadToHubChrome(s);
+        settingsPayload = await api('/api/v1/settings');
+        applySettingsPayloadToHubChrome(settingsPayload);
       } catch (_) {}
       syncHubListSortUI('notes');
       setProposalFiltersBarVisible(false);
@@ -775,6 +1041,7 @@
       loadProposals();
       loadActivity();
       renderPresets();
+      if (settingsPayload) void scheduleMaybeShowOnboardingWizard(settingsPayload);
     })();
     initProviders();
     if (params.get('open') === 'billing') {
@@ -827,12 +1094,12 @@
     initProviders();
   }
   refreshApiBaseFootgunBanner();
-  if (token && params.get('invite_accepted') === '1') {
+  if (token && (params.get('invite_accepted') === '1' || hashParams.get('invite_accepted') === '1')) {
     setTimeout(() => {
       if (typeof showToast === 'function') showToast("You've been added. Your role is shown in Settings.");
       const u = new URL(location.href);
       u.searchParams.delete('invite_accepted');
-      history.replaceState({}, '', u.toString());
+      history.replaceState({}, '', u.pathname + u.search);
     }, 500);
   }
 
@@ -2581,6 +2848,15 @@
     });
   }
 
+  const btnHowToOpenOnboarding = el('btn-how-to-open-onboarding');
+  if (btnHowToOpenOnboarding && !btnHowToOpenOnboarding.dataset.knowtationBound) {
+    btnHowToOpenOnboarding.dataset.knowtationBound = '1';
+    btnHowToOpenOnboarding.addEventListener('click', () => {
+      closeHowToUse();
+      void openOnboardingWizard({ restart: false });
+    });
+  }
+
   function openTokenSavingsHowToFromSettings() {
     closeSettings();
     openHowToUse('token-savings');
@@ -2634,9 +2910,17 @@
         if (configureSection) configureSection.style.display = isHosted ? 'none' : '';
         if (configureHr) configureHr.style.display = isHosted ? 'none' : '';
         const vg = s.vault_git || {};
-        // Guided Setup checklist: step 1 = vault path set, step 4 = backup configured
+        // Guided Setup checklist: step 1 = vault path (self-hosted) or account (hosted), step 4 = backup configured
         const step1 = document.getElementById('setup-step-1');
         const step4 = document.getElementById('setup-step-4');
+        const step1Label = el('setup-step-1-label');
+        const step1Hint = el('setup-step-1-hint');
+        if (step1Label) step1Label.textContent = isHosted ? 'Account ready' : 'Vault path set';
+        if (step1Hint) {
+          step1Hint.textContent = isHosted
+            ? 'Your notes live in your hosted vault'
+            : 'Set below under Configure backup';
+        }
         if (step1) {
           const done = Boolean(s.vault_path_display && s.vault_path_display.trim());
           step1.classList.toggle('setup-step-done', done);
@@ -2818,7 +3102,28 @@
     loadBillingPanel();
   }
 
+  function openSettingsIntegrationsTab() {
+    openSettings();
+    document.querySelectorAll('.settings-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.settingsTab === 'integrations');
+      t.setAttribute('aria-selected', t.dataset.settingsTab === 'integrations' ? 'true' : 'false');
+    });
+    document.querySelectorAll('.settings-panel').forEach((p) => {
+      p.classList.toggle('active', p.id === 'settings-panel-integrations');
+    });
+    refreshIntegApiStatus();
+    applyMuseBridgePanel(lastBackupSettingsPayload);
+  }
+
   if (btnSettings) btnSettings.onclick = openSettings;
+
+  const btnSettingsSetupGuide = el('btn-settings-setup-guide');
+  if (btnSettingsSetupGuide) {
+    btnSettingsSetupGuide.addEventListener('click', () => {
+      closeSettings();
+      void openOnboardingWizard({ restart: true });
+    });
+  }
 
   const btnProposalPolicySave = el('btn-proposal-policy-save');
   if (btnProposalPolicySave && !btnProposalPolicySave.dataset.knowtationPolicyBound) {
@@ -2958,6 +3263,42 @@
     };
   }
 
+  const btnSettingsMuseSave = el('btn-settings-muse-save');
+  if (btnSettingsMuseSave && !btnSettingsMuseSave.dataset.knowtationMuseBound) {
+    btnSettingsMuseSave.dataset.knowtationMuseBound = '1';
+    btnSettingsMuseSave.addEventListener('click', async () => {
+      const msg = el('settings-muse-msg');
+      if (msg) {
+        msg.textContent = '';
+        msg.className = 'settings-msg';
+      }
+      const input = el('settings-muse-url');
+      const url = input ? String(input.value || '').trim() : '';
+      await withButtonBusy(btnSettingsMuseSave, 'Saving…', async () => {
+        try {
+          await api('/api/v1/settings/muse', {
+            method: 'POST',
+            body: JSON.stringify({ url }),
+          });
+          if (msg) {
+            msg.textContent = 'Saved.';
+            msg.className = 'settings-msg ok';
+          }
+          const s = await api('/api/v1/settings');
+          applySettingsPayloadToHubChrome(s);
+        } catch (e) {
+          if (msg) {
+            msg.textContent =
+              e && e.code === 'ENV_CONFLICT'
+                ? 'MUSE_URL is set on the server; unset it to save from Settings.'
+                : (e && e.message) || 'Save failed';
+            msg.className = 'settings-msg err';
+          }
+        }
+      });
+    });
+  }
+
   document.querySelectorAll('.settings-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.dataset.settingsTab;
@@ -2976,6 +3317,7 @@
       if (id === 'billing') loadBillingPanel();
       if (id === 'backup') void refreshBulkDeletePresetDropdowns();
       if (id === 'consolidation') loadConsolidationSettings();
+      if (id === 'integrations') applyMuseBridgePanel(lastBackupSettingsPayload);
     });
   });
 
@@ -5301,22 +5643,39 @@
    * Blocks javascript: and data: URIs; allows standard https:// image and link URLs.
    * Phase 18: bare video URLs (.mp4/.webm/.mov) become inline <video> players.
    */
+  var _imageProxyToken = null;
+  var _imageProxyTokenExp = 0;
+
+  async function getImageProxyToken() {
+    if (_imageProxyToken && Date.now() < _imageProxyTokenExp) return _imageProxyToken;
+    var proxyBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
+    var jwt = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    if (!jwt) return '';
+    try {
+      var res = await fetch(proxyBase + '/api/v1/vault/image-proxy-token', {
+        headers: { authorization: 'Bearer ' + jwt },
+      });
+      if (!res.ok) return '';
+      var data = await res.json();
+      _imageProxyToken = data.token || '';
+      _imageProxyTokenExp = Date.now() + ((data.expires_in || 240) - 30) * 1000;
+      return _imageProxyToken;
+    } catch (_) { return ''; }
+  }
+
   /**
    * Rewrite raw.githubusercontent.com <img> src attributes to go through the
-   * Hub's image proxy. This makes images from private GitHub repos display
-   * correctly — the browser loads /api/v1/vault/image-proxy which fetches
-   * with the stored GitHub token. The raw URL stays in the markdown source.
-   *
-   * Only rewrites raw.githubusercontent.com (no other hosts are proxied),
-   * and only for <img> tags produced by marked (already sanitised by DOMPurify).
-   * The Hub JWT is appended as ?token= so the browser can load it directly.
+   * Hub's image proxy. Uses a short-lived HMAC-signed token (not the session JWT).
+   * Falls back to no rewrite if no cached image token is available yet.
    */
   function rewriteGitHubImageUrls(html) {
-    var tok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    var tok = _imageProxyToken || '';
+    if (!tok) {
+      // Fallback: use session JWT — gateway accepts it via backward-compat path.
+      tok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || '';
+    }
     if (!tok) return html;
     var encodedTok = encodeURIComponent(tok);
-    // Use the resolved apiBase so the proxy request reaches the gateway even when
-    // the frontend is served from a different origin (e.g. knowtation.store → ICP canister).
     var proxyBase = (typeof apiBase !== 'undefined' ? apiBase : '').replace(/\/$/, '');
     return html.replace(
       /(<img\b[^>]*?\ssrc=")https?:\/\/raw\.githubusercontent\.com\/([^"]+)"/gi,
@@ -5463,6 +5822,12 @@
       uploadBtn.title = 'Upload an image (JPEG, PNG, GIF, WebP) and commit it to your connected GitHub repo. The image embeds inline in the note. Requires a public GitHub repo for the image to display.';
       uploadBtn.onclick = function () { triggerImageUpload(textarea); };
       toolbar.appendChild(uploadBtn);
+    } else if (s && s.github_connect_available && hubUserCanWriteNotes()) {
+      var connectHint = document.createElement('span');
+      connectHint.className = 'media-toolbar-hint';
+      connectHint.title = 'Connect GitHub in Settings → Backup to enable image uploads.';
+      connectHint.textContent = 'Connect GitHub to upload images';
+      toolbar.appendChild(connectHint);
     }
 
     textarea.parentNode.insertBefore(toolbar, textarea.nextSibling);
@@ -6367,24 +6732,31 @@
 
   document.addEventListener('keydown', (e) => {
     const inInput = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
-    if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
       if (el('detail-panel') && !el('detail-panel').classList.contains('hidden')) {
         closeDetailPanel();
         e.preventDefault();
-      } else if (el('modal-create') && !el('modal-create').classList.contains('hidden')) {
-        closeCreateModal();
-        e.preventDefault();
+      /* Close the topmost modal first (later in DOM stacks above onboarding when both are open). */
       } else if (el('modal-how-to-use') && !el('modal-how-to-use').classList.contains('hidden')) {
         closeHowToUse();
         e.preventDefault();
       } else if (el('modal-settings') && !el('modal-settings').classList.contains('hidden')) {
         closeSettings();
         e.preventDefault();
+      } else if (el('modal-projects-help') && !el('modal-projects-help').classList.contains('hidden')) {
+        closeProjectsHelpModal();
+        e.preventDefault();
+      } else if (el('modal-onboarding') && !el('modal-onboarding').classList.contains('hidden')) {
+        closeOnboardingWizardResume();
+        e.preventDefault();
       } else if (el('modal-import') && !el('modal-import').classList.contains('hidden')) {
         closeImportModal();
         e.preventDefault();
-      } else if (el('modal-projects-help') && !el('modal-projects-help').classList.contains('hidden')) {
-        closeProjectsHelpModal();
+      } else if (el('modal-create-proposal') && !el('modal-create-proposal').classList.contains('hidden')) {
+        closeCreateProposalModal();
+        e.preventDefault();
+      } else if (el('modal-create') && !el('modal-create').classList.contains('hidden')) {
+        closeCreateModal();
         e.preventDefault();
       } else if (el('search-key-help')?.open) {
         el('search-key-help').open = false;

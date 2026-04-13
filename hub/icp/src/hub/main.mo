@@ -70,6 +70,8 @@ var storage : StableStorage = {
   proposalEntries = [];
   billingByUser = [];
   operator_export_secret = "";
+  gateway_auth_secret = "";
+  cors_allowed_origin = "";
 };
 
 /// userId -> vaultId -> path -> (frontmatter, body)
@@ -110,7 +112,9 @@ func loadStable() {
 /// Serialize transient maps into stable storage. Uses Buffer for vault rows — `Array.append` in a loop is
 /// quadratic and exceeds the per-message instruction limit (40B) on mainnet for large multi-user vaults.
 func saveStable() {
-  let keepSecret = storage.operator_export_secret;
+  let keepOperatorSecret = storage.operator_export_secret;
+  let keepGatewaySecret = storage.gateway_auth_secret;
+  let keepCorsOrigin = storage.cors_allowed_origin;
   let vaultBuf = Buffer.Buffer<(Text, Text, [(Text, (Text, Text))])>(8);
   for ((uid, um) in byUser.entries()) {
     for ((vaultId, m) in um.entries()) {
@@ -129,7 +133,9 @@ func saveStable() {
         (uid, b);
       }),
     );
-    operator_export_secret = keepSecret;
+    operator_export_secret = keepOperatorSecret;
+    gateway_auth_secret = keepGatewaySecret;
+    cors_allowed_origin = keepCorsOrigin;
   };
 };
 
@@ -147,12 +153,7 @@ func getHeader(req : HttpRequest, name : Text) : ?Text {
 func userId(req : HttpRequest) : Text {
   switch (getHeader(req, "X-User-Id")) {
     case (?id) { id };
-    case null {
-      switch (getHeader(req, "X-Test-User")) {
-        case (?id) { id };
-        case null { "default" };
-      };
-    };
+    case null { "default" };
   };
 };
 
@@ -198,10 +199,15 @@ func effectiveVaultId(stored : Text) : Text {
 };
 
 func corsHeaders() : [Header] {
+  let origin = if (Text.size(storage.gateway_auth_secret) > 0 and Text.size(storage.cors_allowed_origin) > 0) {
+    storage.cors_allowed_origin;
+  } else {
+    "*";
+  };
   [
-    ("Access-Control-Allow-Origin", "*"),
+    ("Access-Control-Allow-Origin", origin),
     ("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"),
-    ("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Vault-Id, X-User-Id, X-Test-User, X-Operator-Export-Key"),
+    ("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Vault-Id, X-User-Id, X-Gateway-Auth, X-Operator-Export-Key"),
     ("Content-Type", "application/json"),
   ];
 };
@@ -257,6 +263,15 @@ func textSlice(t : Text, start : Nat, len : Nat) : Text {
     n += 1;
   };
   Text.fromIter(buf.vals());
+};
+
+func capProposalExternalRef(t : Text) : Text {
+  let max : Nat = 512;
+  if (Text.size(t) <= max) {
+    t;
+  } else {
+    textSlice(t, 0, max);
+  };
 };
 
 /// Vault-relative path under prefix (exact match or prefix/...).
@@ -912,6 +927,25 @@ func operatorExportAuthorized(req : HttpRequest) : Bool {
   };
 };
 
+func gatewayAuthorized(req : HttpRequest) : Bool {
+  let expected = storage.gateway_auth_secret;
+  if (Text.size(expected) == 0) { return true };
+  switch (getHeader(req, "X-Gateway-Auth")) {
+    case null { false };
+    case (?got) {
+      if (Text.size(got) != Text.size(expected)) { false } else { got == expected };
+    };
+  };
+};
+
+let _GATEWAY_AUTH_DENIED : HttpResponse = {
+  status_code = 403;
+  headers = [("Content-Type", "application/json")];
+  body = Text.encodeUtf8("{\"error\":\"Gateway authentication required\",\"code\":\"GATEWAY_AUTH_REQUIRED\"}");
+  streaming_strategy = null;
+  upgrade = null;
+};
+
 func sortedOperatorUserIds() : [Text] {
   let keys = Iter.toArray(byUser.keys());
   Array.sort<Text>(keys, Text.compare)
@@ -964,8 +998,6 @@ func operatorUserIndexJson(req : HttpRequest) : Text {
 };
 
 public query func http_request(req : HttpRequest) : async HttpResponse {
-  let uid = userId(req);
-  let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
 
   if (pathKind == "health") {
@@ -977,6 +1009,15 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
       upgrade = null;
     };
   };
+
+  if (req.method == "OPTIONS") {
+    return { status_code = 204; headers = corsHeaders(); body = jsonBody(""); streaming_strategy = null; upgrade = null };
+  };
+
+  if (not gatewayAuthorized(req)) { return _GATEWAY_AUTH_DENIED };
+
+  let uid = userId(req);
+  let vid = vaultIdFromRequest(req);
 
   if (pathKind == "vaults" and req.method == "GET") {
     return {
@@ -1101,14 +1142,12 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     };
   };
 
-  if (req.method == "OPTIONS") {
-    return { status_code = 204; headers = corsHeaders(); body = jsonBody(""); streaming_strategy = null; upgrade = null };
-  };
-
   return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
 };
 
 public func http_request_update(req : HttpRequest) : async HttpResponse {
+  if (not gatewayAuthorized(req)) { return _GATEWAY_AUTH_DENIED };
+
   let uid = userId(req);
   let vid = vaultIdFromRequest(req);
   let (pathKind, pathArg) = parsePath(req.url);
@@ -1623,11 +1662,18 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         } else {
           ""
         };
+        let extBodyRaw = Option.get(extractJsonString(bodyText, "external_ref"), "");
+        let extFinal = if (Text.size(extBodyRaw) > 0) {
+          capProposalExternalRef(extBodyRaw);
+        } else {
+          p.external_ref;
+        };
         list := Array.map<ProposalRecord, ProposalRecord>(list, func(x : ProposalRecord) : ProposalRecord {
           if (x.proposal_id == pathArg) {
             {
               x with status = "approved";
               updated_at = nowAp;
+              external_ref = extFinal;
               evaluation_waiver_json = if (Text.size(waiverJson) > 0) { waiverJson } else { x.evaluation_waiver_json };
             }
           } else {
@@ -1636,7 +1682,21 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
         });
         setProposalsList(uid, list);
         saveStable();
-        return { status_code = 200; headers = corsHeaders(); body = jsonBody("{\"proposal_id\":\"" # pathArg # "\",\"status\":\"approved\",\"approval_log_path\":\"" # escapeJson(logPath) # "\",\"approval_log_written\":true}"); streaming_strategy = null; upgrade = null };
+        return {
+          status_code = 200;
+          headers = corsHeaders();
+          body = jsonBody(
+            "{\"proposal_id\":\""
+            # pathArg
+            # "\",\"status\":\"approved\",\"approval_log_path\":\""
+            # escapeJson(logPath)
+            # "\",\"approval_log_written\":true,\"external_ref\":\""
+            # escapeJson(extFinal)
+            # "\"}",
+          );
+          streaming_strategy = null;
+          upgrade = null;
+        };
       };
       case null {
         return { status_code = 404; headers = corsHeaders(); body = jsonBody("{\"error\":\"Proposal not found\",\"code\":\"NOT_FOUND\"}"); streaming_strategy = null; upgrade = null };
@@ -1668,6 +1728,41 @@ public shared ({ caller }) func admin_set_operator_export_secret(secret : Text) 
     proposalEntries = storage.proposalEntries;
     billingByUser = storage.billingByUser;
     operator_export_secret = secret;
+    gateway_auth_secret = storage.gateway_auth_secret;
+    cors_allowed_origin = storage.cors_allowed_origin;
+  };
+};
+
+/// Controllers only. Sets `X-Gateway-Auth` value checked on every non-health HTTP request.
+/// When empty (default after migration), auth is bypassed for backward compat until explicitly set.
+public shared ({ caller }) func admin_set_gateway_auth_secret(secret : Text) : async () {
+  if (not Principal.isController(caller)) {
+    Debug.trap("FORBIDDEN");
+  };
+  storage := {
+    vaultEntries = storage.vaultEntries;
+    proposalEntries = storage.proposalEntries;
+    billingByUser = storage.billingByUser;
+    operator_export_secret = storage.operator_export_secret;
+    gateway_auth_secret = secret;
+    cors_allowed_origin = storage.cors_allowed_origin;
+  };
+};
+
+/// Controllers only. Sets the `Access-Control-Allow-Origin` value for CORS responses.
+/// When both this and `gateway_auth_secret` are non-empty, `corsHeaders()` returns this
+/// origin instead of `*`. Call after deploy with the gateway origin (e.g. "https://hub.knowtation.com").
+public shared ({ caller }) func admin_set_cors_origin(origin : Text) : async () {
+  if (not Principal.isController(caller)) {
+    Debug.trap("FORBIDDEN");
+  };
+  storage := {
+    vaultEntries = storage.vaultEntries;
+    proposalEntries = storage.proposalEntries;
+    billingByUser = storage.billingByUser;
+    operator_export_secret = storage.operator_export_secret;
+    gateway_auth_secret = storage.gateway_auth_secret;
+    cors_allowed_origin = origin;
   };
 };
 

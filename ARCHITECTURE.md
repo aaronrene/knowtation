@@ -1,82 +1,147 @@
 # Knowtation — Architecture
 
-**Canonical spec:** All data formats, CLI surface, and contracts are defined in **[docs/SPEC.md](./docs/SPEC.md)**. This document summarizes the system and points to the spec for details.
-
-## High-level
-
-```
-Capture (Telegram/WhatsApp/Discord, JIRA, Slack, or any message interface) → vault/inbox or vault/projects/<project>/inbox
-Audio/Video → transcribe → vault (one note per recording)
-                    ↓
-        Obsidian-style vault (Markdown + frontmatter) ← source of truth, editor-agnostic
-                    ↓
-        Index: chunk → embed → Qdrant (or sqlite-vec); store project + tags in metadata
-                    ↓
-        CLI: knowtation search | get-note | list-notes | index  [--project] [--tag]
-                    ↓
-        Agents (Cursor, Claude, etc.) discover via SKILL.md and run CLI
-                    ↓
-        Optional: memory layer (Mem0/SAME, Mem), AIR (Null Lens) before write/export/analysis
-```
-
-## Interface: CLI first, MCP optional
-
-- **Primary:** One CLI, `knowtation`, with subcommands. Agents discover usage via SKILL.md and `knowtation --help`; no large tool schema in context. Full command set and JSON shapes: **docs/SPEC.md**.
-- **Optional:** MCP server that wraps the same backend for clients that only speak MCP. When present, MCP MUST expose the same operations and semantics as the CLI (search, get-note, list-notes, index, write, export, import); same filters and output; MCP is transport only. Run `knowtation mcp` or see **docs/AGENT-ORCHESTRATION.md**.
-- **Exit codes:** 0 success, 1 usage error, 2 runtime error. With `--json`, errors return `{ "error": "...", "code": "..." }`.
-
-## Agent orchestration (e.g. AgentCeption)
-
-Knowtation is a first-class **knowledge backend** for multi-agent orchestration. We support **both** interfaces so orchestrators can choose per environment:
-
-- **MCP:** When the agent runtime speaks MCP (Cursor, Claude Desktop, or an orchestrator that exposes MCP), configure the Knowtation MCP server; agents get tools like `search`, `get_note`, `list_notes`, `write`.
-- **CLI:** When agents run in containers or git worktrees (e.g. [AgentCeption](https://github.com/cgcardona/agentception) engineer agents), install the Knowtation CLI in that environment, set `KNOWTATION_VAULT_PATH`, and run `knowtation ... --json`; parse output in the agent.
-
-The vault acts as the **org brain**: agents read it for context (search → get-note with token-optimal retrieval) and can write back plans or summaries. See **docs/AGENT-ORCHESTRATION.md** for setup, patterns, and a write-back bridge example.
-
-## Vault layout and format
-
-- **Format:** Markdown + YAML frontmatter. Obsidian-style folder layout; the *format* is the contract, not the Obsidian app. You can use Obsidian, SilverBullet, Foam, VS Code, or any editor that works on this folder. Full frontmatter schema and project/tag normalization: **docs/SPEC.md §1–2**.
-- **Folders:**  
-  - `vault/inbox/` — Global raw captures (inbox frontmatter required).  
-  - `vault/captures/` — Processed captures.  
-  - `vault/projects/<project-slug>/` — Per-project notes (e.g. `born-free`, `dreambolt-network`); may contain `inbox/`.  
-  - `vault/areas/`, `vault/archive/`, `vault/media/audio|video/`, `vault/templates/`, `vault/meta/`.
-- **Project slug / tags:** Lowercase; `a-z0-9` and hyphen only (see SPEC).
-
-## Multi-project and tags
-
-- **One vault, many projects:** Notes live under `vault/projects/<name>/` and/or carry `project: <name>` and `tags: [a, b]` in frontmatter.
-- **Scoped vs full:** By default, search and list-notes see the whole vault. Use `--project <name>` or `--tag <tag>` to restrict to a project or tag. All information remains available across projects; filters are for scope, not isolation.
-- **Indexer:** Chunk and embed as today; store `project` and `tags` (from path and frontmatter) in vector store metadata so `search --project` and `list-notes --tag` are efficient (metadata filter or post-filter).
-
-## Message interfaces (capture plugins)
-
-- **Contract:** See **docs/SPEC.md §3**. Plugin writes Markdown notes to `vault/inbox/` or `vault/projects/<project>/inbox/` with required inbox frontmatter (`source`, `date`; `source_id` recommended for dedup). Filename and idempotency are plugin-defined; webhooks are allowed (same contract).
-- **Discovery:** No built-in discovery. User runs plugins via cron, scheduler, or manual run; config can list which capture scripts or services run.
-- **Built-in / recommended:** Telegram, WhatsApp, Discord; JIRA, Slack. Any other interface (Teams, email, custom) implements the same contract.
-
-## Memory and AIR
-
-- **Memory:** Optional (config: `memory.enabled`, `memory.provider`). Knowtation = *what you captured and wrote*; memory = *what the agent remembers*. Hooks: after search (store last query/results), after export (store provenance), optional `knowtation memory ...` subcommand. See **docs/SPEC.md §7**.
-- **AIR:** Optional (config: `air.enabled`, `air.endpoint`). Required before: `write` outside inbox, `export`. Inbox writes exempt. Log AIR id with the action. See **docs/SPEC.md §7**.
-
-## Optional integrations
-
-- **Airtable:** Structured project data (tasks, campaigns, people). Agents can use Airtable MCP separately; optional sync of vault summaries into Airtable. Knowtation remains the primary context store.
-- **Mem / Mem0 / SAME:** Implement the memory layer; plug in via config and SPEC §7 hooks.
-
-## Intention and temporal understanding
-
-- **Goal:** Give agents intention and an overarching view over time — temporal sequence, causation, long-horizon context. Many systems lack this; we spec it now to avoid backtracking.
-- **Optional frontmatter:** `follows`, `causal_chain_id`, `entity`, `episode_id`, `summarizes`, `summarizes_range`, `state_snapshot` (see **docs/INTENTION-AND-TEMPORAL.md** and SPEC §2.3). Notes remain valid without them.
-- **Optional CLI filters:** `--since`, `--until` (time range); `--chain`, `--entity`, `--episode` (causal/relational); `--order date|date-asc`. Indexer stores these in metadata when present.
-- **Hierarchical memory:** Chunk → note → episode (optional) → project. State snapshots and summary notes support state space compression for long-horizon context. Evals reserved (optional `knowtation eval`).
-
-## Backup and portability
-
-- **Vault directory** = primary backup; copy/sync to move or backup. Optional: include `data/` and (redacted) config. Vault under git recommended for history. See **docs/SPEC.md §8**.
+**Canonical spec:** Data formats, CLI surface, and contracts are defined in **[docs/SPEC.md](./docs/SPEC.md)**. The **[Whitepaper](./docs/WHITEPAPER.md)** covers the product thesis in depth including an architecture diagram (§15). This file is the structural overview.
 
 ---
 
-See **docs/SPEC.md** for the full specification; **docs/INTENTION-AND-TEMPORAL.md** for intention, temporal, causal, and eval design; **docs/STANDALONE-PLAN.md** for scenario coverage. Internal planning may live in **development/** (gitignored).
+## High-level system map
+
+```
+Sources (14 importers + 4 capture channels)
+  ChatGPT, Claude, Mem0, Notion, Jira, Linear, NotebookLM, GDrive,
+  MIF, Supabase, Markdown, Audio (Whisper), Video (Whisper), Wallet CSV
+  + file/stdin, HTTP webhook, Slack/Discord/Telegram adapters
+          │
+          ▼
+  Vault (Markdown + YAML frontmatter) ← source of truth, editor-agnostic
+          │
+          ├── Index: chunk → embed → vector store (Qdrant or sqlite-vec)
+          │
+          ├── Memory: event log + semantic recall + consolidation (5 providers)
+          │
+          └── Trust pipeline: proposals → review → attestation → ICP canister
+          │
+          ▼
+  Agent surface
+    CLI    — 25+ commands, JSON output, all filters and token levers
+    MCP    — 33 tools, 23 resources, 13 prompts (stdio or HTTP)
+    Hub    — REST API + web UI (self-hosted or hosted at knowtation.store)
+```
+
+---
+
+## Deployment modes
+
+### Self-hosted
+
+Clone the repo, `npm install`, configure `config/local.yaml` (vault path, embedding provider, vector backend), run `npm run index` and optionally `npm run hub`. The vault, index, and memory data stay on your machine. Full control; no external dependencies beyond your chosen embedding provider.
+
+### Hosted (knowtation.store)
+
+Three services run on Netlify and the Internet Computer:
+
+| Service | Technology | Role |
+|---------|-----------|------|
+| **Gateway** (`hub/gateway/`) | Node.js / Netlify Functions | OAuth (Google + GitHub), JWT auth, billing (Stripe), image proxy, MCP OAuth 2.1, rate limiting, request routing |
+| **Bridge** (`hub/bridge/`) | Node.js / Netlify Functions | Vault operations, GitHub integration (backup/sync), team roles, import, memory consolidation |
+| **Canister** (`hub/icp/`) | Motoko / Internet Computer | Vault note storage, attestation anchoring, admin functions, gateway-auth-gated API |
+
+```
+Browser / Agent
+      │  HTTPS
+      ▼
+  Gateway (Netlify)  ──JWT──▶  Bridge (Netlify)
+      │                               │
+      │  X-Gateway-Auth               │  X-Gateway-Auth
+      ▼                               ▼
+  ICP Canister                   GitHub API
+  (rsovz-byaaa-aaaaa-qgira-cai)  (vault backup)
+```
+
+The gateway and bridge communicate with the ICP canister using an `X-Gateway-Auth` shared secret. The browser never talks to the canister directly; all canister access is proxied through the gateway.
+
+---
+
+## Core components
+
+### Vault
+
+- **Format:** Markdown + YAML frontmatter. Editor-agnostic (Obsidian, SilverBullet, Foam, VS Code, or any text editor).
+- **Layout:** `vault/inbox/`, `vault/captures/`, `vault/projects/<slug>/`, `vault/areas/`, `vault/archive/`, `vault/media/audio|video/`, `vault/templates/`, `vault/meta/`.
+- **Portability:** The vault is a folder of files. Migrate by copying it. Version with Git for history and rollback.
+
+### Index
+
+Chunks vault notes by heading or size, embeds them, and upserts into the vector store. Metadata includes path, project, tags, dates, entity, episode, and causal chain fields. Supports:
+- **sqlite-vec** — zero-server local SQLite file (default for self-hosted)
+- **Qdrant** — separate vector database for production deployments
+
+### Memory (5 providers)
+
+| Provider | Storage | Semantic search |
+|----------|---------|-----------------|
+| file | Append-only JSONL + state.json | No |
+| vector | File + embeddings in vector store | Yes |
+| mem0 | File + Mem0 REST API dual-write | Yes |
+| supabase | File + pgvector table | Yes |
+| encrypted | AES-256-GCM at rest (scrypt key) | No |
+
+Fifteen event types; three-pass consolidation (consolidate / verify / discover); session summaries; retention enforcement; cross-vault or per-vault scope.
+
+### CLI
+
+Primary interface. All commands output JSON with `--json`. Key subcommands: `search`, `get-note`, `list-notes`, `write`, `export`, `import`, `memory`, `propose`, `capture`, `transcribe`, `index`, `daemon`.
+
+### MCP Server
+
+33 tools, 23 resources, 13 prompts over stdio or HTTP transports. Wraps the same backend as the CLI. Hosted MCP adds OAuth 2.1 and role-gated access (viewer / editor / admin). Configure with `npm run mcp` or `npm run mcp:http`.
+
+### Hub
+
+Web UI and REST API. Features: Google/GitHub OAuth, proposals with LLM enrichment and rubric scoring, team roles (viewer/editor/admin/evaluator), invite-by-link, multi-vault, GitHub backup, image upload/proxy, Stripe billing, settings.
+
+### Attestation and ICP anchoring
+
+AIR (Attestation Integrity Records) records intent before writes and exports. HMAC-signed records can be dual-written to the ICP attestation canister (`dejku-syaaa-aaaaa-qgy3q-cai`) for immutable, decentralized audit trails. Pending records are anchored in batch via `POST /api/v1/attest/anchor-pending`.
+
+### Billing (hosted)
+
+Stripe-backed tiers (Free, Plus, Growth, Pro). Operations classified as: search, index, consolidation, note write, proposal write. Enforced when `BILLING_ENFORCE=true`; shadow mode logs usage without blocking. Token packs provide additional indexing capacity.
+
+---
+
+## Security
+
+The codebase completed a 4-phase pre-launch security audit (Phases 0–3, April 2026). Key controls:
+- `X-Gateway-Auth` shared secret gates all canister and bridge access
+- JWT expiry: 24h (gateway), 1h (self-hosted)
+- OAuth redirect token delivered via URL fragment (`#token=`), not query param
+- Short-lived HMAC-signed image proxy tokens (5 min TTL)
+- CORS locked to gateway origin on ICP canister when secret is set
+- Role-based access control on all bridge write routes
+
+See [`docs/SECURITY-AUDIT-PLAN.md`](./docs/SECURITY-AUDIT-PLAN.md) for the full remediation record.
+
+---
+
+## Interface contracts
+
+- **CLI → Agent:** `--json` flag on all commands; error shape `{ "error": "...", "code": "..." }`; exit codes 0/1/2
+- **MCP:** Tools mirror CLI semantics exactly; MCP is transport only
+- **Hub REST API:** JWT bearer auth; documented in [`docs/HUB-API.md`](./docs/HUB-API.md)
+- **Capture plugins:** Write Markdown to `vault/inbox/` with `source`, `date`, `source_id` frontmatter; contract in [`docs/CAPTURE-CONTRACT.md`](./docs/CAPTURE-CONTRACT.md)
+- **Vault format:** Frontmatter schema in [`docs/SPEC.md`](./docs/SPEC.md)
+
+---
+
+## Key documentation
+
+| Document | What it covers |
+|----------|---------------|
+| [docs/WHITEPAPER.md](./docs/WHITEPAPER.md) | Product thesis, architecture diagram, full feature inventory |
+| [docs/SPEC.md](./docs/SPEC.md) | Frontmatter, CLI commands, config, MCP, contracts |
+| [docs/HUB-API.md](./docs/HUB-API.md) | Hub REST API and auth |
+| [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md) | Multi-agent setup |
+| [docs/MEMORY-CONSOLIDATION-GUIDE.md](./docs/MEMORY-CONSOLIDATION-GUIDE.md) | Consolidation daemon |
+| [docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md) | All 14 importers |
+| [docs/SECURITY-AUDIT-PLAN.md](./docs/SECURITY-AUDIT-PLAN.md) | Security audit phases and controls |

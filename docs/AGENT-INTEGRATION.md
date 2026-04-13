@@ -216,7 +216,7 @@ curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
 | List proposals| GET    | /proposals        | status, limit, offset |
 | Get proposal  | GET    | /proposals/:id    | —          |
 | Create proposal | POST | /proposals        | path?, body?, frontmatter?, intent?, base_state_id? |
-| Approve       | POST   | /proposals/:id/approve | base_state_id? |
+| Approve       | POST   | /proposals/:id/approve | base_state_id?, waiver_reason?, external_ref? |
 | Discard       | POST   | /proposals/:id/discard | —    |
 | Capture       | POST   | /capture          | body, source_id?, source?, project?, tags? (optional X-Webhook-Secret) |
 

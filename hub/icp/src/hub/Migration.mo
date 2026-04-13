@@ -202,11 +202,32 @@ module Migration {
     billingByUser : [(Text, BillingRecord)];
   };
 
+  /// Stable layout on mainnet **before** `gateway_auth_secret` (V6 on-chain).
+  public type StableStorageV6 = {
+    vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
+    proposalEntries : [(Text, [ProposalRecord])];
+    billingByUser : [(Text, BillingRecord)];
+    operator_export_secret : Text;
+  };
+
+  /// On-chain layout after `gateway_auth_secret` **and** `cors_allowed_origin` (hosted CORS lock).
+  /// Must match serialized mainnet state before upgrades that only change `StableStorage` / `ProposalRecord`.
+  public type StableStorageV7 = {
+    vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
+    proposalEntries : [(Text, [ProposalRecord])];
+    billingByUser : [(Text, BillingRecord)];
+    operator_export_secret : Text;
+    gateway_auth_secret : Text;
+    cors_allowed_origin : Text;
+  };
+
   public type StableStorage = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
     proposalEntries : [(Text, [ProposalRecord])];
     billingByUser : [(Text, BillingRecord)];
     operator_export_secret : Text;
+    gateway_auth_secret : Text;
+    cors_allowed_origin : Text;
   };
 
   func _proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecord {
@@ -356,14 +377,16 @@ module Migration {
   };
 
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
-  /// V5→V6: add `operator_export_secret` (empty until set via `admin_set_operator_export_secret`).
-  public func migration(old : { var storage : StableStorageV5 }) : { var storage : StableStorage } {
+  /// V7 is the post–CORS-lock layout; `StableStorage` may gain fields later — map explicitly here.
+  public func migration(old : { var storage : StableStorageV7 }) : { var storage : StableStorage } {
     {
       var storage = {
         vaultEntries = old.storage.vaultEntries;
         proposalEntries = old.storage.proposalEntries;
         billingByUser = old.storage.billingByUser;
-        operator_export_secret = "";
+        operator_export_secret = old.storage.operator_export_secret;
+        gateway_auth_secret = old.storage.gateway_auth_secret;
+        cors_allowed_origin = old.storage.cors_allowed_origin;
       };
     };
   };

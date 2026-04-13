@@ -1308,21 +1308,27 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .how-to-note { margin-top: 1rem; padding: 0.5rem 0.75rem; background: var(--surface); border-radius: 6px; font-size: 0.85rem; line-height: 1.5; }
 .how-to-code { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
 
-/* How to use + Settings: explicit link color (UA default blue is too dark on dark theme) */
+/* How to use + Settings + onboarding: explicit link color (UA default blue is too dark on dark theme) */
 .modal-card-how-to-use a[href],
-.modal-card-settings .settings-body a[href] {
+.modal-card-settings .settings-body a[href],
+.onboarding-step-body a[href],
+.onboarding-resume-hint a[href] {
   color: var(--link-url);
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--link-url) 50%, transparent);
   text-underline-offset: 0.12em;
 }
 .modal-card-how-to-use a[href]:hover,
-.modal-card-settings .settings-body a[href]:hover {
+.modal-card-settings .settings-body a[href]:hover,
+.onboarding-step-body a[href]:hover,
+.onboarding-resume-hint a[href]:hover {
   color: var(--link-url-hover);
   text-decoration-color: color-mix(in srgb, var(--link-url-hover) 55%, transparent);
 }
 .modal-card-how-to-use a[href]:visited,
-.modal-card-settings .settings-body a[href]:visited {
+.modal-card-settings .settings-body a[href]:visited,
+.onboarding-step-body a[href]:visited,
+.onboarding-resume-hint a[href]:visited {
   color: var(--link-url);
 }
 
@@ -2090,6 +2096,13 @@ input[type="date"]::-moz-calendar-picker-indicator {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
+.media-toolbar-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted, color-mix(in srgb, var(--text) 55%, transparent));
+  align-self: center;
+  cursor: help;
+  border-bottom: 1px dashed currentColor;
+}
 .media-url-dialog {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2295,5 +2308,85 @@ input[type="date"]::-moz-calendar-picker-indicator {
 @media (max-width: 480px) {
   .integ-source-grid {
     grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  }
+}
+
+/* Onboarding wizard */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.modal-onboarding-card {
+  max-width: 34rem;
+  width: calc(100% - 2rem);
+}
+.onboarding-step-body {
+  padding: 0 1.25rem 0.75rem;
+  line-height: 1.55;
+  color: var(--text);
+  max-height: min(52vh, 22rem);
+  overflow-y: auto;
+}
+.onboarding-step-body p {
+  margin: 0 0 0.75rem 0;
+}
+.onboarding-step-body p:last-child {
+  margin-bottom: 0;
+}
+.onboarding-tip {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.onboarding-progress {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.25rem 1.25rem 0.75rem;
+  justify-content: center;
+}
+.onboarding-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+.onboarding-dot.onboarding-dot-active {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.onboarding-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 0 1.25rem 0.75rem;
+}
+.onboarding-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.onboarding-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+.onboarding-resume-hint {
+  padding: 0 1.25rem 1rem;
+  margin: 0;
+  line-height: 1.4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-dot.onboarding-dot-active {
+    box-shadow: none;
   }
 }

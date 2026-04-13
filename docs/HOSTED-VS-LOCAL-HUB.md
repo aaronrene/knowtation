@@ -28,7 +28,8 @@ Going live did **not** “break” the old app: the **browser is talking to a di
    Storage was refactored (single stable blob, parser fixes for Motoko base lib).  
    **Effect:** Redeploy can **reset** canister state if upgrade path isn’t preserving stable vars, or **new users** get empty vaults keyed by `google:…` — so “sample data gone” can be **empty canister per user**, not the UI randomly deleting data.
 
-3. **Gateway fixes (CORS, Netlify bundling, redirect to `/hub/?token=`)**  
+3. **Gateway fixes (CORS, Netlify bundling, redirect to `/hub/#token=`)**
+   *(Phase 3.1 changed OAuth redirect from `?token=` query param to `#token=` URL fragment)*  
    **Effect:** Sign-in and redirects work on live; unrelated to List/Calendar.
 
 4. **Gateway stubs: `GET /api/v1/settings`, `GET /api/v1/setup`, JWT `name` + `role`**  

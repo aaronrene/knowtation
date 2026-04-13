@@ -507,6 +507,9 @@ paths:
                 waiver_reason:
                   type: string
                   description: Admin override when evaluation is not passed (min length 3 after trim)
+                external_ref:
+                  type: string
+                  description: Optional cross-system lineage id (e.g. Muse); server may resolve via MUSE_URL when omitted
       responses:
         '200':
           content:
@@ -516,6 +519,7 @@ paths:
                 properties:
                   proposal_id: { type: string }
                   status: { type: string, enum: [approved] }
+                  external_ref: { type: string }
         '403':
           description: EVALUATION_REQUIRED — pass evaluation or provide waiver_reason
         '409':

@@ -8,6 +8,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 
 import { notePathMatchesPrefix, normalizePathPrefix } from '../lib/write.mjs';
+import { normalizeExternalRef } from '../lib/muse-thin-bridge.mjs';
 
 const FILENAME = 'hub_proposals.json';
 
@@ -239,7 +240,7 @@ export function createProposal(dataDir, input) {
  * @param {string} dataDir
  * @param {string} id
  * @param {'approved'|'discarded'} status
- * @param {{ evaluation_waiver?: { by: string, at: string, reason: string } }} [extras]
+ * @param {{ evaluation_waiver?: { by: string, at: string, reason: string }, external_ref?: string }} [extras]
  * @returns {object|null} Updated proposal or null
  */
 export function updateProposalStatus(dataDir, id, status, extras = {}) {
@@ -250,6 +251,10 @@ export function updateProposalStatus(dataDir, id, status, extras = {}) {
   let next = { ...all[idx], status, updated_at: now };
   if (status === 'approved' && extras.evaluation_waiver) {
     next = { ...next, evaluation_waiver: extras.evaluation_waiver };
+  }
+  if (status === 'approved' && extras.external_ref != null) {
+    const ref = normalizeExternalRef(extras.external_ref);
+    if (ref) next = { ...next, external_ref: ref };
   }
   all[idx] = next;
   saveProposals(dataDir, all);
