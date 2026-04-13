@@ -150,6 +150,63 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
 
+### Cursor + hosted Knowtation MCP (step-by-step)
+
+**What you are doing:** telling Cursor to open a **remote** MCP connection to your **gateway’s** `/mcp` URL, using the same **token** and **vault id** you copied from **Settings → Integrations → Hub API** (not the local `node … mcp` + disk vault path).
+
+**Where to put it in Cursor**
+
+1. **Option A — Settings UI:** **Cursor** → **Settings** (`Cmd` + `,` on macOS, `Ctrl` + `,` on Windows/Linux) → search **MCP** → open **MCP / Tools & MCP** (wording varies by Cursor version) → **Add server** or **Edit in `mcp.json`**. Cursor opens or creates the JSON file it uses for MCP.
+2. **Option B — File directly (same result):** edit one of:
+   - **All projects:** `~/.cursor/mcp.json` on your machine  
+   - **This repo only:** `.cursor/mcp.json` at the **git root** of the project you opened in Cursor  
+
+   Official overview: [Model Context Protocol (MCP) — Cursor Docs](https://cursor.com/docs/mcp).
+
+**What to paste (shape only — use your real values from the Hub copy button; do not commit secrets)**
+
+The Hub copy gives you `KNOWTATION_HUB_URL` (gateway base, **no** `/mcp` suffix). The MCP endpoint is **`{KNOWTATION_HUB_URL}/mcp`**.
+
+```json
+{
+  "mcpServers": {
+    "knowtation-hosted": {
+      "url": "https://YOUR-GATEWAY-HOST/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_HUB_TOKEN_FROM_COPY_BUTTON",
+        "X-Vault-Id": "YOUR_VAULT_ID_FROM_COPY_BUTTON"
+      }
+    }
+  }
+}
+```
+
+**Safer pattern (recommended):** put the token in a **shell / OS env var** and reference it so the JSON file does not contain the raw JWT:
+
+```json
+{
+  "mcpServers": {
+    "knowtation-hosted": {
+      "url": "https://YOUR-GATEWAY-HOST/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:KNOWTATION_HUB_TOKEN}",
+        "X-Vault-Id": "${env:KNOWTATION_HUB_VAULT_ID}"
+      }
+    }
+  }
+}
+```
+
+Then export `KNOWTATION_HUB_TOKEN` and `KNOWTATION_HUB_VAULT_ID` in the environment from which you launch Cursor (or use your OS secret store if your Cursor build documents another interpolation syntax).
+
+**After saving**
+
+1. **Reload MCP** (Cursor usually has a refresh on the MCP screen, or restart Cursor).  
+2. Open **View → Output** (or **Output** panel) → choose **MCP** / **Cursor MCP** in the dropdown if logs do not appear — see [Cursor MCP docs](https://cursor.com/docs/mcp) for troubleshooting.  
+3. In chat, try a tiny vault action (e.g. ask the agent to **list_notes** or **search** with a low limit).
+
+**If Cursor ignores `headers`:** some MCP hosts prefer **OAuth** when the server advertises discovery (`GET /.well-known/oauth-authorization-server`). Your gateway supports OAuth for MCP (see **Hosted MCP (Phase D2/D3)** above). In that case use Cursor’s **OAuth / Sign in** flow for that MCP server instead of static Bearer headers, if the UI offers it.
+
 ### Dual MCP (interop): Knowtation + another server
 
 Cursor, Claude Desktop, and other MCP hosts can load **multiple MCP servers** in one app. A common pattern during or after a **Supabase → Knowtation** migration:
