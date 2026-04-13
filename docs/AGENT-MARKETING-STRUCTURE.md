@@ -31,7 +31,7 @@ Same **skill packs** and marketing workflow either way; what changes is **where 
 | **MCP tools** (search, get_note, write, …) | Product: [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md). **Local:** stdio `knowtation mcp` + `KNOWTATION_VAULT_PATH`. **Hosted:** gateway `POST /mcp` + OAuth or Hub JWT — [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 “Hosted MCP”. |
 | **Vault templates** (folder patterns) | This repo: `vault/templates/` — [TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md). **Local:** copy/seed into your disk vault. **Hosted:** structure comes from notes you create/import in Hub; templates are a reference for layout and frontmatter. |
 
-**Hosted equivalent of “the local vault folder”:** there is **no** path on your laptop for production data. The vault is **tenant storage (canister)** behind the gateway. You work with it through the **Hub UI** (note list, editor, paths like `drafts/idea.md`) exactly as if it were files—but the bits live in the **service**, not in Finder. Agents and scripts use **`KNOWTATION_HUB_URL` + `Authorization: Bearer <JWT>` + `X-Vault-Id`** (same REST contract as a self-hosted Hub), or **hosted MCP** (`POST /mcp` on the gateway). Copy the block from **Settings → Integrations → Hub API**. JWTs expire; refresh from Integrations on `401`.
+**Hosted equivalent of “the local vault folder”:** there is **no** path on your laptop for production data. The vault is **tenant storage (canister)** behind the gateway. You work with it through the **Hub UI** (note list, editor, paths like `drafts/idea.md`) exactly as if it were files—but the bits live in the **service**, not in Finder. Agents and scripts use the **same three facts** you copied from **Settings → Integrations → Hub API**: the Hub **address**, your **API token** (a time-limited pass—see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) for plain-language “why 401 happens”), and **which vault** to act on. Technically those map to a base URL plus `Authorization: Bearer …` and header `X-Vault-Id` on REST calls, or you can use **hosted MCP** instead. **Never paste that copy block into public places**—it is a secret.
 
 **Quick mapping (when instructions mention “the vault”):**
 
@@ -97,7 +97,7 @@ Server-side prompt templates (`content-plan`, `search-and-synthesize`, …) are 
 | **Agents / automation** | **Hub REST API** — `KNOWTATION_HUB_URL`, `Authorization: Bearer <JWT>`, `X-Vault-Id`; copy from **Settings → Integrations → Hub API**. Or **hosted MCP** — `POST /mcp` on the gateway ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 “Hosted MCP”, §3). |
 | **Indexing** | Service-side; use Hub controls / docs for **re-index** after large imports. |
 | **Backup** | Optional **Connect GitHub** (hosted pushes to **your** repo). |
-| **JWT** | Expires; refresh from Integrations on `401`. |
+| **API token** | Time-limited (hosted gateway default **24h** unless ops changes `HUB_JWT_EXPIRY`). When an automation’s copy goes stale, click **Copy Hub URL, token & vault** again—**not** the same as “logging into the website all day.” |
 | **Roles** | Viewer / editor / admin for MCP and API—match to who may auto-write vs propose. |
 
 **Step-by-step (Track H):**
