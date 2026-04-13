@@ -21,7 +21,93 @@ This document merges two anonymized inputs: a **YouTube-first growth** narrative
 
 ---
 
-## 2. Layman’s overview: what we are building
+## 2. Beginner setup: skills, MCP, templates, Cursor, and Abacus
+
+This section answers “what is what?” in **slow steps**. We will extend it as you get more detailed instructions from Abacus, your Hub host, and your vault.
+
+### 2.1 Simple picture: three different things
+
+Think of three layers that **sound** similar but are **not** the same:
+
+| Layer | What it is | Who owns it | Analogy |
+|-------|------------|-------------|---------|
+| **A. Agent skills** | Short instruction files (usually `SKILL.md`) that tell an AI *how to behave* in a role: what to read, what order to work in, what to output. | **This repo (Knowtation)** under [`.cursor/skills/`](../.cursor/skills/): base [knowtation](../.cursor/skills/knowtation/SKILL.md) + [marketing packs](../.cursor/skills/packs/) (`marketing-research`, `marketing-strategy`, …). **Cursor** is the app that *loads* those skills when you or the agent use them—it is the “reader,” not the author of our marketing playbooks. | **Recipe cards** you wrote and keep in the kitchen drawer. |
+| **B. MCP (Model Context Protocol)** | A **wire protocol** so an app (Cursor, Abacus, etc.) can call **tools** on a **server**: search a vault, read a note, write a note, index, … | The **Knowtation MCP server** is part of **this product** (see [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md)). Cursor (or Abacus) is just a **client** that connects to it if you add it to MCP settings. | **Power tools** plugged into the wall: the wall socket is MCP; Knowtation is one appliance. |
+| **C. Vault templates** | Starter **folder layouts and example Markdown** for your *notes* (drafts, research, outlines, …). | **This repo** under `vault/templates/` (see [TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md)). You **copy or seed** them into **your** vault path. **Cursor does not supply** these templates for Knowtation. | **Pantry labels and shelf layout** for where food goes—not the same as the recipe cards. |
+
+**Direct answers to your questions:**
+
+1. **“Are MCP skills something Cursor has?”**  
+   Cursor has **MCP support** (it can talk to MCP servers). Cursor also has **Skills** (in Cursor’s sense: optional project or user skills, often `SKILL.md`). Our **marketing skill packs are not “Cursor’s” content**—they live in **this repository**. Cursor is where you often **invoke** them together: skills tell the model *what to do*; Knowtation MCP *tools* let it *search/read/write* the vault.
+
+2. **“Are these the skills that are part of our MCP connection that we created ourselves?”**  
+   **Partially.** We created **both** (a) **skill files** = behavior docs, and (b) **Knowtation MCP** = real tools hitting your vault/index. They work **together** but are **not the same file**. MCP is not “inside” a skill file; you **configure** MCP separately (e.g. Cursor MCP config pointing at `knowtation mcp`).
+
+3. **“Are we using our templates or Cursor’s?”**  
+   For the **Knowtation vault**, use **Knowtation’s templates** (`content-creation`, `business-ops`, etc.) from this repo. Cursor may have its own unrelated templates for *other* workflows; for **this** marketing system, the source of truth for folder structure and example notes is **Knowtation** ([TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md)).
+
+### 2.2 Seven marketing roles ↔ our skill packs
+
+These match the “seven agents” workflow (research → … → analytics) described in your reference material. Each row is **one skill pack** you can enable in Cursor; the same roles can be mirrored in [Abacus](https://apps.abacus.ai/) as separate deep agents or stages.
+
+| # | Role | Skill pack path (this repo) | Main job |
+|---|------|------------------------------|----------|
+| 1 | Research | `.cursor/skills/packs/marketing-research` | Briefs, competitors, trends → `research/` |
+| 2 | Strategy | `.cursor/skills/packs/marketing-strategy` | Positioning, calendar, personas → `outlines/` |
+| 3 | Writing | `.cursor/skills/packs/marketing-writer` | Drafts, email, social, scripts → `drafts/` |
+| 4 | Editor | `.cursor/skills/packs/marketing-editor` | Quality, style, claims → revises `drafts/` |
+| 5 | Visual | `.cursor/skills/packs/marketing-visual` | Image briefs, brand notes |
+| 6 | Distribution | `.cursor/skills/packs/marketing-distribution` | Channel plans, checklists → `published/` / playbooks |
+| 7 | Analytics | `.cursor/skills/packs/marketing-analytics` | KPIs, reports → `research/` or reports |
+
+The base **[knowtation skill](../.cursor/skills/knowtation/SKILL.md)** teaches *how* to call the CLI/MCP (search, `get-note`, tiered retrieval). Use it alongside any pack.
+
+### 2.3 MCP prompts (optional fourth layer—easy to confuse)
+
+Knowtation can also expose **MCP prompts** (server-side prompt templates that pull vault context)—listed in [TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md) (`content-plan`, `search-and-synthesize`, etc.). Those are **not** the same as `.cursor/skills/` files; they are **invoked through the Knowtation MCP server** when your host lists them. If your Cursor build only shows **tools** and not prompts, rely on skills + tools first.
+
+### 2.4 Setup path A — Cursor first (recommended for beginners)
+
+Do these in order. Stop if any step fails and fix it before moving on.
+
+**Step A1 — Open this repo in Cursor**  
+You should see folders like `docs/`, `.cursor/skills/`, and (if present) your vault or `vault/templates/`.
+
+**Step A2 — Choose your vault directory**  
+Knowtation needs a folder of Markdown notes. Either use an existing vault or create an empty folder and point config at it. Your env or `config/local.yaml` should set vault path per [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) (`KNOWTATION_VAULT_PATH`).
+
+**Step A3 — (Optional) Seed vault layout from our templates**  
+Copy or seed from `vault/templates/content-creation/` (and optionally `business-ops/`) so you get `drafts/`, `research/`, `outlines/`, etc. This uses **our** templates, not Cursor’s.
+
+**Step A4 — Index once**  
+From a terminal in the project (with deps configured): run `knowtation index` so search works. If this fails, MCP search will also fail until indexing succeeds.
+
+**Step A5 — Connect Knowtation MCP in Cursor**  
+Add the Knowtation MCP server to your Cursor MCP settings (same pattern as [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md): `command` + `args` + `env` including `KNOWTATION_VAULT_PATH`). Restart or reload MCP if needed.
+
+**Step A6 — Smoke test**  
+In chat, ask the agent to run a **small** search and open **one** note (tiered retrieval: low limit, then `get_note` for one path). Confirm you see real vault paths.
+
+**Step A7 — Use one skill pack intentionally**  
+For example, `@marketing-research` (or your Cursor UI equivalent) and ask for a brief on one topic; confirm outputs reference vault paths you expect.
+
+**What “done” means for Step 2.4:** you can search, read, and (if policy allows) write notes from Cursor via MCP, and at least one marketing skill has been used end-to-end.
+
+### 2.5 Setup path B — Abacus + Knowtation (after Cursor works)
+
+Abacus ([apps.abacus.ai](https://apps.abacus.ai/)) can participate in the same system, but cloud agents often **cannot** reach a MCP server running only on your laptop unless Abacus supports your transport (see [Abacus MCP documentation](https://abacus.ai/help/chatllm-ai-super-assistant/mcp-servers/)).
+
+**Step B1 (usually easiest)** — Give Abacus **Hub URL + token** so agents call the same APIs humans use: search, read, proposals. Your Hub UI already describes this pattern for Abacus (`Hub URL + KNOWTATION_HUB_TOKEN`); see the “Abacus” card in the Hub how-to (mirrored conceptually in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)).
+
+**Step B2** — Create **seven** Abacus agents (or one workflow with seven stages) whose instructions match the table in §2.2 and require them to **cite vault paths** in outputs.
+
+**Step B3** — Optional: add **Knowtation MCP** inside Abacus when their UI supports a reachable MCP endpoint for your deployment.
+
+**Update log:** As Abacus or Hub gives you click-by-click screenshots or JSON samples, paste summaries into `docs/` or your vault `playbooks/` and we will fold them into this §2.
+
+---
+
+## 3. Layman’s overview: what we are building
 
 1. **Pick one flagship channel** (recommended: long-form YouTube) and publish **consistently** so the algorithm and audience know what to expect.  
 2. **Plan topics on purpose** (short weekly curation ritual) so you are not guessing titles at midnight.  
@@ -34,7 +120,7 @@ This document merges two anonymized inputs: a **YouTube-first growth** narrative
 
 ---
 
-## 3. Technical overview: systems map
+## 4. Technical overview: systems map
 
 ```mermaid
 flowchart LR
@@ -75,7 +161,7 @@ flowchart LR
 
 ---
 
-## 4. Knowtation integration (use the product to the fullest)
+## 5. Knowtation integration (use the product to the fullest)
 
 | Area | Doc or path | What to do in each phase |
 |------|-------------|---------------------------|
@@ -96,7 +182,7 @@ flowchart LR
 
 ---
 
-## 5. Master timeline (merged: pre-flight, 30 days, then months)
+## 6. Master timeline (merged: pre-flight, 30 days, then months)
 
 This table **layers** a blueprint-style first month onto a longer GTM ramp. Dates are **relative** (start = Day 1 when you commit).
 
@@ -118,7 +204,7 @@ This table **layers** a blueprint-style first month onto a longer GTM ramp. Date
 
 ---
 
-## 6. Phased implementation
+## 7. Phased implementation
 
 Each phase has: **Layman** → **Steps** → **Knowtation** → **Technical** → **Test / verify**.
 
@@ -323,7 +409,7 @@ Each phase has: **Layman** → **Steps** → **Knowtation** → **Technical** �
 
 ---
 
-## 7. Connecting platforms and tools (canonical entry points)
+## 8. Connecting platforms and tools (canonical entry points)
 
 Use these **root** URLs when bookmarking or linking internally; **re-check** pricing and feature names before purchase—they change.
 
@@ -347,7 +433,7 @@ Use these **root** URLs when bookmarking or linking internally; **re-check** pri
 
 ---
 
-## 8. Recommendations (first rodeo)
+## 9. Recommendations (first rodeo)
 
 1. **Ship the capture path before perfecting avatar tech** unless your niche truly requires a synthetic presenter on day one.  
 2. **Write short, dated retros** in the vault after every publish; agents retrieve them as “institutional memory.”  
@@ -360,7 +446,7 @@ Use these **root** URLs when bookmarking or linking internally; **re-check** pri
 
 ---
 
-## 9. First-rodeo appendix
+## 10. First-rodeo appendix
 
 - **Audio for voice training:** follow vendor requirements for length, format (often WAV), silence, and single speaker—see ElevenLabs documentation.  
 - **Video for avatar training:** stable camera, even lighting, multiple outfits if you want variety; avoid repetitive gestures that confuse the model.  
@@ -370,7 +456,7 @@ Use these **root** URLs when bookmarking or linking internally; **re-check** pri
 
 ---
 
-## 10. Optional math (hypothetical only)
+## 11. Optional math (hypothetical only)
 
 Use a spreadsheet; do not treat these as benchmarks.
 
@@ -380,11 +466,12 @@ Use a spreadsheet; do not treat these as benchmarks.
 
 ---
 
-## 11. Document control
+## 12. Document control
 
 | Version | Branch | Notes |
 |---------|--------|--------|
 | 1.0 | `agent-birthday` | Initial merged playbook + agent birth / Knowtation test-flight framing |
+| 1.1 | `agent-birthday` | §2 beginner setup (skills vs MCP vs templates; Cursor vs Abacus); seven-role table; staged setup steps—extend §2 as detailed vendor instructions arrive |
 
 When this merges to `main`, update the table row if your process requires it.
 
