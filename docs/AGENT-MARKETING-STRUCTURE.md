@@ -48,7 +48,7 @@ Think of three layers that **sound** similar but are **not** the same:
 
 ### 2.2 Seven marketing roles ↔ our skill packs
 
-These match the “seven agents” workflow (research → … → analytics)that is our agent crew. Each row is **one skill pack** you can enable in Cursor; the same roles can be mirrored in [Abacus](https://apps.abacus.ai/) as separate deep agents or stages.
+These match the “seven agents” workflow (research → … → analytics) that is our agent crew. Each row is **one skill pack** you can enable in Cursor; the same roles can be mirrored in [Abacus](https://apps.abacus.ai/) as separate deep agents or stages.
 
 | # | Role | Skill pack path (this repo) | Main job |
 |---|------|------------------------------|----------|
