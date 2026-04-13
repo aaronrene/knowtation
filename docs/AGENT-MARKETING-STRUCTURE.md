@@ -31,7 +31,17 @@ Same **skill packs** and marketing workflow either way; what changes is **where 
 | **MCP tools** (search, get_note, write, …) | Product: [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md). **Local:** stdio `knowtation mcp` + `KNOWTATION_VAULT_PATH`. **Hosted:** gateway `POST /mcp` + OAuth or Hub JWT — [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 “Hosted MCP”. |
 | **Vault templates** (folder patterns) | This repo: `vault/templates/` — [TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md). **Local:** copy/seed into your disk vault. **Hosted:** structure comes from notes you create/import in Hub; templates are a reference for layout and frontmatter. |
 
-**Hosted equivalent of “the local vault folder”:** there is **no** path on your laptop for production data. The vault is **tenant storage (canister)** behind the gateway. Agents and scripts use **`KNOWTATION_HUB_URL` + `Authorization: Bearer <JWT>` + `X-Vault-Id`** (and the same REST routes as self-hosted Hub), or **hosted MCP** — copy from Hub **Settings → Integrations → Hub API**. JWTs expire; refresh from Integrations on `401`.
+**Hosted equivalent of “the local vault folder”:** there is **no** path on your laptop for production data. The vault is **tenant storage (canister)** behind the gateway. You work with it through the **Hub UI** (note list, editor, paths like `drafts/idea.md`) exactly as if it were files—but the bits live in the **service**, not in Finder. Agents and scripts use **`KNOWTATION_HUB_URL` + `Authorization: Bearer <JWT>` + `X-Vault-Id`** (same REST contract as a self-hosted Hub), or **hosted MCP** (`POST /mcp` on the gateway). Copy the block from **Settings → Integrations → Hub API**. JWTs expire; refresh from Integrations on `401`.
+
+**Quick mapping (when instructions mention “the vault”):**
+
+| Idea (self-hosted) | Hosted equivalent |
+|--------------------|---------------------|
+| Folder on disk (`KNOWTATION_VAULT_PATH`) | **Logical vault** in Hub + canister backing; pick vault in Hub header / `X-Vault-Id` in API |
+| `knowtation list-notes` / `search` via CLI | **Same operations** via Hub UI search, `GET/POST /api/v1/...`, or MCP `list_notes` / `search` against your tenant |
+| `knowtation write path` | `POST /api/v1/notes` or MCP `write` (role permitting); use **proposals** if your policy requires review |
+| `knowtation index` after import | Hub / service **re-index** (or automatic indexing); follow product UI after large imports |
+| Seed `vault/templates/` into a directory | **Mirror paths in Hub** (create `drafts/`, `research/`, … as note prefixes) or use **Import** flows in Hub; templates in git remain the **blueprint**, not an auto-mounted disk |
 
 ### 2.1 Seven marketing roles ↔ our skill packs
 
@@ -53,30 +63,55 @@ The base **[knowtation skill](../.cursor/skills/knowtation/SKILL.md)** teaches *
 
 Server-side prompt templates (`content-plan`, `search-and-synthesize`, …) are listed in [TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md). They ride on the **same MCP server** as tools when the host exposes prompts—not the same files as `.cursor/skills/`.
 
-### 2.3 Local self-hosted — agents + disk vault
+### 2.3 Track L — Local self-hosted (folder vault = production)
+
+**Who this is for:** you run the Hub yourself (e.g. `npm run hub`) and keep notes in a **real directory** on disk.
 
 | Concern | What you use |
 |---------|----------------|
 | **Notes** | Directory + `KNOWTATION_VAULT_PATH` (and/or `vault_path` in `config/local.yaml`). |
-| **Cursor** | Open this **application repo** root if you want `.cursor/skills/` on disk. |
+| **Cursor** | Open this **application repo** root so `.cursor/skills/` is available. |
 | **MCP** | Stdio `knowtation mcp` with env pointing at that vault; pattern in [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md). |
 | **CLI / CI** | Same `KNOWTATION_VAULT_PATH`; `knowtation search|get-note|write|index` per [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §1. |
 | **Templates** | Copy or seed from `vault/templates/` into that directory ([TEMPLATES-AND-SKILLS.md](./TEMPLATES-AND-SKILLS.md)). |
 | **Index** | `knowtation index` / `npm run index` or Hub **Re-index** on your deploy. |
 
-### 2.4 Hosted — agents + canister (no local vault path for production data)
+**Step-by-step (Track L):**
+
+1. **L1 — Repo root** — Open the Knowtation **application** clone in Cursor (`package.json`, `docs/`, `.cursor/skills/`, `vault/`).  
+2. **L2 — Vault folder** — Create or choose a directory for Markdown notes; set `KNOWTATION_VAULT_PATH` (and `config/local.yaml` if you use it).  
+3. **L3 — Templates (optional)** — Copy `vault/templates/content-creation/` (and optionally `business-ops/`) into that vault so `drafts/`, `research/`, etc. exist on disk.  
+4. **L4 — Index** — From repo root with deps installed: `knowtation index` (or `npm run index`). Search in Hub/CLI should return results.  
+5. **L5 — MCP in Cursor** — Add stdio server: `node …/cli/index.mjs mcp` with env `KNOWTATION_VAULT_PATH` set to the **same** folder ([AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md)). Reload MCP.  
+6. **L6 — Smoke test** — In Cursor, run a small `search` then `get_note` for one path; confirm paths match your disk tree.  
+7. **L7 — Skill pack** — Invoke e.g. `@marketing-research` and ask for a brief; confirm it cites vault paths under your folder.
+
+### 2.4 Track H — Hosted (canister vault = production; no local folder for team data)
+
+**Who this is for:** you use **Knowtation in the browser** ([hosted path](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)); teammates sign in; notes live in the **cloud**, not on each laptop.
 
 | Concern | What you use |
 |---------|----------------|
-| **Notes** | **Canister** (tenant vault); no `KNOWTATION_VAULT_PATH` on your laptop for that data. |
-| **Humans** | Browser Hub ([two paths doc](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). |
-| **Agents / automation** | **Hub REST API** — `KNOWTATION_HUB_URL`, `Authorization: Bearer <JWT>`, `X-Vault-Id`; copy block from **Settings → Integrations → Hub API**. Or **hosted MCP** — `POST /mcp` on the gateway, OAuth or Bearer, same tool surface as local MCP ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 “Hosted MCP”, §3). |
-| **Indexing** | Service-side for hosted; follow product UI for reindex after large imports. |
+| **Notes** | **Canister** (tenant vault); there is **no** `KNOWTATION_VAULT_PATH` on your machine for that data. |
+| **Humans** | Browser Hub — **knowtation.store/hub/** (or your deployment’s Hub URL). |
+| **Agents / automation** | **Hub REST API** — `KNOWTATION_HUB_URL`, `Authorization: Bearer <JWT>`, `X-Vault-Id`; copy from **Settings → Integrations → Hub API**. Or **hosted MCP** — `POST /mcp` on the gateway ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 “Hosted MCP”, §3). |
+| **Indexing** | Service-side; use Hub controls / docs for **re-index** after large imports. |
 | **Backup** | Optional **Connect GitHub** (hosted pushes to **your** repo). |
 | **JWT** | Expires; refresh from Integrations on `401`. |
 | **Roles** | Viewer / editor / admin for MCP and API—match to who may auto-write vs propose. |
 
-**Split we expect for your team:** **hosted** = authoritative marketing vault + teammates; **local clone** = Knowtation engineering + skill packs; **Cursor marketing runs** call **hosted** Hub API or hosted MCP so outputs land in the cloud vault, not only a dev’s disk copy.
+**Step-by-step (Track H):**
+
+1. **H1 — Hub** — Sign in to the **hosted Hub**; confirm which **vault** you use (default vs extra vaults); note the name for `X-Vault-Id`.  
+2. **H2 — First notes** — Create `style-guide/`, `research/`, `outlines/`, `drafts/` **as note path prefixes** in the Hub (same layout as templates—templates in git are the **blueprint**). Or **Import** content per Hub UI / [IMPORT-SOURCES.md](./IMPORT-SOURCES.md).  
+3. **H3 — Search sanity** — Run a search in the Hub UI; confirm new notes appear. After big imports, trigger/wait for **re-index** per product guidance.  
+4. **H4 — Integrations block** — **Settings → Integrations → Hub API → Copy** `KNOWTATION_HUB_URL`, token, and vault id; store in your password manager / agent env (**never** commit to git).  
+5. **H5 — Cursor still needs the repo** — Open this **application repo** in Cursor **only** so `.cursor/skills/` exists; marketing behavior comes from those files.  
+6. **H6 — Wire Cursor to hosted data** — In MCP settings, use **hosted MCP** (gateway URL + OAuth or Bearer JWT) **or** skip MCP and use a thin script that calls Hub REST with the copied token. **Do not** point production hosted workflows at a random local `vault/` folder unless that folder is your intentional mirror.  
+7. **H7 — Smoke test** — From Cursor (hosted MCP) or `curl` ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §3), run **search** and **get one note**; paths should match what you see in the Hub.  
+8. **H8 — Skill pack** — Same `@marketing-research` etc.; the model should still follow the pack while tools hit **hosted** notes.
+
+**Split we expect for your team:** **hosted** = authoritative marketing vault + teammates; **local clone** = Knowtation engineering + skill packs; **Cursor marketing runs** call **hosted** Hub API or hosted MCP so outputs land in the **cloud** vault, not only a dev’s disk copy.
 
 ### 2.5 Abacus and other cloud agents
 
@@ -185,6 +220,8 @@ This table **layers** a blueprint-style first month onto a longer GTM ramp. Date
 
 Each phase has: **Layman** → **Steps** → **Knowtation** → **Technical** → **Test / verify**.
 
+**Knowtation column (throughout this section):** paths like `style-guide/…` are the **same logical layout** on **Track L** (files under `KNOWTATION_VAULT_PATH`) and **Track H** (notes in Hub with those paths). **Track L:** use CLI / local MCP (`knowtation search`, `write`, `index`). **Track H:** create or update notes in the Hub UI, or use **Hub API / hosted MCP** with your JWT and `X-Vault-Id`—no local vault path for production data.
+
 ### Phase A — Knowledge and voice foundation
 
 **Layman:** We teach the AI “how we sound and what we never say” before we ask it to write customer-facing copy.
@@ -196,7 +233,7 @@ Each phase has: **Layman** → **Steps** → **Knowtation** → **Technical** �
 3. Write **forbidden claims**, **disclaimers**, and **tone rules** (humor level, taboo topics).  
 4. Mirror the same rules into vault `style-guide/` as the canonical source agents must read first.
 
-**Knowtation:** Create `style-guide/voice-and-boundaries.md`; optional `outlines/positioning-v1.md`; run `knowtation search "forbidden OR disclaimer" --limit 5` to confirm retrieval.
+**Knowtation:** Create `style-guide/voice-and-boundaries.md`; optional `outlines/positioning-v1.md`. **Track L:** `knowtation search "forbidden OR disclaimer" --limit 5`. **Track H:** create the same paths in Hub, then run **Search** in the UI or `POST /api/v1/search` / MCP `search` to confirm retrieval.
 
 **Technical:** Treat the Claude Project as a **session-long cache**; treat the vault as **durable source of truth** for multi-agent and headless runs. Prefer MCP `memory-informed-search` / `memory-context` when your host maps memory into prompts (per marketing skill packs).
 
@@ -452,6 +489,7 @@ Use a spreadsheet; do not treat these as benchmarks.
 | 1.2 | `agent-birthday` | §2.4 A1: clarify app repo root vs vault-only folder; dot-folder `.cursor`; open full clone in Cursor |
 | 1.3 | `agent-birthday` | §2.6 hosted vs local: canister, teammates, Hub API / hosted MCP vs local vault path |
 | 1.4 | `agent-birthday` | §2 rewrite: drop beginner clutter; explicit local self-hosted vs hosted tables; birth checklist + §5 rows for hosted |
+| 1.5 | `agent-birthday` | §2.3–2.4: mapping table local↔hosted; step-by-step Track L (L1–L7) and Track H (H1–H8); §7 preamble for phased Knowtation actions |
 
 When this merges to `main`, update the table row if your process requires it.
 
