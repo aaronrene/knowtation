@@ -122,6 +122,34 @@ Abacus ([apps.abacus.ai](https://apps.abacus.ai/)) can participate in the same s
 
 **Update log:** As Abacus or Hub gives you click-by-click screenshots or JSON samples, paste summaries into `docs/` or your vault `playbooks/` and we will fold them into this §2.
 
+### 2.6 Hosted Knowtation vs local repo (what you need to know)
+
+You can have **both** at once: the **git clone** on your laptop (with `.cursor/skills/`, `docs/`, source code) and the **hosted Hub** in the browser where teammates and agents actually work. They are not the same layer.
+
+| Topic | **Local (self-hosted / dev clone)** | **Hosted (cloud Hub + canister)** |
+|--------|--------------------------------------|-----------------------------------|
+| **Where you work** | Cursor opened on the **repo root**; optional Hub at `http://localhost:3333` | Browser: **knowtation.store/hub/** (see [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)) |
+| **Where notes live** | A **folder on disk** you set (`KNOWTATION_VAULT_PATH`) | **Canister / cloud storage** behind the gateway—Settings shows vault as **“Canister”** |
+| **Teammates** | Everyone needs the same vault path + Hub deploy (you operate infra) | **Sign in** (e.g. Google/GitHub via gateway); isolation and roles are **our** hosted backend |
+| **Indexing / embeddings** | You configure `config/local.yaml`, run `npm run index` or Hub **Re-index** | **We run indexing** for you; you do not need local Qdrant/Ollama for normal hosted use |
+| **Backup** | Git in vault folder, `knowtation vault sync`, etc. | Optional **Connect GitHub** so your notes are also pushed to **your** repo |
+
+**How this still “applies” if you use hosted:**
+
+1. **`.cursor/skills/` in the repo** — These files are **instructions** for AI behavior. They do **not** move into the canister by themselves. You still use them from **Cursor** when you want the model to follow the marketing playbooks; they are versioned in **git**. Teammates get the same behavior if they open the **same repo** in Cursor or if you copy the skill text into your team wiki—**the hosted Hub does not replace skill files**; it replaces **where the Markdown vault lives** and **how search/write hit the backend**.
+
+2. **Agents (Cursor, Abacus, scripts) → hosted data** — They should talk to Knowtation over the **network**, not `KNOWTATION_VAULT_PATH` on disk:  
+   - **Hub REST API** — `KNOWTATION_HUB_URL` + `Authorization: Bearer <JWT>` + `X-Vault-Id`; copy from Hub **Settings → Integrations → Hub API** ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §3).  
+   - **Hosted MCP** — `POST /mcp` on the gateway with **OAuth or Hub JWT** ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 “Hosted MCP”). Same tools as local MCP, but **no** local vault path in the MCP env—the session is tied to **your logged-in user and vault**.
+
+3. **JWT lifetime** — Hub API tokens **expire**. When tools return `401`, sign in again and **re-copy** URL + token + vault from Integrations.
+
+4. **Roles** — Hosted MCP sessions respect **viewer / editor / admin** tool access; align teammate permissions with what they should automate vs approve.
+
+5. **Why keep the local clone at all?** — Product development, reading/updating `docs/`, running tests, and optionally pointing **local** MCP at a **test** vault. **Day-to-day marketing vault + collaboration** = hosted Hub.
+
+**Practical split for your team:** use **hosted Hub** as the **system of record** for notes; use **Hub API or hosted MCP** for Abacus and automation; use **Cursor + this repo** for engineering and for agent sessions that should follow the **skill packs**—configured to hit **hosted** via JWT/OAuth, not only local disk.
+
 ---
 
 ## 3. Layman’s overview: what we are building
@@ -490,6 +518,7 @@ Use a spreadsheet; do not treat these as benchmarks.
 | 1.0 | `agent-birthday` | Initial merged playbook + agent birth / Knowtation test-flight framing |
 | 1.1 | `agent-birthday` | §2 beginner setup (skills vs MCP vs templates; Cursor vs Abacus); seven-role table; staged setup steps—extend §2 as detailed vendor instructions arrive |
 | 1.2 | `agent-birthday` | §2.4 A1: clarify app repo root vs vault-only folder; dot-folder `.cursor`; open full clone in Cursor |
+| 1.3 | `agent-birthday` | §2.6 hosted vs local: canister, teammates, Hub API / hosted MCP vs local vault path |
 
 When this merges to `main`, update the table row if your process requires it.
 
