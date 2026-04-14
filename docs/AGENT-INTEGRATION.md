@@ -149,6 +149,7 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Rate limiting:** 60 requests/min per user on the `/mcp` endpoint.
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
+- **Netlify / serverless gateway:** When the gateway process has `NETLIFY` set, the repo **does not mount** the full stateful `/mcp` session router on that host—it answers `/mcp` with **503** and `MCP_NETLIFY_UNSUPPORTED` (see `hub/gateway/server.mjs`). Cursor will then show **errors** or **no tools** for a remote `url` ending in `/mcp`. **Workarounds:** use **Hub REST** with the same copied JWT (`POST /api/v1/search`, etc.), **or** point `knowtation-hosted` at a **persistent** gateway deployment where `/mcp` is actually mounted (Node on a VPS/PM2, etc.—not the Netlify-only entrypoint).
 
 ### Cursor + hosted Knowtation MCP (step-by-step)
 
