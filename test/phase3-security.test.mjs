@@ -311,13 +311,14 @@ describe('3.5 Canister CORS locked to gateway origin when auth secret set', () =
     assert.ok(stableBlock.includes('cors_allowed_origin'), 'StableStorage must have cors_allowed_origin');
   });
 
-  test('migration preserves gateway_auth_secret and initializes cors_allowed_origin', () => {
+  test('migration preserves gateway_auth_secret and cors_allowed_origin', () => {
     const src = loadMigration();
     const migBlock = src.slice(src.indexOf('public func migration'));
     assert.ok(migBlock.includes('gateway_auth_secret = old.storage.gateway_auth_secret'),
       'migration must preserve existing gateway auth secret');
-    assert.ok(migBlock.includes('cors_allowed_origin = ""'),
-      'migration must initialize cors_allowed_origin to empty');
+    // V7 stable already includes cors_allowed_origin; actor hook maps V7→current by preserving it.
+    assert.ok(migBlock.includes('cors_allowed_origin = old.storage.cors_allowed_origin'),
+      'migration must preserve cors_allowed_origin from V7 storage');
   });
 
   test('saveStable preserves cors_allowed_origin', () => {
