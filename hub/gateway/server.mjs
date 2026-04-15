@@ -352,10 +352,21 @@ if (SESSION_SECRET && !process.env.NETLIFY) {
       baseUrl: BASE_URL,
     });
     app._mcpOAuthProvider = oauthProvider;
+    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit, which by default throws
+    // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when X-Forwarded-For is set but trust proxy reads as
+    // false. Nginx sets X-Forwarded-For; keep app.set('trust proxy', 1) above and relax only this
+    // check for MCP OAuth limiters so /token (Cursor "Exchanging token…") succeeds.
+    const mcpOAuthSdkRateLimitOpts = {
+      rateLimit: { validate: { xForwardedForHeader: false } },
+    };
     app.use(mcpAuthRouter({
       provider: oauthProvider,
       issuerUrl: new URL(BASE_URL),
       scopesSupported: ['vault:read', 'vault:write', 'vault:admin'],
+      authorizationOptions: mcpOAuthSdkRateLimitOpts,
+      tokenOptions: mcpOAuthSdkRateLimitOpts,
+      clientRegistrationOptions: mcpOAuthSdkRateLimitOpts,
+      revocationOptions: mcpOAuthSdkRateLimitOpts,
     }));
     console.log('[gateway] MCP OAuth 2.1 endpoints mounted');
   }).catch((e) => {
