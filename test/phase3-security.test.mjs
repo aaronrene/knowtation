@@ -269,6 +269,28 @@ describe('3.4 MCP refresh token store — periodic expired-token sweep', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 3.4b  MCP OAuth behind reverse proxy — no SDK express-rate-limit on OAuth routes
+// ---------------------------------------------------------------------------
+describe('3.4b MCP OAuth: SDK express-rate-limit disabled (proxy / Express version mix)', () => {
+  let gatewaySrc;
+  const loadGateway = () => {
+    if (!gatewaySrc) gatewaySrc = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
+    return gatewaySrc;
+  };
+
+  test('gateway disables SDK rate limiters for mcpAuthRouter and re-affirms trust proxy before mount', () => {
+    const src = loadGateway();
+    const block = src.slice(src.indexOf('app._mcpOAuthProvider = oauthProvider'), src.indexOf('[gateway] MCP OAuth 2.1 endpoints mounted'));
+    assert.ok(block.includes('app.set(\'trust proxy\', 1)'), 'must set trust proxy immediately before MCP OAuth mount');
+    assert.ok(block.includes('rateLimit: false'), 'must pass rateLimit: false so express-rate-limit is not used on OAuth routes');
+    assert.match(block, /authorizationOptions:\s*mcpOAuthSdkHandlerOpts/);
+    assert.match(block, /tokenOptions:\s*mcpOAuthSdkHandlerOpts/);
+    assert.match(block, /clientRegistrationOptions:\s*mcpOAuthSdkHandlerOpts/);
+    assert.match(block, /revocationOptions:\s*mcpOAuthSdkHandlerOpts/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3.5  CORS on canister: locked origin when gateway_auth_secret is set
 // ---------------------------------------------------------------------------
 describe('3.5 Canister CORS locked to gateway origin when auth secret set', () => {

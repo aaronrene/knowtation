@@ -352,21 +352,23 @@ if (SESSION_SECRET && !process.env.NETLIFY) {
       baseUrl: BASE_URL,
     });
     app._mcpOAuthProvider = oauthProvider;
-    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit, which by default throws
-    // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when X-Forwarded-For is set but trust proxy reads as
-    // false. Nginx sets X-Forwarded-For; keep app.set('trust proxy', 1) above and relax only this
-    // check for MCP OAuth limiters so /token (Cursor "Exchanging token…") succeeds.
-    const mcpOAuthSdkRateLimitOpts = {
-      rateLimit: { validate: { xForwardedForHeader: false } },
-    };
+    // @modelcontextprotocol/sdk mounts OAuth handlers with express-rate-limit. Behind Nginx,
+    // X-Forwarded-For is always set; limiters then validate trust proxy. The gateway uses
+    // Express 4 while the SDK bundles Express 5 routers — in that mix we still observed
+    // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on /token (Cursor stuck on "Exchanging token…") even
+    // with app.set('trust proxy', 1) and validate.xForwardedForHeader disabled. Disable the
+    // SDK limiters entirely for these routes; enforce abuse limits at the reverse proxy
+    // (limit_req on /token, /authorize, /register, /revoke) or a shared edge WAF.
+    app.set('trust proxy', 1);
+    const mcpOAuthSdkHandlerOpts = { rateLimit: false };
     app.use(mcpAuthRouter({
       provider: oauthProvider,
       issuerUrl: new URL(BASE_URL),
       scopesSupported: ['vault:read', 'vault:write', 'vault:admin'],
-      authorizationOptions: mcpOAuthSdkRateLimitOpts,
-      tokenOptions: mcpOAuthSdkRateLimitOpts,
-      clientRegistrationOptions: mcpOAuthSdkRateLimitOpts,
-      revocationOptions: mcpOAuthSdkRateLimitOpts,
+      authorizationOptions: mcpOAuthSdkHandlerOpts,
+      tokenOptions: mcpOAuthSdkHandlerOpts,
+      clientRegistrationOptions: mcpOAuthSdkHandlerOpts,
+      revocationOptions: mcpOAuthSdkHandlerOpts,
     }));
     console.log('[gateway] MCP OAuth 2.1 endpoints mounted');
   }).catch((e) => {
