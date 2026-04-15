@@ -149,6 +149,65 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Rate limiting:** 60 requests/min per user on the `/mcp` endpoint.
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
+- **Netlify / serverless gateway:** When the gateway process has `NETLIFY` set, the repo **does not mount** the full stateful `/mcp` session router on that host—it answers `/mcp` with **503** and `MCP_NETLIFY_UNSUPPORTED` (see `hub/gateway/server.mjs`). Cursor will then show **errors** or **no tools** for a remote `url` ending in `/mcp`. **Workarounds:** use **Hub REST** with the same copied JWT (`POST /api/v1/search`, etc.), **or** point `knowtation-hosted` at a **persistent** gateway deployment where `/mcp` is actually mounted (Node on a VPS/PM2, etc.—not the Netlify-only entrypoint).
+- **Concrete example:** a Hub base URL like `https://knowtation-gateway.netlify.app` is this pattern. **Do not** point Cursor’s `knowtation-hosted` (`url` … `/mcp`) at that host—it will flap **red / green with zero tools** or log `fetch failed` / transient errors. Keep **`knowtation`** (stdio + local vault) for Cursor in the repo; use **REST + copied JWT** (or Abacus HTTP actions) for the **hosted** vault until a non-Netlify MCP gateway URL exists.
+
+### Cursor + hosted Knowtation MCP (step-by-step)
+
+**What you are doing:** telling Cursor to open a **remote** MCP connection to your **gateway’s** `/mcp` URL, using the same **token** and **vault id** you copied from **Settings → Integrations → Hub API** (not the local `node … mcp` + disk vault path).
+
+**Where to put it in Cursor**
+
+1. **Option A — Settings UI:** **Cursor** → **Settings** (`Cmd` + `,` on macOS, `Ctrl` + `,` on Windows/Linux) → search **MCP** → open **MCP / Tools & MCP** (wording varies by Cursor version) → **Add server** or **Edit in `mcp.json`**. Cursor opens or creates the JSON file it uses for MCP.
+2. **Option B — File directly (same result):** edit one of:
+   - **All projects:** `~/.cursor/mcp.json` on your machine  
+   - **This repo only:** `.cursor/mcp.json` at the **git root** of the project you opened in Cursor  
+
+   Official overview: [Model Context Protocol (MCP) — Cursor Docs](https://cursor.com/docs/mcp).
+
+**What to paste (shape only — use your real values from the Hub copy button; do not commit secrets)**
+
+The Hub copy gives you `KNOWTATION_HUB_URL` (gateway base, **no** `/mcp` suffix). The MCP endpoint is **`{KNOWTATION_HUB_URL}/mcp`**.
+
+```json
+{
+  "mcpServers": {
+    "knowtation-hosted": {
+      "url": "https://YOUR-GATEWAY-HOST/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_HUB_TOKEN_FROM_COPY_BUTTON",
+        "X-Vault-Id": "YOUR_VAULT_ID_FROM_COPY_BUTTON"
+      }
+    }
+  }
+}
+```
+
+**Safer pattern (recommended):** put the token in a **shell / OS env var** and reference it so the JSON file does not contain the raw JWT:
+
+```json
+{
+  "mcpServers": {
+    "knowtation-hosted": {
+      "url": "https://YOUR-GATEWAY-HOST/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:KNOWTATION_HUB_TOKEN}",
+        "X-Vault-Id": "${env:KNOWTATION_HUB_VAULT_ID}"
+      }
+    }
+  }
+}
+```
+
+Then export `KNOWTATION_HUB_TOKEN` and `KNOWTATION_HUB_VAULT_ID` in the environment from which you launch Cursor (or use your OS secret store if your Cursor build documents another interpolation syntax).
+
+**After saving**
+
+1. **Reload MCP** (Cursor usually has a refresh on the MCP screen, or restart Cursor).  
+2. Open **View → Output** (or **Output** panel) → choose **MCP** / **Cursor MCP** in the dropdown if logs do not appear — see [Cursor MCP docs](https://cursor.com/docs/mcp) for troubleshooting.  
+3. In chat, try a tiny vault action (e.g. ask the agent to **list_notes** or **search** with a low limit).
+
+**If Cursor ignores `headers`:** some MCP hosts prefer **OAuth** when the server advertises discovery (`GET /.well-known/oauth-authorization-server`). Your gateway supports OAuth for MCP (see **Hosted MCP (Phase D2/D3)** above). In that case use Cursor’s **OAuth / Sign in** flow for that MCP server instead of static Bearer headers, if the UI offers it.
 
 ### Dual MCP (interop): Knowtation + another server
 
@@ -192,7 +251,7 @@ Cursor, Claude Desktop, and other MCP hosts can load **multiple MCP servers** in
 - **Base URL:** e.g. `https://hub.example.com` (REST paths are under `/api/v1/...`).
 - **Auth:** JWT via OAuth (Google/GitHub). Header on every protected request: `Authorization: Bearer <token>`.
 - **Vault:** For vault-scoped routes, send header `X-Vault-Id` (e.g. `default` or the id shown in the Hub header). Match the vault you intend to act on.
-- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That copies `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID` as lines you can paste into a shell or agent config. The JWT expires; re-login and re-copy when the API returns 401.
+- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That copies `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID` as lines you can paste into a shell or agent config. **Treat that block as a secret** (do not post it in Slack, tickets, or chat). **Why it stops working sometimes:** the token is a time-limited “API password” (default **24 hours** on the hosted gateway unless your deployment sets `HUB_JWT_EXPIRY`). When it runs out, tools may see **401**—that is normal, not a bug. **Fix:** open the Hub in the browser (you stay signed in the usual way), go back to **Copy Hub URL, token & vault**, and paste the **new** lines into your agent or secret store. You are **not** expected to re-sign in to the website every few minutes; only **refresh the copied API block** when automations that rely on it start failing.
 - **Not the same button:** **Settings → Agents → Copy embedding env** copies only embedding-related lines (e.g. Ollama URL / model comment) so local indexers match the Hub—it does **not** copy the Hub JWT.
 
 **Example `curl` (create proposal):** `.env` alone does not attach headers; you must pass the bearer token explicitly.
