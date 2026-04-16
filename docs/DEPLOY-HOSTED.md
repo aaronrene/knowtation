@@ -128,6 +128,108 @@ If it still fails, open **Netlify → bridge site → Functions → logs**, trig
 
 ---
 
+<a id="ec2-mcp-gateway-runbook"></a>
+
+## 3.1. EC2 — persistent MCP gateway (operator runbook)
+
+When the browser Hub uses **Netlify** (or another serverless gateway) but **Cursor hosted MCP** needs a **long-lived** Node process, run the same `hub/gateway/server.mjs` on a VPS (for example **AWS EC2**) behind **Nginx** TLS, usually on port **3340**, often under **PM2**. That host uses its **own** public origin as **`HUB_BASE_URL`** (your MCP URL) while **`SESSION_SECRET`**, **`CANISTER_URL`**, and **`CANISTER_AUTH_SECRET`** stay aligned with Netlify. Overview and client config: [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) § Hosted MCP.
+
+### Paths: laptop vs server
+
+- A Mac clone often lives under **`/Users/<you>/…`**.
+- Ubuntu EC2 uses **`/home/ubuntu/…`** (or another user’s home). **`cd /Users/...` on the server will fail** with “No such file or directory.” After cloning, use for example **`cd ~/knowtation`**.
+
+### First-time clone on the server
+
+Use the **real** Git remote URL. Do **not** paste documentation placeholders with angle brackets (`<` `>`): in Bash they are **redirection**, not “fill in later.”
+
+```bash
+cd ~
+git clone https://github.com/aaronrene/knowtation.git
+cd knowtation
+```
+
+If the repository is **private**, use **SSH** (`git@github.com:aaronrene/knowtation.git` with a deploy key or agent-forwarded key) or **HTTPS** with a [GitHub personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) when Git prompts for credentials.
+
+### Sync code — push from your laptop when the server lags behind
+
+`git pull` on the server only fast-forwards to commits that already exist on **GitHub**. If `git pull` prints **“Already up to date”** but **`git log -1 --oneline`** on the server is **older** than the commit on your laptop, the branch was **not pushed** from your laptop:
+
+```bash
+# Laptop (example — use the branch your server tracks)
+git push origin agent-birthday
+```
+
+Then on **EC2**:
+
+```bash
+cd ~/knowtation
+git fetch origin
+git checkout agent-birthday   # or main
+git pull origin agent-birthday
+git log -1 --oneline
+```
+
+Confirm the printed commit matches the release you intend to run.
+
+### Install dependencies
+
+The gateway imports **`@modelcontextprotocol/sdk`** from the **repository root** `package.json`. Install from the **clone root**:
+
+```bash
+cd ~/knowtation
+npm ci
+```
+
+If `npm ci` fails (lockfile mismatch during a hotfix), use **`npm install`** once, resolve errors, then return to **`npm ci`** when `package-lock.json` matches the tree again.
+
+### Restart the gateway process
+
+Find the **PM2** process that runs `hub/gateway/server.mjs` (the name is whatever you chose at `pm2 start`):
+
+```bash
+pm2 list
+pm2 restart <app-name-or-id>
+pm2 logs <app-name-or-id> --lines 80
+```
+
+If you use **systemd** instead, restart your unit (for example `sudo systemctl restart <your-gateway-unit>`).
+
+### Smoke checks after restart
+
+- Logs should include **`[gateway] MCP OAuth 2.1 endpoints mounted`** and **`[gateway] MCP endpoint mounted at /mcp`** when MCP is enabled on that host.
+- Watch for **`ERR_ERL_*`** lines from **`express-rate-limit`** on OAuth routes; those indicate proxy / limiter misconfiguration (see `hub/gateway/server.mjs` MCP OAuth mount and Nginx headers).
+- Replace the host with yours:
+
+```bash
+curl -sS "https://mcp.example.com/.well-known/oauth-authorization-server" | head
+curl -sS -o /dev/null -w "%{http_code}\n" -X POST "https://mcp.example.com/mcp"
+```
+
+Expect **200** with JSON for the discovery document and **401** (not **503**) for an unauthenticated **`POST /mcp`** on a **persistent** gateway. **503** with `MCP_NETLIFY_UNSUPPORTED` means you are still hitting a **Netlify-only** function that does not mount `/mcp`.
+
+### Dual-host env matrix (Netlify ↔ MCP EC2)
+
+| Env var | Must match? | Netlify | EC2 (MCP host) | Notes |
+|---------|-------------|---------|----------------|-------|
+| `SESSION_SECRET` | **Yes** | Set | **Same value** as Netlify | JWT sign/verify; mismatch → **401** on the stale host |
+| `CANISTER_URL` | **Yes** | Same | Same | |
+| `CANISTER_AUTH_SECRET` | **Yes** | Same | Same | |
+| `HUB_BASE_URL` | **No** | Netlify gateway public URL | **MCP public URL** (e.g. `https://mcp.example.com`) | OAuth issuer + callback URLs differ per host |
+| `NETLIFY` | — | `true` (platform default) | **Must be unset** | On EC2, if `NETLIFY` is set, `/mcp` stays **503** |
+
+**Never** commit `.env` or paste live secrets into tickets.
+
+### Nginx (TLS + optional rate limits)
+
+Terminate TLS in Nginx and **`proxy_pass`** to **`http://127.0.0.1:3340`**. Optionally add **`limit_req`** on **`/authorize`**, **`/token`**, **`/register`**, and **`/revoke`** so abusive traffic is throttled at the edge. After editing the site config:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+---
+
 ## 4. DNS
 
 - **knowtation.store** → 4Everland (whole site: landing at `/`, Hub at `/hub/`). Optionally same host for gateway (e.g. rewrites for `/api/*`).
