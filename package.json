@@ -39,7 +39,9 @@
     "resave:hosted-empty-fm": "node scripts/resave-hosted-empty-frontmatter.mjs --dry-run",
     "report:empty-frontmatter": "node scripts/report-empty-hosted-frontmatter.mjs",
     "check:gateway-cors": "node scripts/check-gateway-cors.mjs",
-    "smoke:hosted-multi-vault": "node scripts/smoke-hosted-multi-vault.mjs"
+    "smoke:hosted-multi-vault": "node scripts/smoke-hosted-multi-vault.mjs",
+    "check:mcp-hosted-schema": "node scripts/check-mcp-hosted-schema.mjs",
+    "verify:hosted-mcp-checklist": "node scripts/verify-hosted-mcp-checklist.mjs"
   },
   "keywords": [
     "knowledge-base",

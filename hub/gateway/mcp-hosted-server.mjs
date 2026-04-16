@@ -186,7 +186,7 @@ export function createHostedMcpServer(ctx) {
         inputSchema: {
           path: z.string().describe('Vault-relative path'),
           body: z.string().describe('Markdown body'),
-          // z.record(z.unknown()) breaks Zod v4 JSON Schema export and makes tools/list fail (no tools in clients).
+          // Open-ended record(value: unknown) breaks Zod v4 JSON Schema export and makes tools/list fail (no tools in clients).
           frontmatter: z.record(z.string(), z.unknown()).optional(),
         },
       },

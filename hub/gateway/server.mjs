@@ -388,6 +388,11 @@ if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
     });
     app.use('/mcp', mcpRouter);
     console.log('[gateway] MCP endpoint mounted at /mcp');
+    if (!CANISTER_AUTH_SECRET) {
+      console.warn(
+        '[gateway] MCP /mcp: CANISTER_AUTH_SECRET is empty. Direct canister HTTP calls from hosted MCP (list_notes, get_note, write, enrich; summarize note fetches) send no X-Gateway-Auth and the canister returns GATEWAY_AUTH_REQUIRED. Set the same CANISTER_AUTH_SECRET as the Netlify gateway and as configured on the canister (admin_set_gateway_auth_secret), then pm2 restart with --update-env.'
+      );
+    }
   }).catch((e) => {
     console.error('[gateway] MCP proxy failed to load:', e.message || e);
   });
