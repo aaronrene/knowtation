@@ -6,7 +6,13 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
+
+/** @type {[string, string, ...string[]]} */
+const IMPORT_SOURCE_ENUM = /** @type {any} */ ([...IMPORT_SOURCE_TYPES]);
+
+const BRIDGE_IMPORT_MAX_BYTES = 100 * 1024 * 1024;
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -37,6 +43,33 @@ async function upstreamFetch(url, opts = {}) {
     throw new Error(`Upstream ${res.status}: ${text.slice(0, 200)}`);
   }
   return res.json();
+}
+
+/**
+ * POST multipart to bridge /api/v1/import (same headers as hub/gateway proxyImportToBridge).
+ * @param {string} bridgeUrl
+ * @param {{ token?: string, vaultId?: string }} fetchOpts
+ * @param {FormData} formData
+ * @returns {Promise<unknown>}
+ */
+async function bridgeImportMultipart(bridgeUrl, fetchOpts, formData) {
+  const headers = { Accept: 'application/json' };
+  if (fetchOpts.token) headers['Authorization'] = `Bearer ${fetchOpts.token}`;
+  if (fetchOpts.vaultId) headers['X-Vault-Id'] = fetchOpts.vaultId;
+  const res = await fetch(`${bridgeUrl}/api/v1/import`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  const text = await res.text().catch(() => '');
+  if (!res.ok) {
+    throw new Error(`Upstream ${res.status}: ${text.slice(0, 200)}`);
+  }
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { raw: text };
+  }
 }
 
 /**
@@ -186,7 +219,7 @@ export function createHostedMcpServer(ctx) {
         inputSchema: {
           path: z.string().describe('Vault-relative path'),
           body: z.string().describe('Markdown body'),
-          // z.record(z.unknown()) breaks Zod v4 JSON Schema export and makes tools/list fail (no tools in clients).
+          // Open-ended record(value: unknown) breaks Zod v4 JSON Schema export and makes tools/list fail (no tools in clients).
           frontmatter: z.record(z.string(), z.unknown()).optional(),
         },
       },
@@ -217,6 +250,59 @@ export function createHostedMcpServer(ctx) {
             ...fetchOpts,
             method: 'POST',
           });
+          return jsonResponse(data);
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('import', role)) {
+    server.registerTool(
+      'import',
+      {
+        description:
+          'Import a file into the hosted vault via the bridge (multipart parity with Hub POST /api/v1/import). Provide base64 file bytes, filename, and source_type; optional project, output_dir, tags.',
+        inputSchema: {
+          source_type: z
+            .enum(IMPORT_SOURCE_ENUM)
+            .describe(`Importer id (same as Hub import). Allowed: ${IMPORT_SOURCE_TYPES.join(', ')}`),
+          file_base64: z.string().min(1).describe('File content as standard base64 (decoded size max 100 MiB)'),
+          filename: z.string().min(1).describe('Original filename (e.g. export.zip, notes.md)'),
+          project: z.string().optional().describe('Optional project slug'),
+          output_dir: z.string().optional().describe('Optional vault-relative output folder'),
+          tags: z
+            .union([z.string(), z.array(z.string())])
+            .optional()
+            .describe('Optional tags: comma-separated string or array of strings'),
+        },
+      },
+      async (args) => {
+        try {
+          let fileBuffer;
+          try {
+            fileBuffer = Buffer.from(args.file_base64, 'base64');
+          } catch {
+            return jsonError('file_base64 is not valid base64', 'INVALID');
+          }
+          if (!fileBuffer.length) {
+            return jsonError('Decoded file is empty', 'INVALID');
+          }
+          if (fileBuffer.length > BRIDGE_IMPORT_MAX_BYTES) {
+            return jsonError(`Decoded file exceeds ${BRIDGE_IMPORT_MAX_BYTES} bytes`, 'INVALID');
+          }
+          const form = new FormData();
+          form.set('source_type', args.source_type);
+          const blob = new Blob([fileBuffer]);
+          form.set('file', blob, args.filename);
+          if (args.project != null && args.project !== '') form.set('project', args.project);
+          if (args.output_dir != null && args.output_dir !== '') form.set('output_dir', args.output_dir);
+          if (args.tags != null) {
+            const tagsStr = Array.isArray(args.tags) ? args.tags.map((t) => String(t).trim()).filter(Boolean).join(',') : String(args.tags);
+            if (tagsStr) form.set('tags', tagsStr);
+          }
+          const data = await bridgeImportMultipart(bridgeUrl, fetchOpts, form);
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');

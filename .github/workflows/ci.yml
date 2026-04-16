@@ -50,5 +50,8 @@ jobs:
           (cd hub/gateway && npm audit --audit-level=high --omit=dev)
           (cd hub/bridge && npm audit --audit-level=high --omit=dev)
 
+      - name: Hosted MCP schema guard
+        run: npm run check:mcp-hosted-schema
+
       - name: Run tests
         run: npm test

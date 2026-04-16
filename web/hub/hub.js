@@ -3532,6 +3532,7 @@
       if (credRow) credRow.style.display = 'none';
       if (polEl) { polEl.textContent = ''; polEl.style.display = 'none'; }
       if (noteCap) noteCap.textContent = '—';
+      if (packSection) packSection.style.display = 'none';
       if (upgradeBtn) upgradeBtn.style.display = 'none';
       if (manageBtn) manageBtn.style.display = 'none';
       updateUsageBar('billing-searches-bar-fill', 0, 0);
