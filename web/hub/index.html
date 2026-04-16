@@ -1360,8 +1360,8 @@ Your note body here.</pre>
 
             <hr class="settings-hr">
 
-            <!-- Token pack purchase -->
-            <div id="billing-pack-section">
+            <!-- Token pack purchase (hidden until loadBillingPanel decides user may purchase; avoids flash on beta/free) -->
+            <div id="billing-pack-section" style="display:none;">
               <h3 class="settings-h3">Token pack add-ons</h3>
               <p class="settings-intro small muted">Extra indexing tokens that roll over. Consumed after your monthly grant runs out. Available on paid plans.</p>
               <div class="billing-pack-grid" id="billing-pack-grid">
