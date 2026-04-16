@@ -271,14 +271,14 @@ describe('3.4 MCP refresh token store — periodic expired-token sweep', () => {
 // ---------------------------------------------------------------------------
 // 3.4b  MCP OAuth: SDK express-rate-limit behind Nginx (proxy validate relaxations)
 // ---------------------------------------------------------------------------
-describe('3.4b MCP OAuth: SDK rate limit validate relaxations for Nginx', () => {
-  test('gateway passes express-rate-limit validate overrides into mcpAuthRouter', () => {
+describe('3.4b MCP OAuth: SDK rate limit behind Nginx', () => {
+  test('gateway disables express-rate-limit validations for mcpAuthRouter (keep limiters)', () => {
     const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
     assert.ok(src.includes('app.set(\'trust proxy\', 1)'), 'gateway must set trust proxy for X-Forwarded-For');
     const block = src.slice(src.indexOf('app._mcpOAuthProvider = oauthProvider'), src.indexOf('[gateway] MCP OAuth 2.1 endpoints mounted'));
     assert.ok(
-      block.includes('trustProxy: false') && block.includes('xForwardedForHeader: false'),
-      'must relax express-rate-limit proxy validations for SDK OAuth routes behind Nginx',
+      block.includes('rateLimit: { validate: false }'),
+      'must set rateLimit.validate false so ERR_ERL_* does not break /token behind Nginx',
     );
     assert.match(block, /authorizationOptions:\s*mcpOAuthSdkRateLimitOpts/);
     assert.match(block, /tokenOptions:\s*mcpOAuthSdkRateLimitOpts/);

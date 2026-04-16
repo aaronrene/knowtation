@@ -352,18 +352,12 @@ if (SESSION_SECRET && !process.env.NETLIFY) {
       baseUrl: BASE_URL,
     });
     app._mcpOAuthProvider = oauthProvider;
-    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit. The auth router may not
-    // inherit the parent app's trust proxy view for limiter validations; Nginx still sets
-    // X-Forwarded-For. Relax proxy-related validations only (keep limiters on). See
-    // https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/
+    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit behind Nginx. The limiter's
+    // default validations (X-Forwarded-For vs Express trust proxy) still throw ERR_ERL_* on some
+    // Express/SDK mount combinations. Disable express-rate-limit validations for these routes only;
+    // limits stay on; edge limits remain in Nginx (DEPLOY-HOSTED.md §3.1).
     const mcpOAuthSdkRateLimitOpts = {
-      rateLimit: {
-        validate: {
-          trustProxy: false,
-          xForwardedForHeader: false,
-          forwardedHeader: false,
-        },
-      },
+      rateLimit: { validate: false },
     };
     app.use(mcpAuthRouter({
       provider: oauthProvider,
