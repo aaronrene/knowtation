@@ -352,12 +352,18 @@ if (SESSION_SECRET && !process.env.NETLIFY) {
       baseUrl: BASE_URL,
     });
     app._mcpOAuthProvider = oauthProvider;
-    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit, which by default throws
-    // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when X-Forwarded-For is set but trust proxy reads as
-    // false. Nginx sets X-Forwarded-For; keep app.set('trust proxy', 1) above and relax only this
-    // check for MCP OAuth limiters so /token (Cursor "Exchanging token…") succeeds.
+    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit. The auth router may not
+    // inherit the parent app's trust proxy view for limiter validations; Nginx still sets
+    // X-Forwarded-For. Relax proxy-related validations only (keep limiters on). See
+    // https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/
     const mcpOAuthSdkRateLimitOpts = {
-      rateLimit: { validate: { xForwardedForHeader: false } },
+      rateLimit: {
+        validate: {
+          trustProxy: false,
+          xForwardedForHeader: false,
+          forwardedHeader: false,
+        },
+      },
     };
     app.use(mcpAuthRouter({
       provider: oauthProvider,

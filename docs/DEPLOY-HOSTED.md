@@ -183,6 +183,8 @@ npm ci
 
 If `npm ci` fails (lockfile mismatch during a hotfix), use **`npm install`** once, resolve errors, then return to **`npm ci`** when `package-lock.json` matches the tree again.
 
+**PM2 must use the same tree:** if **`pm2 describe`** shows **`script path`** like **`/opt/knowtation/hub/gateway/server.mjs`**, run **`git pull`** and **`npm ci`** in **`/opt/knowtation`**, not only under **`~/knowtation`**. Otherwise Node will log **`ERR_MODULE_NOT_FOUND`** for gateway imports (`cookie-parser`, `jsonwebtoken`, etc.) and PM2 will keep restarting.
+
 ### Restart the gateway process
 
 Find the **PM2** process that runs `hub/gateway/server.mjs` (the name is whatever you chose at `pm2 start`):
