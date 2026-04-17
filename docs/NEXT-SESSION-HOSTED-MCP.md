@@ -19,8 +19,9 @@ Use this file as a handoff prompt for a future session.
 ## Cursor quirks (not regressions)
 
 - Brief **red / “Server not initialized”** in MCP logs can appear when **toggling** the server or right after **PM2 restart**; **Logout → Connect** or retry usually clears it once `initialize` completes.
-- After the schema fix and **`import`** tool, **eight tools** appear for admin: `search`, `get_note`, `list_notes`, `write`, `index`, `import`, `summarize`, `enrich`, plus resource **`vault-info`**.
+- After **`vault_sync`** shipped (2026-04), **nine tools** appear for admin: `search`, `get_note`, `list_notes`, `write`, `index`, `import`, `vault_sync`, `summarize`, `enrich`, plus resource **`vault-info`**. Editors also get **`vault_sync`** (and **`write`**); viewers do not.
 - **`import` MCP** was **production-verified** on EC2 (2026-04): small markdown upload via tool → `inbox/mcp-import-smoke.md`, confirmed with **`list_notes`** / body match (see [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) § *How to interpret results*).
+- **`vault_sync`:** Covered by **`npm test`** (mocked bridge `fetch`). Optional live smoke: call the tool from Cursor when **GitHub is connected** on the bridge for that user; otherwise expect documented `400` responses from the bridge (same as Hub **Back up now**).
 
 ## EC2 “test station” vs pack balances (beginner map)
 
@@ -35,7 +36,7 @@ Pack balances and usage bars come from **`GET /api/v1/billing/summary` on the Ne
 ## Hosted MCP: more tools later
 
 - **ACL:** `hub/gateway/mcp-tool-acl.mjs` — `ADMIN_TOOLS` / `WRITE_TOOLS` / `READ_TOOLS` already list names like `relate`, `backlinks`, `capture`, etc.
-- **Registration:** `hub/gateway/mcp-hosted-server.mjs` only registers a **subset** that have implementations (bridge/canister + sampling + **`import`** multipart to bridge).
+- **Registration:** `hub/gateway/mcp-hosted-server.mjs` only registers a **subset** that have implementations (bridge/canister + sampling + **`import`** multipart + **`vault_sync`** JSON POST to bridge).
 - **Next work:** For each missing tool, add a `registerTool` block (or shared helper) that calls the same upstreams as local stdio MCP (`mcp/` tree), and keep **input schemas** JSON-schema-safe (avoid open-ended `z.record` with unknown value types that break Zod v4 JSON Schema export; prefer `z.record(z.string(), z.unknown())` or explicit shapes) so **`tools/list`** never breaks again. See [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md).
 
 ## Billing tab: pack “flash” (Hub UI)
@@ -46,6 +47,6 @@ Pack balances and usage bars come from **`GET /api/v1/billing/summary` on the Ne
 
 ## Verify after deploy
 
-1. **MCP:** Cursor shows 8 tools for admin + green; `vault-info` reads correct `userId` / `vaultId` / `role`.
+1. **MCP:** Cursor shows 9 tools for admin + green; `vault-info` reads correct `userId` / `vaultId` / `role`.
 2. **MCP canister auth (EC2):** If **`list_notes` / `get_note` / `write` / `enrich`** return **`GATEWAY_AUTH_REQUIRED`** while **search** and **index** work, set **`CANISTER_AUTH_SECRET`** on the **same** MCP gateway process (PM2) to match Netlify + canister, then `pm2 restart … --update-env`. Details: [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) (section *Troubleshooting: GATEWAY_AUTH_REQUIRED on canister-backed tools only*).
 3. **Billing:** Open Settings → Billing; packs either stay **hidden** (beta/free) or stay **visible** (paid + Stripe + active sub); no half-second flash of pack cards for ineligible tiers.

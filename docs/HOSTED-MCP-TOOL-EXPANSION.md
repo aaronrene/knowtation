@@ -14,7 +14,7 @@ The **safeguards session** added **no new `registerTool` blocks** and **no new H
 - A **CI script** that blocks a known-bad Zod pattern in `hub/gateway/mcp-hosted*.mjs`.
 - This playbook, checklist script, and small edits to the handoff doc.
 
-The **core seven** hosted tools in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) (search, get_note, list_notes, write, index, summarize, enrich) were **already** implemented before the safeguards work: most call **bridge** or **canister** via `upstreamFetch`. An **eighth** tool, **`import`** (admin), posts multipart to the bridge (`POST {bridgeUrl}/api/v1/import`) with the same `Authorization` + `X-Vault-Id` model as the gateway import proxy.
+The **core seven** hosted tools in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) (search, get_note, list_notes, write, index, summarize, enrich) were **already** implemented before the safeguards work: most call **bridge** or **canister** via `upstreamFetch`. An **eighth** tool, **`import`** (admin), posts multipart to the bridge (`POST {bridgeUrl}/api/v1/import`) with the same `Authorization` + `X-Vault-Id` model as the gateway import proxy. A **ninth** tool, **`vault_sync`** (editor/admin), POSTs JSON to `POST {bridgeUrl}/api/v1/vault/sync` via `upstreamFetch` (optional body `{ "repo": "owner/name" }`), matching Hub **Back up now** / gateway proxy to the bridge.
 
 What **is** still unwired: the **extra names** in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`relate`, `backlinks`, `export`, …) other than those already registered in the hosted server. Those are **future** tools, not partial work from the safeguards session.
 
@@ -38,7 +38,7 @@ Here you **do** use Cursor: enable the **`knowtation-hosted`** MCP server for th
 **Setup**
 
 1. **Cursor → Settings → MCP / Tools & MCP:** confirm **`knowtation-hosted`** is on (green) and points at your **persistent** MCP URL (EC2), not Netlify-only `/mcp`. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md).
-2. Optional: open the MCP panel / tool list and confirm you see **eight** tools if your Hub role is **admin** (fewer if viewer or editor).
+2. Optional: open the MCP panel / tool list and confirm you see **nine** tools if your Hub role is **admin** (fewer if viewer or editor).
 3. Start a **new Composer/Agent chat** with hosted MCP enabled so tool calls are unambiguous.
 
 **What “path” means (hosted users — not local, not the Hub URL)**
@@ -56,7 +56,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 
 | Step | What you are proving | Paste into Cursor chat |
 |------|----------------------|-------------------------|
-| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are eight if I am an admin.` |
+| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are nine if I am an admin.` |
 | 1 | Session + vault context | `Using only knowtation-hosted: read the MCP resource vault-info and show the full JSON (userId, vaultId, role, scope).` |
 | 2 | Canister list | `Using only knowtation-hosted: call the list_notes tool with limit 10 and show the returned paths or note list.` |
 | 3 | Canister read | `Using only knowtation-hosted: call get_note with path "VAULT_NOTE_PATH" — use exactly one path string copied from the list_notes result (vault-relative, not a browser URL). Show the body or error.` |
@@ -66,6 +66,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 | 6b | Bridge import (admin) | **After a small test file is ready:** `Using only knowtation-hosted: call the import tool with source_type markdown, filename mcp-import-smoke.md, and file_base64 set to the base64 of a short UTF-8 markdown file (e.g. "# smoke\\n"). Report imported paths or error JSON.` Same upstream as Hub: bridge `POST /api/v1/import` (multipart); **no canister Motoko changes** — the bridge already batch-writes to the canister. |
 | 7a | Summarize + sampling | `Using only knowtation-hosted: call summarize with path "VAULT_NOTE_PATH" (from list_notes) and style brief. Paste the tool result.` |
 | 7b | Enrich + sampling | `Using only knowtation-hosted: call enrich with path "VAULT_NOTE_PATH" (from list_notes). Paste the tool result.` |
+| 8 | Bridge vault backup (editor/admin) | **Only if GitHub is connected** for your user on the bridge (same as Hub **Back up now**): `Using only knowtation-hosted: call vault_sync with no arguments (or with repo "owner/name" if needed). Paste the JSON result or error.` Expect `400` with `GITHUB_NOT_CONNECTED` / `REPO_REQUIRED` when GitHub is not set up — that confirms the tool reaches the bridge. |
 
 **How to interpret results**
 
@@ -73,6 +74,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 - **`import`:** admin-only; large uploads may hit timeouts client-side; audio/video/transcription need bridge env (e.g. API keys) as for Hub import. **Production verified (2026-04):** EC2 `knowtation-hosted` smoke — `source_type` `markdown`, tiny `file_base64` → response `{"imported":[{"path":"inbox/mcp-import-smoke.md",...}],"count":1}`; **`list_notes`** showed the same path and expected body.
 - **`index`:** slow; uses embeddings; run only after 1–5 succeed.
 - **`summarize` / `enrich`:** if Cursor does not support MCP **sampling**, you may see a short fallback or sparse output; canister reads can still succeed. Compare with [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) hosted MCP / sampling notes.
+- **`vault_sync`:** Wired in repo with unit tests (`test/mcp-hosted-vault-sync.test.mjs`) that mock `fetch` (POST URL, `Authorization`, `X-Vault-Id`, JSON body `{}` or `{ repo }`). **Live** success needs GitHub connected on the bridge; success shape includes `ok`, `message`, `notesCount`, `proposalsCount` from [`hub/bridge/server.mjs`](../hub/bridge/server.mjs) `POST /api/v1/vault/sync`.
 
 ### Troubleshooting: GATEWAY_AUTH_REQUIRED on canister-backed tools only
 
@@ -124,7 +126,7 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | `tag_suggest` | viewer | No | Local / sampling; hosted needs route or sampling-only wrapper |
 | `capture` | editor | No | Bridge has internal capture hooks from search; **no dedicated MCP-shaped HTTP** at time of writing — design before exposing |
 | `transcribe` | editor | No | Typically local CLI / gateway media — **verify** hosted product scope |
-| `vault_sync` | editor | No | Hub flow: `POST /api/v1/vault/sync` (gateway → bridge); align headers and idempotency before MCP wrapper |
+| `vault_sync` | editor | Yes | `POST {bridgeUrl}/api/v1/vault/sync` — same headers as search/index; optional `{ "repo": "owner/name" }`; gateway `app.all('/api/v1/vault/sync', …)` proxies to bridge when `BRIDGE_URL` is set |
 | `export` | admin | No | Canister `GET /api/v1/export` used internally by bridge index; large payloads — MCP tool needs streaming/size policy |
 | `import` | admin | Yes | Bridge `POST {bridgeUrl}/api/v1/import` (multipart: `source_type`, `file`; optional `project`, `output_dir`, `tags`) — same contract as [`hub/bridge/server.mjs`](../hub/bridge/server.mjs) and gateway [`hub/gateway/server.mjs`](../hub/gateway/server.mjs) `POST /api/v1/import` → bridge. MCP builds `FormData` from `file_base64` + `filename`. |
 
@@ -142,16 +144,16 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | Layer | Status |
 |--------|--------|
 | Hosted MCP **tools/list** reliability | Guarded in CI + unit test (serialization + golden names). |
-| **Eight** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** uses multipart `fetch` to the bridge (see inventory table). |
+| **Nine** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** uses multipart `fetch` to the bridge; **`vault_sync`** POSTs JSON to the bridge (see inventory table). |
 | ACL **name sets** (up to 17 for admin) | Declared in `mcp-tool-acl.mjs` for future RBAC; **not** all exposed as MCP tools. |
 
 ### What we do not have yet
 
 | Item | Meaning |
 |------|---------|
-| Hosted `registerTool` for `relate`, `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `capture`, `transcribe`, `vault_sync`, `export` | No Cursor-visible tool until implemented; ACL alone does nothing. |
+| Hosted `registerTool` for `relate`, `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `capture`, `transcribe`, `export` | No Cursor-visible tool until implemented; ACL alone does nothing. |
 | Shared “graph” HTTP API for relate/backlinks on hosted | Local MCP uses filesystem/graph libs; hosted needs designed bridge or canister surfaces (or intentional omission). |
-| Documented operator smoke for **each** of the eight tools after deploy | You establish this by running [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
+| Documented operator smoke for **each** of the nine tools after deploy | You establish this by running [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
 
 ### What connecting “the rest” entails (per future tool)
 
@@ -169,7 +171,7 @@ Each additional hosted tool is a **small product decision** plus code:
 
 | Work | Where |
 |------|--------|
-| **Manual smoke** of the eight tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import` if you are admin. |
-| **Implementing** the next hosted tool (recommended: **`vault_sync`**) | **Next session** — upstream proof for `POST /api/v1/vault/sync` (gateway → bridge), then `registerTool` + golden tests per this doc. |
+| **Manual smoke** of the nine tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import` if you are admin and step **8** for `vault_sync` when GitHub is connected. |
+| **Implementing** the next hosted tool | Pick **one** ACL-listed name that still shows **No** in the inventory table; confirm upstream on bridge or canister, then `registerTool` + golden tests per this doc. |
 
-Phase order for tools is in the session prompt table (e.g. `vault_sync` after `import`); pick **one** tool per PR.
+Phase order for tools is in the session prompt table; pick **one** tool per PR.
