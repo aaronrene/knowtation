@@ -14,9 +14,9 @@ The **safeguards session** added **no new `registerTool` blocks** and **no new H
 - A **CI script** that blocks a known-bad Zod pattern in `hub/gateway/mcp-hosted*.mjs`.
 - This playbook, checklist script, and small edits to the handoff doc.
 
-The **core seven** hosted tools in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) (search, get_note, list_notes, write, index, summarize, enrich) were **already** implemented before the safeguards work: most call **bridge** or **canister** via `upstreamFetch`. An **eighth** tool, **`import`** (admin), posts multipart to the bridge (`POST {bridgeUrl}/api/v1/import`) with the same `Authorization` + `X-Vault-Id` model as the gateway import proxy. A **ninth** tool, **`vault_sync`** (editor/admin), POSTs JSON to `POST {bridgeUrl}/api/v1/vault/sync` via `upstreamFetch` (optional body `{ "repo": "owner/name" }`), matching Hub **Back up now** / gateway proxy to the bridge. A **tenth** tool, **`export`** (admin), GETs **`/api/v1/export`** on the hub canister ([`hub/icp/src/hub/main.mo`](../hub/icp/src/hub/main.mo)) with the same canister headers as other hosted canister tools and an **MCP-only** response size cap (`EXPORT_TOO_LARGE` over the limit; Hub / `vault_sync` are not subject to that cap).
+The **core seven** hosted tools in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) (search, get_note, list_notes, write, index, summarize, enrich) were **already** implemented before the safeguards work: most call **bridge** or **canister** via `upstreamFetch`. An **eighth** tool, **`import`** (admin), posts multipart to the bridge (`POST {bridgeUrl}/api/v1/import`) with the same `Authorization` + `X-Vault-Id` model as the gateway import proxy. A **ninth** tool, **`vault_sync`** (editor/admin), POSTs JSON to `POST {bridgeUrl}/api/v1/vault/sync` via `upstreamFetch` (optional body `{ "repo": "owner/name" }`), matching Hub **Back up now** / gateway proxy to the bridge. A **tenth** tool, **`export`** (admin), GETs **`/api/v1/export`** on the hub canister ([`hub/icp/src/hub/main.mo`](../hub/icp/src/hub/main.mo)) with the same canister headers as other hosted canister tools and an **MCP-only** response size cap (`EXPORT_TOO_LARGE` over the limit; Hub / `vault_sync` are not subject to that cap). An **eleventh** tool, **`relate`** (viewer), reads the source note on the canister and runs semantic **`POST /api/v1/search`** on the bridge (see [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) and the inventory table).
 
-What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`relate`, `backlinks`, `extract_tasks`, …) that are **not** yet registered in the hosted server. Those are **future** tools, not partial work from the safeguards session.
+What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`backlinks`, `extract_tasks`, …) that are **not** yet registered in the hosted server. Those are **future** tools, not partial work from the safeguards session.
 
 ## How to test hosted MCP
 
@@ -38,7 +38,7 @@ Here you **do** use Cursor: enable the **`knowtation-hosted`** MCP server for th
 **Setup**
 
 1. **Cursor → Settings → MCP / Tools & MCP:** confirm **`knowtation-hosted`** is on (green) and points at your **persistent** MCP URL (EC2), not Netlify-only `/mcp`. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md).
-2. Optional: open the MCP panel / tool list and confirm you see **ten** tools if your Hub role is **admin** (fewer if viewer or editor).
+2. Optional: open the MCP panel / tool list and confirm you see **eleven** tools if your Hub role is **admin** (fewer if viewer or editor).
 3. Start a **new Composer/Agent chat** with hosted MCP enabled so tool calls are unambiguous.
 
 **What “path” means (hosted users — not local, not the Hub URL)**
@@ -56,7 +56,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 
 | Step | What you are proving | Paste into Cursor chat |
 |------|----------------------|-------------------------|
-| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are ten if I am an admin.` |
+| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are eleven if I am an admin.` |
 | 1 | Session + vault context | `Using only knowtation-hosted: read the MCP resource vault-info and show the full JSON (userId, vaultId, role, scope).` |
 | 2 | Canister list | `Using only knowtation-hosted: call the list_notes tool with limit 10 and show the returned paths or note list.` |
 | 3 | Canister read | `Using only knowtation-hosted: call get_note with path "VAULT_NOTE_PATH" — use exactly one path string copied from the list_notes result (vault-relative, not a browser URL). Show the body or error.` |
@@ -121,7 +121,7 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | `enrich` | viewer | Yes | Canister reads + MCP sampling |
 | `write` | editor | Yes | `POST {canisterUrl}/api/v1/notes` |
 | `index` | admin | Yes | `POST {bridgeUrl}/api/v1/index` |
-| `relate` | viewer | No | Local MCP uses vault graph libs; hosted needs bridge/canister design or HTTP surface — **verify** |
+| `relate` | viewer | Yes | Canister `GET …/notes/:path` for source (title+body, 12k slice) + bridge `POST …/search` semantic (`snippetChars` 200, `limit` min(want+15,50)); per-neighbor titles via canister reads. Bridge uses Voyage **query** embedding for the search string; local `lib/relate.mjs` uses **document** — small intentional gap for Voyage. |
 | `backlinks` | viewer | No | Same as `relate` — **verify** |
 | `extract_tasks` | viewer | No | Local analysis; hosted needs route or intentional omission |
 | `cluster` | viewer | No | Local analysis; hosted needs route or intentional omission |
@@ -146,16 +146,16 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | Layer | Status |
 |--------|--------|
 | Hosted MCP **tools/list** reliability | Guarded in CI + unit test (serialization + golden names). |
-| **Ten** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** uses multipart `fetch` to the bridge; **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap (see inventory table). |
+| **Eleven** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** uses multipart `fetch` to the bridge; **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap; **`relate`** reads the source note on the canister then calls bridge semantic search (see inventory table). |
 | ACL **name sets** (up to 17 for admin) | Declared in `mcp-tool-acl.mjs` for future RBAC; **not** all exposed as MCP tools. |
 
 ### What we do not have yet
 
 | Item | Meaning |
 |------|---------|
-| Hosted `registerTool` for `relate`, `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `capture`, `transcribe` | No Cursor-visible tool until implemented; ACL alone does nothing. |
-| Shared “graph” HTTP API for relate/backlinks on hosted | Local MCP uses filesystem/graph libs; hosted needs designed bridge or canister surfaces (or intentional omission). |
-| Documented operator smoke for **each** of the ten tools after deploy | You establish this by running [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
+| Hosted `registerTool` for `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `capture`, `transcribe` | No Cursor-visible tool until implemented; ACL alone does nothing. |
+| Shared “graph” HTTP API for backlinks (and richer graph queries) on hosted | Local MCP uses filesystem/graph libs; **`relate`** reuses bridge vector search; **`backlinks`** still needs a designed surface (or intentional omission). |
+| Documented operator smoke for **each** of the eleven tools after deploy | You establish this by running [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
 
 ### What connecting “the rest” entails (per future tool)
 
@@ -173,7 +173,7 @@ Each additional hosted tool is a **small product decision** plus code:
 
 | Work | Where |
 |------|--------|
-| **Manual smoke** of the ten tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import`, step **6c** for `export` if you are admin, and step **8** for `vault_sync` when GitHub is connected. |
+| **Manual smoke** of the eleven tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import`, step **6c** for `export` if you are admin, and step **8** for `vault_sync` when GitHub is connected. |
 | **Implementing** the next hosted tool | Pick **one** ACL-listed name that still shows **No** in the inventory table; confirm upstream on bridge or canister, then `registerTool` + golden tests per this doc. |
 
 Phase order for tools is in the session prompt table; pick **one** tool per PR. A ready-made **next-session prompt for `relate`** lives in [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) under *Next session prompt: hosted MCP `relate`*.
