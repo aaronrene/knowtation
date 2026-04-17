@@ -15,7 +15,7 @@ const BRIDGE_URL = 'http://bridge.test:4321';
 /** Golden sets: update when adding/removing tools in mcp-hosted-server.mjs */
 const TOOLS_VIEWER = ['enrich', 'get_note', 'list_notes', 'search', 'summarize'];
 const TOOLS_EDITOR = ['enrich', 'get_note', 'list_notes', 'search', 'summarize', 'vault_sync', 'write'];
-const TOOLS_ADMIN = ['enrich', 'get_note', 'import', 'index', 'list_notes', 'search', 'summarize', 'vault_sync', 'write'];
+const TOOLS_ADMIN = ['enrich', 'export', 'get_note', 'import', 'index', 'list_notes', 'search', 'summarize', 'vault_sync', 'write'];
 
 function sortNames(names) {
   return [...names].sort();
