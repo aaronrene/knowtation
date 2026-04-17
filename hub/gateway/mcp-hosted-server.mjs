@@ -7,6 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
+import { normalizeSlug } from '../../lib/vault.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
@@ -23,6 +24,17 @@ const BRIDGE_IMPORT_MAX_BYTES = 100 * 1024 * 1024;
  * with code EXPORT_TOO_LARGE (MCP-only cap; Hub / vault_sync / direct canister export are not limited by this).
  */
 const HOSTED_MCP_EXPORT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+
+/** Same slice as `lib/relate.mjs` when building the embedding text from the source note. */
+const RELATE_BODY_SLICE = 12000;
+
+function vaultPathKey(p) {
+  return String(p ?? '').replace(/\\/g, '/').trim();
+}
+
+function relateSnippet(s) {
+  return String(s ?? '').slice(0, 200).replace(/\s+/g, ' ').trim();
+}
 
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
@@ -190,6 +202,100 @@ export function createHostedMcpServer(ctx) {
             body,
           });
           return jsonResponse(data);
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  /**
+   * Hosted `relate` — parity with local `runRelate` (`lib/relate.mjs`) without a filesystem vault.
+   *
+   * Upstream (verified in `hub/bridge/server.mjs`):
+   * - **Source note:** `GET {canisterUrl}/api/v1/notes/:path` with the same headers as `get_note`
+   *   (`Authorization`, `X-Vault-Id`, `X-User-Id`, `X-Gateway-Auth`).
+   * - **Neighbors:** `POST {bridgeUrl}/api/v1/search` with JSON body
+   *   `{ query, mode: "semantic", limit, snippetChars: 200, project? }`.
+   *   Bridge embeds `query` with `voyageInputType: "query"` (local relate uses `"document"` for the
+   *   source chunk — intentional gap when using Voyage; Ollama and other providers may treat both the same).
+   * - **Titles:** optional `GET …/notes/:path` per neighbor (local reads each file for `title`).
+   */
+  if (isToolAllowed('relate', role)) {
+    server.registerTool(
+      'relate',
+      {
+        description:
+          'Find semantically related notes for a vault-relative path: read the source note from the canister, semantic search on the bridge index (excludes the source path), optional per-neighbor titles from the canister.',
+        inputSchema: {
+          path: z.string().describe('Vault-relative path to the source note (.md)'),
+          limit: z.number().optional().describe('Max related notes (default 5, max 20)'),
+          project: z.string().optional().describe('Filter neighbors by project slug'),
+        },
+      },
+      async (args) => {
+        try {
+          const note = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
+            canisterFetchOpts
+          );
+          const titleFm = note.frontmatter?.title != null ? String(note.frontmatter.title) : '';
+          const body = note.body != null ? String(note.body) : '';
+          const embedText = `${titleFm ? `${titleFm}\n` : ''}${body}`.slice(0, RELATE_BODY_SLICE);
+          if (!embedText.trim()) {
+            return jsonError('Source note has no title or body to embed; cannot relate.', 'INVALID');
+          }
+          const srcKey = vaultPathKey(note.path ?? args.path);
+
+          const want = Math.max(1, Math.min(Number(args.limit) || 5, 20));
+          const searchLimit = Math.min(want + 15, 50);
+
+          const searchBody = {
+            query: embedText,
+            mode: 'semantic',
+            limit: searchLimit,
+            snippetChars: 200,
+          };
+          if (args.project != null && String(args.project).trim() !== '') {
+            searchBody.project = normalizeSlug(String(args.project));
+          }
+
+          const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...fetchOpts,
+            method: 'POST',
+            body: searchBody,
+          });
+          const rows = Array.isArray(data.results) ? data.results : [];
+          const seen = new Set();
+          const related = [];
+          for (const h of rows) {
+            const p = vaultPathKey(h.path);
+            if (!p || p === srcKey) continue;
+            if (seen.has(p)) continue;
+            seen.add(p);
+            related.push({
+              path: p,
+              score: typeof h.score === 'number' ? h.score : 0,
+              title: null,
+              snippet: relateSnippet(h.snippet ?? h.text),
+            });
+            if (related.length >= want) break;
+          }
+
+          await Promise.all(
+            related.map(async (r) => {
+              try {
+                const rn = await upstreamFetch(
+                  `${canisterUrl}/api/v1/notes/${encodeURIComponent(r.path)}`,
+                  canisterFetchOpts
+                );
+                const t = rn.frontmatter?.title;
+                r.title = t != null && String(t).trim() !== '' ? String(t) : null;
+              } catch (_) {}
+            })
+          );
+
+          return jsonResponse({ path: srcKey, related });
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
         }
