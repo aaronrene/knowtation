@@ -258,6 +258,38 @@ export function createHostedMcpServer(ctx) {
     );
   }
 
+  if (isToolAllowed('vault_sync', role)) {
+    server.registerTool(
+      'vault_sync',
+      {
+        description:
+          'Back up the hosted vault to GitHub (same as Hub “Back up now”): exports notes and proposals via the bridge and pushes to the connected repo. Requires GitHub connected on the bridge; optional repo overrides owner/name.',
+        inputSchema: {
+          repo: z
+            .string()
+            .optional()
+            .describe('GitHub repository as owner/name (optional if a repo is already stored after Connect GitHub)'),
+        },
+      },
+      async (args) => {
+        try {
+          const body =
+            args.repo != null && String(args.repo).trim() !== ''
+              ? { repo: String(args.repo).trim() }
+              : {};
+          const data = await upstreamFetch(`${bridgeUrl}/api/v1/vault/sync`, {
+            ...fetchOpts,
+            method: 'POST',
+            body,
+          });
+          return jsonResponse(data);
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
   if (isToolAllowed('import', role)) {
     server.registerTool(
       'import',
