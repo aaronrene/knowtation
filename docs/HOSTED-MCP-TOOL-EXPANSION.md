@@ -70,7 +70,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 **How to interpret results**
 
 - **Steps 0–5** should return real JSON/text from your vault. If `get_note` or `list_notes` fails with upstream errors, the problem is auth, vault id, canister, or deploy—not “tests only in npm.”
-- **`import`:** admin-only; large uploads may hit timeouts client-side; audio/video/transcription need bridge env (e.g. API keys) as for Hub import.
+- **`import`:** admin-only; large uploads may hit timeouts client-side; audio/video/transcription need bridge env (e.g. API keys) as for Hub import. **Production verified (2026-04):** EC2 `knowtation-hosted` smoke — `source_type` `markdown`, tiny `file_base64` → response `{"imported":[{"path":"inbox/mcp-import-smoke.md",...}],"count":1}`; **`list_notes`** showed the same path and expected body.
 - **`index`:** slow; uses embeddings; run only after 1–5 succeed.
 - **`summarize` / `enrich`:** if Cursor does not support MCP **sampling**, you may see a short fallback or sparse output; canister reads can still succeed. Compare with [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) hosted MCP / sampling notes.
 

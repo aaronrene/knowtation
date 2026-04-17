@@ -20,6 +20,7 @@ Use this file as a handoff prompt for a future session.
 
 - Brief **red / “Server not initialized”** in MCP logs can appear when **toggling** the server or right after **PM2 restart**; **Logout → Connect** or retry usually clears it once `initialize` completes.
 - After the schema fix and **`import`** tool, **eight tools** appear for admin: `search`, `get_note`, `list_notes`, `write`, `index`, `import`, `summarize`, `enrich`, plus resource **`vault-info`**.
+- **`import` MCP** was **production-verified** on EC2 (2026-04): small markdown upload via tool → `inbox/mcp-import-smoke.md`, confirmed with **`list_notes`** / body match (see [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) § *How to interpret results*).
 
 ## EC2 “test station” vs pack balances (beginner map)
 
