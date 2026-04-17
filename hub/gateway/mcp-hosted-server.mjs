@@ -14,6 +14,16 @@ const IMPORT_SOURCE_ENUM = /** @type {any} */ ([...IMPORT_SOURCE_TYPES]);
 
 const BRIDGE_IMPORT_MAX_BYTES = 100 * 1024 * 1024;
 
+/**
+ * Hosted MCP `export` calls the same upstream as hub/bridge/server.mjs vault backup:
+ * GET {canisterUrl}/api/v1/export with X-User-Id / X-Vault-Id (+ gateway secret when configured).
+ * Response shape is built in hub/icp/src/hub/main.mo (pathKind == "export", GET): JSON object with a `notes` array.
+ *
+ * Full vault JSON can exceed MCP context limits; responses larger than this byte count are rejected
+ * with code EXPORT_TOO_LARGE (MCP-only cap; Hub / vault_sync / direct canister export are not limited by this).
+ */
+const HOSTED_MCP_EXPORT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
 }
@@ -43,6 +53,39 @@ async function upstreamFetch(url, opts = {}) {
     throw new Error(`Upstream ${res.status}: ${text.slice(0, 200)}`);
   }
   return res.json();
+}
+
+/**
+ * GET JSON from the canister with a hard cap on response body bytes (hosted export safety).
+ * @param {string} url
+ * @param {{ token?: string, vaultId?: string, userId?: string, canisterAuthSecret?: string }} opts
+ * @param {number} maxBytes
+ * @returns {Promise<unknown>}
+ */
+async function canisterGetJsonWithByteLimit(url, opts, maxBytes) {
+  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`;
+  if (opts.vaultId) headers['X-Vault-Id'] = opts.vaultId;
+  if (opts.userId) headers['X-User-Id'] = opts.userId;
+  if (opts.canisterAuthSecret) headers['X-Gateway-Auth'] = opts.canisterAuthSecret;
+  const res = await fetch(url, { method: 'GET', headers });
+  const buf = await res.arrayBuffer();
+  const text = new TextDecoder('utf-8').decode(buf);
+  if (!res.ok) {
+    throw new Error(`Upstream ${res.status}: ${text.slice(0, 200)}`);
+  }
+  if (buf.byteLength > maxBytes) {
+    const err = new Error(
+      `Export response is ${buf.byteLength} bytes; this MCP tool allows at most ${maxBytes} bytes (MCP-only safety limit, not a vault or canister limit). For a full vault export with no MCP size cap, use the Hub (e.g. GitHub backup / Back up now) or other non-MCP flows such as vault_sync; operators may also call the canister GET /api/v1/export outside MCP.`
+    );
+    /** @type {any} */ (err).code = 'EXPORT_TOO_LARGE';
+    throw err;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Invalid JSON from canister export');
+  }
 }
 
 /**
@@ -338,6 +381,29 @@ export function createHostedMcpServer(ctx) {
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('export', role)) {
+    server.registerTool(
+      'export',
+      {
+        description:
+          'Admin-only: vault notes JSON from the hub canister (GET /api/v1/export). Returns { notes: [...] } when the response is under an MCP-only byte cap; if EXPORT_TOO_LARGE, use the Hub or vault_sync for a full export without this MCP limit.',
+      },
+      async () => {
+        try {
+          const data = await canisterGetJsonWithByteLimit(
+            `${canisterUrl}/api/v1/export`,
+            canisterFetchOpts,
+            HOSTED_MCP_EXPORT_MAX_RESPONSE_BYTES
+          );
+          return jsonResponse(data);
+        } catch (e) {
+          const code = /** @type {any} */ (e).code === 'EXPORT_TOO_LARGE' ? 'EXPORT_TOO_LARGE' : 'UPSTREAM_ERROR';
+          return jsonError(e.message || String(e), code);
         }
       }
     );
