@@ -67,16 +67,43 @@ Pack balances and usage bars come from **`GET /api/v1/billing/summary` on the Ne
 
 ---
 
-## Shipped: hosted MCP `extract_tasks` (2026-04)
+## Extract_tasks — shipped and production smoke (2026-04)
 
 - **Hosted `extract_tasks`** is registered in `hub/gateway/mcp-hosted-server.mjs` (viewer+). It paginates **`GET /api/v1/notes`** with the same query keys as hosted **`list_notes`**, scans bodies with **`lib/extract-tasks.mjs`** `extractCheckboxTasksFromBody`, and falls back to **`GET …/notes/:path`** when a list row has an empty body. Responses include **`extract_tasks_truncated`** and **`extract_tasks_notes_scanned`** (soft cap: **2000** list rows per call). See [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) inventory row for parity gaps vs local and vs canister query semantics.
+- **Production smoke (EC2, Cursor `knowtation-hosted`):** Thirteen tools listed for **admin**; **`vault-info`** and **`list_notes`** succeeded; **`extract_tasks`** with `status: "open"` and `folder: "inbox"` returned sane counters (`extract_tasks_truncated: false`, `extract_tasks_notes_scanned` aligned with the vault). **`tasks: []`** matched **`get_note`** on a sample path whose body had **no** `- [ ]` / `- [x]` lines — expected. PR **#166** merged the implementation; docs in [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) § *Production verification: thirteenth tool `extract_tasks`* record the full checklist.
+
+---
 
 ## Next session prompt: hosted MCP `cluster` (copy into a new Agent chat)
 
-Use after `git checkout main && git pull`, then create a feature branch.
+Use after `git checkout main && git pull origin main`, then create **`feature/mcp-hosted-cluster`** (or your naming convention).
 
 ```text
-Context: Hosted MCP on EC2 (`https://mcp.knowtation.store/mcp`). Thirteen tools are live for admin after `extract_tasks` (see docs/HOSTED-MCP-TOOL-EXPANSION.md inventory).
+Context: Hosted MCP on EC2 (`https://mcp.knowtation.store/mcp`). Thirteen tools are live for admin, including `extract_tasks` (see docs/HOSTED-MCP-TOOL-EXPANSION.md inventory).
 
-Goal — exactly ONE new hosted MCP tool: pick the next ACL-listed name with **No** in the inventory (e.g. **`cluster`**) and follow HOSTED-MCP-TOOL-EXPANSION.md (upstream proof, registerTool + Zod schema, golden tools/list test, focused handler test, npm run verify:hosted-mcp-checklist && npm test).
+Branch workflow:
+1. git checkout main && git pull origin main
+2. git checkout -b feature/mcp-hosted-cluster
+
+Follow docs/HOSTED-MCP-TOOL-EXPANSION.md and docs/NEXT-SESSION-HOSTED-MCP.md.
+
+Goal — exactly ONE new hosted MCP tool:
+
+TOOL_NAME = cluster
+
+Already in hub/gateway/mcp-tool-acl.mjs (READ_TOOLS → viewer). NOT registered in hub/gateway/mcp-hosted-server.mjs yet.
+
+Local: mcp/tools/phase-c.mjs → lib/cluster-semantic.mjs `runCluster` — filesystem vault (`listMarkdownFiles` + `readNote`), optional `folder` / `project`, embeds truncated note text (`TEXT_SLICE` 800) with `lib/embedding.mjs` `embed` (document vectors), **`lib/kmeans.mjs`**, max **200** notes (`MAX_NOTES`), `n_clusters` default 5 clamped 2–15. Returns `{ clusters, notes_sampled, max_notes }` or empty `clusters` with a `note` string when too few notes / embed failures.
+
+Hosted: no local vault — must load note text from the **canister** (same list/get pattern as `extract_tasks` / `backlinks`, with an explicit cap on notes embedded). **Upstream proof is mandatory:** either document an existing **bridge** JSON route suitable for batch document embeddings (search `hub/bridge/server.mjs` for patterns used by `POST /api/v1/index` / embedding), or add a minimal bridge endpoint + gateway MCP handler that reuses the same embedding config and auth as other bridge tools (`Authorization`, `X-Vault-Id`, `X-User-Id`). Do not guess: cite the route and middleware in the PR or inventory row.
+
+Hard requirements:
+- registerTool behind isToolAllowed('cluster', role).
+- Zod inputSchema JSON-Schema-safe (hub/gateway/mcp-hosted*.mjs); mirror local args where possible (`folder`, `project`, `n_clusters`).
+- Update test/mcp-hosted-tools-list.test.mjs golden arrays (fourteen tools for admin after this ships).
+- Add tests (pattern: test/mcp-hosted-extract-tasks.test.mjs or test/mcp-hosted-backlinks.test.mjs).
+- npm run verify:hosted-mcp-checklist && npm test before merge.
+- One tool per PR.
+
+After merge: EC2 cd /opt/knowtation && git pull origin main && npm ci && pm2 restart knowtation-gateway --update-env; Cursor smoke `cluster` with a small vault and optional folder/project.
 ```
