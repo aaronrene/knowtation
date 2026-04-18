@@ -51,8 +51,8 @@ function installRelateFetchMock({ searchResponse }) {
           status: 200,
           json: async () => ({
             path: 'neighbor.md',
-            body: 'n',
-            frontmatter: '{"title":"Neighbor Title"}',
+            body: '# Heading from body\n\nBody text.',
+            frontmatter: '{}',
           }),
           text: async () => '{}',
         };
@@ -154,7 +154,7 @@ describe('hosted MCP relate', () => {
     assert.equal(out.path, 'src.md');
     assert.equal(out.related.length, 1);
     assert.equal(out.related[0].path, 'neighbor.md');
-    assert.equal(out.related[0].title, 'Neighbor Title');
+    assert.equal(out.related[0].title, 'Heading from body');
     assert.equal(out.related[0].snippet, 'a b');
     assert.equal(typeof out.related[0].score, 'number');
   });
