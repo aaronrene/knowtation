@@ -190,6 +190,16 @@ describe('3.3 Bridge write routes guarded by requireBridgeEditorOrAdmin', () => 
     assert.ok(indexLine.includes('requireBridgeEditorOrAdmin'), '/index must require editor or admin');
   });
 
+  test('POST /api/v1/index clears prior vault vectors before upsert (no orphan search paths)', () => {
+    const src = load();
+    assert.ok(
+      src.includes('deleteByVaultId(vaultId)') &&
+        src.includes('Remove stale chunk rows for this vault before upsert') &&
+        src.includes('Drop prior vectors for this vault so search cannot return paths no longer in the export'),
+      'bridge index must deleteByVaultId for this vault before upsert and when chunk list is empty',
+    );
+  });
+
   test('POST /api/v1/memory/store has requireBridgeEditorOrAdmin', () => {
     const src = load();
     const storeLine = src.split('\n').find((l) => l.includes("'/api/v1/memory/store'") && l.includes('app.post'));
