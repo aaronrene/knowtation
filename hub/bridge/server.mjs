@@ -1880,6 +1880,11 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       const store = await createVectorStore(storeConfig);
       const dim = embeddingDimension(storeConfig.embedding);
       await store.ensureCollection(dim);
+      // Drop prior vectors for this vault so search cannot return paths no longer in the export.
+      if (typeof store.deleteByVaultId === 'function') {
+        await store.deleteByVaultId(vaultId);
+      }
+      await persistVectorsToBlob(req, canisterUid, vectorsDir);
       return res.json({
         ok: true,
         notesProcessed: notes.length,
@@ -1906,6 +1911,10 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     const dim = embeddingDimension(embeddingConfig);
     const store = await createVectorStore(storeConfig);
     await store.ensureCollection(dim);
+    // Remove stale chunk rows for this vault before upsert; otherwise deleted notes stay in KNN.
+    if (typeof store.deleteByVaultId === 'function') {
+      await store.deleteByVaultId(vaultId);
+    }
     for (let i = 0; i < allChunks.length; i += BATCH_UPSERT) {
       const batch = allChunks.slice(i, i + BATCH_UPSERT);
       const points = batch.map((chunk, j) => ({
