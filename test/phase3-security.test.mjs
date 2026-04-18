@@ -200,6 +200,22 @@ describe('3.3 Bridge write routes guarded by requireBridgeEditorOrAdmin', () => 
     );
   });
 
+  test('POST /api/v1/index JSON includes vectors_deleted for operators', () => {
+    const src = load();
+    assert.ok(
+      src.includes('vectors_deleted') && src.includes('chunksIndexed') && src.includes('notesProcessed'),
+      'bridge index response must expose vectors_deleted alongside notesProcessed/chunksIndexed',
+    );
+  });
+
+  test('GET /api/v1/bridge-version exists for deploy verification', () => {
+    const src = load();
+    assert.ok(
+      src.includes("app.get('/api/v1/bridge-version'") && src.includes('COMMIT_REF'),
+      'bridge must expose unauthenticated GET /api/v1/bridge-version with commit metadata',
+    );
+  });
+
   test('POST /api/v1/memory/store has requireBridgeEditorOrAdmin', () => {
     const src = load();
     const storeLine = src.split('\n').find((l) => l.includes("'/api/v1/memory/store'") && l.includes('app.post'));

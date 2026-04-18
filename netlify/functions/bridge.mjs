@@ -10,10 +10,16 @@ import { app } from '../../hub/bridge/server.mjs';
 
 export const handler = async (event, context) => {
   connectLambda(event);
-  // Use eventual consistency only. Strong consistency requires uncachedEdgeURL in the Netlify Functions
-  // environment; without it, blob set/get throws BlobsConsistencyError and Connect GitHub crashes.
-  // Hub retries /api/v1/settings after ?github_connected=1 to cover read-after-write lag.
-  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency: 'eventual' });
+  // Default `eventual` (fast). Set NETLIFY_BLOBS_CONSISTENCY=strong on the **bridge** site for
+  // read-after-write on vector blobs (index → search); see Netlify Blobs docs. If strong mode errors
+  // at runtime (e.g. missing edge URL), unset the env or revert to eventual.
+  const consistency =
+    String(process.env.NETLIFY_BLOBS_CONSISTENCY || '')
+      .trim()
+      .toLowerCase() === 'strong'
+      ? 'strong'
+      : 'eventual';
+  globalThis.__netlify_blob_store = getStore({ name: 'bridge-data', consistency });
   try {
     return await serverless(app)(event, context);
   } finally {

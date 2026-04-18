@@ -45,7 +45,14 @@ describe('verifyState timing-safe HMAC comparison', () => {
     const [payloadB64] = stateStr.split('.');
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(JSON.stringify(payload)).digest('hex');
-    const tampered = 'a' + expected.slice(1);
+    // Must differ from expected even when expected[0] is already 'a' (replacing with 'a' would be a no-op).
+    const flipFirstHex = (h) => {
+      const c = h[0];
+      const alt = c === '0' ? 'f' : c === 'a' ? 'b' : '0';
+      return alt + h.slice(1);
+    };
+    const tampered = flipFirstHex(expected);
+    assert.notEqual(tampered, expected);
     const sigBuf = Buffer.from(tampered, 'utf8');
     const expectedBuf = Buffer.from(expected, 'utf8');
     assert.ok(sigBuf.length === expectedBuf.length);

@@ -75,7 +75,7 @@ function jsonError(msg, code = 'ERROR') {
 /**
  * Fetch JSON from an upstream service with auth forwarding.
  * @param {string} url
- * @param {{ method?: string, body?: unknown, token?: string, vaultId?: string }} [opts]
+ * @param {{ method?: string, body?: unknown, token?: string, vaultId?: string, userId?: string }} [opts]
  */
 async function upstreamFetch(url, opts = {}) {
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
@@ -131,7 +131,7 @@ async function canisterGetJsonWithByteLimit(url, opts, maxBytes) {
 /**
  * POST multipart to bridge /api/v1/import (same headers as hub/gateway proxyImportToBridge).
  * @param {string} bridgeUrl
- * @param {{ token?: string, vaultId?: string }} fetchOpts
+ * @param {{ token?: string, vaultId?: string, userId?: string }} fetchOpts
  * @param {FormData} formData
  * @returns {Promise<unknown>}
  */
@@ -139,6 +139,7 @@ async function bridgeImportMultipart(bridgeUrl, fetchOpts, formData) {
   const headers = { Accept: 'application/json' };
   if (fetchOpts.token) headers['Authorization'] = `Bearer ${fetchOpts.token}`;
   if (fetchOpts.vaultId) headers['X-Vault-Id'] = fetchOpts.vaultId;
+  if (fetchOpts.userId) headers['X-User-Id'] = fetchOpts.userId;
   const res = await fetch(`${bridgeUrl}/api/v1/import`, {
     method: 'POST',
     headers,
@@ -177,6 +178,8 @@ export function createHostedMcpServer(ctx) {
     { capabilities: { logging: {} } }
   );
   const fetchOpts = { token, vaultId };
+  /** Same as Hub proxy: bridge resolves `effectiveCanisterUid` from JWT; header aids debugging. */
+  const bridgeFetchOpts = { token, vaultId, userId };
   const canisterFetchOpts = { ...fetchOpts, userId, canisterAuthSecret: canisterAuthSecret || '' };
 
   if (isToolAllowed('search', role)) {
@@ -225,7 +228,7 @@ export function createHostedMcpServer(ctx) {
           if (args.episode != null) body.episode = args.episode;
           if (args.content_scope != null) body.content_scope = args.content_scope;
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...fetchOpts,
+            ...bridgeFetchOpts,
             method: 'POST',
             body,
           });
@@ -244,17 +247,16 @@ export function createHostedMcpServer(ctx) {
    * - **Source note:** `GET {canisterUrl}/api/v1/notes/:path` with the same headers as `get_note`
    *   (`Authorization`, `X-Vault-Id`, `X-User-Id`, `X-Gateway-Auth`).
    * - **Neighbors:** `POST {bridgeUrl}/api/v1/search` with JSON body
-   *   `{ query, mode: "semantic", limit, snippetChars: 200, project? }`.
-   *   Bridge embeds `query` with `voyageInputType: "query"` (local relate uses `"document"` for the
-   *   source chunk — intentional gap when using Voyage; Ollama and other providers may treat both the same).
-   * - **Titles:** optional `GET …/notes/:path` per neighbor (local reads each file for `title`).
+   *   `{ query, mode: "semantic", limit, snippetChars: 200, project? }`; bridge embeds `query` with
+   *   `voyageInputType: "query"`. Only paths that return 200 from canister `GET …/notes/:path` are
+   *   returned (stale vector paths omitted).
    */
   if (isToolAllowed('relate', role)) {
     server.registerTool(
       'relate',
       {
         description:
-          'Find semantically related notes for a vault-relative path: read the source note from the canister, semantic search on the bridge index (excludes the source path), optional per-neighbor titles from the canister.',
+          'Find semantically related notes for a vault-relative path: read the source note from the canister, semantic search on the bridge index (excludes the source path), titles from the canister. Neighbors that do not exist on the canister (stale index) are omitted.',
         inputSchema: {
           path: z.string().describe('Vault-relative path to the source note (.md)'),
           limit: z.number().optional().describe('Max related notes (default 5, max 20)'),
@@ -276,7 +278,7 @@ export function createHostedMcpServer(ctx) {
           const srcKey = vaultPathKey(note.path ?? args.path);
 
           const want = Math.max(1, Math.min(Number(args.limit) || 5, 20));
-          const searchLimit = Math.min(want + 15, 50);
+          const searchLimit = Math.min(100, Math.max(want + 15, want * 12));
 
           const searchBody = {
             query: embedText,
@@ -289,7 +291,7 @@ export function createHostedMcpServer(ctx) {
           }
 
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...fetchOpts,
+            ...bridgeFetchOpts,
             method: 'POST',
             body: searchBody,
           });
@@ -297,17 +299,25 @@ export function createHostedMcpServer(ctx) {
           const seen = new Set();
           const related = [];
           for (const h of rows) {
+            if (related.length >= want) break;
             const p = vaultPathKey(h.path);
             if (!p || p === srcKey) continue;
             if (seen.has(p)) continue;
             seen.add(p);
-            related.push({
-              path: p,
-              score: scoreFromBridgeSearchHit(/** @type {Record<string, unknown>} */ (h)),
-              title: null,
-              snippet: relateSnippet(h.snippet ?? h.text),
-            });
-            if (related.length >= want) break;
+            try {
+              const rn = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              related.push({
+                path: p,
+                score: scoreFromBridgeSearchHit(/** @type {Record<string, unknown>} */ (h)),
+                title: displayTitleFromHostedNote(rn),
+                snippet: relateSnippet(h.snippet ?? h.text),
+              });
+            } catch (_) {
+              // Omit stale vector hits (path not on canister).
+            }
           }
 
           await Promise.all(
@@ -427,7 +437,7 @@ export function createHostedMcpServer(ctx) {
       async () => {
         try {
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/index`, {
-            ...fetchOpts,
+            ...bridgeFetchOpts,
             method: 'POST',
           });
           return jsonResponse(data);
@@ -458,7 +468,7 @@ export function createHostedMcpServer(ctx) {
               ? { repo: String(args.repo).trim() }
               : {};
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/vault/sync`, {
-            ...fetchOpts,
+            ...bridgeFetchOpts,
             method: 'POST',
             body,
           });
@@ -514,7 +524,7 @@ export function createHostedMcpServer(ctx) {
             const tagsStr = Array.isArray(args.tags) ? args.tags.map((t) => String(t).trim()).filter(Boolean).join(',') : String(args.tags);
             if (tagsStr) form.set('tags', tagsStr);
           }
-          const data = await bridgeImportMultipart(bridgeUrl, fetchOpts, form);
+          const data = await bridgeImportMultipart(bridgeUrl, bridgeFetchOpts, form);
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');

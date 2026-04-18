@@ -21,7 +21,8 @@ GitHub connect + **Back up now** + **index + search** for the hosted product. St
 - **GET /api/v1/vault-access**, **POST /api/v1/vault-access** — Same contract as Node Hub `hub_vault_access.json` (admin only).
 - **GET /api/v1/scope**, **POST /api/v1/scope** — Same contract as Node Hub `hub_scope.json` (admin only).
 - **GET /api/v1/hosted-context** — JWT. Returns effective canister user, `allowed_vault_ids`, scope, **role**, and **may_approve_proposals** for current **`X-Vault-Id`** (used by the gateway).
-- **POST /api/v1/index** — Re-index vault (chunk → embed → sqlite-vec per **effective** user + vault). Requires Bearer JWT.
+- **GET /api/v1/bridge-version** — No auth. Deploy probe: `{ service, commit, deploy_id, context, netlify }` (Netlify sets `COMMIT_REF` / `DEPLOY_ID` / `CONTEXT`). Use to confirm **knowtation-bridge** production matches `main` after a merge (separate from the gateway site).
+- **POST /api/v1/index** — Re-index vault (chunk → embed → sqlite-vec per **effective** user + vault). Requires Bearer JWT. Response includes **`vectors_deleted`** (sqlite rows removed for this vault before upsert) plus `notesProcessed`, `chunksIndexed`, `embedding_input_tokens`.
 - **POST /api/v1/search** — Semantic search. Body: `{ "query": "...", "limit?", ... }`. Requires Bearer JWT.
 
 ## Environment
@@ -69,7 +70,7 @@ Hub UI (hosted) must call this bridge for Connect GitHub and Back up now. Either
 
 ## Netlify Blobs (persistence on Netlify)
 
-When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens, per-user vector DBs, **roles/invites**, and **hub_evaluator_may_approve** (per-evaluator approve permission) are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Use a **second Netlify site** with **Package directory** `deploy/bridge` (see [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md)). Enable **Blobs** for that site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). No extra environment variables are required; the function wrapper attaches the store per request. Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
+When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens, per-user vector DBs, **roles/invites**, and **hub_evaluator_may_approve** (per-evaluator approve permission) are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Use a **second Netlify site** with **Package directory** `deploy/bridge` (see [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md)). Enable **Blobs** for that site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). The wrapper defaults to **eventual** blob consistency; set **`NETLIFY_BLOBS_CONSISTENCY=strong`** on the bridge site if you need read-your-writes immediately after index (see [Netlify Blobs consistency](https://docs.netlify.com/build/data-and-storage/netlify-blobs/)). Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
 
 ## Reference
 
