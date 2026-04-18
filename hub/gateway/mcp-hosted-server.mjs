@@ -12,7 +12,9 @@ import {
   titleFromCanisterFrontmatter,
   titleFromPathStem,
 } from '../../lib/canister-frontmatter.mjs';
-import { normalizeSlug } from '../../lib/vault.mjs';
+import { normalizeSlug, effectiveProjectSlug } from '../../lib/vault.mjs';
+import { extractCheckboxTasksFromBody } from '../../lib/extract-tasks.mjs';
+import { materializeListFrontmatter, tagsFromFm } from './note-facets.mjs';
 import { findFirstWikilinkToTargetInBody, vaultBasenameTargetKey } from '../../lib/wikilink.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
@@ -41,12 +43,65 @@ const RELATE_BODY_SLICE = 12000;
 const HOSTED_BACKLINKS_MAX_NOTES = 2000;
 const HOSTED_BACKLINKS_PAGE_SIZE = 100;
 
+/**
+ * Hosted `extract_tasks`: max canister list rows processed (each may trigger one `GET …/notes/:path` when body empty).
+ */
+const HOSTED_EXTRACT_TASKS_MAX_NOTES = 2000;
+const HOSTED_EXTRACT_TASKS_PAGE_SIZE = 100;
+
 function vaultPathKey(p) {
   return String(p ?? '').replace(/\\/g, '/').trim();
 }
 
 function relateSnippet(s) {
   return String(s ?? '').slice(0, 200).replace(/\s+/g, ' ').trim();
+}
+
+function pathMatchesFolderForExtractTasks(p, folderOpt) {
+  if (folderOpt == null || String(folderOpt).trim() === '') return true;
+  const prefix = String(folderOpt).replace(/\\/g, '/').replace(/\/$/, '') + '/';
+  const exact = String(folderOpt).replace(/\\/g, '/').replace(/\/$/, '');
+  return p === exact || p.startsWith(prefix);
+}
+
+function dateKeyFromHostedFrontmatter(fm) {
+  const raw = fm.date ?? fm.updated;
+  if (raw == null) return '';
+  const s = String(raw).trim();
+  if (!s) return '';
+  return s.slice(0, 10);
+}
+
+/**
+ * Client-side filters mirroring local `runExtractTasks` (path + materialized canister frontmatter).
+ * @param {string} path
+ * @param {unknown} frontmatterRaw
+ * @param {{ folder?: string, project?: string, tag?: string, since?: string, until?: string }} f
+ */
+function hostedNotePassesExtractFilters(path, frontmatterRaw, f) {
+  const p = vaultPathKey(path);
+  if (!p) return false;
+  if (!pathMatchesFolderForExtractTasks(p, f.folder)) return false;
+  const fm = materializeListFrontmatter(frontmatterRaw);
+  if (f.project != null && String(f.project).trim() !== '') {
+    const wp = normalizeSlug(String(f.project));
+    if (effectiveProjectSlug(p, fm) !== wp) return false;
+  }
+  if (f.tag != null && String(f.tag).trim() !== '') {
+    const wt = normalizeSlug(String(f.tag));
+    const tagSet = tagsFromFm(fm).map((t) => normalizeSlug(String(t))).filter(Boolean);
+    if (!tagSet.includes(wt)) return false;
+  }
+  const d = dateKeyFromHostedFrontmatter(fm);
+  if (f.since != null && String(f.since).trim() !== '') {
+    const s = String(f.since).trim().slice(0, 10);
+    if (!d || d < s) return false;
+  }
+  if (f.until != null && String(f.until).trim() !== '') {
+    const u = String(f.until).trim().slice(0, 10);
+    if (!d || d > u) return false;
+  }
+  return true;
 }
 
 /**
@@ -427,6 +482,94 @@ export function createHostedMcpServer(ctx) {
           backlinks_truncated: scanned >= HOSTED_BACKLINKS_MAX_NOTES,
           backlinks_notes_scanned: scanned,
         });
+      }
+    );
+  }
+
+  /**
+   * Hosted `extract_tasks` — parity with local `runExtractTasks` (`lib/extract-tasks.mjs`) without a filesystem vault.
+   *
+   * Upstream: paginate `GET {canisterUrl}/api/v1/notes` with the same query keys as hosted `list_notes`
+   * (`folder`, `project`, `tag`, `since`, `until`, `limit`, `offset`). The ICP canister in this repo returns full
+   * bodies on list rows; when a row has an empty body, the handler falls back to `GET …/notes/:path`.
+   * Client-side folder/project/tag/date filters mirror local `runExtractTasks` (canister list query params are not
+   * relied on for correctness). Stops after **HOSTED_EXTRACT_TASKS_MAX_NOTES** list rows processed.
+   */
+  if (isToolAllowed('extract_tasks', role)) {
+    server.registerTool(
+      'extract_tasks',
+      {
+        description:
+          'Extract markdown checkbox tasks (`- [ ]` / `- [x]`) from the hosted vault. Uses canister note list + bodies (GET per note only when list body is empty). Optional folder/project/tag/since/until match hosted list_notes query shapes; filters are applied client-side like local extract_tasks. Max 2000 notes scanned per call (see extract_tasks_truncated in the JSON).',
+        inputSchema: {
+          folder: z.string().optional().describe('Restrict to notes under this vault-relative folder prefix'),
+          project: z.string().optional().describe('Filter by project slug'),
+          tag: z.string().optional().describe('Filter by tag'),
+          since: z.string().optional().describe('Include only notes with date/updated on or after YYYY-MM-DD'),
+          until: z.string().optional().describe('Include only notes with date/updated on or before YYYY-MM-DD'),
+          status: z.enum(['open', 'done', 'all']).optional().describe('Task checkbox filter (default all)'),
+        },
+      },
+      async (args) => {
+        try {
+          const statusArg = args.status ?? 'all';
+          const filter = {
+            folder: args.folder,
+            project: args.project,
+            tag: args.tag,
+            since: args.since,
+            until: args.until,
+          };
+          const tasks = [];
+          let offset = 0;
+          let scanned = 0;
+          while (scanned < HOSTED_EXTRACT_TASKS_MAX_NOTES) {
+            const remain = HOSTED_EXTRACT_TASKS_MAX_NOTES - scanned;
+            const pageSize = Math.min(HOSTED_EXTRACT_TASKS_PAGE_SIZE, Math.max(1, remain));
+            const params = new URLSearchParams();
+            if (args.folder) params.set('folder', args.folder);
+            if (args.project) params.set('project', args.project);
+            if (args.tag) params.set('tag', args.tag);
+            if (args.since) params.set('since', args.since);
+            if (args.until) params.set('until', args.until);
+            params.set('limit', String(pageSize));
+            params.set('offset', String(offset));
+            const list = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const rows = Array.isArray(list.notes) ? list.notes : [];
+            if (rows.length === 0) break;
+            for (const row of rows) {
+              if (scanned >= HOSTED_EXTRACT_TASKS_MAX_NOTES) break;
+              scanned += 1;
+              const p = vaultPathKey(row.path);
+              if (!p) continue;
+              if (!hostedNotePassesExtractFilters(p, row.frontmatter, filter)) continue;
+              let body = row.body != null ? String(row.body) : '';
+              if (!body.trim()) {
+                try {
+                  const full = await upstreamFetch(
+                    `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                    canisterFetchOpts
+                  );
+                  body = full.body != null ? String(full.body) : '';
+                } catch {
+                  continue;
+                }
+              }
+              for (const t of extractCheckboxTasksFromBody(body, { path: p, status: statusArg })) {
+                tasks.push(t);
+              }
+            }
+            offset += rows.length;
+            if (rows.length < pageSize) break;
+          }
+          return jsonResponse({
+            tasks,
+            extract_tasks_truncated: scanned >= HOSTED_EXTRACT_TASKS_MAX_NOTES,
+            extract_tasks_notes_scanned: scanned,
+          });
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
       }
     );
   }

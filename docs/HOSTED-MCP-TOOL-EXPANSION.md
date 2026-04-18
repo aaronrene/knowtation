@@ -16,7 +16,9 @@ The **safeguards session** added **no new `registerTool` blocks** and **no new H
 
 The **core seven** hosted tools in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) (search, get_note, list_notes, write, index, summarize, enrich) were **already** implemented before the safeguards work: most call **bridge** or **canister** via `upstreamFetch`. An **eighth** tool, **`import`** (admin), posts multipart to the bridge (`POST {bridgeUrl}/api/v1/import`) with the same `Authorization` + `X-Vault-Id` model as the gateway import proxy. A **ninth** tool, **`vault_sync`** (editor/admin), POSTs JSON to `POST {bridgeUrl}/api/v1/vault/sync` via `upstreamFetch` (optional body `{ "repo": "owner/name" }`), matching Hub **Back up now** / gateway proxy to the bridge. A **tenth** tool, **`export`** (admin), GETs **`/api/v1/export`** on the hub canister ([`hub/icp/src/hub/main.mo`](../hub/icp/src/hub/main.mo)) with the same canister headers as other hosted canister tools and an **MCP-only** response size cap (`EXPORT_TOO_LARGE` over the limit; Hub / `vault_sync` are not subject to that cap). An **eleventh** tool, **`relate`** (viewer), reads the source note on the canister and runs semantic **`POST /api/v1/search`** on the bridge. A **twelfth** tool, **`backlinks`** (viewer), paginates **`GET /api/v1/notes`** and **`GET …/notes/:path`** to scan bodies for `[[wikilink]]` matches (same key rules as `lib/backlinks.mjs`), capped at **2000** notes examined per call — see [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) and the inventory table.
 
-What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`extract_tasks`, `cluster`, …) that are **not** yet registered in the hosted server. Those are **future** tools, not partial work from the safeguards session.
+A **thirteenth** tool, **`extract_tasks`** (viewer), uses the same canister list pagination pattern plus checkbox parsing from `lib/extract-tasks.mjs` (`extractCheckboxTasksFromBody`), capped at **2000** list rows processed per call — see the inventory table for upstream and parity notes.
+
+What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`cluster`, `tag_suggest`, …) that are **not** yet registered in the hosted server. Those are **future** tools, not partial work from the safeguards session.
 
 ### Production verification: twelfth tool `backlinks` (2026-04)
 
@@ -26,7 +28,13 @@ What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl
 
 **Operator pitfall (resolved in same window):** PM2’s **`script path`** must point into the repo you **`git pull`** on (often **`/opt/knowtation`**, not only **`~/knowtation`**). Otherwise the live server stays on old code and Cursor stays at eleven tools until that tree is updated and the gateway restarted.
 
-**Next hosted tool (thirteenth, not started here):** **`extract_tasks`** — see [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) (*Next session prompt: hosted MCP `extract_tasks`*). This branch name (`docs/hosted-mcp-extract-tasks-next`) marks that handoff.
+### Production verification: thirteenth tool `extract_tasks` (2026-04)
+
+**Status:** Implemented in repo; deploy and smoke on EC2 like other hosted tools. **`extract_tasks`** is the **thirteenth** registered hosted tool.
+
+**What “working” means here:** Cursor **`knowtation-hosted`** lists **thirteen** tools for admin (including **`extract_tasks`**); calling **`extract_tasks`** returns JSON with `tasks`, `extract_tasks_notes_scanned`, and `extract_tasks_truncated`. Optional **`folder`**, **`project`**, **`tag`**, **`since`**, **`until`** mirror hosted **`list_notes`** query keys on `GET /api/v1/notes`; **client-side** filtering matches local `runExtractTasks` metadata rules because the ICP canister in-repo list handler does not interpret those query parameters (parity gap vs `list_notes` through the Netlify gateway is documented in the inventory row).
+
+**Next hosted tool (fourteenth, not started here):** **`cluster`** — pick one ACL-listed name that still shows **No** in the inventory table; follow this playbook.
 
 ## How to test hosted MCP
 
@@ -66,13 +74,14 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 
 | Step | What you are proving | Paste into Cursor chat |
 |------|----------------------|-------------------------|
-| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are twelve tools if I am an admin (including relate and backlinks).` |
+| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are thirteen tools if I am an admin (including relate, backlinks, and extract_tasks).` |
 | 1 | Session + vault context | `Using only knowtation-hosted: read the MCP resource vault-info and show the full JSON (userId, vaultId, role, scope).` |
 | 2 | Canister list | `Using only knowtation-hosted: call the list_notes tool with limit 10 and show the returned paths or note list.` |
 | 3 | Canister read | `Using only knowtation-hosted: call get_note with path "VAULT_NOTE_PATH" — use exactly one path string copied from the list_notes result (vault-relative, not a browser URL). Show the body or error.` |
 | 4 | Bridge search | `Using only knowtation-hosted: call search with query "<a short phrase you know exists in your hosted vault>" and mode semantic (or keyword if you prefer). Show a snippet of the results.` |
 | 4b | Relate (viewer+) | `Using only knowtation-hosted: call list_notes with limit 10, copy one path, then call relate with that path and limit 5. Report path, related.length, and one related entry if any. Empty related is OK for tiny vaults or weak semantic overlap after canister filtering.` |
 | 4c | Backlinks (viewer+) | `Using only knowtation-hosted: call list_notes with limit 10, pick path A for a note that should be linked to, and path B for a note whose body contains [[title-or-stem of A]]. Call backlinks with path A. Report paths, backlinks_notes_scanned, backlinks_truncated, and any inbound path matching B.` |
+| 4d | Extract tasks (viewer+) | `Using only knowtation-hosted: call extract_tasks with status open and optional folder from list_notes. Report tasks.length, extract_tasks_notes_scanned, extract_tasks_truncated, and one task object if any.` |
 | 5 | Canister write (editor/admin) | `Using only knowtation-hosted: call write with path "mcp-smoke/cursor-test.md", body "# MCP smoke\n\nWritten from Cursor chat test.", and no frontmatter unless needed. Then call get_note with path "mcp-smoke/cursor-test.md" (same vault-relative path) to confirm it round-trips.` |
 | 6 | Bridge index (admin, costly) | **Skip until read/write pass.** When ready: `Using only knowtation-hosted: call the index tool (no arguments). Report success or the JSON error from the tool.` |
 | 6b | Bridge import (admin) | **After a small test file is ready:** `Using only knowtation-hosted: call the import tool with source_type markdown, filename mcp-import-smoke.md, and file_base64 set to the base64 of a short UTF-8 markdown file (e.g. "# smoke\\n"). Report imported paths or error JSON.` Same upstream as Hub: bridge `POST /api/v1/import` (multipart); **no canister Motoko changes** — the bridge already batch-writes to the canister. |
@@ -86,6 +95,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 - **Steps 0–5** should return real JSON/text from your vault. If `get_note` or `list_notes` fails with upstream errors, the problem is auth, vault id, canister, or deploy—not “tests only in npm.”
 - **`relate`:** **Production verified (2026-04)** on EC2 smoke (vault binding + `list_notes` + `get_note` + `relate` + bridge-version). **`related: []`** is valid when the vault has few notes, semantic search returns no other paths after dropping canister 404s, or content is too thin for neighbors; use **Hub Re-index** and a larger vault to stress-test neighbors if needed.
 - **`backlinks`:** **Production verified (2026-04)** — twelfth tool; EC2 + Cursor `knowtation-hosted` smoke (`vault-info` → `list_notes` → `backlinks`). Uses canister list + per-note reads (see inventory row). **`backlinks_truncated: true`** means the soft cap (**2000** notes scanned) was hit before the end of the vault. **`backlinks_notes_scanned`** should match vault size when every listed note was examined and the cap was not hit; empty `backlinks` is valid when no bodies use `[[wikilink]]` to the target.
+- **`extract_tasks`:** Uses canister **`GET /api/v1/notes`** with the same query keys as hosted **`list_notes`** (`folder`, `project`, `tag`, `since`, `until`, `limit`, `offset`) plus **`extractCheckboxTasksFromBody`** on each row’s body (or **`GET …/notes/:path`** when the list row body is empty). **`extract_tasks_truncated: true`** means the soft cap (**2000** list rows processed) was hit. **`until`** is supported on hosted only (local filesystem `runExtractTasks` has no `until` filter). **Parity gap:** the in-repo ICP canister `GET /api/v1/notes` handler ignores query string filters; hosted **`extract_tasks`** applies folder/project/tag/date filters **client-side** after materializing list `frontmatter`, matching local `runExtractTasks` intent. **Production smoke:** run after EC2 deploy (same pattern as other read tools).
 - **`import`:** admin-only; large uploads may hit timeouts client-side; audio/video/transcription need bridge env (e.g. API keys) as for Hub import. **Production verified (2026-04):** EC2 `knowtation-hosted` smoke — `source_type` `markdown`, tiny `file_base64` → response `{"imported":[{"path":"inbox/mcp-import-smoke.md",...}],"count":1}`; **`list_notes`** showed the same path and expected body.
 - **`index`:** slow; uses embeddings; run only after 1–5 succeed.
 - **`summarize` / `enrich`:** if Cursor does not support MCP **sampling**, you may see a short fallback or sparse output; canister reads can still succeed. Compare with [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) hosted MCP / sampling notes.
@@ -137,7 +147,7 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | `index` | admin | Yes | `POST {bridgeUrl}/api/v1/index` |
 | `relate` | viewer | Yes | Canister `GET …/notes/:path` for source (title+body, 12k slice) + bridge `POST …/search` semantic (`snippetChars` 200, `limit` min(want+15,50)); per-neighbor titles via canister reads. Bridge uses Voyage **query** embedding for the search string; local `lib/relate.mjs` uses **document** — small intentional gap for Voyage. |
 | `backlinks` | viewer | Yes | Canister `GET …/notes?limit=&offset=` (pages of 100) + per-candidate `GET …/notes/:path` for full body; `lib/wikilink.mjs` scan; max **2000** notes examined; JSON includes `backlinks_truncated` / `backlinks_notes_scanned`. **Production verified (2026-04)** on EC2 + Cursor smoke (twelfth tool). |
-| `extract_tasks` | viewer | No | Local analysis; hosted needs route or intentional omission |
+| `extract_tasks` | viewer | Yes | Canister `GET …/notes?folder=&project=&tag=&since=&until=&limit=&offset=` (same keys as hosted `list_notes`) + body scan via `lib/extract-tasks.mjs` `extractCheckboxTasksFromBody`; optional `GET …/notes/:path` when list body empty. Client-side filters for folder/project/tag/since/until mirror local `runExtractTasks` (canister list query is not authoritative for filters — see § *How to interpret results*). Max **2000** list rows per call (`extract_tasks_truncated` / `extract_tasks_notes_scanned`). Hosted adds optional **`until`** (not in local `runExtractTasks`). |
 | `cluster` | viewer | No | Local analysis; hosted needs route or intentional omission |
 | `tag_suggest` | viewer | No | Local / sampling; hosted needs route or sampling-only wrapper |
 | `capture` | editor | No | Bridge has internal capture hooks from search; **no dedicated MCP-shaped HTTP** at time of writing — design before exposing |
@@ -160,16 +170,16 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | Layer | Status |
 |--------|--------|
 | Hosted MCP **tools/list** reliability | Guarded in CI + unit test (serialization + golden names). |
-| **Twelve** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** uses multipart `fetch` to the bridge; **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap; **`relate`** + bridge semantic search; **`backlinks`** + canister list/get + `lib/wikilink.mjs` (see inventory table). |
+| **Thirteen** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** uses multipart `fetch` to the bridge; **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap; **`relate`** + bridge semantic search; **`backlinks`** + canister list/get + `lib/wikilink.mjs`; **`extract_tasks`** + canister list + `lib/extract-tasks.mjs` (see inventory table). |
 | ACL **name sets** (up to 17 for admin) | Declared in `mcp-tool-acl.mjs` for future RBAC; **not** all exposed as MCP tools. |
 
 ### What we do not have yet
 
 | Item | Meaning |
 |------|---------|
-| Hosted `registerTool` for `extract_tasks`, `cluster`, `tag_suggest`, `capture`, `transcribe` | No Cursor-visible tool until implemented; ACL alone does nothing. |
+| Hosted `registerTool` for `cluster`, `tag_suggest`, `capture`, `transcribe` | No Cursor-visible tool until implemented; ACL alone does nothing. |
 | Shared “graph” HTTP API for richer graph queries on hosted | Local MCP uses filesystem/graph libs; **`relate`** reuses bridge vector search; **`backlinks`** uses canister pagination + full note bodies (see inventory). |
-| Documented operator smoke for **each** of the twelve tools after deploy | **`backlinks`** smoke recorded (2026-04). Run the rest by following [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
+| Documented operator smoke for **each** of the thirteen tools after deploy | **`backlinks`** smoke recorded (2026-04). Run the rest by following [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
 
 ### What connecting “the rest” entails (per future tool)
 
@@ -187,7 +197,7 @@ Each additional hosted tool is a **small product decision** plus code:
 
 | Work | Where |
 |------|--------|
-| **Manual smoke** of the twelve tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import`, step **6c** for `export` if you are admin, and step **8** for `vault_sync` when GitHub is connected. |
+| **Manual smoke** of the thirteen tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import`, step **6c** for `export` if you are admin, and step **8** for `vault_sync` when GitHub is connected. |
 | **Implementing** the next hosted tool | Pick **one** ACL-listed name that still shows **No** in the inventory table; confirm upstream on bridge or canister, then `registerTool` + golden tests per this doc. |
 
-Pick **one** tool per PR. **`backlinks`** is done on hosted MCP; the ready-made **next-session prompt for `extract_tasks`** lives in [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) under *Next session prompt: hosted MCP `extract_tasks`*.
+Pick **one** tool per PR. **`extract_tasks`** is registered on hosted MCP; the next ACL-listed candidate without a hosted handler is **`cluster`** (see inventory table).
