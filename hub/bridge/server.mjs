@@ -2073,6 +2073,9 @@ app.post('/api/v1/search', async (req, res) => {
     let results = scopedHits.map((h) => ({
       path: h.path,
       score: h.score,
+      ...(typeof h.vec_distance === 'number' && Number.isFinite(h.vec_distance)
+        ? { vec_distance: h.vec_distance }
+        : {}),
       project: h.project ?? null,
       tags: h.tags ?? [],
       snippet: truncateSnippet(h.text, snippetChars),

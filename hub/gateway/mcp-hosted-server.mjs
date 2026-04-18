@@ -7,6 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
+import { titleFromCanisterFrontmatter } from '../../lib/canister-frontmatter.mjs';
 import { normalizeSlug } from '../../lib/vault.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
@@ -37,27 +38,26 @@ function relateSnippet(s) {
 }
 
 /**
- * Hub canister note JSON uses `frontmatter` as an escaped JSON **string**, not an object.
- * @param {unknown} fm
- * @returns {string|null}
+ * Bridge semantic hits may expose `score` only, or `vec_distance` when sqlite coerces distance.
+ * @param {Record<string, unknown>} h
+ * @returns {number}
  */
-function titleFromCanisterFrontmatter(fm) {
-  if (fm == null) return null;
-  if (typeof fm === 'object' && !Array.isArray(fm)) {
-    const t = /** @type {{ title?: unknown }} */ (fm).title;
-    if (t != null && String(t).trim() !== '') return String(t).trim();
-    return null;
+function scoreFromBridgeSearchHit(h) {
+  if (!h || typeof h !== 'object') return 0;
+  const sc = h.score;
+  if (typeof sc === 'number' && Number.isFinite(sc) && sc > 0) return sc;
+  if (typeof sc === 'string') {
+    const n = Number(sc);
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  if (typeof fm !== 'string') return null;
-  const s = fm.trim();
-  if (!s || s === '{}') return null;
-  try {
-    const o = JSON.parse(s);
-    if (o && typeof o === 'object' && o.title != null && String(o.title).trim() !== '') {
-      return String(o.title).trim();
-    }
-  } catch (_) {}
-  return null;
+  const vd = h.vec_distance;
+  if (typeof vd === 'number' && Number.isFinite(vd) && vd >= 0) return 1 / (1 + vd);
+  if (typeof vd === 'string') {
+    const n = Number(vd);
+    if (Number.isFinite(n) && n >= 0) return 1 / (1 + n);
+  }
+  if (typeof sc === 'number' && Number.isFinite(sc)) return sc;
+  return 0;
 }
 
 function jsonResponse(obj) {
@@ -299,7 +299,7 @@ export function createHostedMcpServer(ctx) {
             seen.add(p);
             related.push({
               path: p,
-              score: typeof h.score === 'number' ? h.score : 0,
+              score: scoreFromBridgeSearchHit(/** @type {Record<string, unknown>} */ (h)),
               title: null,
               snippet: relateSnippet(h.snippet ?? h.text),
             });

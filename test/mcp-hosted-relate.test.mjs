@@ -175,6 +175,30 @@ describe('hosted MCP relate', () => {
     assert.equal(body.project, 'my-project');
   });
 
+  it('uses vec_distance when bridge returns score 0', async () => {
+    mock = installRelateFetchMock({
+      searchResponse: {
+        results: [
+          { path: 'src.md', score: 0, vec_distance: 4, snippet: 'x' },
+          { path: 'neighbor.md', score: 0, vec_distance: 1, snippet: 'y' },
+        ],
+        query: 'q',
+        mode: 'semantic',
+      },
+    });
+    ({ client } = await connectPair());
+
+    const result = await client.callTool({
+      name: 'relate',
+      arguments: { path: 'src.md', limit: 2 },
+    });
+
+    const out = JSON.parse(result.content[0].text);
+    assert.equal(out.related.length, 1);
+    assert.ok(out.related[0].score > 0);
+    assert.ok(Math.abs(out.related[0].score - 1 / 2) < 1e-9, '1/(1+1) for vec_distance 1');
+  });
+
   it('returns isError on upstream failure', async () => {
     const origFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
