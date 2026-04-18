@@ -56,11 +56,12 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 
 | Step | What you are proving | Paste into Cursor chat |
 |------|----------------------|-------------------------|
-| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are eleven if I am an admin.` |
+| 0 | Server lists tools | `Using only the knowtation-hosted MCP server: list the tool names available to you and confirm there are eleven tools if I am an admin (including relate).` |
 | 1 | Session + vault context | `Using only knowtation-hosted: read the MCP resource vault-info and show the full JSON (userId, vaultId, role, scope).` |
 | 2 | Canister list | `Using only knowtation-hosted: call the list_notes tool with limit 10 and show the returned paths or note list.` |
 | 3 | Canister read | `Using only knowtation-hosted: call get_note with path "VAULT_NOTE_PATH" — use exactly one path string copied from the list_notes result (vault-relative, not a browser URL). Show the body or error.` |
 | 4 | Bridge search | `Using only knowtation-hosted: call search with query "<a short phrase you know exists in your hosted vault>" and mode semantic (or keyword if you prefer). Show a snippet of the results.` |
+| 4b | Relate (viewer+) | `Using only knowtation-hosted: call list_notes with limit 10, copy one path, then call relate with that path and limit 5. Report path, related.length, and one related entry if any. Empty related is OK for tiny vaults or weak semantic overlap after canister filtering.` |
 | 5 | Canister write (editor/admin) | `Using only knowtation-hosted: call write with path "mcp-smoke/cursor-test.md", body "# MCP smoke\n\nWritten from Cursor chat test.", and no frontmatter unless needed. Then call get_note with path "mcp-smoke/cursor-test.md" (same vault-relative path) to confirm it round-trips.` |
 | 6 | Bridge index (admin, costly) | **Skip until read/write pass.** When ready: `Using only knowtation-hosted: call the index tool (no arguments). Report success or the JSON error from the tool.` |
 | 6b | Bridge import (admin) | **After a small test file is ready:** `Using only knowtation-hosted: call the import tool with source_type markdown, filename mcp-import-smoke.md, and file_base64 set to the base64 of a short UTF-8 markdown file (e.g. "# smoke\\n"). Report imported paths or error JSON.` Same upstream as Hub: bridge `POST /api/v1/import` (multipart); **no canister Motoko changes** — the bridge already batch-writes to the canister. |
@@ -72,6 +73,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 **How to interpret results**
 
 - **Steps 0–5** should return real JSON/text from your vault. If `get_note` or `list_notes` fails with upstream errors, the problem is auth, vault id, canister, or deploy—not “tests only in npm.”
+- **`relate`:** **Production verified (2026-04)** on EC2 smoke (vault binding + `list_notes` + `get_note` + `relate` + bridge-version). **`related: []`** is valid when the vault has few notes, semantic search returns no other paths after dropping canister 404s, or content is too thin for neighbors; use **Hub Re-index** and a larger vault to stress-test neighbors if needed.
 - **`import`:** admin-only; large uploads may hit timeouts client-side; audio/video/transcription need bridge env (e.g. API keys) as for Hub import. **Production verified (2026-04):** EC2 `knowtation-hosted` smoke — `source_type` `markdown`, tiny `file_base64` → response `{"imported":[{"path":"inbox/mcp-import-smoke.md",...}],"count":1}`; **`list_notes`** showed the same path and expected body.
 - **`index`:** slow; uses embeddings; run only after 1–5 succeed.
 - **`summarize` / `enrich`:** if Cursor does not support MCP **sampling**, you may see a short fallback or sparse output; canister reads can still succeed. Compare with [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) hosted MCP / sampling notes.
@@ -122,7 +124,7 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | `write` | editor | Yes | `POST {canisterUrl}/api/v1/notes` |
 | `index` | admin | Yes | `POST {bridgeUrl}/api/v1/index` |
 | `relate` | viewer | Yes | Canister `GET …/notes/:path` for source (title+body, 12k slice) + bridge `POST …/search` semantic (`snippetChars` 200, `limit` min(want+15,50)); per-neighbor titles via canister reads. Bridge uses Voyage **query** embedding for the search string; local `lib/relate.mjs` uses **document** — small intentional gap for Voyage. |
-| `backlinks` | viewer | No | Same as `relate` — **verify** |
+| `backlinks` | viewer | No | Local `lib/backlinks.mjs` scans **filesystem** vault for `[[wikilink]]`; hosted needs **canister list + body scan** or a **new bridge JSON route** — see [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) *Next session prompt: hosted MCP `backlinks`*. |
 | `extract_tasks` | viewer | No | Local analysis; hosted needs route or intentional omission |
 | `cluster` | viewer | No | Local analysis; hosted needs route or intentional omission |
 | `tag_suggest` | viewer | No | Local / sampling; hosted needs route or sampling-only wrapper |
@@ -176,4 +178,4 @@ Each additional hosted tool is a **small product decision** plus code:
 | **Manual smoke** of the eleven tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding), including step **6b** for `import`, step **6c** for `export` if you are admin, and step **8** for `vault_sync` when GitHub is connected. |
 | **Implementing** the next hosted tool | Pick **one** ACL-listed name that still shows **No** in the inventory table; confirm upstream on bridge or canister, then `registerTool` + golden tests per this doc. |
 
-Phase order for tools is in the session prompt table; pick **one** tool per PR. A ready-made **next-session prompt for `relate`** lives in [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) under *Next session prompt: hosted MCP `relate`*.
+Pick **one** tool per PR. **`relate`** is done on hosted MCP; the ready-made **next-session prompt for `backlinks`** lives in [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) under *Next session prompt: hosted MCP `backlinks`*.
