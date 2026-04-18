@@ -7,7 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
-import { titleFromCanisterFrontmatter } from '../../lib/canister-frontmatter.mjs';
+import { displayTitleFromHostedNote, titleFromCanisterFrontmatter } from '../../lib/canister-frontmatter.mjs';
 import { normalizeSlug } from '../../lib/vault.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
@@ -313,7 +313,7 @@ export function createHostedMcpServer(ctx) {
                   `${canisterUrl}/api/v1/notes/${encodeURIComponent(r.path)}`,
                   canisterFetchOpts
                 );
-                r.title = titleFromCanisterFrontmatter(rn.frontmatter);
+                r.title = displayTitleFromHostedNote(rn);
               } catch (_) {}
             })
           );
