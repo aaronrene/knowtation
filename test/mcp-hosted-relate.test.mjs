@@ -199,6 +199,51 @@ describe('hosted MCP relate', () => {
     assert.ok(Math.abs(out.related[0].score - 1 / 2) < 1e-9, '1/(1+1) for vec_distance 1');
   });
 
+  it('sets related title from path stem when neighbor canister GET fails', async () => {
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes(`${CANISTER_URL}/api/v1/notes/`) && u.includes('src.md')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ path: 'src.md', body: 'body', frontmatter: '{}' }),
+          text: async () => '{}',
+        };
+      }
+      if (u.includes(`${CANISTER_URL}/api/v1/notes/`)) {
+        return { ok: false, status: 404, json: async () => ({}), text: async () => 'not found' };
+      }
+      if (u === `${BRIDGE_URL}/api/v1/search`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            results: [
+              { path: 'src.md', score: 0.9, snippet: '' },
+              { path: 'projects/x/MY-NEIGHBOR.md', score: 0.5, snippet: 's' },
+            ],
+            query: 'q',
+            mode: 'semantic',
+          }),
+        };
+      }
+      return { ok: false, status: 500, json: async () => ({}), text: async () => '' };
+    };
+    mock = { restore: () => { globalThis.fetch = origFetch; } };
+    ({ client } = await connectPair());
+
+    const result = await client.callTool({
+      name: 'relate',
+      arguments: { path: 'src.md', limit: 2 },
+    });
+
+    const out = JSON.parse(result.content[0].text);
+    assert.equal(out.related.length, 1);
+    assert.equal(out.related[0].path, 'projects/x/MY-NEIGHBOR.md');
+    assert.equal(out.related[0].title, 'MY NEIGHBOR');
+  });
+
   it('returns isError on upstream failure', async () => {
     const origFetch = globalThis.fetch;
     globalThis.fetch = async () => ({
