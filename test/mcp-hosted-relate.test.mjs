@@ -39,7 +39,8 @@ function installRelateFetchMock({ searchResponse }) {
           json: async () => ({
             path: 'src.md',
             body: 'alpha beta unique',
-            frontmatter: { title: 'Source T' },
+            // Canister shape: frontmatter is JSON text, not an object
+            frontmatter: '{"title":"Source T","project":"p"}',
           }),
           text: async () => '{}',
         };
@@ -51,7 +52,7 @@ function installRelateFetchMock({ searchResponse }) {
           json: async () => ({
             path: 'neighbor.md',
             body: 'n',
-            frontmatter: { title: 'Neighbor Title' },
+            frontmatter: '{"title":"Neighbor Title"}',
           }),
           text: async () => '{}',
         };
@@ -172,6 +173,30 @@ describe('hosted MCP relate', () => {
     const searchCall = mock.calls.find((c) => c.url === `${BRIDGE_URL}/api/v1/search`);
     const body = JSON.parse(searchCall.init.body);
     assert.equal(body.project, 'my-project');
+  });
+
+  it('uses vec_distance when bridge returns score 0', async () => {
+    mock = installRelateFetchMock({
+      searchResponse: {
+        results: [
+          { path: 'src.md', score: 0, vec_distance: 4, snippet: 'x' },
+          { path: 'neighbor.md', score: 0, vec_distance: 1, snippet: 'y' },
+        ],
+        query: 'q',
+        mode: 'semantic',
+      },
+    });
+    ({ client } = await connectPair());
+
+    const result = await client.callTool({
+      name: 'relate',
+      arguments: { path: 'src.md', limit: 2 },
+    });
+
+    const out = JSON.parse(result.content[0].text);
+    assert.equal(out.related.length, 1);
+    assert.ok(out.related[0].score > 0);
+    assert.ok(Math.abs(out.related[0].score - 1 / 2) < 1e-9, '1/(1+1) for vec_distance 1');
   });
 
   it('returns isError on upstream failure', async () => {

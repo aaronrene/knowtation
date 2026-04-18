@@ -7,6 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
+import { titleFromCanisterFrontmatter } from '../../lib/canister-frontmatter.mjs';
 import { normalizeSlug } from '../../lib/vault.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
@@ -34,6 +35,29 @@ function vaultPathKey(p) {
 
 function relateSnippet(s) {
   return String(s ?? '').slice(0, 200).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Bridge semantic hits may expose `score` only, or `vec_distance` when sqlite coerces distance.
+ * @param {Record<string, unknown>} h
+ * @returns {number}
+ */
+function scoreFromBridgeSearchHit(h) {
+  if (!h || typeof h !== 'object') return 0;
+  const sc = h.score;
+  if (typeof sc === 'number' && Number.isFinite(sc) && sc > 0) return sc;
+  if (typeof sc === 'string') {
+    const n = Number(sc);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  const vd = h.vec_distance;
+  if (typeof vd === 'number' && Number.isFinite(vd) && vd >= 0) return 1 / (1 + vd);
+  if (typeof vd === 'string') {
+    const n = Number(vd);
+    if (Number.isFinite(n) && n >= 0) return 1 / (1 + n);
+  }
+  if (typeof sc === 'number' && Number.isFinite(sc)) return sc;
+  return 0;
 }
 
 function jsonResponse(obj) {
@@ -239,7 +263,7 @@ export function createHostedMcpServer(ctx) {
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
             canisterFetchOpts
           );
-          const titleFm = note.frontmatter?.title != null ? String(note.frontmatter.title) : '';
+          const titleFm = titleFromCanisterFrontmatter(note.frontmatter) ?? '';
           const body = note.body != null ? String(note.body) : '';
           const embedText = `${titleFm ? `${titleFm}\n` : ''}${body}`.slice(0, RELATE_BODY_SLICE);
           if (!embedText.trim()) {
@@ -275,7 +299,7 @@ export function createHostedMcpServer(ctx) {
             seen.add(p);
             related.push({
               path: p,
-              score: typeof h.score === 'number' ? h.score : 0,
+              score: scoreFromBridgeSearchHit(/** @type {Record<string, unknown>} */ (h)),
               title: null,
               snippet: relateSnippet(h.snippet ?? h.text),
             });
@@ -289,8 +313,7 @@ export function createHostedMcpServer(ctx) {
                   `${canisterUrl}/api/v1/notes/${encodeURIComponent(r.path)}`,
                   canisterFetchOpts
                 );
-                const t = rn.frontmatter?.title;
-                r.title = t != null && String(t).trim() !== '' ? String(t) : null;
+                r.title = titleFromCanisterFrontmatter(rn.frontmatter);
               } catch (_) {}
             })
           );
