@@ -100,7 +100,7 @@ describe('hosted MCP tag_suggest', () => {
     } catch (_) {}
   });
 
-  it('loads source from canister then POSTs semantic search with limit 15 and snippetChars 200', async () => {
+  it('loads source from canister then POSTs semantic search with default neighbor limit and snippetChars 200', async () => {
     mock = installTagSuggestFetchMock({
       searchResponse: {
         results: [{ path: 'neighbor.md', score: 0.5, tags: ['alpha'], snippet: 's' }],
@@ -127,9 +127,29 @@ describe('hosted MCP tag_suggest', () => {
     const body = JSON.parse(searchCalls[0].init.body);
     assert.equal(body.mode, 'semantic');
     assert.equal(body.snippetChars, 200);
-    assert.equal(body.limit, 15);
+    assert.equal(body.limit, 40);
     assert.ok(body.query.includes('Source'));
     assert.ok(body.query.includes('topic gamma'));
+  });
+
+  it('passes neighbor_limit through to bridge search when set', async () => {
+    mock = installTagSuggestFetchMock({
+      searchResponse: {
+        results: [{ path: 'neighbor.md', score: 0.5, tags: ['alpha'], snippet: 's' }],
+        query: 'q',
+        mode: 'semantic',
+      },
+    });
+    ({ client } = await connectPair());
+
+    await client.callTool({
+      name: 'tag_suggest',
+      arguments: { path: 'src.md', neighbor_limit: 22 },
+    });
+
+    const searchCalls = mock.calls.filter((c) => c.url === `${BRIDGE_URL}/api/v1/search`);
+    const body = JSON.parse(searchCalls[0].init.body);
+    assert.equal(body.limit, 22);
   });
 
   it('aggregates tags from search hits, excludes source path and existing tags', async () => {

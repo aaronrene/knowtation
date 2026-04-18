@@ -123,6 +123,11 @@ export function createMcpProxyRouter(deps) {
     const vaultId = String(req.headers['x-vault-id'] || 'default');
     const role = ctx.role || 'viewer';
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    /** Match `gatewayProxyGetNotesList` / `proxyToCanister`: canister reads use effective workspace user when set. */
+    const canisterUserId =
+      typeof ctx.effective_canister_user_id === 'string' && ctx.effective_canister_user_id.trim() !== ''
+        ? ctx.effective_canister_user_id.trim()
+        : uid;
 
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
@@ -143,6 +148,7 @@ export function createMcpProxyRouter(deps) {
 
     const mcpServer = createHostedMcpServer({
       userId: uid,
+      canisterUserId,
       vaultId,
       role,
       token,
