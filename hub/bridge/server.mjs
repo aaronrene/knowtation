@@ -142,7 +142,7 @@ function getBridgeEmbeddingConfig() {
 /**
  * Undici/fetch often throws TypeError with message "Invalid URL" only — map to actionable text for operators.
  * @param {unknown} err
- * @param {'index'|'search'} kind
+ * @param {'index'|'search'|'embed'} kind
  */
 function bridgeEmbedFailureMessage(err, kind) {
   const raw = err && typeof err.message === 'string' ? err.message : String(err);
@@ -2000,6 +2000,71 @@ function truncateSnippet(text, maxChars = 300) {
   const lastSpace = slice.lastIndexOf(' ');
   return (lastSpace > maxChars / 2 ? slice.slice(0, lastSpace) : slice) + '…';
 }
+
+/**
+ * Batch document embeddings for hosted MCP `cluster` (and similar callers).
+ * Auth + vault access mirror `POST /api/v1/search`: JWT in `Authorization`, `X-Vault-Id`,
+ * `resolveHostedBridgeContext` (effective canister user + allowed vault ids + optional scope).
+ * Embedding model/env match `POST /api/v1/index` via `getBridgeStoreConfig` + `embedWithUsage` with `voyageInputType: "document"`.
+ */
+const HOSTED_EMBED_MAX_TEXTS = 200;
+const HOSTED_EMBED_MAX_CHARS_PER_TEXT = 1200;
+
+app.post('/api/v1/embed', async (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const uid = token ? userIdFromJwt(token) : null;
+  if (!uid) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  const hctx = await resolveHostedBridgeContext(req, uid);
+  if (!hctx.ok) {
+    return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  }
+  const canisterUid = hctx.effectiveCanisterUid;
+  const rawTexts = req.body?.texts;
+  if (!Array.isArray(rawTexts)) {
+    return res.status(400).json({ error: 'texts array required', code: 'BAD_REQUEST' });
+  }
+  const texts = rawTexts
+    .slice(0, HOSTED_EMBED_MAX_TEXTS)
+    .map((t) => String(t ?? '').slice(0, HOSTED_EMBED_MAX_CHARS_PER_TEXT));
+  if (texts.length === 0) {
+    return res.status(400).json({ error: 'texts must be non-empty', code: 'BAD_REQUEST' });
+  }
+  try {
+    const { embedWithUsage } = await import('../../lib/embedding.mjs');
+    const vectorsDir = await getVectorsDirForUser(req, canisterUid);
+    const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
+    const embeddingConfig = storeConfig.embedding;
+    let embedding_input_tokens = 0;
+    const vectors = [];
+    for (let i = 0; i < texts.length; i += BATCH_EMBED) {
+      const batch = texts.slice(i, i + BATCH_EMBED);
+      const { vectors: batchVectors, embedding_input_tokens: batchTok } = await embedWithUsage(
+        batch,
+        embeddingConfig,
+        { voyageInputType: 'document' },
+      );
+      embedding_input_tokens += batchTok;
+      for (const v of batchVectors) {
+        vectors.push(v);
+      }
+    }
+    return res.json({
+      vectors,
+      embedding_input_tokens,
+      texts_count: texts.length,
+    });
+  } catch (e) {
+    console.error('Bridge embed batch error:', e);
+    return res.status(500).json({
+      error: 'Embed failed',
+      code: 'INTERNAL_ERROR',
+      message: bridgeEmbedFailureMessage(e, 'embed'),
+    });
+  }
+});
 
 app.post('/api/v1/search', async (req, res) => {
   const auth = req.headers.authorization;
