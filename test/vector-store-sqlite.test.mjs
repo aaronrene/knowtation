@@ -96,6 +96,7 @@ describe('vector-store-sqlite', () => {
     const first = hits[0];
     assert(first.path);
     assert(typeof first.score === 'number');
+    assert(first.score > 0, 'score must be positive (1/(1+distance)); L2 distances used to map to 0');
     assert(first.text != null);
   });
 

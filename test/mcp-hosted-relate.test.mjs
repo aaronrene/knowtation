@@ -39,7 +39,8 @@ function installRelateFetchMock({ searchResponse }) {
           json: async () => ({
             path: 'src.md',
             body: 'alpha beta unique',
-            frontmatter: { title: 'Source T' },
+            // Canister shape: frontmatter is JSON text, not an object
+            frontmatter: '{"title":"Source T","project":"p"}',
           }),
           text: async () => '{}',
         };
@@ -51,7 +52,7 @@ function installRelateFetchMock({ searchResponse }) {
           json: async () => ({
             path: 'neighbor.md',
             body: 'n',
-            frontmatter: { title: 'Neighbor Title' },
+            frontmatter: '{"title":"Neighbor Title"}',
           }),
           text: async () => '{}',
         };

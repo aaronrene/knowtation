@@ -36,6 +36,30 @@ function relateSnippet(s) {
   return String(s ?? '').slice(0, 200).replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Hub canister note JSON uses `frontmatter` as an escaped JSON **string**, not an object.
+ * @param {unknown} fm
+ * @returns {string|null}
+ */
+function titleFromCanisterFrontmatter(fm) {
+  if (fm == null) return null;
+  if (typeof fm === 'object' && !Array.isArray(fm)) {
+    const t = /** @type {{ title?: unknown }} */ (fm).title;
+    if (t != null && String(t).trim() !== '') return String(t).trim();
+    return null;
+  }
+  if (typeof fm !== 'string') return null;
+  const s = fm.trim();
+  if (!s || s === '{}') return null;
+  try {
+    const o = JSON.parse(s);
+    if (o && typeof o === 'object' && o.title != null && String(o.title).trim() !== '') {
+      return String(o.title).trim();
+    }
+  } catch (_) {}
+  return null;
+}
+
 function jsonResponse(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }] };
 }
@@ -239,7 +263,7 @@ export function createHostedMcpServer(ctx) {
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
             canisterFetchOpts
           );
-          const titleFm = note.frontmatter?.title != null ? String(note.frontmatter.title) : '';
+          const titleFm = titleFromCanisterFrontmatter(note.frontmatter) ?? '';
           const body = note.body != null ? String(note.body) : '';
           const embedText = `${titleFm ? `${titleFm}\n` : ''}${body}`.slice(0, RELATE_BODY_SLICE);
           if (!embedText.trim()) {
@@ -289,8 +313,7 @@ export function createHostedMcpServer(ctx) {
                   `${canisterUrl}/api/v1/notes/${encodeURIComponent(r.path)}`,
                   canisterFetchOpts
                 );
-                const t = rn.frontmatter?.title;
-                r.title = t != null && String(t).trim() !== '' ? String(t) : null;
+                r.title = titleFromCanisterFrontmatter(rn.frontmatter);
               } catch (_) {}
             })
           );
