@@ -744,7 +744,7 @@ app.use((req, _res, next) => {
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id');
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
   res.set('Access-Control-Allow-Credentials', 'true');
   next();
 });
@@ -759,6 +759,17 @@ if (inServerless) {
     next();
   });
 }
+
+// Public deploy probe (no auth): compare to Netlify **knowtation-bridge** Production commit vs gateway.
+app.get('/api/v1/bridge-version', (_req, res) => {
+  res.json({
+    service: 'knowtation-bridge',
+    commit: process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || null,
+    deploy_id: process.env.DEPLOY_ID || null,
+    context: process.env.CONTEXT || null,
+    netlify: Boolean(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME),
+  });
+});
 
 // ——— Roles & invites (hosted parity) ———
 async function requireBridgeAuth(req, res, next) {
@@ -1881,15 +1892,27 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       const dim = embeddingDimension(storeConfig.embedding);
       await store.ensureCollection(dim);
       // Drop prior vectors for this vault so search cannot return paths no longer in the export.
+      let vectors_deleted = 0;
       if (typeof store.deleteByVaultId === 'function') {
-        await store.deleteByVaultId(vaultId);
+        vectors_deleted = await store.deleteByVaultId(vaultId);
       }
       await persistVectorsToBlob(req, canisterUid, vectorsDir);
+      console.log(
+        '[bridge] index',
+        JSON.stringify({
+          vault_id: vaultId,
+          canister_uid: sanitizeUserId(canisterUid),
+          notes_processed: notes.length,
+          chunks_indexed: 0,
+          vectors_deleted,
+        }),
+      );
       return res.json({
         ok: true,
         notesProcessed: notes.length,
         chunksIndexed: 0,
         embedding_input_tokens: 0,
+        vectors_deleted,
       });
     }
     const embeddingConfig = storeConfig.embedding;
@@ -1912,8 +1935,9 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     const store = await createVectorStore(storeConfig);
     await store.ensureCollection(dim);
     // Remove stale chunk rows for this vault before upsert; otherwise deleted notes stay in KNN.
+    let vectors_deleted = 0;
     if (typeof store.deleteByVaultId === 'function') {
-      await store.deleteByVaultId(vaultId);
+      vectors_deleted = await store.deleteByVaultId(vaultId);
     }
     for (let i = 0; i < allChunks.length; i += BATCH_UPSERT) {
       const batch = allChunks.slice(i, i + BATCH_UPSERT);
@@ -1933,9 +1957,30 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       await store.upsert(points);
     }
     await persistVectorsToBlob(req, canisterUid, vectorsDir);
-    const indexResult = { ok: true, notesProcessed: notes.length, chunksIndexed: allChunks.length, embedding_input_tokens };
+    console.log(
+      '[bridge] index',
+      JSON.stringify({
+        vault_id: vaultId,
+        canister_uid: sanitizeUserId(canisterUid),
+        notes_processed: notes.length,
+        chunks_indexed: allChunks.length,
+        vectors_deleted,
+      }),
+    );
+    const indexResult = {
+      ok: true,
+      notesProcessed: notes.length,
+      chunksIndexed: allChunks.length,
+      embedding_input_tokens,
+      vectors_deleted,
+    };
     res.json(indexResult);
-    fireBridgeCaptureEvent('index', { note_count: notes.length, chunk_count: allChunks.length }, sanitizeUserId(uid), vaultId);
+    fireBridgeCaptureEvent(
+      'index',
+      { note_count: notes.length, chunk_count: allChunks.length, vectors_deleted },
+      sanitizeUserId(uid),
+      vaultId,
+    );
     return;
   } catch (e) {
     console.error('Bridge index error:', e);

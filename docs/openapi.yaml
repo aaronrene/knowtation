@@ -172,6 +172,7 @@ paths:
                   ok: { type: boolean }
                   notesProcessed: { type: integer }
                   chunksIndexed: { type: integer }
+                  vectors_deleted: { type: integer, description: Rows removed for this vault before upsert (hosted sqlite-vec) }
         '500':
           content:
             application/json:

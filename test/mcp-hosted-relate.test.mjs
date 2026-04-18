@@ -32,6 +32,14 @@ function installRelateFetchMock({ searchResponse }) {
     if (u.includes(`${CANISTER_URL}/api/v1/notes/`) && !u.includes('/batch')) {
       const pathMatch = u.match(/\/notes\/(.+)$/);
       const rawPath = pathMatch ? decodeURIComponent(pathMatch[1]) : '';
+      if (rawPath === 'ghost.md') {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+          text: async () => 'not found',
+        };
+      }
       if (rawPath === 'src.md') {
         return {
           ok: true,
@@ -122,10 +130,16 @@ describe('hosted MCP relate', () => {
     const searchCalls = mock.calls.filter((c) => c.url === `${BRIDGE_URL}/api/v1/search`);
     assert.equal(searchCalls.length, 1);
     assert.equal(searchCalls[0].init.method, 'POST');
+    const hdrs = searchCalls[0].init.headers;
+    const xUser =
+      hdrs && typeof hdrs.get === 'function'
+        ? hdrs.get('X-User-Id')
+        : hdrs && (hdrs['X-User-Id'] || hdrs['x-user-id']);
+    assert.equal(xUser, 'u-1');
     const body = JSON.parse(searchCalls[0].init.body);
     assert.equal(body.mode, 'semantic');
     assert.equal(body.snippetChars, 200);
-    assert.equal(body.limit, 18);
+    assert.equal(body.limit, 36);
     assert.ok(body.query.includes('Source T'));
     assert.ok(body.query.includes('alpha beta unique'));
     assert.equal(body.project, undefined);
@@ -175,6 +189,31 @@ describe('hosted MCP relate', () => {
     assert.equal(body.project, 'my-project');
   });
 
+  it('omits neighbors that 404 on canister (stale vector paths)', async () => {
+    mock = installRelateFetchMock({
+      searchResponse: {
+        results: [
+          { path: 'src.md', score: 0.9, snippet: 'x' },
+          { path: 'ghost.md', score: 0.85, snippet: 'gone' },
+          { path: 'neighbor.md', score: 0.5, snippet: '  a  b  ' },
+        ],
+        query: 'q',
+        mode: 'semantic',
+      },
+    });
+    ({ client } = await connectPair());
+
+    const result = await client.callTool({
+      name: 'relate',
+      arguments: { path: 'src.md', limit: 5 },
+    });
+
+    assert.ok(!result.isError);
+    const out = JSON.parse(result.content[0].text);
+    assert.equal(out.related.length, 1);
+    assert.equal(out.related[0].path, 'neighbor.md');
+  });
+
   it('uses vec_distance when bridge returns score 0', async () => {
     mock = installRelateFetchMock({
       searchResponse: {
@@ -199,7 +238,7 @@ describe('hosted MCP relate', () => {
     assert.ok(Math.abs(out.related[0].score - 1 / 2) < 1e-9, '1/(1+1) for vec_distance 1');
   });
 
-  it('sets related title from path stem when neighbor canister GET fails', async () => {
+  it('omits neighbors when canister GET returns 404 (stale search hit)', async () => {
     const origFetch = globalThis.fetch;
     globalThis.fetch = async (url) => {
       const u = String(url);
@@ -239,9 +278,7 @@ describe('hosted MCP relate', () => {
     });
 
     const out = JSON.parse(result.content[0].text);
-    assert.equal(out.related.length, 1);
-    assert.equal(out.related[0].path, 'projects/x/MY-NEIGHBOR.md');
-    assert.equal(out.related[0].title, 'MY NEIGHBOR');
+    assert.equal(out.related.length, 0);
   });
 
   it('returns isError on upstream failure', async () => {
