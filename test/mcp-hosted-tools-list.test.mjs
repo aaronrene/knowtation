@@ -13,7 +13,7 @@ const CANISTER_URL = 'http://canister.test:4322';
 const BRIDGE_URL = 'http://bridge.test:4321';
 
 /** Golden sets: update when adding/removing tools in mcp-hosted-server.mjs */
-const TOOLS_VIEWER = ['backlinks', 'cluster', 'enrich', 'extract_tasks', 'get_note', 'list_notes', 'relate', 'search', 'summarize'];
+const TOOLS_VIEWER = ['backlinks', 'cluster', 'enrich', 'extract_tasks', 'get_note', 'list_notes', 'relate', 'search', 'summarize', 'tag_suggest'];
 const TOOLS_EDITOR = [
   'backlinks',
   'cluster',
@@ -24,6 +24,7 @@ const TOOLS_EDITOR = [
   'relate',
   'search',
   'summarize',
+  'tag_suggest',
   'vault_sync',
   'write',
 ];
@@ -40,6 +41,7 @@ const TOOLS_ADMIN = [
   'relate',
   'search',
   'summarize',
+  'tag_suggest',
   'vault_sync',
   'write',
 ];

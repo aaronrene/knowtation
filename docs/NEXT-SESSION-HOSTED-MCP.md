@@ -74,9 +74,10 @@ Pack balances and usage bars come from **`GET /api/v1/billing/summary` on the Ne
 
 ---
 
-## Cluster — shipped in repo (2026-04)
+## Cluster — shipped and production smoke (2026-04)
 
-- **Hosted `cluster`** is registered in `hub/gateway/mcp-hosted-server.mjs` (viewer+). It paginates **`GET /api/v1/notes`** (same query keys as **`list_notes`** / **`extract_tasks`**), loads bodies with optional **`GET …/notes/:path`**, applies **client-side** `folder` / `project` filters, caps at **200** embedded notes and **2000** list rows scanned (`cluster_truncated` / `cluster_list_rows_scanned`), then **`POST {bridgeUrl}/api/v1/embed`** on the bridge ([`hub/bridge/server.mjs`](../hub/bridge/server.mjs)) and **`lib/kmeans.mjs`** in the gateway. **Production smoke:** record on EC2 after deploy (bridge + gateway must both include **`POST /api/v1/embed`**); see [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) § *Production verification: fourteenth tool `cluster`*.
+- **Hosted `cluster`** is registered in `hub/gateway/mcp-hosted-server.mjs` (viewer+). It paginates **`GET /api/v1/notes`** (same query keys as **`list_notes`** / **`extract_tasks`**), loads bodies with optional **`GET …/notes/:path`**, applies **client-side** `folder` / `project` filters, caps at **200** embedded notes and **2000** list rows scanned (`cluster_truncated` / `cluster_list_rows_scanned`), then **`POST {bridgeUrl}/api/v1/embed`** on the bridge ([`hub/bridge/server.mjs`](../hub/bridge/server.mjs)) and **`lib/kmeans.mjs`** in the gateway.
+- **Production smoke (EC2, Cursor `knowtation-hosted`):** Fourteen tools listed for **admin** (including **`cluster`**); **`vault-info`** and **`list_notes`** succeeded; **`cluster`** with **`n_clusters: 4`** on a **six-note** vault returned **`notes_sampled: 6`**, **`cluster_truncated: false`**, **`cluster_list_rows_scanned: 6`**, and **four** non-empty clusters with expected `label` / `centroid_snippet` / `paths` fields. PR **#168** merged the implementation; full checklist in [HOSTED-MCP-TOOL-EXPANSION.md](./HOSTED-MCP-TOOL-EXPANSION.md) § *Production verification: fourteenth tool `cluster`*.
 
 ---
 
@@ -85,7 +86,7 @@ Pack balances and usage bars come from **`GET /api/v1/billing/summary` on the Ne
 Use after `git checkout main && git pull origin main`, then create a feature branch (for example **`feature/mcp-hosted-tag-suggest`**).
 
 ```text
-Context: Hosted MCP on EC2 (`https://mcp.knowtation.store/mcp`). Fourteen tools are live for admin after `cluster` merges (see docs/HOSTED-MCP-TOOL-EXPANSION.md inventory).
+Context: Hosted MCP on EC2 (`https://mcp.knowtation.store/mcp`). Fourteen tools are live for admin with **`cluster`** on `main` (PR **#168**); see docs/HOSTED-MCP-TOOL-EXPANSION.md inventory.
 
 Goal — exactly ONE new hosted MCP tool: TOOL_NAME = tag_suggest (ACL viewer). Confirm upstream (bridge/canister or sampling-only), register in hub/gateway/mcp-hosted-server.mjs behind isToolAllowed, JSON-schema-safe Zod, golden tool list tests, focused handler tests, npm run verify:hosted-mcp-checklist && npm test. One tool per PR.
 
