@@ -30,9 +30,10 @@ describe('canister frontmatter parsing', () => {
     assert.equal(titleFromCanisterFrontmatter(null), null);
   });
 
-  it('titleFromMarkdownBody reads first ATX heading', () => {
+  it('titleFromMarkdownBody reads first ATX heading (# or ##)', () => {
     assert.equal(titleFromMarkdownBody('# Hello world\n\nMore'), 'Hello world');
-    assert.equal(titleFromMarkdownBody('  ## Not used\n# Real'), 'Real');
+    assert.equal(titleFromMarkdownBody('  ## Not used\n# Real'), 'Not used');
+    assert.equal(titleFromMarkdownBody('## Idempotency\n\nBody'), 'Idempotency');
   });
 
   it('titleFromPathStem uses filename', () => {
