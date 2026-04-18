@@ -13,6 +13,7 @@ import {
   titleFromPathStem,
 } from '../../lib/canister-frontmatter.mjs';
 import { normalizeSlug } from '../../lib/vault.mjs';
+import { findFirstWikilinkToTargetInBody, vaultBasenameTargetKey } from '../../lib/wikilink.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
@@ -32,6 +33,13 @@ const HOSTED_MCP_EXPORT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 /** Same slice as `lib/relate.mjs` when building the embedding text from the source note. */
 const RELATE_BODY_SLICE = 12000;
+
+/**
+ * Hosted `backlinks`: max canister notes examined (each may trigger one `GET …/notes/:path`).
+ * Soft cap to limit latency and load; partial vault coverage sets `backlinks_truncated: true`.
+ */
+const HOSTED_BACKLINKS_MAX_NOTES = 2000;
+const HOSTED_BACKLINKS_PAGE_SIZE = 100;
 
 function vaultPathKey(p) {
   return String(p ?? '').replace(/\\/g, '/').trim();
@@ -340,6 +348,85 @@ export function createHostedMcpServer(ctx) {
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
         }
+      }
+    );
+  }
+
+  /**
+   * Hosted `backlinks` — parity with local `runBacklinks` (`lib/backlinks.mjs`) without a filesystem vault.
+   *
+   * Contract: paginate `GET {canisterUrl}/api/v1/notes?limit=&offset=` (same headers as `list_notes`),
+   * skip the target path, `GET` each candidate note for full body (list rows may omit body), scan with
+   * `findFirstWikilinkToTargetInBody` (`lib/wikilink.mjs`) using `vaultBasenameTargetKey(target)` as in local.
+   * Stops after **HOSTED_BACKLINKS_MAX_NOTES** candidates examined; response includes `backlinks_truncated` and
+   * `backlinks_notes_scanned` so callers know coverage.
+   */
+  if (isToolAllowed('backlinks', role)) {
+    server.registerTool(
+      'backlinks',
+      {
+        description:
+          'Notes that wikilink to a target path (`[[target]]` / `[[folder/target]]`, Obsidian-style). Scans the hosted vault via canister list + per-note reads (capped at 2000 notes examined; see backlinks_truncated in the JSON).',
+        inputSchema: {
+          path: z.string().describe('Vault-relative path of the target note (.md)'),
+        },
+      },
+      async (args) => {
+        try {
+          await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
+            canisterFetchOpts
+          );
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+        const srcKey = vaultPathKey(args.path);
+        const targetKey = vaultBasenameTargetKey(srcKey);
+        const backlinks = [];
+        let offset = 0;
+        let scanned = 0;
+        while (scanned < HOSTED_BACKLINKS_MAX_NOTES) {
+          const remain = HOSTED_BACKLINKS_MAX_NOTES - scanned;
+          const pageSize = Math.min(HOSTED_BACKLINKS_PAGE_SIZE, Math.max(1, remain));
+          const list = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes?limit=${pageSize}&offset=${offset}`,
+            canisterFetchOpts
+          );
+          const rows = Array.isArray(list.notes) ? list.notes : [];
+          if (rows.length === 0) break;
+          for (const row of rows) {
+            if (scanned >= HOSTED_BACKLINKS_MAX_NOTES) break;
+            scanned += 1;
+            const p = vaultPathKey(row.path);
+            if (!p || p === srcKey) continue;
+            let full;
+            try {
+              full = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+            } catch {
+              continue;
+            }
+            const body = full.body != null ? String(full.body) : '';
+            const context = findFirstWikilinkToTargetInBody(body, targetKey);
+            if (context == null) continue;
+            const pathFb = titleFromPathStem(p);
+            backlinks.push({
+              path: p,
+              title: displayTitleFromHostedNote(full) ?? titleFromCanisterFrontmatter(full.frontmatter) ?? pathFb,
+              context,
+            });
+          }
+          offset += rows.length;
+          if (rows.length < pageSize) break;
+        }
+        return jsonResponse({
+          path: srcKey,
+          backlinks,
+          backlinks_truncated: scanned >= HOSTED_BACKLINKS_MAX_NOTES,
+          backlinks_notes_scanned: scanned,
+        });
       }
     );
   }
