@@ -16,6 +16,7 @@ import { normalizeSlug, effectiveProjectSlug } from '../../lib/vault.mjs';
 import { extractCheckboxTasksFromBody } from '../../lib/extract-tasks.mjs';
 import { materializeListFrontmatter, tagsFromFm } from './note-facets.mjs';
 import { findFirstWikilinkToTargetInBody, vaultBasenameTargetKey } from '../../lib/wikilink.mjs';
+import { kmeans } from '../../lib/kmeans.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
@@ -48,6 +49,16 @@ const HOSTED_BACKLINKS_PAGE_SIZE = 100;
  */
 const HOSTED_EXTRACT_TASKS_MAX_NOTES = 2000;
 const HOSTED_EXTRACT_TASKS_PAGE_SIZE = 100;
+
+/**
+ * Hosted `cluster`: max canister list rows processed while collecting up to {@link HOSTED_CLUSTER_MAX_NOTES} notes.
+ * Same soft cap pattern as `extract_tasks` / `backlinks`.
+ */
+const HOSTED_CLUSTER_MAX_LIST_ROWS = 2000;
+const HOSTED_CLUSTER_PAGE_SIZE = 100;
+/** Max notes embedded per call (parity with local `runCluster` / `lib/cluster-semantic.mjs`). */
+const HOSTED_CLUSTER_MAX_NOTES = 200;
+const HOSTED_CLUSTER_TEXT_SLICE = 800;
 
 function vaultPathKey(p) {
   return String(p ?? '').replace(/\\/g, '/').trim();
@@ -102,6 +113,18 @@ function hostedNotePassesExtractFilters(path, frontmatterRaw, f) {
     if (!d || d > u) return false;
   }
   return true;
+}
+
+/**
+ * Text passed to bridge `POST /api/v1/embed` (document vectors), aligned with local `runCluster`.
+ * @param {unknown} frontmatterRaw
+ * @param {unknown} bodyFull
+ */
+function hostedClusterEmbedText(frontmatterRaw, bodyFull) {
+  const title = titleFromCanisterFrontmatter(frontmatterRaw);
+  const body = bodyFull != null ? String(bodyFull) : '';
+  const t = `${title ? `${title}\n` : ''}${body.slice(0, HOSTED_CLUSTER_TEXT_SLICE)}`;
+  return t.trim();
 }
 
 /**
@@ -566,6 +589,160 @@ export function createHostedMcpServer(ctx) {
             tasks,
             extract_tasks_truncated: scanned >= HOSTED_EXTRACT_TASKS_MAX_NOTES,
             extract_tasks_notes_scanned: scanned,
+          });
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  /**
+   * Hosted `cluster` — parity with local `runCluster` (`lib/cluster-semantic.mjs`) without a filesystem vault.
+   *
+   * Upstream (verified in `hub/bridge/server.mjs`):
+   * - **Note text:** paginate `GET {canisterUrl}/api/v1/notes` (same query keys as hosted `list_notes`); optional
+   *   `GET …/notes/:path` when a list row has an empty body. Client-side `folder` / `project` filters match
+   *   `hostedNotePassesExtractFilters` (same intent as local path + project filter).
+   * - **Embeddings:** `POST {bridgeUrl}/api/v1/embed` with JSON `{ texts: string[] }`; same JWT + `X-Vault-Id` +
+   *   `resolveHostedBridgeContext` as `POST /api/v1/search`; uses `getVectorsDirForUser` + `getBridgeStoreConfig` +
+   *   `embedWithUsage` with `voyageInputType: "document"` like `POST /api/v1/index` chunk batches.
+   * - **Grouping:** `kmeans` from `lib/kmeans.mjs` on returned vectors (max {@link HOSTED_CLUSTER_MAX_NOTES} notes;
+   *   `n_clusters` default 5, clamped 2–15).
+   */
+  if (isToolAllowed('cluster', role)) {
+    server.registerTool(
+      'cluster',
+      {
+        description:
+          'Semantic k-means clusters over hosted note text (title + body slice). Loads notes from the canister (list + optional per-note GET), embeds up to 200 notes via the bridge POST /api/v1/embed, then clusters in-process. Optional folder/project filters match list_notes shapes (client-side).',
+        inputSchema: {
+          folder: z.string().optional().describe('Restrict to notes under this vault-relative folder prefix'),
+          project: z.string().optional().describe('Filter by project slug'),
+          n_clusters: z
+            .number()
+            .int()
+            .optional()
+            .describe('Number of clusters (default 5, clamped between 2 and 15)'),
+        },
+      },
+      async (args) => {
+        try {
+          const k = Math.max(2, Math.min(Number(args.n_clusters) || 5, 15));
+          const filter = { folder: args.folder, project: args.project };
+          const texts = [];
+          const pathFor = [];
+          let offset = 0;
+          let scanned = 0;
+          while (pathFor.length < HOSTED_CLUSTER_MAX_NOTES && scanned < HOSTED_CLUSTER_MAX_LIST_ROWS) {
+            const remain = HOSTED_CLUSTER_MAX_LIST_ROWS - scanned;
+            const pageSize = Math.min(HOSTED_CLUSTER_PAGE_SIZE, Math.max(1, remain));
+            const params = new URLSearchParams();
+            if (args.folder) params.set('folder', args.folder);
+            if (args.project) params.set('project', args.project);
+            params.set('limit', String(pageSize));
+            params.set('offset', String(offset));
+            const list = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const rows = Array.isArray(list.notes) ? list.notes : [];
+            if (rows.length === 0) break;
+            for (const row of rows) {
+              if (pathFor.length >= HOSTED_CLUSTER_MAX_NOTES) break;
+              if (scanned >= HOSTED_CLUSTER_MAX_LIST_ROWS) break;
+              scanned += 1;
+              const p = vaultPathKey(row.path);
+              if (!p) continue;
+              if (!hostedNotePassesExtractFilters(p, row.frontmatter, filter)) continue;
+              let body = row.body != null ? String(row.body) : '';
+              if (!body.trim()) {
+                try {
+                  const full = await upstreamFetch(
+                    `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                    canisterFetchOpts
+                  );
+                  body = full.body != null ? String(full.body) : '';
+                } catch {
+                  continue;
+                }
+              }
+              const t = hostedClusterEmbedText(row.frontmatter, body);
+              if (!t) continue;
+              texts.push(t);
+              pathFor.push(p);
+            }
+            offset += rows.length;
+            if (rows.length < pageSize) break;
+          }
+
+          if (texts.length < k) {
+            return jsonResponse({
+              clusters: [],
+              notes_sampled: texts.length,
+              max_notes: HOSTED_CLUSTER_MAX_NOTES,
+              note: `Not enough notes (${texts.length}) for k=${k}. Add notes or lower n_clusters.`,
+              cluster_list_rows_scanned: scanned,
+              cluster_truncated: scanned >= HOSTED_CLUSTER_MAX_LIST_ROWS,
+            });
+          }
+
+          const embedRes = await upstreamFetch(`${bridgeUrl}/api/v1/embed`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body: { texts },
+          });
+          const vectorsRaw = embedRes && typeof embedRes === 'object' ? embedRes.vectors : null;
+          if (!Array.isArray(vectorsRaw) || vectorsRaw.length !== texts.length) {
+            return jsonError('Bridge embed returned an unexpected vectors array', 'UPSTREAM_ERROR');
+          }
+
+          const points = [];
+          for (let i = 0; i < pathFor.length; i++) {
+            const v = vectorsRaw[i];
+            if (!v || !Array.isArray(v) || !v.length) continue;
+            points.push({
+              id: pathFor[i],
+              vector: /** @type {number[]} */ (v),
+              path: pathFor[i],
+              text: texts[i],
+            });
+          }
+          if (points.length < k) {
+            return jsonResponse({
+              clusters: [],
+              notes_sampled: points.length,
+              max_notes: HOSTED_CLUSTER_MAX_NOTES,
+              note: 'Embedding failed for some notes.',
+              cluster_list_rows_scanned: scanned,
+              cluster_truncated: scanned >= HOSTED_CLUSTER_MAX_LIST_ROWS,
+            });
+          }
+
+          const { labels } = kmeans(
+            points.map((pt) => ({ id: pt.id, vector: pt.vector })),
+            k
+          );
+
+          const clusters = [];
+          for (let c = 0; c < k; c++) {
+            const members = [];
+            for (let i = 0; i < points.length; i++) {
+              if (labels[i] === c) members.push(points[i]);
+            }
+            if (!members.length) continue;
+            const centroidSnippet = (members[0].text || '').slice(0, 120).replace(/\s+/g, ' ').trim();
+            const pathsIn = [...new Set(members.map((m) => m.path))];
+            clusters.push({
+              label: `cluster_${c + 1}`,
+              centroid_snippet: centroidSnippet,
+              paths: pathsIn,
+            });
+          }
+
+          return jsonResponse({
+            clusters,
+            notes_sampled: points.length,
+            max_notes: HOSTED_CLUSTER_MAX_NOTES,
+            cluster_list_rows_scanned: scanned,
+            cluster_truncated: scanned >= HOSTED_CLUSTER_MAX_LIST_ROWS,
           });
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
