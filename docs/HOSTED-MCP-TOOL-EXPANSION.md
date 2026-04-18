@@ -18,6 +18,16 @@ The **core seven** hosted tools in [`hub/gateway/mcp-hosted-server.mjs`](../hub/
 
 What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`extract_tasks`, `cluster`, …) that are **not** yet registered in the hosted server. Those are **future** tools, not partial work from the safeguards session.
 
+### Production verification: twelfth tool `backlinks` (2026-04)
+
+**Status:** Complete, deployed, and smoke-tested on the **persistent MCP host** (EC2). **`backlinks`** is the **twelfth** registered hosted tool (after **`relate`** as the eleventh).
+
+**What “working” means here:** Cursor **`knowtation-hosted`** lists **twelve** tools including `backlinks`; `vault-info` and `list_notes` succeed; calling **`backlinks`** with a path from `list_notes` returns JSON with `path`, `backlinks`, `backlinks_notes_scanned`, and `backlinks_truncated`. An **empty** `backlinks` array is correct when no note bodies contain inbound **`[[wikilink]]`** markup.
+
+**Operator pitfall (resolved in same window):** PM2’s **`script path`** must point into the repo you **`git pull`** on (often **`/opt/knowtation`**, not only **`~/knowtation`**). Otherwise the live server stays on old code and Cursor stays at eleven tools until that tree is updated and the gateway restarted.
+
+**Next hosted tool (thirteenth, not started here):** **`extract_tasks`** — see [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md) (*Next session prompt: hosted MCP `extract_tasks`*). This branch name (`docs/hosted-mcp-extract-tasks-next`) marks that handoff.
+
 ## How to test hosted MCP
 
 ### Automated tests (not in chat)
@@ -75,7 +85,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 
 - **Steps 0–5** should return real JSON/text from your vault. If `get_note` or `list_notes` fails with upstream errors, the problem is auth, vault id, canister, or deploy—not “tests only in npm.”
 - **`relate`:** **Production verified (2026-04)** on EC2 smoke (vault binding + `list_notes` + `get_note` + `relate` + bridge-version). **`related: []`** is valid when the vault has few notes, semantic search returns no other paths after dropping canister 404s, or content is too thin for neighbors; use **Hub Re-index** and a larger vault to stress-test neighbors if needed.
-- **`backlinks`:** Uses canister list + per-note reads (see inventory row). **`backlinks_truncated: true`** means the soft cap (**2000** notes scanned) was hit before the end of the vault; widen filters or run again after organizing notes if you need full coverage.
+- **`backlinks`:** **Production verified (2026-04)** — twelfth tool; EC2 + Cursor `knowtation-hosted` smoke (`vault-info` → `list_notes` → `backlinks`). Uses canister list + per-note reads (see inventory row). **`backlinks_truncated: true`** means the soft cap (**2000** notes scanned) was hit before the end of the vault. **`backlinks_notes_scanned`** should match vault size when every listed note was examined and the cap was not hit; empty `backlinks` is valid when no bodies use `[[wikilink]]` to the target.
 - **`import`:** admin-only; large uploads may hit timeouts client-side; audio/video/transcription need bridge env (e.g. API keys) as for Hub import. **Production verified (2026-04):** EC2 `knowtation-hosted` smoke — `source_type` `markdown`, tiny `file_base64` → response `{"imported":[{"path":"inbox/mcp-import-smoke.md",...}],"count":1}`; **`list_notes`** showed the same path and expected body.
 - **`index`:** slow; uses embeddings; run only after 1–5 succeed.
 - **`summarize` / `enrich`:** if Cursor does not support MCP **sampling**, you may see a short fallback or sparse output; canister reads can still succeed. Compare with [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) hosted MCP / sampling notes.
@@ -126,7 +136,7 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | `write` | editor | Yes | `POST {canisterUrl}/api/v1/notes` |
 | `index` | admin | Yes | `POST {bridgeUrl}/api/v1/index` |
 | `relate` | viewer | Yes | Canister `GET …/notes/:path` for source (title+body, 12k slice) + bridge `POST …/search` semantic (`snippetChars` 200, `limit` min(want+15,50)); per-neighbor titles via canister reads. Bridge uses Voyage **query** embedding for the search string; local `lib/relate.mjs` uses **document** — small intentional gap for Voyage. |
-| `backlinks` | viewer | Yes | Canister `GET …/notes?limit=&offset=` (pages of 100) + per-candidate `GET …/notes/:path` for full body; `lib/wikilink.mjs` scan; max **2000** notes examined; JSON includes `backlinks_truncated` / `backlinks_notes_scanned`. |
+| `backlinks` | viewer | Yes | Canister `GET …/notes?limit=&offset=` (pages of 100) + per-candidate `GET …/notes/:path` for full body; `lib/wikilink.mjs` scan; max **2000** notes examined; JSON includes `backlinks_truncated` / `backlinks_notes_scanned`. **Production verified (2026-04)** on EC2 + Cursor smoke (twelfth tool). |
 | `extract_tasks` | viewer | No | Local analysis; hosted needs route or intentional omission |
 | `cluster` | viewer | No | Local analysis; hosted needs route or intentional omission |
 | `tag_suggest` | viewer | No | Local / sampling; hosted needs route or sampling-only wrapper |
@@ -159,7 +169,7 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 |------|---------|
 | Hosted `registerTool` for `extract_tasks`, `cluster`, `tag_suggest`, `capture`, `transcribe` | No Cursor-visible tool until implemented; ACL alone does nothing. |
 | Shared “graph” HTTP API for richer graph queries on hosted | Local MCP uses filesystem/graph libs; **`relate`** reuses bridge vector search; **`backlinks`** uses canister pagination + full note bodies (see inventory). |
-| Documented operator smoke for **each** of the twelve tools after deploy | You establish this by running [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
+| Documented operator smoke for **each** of the twelve tools after deploy | **`backlinks`** smoke recorded (2026-04). Run the rest by following [§ How to test hosted MCP](#how-to-test-hosted-mcp-manual-recommended-before-expanding). |
 
 ### What connecting “the rest” entails (per future tool)
 
