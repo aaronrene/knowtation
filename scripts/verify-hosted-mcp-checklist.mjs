@@ -26,7 +26,7 @@ console.log(`
 1. On server: git pull in /opt/knowtation (or your deploy root), then:
    pm2 restart knowtation-gateway --update-env
 2. In Cursor (knowtation-hosted): OAuth green; confirm tool count matches role
-   (admin: twelve tools — backlinks, search, get_note, list_notes, relate, write, index, import, export, vault_sync, summarize, enrich).
+   (admin: fifteen tools — see test/mcp-hosted-tools-list.test.mjs TOOLS_ADMIN; includes tag_suggest, cluster, backlinks, extract_tasks, relate).
 3. Read resource vault-info: userId, vaultId, role match the signed-in workspace.
 4. If MCP log shows red / "Server not initialized" briefly after restart: Logout → Connect
    or retry once initialize completes (see docs/NEXT-SESSION-HOSTED-MCP.md).

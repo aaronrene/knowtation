@@ -37,6 +37,12 @@ const HOSTED_MCP_EXPORT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 /** Same slice as `lib/relate.mjs` when building the embedding text from the source note. */
 const RELATE_BODY_SLICE = 12000;
 
+/** Same cap as `lib/tag-suggest.mjs` (`runTagSuggest`) when building text for semantic neighbors. */
+const TAG_SUGGEST_TEXT_SLICE = 12000;
+
+/** Bridge semantic search limit for tag aggregation (matches local `store.search(..., { limit: 15 })`). */
+const TAG_SUGGEST_SEARCH_LIMIT = 15;
+
 /**
  * Hosted `backlinks`: max canister notes examined (each may trigger one `GET …/notes/:path`).
  * Soft cap to limit latency and load; partial vault coverage sets `backlinks_truncated: true`.
@@ -125,6 +131,36 @@ function hostedClusterEmbedText(frontmatterRaw, bodyFull) {
   const body = bodyFull != null ? String(bodyFull) : '';
   const t = `${title ? `${title}\n` : ''}${body.slice(0, HOSTED_CLUSTER_TEXT_SLICE)}`;
   return t.trim();
+}
+
+/**
+ * Tags already on the target note (slug form), matching local `runTagSuggest` (`note.tags` vs frontmatter).
+ * @param {Record<string, unknown>} note
+ * @returns {string[]}
+ */
+function hostedExistingTagsFromCanisterNote(note) {
+  const tagsTop = note && typeof note === 'object' && Array.isArray(note.tags) ? note.tags : null;
+  if (tagsTop && tagsTop.length) {
+    return tagsTop.map((t) => normalizeSlug(String(t))).filter(Boolean);
+  }
+  const fm = materializeListFrontmatter(note?.frontmatter);
+  return tagsFromFm(fm).map((t) => normalizeSlug(String(t))).filter(Boolean);
+}
+
+/**
+ * Tags from a bridge search hit and/or canister note JSON.
+ * @param {unknown} tagsRaw
+ * @param {Record<string, unknown>} [canisterNote]
+ * @returns {string[]}
+ */
+function hostedTagsFromHitOrNote(tagsRaw, canisterNote) {
+  if (Array.isArray(tagsRaw) && tagsRaw.length) {
+    return tagsRaw.map((t) => normalizeSlug(String(t))).filter(Boolean);
+  }
+  if (canisterNote && typeof canisterNote === 'object') {
+    return hostedExistingTagsFromCanisterNote(canisterNote);
+  }
+  return [];
 }
 
 /**
@@ -744,6 +780,117 @@ export function createHostedMcpServer(ctx) {
             cluster_list_rows_scanned: scanned,
             cluster_truncated: scanned >= HOSTED_CLUSTER_MAX_LIST_ROWS,
           });
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  /**
+   * Hosted `tag_suggest` — parity with local `runTagSuggest` (`lib/tag-suggest.mjs`) without a filesystem vault.
+   *
+   * Upstream (verified in `hub/bridge/server.mjs`):
+   * - **Source note (path):** `GET {canisterUrl}/api/v1/notes/:path` with the same headers as `get_note`
+   *   (`Authorization`, `X-Vault-Id`, `X-User-Id`, `X-Gateway-Auth`).
+   * - **Source text (body-only):** optional `body` argument, trimmed to {@link TAG_SUGGEST_TEXT_SLICE} chars (same cap as local).
+   * - **Semantic neighbors:** `POST {bridgeUrl}/api/v1/search` with JSON
+   *   `{ query, mode: "semantic", limit: 15, snippetChars: 200 }`; same JWT + `X-Vault-Id` + `resolveHostedBridgeContext` as
+   *   `relate` / `POST /api/v1/search` (bridge `userIdFromJwt` + hosted context). Search results include `tags` per row when the
+   *   vector store exposes them (`results` map in `hub/bridge/server.mjs`). If a hit has no tags, `GET …/notes/:path` on the
+   *   canister supplies frontmatter tags (`tagsFromFm` + `materializeListFrontmatter`), analogous to local `readNote` fallback.
+   * - **Embedding type:** the bridge embeds `query` with `voyageInputType: "query"` for semantic search; local `runTagSuggest`
+   *   uses **document** embedding for the source string — same intentional hosted vs local tradeoff as `relate` vs `lib/relate.mjs`.
+   */
+  if (isToolAllowed('tag_suggest', role)) {
+    server.registerTool(
+      'tag_suggest',
+      {
+        description:
+          'Suggest tags from semantically similar notes on the hosted index. Pass vault-relative path (loads title+body from the canister) or raw body text; at least one is required. Uses bridge semantic search (indexed vault) and aggregates tags from neighbors (up to 12 suggestions).',
+        inputSchema: {
+          path: z.string().optional().describe('Vault-relative path to the note (.md); loaded from the canister when set'),
+          body: z.string().optional().describe('Raw markdown/text when no path; combined with path is invalid — path wins if both are sent'),
+        },
+      },
+      async (args) => {
+        try {
+          const hasPath = args.path != null && String(args.path).trim() !== '';
+          const hasBody = args.body != null && String(args.body).trim() !== '';
+          if (!hasPath && !hasBody) {
+            return jsonError('Provide path or body (at least one).', 'INVALID');
+          }
+
+          let embedText = '';
+          /** @type {string[]} */
+          let existing = [];
+          /** @type {string | null} */
+          let srcKey = null;
+
+          if (hasPath) {
+            const note = await upstreamFetch(
+              `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
+              canisterFetchOpts
+            );
+            const titleFm = titleFromCanisterFrontmatter(note.frontmatter) ?? '';
+            const body = note.body != null ? String(note.body) : '';
+            embedText = `${titleFm ? `${titleFm}\n` : ''}${body}`.slice(0, TAG_SUGGEST_TEXT_SLICE);
+            existing = hostedExistingTagsFromCanisterNote(/** @type {Record<string, unknown>} */ (note));
+            srcKey = vaultPathKey(note.path ?? args.path);
+          } else {
+            embedText = String(args.body).slice(0, TAG_SUGGEST_TEXT_SLICE);
+          }
+
+          if (!embedText.trim()) {
+            return jsonError('No title or body text to match; cannot suggest tags.', 'INVALID');
+          }
+
+          const searchBody = {
+            query: embedText,
+            mode: 'semantic',
+            limit: TAG_SUGGEST_SEARCH_LIMIT,
+            snippetChars: 200,
+          };
+          const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body: searchBody,
+          });
+          const rows = Array.isArray(data.results) ? data.results : [];
+          const existingSet = new Set(existing.map((t) => normalizeSlug(String(t))).filter(Boolean));
+          const tagCounts = new Map();
+
+          for (const h of rows) {
+            if (!h || typeof h !== 'object') continue;
+            const p = vaultPathKey(h.path);
+            if (!p || (srcKey != null && p === srcKey)) continue;
+
+            let tagsRaw = h.tags;
+            /** @type {Record<string, unknown> | undefined} */
+            let noteForTags;
+            if (!Array.isArray(tagsRaw) || tagsRaw.length === 0) {
+              try {
+                noteForTags = await upstreamFetch(
+                  `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                  canisterFetchOpts
+                );
+              } catch {
+                continue;
+              }
+            }
+            const tagList = hostedTagsFromHitOrNote(tagsRaw, noteForTags);
+            for (const slug of tagList) {
+              if (!slug || existingSet.has(slug)) continue;
+              tagCounts.set(slug, (tagCounts.get(slug) || 0) + 1);
+            }
+          }
+
+          const suggested_tags = [...tagCounts.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([name]) => name)
+            .slice(0, 12);
+
+          return jsonResponse({ suggested_tags, existing_tags: existing });
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
         }
