@@ -40,8 +40,10 @@ const RELATE_BODY_SLICE = 12000;
 /** Same cap as `lib/tag-suggest.mjs` (`runTagSuggest`) when building text for semantic neighbors. */
 const TAG_SUGGEST_TEXT_SLICE = 12000;
 
-/** Bridge semantic search limit for tag aggregation (matches local `store.search(..., { limit: 15 })`). */
-const TAG_SUGGEST_SEARCH_LIMIT = 15;
+/** Default bridge semantic search limit for tag aggregation (neighbor rows before dedupe / existing-tag filter). */
+const TAG_SUGGEST_NEIGHBOR_LIMIT_DEFAULT = 40;
+/** Hard cap for optional `neighbor_limit` tool argument (latency: up to this many canister GETs when bridge rows lack tags). */
+const TAG_SUGGEST_NEIGHBOR_LIMIT_MAX = 80;
 
 /**
  * Hosted `backlinks`: max canister notes examined (each may trigger one `GET …/notes/:path`).
@@ -283,6 +285,7 @@ async function bridgeImportMultipart(bridgeUrl, fetchOpts, formData) {
  *
  * @param {{
  *   userId: string,
+ *   canisterUserId?: string,
  *   vaultId: string,
  *   role: 'viewer' | 'editor' | 'admin',
  *   token: string,
@@ -294,7 +297,9 @@ async function bridgeImportMultipart(bridgeUrl, fetchOpts, formData) {
  * @returns {McpServer}
  */
 export function createHostedMcpServer(ctx) {
-  const { userId, vaultId, role, token, canisterUrl, canisterAuthSecret, bridgeUrl } = ctx;
+  const { userId, vaultId, role, token, canisterUrl, canisterAuthSecret, bridgeUrl, scope = {} } = ctx;
+  const canisterUserId =
+    typeof ctx.canisterUserId === 'string' && ctx.canisterUserId.trim() !== '' ? ctx.canisterUserId.trim() : userId;
   const server = new McpServer(
     { name: 'knowtation-hosted', version: '0.1.0' },
     { capabilities: { logging: {} } }
@@ -302,7 +307,8 @@ export function createHostedMcpServer(ctx) {
   const fetchOpts = { token, vaultId };
   /** Same as Hub proxy: bridge resolves `effectiveCanisterUid` from JWT; header aids debugging. */
   const bridgeFetchOpts = { token, vaultId, userId };
-  const canisterFetchOpts = { ...fetchOpts, userId, canisterAuthSecret: canisterAuthSecret || '' };
+  /** Canister `X-User-Id` matches Hub gateway: `effective_canister_user_id` when MCP session supplies it. */
+  const canisterFetchOpts = { ...fetchOpts, userId: canisterUserId, canisterAuthSecret: canisterAuthSecret || '' };
 
   if (isToolAllowed('search', role)) {
     server.registerTool(
@@ -795,7 +801,7 @@ export function createHostedMcpServer(ctx) {
    *   (`Authorization`, `X-Vault-Id`, `X-User-Id`, `X-Gateway-Auth`).
    * - **Source text (body-only):** optional `body` argument, trimmed to {@link TAG_SUGGEST_TEXT_SLICE} chars (same cap as local).
    * - **Semantic neighbors:** `POST {bridgeUrl}/api/v1/search` with JSON
-   *   `{ query, mode: "semantic", limit: 15, snippetChars: 200 }`; same JWT + `X-Vault-Id` + `resolveHostedBridgeContext` as
+   *   `{ query, mode: "semantic", limit: <neighbor_limit>, snippetChars: 200 }` (default {@link TAG_SUGGEST_NEIGHBOR_LIMIT_DEFAULT}, max {@link TAG_SUGGEST_NEIGHBOR_LIMIT_MAX}); same JWT + `X-Vault-Id` + `resolveHostedBridgeContext` as
    *   `relate` / `POST /api/v1/search` (bridge `userIdFromJwt` + hosted context). Search results include `tags` per row when the
    *   vector store exposes them (`results` map in `hub/bridge/server.mjs`). If a hit has no tags, `GET …/notes/:path` on the
    *   canister supplies frontmatter tags (`tagsFromFm` + `materializeListFrontmatter`), analogous to local `readNote` fallback.
@@ -807,10 +813,14 @@ export function createHostedMcpServer(ctx) {
       'tag_suggest',
       {
         description:
-          'Suggest tags from semantically similar notes on the hosted index. Pass vault-relative path (loads title+body from the canister) or raw body text; at least one is required. Uses bridge semantic search (indexed vault) and aggregates tags from neighbors (up to 12 suggestions).',
+          'Suggest tags from semantically similar notes on the hosted index. Pass vault-relative path (loads title+body from the canister) or raw body text; at least one is required. Uses bridge semantic search (indexed vault) and aggregates tags from neighbors (up to 12 suggestions). Optional neighbor_limit (5–80) increases how many semantic neighbors are considered (default 40).',
         inputSchema: {
           path: z.string().optional().describe('Vault-relative path to the note (.md); loaded from the canister when set'),
           body: z.string().optional().describe('Raw markdown/text when no path; combined with path is invalid — path wins if both are sent'),
+          neighbor_limit: z
+            .number()
+            .optional()
+            .describe('Semantic neighbor count for bridge search (clamped 5–80; default 40). Higher values can improve recall on larger vaults at the cost of latency.'),
         },
       },
       async (args) => {
@@ -845,10 +855,15 @@ export function createHostedMcpServer(ctx) {
             return jsonError('No title or body text to match; cannot suggest tags.', 'INVALID');
           }
 
+          const rawNeighbor = Number(args.neighbor_limit);
+          const neighborLimit = Number.isFinite(rawNeighbor)
+            ? Math.max(5, Math.min(Math.floor(rawNeighbor), TAG_SUGGEST_NEIGHBOR_LIMIT_MAX))
+            : TAG_SUGGEST_NEIGHBOR_LIMIT_DEFAULT;
+
           const searchBody = {
             query: embedText,
             mode: 'semantic',
-            limit: TAG_SUGGEST_SEARCH_LIMIT,
+            limit: neighborLimit,
             snippetChars: 200,
           };
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
@@ -1203,7 +1218,7 @@ export function createHostedMcpServer(ctx) {
       contents: [{
         uri: 'knowtation://hosted/vault-info',
         mimeType: 'application/json',
-        text: JSON.stringify({ userId, vaultId, role, scope: ctx.scope }),
+        text: JSON.stringify({ userId, canisterUserId, vaultId, role, scope }),
       }],
     })
   );
