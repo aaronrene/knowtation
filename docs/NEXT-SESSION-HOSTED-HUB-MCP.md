@@ -13,9 +13,10 @@ You are continuing Knowtation work on hosted Hub + MCP alignment.
 
 Context (read in order):
 1. docs/HOSTED-HUB-MCP-INTERLOCK.md — anti-drift program G0–G5, H0–H4 per feature, precautions
-2. docs/NEXT-SESSION-HOSTED-HUB-MCP.md (this file) — order of work and prompts/resources phasing
-3. docs/HOSTED-MCP-TOOL-EXPANSION.md — hosted MCP tools playbook; gateway is on EC2 (not Netlify for /mcp)
-4. docs/AGENT-INTEGRATION.md — Hosted MCP section + OAuth
+2. docs/PARITY-MATRIX-HOSTED.md — G0 capability → Hub → API → MCP table; G1 PR checklist
+3. docs/NEXT-SESSION-HOSTED-HUB-MCP.md (this file) — order of work and prompts/resources phasing
+4. docs/HOSTED-MCP-TOOL-EXPANSION.md — hosted MCP tools playbook + Track A recipes; gateway is on EC2 (not Netlify for /mcp)
+5. docs/AGENT-INTEGRATION.md — Hosted MCP section + OAuth
 
 Facts:
 - Hosted MCP today: 17 tools, one resource (knowtation://hosted/vault-info), NO prompts — unlike self-hosted stdio (13 prompts, many resources).
@@ -33,9 +34,9 @@ Defer: full 13 prompts, full resource catalog parity, MCP resource notifications
 Do NOT mix this work with the parked branch parked/hosted-voice-import-mcp-billing (voice UI, billing, PWA) unless explicitly merging that program.
 
 Tasks for this session (pick based on scope):
-- G0: Add docs/PARITY-MATRIX-HOSTED.md (or a section in this file) with first rows filled from inventory.
-- Or Track A: Add “Hosted recipes (tools-only)” subsection to HOSTED-MCP-TOOL-EXPANSION.md.
-- Or start Track B: first hosted prompt in hub/gateway/mcp-hosted-server.mjs with tests.
+- G0: **Done in repo** — `docs/PARITY-MATRIX-HOSTED.md` (extend when adding Hub/MCP pairs).
+- Track A: **Done in repo** — § *Hosted recipes (tools-only)* in `docs/HOSTED-MCP-TOOL-EXPANSION.md`.
+- Next: **Track B** — first hosted `registerPrompt` in `hub/gateway/mcp-hosted-server.mjs` + tests (after G0/G1 discipline is routine), or deepen G2 from matrix gaps.
 
 Run before merge: npm run verify:hosted-mcp-checklist, npm test as usual for touched areas.
 ```
@@ -110,13 +111,14 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 ## Related commits / files (this documentation pack)
 
 - `docs/HOSTED-HUB-MCP-INTERLOCK.md` — main interlock + G0–G5
+- `docs/PARITY-MATRIX-HOSTED.md` — G0 matrix + G1 checklist
 - `docs/NEXT-SESSION-HOSTED-HUB-MCP.md` — this file
-- `docs/HOSTED-MCP-TOOL-EXPANSION.md` — link at top to interlock
+- `docs/HOSTED-MCP-TOOL-EXPANSION.md` — link at top to interlock; Track A recipes
 - `docs/AGENT-INTEGRATION.md` — Hosted MCP subsection link
 
 Optional next artifacts to add in later PRs:
 
-- `docs/PARITY-MATRIX-HOSTED.md` — G0 deliverable (living table)
+- `docs/PARITY-MATRIX-HOSTED.md` — **G0 deliverable (living table)** — added in repo; extend when shipping new Hub/MCP pairs.
 
 ---
 

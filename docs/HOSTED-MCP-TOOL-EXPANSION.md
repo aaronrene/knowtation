@@ -8,6 +8,23 @@ This document is the **diligence gate** for adding tools to [`hub/gateway/mcp-ho
 - `node --test test/mcp-hosted-tools-list.test.mjs` — golden tool names per role + full `tools/list` round-trip via MCP Client.
 - `npm run verify:hosted-mcp-checklist` — runs both, then prints production verification steps.
 
+## Hosted recipes (tools-only) — Track A
+
+Hosted MCP has **tools and resources**, not the full **self-hosted `prompts/list`** catalog. Until Track B registers a small set of `registerPrompt` handlers on the gateway, agents should follow **tool sequences** below. They mirror **intent** from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) prompt IDs; they add **no** new HTTP routes.
+
+| Self-hosted prompt ID | Suggested hosted tool sequence (high level) |
+|------------------------|---------------------------------------------|
+| `daily-brief` | `list_notes` (recent window) → `search` → `get_note` on top paths → compose in chat |
+| `search-and-synthesize` | `search` → `get_note` on selected hits; optional `relate` for one anchor |
+| `project-summary` | `list_notes` with `project` / `folder` → `get_note` sample set |
+| `temporal-summary` | `list_notes` with `since` / `until` when applicable → `get_note` for drill-down |
+| `write-from-capture` | `capture` (inbox) or `write` → `get_note` verify |
+| `extract-entities`, `meeting-notes`, `knowledge-gap`, `causal-chain` | `search` + `get_note` + `extract_tasks` where tasks matter; structured extraction stays in the model until B2 prompts |
+| `content-plan` | `list_notes` + `search` for themes; `tag_suggest` when index exists |
+| `memory-context`, `memory-informed-search`, `resume-session` | **Defer:** requires hosted memory contract parity with Hub `/api/v1/memory*` (see [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) phase B3) |
+
+Cross-check each sequence against the living table in [`docs/PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) so calls stay on **documented** upstreams.
+
 ## Reality check: safeguards vs new tools
 
 The **safeguards session** added **no new `registerTool` blocks** and **no new HTTP wiring**. It added:

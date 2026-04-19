@@ -52,6 +52,7 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 
 ## Related docs
 
+- [`docs/PARITY-MATRIX-HOSTED.md`](PARITY-MATRIX-HOSTED.md) — **G0 living inventory:** capability → Hub → API → hosted MCP tool; G1 PR checklist
 - [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](NEXT-SESSION-HOSTED-HUB-MCP.md) — **next-session handoff**, pasteable prompt, **G0/G1 before Track B**, prompts B1–B3 + resources R0–R3 phasing
 - [`docs/HOSTED-MCP-TOOL-EXPANSION.md`](HOSTED-MCP-TOOL-EXPANSION.md) — adding hosted MCP **tools**
 - [`docs/AGENT-INTEGRATION.md`](AGENT-INTEGRATION.md) — MCP vs CLI vs Hub API overview
