@@ -26,6 +26,7 @@ const TOOLS_EDITOR = [
   'search',
   'summarize',
   'tag_suggest',
+  'transcribe',
   'vault_sync',
   'write',
 ];
@@ -44,6 +45,7 @@ const TOOLS_ADMIN = [
   'search',
   'summarize',
   'tag_suggest',
+  'transcribe',
   'vault_sync',
   'write',
 ];
