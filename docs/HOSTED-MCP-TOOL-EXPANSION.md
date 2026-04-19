@@ -25,6 +25,8 @@ Hosted MCP has **tools and resources**, not the full **self-hosted `prompts/list
 
 Cross-check each sequence against the living table in [`docs/PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) so calls stay on **documented** upstreams.
 
+**Track B (implementation):** Replace recipe-only flows with **`registerPrompt`** in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs), reusing the same bridge/canister HTTP paths as tools. Add **`prompts/list`** (and handler) tests in the style of [`test/mcp-hosted-tools-list.test.mjs`](../test/mcp-hosted-tools-list.test.mjs); keep args schemas compatible with [`scripts/check-mcp-hosted-schema.mjs`](../scripts/check-mcp-hosted-schema.mjs) (no `z.record(z.unknown())` in `mcp-hosted*.mjs`). Session prompt and branch name: [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
+
 ## Reality check: safeguards vs new tools
 
 The **safeguards session** added **no new `registerTool` blocks** and **no new HTTP wiring**. It added:

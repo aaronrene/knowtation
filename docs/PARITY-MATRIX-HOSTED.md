@@ -98,7 +98,8 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 ## How to maintain this file
 
 1. **New MCP tool:** Add a row; cite `hub/gateway/mcp-hosted-server.mjs` handler and upstream URL in the playbook or in PR description.
-2. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
-3. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
+2. **New hosted MCP prompt:** If the prompt exposes a **new** user-facing capability (not just composing existing list/search/read APIs), add a matrix row or document **composition only** in the PR. Track B handoff: [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
+3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
+4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 
 Last inventory pass: **2026-04-19** — seventeen hosted tools from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL table.
