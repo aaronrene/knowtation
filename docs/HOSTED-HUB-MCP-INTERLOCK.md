@@ -45,7 +45,17 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 | **H1** | No new shared core required — prompts call existing tool upstreams only. |
 | **H2** | Shipped on hosted MCP (`hub/gateway/mcp-hosted-server.mjs`). |
 | **H3** | Hub UI not required for parity (no new user-facing Hub action); users can still use list/search/read in the browser manually. |
-| **H4** | Docs: playbook + parity matrix; smoke: reconnect MCP, confirm **`prompts/list`** shows five prompts; **`getPrompt`** with real args after **`list_notes`** / **`search`**. |
+| **H4** | Docs: playbook + parity matrix; smoke: reconnect MCP, confirm **`prompts/list`** shows **five** B1 prompts on **`main`** (ten after B2 merge for editor/admin; nine for viewer); **`getPrompt`** with real args after **`list_notes`** / **`search`**. |
+
+### Track B2 hosted prompts — H0–H4 (composition)
+
+| Step | For B2 (`meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`) |
+|------|-----------------------------------------------------------------------------------------------------|
+| **H0** | Outcome: same **`prompts/list` / `prompts/get`** surface class as B1. Contract: **`POST {bridge}/api/v1/search`** (including **`chain`** for causal-chain), **`GET {canister}/api/v1/notes`**, **`GET …/notes/:path`**; **`write-from-capture`** is **no upstream** (instructions + user text only). Auth headers unchanged (**`X-User-Id`** = **`canisterUserId`** on canister). |
+| **H1** | No new shared core — reuse bridge search + canister list/read. **Intentional difference vs local:** `causal-chain` uses vector index chain filter instead of filesystem graph enumeration; `write-from-capture` omits local-only `templates/capture.md` embed. |
+| **H2** | Shipped on hosted MCP (`hub/gateway/mcp-hosted-server.mjs`). |
+| **H3** | Hub UI not required (composition / agent prefill only). |
+| **H4** | Docs: playbook prompt inventory + parity matrix row; tests: `mcp-hosted-prompts.test.mjs`; smoke: **`prompts/list`** nine (viewer) or ten (editor/admin); **`getPrompt`** for `knowledge-gap` / `causal-chain` after deploy. |
 
 ---
 

@@ -11,7 +11,7 @@ This document is the **diligence gate** for adding tools to [`hub/gateway/mcp-ho
 
 ## Hosted recipes (tools-only) — Track A
 
-**Track B1 (shipped in repo):** The gateway registers **five** hosted prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) via `registerPrompt`, calling the same **canister** / **bridge** paths as tools (`GET …/notes`, `POST …/search`, `GET …/notes/:path`). Role gates: [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`isPromptAllowed`; all B1 prompts are **viewer**-minimum). Optional **sampling** prefill uses `maybeAppendSamplingPrefill` from [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs) (same pattern as self-hosted stdio).
+**Track B1 (on `main`):** Five hosted prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) via `registerPrompt`, calling the same **canister** / **bridge** paths as tools (`GET …/notes`, `POST …/search`, `GET …/notes/:path`). **Track B2 (on `feat/hosted-mcp-prompts-b2`, PR pending):** five more (`meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`); **`write-from-capture`** is **editor**-minimum; others **viewer**. Optional **sampling** prefill uses `maybeAppendSamplingPrefill` from [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs) (same pattern as self-hosted stdio).
 
 The **tool sequences** below remain valid for clients that do not use `prompts/get`; they mirror **intent** from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) and add **no** new HTTP routes.
 
@@ -22,7 +22,7 @@ The **tool sequences** below remain valid for clients that do not use `prompts/g
 | `project-summary` | `list_notes` with `project` / `folder` → `get_note` sample set |
 | `temporal-summary` | `list_notes` with `since` / `until` when applicable → `get_note` for drill-down |
 | `write-from-capture` | `capture` (inbox) or `write` → `get_note` verify |
-| `extract-entities`, `meeting-notes`, `knowledge-gap`, `causal-chain` | `search` + `get_note` + `extract_tasks` where tasks matter; structured extraction stays in the model until B2 prompts |
+| `extract-entities`, `meeting-notes`, `knowledge-gap`, `causal-chain` | **B2:** same composition is now **`prompts/get`** on hosted (`list`/`search`/`get` as coded per prompt); clients may still call `extract_tasks` manually when tasks matter |
 | `content-plan` | `list_notes` + `search` for themes; `tag_suggest` when index exists |
 | `memory-context`, `memory-informed-search`, `resume-session` | **Defer:** requires hosted memory contract parity with Hub `/api/v1/memory*` (see [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) phase B3) |
 
@@ -108,7 +108,7 @@ Here you **do** use Cursor: enable the **`knowtation-hosted`** MCP server for th
 **Setup**
 
 1. **Cursor → Settings → MCP / Tools & MCP:** confirm **`knowtation-hosted`** is on (green) and points at your **persistent** MCP URL (EC2), not Netlify-only `/mcp`. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md).
-2. Optional: open the MCP panel / tool list and confirm you see **seventeen** tools if your Hub role is **admin** (fewer if viewer or editor). Open **prompts** (or ask the agent to run `prompts/list`) and confirm **five** Track B1 prompts when `list_notes` / `search` / `get_note` are allowed for your role.
+2. Optional: open the MCP panel / tool list and confirm you see **seventeen** tools if your Hub role is **admin** (fewer if viewer or editor). Open **prompts** (or ask the agent to run `prompts/list`) and confirm **nine** prompts as **viewer** or **ten** as **editor**/**admin** (Track B1+B2; **`write-from-capture`** requires editor).
 3. Start a **new Composer/Agent chat** with hosted MCP enabled so tool calls are unambiguous.
 
 **What “path” means (hosted users — not local, not the Hub URL)**
@@ -194,7 +194,7 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 ## Rules (every new hosted prompt)
 
 1. **Same upstreams as tools:** Prompt handlers must use `upstreamFetch` / canister URLs already used by tools (`list_notes`, `search`, `get_note` patterns). Do **not** read local vault files.
-2. **ACL:** Add the prompt id to `READ_PROMPTS` / `PROMPT_MIN_ROLE` in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs); wrap `registerPrompt` with `isPromptAllowed(name, role)` and `isToolAllowed` for each upstream tool the handler calls.
+2. **ACL:** Add the prompt id to `HOSTED_PROMPT_IDS` / `PROMPT_MIN_ROLE` in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs); wrap `registerPrompt` with `isPromptAllowed(name, role)` and `isToolAllowed` for each upstream tool the handler calls.
 3. **Args schema:** Use Zod fields compatible with MCP `prompts/list` JSON Schema export (same `z.record(z.unknown())` ban as tools).
 4. **Tests:** Extend [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs) golden prompt names; add a handler or fetch mock test when wiring is non-trivial.
 
@@ -209,6 +209,11 @@ Source of truth for tool names: `mcp-tool-acl.mjs`. Source of truth for **what C
 | `project-summary` | viewer | `GET …/notes?project=&since=` + `GET …/notes/:path` per embedded note; optional sampling prefill |
 | `temporal-summary` | viewer | `GET …/notes?since=&until=&project=`; optional `POST …/search` when `topic` is set |
 | `content-plan` | viewer | `GET …/notes?project=` + `GET …/notes/:path` per embedded note; optional sampling prefill |
+| `meeting-notes` | viewer | No vault fetch; user **`transcript`** / args only |
+| `knowledge-gap` | viewer | `POST {bridge}/api/v1/search` (semantic, limit 15, path+snippet); optional sampling prefill |
+| `causal-chain` | viewer | `POST …/search` with **`chain`** + semantic query + `GET …/notes/:path` per hit (date-sorted embeds); differs from local graph resource when index is incomplete |
+| `extract-entities` | viewer | `GET …/notes?folder=&project=&limit=` (cap **`MAX_ENTITY_NOTES`**) + `GET …/notes/:path` per embedded note |
+| `write-from-capture` | editor | No upstream in handler; instructs use of **`write`** / **`capture`**; no local **`templates/capture.md`** embed on hosted |
 
 ### Tools (inventory)
 
@@ -247,9 +252,9 @@ Source of truth for tool names: `mcp-tool-acl.mjs`. Source of truth for **what C
 | Layer | Status |
 |--------|--------|
 | Hosted MCP **tools/list** reliability | Guarded in CI + unit test (serialization + golden names). |
-| Hosted MCP **`prompts/list`** (Track B1) | Five prompts in `mcp-hosted-server.mjs`; CI via `mcp-hosted-prompts.test.mjs` + same schema guard as tools. |
+| Hosted MCP **`prompts/list`** (Track B1 + B2 on branch `feat/hosted-mcp-prompts-b2`) | **Ten** prompt names in `mcp-hosted-server.mjs` for editor/admin (**nine** for viewer — no `write-from-capture`); CI via `mcp-hosted-prompts.test.mjs` + same schema guard as tools. |
 | **Seventeen** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** and **`transcribe`** use multipart `fetch` to the bridge (`/api/v1/import`); **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap; **`relate`** + bridge semantic search; **`backlinks`** + canister list/get + `lib/wikilink.mjs`; **`extract_tasks`** + canister list + `lib/extract-tasks.mjs`; **`cluster`** + canister list/get + bridge **`POST /api/v1/embed`** + `lib/kmeans.mjs`; **`tag_suggest`** + canister read + bridge **`POST /api/v1/search`** + optional per-neighbor canister reads for tags; **`capture`** + canister **`POST …/notes`** via **`buildCaptureInboxWritePayload`** (see inventory table). |
-| ACL **name sets** (17 tools + 5 prompts for admin today) | Tools: `mcp-tool-acl.mjs`; prompts: `READ_PROMPTS` / `PROMPT_MIN_ROLE` in the same file. |
+| ACL **name sets** (17 tools + 10 prompts for admin on B2 branch) | Tools: `mcp-tool-acl.mjs`; prompts: **`HOSTED_PROMPT_IDS`** / `PROMPT_MIN_ROLE` in the same file. |
 
 ### What we do not have yet
 
@@ -306,8 +311,16 @@ Pick **one** tool per PR. **`capture`** is registered on hosted MCP and verified
 
 ### Production verification: Track B1 hosted prompts (2026-04)
 
-**Status:** Implemented in-repo on **`feat/hosted-mcp-prompts-b1`**: five **`registerPrompt`** handlers in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs); ACL in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs); tests in [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs). **`npm run verify:hosted-mcp-checklist`** includes `prompts/list` coverage.
+**Status:** **Merged to `main`** (PR **#174**, April 2026): five **`registerPrompt`** handlers (Track B1). **`npm run verify:hosted-mcp-checklist`** includes `prompts/list` coverage.
 
-**What “working” means here:** After gateway deploy, Cursor **`knowtation-hosted`** lists **five** prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) via **`prompts/list`**; `getPrompt` for `daily-brief` returns messages whose text references listed notes when the vault has data; **`search-and-synthesize`** issues bridge **`POST /api/v1/search`** then canister **`GET …/notes/:path`** for embedded resources (same headers as tools, **`X-User-Id`** = **`canisterUserId`**). If the client supports **MCP sampling**, prompts that use `maybeAppendSamplingPrefill` may append an assistant draft (same behavior class as self-hosted stdio — see [`AGENT-INTEGRATION.md`](./AGENT-INTEGRATION.md)).
+**What “working” means here:** After gateway deploy, Cursor **`knowtation-hosted`** lists **five** B1 prompts on **`main`**; `getPrompt` for `daily-brief` returns messages whose text references listed notes when the vault has data; **`search-and-synthesize`** issues bridge **`POST /api/v1/search`** then canister **`GET …/notes/:path`** for embedded resources (same headers as tools, **`X-User-Id`** = **`canisterUserId`**). If the client supports **MCP sampling**, prompts that use `maybeAppendSamplingPrefill` may append an assistant draft (same behavior class as self-hosted stdio — see [`AGENT-INTEGRATION.md`](./AGENT-INTEGRATION.md)).
 
 **Operator checklist:** Reconnect **`knowtation-hosted`** after deploy; confirm **`prompts/list`** in the MCP inspector; run one **`getPrompt`** with arguments aligned to [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) (reference args only).
+
+### Production verification: Track B2 hosted prompts (2026-04)
+
+**Status:** **Implemented in-repo** on **`feat/hosted-mcp-prompts-b2`** (PR → **`main`** pending). Adds **`meeting-notes`**, **`knowledge-gap`**, **`causal-chain`**, **`extract-entities`**, **`write-from-capture`**; ACL rename to **`HOSTED_PROMPT_IDS`**; **`write-from-capture`** visible only when role ≥ **editor**.
+
+**What “working” means after merge + EC2 deploy:** **`prompts/list`** shows **nine** names for **viewer**, **ten** for **editor**/**admin**; **`getPrompt`** `knowledge-gap` hits bridge search; **`causal-chain`** sends **`chain`** in search body and reads notes from the canister; **`write-from-capture`** returns two user messages with no template resource.
+
+**Operator checklist:** Same as B1 — reconnect MCP; spot-check **`knowledge-gap`** and **`causal-chain`** on a vault with indexed **`causal_chain_id`** notes.

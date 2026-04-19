@@ -1,7 +1,7 @@
 /**
  * Issue #1 Phase D2 — role-based tool access control for hosted MCP.
  * Filters available tools based on user role (viewer, editor, admin).
- * Hosted prompts (Track B1) use the same minimum roles as the upstream tools they call.
+ * Hosted prompts (Track B1–B2): default **viewer**; **`write-from-capture`** is **editor** (implies persisting notes).
  */
 
 const READ_TOOLS = new Set([
@@ -38,22 +38,32 @@ const ROLE_TOOL_MAP = {
   admin: ADMIN_TOOLS,
 };
 
-/** Hosted MCP prompt IDs (B1); each maps to canister list / bridge search / canister get like tools — no local vault. */
-const READ_PROMPTS = new Set([
+/** Hosted MCP prompt IDs (Track B1 + B2); each maps to canister / bridge routes like tools — no local vault files. */
+const HOSTED_PROMPT_IDS = new Set([
   'daily-brief',
   'search-and-synthesize',
   'project-summary',
   'temporal-summary',
   'content-plan',
+  'meeting-notes',
+  'knowledge-gap',
+  'causal-chain',
+  'extract-entities',
+  'write-from-capture',
 ]);
 
-/** Minimum role per prompt (all B1 prompts are read-only → viewer). */
+/** Minimum role per prompt (`write-from-capture` implies vault write → editor). */
 const PROMPT_MIN_ROLE = /** @type {Record<string, 'viewer' | 'editor' | 'admin'>} */ ({
   'daily-brief': 'viewer',
   'search-and-synthesize': 'viewer',
   'project-summary': 'viewer',
   'temporal-summary': 'viewer',
   'content-plan': 'viewer',
+  'meeting-notes': 'viewer',
+  'knowledge-gap': 'viewer',
+  'causal-chain': 'viewer',
+  'extract-entities': 'viewer',
+  'write-from-capture': 'editor',
 });
 
 const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 };
@@ -90,14 +100,14 @@ export function filterToolsByRole(tools, role) {
 }
 
 /**
- * Prompt names exposed for this role (subset of {@link READ_PROMPTS} when min role not met).
+ * Prompt names exposed for this role (subset of {@link HOSTED_PROMPT_IDS} when min role not met).
  * @param {'viewer' | 'editor' | 'admin'} role
  * @returns {Set<string>}
  */
 export function allowedPromptsForRole(role) {
   const rank = ROLE_RANK[role] ?? 0;
   const out = new Set();
-  for (const name of READ_PROMPTS) {
+  for (const name of HOSTED_PROMPT_IDS) {
     const min = PROMPT_MIN_ROLE[name] ?? 'viewer';
     if (rank >= ROLE_RANK[min]) out.add(name);
   }
@@ -109,7 +119,7 @@ export function allowedPromptsForRole(role) {
  * @param {'viewer' | 'editor' | 'admin'} role
  */
 export function isPromptAllowed(promptName, role) {
-  if (!READ_PROMPTS.has(promptName)) return false;
+  if (!HOSTED_PROMPT_IDS.has(promptName)) return false;
   const min = PROMPT_MIN_ROLE[promptName] ?? 'viewer';
   return (ROLE_RANK[role] ?? 0) >= ROLE_RANK[min];
 }
