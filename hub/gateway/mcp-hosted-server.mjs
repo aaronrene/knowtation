@@ -311,6 +311,44 @@ export function createHostedMcpServer(ctx) {
   /** Canister `X-User-Id` matches Hub gateway: `effective_canister_user_id` when MCP session supplies it. */
   const canisterFetchOpts = { ...fetchOpts, userId: canisterUserId, canisterAuthSecret: canisterAuthSecret || '' };
 
+  /**
+   * Shared multipart body for bridge `POST /api/v1/import` (hosted `import` and `transcribe` tools).
+   * @param {{ source_type: string, file_base64: string, filename: string, project?: string, output_dir?: string, tags?: string|string[] }} args
+   */
+  async function hostedBridgeImportFromBase64Args(args) {
+    let fileBuffer;
+    try {
+      fileBuffer = Buffer.from(args.file_base64, 'base64');
+    } catch {
+      const err = new Error('file_base64 is not valid base64');
+      /** @type {any} */ (err).code = 'INVALID';
+      throw err;
+    }
+    if (!fileBuffer.length) {
+      const err = new Error('Decoded file is empty');
+      /** @type {any} */ (err).code = 'INVALID';
+      throw err;
+    }
+    if (fileBuffer.length > BRIDGE_IMPORT_MAX_BYTES) {
+      const err = new Error(`Decoded file exceeds ${BRIDGE_IMPORT_MAX_BYTES} bytes`);
+      /** @type {any} */ (err).code = 'INVALID';
+      throw err;
+    }
+    const form = new FormData();
+    form.set('source_type', args.source_type);
+    const blob = new Blob([fileBuffer]);
+    form.set('file', blob, args.filename);
+    if (args.project != null && args.project !== '') form.set('project', args.project);
+    if (args.output_dir != null && args.output_dir !== '') form.set('output_dir', args.output_dir);
+    if (args.tags != null) {
+      const tagsStr = Array.isArray(args.tags)
+        ? args.tags.map((t) => String(t).trim()).filter(Boolean).join(',')
+        : String(args.tags);
+      if (tagsStr) form.set('tags', tagsStr);
+    }
+    return bridgeImportMultipart(bridgeUrl, bridgeFetchOpts, form);
+  }
+
   if (isToolAllowed('search', role)) {
     server.registerTool(
       'search',
@@ -1037,6 +1075,41 @@ export function createHostedMcpServer(ctx) {
     );
   }
 
+  /**
+   * Hosted `transcribe` — same upstream as Hub / bridge **`POST /api/v1/import`** with **`source_type`** **`audio`** or **`video`**
+   * (Whisper via `lib/transcribe.mjs` on the bridge). Local MCP `transcribe` reads a disk path; hosted accepts **base64**
+   * bytes like the **`import`** tool. Requires bridge env (**`OPENAI_API_KEY`**, optional ffmpeg for transcode) as for self-hosted import.
+   */
+  if (isToolAllowed('transcribe', role)) {
+    server.registerTool(
+      'transcribe',
+      {
+        description:
+          'Transcribe audio or video (OpenAI Whisper on the bridge) into the hosted vault: multipart POST /api/v1/import with source_type audio or video, same contract as Hub import. Provide base64 file bytes and filename; optional project, output_dir, tags.',
+        inputSchema: {
+          source_type: z.enum(['audio', 'video']).describe('Importer id: audio or video (Whisper)'),
+          file_base64: z.string().min(1).describe('Media file content as standard base64 (decoded size max 100 MiB)'),
+          filename: z.string().min(1).describe('Original filename with extension (e.g. meeting.m4a)'),
+          project: z.string().optional().describe('Optional project slug'),
+          output_dir: z.string().optional().describe('Optional vault-relative output folder'),
+          tags: z
+            .union([z.string(), z.array(z.string())])
+            .optional()
+            .describe('Optional tags: comma-separated string or array of strings'),
+        },
+      },
+      async (args) => {
+        try {
+          const data = await hostedBridgeImportFromBase64Args(args);
+          return jsonResponse(data);
+        } catch (e) {
+          const code = /** @type {any} */ (e).code === 'INVALID' ? 'INVALID' : 'UPSTREAM_ERROR';
+          return jsonError(e.message || String(e), code);
+        }
+      }
+    );
+  }
+
   if (isToolAllowed('index', role)) {
     server.registerTool(
       'index',
@@ -1111,32 +1184,11 @@ export function createHostedMcpServer(ctx) {
       },
       async (args) => {
         try {
-          let fileBuffer;
-          try {
-            fileBuffer = Buffer.from(args.file_base64, 'base64');
-          } catch {
-            return jsonError('file_base64 is not valid base64', 'INVALID');
-          }
-          if (!fileBuffer.length) {
-            return jsonError('Decoded file is empty', 'INVALID');
-          }
-          if (fileBuffer.length > BRIDGE_IMPORT_MAX_BYTES) {
-            return jsonError(`Decoded file exceeds ${BRIDGE_IMPORT_MAX_BYTES} bytes`, 'INVALID');
-          }
-          const form = new FormData();
-          form.set('source_type', args.source_type);
-          const blob = new Blob([fileBuffer]);
-          form.set('file', blob, args.filename);
-          if (args.project != null && args.project !== '') form.set('project', args.project);
-          if (args.output_dir != null && args.output_dir !== '') form.set('output_dir', args.output_dir);
-          if (args.tags != null) {
-            const tagsStr = Array.isArray(args.tags) ? args.tags.map((t) => String(t).trim()).filter(Boolean).join(',') : String(args.tags);
-            if (tagsStr) form.set('tags', tagsStr);
-          }
-          const data = await bridgeImportMultipart(bridgeUrl, bridgeFetchOpts, form);
+          const data = await hostedBridgeImportFromBase64Args(args);
           return jsonResponse(data);
         } catch (e) {
-          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+          const code = /** @type {any} */ (e).code === 'INVALID' ? 'INVALID' : 'UPSTREAM_ERROR';
+          return jsonError(e.message || String(e), code);
         }
       }
     );
