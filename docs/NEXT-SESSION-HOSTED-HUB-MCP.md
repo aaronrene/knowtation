@@ -6,7 +6,7 @@ This document is the **handoff** for continuing work on **anti-drift** between t
 
 **Track B1 — merged:** PR **#174** is merged to **`main`** (five hosted prompts + ACL + tests + docs).
 
-**Track B2 (active branch):** `feat/hosted-mcp-prompts-b2` — implement the **next** hosted prompts (see paste block and § *Recommended phases*). Open a PR **`feat/hosted-mcp-prompts-b2` → `main`** when ready. **Do not** stack unrelated product work on this branch.
+**Track B2 (branch `feat/hosted-mcp-prompts-b2`):** **Implemented in-repo** — five additional prompts (`meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`), ACL (`write-from-capture` → **editor** minimum), tests, and doc updates. Open PR **`feat/hosted-mcp-prompts-b2` → `main`** and run EC2 smoke per playbook after merge.
 
 **Scope reminder:** All **13** self-hosted prompt IDs from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) stay in scope across **B1 + B2 + B3**; nothing is intentionally “dropped” except **B3** waits on hosted **`/api/v1/memory*`** parity with Hub. B1 shipped **5**; B2 targets **5** more; B3 is **3** memory prompts.
 
@@ -99,7 +99,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 | Phase | Prompts (target) | Rationale |
 |-------|------------------|-----------|
 | **B1 — First coded batch** | **`daily-brief`**, **`search-and-synthesize`**, **`project-summary`**, **`temporal-summary`**, **`content-plan`** | **Merged to `main` (PR #174).** Same tools: `list_notes`, `search`, `get_note`. |
-| **B2 — Second batch (4–5)** | **`meeting-notes`**, **`knowledge-gap`**, **`causal-chain`**, **`extract-entities`**, **`write-from-capture`** | **In progress** on **`feat/hosted-mcp-prompts-b2`**. Mostly list/search/get (+ `extract_tasks` / `capture` / `write` where needed). Verify **`causal-chain`** vs local graph: hosted may compose documented APIs until a shared graph HTTP exists. |
+| **B2 — Second batch (5)** | **`meeting-notes`**, **`knowledge-gap`**, **`causal-chain`**, **`extract-entities`**, **`write-from-capture`** | **Coded on `feat/hosted-mcp-prompts-b2`** (PR pending). Handlers use list/search/get; **`causal-chain`** uses **`POST …/search`** with **`chain`** + canister **`GET …/notes/:path`** (index-backed; differs from local graph walk when notes lack vectors). **`write-from-capture`**: no local template file; **editor** ACL minimum. |
 | **B3 — Memory trio (3)** | **`memory-context`**, **`memory-informed-search`**, **`resume-session`** | **Separate phase:** depends on **hosted memory** semantics matching local (`formatMemoryEventsAsync`, etc.). Do **not** block B2 on these. |
 
 ### Resources (hosted)
@@ -130,7 +130,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 | Track A | Hosted recipes (docs) |
 | Track B1–B3 | Hosted prompts batches |
 | **B1** | **Done** — merged PR **#174** (`main`). |
-| **B2 (active)** | Branch **`feat/hosted-mcp-prompts-b2`**: `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture` — extend ACL + `mcp-hosted-prompts.test.mjs`. |
+| **B2 (PR pending)** | Branch **`feat/hosted-mcp-prompts-b2`**: five prompts landed in `mcp-hosted-server.mjs` + ACL + tests + docs; merge to **`main`** then operator smoke (`prompts/list` nine vs ten by role). |
 | **B3 (deferred)** | Memory trio — blocked on hosted **`/api/v1/memory*`** parity with Hub (see matrix Hub-only row). |
 | R0–R3+ | Hosted resources |
 

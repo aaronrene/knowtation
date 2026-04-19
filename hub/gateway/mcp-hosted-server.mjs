@@ -25,6 +25,7 @@ import {
   snippet,
   parseIntSafe,
   MAX_EMBEDDED_NOTES,
+  MAX_ENTITY_NOTES,
   PROJECT_SUMMARY_NOTES,
   CONTENT_PLAN_NOTES,
 } from '../../mcp/prompts/helpers.mjs';
@@ -1275,7 +1276,7 @@ export function createHostedMcpServer(ctx) {
   }
 
   /**
-   * Hosted MCP prompts (Track B1): same bridge/canister HTTP paths as tools; no local vault reads.
+   * Hosted MCP prompts (Track B1–B2): same bridge/canister HTTP paths as tools; no local vault reads.
    * Each prompt registers only when {@link isPromptAllowed} and the upstream tools it needs are allowed.
    */
   if (isPromptAllowed('daily-brief', role) && isToolAllowed('list_notes', role)) {
@@ -1667,6 +1668,319 @@ export function createHostedMcpServer(ctx) {
             messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
           };
         }
+      }
+    );
+  }
+
+  /**
+   * Hosted MCP prompts (Track B2): meeting-notes, knowledge-gap, causal-chain, extract-entities, write-from-capture.
+   * Same upstreams as tools; no local vault or capture template files (write-from-capture is text-only instructions).
+   */
+  if (isPromptAllowed('meeting-notes', role)) {
+    server.registerPrompt(
+      'meeting-notes',
+      {
+        title: 'Meeting notes',
+        description: 'Transcript → structured meeting note instructions.',
+        argsSchema: {
+          transcript: z.string().describe('Raw transcript'),
+          attendees: z.string().optional().describe('Comma-separated names'),
+          project: z.string().optional(),
+          date: z.string().optional().describe('YYYY-MM-DD'),
+        },
+      },
+      async (args) => {
+        const attendees = String(args.attendees || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const project = args.project != null && String(args.project).trim() !== '' ? normalizeSlug(String(args.project)) : null;
+        const date = (args.date && String(args.date).trim().slice(0, 10)) || new Date().toISOString().slice(0, 10);
+        const t = String(args.transcript || '').slice(0, 100_000);
+        const suggestedPath = project
+          ? `projects/${project}/inbox/meeting-${date}.md`
+          : `inbox/meeting-${date}.md`;
+        return {
+          description: 'Meeting note draft prompt',
+          messages: [
+            {
+              role: 'user',
+              content: textContent(
+                `Convert the transcript into a vault meeting note with YAML frontmatter: title, date: ${date}, attendees: [${attendees.map((a) => `"${a}"`).join(', ')}]${project ? `, project: "${project}"` : ''}, tags. Body: agenda summary, decisions, action items (owners), follow-ups. Suggested path for the write tool: ${suggestedPath}`
+              ),
+            },
+            { role: 'user', content: textContent(`--- Transcript ---\n${t}`) },
+          ],
+        };
+      }
+    );
+  }
+
+  if (isPromptAllowed('knowledge-gap', role) && isToolAllowed('search', role)) {
+    server.registerPrompt(
+      'knowledge-gap',
+      {
+        title: 'Knowledge gap',
+        description: 'Given search hits, ask what is missing and what to capture next.',
+        argsSchema: {
+          query: z.string().describe('Topic / question'),
+          project: z.string().optional(),
+        },
+      },
+      async (args) => {
+        const searchBody = {
+          query: String(args.query || ''),
+          mode: 'semantic',
+          limit: 15,
+          fields: 'path+snippet',
+          snippetChars: 200,
+        };
+        if (args.project != null && String(args.project).trim() !== '') {
+          searchBody.project = normalizeSlug(String(args.project));
+        }
+        try {
+          const so = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body: searchBody,
+          });
+          const lines = (Array.isArray(so.results) ? so.results : []).map((r, i) => {
+            const row = /** @type {{ path?: string, snippet?: unknown }} */ (r);
+            const sn = row.snippet != null ? snippet(String(row.snippet), 200) : '';
+            return `${i + 1}. ${row.path}${sn ? `\n   ${sn}` : ''}`;
+          });
+          return await maybeAppendSamplingPrefill(server, {
+            description: 'Knowledge gap analysis',
+            messages: [
+              {
+                role: 'user',
+                content: textContent(
+                  `Given these vault search results for "${String(args.query)}", what is missing? What questions remain unanswered? What should I capture next?\n\n${lines.join('\n\n') || '(No results.)'}`
+                ),
+              },
+            ],
+          });
+        } catch (e) {
+          return {
+            description: 'Knowledge gap',
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (
+    isPromptAllowed('causal-chain', role) &&
+    isToolAllowed('search', role) &&
+    isToolAllowed('get_note', role)
+  ) {
+    server.registerPrompt(
+      'causal-chain',
+      {
+        title: 'Causal chain',
+        description:
+          'Notes in a causal_chain_id: bridge semantic search with chain filter, then full notes from the canister (sorted by date). Differs from local graph order when the index omits notes or hits the search limit.',
+        argsSchema: {
+          chain_id: z.string().describe('Causal chain id / slug'),
+          include_summaries: z.string().optional().describe('true to emphasize summarizes edges'),
+        },
+      },
+      async (args) => {
+        const chainSlug = normalizeSlug(String(args.chain_id || ''));
+        if (!chainSlug) {
+          return {
+            messages: [{ role: 'user', content: textContent('Error: chain_id is required.') }],
+          };
+        }
+        const inc = String(args.include_summaries || '').toLowerCase() === 'true';
+        try {
+          const searchOut = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body: {
+              query: chainSlug,
+              mode: 'semantic',
+              limit: 80,
+              fields: 'path',
+              chain: chainSlug,
+            },
+          });
+          const seen = new Set();
+          const orderedPaths = [];
+          for (const r of Array.isArray(searchOut.results) ? searchOut.results : []) {
+            const p = r.path != null ? vaultPathKey(String(r.path)) : '';
+            if (!p || seen.has(p)) continue;
+            seen.add(p);
+            orderedPaths.push(p);
+          }
+          /** @type {{ path: string, note: Record<string, unknown> }[]} */
+          const loaded = [];
+          for (const p of orderedPaths) {
+            try {
+              const note = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              loaded.push({ path: p, note: /** @type {Record<string, unknown>} */ (note) });
+            } catch (_) {}
+          }
+          loaded.sort((a, b) => {
+            const fa = materializeListFrontmatter(a.note.frontmatter);
+            const fb = materializeListFrontmatter(b.note.frontmatter);
+            const da = dateKeyFromHostedFrontmatter(fa) || '';
+            const db = dateKeyFromHostedFrontmatter(fb) || '';
+            const c = da.localeCompare(db);
+            if (c !== 0) return c;
+            return vaultPathKey(a.path).localeCompare(vaultPathKey(b.path));
+          });
+          const messages = [
+            {
+              role: 'user',
+              content: textContent(
+                `Narrate the causal sequence for chain "${chainSlug}". Use follows / summarizes in frontmatter where present.${inc ? ' Pay special attention to summarization relationships.' : ''} Notes are ordered by date then path (hosted: bridge search with chain filter + canister reads; not identical to local filesystem graph ordering).`
+              ),
+            },
+          ];
+          for (const { path: p, note } of loaded.slice(0, MAX_EMBEDDED_NOTES)) {
+            const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
+            messages.push({
+              role: 'user',
+              content: {
+                type: 'resource',
+                resource: {
+                  uri,
+                  mimeType: 'text/markdown',
+                  text: noteToMarkdown({
+                    path: note.path ?? p,
+                    frontmatter: note.frontmatter || {},
+                    body: note.body != null ? String(note.body) : '',
+                  }),
+                },
+              },
+            });
+          }
+          if (loaded.length === 0) {
+            messages.push({
+              role: 'user',
+              content: textContent(
+                '(No notes found for this causal_chain_id in the hosted index, or search returned no paths. Confirm frontmatter causal_chain_id matches and the vault is indexed.)'
+              ),
+            });
+          }
+          return { description: `Causal chain ${chainSlug}`, messages };
+        } catch (e) {
+          return {
+            description: 'Causal chain',
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (
+    isPromptAllowed('extract-entities', role) &&
+    isToolAllowed('list_notes', role) &&
+    isToolAllowed('get_note', role)
+  ) {
+    server.registerPrompt(
+      'extract-entities',
+      {
+        title: 'Extract entities',
+        description: 'Structured JSON extraction prompt over vault notes in scope.',
+        argsSchema: {
+          folder: z.string().optional(),
+          project: z.string().optional(),
+          entity_types: z.enum(['people', 'places', 'decisions', 'goals', 'all']).optional(),
+        },
+      },
+      async (args) => {
+        const types = args.entity_types || 'all';
+        const params = new URLSearchParams();
+        if (args.folder != null && String(args.folder).trim() !== '') params.set('folder', String(args.folder).trim());
+        if (args.project != null && String(args.project).trim() !== '') {
+          params.set('project', normalizeSlug(String(args.project)));
+        }
+        params.set('limit', String(MAX_ENTITY_NOTES));
+        params.set('offset', '0');
+        try {
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(out.notes) ? out.notes : [];
+          const messages = [
+            {
+              role: 'user',
+              content: textContent(
+                `Extract entities from the embedded notes. Output a single JSON object: { "people": [], "places": [], "decisions": [], "goals": [] } with short strings. Entity focus: ${types}. If a category is empty, use [].`
+              ),
+            },
+          ];
+          for (const n of notes.slice(0, MAX_EMBEDDED_NOTES)) {
+            const p = n.path;
+            if (!p) continue;
+            try {
+              const note = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
+              messages.push({
+                role: 'user',
+                content: {
+                  type: 'resource',
+                  resource: {
+                    uri,
+                    mimeType: 'text/markdown',
+                    text: noteToMarkdown({
+                      path: note.path ?? p,
+                      frontmatter: note.frontmatter || {},
+                      body: note.body != null ? String(note.body) : '',
+                    }),
+                  },
+                },
+              });
+            } catch (_) {}
+          }
+          return { description: 'Entity extraction', messages };
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (isPromptAllowed('write-from-capture', role)) {
+    server.registerPrompt(
+      'write-from-capture',
+      {
+        title: 'Write from capture',
+        description:
+          'Format raw capture text into a proper vault note (YAML frontmatter). Hosted: no local capture.md template; use capture or write tool after drafting.',
+        argsSchema: {
+          raw_text: z.string().describe('Raw pasted text'),
+          source: z.string().describe('e.g. telegram, whatsapp, email'),
+          project: z.string().optional().describe('Project slug'),
+        },
+      },
+      async (args) => {
+        const raw = String(args.raw_text ?? '');
+        const source = String(args.source ?? 'unknown');
+        const project =
+          args.project != null && String(args.project).trim() !== '' ? normalizeSlug(String(args.project)) : null;
+        return {
+          description: 'Capture → vault note',
+          messages: [
+            {
+              role: 'user',
+              content: textContent(
+                `Format the following raw capture into a Knowtation markdown note with YAML frontmatter: title, date (today if missing), source: "${source}", inbox-friendly tags if appropriate${project ? `, project: "${project}"` : ''}. Use clean body markdown. After you produce the note, the user may persist it with the hosted write or capture tool (no filesystem template is attached on hosted MCP).`
+              ),
+            },
+            { role: 'user', content: textContent(`--- Raw capture ---\n${raw.slice(0, 50000)}`) },
+          ],
+        };
       }
     );
   }
