@@ -2,15 +2,17 @@
 
 This document is the **handoff** for continuing work on **anti-drift** between the **hosted Hub (browser)** and **hosted MCP (Cursor)**, plus the **prompts/resources** program. It captures decisions from the planning conversation (April 2026).
 
+**Repository policy (billing):** Do **not** open a PR to **`main`** that changes **only** files under `docs/`. Handoff and playbook edits ride on the **same PR** as the **code/tests** they document. Cursor rule: [`.cursor/rules/no-docs-only-pr-to-main.mdc`](../.cursor/rules/no-docs-only-pr-to-main.mdc). **PR #176** (docs-only handoff) was **closed unmerged** by request; the latest handoff text may exist on **`feat/hosted-mcp-prompts-b3`** ahead of `main` until it ships inside a feature PR.
+
 **Merged G0 doc pack (parity matrix + Track A):** branch `docs/hosted-hub-mcp-interlock-g0` → merge to `main` via PR.
 
 **Track B1 — merged:** PR **#174** is merged to **`main`** (five hosted prompts + ACL + tests + docs).
 
 **Track B2 — merged:** PR **#175** is merged to **`main`** (five additional prompts: `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`; ACL `HOSTED_PROMPT_IDS` + **`write-from-capture`** → **editor** minimum; tests + docs). Post-merge: **`prompts/list`** shows **9** prompts for **viewer**, **10** for **editor**/**admin** (confirmed in Cursor when hosted MCP is healthy).
 
-**Track B3 — next coded batch (blocked):** Three memory prompts (`memory-context`, `memory-informed-search`, `resume-session`) stay **deferred** until hosted **`/api/v1/memory*`** (or equivalent) matches Hub + local `formatMemoryEventsAsync` semantics — do **not** implement `registerPrompt` for these on the gateway until that contract exists.
+**Track B3 — next coded batch (blocked on *contract clarity*, not on “zero routes”):** The Hub gateway already **proxies** bridge memory routes (e.g. `GET /api/v1/memory`, `GET /api/v1/memory/:key`, `POST /api/v1/memory/store`, `POST /api/v1/memory/search`, `DELETE /api/v1/memory/clear`, consolidation endpoints — see `hub/gateway/server.mjs`). **Hosted MCP** does not call them yet. **Blocker:** document and verify **parity** — same auth headers (`Authorization`, `X-Vault-Id`, effective user), query/body shapes, error cases, and **event JSON** semantics vs local `lib/memory.mjs` / `formatMemoryEventsAsync` — then implement the three **`registerPrompt`** handlers using **`upstreamFetch`** to those URLs (no disk `lib/memory` in the gateway). Until that H0-style spec + tests exist, do **not** ship B3 prompts (wrong or leaking memory is worse than absent prompts).
 
-**Active workspace branch:** **`feat/hosted-mcp-prompts-b3`** — use for B3 prep, memory-API gateway work, or doc follow-ups; keep PRs small and scoped.
+**Active workspace branch:** **`feat/hosted-mcp-prompts-b3`** — use for **Track B3** (memory prompts + any gateway wiring), **without** a docs-only merge to `main`. Push this branch freely; open a PR to `main` only when the branch contains **worthwhile product/code** (and fold doc updates into that same PR).
 
 **Scope reminder:** All **13** self-hosted prompt IDs from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) map to hosted batches **B1 + B2 + B3**; **B1** shipped **5**, **B2** shipped **5**, **B3** is **3** memory prompts (blocked as above).
 
@@ -74,6 +76,37 @@ Context (read in order):
 
 G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174, #175). Next **prompt** code stage is **Track B3** when memory API parity exists (see B3 paste block above).
 ```
+
+---
+
+## Accomplishments (hosted MCP prompts)
+
+| Milestone | Status | Where |
+|-----------|--------|--------|
+| **Track B1** — five prompts | **Merged** to `main` (PR **#174**) | `mcp-hosted-server.mjs` + ACL + tests |
+| **Track B2** — five prompts | **Merged** to `main` (PR **#175**) | Same; **`prompts/list`** = **9** (viewer) / **10** (editor/admin) |
+| **Track B3** — memory trio | **Not started** on hosted MCP | Blocked: contract + tests below |
+
+---
+
+## Track B3 prerequisite — hosted memory “contract” (what it entails)
+
+**Plain language:** The website and the bridge already talk to “memory” over HTTP. Cursor’s hosted MCP does **not** yet. Before we add the three memory **prompts**, we must write down **exactly** which URLs the MCP will call, with which headers, and what each JSON field means — and prove it matches what the Hub uses and what your local CLI expects from memory events. That write-up + tests **is** the “contract.” After that, wiring prompts is mechanical.
+
+**Technical terms:** **H0** (routes + auth + payload schema), **parity** with `hub/gateway/server.mjs` memory proxies and `hub/bridge/server.mjs` handlers, **`upstreamFetch`** from `mcp-hosted-server.mjs` with the same **`bridgeFetchOpts`** / JWT + `X-Vault-Id` model as **`search`**, mapping bridge JSON to prompt text aligned with **`formatMemoryEventsAsync`** in [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs).
+
+### Suggested steps (in order)
+
+1. **Inventory (read-only):** List every `app.*('/api/v1/memory` route in `hub/gateway/server.mjs` and the matching handler in `hub/bridge/server.mjs`. Note which require **`requireBridgeEditorOrAdmin`** vs read-only.
+2. **H0 doc row:** Add or extend a row in [`HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) / [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md): Hub action → gateway proxy path → bridge → **future** MCP tool or **prompt** `upstreamFetch` (no second implementation of retention or billing rules in MCP).
+3. **Shape comparison:** Compare bridge `GET /api/v1/memory` (and `search` body/response) to local `createMemoryManager(config).list(...)` output used by `formatMemoryEventsAsync`. Document field mapping or intentional deltas.
+4. **Tests first at the boundary:** Prefer tests that hit the bridge contract with mocks (or integration if you have a harness), then add a thin **`registerTool`** optional phase (e.g. `memory_list`) if prompts need shared fetch logic — *only if* that reduces duplication; otherwise prompts call `upstreamFetch` directly like B1/B2.
+5. **Implement B3 prompts** on `feat/hosted-mcp-prompts-b3`: `memory-context`, `memory-informed-search`, `resume-session`; extend `HOSTED_PROMPT_IDS`, golden `prompts/list` tests, **`verify:hosted-mcp-checklist`**.
+6. **Single PR to `main`:** Ship gateway + tests + doc updates together (no docs-only PR).
+
+### Recommendation
+
+Start with **steps 1–3** on **`feat/hosted-mcp-prompts-b3`** (documentation + matrix + playbook rows **committed on the branch**). When you are ready to ship **step 4+**, keep accumulating commits on the same branch and open **one** PR to `main` that includes both **code** and **docs**.
 
 ---
 

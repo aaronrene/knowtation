@@ -1,0 +1,12 @@
+---
+description: Avoid docs-only PRs to main; bundle docs with substantive changes
+alwaysApply: true
+---
+
+# No docs-only pull requests to `main`
+
+**Owner policy (billing):** Do **not** open a GitHub pull request to **`main`** whose **only** changes are under `docs/` (handoffs, parity matrices, playbooks, `AGENT-INTEGRATION.md`, etc.).
+
+- Ship documentation updates **in the same PR** as the **code, tests, or CI** they belong to (e.g. Track B3 memory wiring + updated `docs/NEXT-SESSION-HOSTED-HUB-MCP.md` together).
+- It is fine to **commit** and **`git push`** handoff edits on a **long-lived feature branch** (e.g. `feat/hosted-mcp-prompts-b3`) so work is saved and shareable — just **do not** open a merge-to-`main` PR for docs alone.
+- If the user asks only to “update the handoff,” update files on the **current feature branch** and stop; do not create a PR unless they explicitly request a merge that includes non-doc changes.
