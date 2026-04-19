@@ -18,7 +18,17 @@ import { materializeListFrontmatter, tagsFromFm } from './note-facets.mjs';
 import { findFirstWikilinkToTargetInBody, vaultBasenameTargetKey } from '../../lib/wikilink.mjs';
 import { kmeans } from '../../lib/kmeans.mjs';
 import { buildCaptureInboxWritePayload } from '../../lib/capture-inbox.mjs';
-import { isToolAllowed } from './mcp-tool-acl.mjs';
+import { noteToMarkdown } from '../../mcp/resources/note.mjs';
+import {
+  textContent,
+  maybeAppendSamplingPrefill,
+  snippet,
+  parseIntSafe,
+  MAX_EMBEDDED_NOTES,
+  PROJECT_SUMMARY_NOTES,
+  CONTENT_PLAN_NOTES,
+} from '../../mcp/prompts/helpers.mjs';
+import { isToolAllowed, isPromptAllowed } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
 const IMPORT_SOURCE_ENUM = /** @type {any} */ ([...IMPORT_SOURCE_TYPES]);
@@ -1259,6 +1269,403 @@ export function createHostedMcpServer(ctx) {
           return jsonResponse({ summary, source_paths: paths });
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  /**
+   * Hosted MCP prompts (Track B1): same bridge/canister HTTP paths as tools; no local vault reads.
+   * Each prompt registers only when {@link isPromptAllowed} and the upstream tools it needs are allowed.
+   */
+  if (isPromptAllowed('daily-brief', role) && isToolAllowed('list_notes', role)) {
+    server.registerPrompt(
+      'daily-brief',
+      {
+        title: 'Daily brief',
+        description: 'Notes since a date (default today UTC) with snippets; assistant prefill for summarizing.',
+        argsSchema: {
+          date: z.string().optional().describe('YYYY-MM-DD; default today (UTC)'),
+          project: z.string().optional().describe('Project slug'),
+        },
+      },
+      async (args) => {
+        const since = (args.date && String(args.date).trim()) || new Date().toISOString().slice(0, 10);
+        const params = new URLSearchParams();
+        params.set('since', since);
+        if (args.project != null && String(args.project).trim() !== '') {
+          params.set('project', normalizeSlug(String(args.project)));
+        }
+        params.set('limit', '80');
+        params.set('offset', '0');
+        try {
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(data.notes) ? data.notes : [];
+          const lines = notes.length
+            ? notes.map((n, i) => {
+                const row = /** @type {{ path?: string, frontmatter?: unknown, body?: unknown }} */ (n);
+                const title = displayTitleFromHostedNote(row) ?? row.path;
+                const fm = materializeListFrontmatter(row.frontmatter);
+                const d = dateKeyFromHostedFrontmatter(fm) || '';
+                const body = row.body != null ? String(row.body) : '';
+                return `${i + 1}. **${title}** (${row.path}, ${d})\n   ${snippet(body, 240)}`;
+              })
+            : ['(No notes in range.)'];
+          return {
+            description: `Daily brief for notes since ${since}`,
+            messages: [
+              {
+                role: 'user',
+                content: textContent(
+                  'You are a personal knowledge assistant. Below are notes captured in the selected range. Summarize themes, decisions, and open threads.'
+                ),
+              },
+              { role: 'user', content: textContent(lines.join('\n\n')) },
+              { role: 'assistant', content: textContent('Here is your daily brief:') },
+            ],
+          };
+        } catch (e) {
+          return {
+            description: 'Daily brief',
+            messages: [{ role: 'user', content: textContent(`Error loading notes: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (
+    isPromptAllowed('search-and-synthesize', role) &&
+    isToolAllowed('search', role) &&
+    isToolAllowed('get_note', role)
+  ) {
+    server.registerPrompt(
+      'search-and-synthesize',
+      {
+        title: 'Search and synthesize',
+        description: 'Semantic search then embed top notes for synthesis.',
+        argsSchema: {
+          query: z.string().describe('Search query'),
+          project: z.string().optional().describe('Project slug'),
+          limit: z.string().optional().describe('Max notes (default 10)'),
+        },
+      },
+      async (args) => {
+        const limit = Math.min(20, Math.max(1, parseIntSafe(args.limit, 10)));
+        const searchBody = { query: String(args.query || ''), mode: 'semantic', limit, fields: 'path' };
+        if (args.project != null && String(args.project).trim() !== '') {
+          searchBody.project = normalizeSlug(String(args.project));
+        }
+        try {
+          const searchOut = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body: searchBody,
+          });
+          const paths = (Array.isArray(searchOut.results) ? searchOut.results : [])
+            .map((r) => r.path)
+            .filter(Boolean)
+            .slice(0, MAX_EMBEDDED_NOTES);
+          const messages = [
+            {
+              role: 'user',
+              content: textContent(
+                `You have ${paths.length} top-matching vault notes below (semantic search for: "${String(args.query)}"). Synthesize key themes, agreements, and gaps. Cite paths when specific.`
+              ),
+            },
+          ];
+          for (const p of paths) {
+            try {
+              const note = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
+              messages.push({
+                role: 'user',
+                content: {
+                  type: 'resource',
+                  resource: {
+                    uri,
+                    mimeType: 'text/markdown',
+                    text: noteToMarkdown({
+                      path: note.path ?? p,
+                      frontmatter: note.frontmatter || {},
+                      body: note.body != null ? String(note.body) : '',
+                    }),
+                  },
+                },
+              });
+            } catch (_) {}
+          }
+          return await maybeAppendSamplingPrefill(server, {
+            description: 'Search results embedded as resources',
+            messages,
+          });
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (
+    isPromptAllowed('project-summary', role) &&
+    isToolAllowed('list_notes', role) &&
+    isToolAllowed('get_note', role)
+  ) {
+    server.registerPrompt(
+      'project-summary',
+      {
+        title: 'Project summary',
+        description: 'Recent project notes embedded for executive-style summary.',
+        argsSchema: {
+          project: z.string().describe('Project slug'),
+          since: z.string().optional().describe('YYYY-MM-DD'),
+          format: z.enum(['brief', 'detailed', 'stakeholder']).optional().describe('Summary style'),
+        },
+      },
+      async (args) => {
+        const project = normalizeSlug(String(args.project || ''));
+        if (!project) {
+          return {
+            messages: [{ role: 'user', content: textContent('Error: project argument is required.') }],
+          };
+        }
+        const fmt = args.format || 'brief';
+        const params = new URLSearchParams();
+        params.set('project', project);
+        if (args.since != null && String(args.since).trim() !== '') params.set('since', String(args.since).trim());
+        params.set('limit', String(PROJECT_SUMMARY_NOTES));
+        params.set('offset', '0');
+        try {
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(out.notes) ? out.notes : [];
+          const total = typeof out.total === 'number' ? out.total : notes.length;
+          const messages = [
+            {
+              role: 'user',
+              content: textContent(
+                `Produce a ${fmt} executive summary for project "${project}" using the embedded notes. Note count (sample): ${notes.length} of ${total} total matching filters.`
+              ),
+            },
+          ];
+          for (const n of notes.slice(0, MAX_EMBEDDED_NOTES)) {
+            const p = n.path;
+            if (!p) continue;
+            try {
+              const note = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
+              messages.push({
+                role: 'user',
+                content: {
+                  type: 'resource',
+                  resource: {
+                    uri,
+                    mimeType: 'text/markdown',
+                    text: noteToMarkdown({
+                      path: note.path ?? p,
+                      frontmatter: note.frontmatter || {},
+                      body: note.body != null ? String(note.body) : '',
+                    }),
+                  },
+                },
+              });
+            } catch (_) {}
+          }
+          return await maybeAppendSamplingPrefill(server, {
+            description: `Project summary (${project})`,
+            messages,
+          });
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (isPromptAllowed('temporal-summary', role) && isToolAllowed('list_notes', role)) {
+    server.registerPrompt(
+      'temporal-summary',
+      {
+        title: 'Temporal summary',
+        description: 'Notes between two dates; optional semantic topic filter.',
+        argsSchema: {
+          since: z.string().describe('YYYY-MM-DD start'),
+          until: z.string().describe('YYYY-MM-DD end'),
+          topic: z.string().optional().describe('Optional semantic filter; runs search then intersects dates'),
+          project: z.string().optional().describe('Project slug'),
+        },
+      },
+      async (args) => {
+        const since = String(args.since || '').slice(0, 10);
+        const until = String(args.until || '').slice(0, 10);
+        /** @type {Set<string> | null} */
+        let pathSet = null;
+        if (args.topic && String(args.topic).trim()) {
+          if (!isToolAllowed('search', role)) {
+            return {
+              description: 'Temporal summary',
+              messages: [
+                {
+                  role: 'user',
+                  content: textContent(
+                    'A topic filter was requested but this session does not allow the search tool; omit topic or use list_notes manually.'
+                  ),
+                },
+              ],
+            };
+          }
+          try {
+            const so = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+              ...bridgeFetchOpts,
+              method: 'POST',
+              body: {
+                query: String(args.topic),
+                mode: 'semantic',
+                limit: 80,
+                fields: 'path',
+                ...(args.project != null && String(args.project).trim() !== ''
+                  ? { project: normalizeSlug(String(args.project)) }
+                  : {}),
+              },
+            });
+            pathSet = new Set((Array.isArray(so.results) ? so.results : []).map((r) => r.path).filter(Boolean));
+          } catch (e) {
+            return {
+              description: 'Temporal summary',
+              messages: [{ role: 'user', content: textContent(`Topic search failed: ${e.message || String(e)}`) }],
+            };
+          }
+        }
+        const params = new URLSearchParams();
+        params.set('since', since);
+        params.set('until', until);
+        if (args.project != null && String(args.project).trim() !== '') {
+          params.set('project', normalizeSlug(String(args.project)));
+        }
+        params.set('limit', '100');
+        params.set('offset', '0');
+        try {
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          let notes = Array.isArray(out.notes) ? out.notes : [];
+          if (pathSet) {
+            notes = notes.filter((n) => n.path && pathSet.has(n.path));
+          }
+          notes = [...notes].sort((a, b) => {
+            const da = dateKeyFromHostedFrontmatter(materializeListFrontmatter(a.frontmatter));
+            const db = dateKeyFromHostedFrontmatter(materializeListFrontmatter(b.frontmatter));
+            return da.localeCompare(db);
+          });
+          const lines = notes.map((n, i) => {
+            const row = /** @type {{ path?: string, frontmatter?: unknown }} */ (n);
+            const fm = materializeListFrontmatter(row.frontmatter);
+            const t = displayTitleFromHostedNote(/** @type {any} */ (row)) ?? row.path;
+            const d = dateKeyFromHostedFrontmatter(fm) || '';
+            const tg = tagsFromFm(fm);
+            return `${i + 1}. ${t} (${row.path}, ${d})${tg.length ? ` tags: ${tg.join(',')}` : ''}`;
+          });
+          return {
+            description: `Temporal view ${since} … ${until}`,
+            messages: [
+              {
+                role: 'user',
+                content: textContent(
+                  `What happened between ${since} and ${until}? What decisions were made? What changed? Use the note list below${args.topic ? ' (filtered by topic search)' : ''}.\n\n${lines.join('\n') || '(No notes in range.)'}`
+                ),
+              },
+            ],
+          };
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (
+    isPromptAllowed('content-plan', role) &&
+    isToolAllowed('list_notes', role) &&
+    isToolAllowed('get_note', role)
+  ) {
+    server.registerPrompt(
+      'content-plan',
+      {
+        title: 'Content plan',
+        description: 'Content calendar / plan from recent project notes.',
+        argsSchema: {
+          project: z.string().describe('Project slug'),
+          format: z.enum(['blog', 'podcast', 'newsletter', 'thread']).optional(),
+          tone: z.string().optional(),
+        },
+      },
+      async (args) => {
+        const project = normalizeSlug(String(args.project || ''));
+        if (!project) {
+          return {
+            messages: [{ role: 'user', content: textContent('Error: project argument is required.') }],
+          };
+        }
+        const fmt = args.format || 'blog';
+        const tone = args.tone || 'clear, authoritative';
+        const params = new URLSearchParams();
+        params.set('project', project);
+        params.set('limit', String(CONTENT_PLAN_NOTES));
+        params.set('offset', '0');
+        try {
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(out.notes) ? out.notes : [];
+          const messages = [
+            {
+              role: 'user',
+              content: textContent(
+                `Create a ${fmt} content plan for project "${project}". Tone: ${tone}. Topics, order, angles, and what to write next. Ground in the embedded notes.`
+              ),
+            },
+          ];
+          for (const n of notes.slice(0, MAX_EMBEDDED_NOTES)) {
+            const p = n.path;
+            if (!p) continue;
+            try {
+              const note = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
+              messages.push({
+                role: 'user',
+                content: {
+                  type: 'resource',
+                  resource: {
+                    uri,
+                    mimeType: 'text/markdown',
+                    text: noteToMarkdown({
+                      path: note.path ?? p,
+                      frontmatter: note.frontmatter || {},
+                      body: note.body != null ? String(note.body) : '',
+                    }),
+                  },
+                },
+              });
+            } catch (_) {}
+          }
+          return await maybeAppendSamplingPrefill(server, {
+            description: `Content plan (${project})`,
+            messages,
+          });
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
         }
       }
     );

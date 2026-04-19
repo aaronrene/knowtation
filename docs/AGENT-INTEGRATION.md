@@ -148,6 +148,7 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Endpoint:** `POST /mcp` on the Hub gateway (e.g. `https://hub.example.com/mcp`).
 - **Auth:** OAuth 2.1 (Phase D3) via dynamic client registration + PKCE flow. Discovery: `GET /.well-known/oauth-authorization-server`. Or pass a Hub JWT as `Authorization: Bearer <token>`.
 - **Session management:** Each authenticated user gets an isolated MCP session with role-based tool access (viewer: read-only; editor: + write; admin: + index/export/import). Sessions auto-expire after 30 min inactivity. Max 5 per user.
+- **Prompts (Track B1):** The gateway advertises **`prompts/list`** with five read-only prompts that compose **`list_notes` / `search` / `get_note`** upstreams (same OAuth/JWT + vault headers as tools). Three prompts may call **`maybeAppendSamplingPrefill`** when the client supports **MCP sampling** (same class as self-hosted `mcp/prompts/register.mjs`); without sampling, message lists still return without a draft assistant turn.
 - **Rate limiting:** 60 requests/min per user on the `/mcp` endpoint.
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Canister user parity:** Session creation uses **`effective_canister_user_id`** from that hosted-context response as **`X-User-Id`** on all MCP → canister calls (same rule as the Hub gateway’s `GET /api/v1/notes` proxy). Without this, delegated/workspace users could see many notes in the Hub but only their actor partition over MCP.

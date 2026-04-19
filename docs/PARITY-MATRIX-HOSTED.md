@@ -71,6 +71,14 @@ These MCP tools **reuse** the same canister and bridge primitives as rows above;
 
 ---
 
+## Hosted MCP prompts (Track B1) — composition only
+
+| User capability | Hub entry | Canonical API | Hosted MCP surface | Parity notes |
+|-----------------|-----------|-----------------|----------------------|--------------|
+| Agent-oriented briefs / plans (daily brief, search synthesis, project summary, temporal window, content plan) | — (no dedicated Hub “prompt” UI) | Same as rows above: `GET …/notes`, `POST …/search`, `GET …/notes/:path` | MCP **`prompts/get`** IDs: `daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan` | **Composition only:** no new HTTP routes; same vault partition rules as tools (**`canisterUserId`** on canister). Optional **sampling** prefill on three prompts matches self-hosted intent ([`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs)). |
+
+---
+
 ## Session / identity (MCP resource)
 
 | User capability | Hub entry | Canonical API | Hosted MCP surface | Parity notes |
@@ -98,7 +106,8 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 ## How to maintain this file
 
 1. **New MCP tool:** Add a row; cite `hub/gateway/mcp-hosted-server.mjs` handler and upstream URL in the playbook or in PR description.
-2. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
-3. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
+2. **New hosted MCP prompt:** If the prompt exposes a **new** user-facing capability (not just composing existing list/search/read APIs), add a matrix row or document **composition only** in the PR. Track B handoff: [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
+3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
+4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 
-Last inventory pass: **2026-04-19** — seventeen hosted tools from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL table.
+Last inventory pass: **2026-04-19** — seventeen hosted tools and **five** hosted prompts (Track B1) from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL tables.

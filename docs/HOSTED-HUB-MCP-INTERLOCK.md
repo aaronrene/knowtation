@@ -37,6 +37,16 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 
 **MCP-only work** (e.g. hosted **prompts/resources** parity, recipes) can follow the separate phases in the Cursor plan (Track A recipes, Track B top prompts) **without** Hub UI—but if marketing promises “same as Hub,” schedule **H2–H3** so neither door lies.
 
+### Track B1 hosted prompts — H0–H4 (composition)
+
+| Step | For B1 (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) |
+|------|--------------------------------------------------------------------------------------------------------|
+| **H0** | Outcome: MCP **`prompts/list` / `prompts/get`** return message templates backed by vault data. Contract: same **`GET {canister}/api/v1/notes`**, **`POST {bridge}/api/v1/search`**, **`GET …/notes/:path`** as tools; **`Authorization`**, **`X-Vault-Id`**, **`X-User-Id`** = **`canisterUserId`** on canister (see playbook § parity). |
+| **H1** | No new shared core required — prompts call existing tool upstreams only. |
+| **H2** | Shipped on hosted MCP (`hub/gateway/mcp-hosted-server.mjs`). |
+| **H3** | Hub UI not required for parity (no new user-facing Hub action); users can still use list/search/read in the browser manually. |
+| **H4** | Docs: playbook + parity matrix; smoke: reconnect MCP, confirm **`prompts/list`** shows five prompts; **`getPrompt`** with real args after **`list_notes`** / **`search`**. |
+
 ---
 
 ## Where code lives (quick map)
@@ -44,7 +54,7 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 | Concern | Typical location |
 |---------|------------------|
 | Hub browser UI | `web/hub/` (and related static assets) |
-| Hosted MCP tools / future prompts | `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-tool-acl.mjs` |
+| Hosted MCP tools + prompts | `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-tool-acl.mjs` |
 | Shared HTTP to bridge | Patterns in `hub/gateway/server.mjs` and gateway helpers used by MCP |
 | Vault truth on ICP | `hub/icp/` canister |
 
@@ -52,7 +62,7 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 
 ## Related docs
 
-- [`docs/PARITY-MATRIX-HOSTED.md`](PARITY-MATRIX-HOSTED.md) — **G0 living inventory:** capability → Hub → API → hosted MCP tool; G1 PR checklist
+- [`docs/PARITY-MATRIX-HOSTED.md`](PARITY-MATRIX-HOSTED.md) — **G0 living inventory:** capability → Hub → API → hosted MCP tool; G1 PR checklist (extend for hosted prompts when they add user-facing surface)
 - [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](NEXT-SESSION-HOSTED-HUB-MCP.md) — **next-session handoff**, pasteable prompt, **G0/G1 before Track B**, prompts B1–B3 + resources R0–R3 phasing
 - [`docs/HOSTED-MCP-TOOL-EXPANSION.md`](HOSTED-MCP-TOOL-EXPANSION.md) — adding hosted MCP **tools**
 - [`docs/AGENT-INTEGRATION.md`](AGENT-INTEGRATION.md) — MCP vs CLI vs Hub API overview

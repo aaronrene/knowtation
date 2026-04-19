@@ -2,43 +2,75 @@
 
 This document is the **handoff** for continuing work on **anti-drift** between the **hosted Hub (browser)** and **hosted MCP (Cursor)**, plus the **prompts/resources** program. It captures decisions from the planning conversation (April 2026).
 
-**Branch for this doc pack:** create/use `docs/hosted-hub-mcp-interlock-g0` (or merge to `main` when ready).
+**Merged G0 doc pack (parity matrix + Track A):** branch `docs/hosted-hub-mcp-interlock-g0` → merge to `main` via PR.
+
+**Track B1 (hosted `registerPrompt`) — branch:** `feat/hosted-mcp-prompts-b1` → PR **#174** to **`main`**: https://github.com/aaronrene/knowtation/pull/174 (five prompts + ACL + tests + docs). **Do not** stack unrelated product work on this branch.
+
+**After that PR is merged:** `git fetch origin && git checkout main && git pull origin main && git checkout -b feat/hosted-mcp-prompts-b2` for Track B2 (see § *Full program map*).
+
+**Why a new branch after G0:** Track B changes `hub/gateway/mcp-hosted-server.mjs` and tests; keeping it separate from the docs-only G0 PR preserves a small, reviewable history and avoids mixing documentation approval with gateway behavior changes.
+
+## Workflow after the G0 PR merges
+
+1. Merge the PR from `docs/hosted-hub-mcp-interlock-g0` into `main`.
+2. `git fetch origin && git checkout main && git pull origin main`
+3. `git checkout feat/hosted-mcp-prompts-b1 && git rebase origin/main` (use `git merge origin/main` instead if your team avoids rebase on shared branches).
+4. Implement Track B1 on `feat/hosted-mcp-prompts-b1`, push, open a **second** PR: `feat/hosted-mcp-prompts-b1` → `main`.
+
+This branch already carries the **Track B handoff** doc commit; rebasing keeps that commit on top of the merged G0 + `main` history.
 
 ---
 
-## Paste this as your next session prompt (Cursor / Composer)
+## Paste this as your next session prompt — Track B1 (hosted MCP prompts)
+
+Use **after** step 3 above (G0 on `main`, `feat/hosted-mcp-prompts-b1` rebased onto `origin/main`).
+
+```
+You are implementing Track B1 — hosted MCP prompts (`registerPrompt`) on the gateway.
+
+Context (read in order):
+1. mcp/prompts/register.mjs (+ mcp/prompts/helpers.mjs) — canonical prompt ids, argsSchema shapes, message patterns for self-hosted stdio (reference only; hosted must not read local vault files).
+2. hub/gateway/mcp-hosted-server.mjs — createHostedMcpServer: registerTool + upstreamFetch/canister patterns; add registerPrompt here using the same HTTP paths as tools (list_notes, search, get_note).
+3. hub/gateway/mcp-tool-acl.mjs — role gates for tools; decide per-prompt minimum role (likely mirror viewer for read-only prompts).
+4. docs/HOSTED-MCP-TOOL-EXPANSION.md — Zod rules, ACL, verify:hosted-mcp-checklist; extend playbook for prompts/list JSON Schema.
+5. test/mcp-hosted-tools-list.test.mjs — pattern for golden MCP lists; add prompts/list (and getPrompt if exercised) tests with mocked bridge/canister URLs.
+6. scripts/check-mcp-hosted-schema.mjs — today scans hub/gateway/mcp-hosted*.mjs; keep prompt argsSchema free of z.record(z.unknown()) (same failure mode as tools/list).
+7. docs/PARITY-MATRIX-HOSTED.md — if a prompt implies a new user-facing capability, add a row or document “composition only.”
+8. docs/HOSTED-HUB-MCP-INTERLOCK.md — H0–H4 for any prompt that should stay aligned with Hub.
+9. docs/NEXT-SESSION-HOSTED-HUB-MCP.md — B1 batch: daily-brief, search-and-synthesize, project-summary; optional temporal-summary or content-plan.
+
+Facts:
+- Hosted MCP today: **17** tools, **one** resource (`knowtation://hosted/vault-info`), **five** Track B1 prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) — self-hosted stdio still has the fuller **13** prompts and many resources.
+- “Subscriptions” in MCP means resources/subscribe (protocol), NOT Stripe billing.
+- Hosted prompts must fetch vault data via bridge/canister like tools; use canisterUserId / hosted-context parity (see playbook § Hosted MCP canister X-User-Id parity).
+
+First implementation batch (B1): implement 3–5 prompts only — start with daily-brief, search-and-synthesize, project-summary (args aligned with self-hosted where sensible). Optional: temporal-summary or content-plan. Defer memory trio (B3) until hosted memory contract matches Hub.
+
+Do NOT mix with parked/hosted-voice-import-mcp-billing unless explicitly merging that program.
+
+Tasks:
+- Add registerPrompt handlers; wire prompts/list + getPrompt through existing MCP server factory.
+- Tests: prompts list round-trip + schema export; at least one handler test with mocked fetch (pattern from mcp-hosted-* tests).
+- Update docs/HOSTED-MCP-TOOL-EXPANSION.md production verification subsection when first prompt ships.
+
+Run before merge: npm run verify:hosted-mcp-checklist, npm test.
+```
+
+---
+
+## Pasteable prompt — G0 / parity (completed; keep for reference)
 
 ```
 You are continuing Knowtation work on hosted Hub + MCP alignment.
 
 Context (read in order):
-1. docs/HOSTED-HUB-MCP-INTERLOCK.md — anti-drift program G0–G5, H0–H4 per feature, precautions
-2. docs/PARITY-MATRIX-HOSTED.md — G0 capability → Hub → API → MCP table; G1 PR checklist
-3. docs/NEXT-SESSION-HOSTED-HUB-MCP.md (this file) — order of work and prompts/resources phasing
-4. docs/HOSTED-MCP-TOOL-EXPANSION.md — hosted MCP tools playbook + Track A recipes; gateway is on EC2 (not Netlify for /mcp)
-5. docs/AGENT-INTEGRATION.md — Hosted MCP section + OAuth
+1. docs/HOSTED-HUB-MCP-INTERLOCK.md
+2. docs/PARITY-MATRIX-HOSTED.md
+3. docs/NEXT-SESSION-HOSTED-HUB-MCP.md
+4. docs/HOSTED-MCP-TOOL-EXPANSION.md
+5. docs/AGENT-INTEGRATION.md
 
-Facts:
-- Hosted MCP today: 17 tools, one resource (knowtation://hosted/vault-info), NO prompts — unlike self-hosted stdio (13 prompts, many resources).
-- “Subscriptions” in MCP means resources/subscribe (protocol), NOT Stripe billing.
-- Proper practice: one source of truth in canister/bridge/lib; Hub and MCP are thin clients.
-
-Next implementation priority (agreed direction):
-1. G0: Build the parity matrix (capability → Hub route → API → MCP tool). Document only.
-2. G1: Adopt H0–H4 for every NEW feature that touches BOTH Hub and MCP.
-3. Track A (parallel): Hosted MCP “recipes” doc — tool sequences that replace self-hosted prompt intents (no code).
-4. Track B (after G0/G1 or in parallel with recipes ONLY if comfortable): Implement 3–5 hosted registerPrompt handlers using same upstreamFetch/canister patterns as existing tools; tests + playbook.
-
-Defer: full 13 prompts, full resource catalog parity, MCP resource notifications on hosted — phased (see § Prompts and resources phasing below).
-
-Do NOT mix this work with the parked branch parked/hosted-voice-import-mcp-billing (voice UI, billing, PWA) unless explicitly merging that program.
-
-Tasks for this session (pick based on scope):
-- G0: **Done in repo** — `docs/PARITY-MATRIX-HOSTED.md` (extend when adding Hub/MCP pairs).
-- Track A: **Done in repo** — § *Hosted recipes (tools-only)* in `docs/HOSTED-MCP-TOOL-EXPANSION.md`.
-- Next: **Track B** — first hosted `registerPrompt` in `hub/gateway/mcp-hosted-server.mjs` + tests (after G0/G1 discipline is routine), or deepen G2 from matrix gaps.
-
-Run before merge: npm run verify:hosted-mcp-checklist, npm test as usual for touched areas.
+G0 matrix and Track A recipes are in repo. Next stage is Track B (see primary paste block in doc).
 ```
 
 ---
@@ -49,11 +81,11 @@ Run before merge: npm run verify:hosted-mcp-checklist, npm test as usual for tou
 |------|------|---------------------------|
 | **G0 + G1** | Parity matrix + team rule (H0–H4) | **Should precede Track B** (implementing hosted prompts) so new prompts do not encode duplicate rules. **Does not** block **Track A** (recipes markdown only). |
 | **Track A** | Recipes doc (tools-only flows) | **No dependency** — can run **in parallel** with G0. |
-| **Track B** | 3–5 `registerPrompt` on gateway | **Best after G0/G1**; **must** reuse same APIs as tools. |
+| **Track B** | **B1 done in repo** (5 prompts); **B2/B3** next | **B1** reuses same APIs as tools; **B2** (e.g. meeting-notes, knowledge-gap) and **B3** (memory trio) per table below. |
 | **G2** | Refactor hot-spot duplicates | As needed when G0 finds issues. |
 | **G4** | Hosted resources | **Separate phase** after Track B proves stable (optional note-read template first). |
 
-**Bottom line:** **Yes — treat G0 + G1 as the next “proper” move before coding hosted prompts (Track B).** You can still publish **Track A recipes** anytime (documentation only).
+**Bottom line:** **G0 + Track A are done in repo; G1 is ongoing discipline (H0–H4).** The next **code** milestone is **Track B1** (`registerPrompt` on the gateway, tests, playbook updates). You can still extend **Track A** recipes anytime (documentation only).
 
 ---
 
@@ -102,6 +134,8 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 | H0–H4 | Per-feature Hub + MCP delivery |
 | Track A | Hosted recipes (docs) |
 | Track B1–B3 | Hosted prompts batches |
+| **B2 (deferred)** | `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture` — add after B1 stabilizes; extend ACL + `mcp-hosted-prompts.test.mjs`. |
+| **B3 (deferred)** | Memory trio — blocked on hosted **`/api/v1/memory*`** parity with Hub (see matrix Hub-only row). |
 | R0–R3+ | Hosted resources |
 
 **Cursor plan file (local):** `.cursor/plans/hosted_mcp_prompts_resources_2303a796.plan.md` — MCP-only phases (Phase 0–3 for prompts pick + recipes + registerPrompt); anti-drift G0–G5 summarized there with link to this repo doc.
@@ -115,10 +149,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 - `docs/NEXT-SESSION-HOSTED-HUB-MCP.md` — this file
 - `docs/HOSTED-MCP-TOOL-EXPANSION.md` — link at top to interlock; Track A recipes
 - `docs/AGENT-INTEGRATION.md` — Hosted MCP subsection link
-
-Optional next artifacts to add in later PRs:
-
-- `docs/PARITY-MATRIX-HOSTED.md` — **G0 deliverable (living table)** — added in repo; extend when shipping new Hub/MCP pairs.
+- `feat/hosted-mcp-prompts-b1` — Track B1 implementation branch (five prompts landed in-repo; merge to `main` via PR when ready)
 
 ---
 

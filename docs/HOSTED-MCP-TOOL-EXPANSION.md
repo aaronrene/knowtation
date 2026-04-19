@@ -4,13 +4,16 @@
 
 This document is the **diligence gate** for adding tools to [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs). It complements [`docs/NEXT-SESSION-HOSTED-MCP.md`](NEXT-SESSION-HOSTED-MCP.md) (EC2 ops) and the in-repo guards:
 
-- `npm run check:mcp-hosted-schema` — forbids `z.record(z.unknown())` under `hub/gateway/mcp-hosted*.mjs` (Zod v4 JSON Schema export can fail **`tools/list` entirely**).
+- `npm run check:mcp-hosted-schema` — forbids `z.record(z.unknown())` under `hub/gateway/mcp-hosted*.mjs` (Zod v4 JSON Schema export can fail **`tools/list`** or **`prompts/list` entirely**).
 - `node --test test/mcp-hosted-tools-list.test.mjs` — golden tool names per role + full `tools/list` round-trip via MCP Client.
-- `npm run verify:hosted-mcp-checklist` — runs both, then prints production verification steps.
+- `node --test test/mcp-hosted-prompts.test.mjs` — golden prompt names + `prompts/list` JSON Schema export + one `getPrompt` fetch assertion (mock URLs).
+- `npm run verify:hosted-mcp-checklist` — runs schema guard, both test files, then prints production verification steps.
 
 ## Hosted recipes (tools-only) — Track A
 
-Hosted MCP has **tools and resources**, not the full **self-hosted `prompts/list`** catalog. Until Track B registers a small set of `registerPrompt` handlers on the gateway, agents should follow **tool sequences** below. They mirror **intent** from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) prompt IDs; they add **no** new HTTP routes.
+**Track B1 (shipped in repo):** The gateway registers **five** hosted prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) via `registerPrompt`, calling the same **canister** / **bridge** paths as tools (`GET …/notes`, `POST …/search`, `GET …/notes/:path`). Role gates: [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs) (`isPromptAllowed`; all B1 prompts are **viewer**-minimum). Optional **sampling** prefill uses `maybeAppendSamplingPrefill` from [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs) (same pattern as self-hosted stdio).
+
+The **tool sequences** below remain valid for clients that do not use `prompts/get`; they mirror **intent** from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) and add **no** new HTTP routes.
 
 | Self-hosted prompt ID | Suggested hosted tool sequence (high level) |
 |------------------------|---------------------------------------------|
@@ -24,6 +27,8 @@ Hosted MCP has **tools and resources**, not the full **self-hosted `prompts/list
 | `memory-context`, `memory-informed-search`, `resume-session` | **Defer:** requires hosted memory contract parity with Hub `/api/v1/memory*` (see [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) phase B3) |
 
 Cross-check each sequence against the living table in [`docs/PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) so calls stay on **documented** upstreams.
+
+**Track B (next batches):** B2/B3 prompts from [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) follow the same rules: **`registerPrompt`** only on top of documented bridge/canister routes; extend [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs) golden lists; keep args schemas free of `z.record(z.unknown())` in `mcp-hosted*.mjs` per [`scripts/check-mcp-hosted-schema.mjs`](../scripts/check-mcp-hosted-schema.mjs).
 
 ## Reality check: safeguards vs new tools
 
@@ -91,7 +96,7 @@ These run in a **terminal** from the repo clone. They do **not** call your live 
 
 | Command | What it proves |
 |---------|----------------|
-| `npm run verify:hosted-mcp-checklist` | Schema guard + in-memory `tools/list` + golden tool **names** (mock URLs). |
+| `npm run verify:hosted-mcp-checklist` | Schema guard + in-memory `tools/list` + `prompts/list` + golden tool/prompt **names** (mock URLs). |
 | `npm test` | Full suite, including the above. |
 
 Use them before merge; they are **not** a substitute for live checks below.
@@ -103,7 +108,7 @@ Here you **do** use Cursor: enable the **`knowtation-hosted`** MCP server for th
 **Setup**
 
 1. **Cursor → Settings → MCP / Tools & MCP:** confirm **`knowtation-hosted`** is on (green) and points at your **persistent** MCP URL (EC2), not Netlify-only `/mcp`. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and [NEXT-SESSION-HOSTED-MCP.md](./NEXT-SESSION-HOSTED-MCP.md).
-2. Optional: open the MCP panel / tool list and confirm you see **seventeen** tools if your Hub role is **admin** (fewer if viewer or editor).
+2. Optional: open the MCP panel / tool list and confirm you see **seventeen** tools if your Hub role is **admin** (fewer if viewer or editor). Open **prompts** (or ask the agent to run `prompts/list`) and confirm **five** Track B1 prompts when `list_notes` / `search` / `get_note` are allowed for your role.
 3. Start a **new Composer/Agent chat** with hosted MCP enabled so tool calls are unambiguous.
 
 **What “path” means (hosted users — not local, not the Hub URL)**
@@ -186,9 +191,26 @@ Use these one at a time. Replace `VAULT_NOTE_PATH` with a path from `list_notes`
 4. **One tool per change set** when possible: schema + handler + golden list update in [`test/mcp-hosted-tools-list.test.mjs`](../test/mcp-hosted-tools-list.test.mjs).
 5. **Billing / cost:** Cross-check [`hub/gateway/billing-constants.mjs`](../hub/gateway/billing-constants.mjs) and bridge middleware (`requireBridgeEditorOrAdmin`, etc.) so new tools do not bypass intended limits.
 
+## Rules (every new hosted prompt)
+
+1. **Same upstreams as tools:** Prompt handlers must use `upstreamFetch` / canister URLs already used by tools (`list_notes`, `search`, `get_note` patterns). Do **not** read local vault files.
+2. **ACL:** Add the prompt id to `READ_PROMPTS` / `PROMPT_MIN_ROLE` in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs); wrap `registerPrompt` with `isPromptAllowed(name, role)` and `isToolAllowed` for each upstream tool the handler calls.
+3. **Args schema:** Use Zod fields compatible with MCP `prompts/list` JSON Schema export (same `z.record(z.unknown())` ban as tools).
+4. **Tests:** Extend [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs) golden prompt names; add a handler or fetch mock test when wiring is non-trivial.
+
 ## ACL vs hosted registration (current inventory)
 
-Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor sees today**: `createHostedMcpServer` + golden arrays in `mcp-hosted-tools-list.test.mjs`.
+Source of truth for tool names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor sees today**: `createHostedMcpServer` + golden arrays in `mcp-hosted-tools-list.test.mjs`. **Prompts:** `isPromptAllowed` / `allowedPromptsForRole` in the same ACL module + golden **`PROMPTS_ALL`** in `mcp-hosted-prompts.test.mjs`.
+
+| Prompt name | Min role | Upstreams used |
+|---------------|----------|----------------|
+| `daily-brief` | viewer | `GET {canister}/api/v1/notes?since=&project=&limit=&offset=` |
+| `search-and-synthesize` | viewer | `POST {bridge}/api/v1/search` + `GET {canister}/api/v1/notes/:path` per hit; optional sampling prefill |
+| `project-summary` | viewer | `GET …/notes?project=&since=` + `GET …/notes/:path` per embedded note; optional sampling prefill |
+| `temporal-summary` | viewer | `GET …/notes?since=&until=&project=`; optional `POST …/search` when `topic` is set |
+| `content-plan` | viewer | `GET …/notes?project=` + `GET …/notes/:path` per embedded note; optional sampling prefill |
+
+### Tools (inventory)
 
 | Tool name | ACL minimum role | Registered on hosted MCP | Notes / likely upstream (verify before implementing) |
 |-----------|------------------|---------------------------|--------------------------------------------------------|
@@ -210,12 +232,13 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | `export` | admin | Yes | Canister `GET /api/v1/export` (same as bridge vault backup fetch). MCP enforces a **response byte cap**; over cap → `EXPORT_TOO_LARGE` (Hub / `vault_sync` / direct canister export are not limited by this MCP check). |
 | `import` | admin | Yes | Bridge `POST {bridgeUrl}/api/v1/import` (multipart: `source_type`, `file`; optional `project`, `output_dir`, `tags`) — same contract as [`hub/bridge/server.mjs`](../hub/bridge/server.mjs) and gateway [`hub/gateway/server.mjs`](../hub/gateway/server.mjs) `POST /api/v1/import` → bridge. MCP builds `FormData` from `file_base64` + `filename`. |
 
-## After changing tool sets
+## After changing tool or prompt sets
 
-1. Update golden tool name arrays in `test/mcp-hosted-tools-list.test.mjs`.
-2. Run `npm run verify:hosted-mcp-checklist`.
-3. Run full `npm test`.
-4. Deploy to persistent MCP host only (not Netlify-only gateway for `/mcp`); follow [docs/NEXT-SESSION-HOSTED-MCP.md](NEXT-SESSION-HOSTED-MCP.md).
+1. Update golden tool name arrays in `test/mcp-hosted-tools-list.test.mjs` (tools) and/or `test/mcp-hosted-prompts.test.mjs` (prompts).
+2. Update `mcp-tool-acl.mjs` when adding tools or hosted prompt IDs.
+3. Run `npm run verify:hosted-mcp-checklist`.
+4. Run full `npm test`.
+5. Deploy to persistent MCP host only (not Netlify-only gateway for `/mcp`); follow [docs/NEXT-SESSION-HOSTED-MCP.md](NEXT-SESSION-HOSTED-MCP.md).
 
 ## Roadmap: what we have, what we do not, what is next
 
@@ -224,8 +247,9 @@ Source of truth for names: `mcp-tool-acl.mjs`. Source of truth for **what Cursor
 | Layer | Status |
 |--------|--------|
 | Hosted MCP **tools/list** reliability | Guarded in CI + unit test (serialization + golden names). |
+| Hosted MCP **`prompts/list`** (Track B1) | Five prompts in `mcp-hosted-server.mjs`; CI via `mcp-hosted-prompts.test.mjs` + same schema guard as tools. |
 | **Seventeen** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** and **`transcribe`** use multipart `fetch` to the bridge (`/api/v1/import`); **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap; **`relate`** + bridge semantic search; **`backlinks`** + canister list/get + `lib/wikilink.mjs`; **`extract_tasks`** + canister list + `lib/extract-tasks.mjs`; **`cluster`** + canister list/get + bridge **`POST /api/v1/embed`** + `lib/kmeans.mjs`; **`tag_suggest`** + canister read + bridge **`POST /api/v1/search`** + optional per-neighbor canister reads for tags; **`capture`** + canister **`POST …/notes`** via **`buildCaptureInboxWritePayload`** (see inventory table). |
-| ACL **name sets** (17 names for admin today) | Declared in `mcp-tool-acl.mjs`; each name is registered on hosted MCP as of **`transcribe`**. |
+| ACL **name sets** (17 tools + 5 prompts for admin today) | Tools: `mcp-tool-acl.mjs`; prompts: `READ_PROMPTS` / `PROMPT_MIN_ROLE` in the same file. |
 
 ### What we do not have yet
 
@@ -279,3 +303,11 @@ Each additional hosted tool is a **small product decision** plus code:
 | **Implementing** the next hosted tool | Add a new name to ACL first, then **`registerTool`** + golden tests. **`transcribe`** is implemented in-repo (bridge import); run EC2 smoke after deploy (§ *Production verification: seventeenth tool `transcribe`*). |
 
 Pick **one** tool per PR. **`capture`** is registered on hosted MCP and verified per § *Production verification: sixteenth tool `capture`*. **`transcribe`** is registered on hosted MCP ( **`feature/hosted-mcp-transcribe`** ); verify with EC2 deploy + § *Production verification: seventeenth tool `transcribe`*.
+
+### Production verification: Track B1 hosted prompts (2026-04)
+
+**Status:** Implemented in-repo on **`feat/hosted-mcp-prompts-b1`**: five **`registerPrompt`** handlers in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs); ACL in [`hub/gateway/mcp-tool-acl.mjs`](../hub/gateway/mcp-tool-acl.mjs); tests in [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs). **`npm run verify:hosted-mcp-checklist`** includes `prompts/list` coverage.
+
+**What “working” means here:** After gateway deploy, Cursor **`knowtation-hosted`** lists **five** prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) via **`prompts/list`**; `getPrompt` for `daily-brief` returns messages whose text references listed notes when the vault has data; **`search-and-synthesize`** issues bridge **`POST /api/v1/search`** then canister **`GET …/notes/:path`** for embedded resources (same headers as tools, **`X-User-Id`** = **`canisterUserId`**). If the client supports **MCP sampling**, prompts that use `maybeAppendSamplingPrefill` may append an assistant draft (same behavior class as self-hosted stdio — see [`AGENT-INTEGRATION.md`](./AGENT-INTEGRATION.md)).
+
+**Operator checklist:** Reconnect **`knowtation-hosted`** after deploy; confirm **`prompts/list`** in the MCP inspector; run one **`getPrompt`** with arguments aligned to [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) (reference args only).
