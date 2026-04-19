@@ -60,7 +60,7 @@ What **is** still unwired: the **remaining names** in [`hub/gateway/mcp-tool-acl
 
 **What “working” means here:** Cursor lists **fourteen** admin tools including **`cluster`**; **`vault-info`** returns expected `userId` / `vaultId` / `role`; **`list_notes`** succeeds; **`cluster`** returns JSON with `clusters`, `notes_sampled`, `max_notes`, `cluster_list_rows_scanned`, and `cluster_truncated`. With **six** notes in the vault and **`n_clusters: 4`**, a recorded smoke run returned **`notes_sampled: 6`**, **`cluster_truncated: false`**, **`cluster_list_rows_scanned: 6`**, and **four** clusters partitioning paths across `inbox/` and `projects/launch/` (no `note` field when `clusters` is non-empty). Empty `clusters` with a **`note`** string remains valid when there are fewer eligible notes than *k* or when too few vectors survive embedding.
 
-**Next hosted tool (seventeenth once registered):** **`transcribe`** (ACL **editor** — inventory **No**). **`capture`** is the **sixteenth** registered hosted tool (canister **`POST …/notes`**, same contract as **`write`**; implemented on **`feature/hosted-mcp-capture`**).
+**Next hosted tool (seventeenth once registered):** **`transcribe`** (ACL **editor** — inventory **No** until landed on this branch). **`capture`** is the **sixteenth** registered hosted tool (canister **`POST …/notes`**, same contract as **`write`**); **complete** as of **2026-04** — see § *Production verification: sixteenth tool `capture`* (CI + EC2 + Cursor **`knowtation-hosted`**).
 
 ## How to test hosted MCP
 
@@ -233,7 +233,9 @@ Each additional hosted tool is a **small product decision** plus code:
 
 ### Production verification: sixteenth tool `capture` (2026-04)
 
-**Status:** Implemented on branch **`feature/hosted-mcp-capture`** with golden **`tools/list`** tests and canister **`X-User-Id`** parity coverage for the **`capture`** POST (same as **`write`**). **EC2 + Cursor smoke** runs **after merge and gateway deploy** (per [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md)); do not treat CI alone as production sign-off.
+**Status:** **Complete, tested, and functional.** In-repo: golden **`tools/list`** in [`test/mcp-hosted-tools-list.test.mjs`](../test/mcp-hosted-tools-list.test.mjs); payload contract tests in [`test/capture-inbox-payload.test.mjs`](../test/capture-inbox-payload.test.mjs); canister **`X-User-Id`** parity coverage includes hosted **`capture`** in [`test/mcp-hosted-canister-user-parity.test.mjs`](../test/mcp-hosted-canister-user-parity.test.mjs). **`npm run verify:hosted-mcp-checklist`** passes on the branch that ships **`capture`**.
+
+**Production (EC2 + Cursor `knowtation-hosted`, 2026-04):** Admin session lists **sixteen** tools with **`capture`** present; **`capture`** with body text and **`source`** returns **`path`** + **`written`**; **`get_note`** on that path round-trips the body; frontmatter JSON includes **`source`**, **`date`**, and **`inbox`**; **`list_notes`** with **`folder: "inbox"`** includes the new path.
 
 **What “working” means here:** Cursor lists **sixteen** admin tools including **`capture`**; **`capture`** with **`text`** returns JSON from the canister write (at least a vault-relative **`path`**); **`get_note`** on that path returns the same body and inbox-style frontmatter (**`source`**, **`date`**, **`inbox`**). Optional **`project`** routes under **`projects/{slug}/inbox/`**; optional **`tags`** become a comma-separated **`tags`** string in frontmatter like local capture.
 
@@ -246,4 +248,4 @@ Each additional hosted tool is a **small product decision** plus code:
 | **Manual smoke** of the sixteen tools on your EC2 MCP URL | After deploy: follow [§ How to test hosted MCP](#how-to-test-hosted-mcp), including step **4e** for `cluster`, step **4f** for `tag_suggest`, step **5b** for `capture`, step **6b** for `import`, step **6c** for `export` if you are admin, and step **8** for `vault_sync` when GitHub is connected. |
 | **Implementing** the next hosted tool | **`transcribe`** (ACL editor, inventory **No**) — confirm upstream on bridge or gateway, then `registerTool` + golden tests per this doc. |
 
-Pick **one** tool per PR. **`capture`** is registered on hosted MCP (merge **`feature/hosted-mcp-capture`**, then EC2 deploy + smoke per § *Production verification: sixteenth tool `capture`*). **`transcribe`** is the next ACL-listed candidate without a hosted handler (see inventory table).
+Pick **one** tool per PR. **`capture`** is registered on hosted MCP and verified per § *Production verification: sixteenth tool `capture`*. **`transcribe`** is the next ACL-listed candidate (see inventory table); implementation work is tracked on **`feature/hosted-mcp-transcribe`**.
