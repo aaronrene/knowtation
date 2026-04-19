@@ -20,6 +20,7 @@ function run(label, command, args) {
 
 run('Hosted MCP schema guard (hub/gateway/mcp-hosted*.mjs)', 'npm', ['run', 'check:mcp-hosted-schema']);
 run('Hosted MCP tools/list regression', 'node', ['--test', 'test/mcp-hosted-tools-list.test.mjs']);
+run('Hosted MCP prompts/list + getPrompt regression', 'node', ['--test', 'test/mcp-hosted-prompts.test.mjs']);
 
 console.log(`
 --- Mandatory production gate (after EC2 deploy) ---
@@ -27,6 +28,7 @@ console.log(`
    pm2 restart knowtation-gateway --update-env
 2. In Cursor (knowtation-hosted): OAuth green; confirm tool count matches role
    (admin: seventeen tools — see test/mcp-hosted-tools-list.test.mjs TOOLS_ADMIN; includes capture, transcribe, tag_suggest, cluster, backlinks, extract_tasks, relate).
+   Confirm prompts/list lists five Track B1 prompts (see test/mcp-hosted-prompts.test.mjs PROMPTS_ALL).
 3. Read resource vault-info: userId, vaultId, role match the signed-in workspace.
 4. If MCP log shows red / "Server not initialized" briefly after restart: Logout → Connect
    or retry once initialize completes (see docs/NEXT-SESSION-HOSTED-MCP.md).

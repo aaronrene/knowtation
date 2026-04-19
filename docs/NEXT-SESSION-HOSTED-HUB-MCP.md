@@ -4,7 +4,9 @@ This document is the **handoff** for continuing work on **anti-drift** between t
 
 **Merged G0 doc pack (parity matrix + Track A):** branch `docs/hosted-hub-mcp-interlock-g0` → merge to `main` via PR.
 
-**Track B1 (hosted `registerPrompt`) — use this branch for code + doc follow-ups:** `feat/hosted-mcp-prompts-b1`. After the G0 PR lands on `main`, run `git fetch origin && git checkout feat/hosted-mcp-prompts-b1 && git rebase origin/main` (resolve conflicts if any), then implement prompts and open a **second** PR `feat/hosted-mcp-prompts-b1` → `main`. **Do not** stack unrelated product work on this branch.
+**Track B1 (hosted `registerPrompt`) — branch:** `feat/hosted-mcp-prompts-b1` → open PR to **`main`** (five prompts + ACL + tests + docs). **Do not** stack unrelated product work on this branch.
+
+**After that PR is merged:** `git fetch origin && git checkout main && git pull origin main && git checkout -b feat/hosted-mcp-prompts-b2` for Track B2 (see § *Full program map*).
 
 **Why a new branch after G0:** Track B changes `hub/gateway/mcp-hosted-server.mjs` and tests; keeping it separate from the docs-only G0 PR preserves a small, reviewable history and avoids mixing documentation approval with gateway behavior changes.
 
@@ -38,7 +40,7 @@ Context (read in order):
 9. docs/NEXT-SESSION-HOSTED-HUB-MCP.md — B1 batch: daily-brief, search-and-synthesize, project-summary; optional temporal-summary or content-plan.
 
 Facts:
-- Hosted MCP today: 17 tools, one resource (knowtation://hosted/vault-info), NO prompts — unlike self-hosted stdio (13 prompts, many resources).
+- Hosted MCP today: **17** tools, **one** resource (`knowtation://hosted/vault-info`), **five** Track B1 prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) — self-hosted stdio still has the fuller **13** prompts and many resources.
 - “Subscriptions” in MCP means resources/subscribe (protocol), NOT Stripe billing.
 - Hosted prompts must fetch vault data via bridge/canister like tools; use canisterUserId / hosted-context parity (see playbook § Hosted MCP canister X-User-Id parity).
 
@@ -79,7 +81,7 @@ G0 matrix and Track A recipes are in repo. Next stage is Track B (see primary pa
 |------|------|---------------------------|
 | **G0 + G1** | Parity matrix + team rule (H0–H4) | **Should precede Track B** (implementing hosted prompts) so new prompts do not encode duplicate rules. **Does not** block **Track A** (recipes markdown only). |
 | **Track A** | Recipes doc (tools-only flows) | **No dependency** — can run **in parallel** with G0. |
-| **Track B** | 3–5 `registerPrompt` on gateway | **Best after G0/G1**; **must** reuse same APIs as tools. |
+| **Track B** | **B1 done in repo** (5 prompts); **B2/B3** next | **B1** reuses same APIs as tools; **B2** (e.g. meeting-notes, knowledge-gap) and **B3** (memory trio) per table below. |
 | **G2** | Refactor hot-spot duplicates | As needed when G0 finds issues. |
 | **G4** | Hosted resources | **Separate phase** after Track B proves stable (optional note-read template first). |
 
@@ -132,6 +134,8 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 | H0–H4 | Per-feature Hub + MCP delivery |
 | Track A | Hosted recipes (docs) |
 | Track B1–B3 | Hosted prompts batches |
+| **B2 (deferred)** | `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture` — add after B1 stabilizes; extend ACL + `mcp-hosted-prompts.test.mjs`. |
+| **B3 (deferred)** | Memory trio — blocked on hosted **`/api/v1/memory*`** parity with Hub (see matrix Hub-only row). |
 | R0–R3+ | Hosted resources |
 
 **Cursor plan file (local):** `.cursor/plans/hosted_mcp_prompts_resources_2303a796.plan.md` — MCP-only phases (Phase 0–3 for prompts pick + recipes + registerPrompt); anti-drift G0–G5 summarized there with link to this repo doc.
@@ -145,7 +149,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 - `docs/NEXT-SESSION-HOSTED-HUB-MCP.md` — this file
 - `docs/HOSTED-MCP-TOOL-EXPANSION.md` — link at top to interlock; Track A recipes
 - `docs/AGENT-INTEGRATION.md` — Hosted MCP subsection link
-- `feat/hosted-mcp-prompts-b1` — Track B1 implementation branch (rebase onto `main` after the G0 PR merges; carries handoff doc updates until prompts land)
+- `feat/hosted-mcp-prompts-b1` — Track B1 implementation branch (five prompts landed in-repo; merge to `main` via PR when ready)
 
 ---
 
