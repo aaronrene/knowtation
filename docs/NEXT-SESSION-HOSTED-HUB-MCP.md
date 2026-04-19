@@ -4,7 +4,7 @@ This document is the **handoff** for continuing work on **anti-drift** between t
 
 **Merged G0 doc pack (parity matrix + Track A):** branch `docs/hosted-hub-mcp-interlock-g0` → merge to `main` via PR.
 
-**Track B1 (hosted `registerPrompt`) — branch:** `feat/hosted-mcp-prompts-b1` → open PR to **`main`** (five prompts + ACL + tests + docs). **Do not** stack unrelated product work on this branch.
+**Track B1 (hosted `registerPrompt`) — branch:** `feat/hosted-mcp-prompts-b1` → PR **#174** to **`main`**: https://github.com/aaronrene/knowtation/pull/174 (five prompts + ACL + tests + docs). **Do not** stack unrelated product work on this branch.
 
 **After that PR is merged:** `git fetch origin && git checkout main && git pull origin main && git checkout -b feat/hosted-mcp-prompts-b2` for Track B2 (see § *Full program map*).
 
