@@ -1,6 +1,8 @@
 # Hosted MCP tool expansion playbook
 
-This document is the **diligence gate** for adding tools to [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs). It complements [`docs/NEXT-SESSION-HOSTED-MCP.md`](NEXT-SESSION-HOSTED-MCP.md) and the in-repo guards:
+**Hub (browser) vs MCP (Cursor):** they do **not** auto-sync. For build order, shared APIs, and phased delivery when **both** matter, see [`docs/HOSTED-HUB-MCP-INTERLOCK.md`](HOSTED-HUB-MCP-INTERLOCK.md). For the **next-session handoff** (G0/G1 vs prompts, pasteable prompt), see [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](NEXT-SESSION-HOSTED-HUB-MCP.md).
+
+This document is the **diligence gate** for adding tools to [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs). It complements [`docs/NEXT-SESSION-HOSTED-MCP.md`](NEXT-SESSION-HOSTED-MCP.md) (EC2 ops) and the in-repo guards:
 
 - `npm run check:mcp-hosted-schema` — forbids `z.record(z.unknown())` under `hub/gateway/mcp-hosted*.mjs` (Zod v4 JSON Schema export can fail **`tools/list` entirely**).
 - `node --test test/mcp-hosted-tools-list.test.mjs` — golden tool names per role + full `tools/list` round-trip via MCP Client.

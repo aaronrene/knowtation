@@ -141,6 +141,8 @@ See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
 
 ### Hosted MCP (Phase D2/D3)
 
+**Hub web UI vs hosted MCP:** they are separate programs; align them via shared bridge/canister APIs. See [`docs/HOSTED-HUB-MCP-INTERLOCK.md`](HOSTED-HUB-MCP-INTERLOCK.md).
+
 Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hub's MCP endpoint:
 
 - **Endpoint:** `POST /mcp` on the Hub gateway (e.g. `https://hub.example.com/mcp`).
