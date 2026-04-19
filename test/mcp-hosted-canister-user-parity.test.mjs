@@ -179,6 +179,54 @@ describe('hosted MCP canister user parity', () => {
     }
   });
 
+  it('capture uses canisterUserId for X-User-Id when set', async () => {
+    let sawHeaders;
+    let postBody;
+    origFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u === `${CANISTER_URL}/api/v1/notes` && String(init?.method || 'GET').toUpperCase() === 'POST') {
+        sawHeaders = init?.headers;
+        postBody = init?.body != null ? JSON.parse(String(init.body)) : null;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ path: postBody?.path ?? 'inbox/x.md', written: true }),
+          text: async () => '{}',
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    };
+
+    const mcpServer = createHostedMcpServer({
+      userId: 'google:actor',
+      canisterUserId: 'google:owner',
+      vaultId: 'default',
+      role: 'editor',
+      token: 'tok',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    });
+    const client = new Client({ name: 'parity-capture', version: '0.0.1' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await mcpServer.connect(serverTransport);
+    await client.connect(clientTransport);
+    try {
+      await client.callTool({
+        name: 'capture',
+        arguments: { text: 'Hello capture parity' },
+      });
+      assert.equal(headerGet(sawHeaders, 'X-User-Id'), 'google:owner');
+      assert.ok(postBody && typeof postBody.path === 'string');
+      assert.ok(postBody.path.startsWith('inbox/'));
+      assert.equal(postBody.body, 'Hello capture parity');
+      assert.equal(postBody.frontmatter?.source, 'mcp-capture');
+      assert.equal(postBody.frontmatter?.inbox, true);
+    } finally {
+      await client.close();
+    }
+  });
+
   it('export uses canisterUserId for X-User-Id when set', async () => {
     let sawHeaders;
     origFetch = globalThis.fetch;

@@ -17,6 +17,7 @@ import { extractCheckboxTasksFromBody } from '../../lib/extract-tasks.mjs';
 import { materializeListFrontmatter, tagsFromFm } from './note-facets.mjs';
 import { findFirstWikilinkToTargetInBody, vaultBasenameTargetKey } from '../../lib/wikilink.mjs';
 import { kmeans } from '../../lib/kmeans.mjs';
+import { buildCaptureInboxWritePayload } from '../../lib/capture-inbox.mjs';
 import { isToolAllowed } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
@@ -988,6 +989,45 @@ export function createHostedMcpServer(ctx) {
             ...canisterFetchOpts,
             method: 'POST',
             body: { path: args.path, body: args.body, frontmatter: args.frontmatter },
+          });
+          return jsonResponse(data);
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  /**
+   * Hosted `capture` — parity with local `runCaptureInbox` / `buildCaptureInboxWritePayload` (`lib/capture-inbox.mjs`).
+   * Upstream: `POST {canisterUrl}/api/v1/notes` with the same headers as `write` (JWT, `X-Vault-Id`, `X-User-Id` =
+   * `canisterUserId`, `X-Gateway-Auth`). Hub `POST /api/v1/capture` is webhook-only (`X-Webhook-Secret`); hosted MCP
+   * does not proxy that route for capture.
+   */
+  if (isToolAllowed('capture', role)) {
+    server.registerTool(
+      'capture',
+      {
+        description:
+          'Fast inbox capture: creates a new note under inbox/ (or projects/{project}/inbox/) with inbox frontmatter (source, date, inbox). Same path and metadata rules as local MCP capture; no AIR. Uses the canister notes API like write.',
+        inputSchema: {
+          text: z.string().min(1).describe('Note body text'),
+          source: z.string().optional().describe('Source label (default mcp-capture)'),
+          project: z.string().optional().describe('Optional project slug for project inbox path'),
+          tags: z.array(z.string()).optional().describe('Optional tags (normalized like local capture)'),
+        },
+      },
+      async (args) => {
+        try {
+          const { path, body, frontmatter } = buildCaptureInboxWritePayload(args.text, {
+            source: args.source,
+            project: args.project,
+            tags: args.tags,
+          });
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes`, {
+            ...canisterFetchOpts,
+            method: 'POST',
+            body: { path, body, frontmatter },
           });
           return jsonResponse(data);
         } catch (e) {

@@ -81,7 +81,7 @@ export function registerPhaseCTools(server) {
     },
     async (args) => {
       try {
-        const out = runCaptureInbox(args.text, {
+        const out = await runCaptureInbox(args.text, {
           source: args.source,
           project: args.project,
           tags: args.tags,

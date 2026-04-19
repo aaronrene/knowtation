@@ -16,6 +16,7 @@ const BRIDGE_URL = 'http://bridge.test:4321';
 const TOOLS_VIEWER = ['backlinks', 'cluster', 'enrich', 'extract_tasks', 'get_note', 'list_notes', 'relate', 'search', 'summarize', 'tag_suggest'];
 const TOOLS_EDITOR = [
   'backlinks',
+  'capture',
   'cluster',
   'enrich',
   'extract_tasks',
@@ -30,6 +31,7 @@ const TOOLS_EDITOR = [
 ];
 const TOOLS_ADMIN = [
   'backlinks',
+  'capture',
   'cluster',
   'enrich',
   'export',
