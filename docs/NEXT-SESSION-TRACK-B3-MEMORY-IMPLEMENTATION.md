@@ -15,7 +15,7 @@ This phase **wires those three prompts into the hosted gateway** using **`GET /a
 
 **Recommendation:** Ship **B3 on this branch without** implementing **`POST /api/v1/memory/search`**. Self-hosted **`memory-informed-search`** uses **vault search** plus **`GET`-style memory listing filtered by `type=search`**, not `POST …/memory/search`. The bridge stub is a **separate** “semantic search inside the memory store” feature—defer to a **later branch** with explicit rate limits, tenant isolation, and cost controls.
 
-**Success in one sentence:** Hosted MCP shows **13** prompts (where applicable), and the memory trio matches self-hosted behavior using **`GET /api/v1/memory`** and vault **`POST /api/v1/search`** for **`memory-informed-search`**—without relying on **`POST /api/v1/memory/search`**.
+**Success in one sentence:** Hosted MCP **`prompts/list`** shows **13** prompts for editor/admin (**12** for viewer), and the memory trio matches self-hosted behavior using **`GET /api/v1/memory`** and vault **`POST /api/v1/search`** for **`memory-informed-search`**—without relying on **`POST /api/v1/memory/search`**.
 
 ---
 

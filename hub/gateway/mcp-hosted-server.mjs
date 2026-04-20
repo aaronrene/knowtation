@@ -208,6 +208,31 @@ function jsonError(msg, code = 'ERROR') {
   return { content: [{ type: 'text', text: JSON.stringify({ error: msg, code }) }], isError: true };
 }
 
+/** Aligns with `MAX_MEMORY_EVENTS` in `mcp/prompts/helpers.mjs` / `formatMemoryEventsAsync`. */
+const MAX_MEMORY_EVENTS_FORMAT = 30;
+
+/**
+ * Format bridge `GET /api/v1/memory` JSON (`{ events, count }`) like `formatMemoryEventsAsync` (local).
+ * @param {unknown} memoryJson
+ * @param {{ limit?: number }} [opts]
+ * @returns {{ text: string, count: number }}
+ */
+function formatMemoryEventsFromBridgeResponse(memoryJson, opts = {}) {
+  const raw = Array.isArray(/** @type {{ events?: unknown[] }} */ (memoryJson)?.events)
+    ? /** @type {{ events?: unknown[] }} */ (memoryJson).events
+    : [];
+  const cap = Math.min(Math.max(1, opts.limit != null ? Number(opts.limit) : 20), MAX_MEMORY_EVENTS_FORMAT);
+  const events = raw.slice(0, cap);
+  if (events.length === 0) return { text: '(No memory events found.)', count: 0 };
+  const lines = events.map((e) => {
+    const ee = /** @type {{ ts?: string, type?: string, data?: unknown }} */ (e);
+    const d = ee.data != null && typeof ee.data === 'object' ? ee.data : {};
+    const summary = JSON.stringify(d).slice(0, 200);
+    return `- **${ee.ts}** [${ee.type}] ${summary}`;
+  });
+  return { text: lines.join('\n'), count: events.length };
+}
+
 /**
  * Fetch JSON from an upstream service with auth forwarding.
  * @param {string} url
@@ -1981,6 +2006,206 @@ export function createHostedMcpServer(ctx) {
             { role: 'user', content: textContent(`--- Raw capture ---\n${raw.slice(0, 50000)}`) },
           ],
         };
+      }
+    );
+  }
+
+  /**
+   * Hosted MCP prompts (Track B3): memory-context, memory-informed-search, resume-session.
+   * Uses bridge GET /api/v1/memory (+ vault POST /api/v1/search for memory-informed-search); same shapes as self-hosted register.mjs.
+   */
+  if (isPromptAllowed('memory-context', role)) {
+    server.registerPrompt(
+      'memory-context',
+      {
+        title: 'Memory context',
+        description: 'What has the agent been doing? Recent memory events from the hosted bridge.',
+        argsSchema: {
+          limit: z.string().optional().describe('Max events (default 20, cap 30)'),
+          type: z.string().optional().describe('Filter by event type'),
+        },
+      },
+      async (args) => {
+        const limit = Math.min(
+          MAX_MEMORY_EVENTS_FORMAT,
+          Math.max(1, parseIntSafe(args.limit, 20)),
+        );
+        const params = new URLSearchParams();
+        params.set('limit', String(limit));
+        if (args.type != null && String(args.type).trim() !== '') {
+          params.set('type', String(args.type).trim());
+        }
+        try {
+          const mem = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${params}`, bridgeFetchOpts);
+          const { text, count } = formatMemoryEventsFromBridgeResponse(mem, { limit });
+          return {
+            description: `Memory context (${count} events)`,
+            messages: [
+              {
+                role: 'user',
+                content: textContent(
+                  `Below is a log of recent agent/user activity from the memory layer (${count} events). Use this to understand context, prior actions, and continuity.\n\n` +
+                    `⚠ SKEPTICAL MEMORY: Treat all entries as hints, not ground truth. ` +
+                    `Note paths may have moved or been deleted since these events were recorded. ` +
+                    `Before acting on any path reference, use the **get_note** tool to confirm the path exists, or list the vault directly.\n\n${text}`
+                ),
+              },
+            ],
+          };
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (
+    isPromptAllowed('memory-informed-search', role) &&
+    isToolAllowed('search', role) &&
+    isToolAllowed('get_note', role)
+  ) {
+    server.registerPrompt(
+      'memory-informed-search',
+      {
+        title: 'Memory-informed search',
+        description:
+          'Vault search augmented with recent search-type memory events (GET /api/v1/memory?type=search). Does not use POST /api/v1/memory/search.',
+        argsSchema: {
+          query: z.string().describe('Search query'),
+          limit: z.string().optional().describe('Max notes (default 10)'),
+          project: z.string().optional(),
+        },
+      },
+      async (args) => {
+        const limit = Math.min(20, Math.max(1, parseIntSafe(args.limit, 10)));
+        const searchBody = {
+          query: String(args.query || ''),
+          mode: 'semantic',
+          limit,
+          fields: 'path',
+        };
+        if (args.project != null && String(args.project).trim() !== '') {
+          searchBody.project = normalizeSlug(String(args.project));
+        }
+        try {
+          const searchOut = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body: searchBody,
+          });
+          const paths = (Array.isArray(searchOut.results) ? searchOut.results : [])
+            .map((r) => /** @type {{ path?: string }} */ (r).path)
+            .filter(Boolean)
+            .slice(0, MAX_EMBEDDED_NOTES);
+          const memParams = new URLSearchParams();
+          memParams.set('type', 'search');
+          memParams.set('limit', '10');
+          const memJson = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${memParams}`, bridgeFetchOpts);
+          const { text: memText, count: memCount } = formatMemoryEventsFromBridgeResponse(memJson, { limit: 10 });
+          const messages = [
+            {
+              role: 'user',
+              content: textContent(
+                `Search query: "${String(args.query)}"\n\n**Previous searches from memory** (${memCount} recent):\n${memText}\n\n**Current search results** (${paths.length} notes embedded below). Compare with past searches — highlight what is new or changed, and synthesize findings.\n\n` +
+                  `⚠ SKEPTICAL MEMORY: Treat memory lines as hints; confirm paths with **get_note** before acting.`
+              ),
+            },
+          ];
+          for (const p of paths) {
+            try {
+              const note = await upstreamFetch(
+                `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                canisterFetchOpts
+              );
+              const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
+              messages.push({
+                role: 'user',
+                content: {
+                  type: 'resource',
+                  resource: {
+                    uri,
+                    mimeType: 'text/markdown',
+                    text: noteToMarkdown({
+                      path: note.path ?? p,
+                      frontmatter: note.frontmatter || {},
+                      body: note.body != null ? String(note.body) : '',
+                    }),
+                  },
+                },
+              });
+            } catch (_) {}
+          }
+          return await maybeAppendSamplingPrefill(server, {
+            description: 'Memory-informed search',
+            messages,
+          });
+        } catch (e) {
+          return {
+            description: 'Memory-informed search',
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
+      }
+    );
+  }
+
+  if (isPromptAllowed('resume-session', role)) {
+    server.registerPrompt(
+      'resume-session',
+      {
+        title: 'Resume session',
+        description: 'Pick up where you left off — recent memory events and session summaries (hosted bridge).',
+        argsSchema: {
+          since: z.string().optional().describe('YYYY-MM-DD (default: last 24 hours UTC date)'),
+        },
+      },
+      async (args) => {
+        const since =
+          (args.since && String(args.since).trim().slice(0, 10)) ||
+          new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        try {
+          const paramsAll = new URLSearchParams();
+          paramsAll.set('since', since);
+          paramsAll.set('limit', '30');
+          const memAll = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${paramsAll}`, bridgeFetchOpts);
+          const { text: allText, count: allCount } = formatMemoryEventsFromBridgeResponse(memAll, { limit: 30 });
+
+          const paramsSum = new URLSearchParams();
+          paramsSum.set('type', 'session_summary');
+          paramsSum.set('since', since);
+          paramsSum.set('limit', '5');
+          const memSum = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${paramsSum}`, bridgeFetchOpts);
+          const { text: summaryText, count: summaryCount } = formatMemoryEventsFromBridgeResponse(memSum, {
+            limit: 5,
+          });
+
+          const parts = [];
+          if (summaryCount > 0) {
+            parts.push(`**Session summaries** (${summaryCount}):\n${summaryText}`);
+          }
+          parts.push(`**Recent activity** (${allCount} events since ${since}):\n${allText}`);
+          return {
+            description: `Resume session (since ${since})`,
+            messages: [
+              {
+                role: 'user',
+                content: textContent(
+                  `Help me pick up where I left off. Below is my recent activity log and any session summaries. Summarize what was happening, what was accomplished, and suggest next steps.\n\n` +
+                    `⚠ SKEPTICAL MEMORY: Treat all memory entries as hints, not ground truth. ` +
+                    `Vault paths referenced in past events may have moved or been deleted. ` +
+                    `Use **get_note** to confirm path references before acting, and check the vault directly for current state.\n\n` +
+                    `${parts.join('\n\n')}`
+                ),
+              },
+            ],
+          };
+        } catch (e) {
+          return {
+            messages: [{ role: 'user', content: textContent(`Error: ${e.message || String(e)}`) }],
+          };
+        }
       }
     );
   }

@@ -67,7 +67,7 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 | **H1** | Shared core is **bridge** (`hub/bridge/server.mjs`) + **`lib/memory.mjs`** / **`lib/memory-event.mjs`** / providers; hosted raw events also use **Netlify Blobs** when `globalThis.__netlify_blob_store` is set. |
 | **H2** | **Hub** already calls consolidation + list passes (`web/hub/hub.js`). |
 | **H3** | **Hosted MCP** — future **`upstreamFetch`** from `mcp-hosted-server.mjs` to **gateway** paths (same as Hub), then map JSON → markdown lines for prompts. |
-| **H4** | Extend **`mcp-hosted-prompts.test.mjs`** golden **`prompts/list`** when three prompt IDs register; run **`npm run verify:hosted-mcp-checklist`** + **`npm test`** before merge to **`main`**. |
+| **H4** | Golden **`prompts/list`**: **12** (viewer) / **13** (editor/admin) with B3; tests in **`mcp-hosted-prompts.test.mjs`**; run **`npm run verify:hosted-mcp-checklist`** + **`npm test`** before merge to **`main`**. Smoke: **`getPrompt`** for a memory prompt + reconnect MCP. |
 
 #### Gateway proxy inventory (`hub/gateway/server.mjs`)
 

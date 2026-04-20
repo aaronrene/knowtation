@@ -72,18 +72,19 @@ These MCP tools **reuse** the same canister and bridge primitives as rows above;
 
 ---
 
-## Hosted MCP prompts (Track B1 + B2) — composition only
+## Hosted MCP prompts (Track B1 + B2 + B3) — composition only
 
 | User capability | Hub entry | Canonical API | Hosted MCP surface | Parity notes |
 |-----------------|-----------|-----------------|----------------------|--------------|
 | Agent-oriented briefs / plans (B1) | — (no dedicated Hub “prompt” UI) | Same as rows above: `GET …/notes`, `POST …/search`, `GET …/notes/:path` | MCP **`prompts/get`** IDs: `daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan` | **Composition only:** no new HTTP routes; same vault partition rules as tools (**`canisterUserId`** on canister). Optional **sampling** prefill matches self-hosted where used ([`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs)). |
 | Meeting / gap / chain / entities / capture-format prompts (B2) | — | Same upstreams; causal chain uses **`POST …/search`** with **`chain`** + **`GET …/notes/:path`** (not local graph resource) | MCP **`prompts/get`** IDs: `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture` | **`meeting-notes`:** user-supplied transcript only (no vault read). **`knowledge-gap`:** semantic search snippets. **`causal-chain`:** index-backed chain filter + date sort — may omit unrindexed notes vs local `listNotesForCausalChainId`. **`extract-entities`:** list + embed like project-summary. **`write-from-capture`:** text instructions only (no `templates/capture.md` on hosted); **`write-from-capture`** minimum role **editor** (implies persisting notes). |
+| Memory context / informed search / resume (B3) | — | **`GET {bridge}/api/v1/memory?…`** (+ vault **`POST {bridge}/api/v1/search`** + **`GET …/notes/:path`** for **`memory-informed-search`**) | MCP **`prompts/get`** IDs: `memory-context`, `memory-informed-search`, `resume-session` | Same composition as self-hosted [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs); **`memory-informed-search`** uses **`GET …/memory?type=search`**, not **`POST …/memory/search`**. |
 
 ---
 
 ## Agent memory (`/api/v1/memory*`) — Hub ↔ bridge ↔ future hosted MCP (Track B3 prep)
 
-Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/server.mjs`) proxies to **bridge** (`hub/bridge/server.mjs`) with the same **`Authorization: Bearer <JWT>`** and **`X-Vault-Id`** model as other bridge-backed routes; bridge derives `uid` from JWT and `vaultId` from **`X-Vault-Id`** or **`vault_id`** query (see `bridgeMemoryAuth`). **Hosted MCP** must use **`upstreamFetch`** to these gateway URLs (not disk `lib/memory`) once **`registerPrompt`** ships — **not registered until** list/search JSON is mapped and tested end-to-end.
+Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/server.mjs`) proxies to **bridge** (`hub/bridge/server.mjs`) with the same **`Authorization: Bearer <JWT>`** and **`X-Vault-Id`** model as other bridge-backed routes; bridge derives `uid` from JWT and `vaultId` from **`X-Vault-Id`** or **`vault_id`** query (see `bridgeMemoryAuth`). **Hosted MCP** uses **`upstreamFetch`** to these gateway URLs (not disk `lib/memory`) for Track B3 **`registerPrompt`** handlers on branch **`feat/b3-memory-prompts-implementation`** (merge to **`main`** when ready).
 
 | User capability | Hub entry (UI / flow) | Canonical API (first hop) | Hosted MCP (planned) | Parity notes |
 |-----------------|----------------------|---------------------------|----------------------|--------------|
@@ -130,4 +131,4 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
 4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 
-Last inventory pass: **2026-04-19** — seventeen hosted tools and **ten** hosted prompts (Track B1 + B2; nine visible to **viewer** because `write-from-capture` requires **editor**) from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL tables; **eight** gateway-proxied memory routes inventoried (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`) for Track B3 prep.
+Last inventory pass: **2026-04-20** — seventeen hosted tools and **thirteen** hosted prompts on **`feat/b3-memory-prompts-implementation`** (Track B1 + B2 + B3; **twelve** visible to **viewer** because `write-from-capture` requires **editor**) from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL tables; **eight** gateway-proxied memory routes (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`).

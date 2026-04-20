@@ -67,7 +67,7 @@ G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174
 |-----------|--------|--------|
 | **Track B1** — five prompts | **Merged** to `main` (PR **#174**) | `mcp-hosted-server.mjs` + ACL + tests |
 | **Track B2** — five prompts | **Merged** to `main` (PR **#175**) | Same; **`prompts/list`** = **9** (viewer) / **10** (editor/admin) |
-| **Track B3** — memory trio | **Prep merged** (PR **#177**); **code in progress** on **`feat/b3-memory-prompts-implementation`** | Handoff: [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md); H0: interlock + parity matrix § Agent memory; proxy tests: [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
+| **Track B3** — memory trio | **`registerPrompt` on branch `feat/b3-memory-prompts-implementation`** (merge to `main` when ready) | **`prompts/list`:** **12** (viewer) / **13** (editor/admin). Handoff: [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md); prep PR **#177**; tests: `mcp-hosted-prompts.test.mjs`, [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
 
 ---
 
