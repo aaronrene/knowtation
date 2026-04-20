@@ -11,7 +11,7 @@ This document is the **diligence gate** for adding tools to [`hub/gateway/mcp-ho
 
 ## Hosted recipes (tools-only) — Track A
 
-**Track B1 (on `main`):** Five hosted prompts (`daily-brief`, `search-and-synthesize`, `project-summary`, `temporal-summary`, `content-plan`) in [`hub/gateway/mcp-hosted-server.mjs`](../hub/gateway/mcp-hosted-server.mjs) via `registerPrompt`, calling the same **canister** / **bridge** paths as tools (`GET …/notes`, `POST …/search`, `GET …/notes/:path`). **Track B2 (on `feat/hosted-mcp-prompts-b2`, PR pending):** five more (`meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`); **`write-from-capture`** is **editor**-minimum; others **viewer**. Optional **sampling** prefill uses `maybeAppendSamplingPrefill` from [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs) (same pattern as self-hosted stdio).
+**Track B1–B3 (hosted `registerPrompt`):** Thirteen prompt names when **editor** or **admin** (**twelve** for **viewer** — no `write-from-capture`): B1 five, B2 five, B3 three (`memory-context`, `memory-informed-search`, `resume-session`). They call the same **canister** / **bridge** paths as tools (`GET …/notes`, `POST …/search`, `GET …/notes/:path`, **`GET …/memory?…`** for memory prompts). **`write-from-capture`** is **editor**-minimum; other prompts default **viewer**. Optional **sampling** prefill uses `maybeAppendSamplingPrefill` from [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs) (same pattern as self-hosted stdio). See [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) and [`docs/PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) § Agent memory.
 
 The **tool sequences** below remain valid for clients that do not use `prompts/get`; they mirror **intent** from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) and add **no** new HTTP routes.
 
@@ -24,9 +24,17 @@ The **tool sequences** below remain valid for clients that do not use `prompts/g
 | `write-from-capture` | `capture` (inbox) or `write` → `get_note` verify |
 | `extract-entities`, `meeting-notes`, `knowledge-gap`, `causal-chain` | **B2:** same composition is now **`prompts/get`** on hosted (`list`/`search`/`get` as coded per prompt); clients may still call `extract_tasks` manually when tasks matter |
 | `content-plan` | `list_notes` + `search` for themes; `tag_suggest` when index exists |
-| `memory-context`, `memory-informed-search`, `resume-session` | **Defer:** requires hosted memory contract parity with Hub `/api/v1/memory*` (see [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) phase B3) |
+| `memory-context`, `memory-informed-search`, `resume-session` | **`prompts/get`** on hosted: **`GET /api/v1/memory?…`** (+ vault **`POST /api/v1/search`** + **`GET …/notes/:path`** for **`memory-informed-search`**). Does **not** use **`POST /api/v1/memory/search`** (see **Phase B3+** below). |
 
 Cross-check each sequence against the living table in [`docs/PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) so calls stay on **documented** upstreams.
+
+### Phase B3+ (later): `POST /api/v1/memory/search` — semantic search **inside** the memory store
+
+**Plain language:** The three B3 prompts read memory like a **chronological log** (filter by type, date, limit) and combine that with **normal vault search** for notes. A **different** bridge route, **`POST /api/v1/memory/search`**, is meant for “search my **agent memory events** by *meaning*” (similar idea to vault semantic search, but over the **memory** database). Today that route is effectively a **stub** (empty results). **We do not need it** for the current B3 prompts to work. When/if we implement it for real, that is a **separate** piece of work: embeddings, caps, cost, and security — then we might add an MCP **tool** (e.g. align with self-hosted `memory_search`) or extend a prompt.
+
+**Technical / jargon:** **H0–H4** again for **`POST {bridge}/api/v1/memory/search`**: contract with `sqlite-vec` / embedding pipeline on the bridge store, alignment with self-hosted **`memory_search`**, **`upstreamFetch`** from hosted MCP, **`npm run verify:hosted-mcp-checklist`**, and parity-matrix row updates. **Not** part of Track B3 **`registerPrompt`** parity, which uses **`GET /api/v1/memory`** and vault **`POST /api/v1/search`** only.
+
+**Implementation reality:** The bridge handler is still a **stub** (`hub/bridge/server.mjs` — empty `results` + explanatory `note`). You **reuse** the same **embedding and HTTP auth patterns** as vault search, but you still **build** a **memory-specific index lifecycle** (where vectors for events live, caps, backfill vs on-write). Self-hosted semantic memory uses **`VectorMemoryProvider`** / **`mem0`** (`lib/memory-provider-*.mjs`); hosted file/blob paths do **not** automatically get that behavior.
 
 **Track B (next batches):** B2/B3 prompts from [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) follow the same rules: **`registerPrompt`** only on top of documented bridge/canister routes; extend [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs) golden lists; keep args schemas free of `z.record(z.unknown())` in `mcp-hosted*.mjs` per [`scripts/check-mcp-hosted-schema.mjs`](../scripts/check-mcp-hosted-schema.mjs).
 

@@ -1,7 +1,7 @@
 /**
  * Issue #1 Phase D2 — role-based tool access control for hosted MCP.
  * Filters available tools based on user role (viewer, editor, admin).
- * Hosted prompts (Track B1–B2): default **viewer**; **`write-from-capture`** is **editor** (implies persisting notes).
+ * Hosted prompts (Track B1–B3): default **viewer**; **`write-from-capture`** is **editor** (implies persisting notes).
  */
 
 const READ_TOOLS = new Set([
@@ -38,7 +38,7 @@ const ROLE_TOOL_MAP = {
   admin: ADMIN_TOOLS,
 };
 
-/** Hosted MCP prompt IDs (Track B1 + B2); each maps to canister / bridge routes like tools — no local vault files. */
+/** Hosted MCP prompt IDs (Track B1 + B2 + B3 memory trio); each maps to canister / bridge routes like tools — no local vault files. */
 const HOSTED_PROMPT_IDS = new Set([
   'daily-brief',
   'search-and-synthesize',

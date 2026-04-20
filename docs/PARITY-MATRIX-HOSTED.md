@@ -105,6 +105,7 @@ Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/ser
 | User capability | Hub entry | Canonical API | Hosted MCP surface | Parity notes |
 |-----------------|-----------|-----------------|--------------------|--------------|
 | See effective vault actor | Session + vault switcher (implicit via gateway `getHostedAccessContext`) | Bridge `GET /api/v1/hosted-context` (used by gateway and MCP bootstrap) | Resource `knowtation://hosted/vault-info` | Returns `userId` (JWT `sub`) and `canisterUserId` (effective partition); must match Hub list partition — see playbook § **Hosted MCP canister `X-User-Id` parity**. |
+| Read note via MCP **resource URI** (R1) | Note drawer (same bytes as open note) | `GET …/api/v1/notes/:path` | Resource template `knowtation://hosted/vault/{+path}` | **`.md` only** in R1; same `upstreamFetch` + headers as **`get_note`**; folder-prefix JSON listings deferred to **R2** (see [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) resources table). |
 
 ---
 
@@ -115,7 +116,7 @@ Capabilities that **correctly** have **no** row in the MCP column today (non-goa
 - Auth, invites, workspace admin: `/api/v1/auth/*`, `/api/v1/invites*`, `/api/v1/workspace`, `/api/v1/vault-access`, `/api/v1/scope`, `/api/v1/roles`
 - Billing: `/api/v1/billing/*`
 - Proposals CRUD / policy: `/api/v1/proposals*`, `/api/v1/settings/proposal-policy`
-- *(Agent memory is covered in § **Agent memory** above; hosted MCP memory **prompts** remain unregistered until list/search contract tests land — [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).)*
+- *(Agent memory is covered in § **Agent memory** above; hosted MCP **memory trio** `registerPrompt` handlers use **`GET …/memory`** + vault search as in that table — [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md). **`POST …/memory/search`** remains a **future** row until implemented beyond the stub.)*
 - Facets / folders helpers: `GET /api/v1/notes/facets`, `GET /api/v1/vault/folders` (Hub filters; MCP tools use `list_notes` / paths)
 - Attestations: `/api/v1/attest*`
 - Image upload / proxy: `upload-image`, `image-proxy*`
