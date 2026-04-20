@@ -19,7 +19,10 @@ const PROMPTS_VIEWER = [
   'extract-entities',
   'knowledge-gap',
   'meeting-notes',
+  'memory-context',
+  'memory-informed-search',
   'project-summary',
+  'resume-session',
   'search-and-synthesize',
   'temporal-summary',
 ];
@@ -93,17 +96,17 @@ function installFetchMock(listNotesBody) {
 }
 
 describe('hosted MCP prompts/list (JSON Schema export)', () => {
-  it('viewer role lists nine prompts (no write-from-capture)', async () => {
+  it('viewer role lists twelve prompts (no write-from-capture)', async () => {
     const names = sortNames(await listPromptNamesForRole('viewer'));
     assert.deepEqual(names, sortNames(PROMPTS_VIEWER));
   });
 
-  it('editor role lists ten prompts including write-from-capture', async () => {
+  it('editor role lists thirteen prompts including write-from-capture', async () => {
     const names = sortNames(await listPromptNamesForRole('editor'));
     assert.deepEqual(names, sortNames(PROMPTS_ALL));
   });
 
-  it('admin role lists same ten prompts as editor', async () => {
+  it('admin role lists same thirteen prompts as editor', async () => {
     const names = sortNames(await listPromptNamesForRole('admin'));
     assert.deepEqual(names, sortNames(PROMPTS_ALL));
   });
@@ -269,6 +272,141 @@ describe('hosted MCP getPrompt — causal-chain', () => {
       assert.equal(body.mode, 'semantic');
       const getCalls = calls.filter((c) => c.url.includes(`${CANISTER_URL}/api/v1/notes/`) && !c.url.includes('?'));
       assert.ok(getCalls.length >= 1, 'at least one canister GET note');
+    } finally {
+      globalThis.fetch = origFetch;
+      try {
+        await client.close();
+      } catch (_) {}
+    }
+  });
+});
+
+describe('hosted MCP getPrompt — memory-context', () => {
+  it('GETs bridge /api/v1/memory with limit and optional type', async () => {
+    const calls = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url: String(url), init });
+      const u = String(url);
+      if (u.startsWith(`${BRIDGE_URL}/api/v1/memory?`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            events: [{ ts: '2026-04-20T12:00:00.000Z', type: 'search', data: { query: 'x' } }],
+            count: 1,
+          }),
+          text: async () => '{}',
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+        text: async () => '{}',
+      };
+    };
+
+    const mcpServer = createHostedMcpServer({
+      userId: 'u-test',
+      vaultId: 'v-test',
+      role: 'viewer',
+      token: 'tok-test',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    });
+    const client = new Client({ name: 'mem-ctx-prompt-test', version: '0.0.1' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await mcpServer.connect(serverTransport);
+    await client.connect(clientTransport);
+    try {
+      const res = await client.getPrompt({
+        name: 'memory-context',
+        arguments: { limit: '15', type: 'search' },
+      });
+      assert.ok(res.messages && res.messages.length >= 1);
+      const memCalls = calls.filter((c) => c.url.startsWith(`${BRIDGE_URL}/api/v1/memory?`));
+      assert.equal(memCalls.length, 1);
+      assert.ok(memCalls[0].url.includes('limit=15'), memCalls[0].url);
+      assert.ok(memCalls[0].url.includes('type=search'), memCalls[0].url);
+      assert.equal(memCalls[0].init?.headers?.['Authorization'], 'Bearer tok-test');
+      assert.equal(memCalls[0].init?.headers?.['X-Vault-Id'], 'v-test');
+    } finally {
+      globalThis.fetch = origFetch;
+      try {
+        await client.close();
+      } catch (_) {}
+    }
+  });
+});
+
+describe('hosted MCP getPrompt — memory-informed-search', () => {
+  it('POSTs vault search then GETs memory type=search then GETs notes', async () => {
+    const calls = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url: String(url), init });
+      const u = String(url);
+      if (u === `${BRIDGE_URL}/api/v1/search`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ results: [{ path: 'inbox/hit.md' }] }),
+          text: async () => '{}',
+        };
+      }
+      if (u.startsWith(`${BRIDGE_URL}/api/v1/memory?`) && u.includes('type=search')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ events: [], count: 0 }),
+          text: async () => '{}',
+        };
+      }
+      if (u === `${CANISTER_URL}/api/v1/notes/inbox%2Fhit.md`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            path: 'inbox/hit.md',
+            body: 'b',
+            frontmatter: {},
+          }),
+          text: async () => '{}',
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+        text: async () => '{}',
+      };
+    };
+
+    const mcpServer = createHostedMcpServer({
+      userId: 'u-test',
+      vaultId: 'v-test',
+      role: 'viewer',
+      token: 'tok-test',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    });
+    const client = new Client({ name: 'mem-inf-prompt-test', version: '0.0.1' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await mcpServer.connect(serverTransport);
+    await client.connect(clientTransport);
+    try {
+      const res = await client.getPrompt({
+        name: 'memory-informed-search',
+        arguments: { query: 'widgets' },
+      });
+      assert.ok(res.messages && res.messages.length >= 1);
+      assert.equal(calls.filter((c) => c.url === `${BRIDGE_URL}/api/v1/search`).length, 1);
+      const memCalls = calls.filter((c) => c.url.startsWith(`${BRIDGE_URL}/api/v1/memory?`));
+      assert.equal(memCalls.length, 1);
+      assert.ok(memCalls[0].url.includes('type=search'), memCalls[0].url);
+      const getCalls = calls.filter((c) => c.url.includes(`${CANISTER_URL}/api/v1/notes/inbox%2Fhit.md`));
+      assert.ok(getCalls.length >= 1);
     } finally {
       globalThis.fetch = origFetch;
       try {

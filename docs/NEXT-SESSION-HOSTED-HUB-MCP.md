@@ -10,9 +10,9 @@ This document is the **handoff** for continuing work on **anti-drift** between t
 
 **Track B2 — merged:** PR **#175** is merged to **`main`** (five additional prompts: `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`; ACL `HOSTED_PROMPT_IDS` + **`write-from-capture`** → **editor** minimum; tests + docs). Post-merge: **`prompts/list`** shows **9** prompts for **viewer**, **10** for **editor**/**admin** (confirmed in Cursor when hosted MCP is healthy).
 
-**Track B3 — next coded batch (blocked on *contract clarity*, not on “zero routes”):** The Hub gateway already **proxies** bridge memory routes (e.g. `GET /api/v1/memory`, `GET /api/v1/memory/:key`, `POST /api/v1/memory/store`, `POST /api/v1/memory/search`, `DELETE /api/v1/memory/clear`, consolidation endpoints — see `hub/gateway/server.mjs`). **Hosted MCP** does not call them yet. **Blocker:** document and verify **parity** — same auth headers (`Authorization`, `X-Vault-Id`, effective user), query/body shapes, error cases, and **event JSON** semantics vs local `lib/memory.mjs` / `formatMemoryEventsAsync` — then implement the three **`registerPrompt`** handlers using **`upstreamFetch`** to those URLs (no disk `lib/memory` in the gateway). Until that H0-style spec + tests exist, do **not** ship B3 prompts (wrong or leaking memory is worse than absent prompts).
+**Track B3 — prep merged; implementation next:** PR **#177** merged to **`main`**: hosted memory **H0** (interlock + parity matrix § Agent memory) and **`test/gateway-memory-bridge-proxy.test.mjs`**. **Remaining work:** implement the three **`registerPrompt`** memory handlers in **`hub/gateway/mcp-hosted-server.mjs`** via **`upstreamFetch`**, ACL + golden tests (**13** prompts when B3 ships). **`POST /api/v1/memory/search`** (memory-store semantic search) stays a **later phase**—see [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md) § decided scope; **`memory-informed-search`** parity uses **`GET /api/v1/memory?type=search`** + vault **`POST /api/v1/search`**, not that stub.
 
-**Active workspace branch:** **`feat/hosted-mcp-prompts-b3`** — use for **Track B3** (memory prompts + any gateway wiring), **without** a docs-only merge to `main`. Push this branch freely; open a PR to `main` only when the branch contains **worthwhile product/code** (and fold doc updates into that same PR).
+**Active workspace branch (implementation):** **`feat/b3-memory-prompts-implementation`** — create from latest **`main`** if missing. **Do not** merge **docs-only** changes to **`main`**; accumulate commits here; **push + one PR** when **code + tests + docs** for B3 are complete. Session handoff for this phase: [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md).
 
 **Scope reminder:** All **13** self-hosted prompt IDs from [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs) map to hosted batches **B1 + B2 + B3**; **B1** shipped **5**, **B2** shipped **5**, **B3** is **3** memory prompts (blocked as above).
 
@@ -22,32 +22,14 @@ This document is the **handoff** for continuing work on **anti-drift** between t
 
 1. **`main`** includes G0 docs + **Track B1** (PR **#174**) + **Track B2** (PR **#175**).
 2. `git fetch origin && git checkout main && git pull origin main`.
-3. For **B3** or handoff edits: `git checkout feat/hosted-mcp-prompts-b3` (create from **`main`** if missing: `git checkout -b feat/hosted-mcp-prompts-b3`).
-4. **Before** landing memory **`registerPrompt`** handlers: confirm hosted **memory HTTP** contract + Hub parity (see B3 paste block below).
+3. For **B3 implementation**: `git checkout feat/b3-memory-prompts-implementation` (create from **`main`** if missing: `git checkout -b feat/b3-memory-prompts-implementation`).
+4. Full pasteable prompt + layman/jargon intro: [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md).
 
 ---
 
-## Paste this as your next session prompt — Track B3 (hosted MCP memory prompts) — **blocked until memory API**
+## Paste this as your next session prompt — Track B3 (hosted MCP memory prompts) — **implementation**
 
-**Prerequisite:** Hosted gateway (or bridge) exposes **read/list** (and any write rules) for **agent memory** with the **same semantics** the Hub uses for **`/api/v1/memory*`** — document routes, auth, and payload shape in **H0** before coding prompts.
-
-```
-You are implementing Track B3 — hosted MCP memory prompts (`registerPrompt`): memory-context, memory-informed-search, resume-session.
-
-Work on branch: feat/hosted-mcp-prompts-b3 (from latest origin/main after PR #175).
-
-Do not start until:
-- Hosted memory HTTP contract is specified and matches Hub (parity matrix Hub-only row + playbook).
-- mcp/prompts/register.mjs + helpers.mjs — reference only for messages and skeptical-memory wording.
-
-Then (same discipline as B1/B2):
-1. hub/gateway/mcp-hosted-server.mjs — upstreamFetch to documented memory routes only; no local lib/memory disk reads.
-2. hub/gateway/mcp-tool-acl.mjs — add prompt ids + PROMPT_MIN_ROLE (likely viewer if read-only events).
-3. test/mcp-hosted-prompts.test.mjs — extend golden lists (13 total prompts when B3 ships).
-4. docs: HOSTED-MCP-TOOL-EXPANSION.md, PARITY-MATRIX-HOSTED.md, HOSTED-HUB-MCP-INTERLOCK.md (H0–H4), this file.
-
-Run before merge: npm run verify:hosted-mcp-checklist, npm test.
-```
+**Prerequisite (done on `main` via PR #177):** H0 memory contract + gateway→bridge proxy tests. **Next:** implementation handoff + full prompt live in [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md) (copy the fenced block from that file into a new Cursor session).
 
 ---
 
@@ -85,7 +67,7 @@ G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174
 |-----------|--------|--------|
 | **Track B1** — five prompts | **Merged** to `main` (PR **#174**) | `mcp-hosted-server.mjs` + ACL + tests |
 | **Track B2** — five prompts | **Merged** to `main` (PR **#175**) | Same; **`prompts/list`** = **9** (viewer) / **10** (editor/admin) |
-| **Track B3** — memory trio | **Prep in progress** (H0 + gateway proxy tests on branch) | **`registerPrompt` not added** until list/search JSON mapping + tests; see parity matrix § Agent memory + [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
+| **Track B3** — memory trio | **`registerPrompt` on branch `feat/b3-memory-prompts-implementation`** (merge to `main` when ready) | **`prompts/list`:** **12** (viewer) / **13** (editor/admin). Handoff: [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md); prep PR **#177**; tests: `mcp-hosted-prompts.test.mjs`, [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
 
 ---
 
@@ -106,7 +88,7 @@ G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174
 
 ### Recommendation
 
-Start with **steps 1–3** on **`feat/hosted-mcp-prompts-b3`** (documentation + matrix + playbook rows **committed on the branch**). When you are ready to ship **step 4+**, keep accumulating commits on the same branch and open **one** PR to `main` that includes both **code** and **docs**.
+**Steps 1–3** are on **`main`** (PR **#177**). Continue with **steps 4–6** on **`feat/b3-memory-prompts-implementation`**: boundary tests, **`registerPrompt`** wiring, then **one** PR to **`main`** with **code + tests + docs** (no docs-only PR).
 
 ---
 
@@ -116,11 +98,11 @@ Start with **steps 1–3** on **`feat/hosted-mcp-prompts-b3`** (documentation + 
 |------|------|---------------------------|
 | **G0 + G1** | Parity matrix + team rule (H0–H4) | **Should precede Track B** (implementing hosted prompts) so new prompts do not encode duplicate rules. **Does not** block **Track A** (recipes markdown only). |
 | **Track A** | Recipes doc (tools-only flows) | **No dependency** — can run **in parallel** with G0. |
-| **Track B** | **B1 + B2 merged** (PRs **#174**, **#175**, 10 prompts on editor/admin); **B3** after memory API | **B1–B2** on `main`; **B3** = memory trio (**blocked** until hosted **`/api/v1/memory*`** parity with Hub). |
+| **Track B** | **B1 + B2 merged** (PRs **#174**, **#175**, 10 prompts on editor/admin); **B3** implementation after prep on `main` | **B1–B2** on `main`; **B3 prep** merged (PR **#177**); **B3** = memory trio **`registerPrompt`** + tests. **`POST /api/v1/memory/search`** real implementation = **separate** phase (not required for B3 parity). |
 | **G2** | Refactor hot-spot duplicates | As needed when G0 finds issues. |
 | **G4** | Hosted resources | **Separate phase** after Track B proves stable (optional note-read template first). |
 
-**Bottom line:** **G0 + Track A + Track B1 + Track B2** are on **`main`** (through PR **#175**). G1 is ongoing discipline (H0–H4). The next **hosted prompts** milestone is **Track B3** (memory trio) **after** the **memory HTTP contract** is real — until then, use **Track A** (recipes docs), **R1** resources, or **gateway memory API** design on focused branches. **`feat/hosted-mcp-prompts-b3`** is the suggested branch name for that line of work.
+**Bottom line:** **G0 + Track A + Track B1 + Track B2 + Track B3 prep** are on **`main`** (through PR **#177**). The next **hosted prompts** milestone is **Track B3 implementation** (three memory prompts + golden tests). **`POST /api/v1/memory/search`** beyond the stub is **not** part of that milestone. Use branch **`feat/b3-memory-prompts-implementation`**; handoff [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md).
 
 ---
 
@@ -140,7 +122,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 |-------|------------------|-----------|
 | **B1 — First coded batch** | **`daily-brief`**, **`search-and-synthesize`**, **`project-summary`**, **`temporal-summary`**, **`content-plan`** | **Merged to `main` (PR #174).** Same tools: `list_notes`, `search`, `get_note`. |
 | **B2 — Second batch (5)** | **`meeting-notes`**, **`knowledge-gap`**, **`causal-chain`**, **`extract-entities`**, **`write-from-capture`** | **Merged to `main` (PR #175).** Handlers use list/search/get; **`causal-chain`** uses **`POST …/search`** with **`chain`** + canister **`GET …/notes/:path`**. **`write-from-capture`**: no local template file; **editor** ACL minimum. |
-| **B3 — Memory trio (3)** | **`memory-context`**, **`memory-informed-search`**, **`resume-session`** | **Blocked:** hosted **`/api/v1/memory*`** (or equivalent) must match Hub + local `formatMemoryEventsAsync` semantics before **`registerPrompt`** on the gateway. |
+| **B3 — Memory trio (3)** | **`memory-context`**, **`memory-informed-search`**, **`resume-session`** | **Prep on `main` (PR #177).** **Implementation:** **`registerPrompt`** + ACL + tests. **`POST /api/v1/memory/search`** (memory-store semantic search) → **later phase**, not B3. |
 
 ### Resources (hosted)
 
@@ -171,7 +153,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 | Track B1–B3 | Hosted prompts batches |
 | **B1** | **Done** — merged PR **#174** (`main`). |
 | **B2** | **Done** — merged PR **#175** (`main`). Operator smoke: **`prompts/list`** nine (viewer) / ten (editor/admin). |
-| **B3 (deferred)** | Memory trio — blocked on hosted **`/api/v1/memory*`** parity with Hub (see matrix Hub-only row). |
+| **B3 (in progress)** | Memory trio — prep on **`main`** (PR **#177**); **`registerPrompt`** implementation on **`feat/b3-memory-prompts-implementation`**. |
 | R0–R3+ | Hosted resources |
 
 **Cursor plan file (local):** `.cursor/plans/hosted_mcp_prompts_resources_2303a796.plan.md` — MCP-only phases (Phase 0–3 for prompts pick + recipes + registerPrompt); anti-drift G0–G5 summarized there with link to this repo doc.
@@ -186,7 +168,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 - `docs/HOSTED-MCP-TOOL-EXPANSION.md` — link at top to interlock; Track A recipes
 - `docs/AGENT-INTEGRATION.md` — Hosted MCP subsection link
 - **`feat/hosted-mcp-prompts-b2`** — merged via PR **#175** (historical)
-- **`feat/hosted-mcp-prompts-b3`** — suggested branch for **Track B3** prep / memory-API work (create from `main` after pull)
+- **`feat/b3-memory-prompts-implementation`** — branch for **Track B3** memory **`registerPrompt`** + tests (+ optional bridge search); prep merged via PR **#177**
 - **`feat/hosted-mcp-prompts-b1`** — merged via PR **#174** (historical)
 
 ---

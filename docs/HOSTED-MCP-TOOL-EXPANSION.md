@@ -252,9 +252,9 @@ Source of truth for tool names: `mcp-tool-acl.mjs`. Source of truth for **what C
 | Layer | Status |
 |--------|--------|
 | Hosted MCP **tools/list** reliability | Guarded in CI + unit test (serialization + golden names). |
-| Hosted MCP **`prompts/list`** (Track B1 + B2 on branch `feat/hosted-mcp-prompts-b2`) | **Ten** prompt names in `mcp-hosted-server.mjs` for editor/admin (**nine** for viewer — no `write-from-capture`); CI via `mcp-hosted-prompts.test.mjs` + same schema guard as tools. |
+| Hosted MCP **`prompts/list`** (Track B1 + B2 + **B3 memory trio** on `feat/b3-memory-prompts-implementation` / `main` when merged) | **Thirteen** prompt names for editor/admin (**twelve** for viewer — no `write-from-capture`); CI via `mcp-hosted-prompts.test.mjs` + same schema guard as tools. |
 | **Seventeen** tools on hosted MCP | Implemented in `mcp-hosted-server.mjs`: bridge/canister `upstreamFetch` for JSON APIs; **`import`** and **`transcribe`** use multipart `fetch` to the bridge (`/api/v1/import`); **`vault_sync`** POSTs JSON to the bridge; **`export`** GETs canister `/api/v1/export` with a byte cap; **`relate`** + bridge semantic search; **`backlinks`** + canister list/get + `lib/wikilink.mjs`; **`extract_tasks`** + canister list + `lib/extract-tasks.mjs`; **`cluster`** + canister list/get + bridge **`POST /api/v1/embed`** + `lib/kmeans.mjs`; **`tag_suggest`** + canister read + bridge **`POST /api/v1/search`** + optional per-neighbor canister reads for tags; **`capture`** + canister **`POST …/notes`** via **`buildCaptureInboxWritePayload`** (see inventory table). |
-| ACL **name sets** (17 tools + 10 prompts for admin on B2 branch) | Tools: `mcp-tool-acl.mjs`; prompts: **`HOSTED_PROMPT_IDS`** / `PROMPT_MIN_ROLE` in the same file. |
+| ACL **name sets** (17 tools + 13 prompts for admin after B3) | Tools: `mcp-tool-acl.mjs`; prompts: **`HOSTED_PROMPT_IDS`** / `PROMPT_MIN_ROLE` in the same file. |
 
 ### What we do not have yet
 

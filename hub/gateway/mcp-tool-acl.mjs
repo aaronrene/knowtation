@@ -50,6 +50,9 @@ const HOSTED_PROMPT_IDS = new Set([
   'causal-chain',
   'extract-entities',
   'write-from-capture',
+  'memory-context',
+  'memory-informed-search',
+  'resume-session',
 ]);
 
 /** Minimum role per prompt (`write-from-capture` implies vault write → editor). */
@@ -64,6 +67,9 @@ const PROMPT_MIN_ROLE = /** @type {Record<string, 'viewer' | 'editor' | 'admin'>
   'causal-chain': 'viewer',
   'extract-entities': 'viewer',
   'write-from-capture': 'editor',
+  'memory-context': 'viewer',
+  'memory-informed-search': 'viewer',
+  'resume-session': 'viewer',
 });
 
 const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 };

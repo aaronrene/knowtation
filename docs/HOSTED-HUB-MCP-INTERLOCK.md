@@ -59,7 +59,7 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 
 ### Track B3 prep — hosted agent memory HTTP (**H0** contract)
 
-**Outcome:** The Hub and (later) hosted MCP **prompts** use the **same** first-hop URLs under **`/api/v1/memory*`** — no second retention or partition rule in MCP. **B3 `registerPrompt` is not shipped** until **`GET /api/v1/memory`** and **`POST /api/v1/memory/search`** response JSON are mapped to prompt text (aligned with **`formatMemoryEventsAsync`** in [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs)) and covered by tests beyond the proxy smoke below.
+**Outcome:** The Hub and (later) hosted MCP **prompts** use the **same** first-hop URLs for the **memory event log** (**`GET /api/v1/memory`**, etc.) and the same **vault search** path where self-hosted does — no second retention or partition rule in MCP. **B3 `registerPrompt`** maps **`GET /api/v1/memory`** JSON to prompt text (aligned with **`formatMemoryEventsAsync`** in [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs)); **`memory-informed-search`** also uses **`POST /api/v1/search`** (vault), **not** the **`POST /api/v1/memory/search`** stub (that stub is a **separate** future “semantic search over memory store” phase).
 
 | Step | Track B3 memory (list / key / search / writes / consolidation) |
 |------|------------------------------------------------------------------|
@@ -67,7 +67,7 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 | **H1** | Shared core is **bridge** (`hub/bridge/server.mjs`) + **`lib/memory.mjs`** / **`lib/memory-event.mjs`** / providers; hosted raw events also use **Netlify Blobs** when `globalThis.__netlify_blob_store` is set. |
 | **H2** | **Hub** already calls consolidation + list passes (`web/hub/hub.js`). |
 | **H3** | **Hosted MCP** — future **`upstreamFetch`** from `mcp-hosted-server.mjs` to **gateway** paths (same as Hub), then map JSON → markdown lines for prompts. |
-| **H4** | Extend **`mcp-hosted-prompts.test.mjs`** golden **`prompts/list`** when three prompt IDs register; run **`npm run verify:hosted-mcp-checklist`** + **`npm test`** before merge to **`main`**. |
+| **H4** | Golden **`prompts/list`**: **12** (viewer) / **13** (editor/admin) with B3; tests in **`mcp-hosted-prompts.test.mjs`**; run **`npm run verify:hosted-mcp-checklist`** + **`npm test`** before merge to **`main`**. Smoke: **`getPrompt`** for a memory prompt + reconnect MCP. |
 
 #### Gateway proxy inventory (`hub/gateway/server.mjs`)
 
@@ -95,7 +95,7 @@ All of the following use **`proxyTo(BRIDGE_URL, …)`** except **`POST /api/v1/m
 | `GET` | `/api/v1/memory/:key` | — | Latest event for semantic key: **`{ key, value, updated_at, id? }`**. |
 | `POST` | `/api/v1/memory/store` | **`requireBridgeAuth`**, **`requireBridgeEditorOrAdmin`**, **`express.json()`** | Body **`{ key, value, ttl? }`**; **`400`** if missing key/value. |
 | `GET` | `/api/v1/memory` | — | Query **`type`**, **`since`**, **`until`**, **`limit`** (cap **100**); **`{ events, count }`**. Events are **`createMemoryEvent`**-shaped objects (at minimum **`type`**, **`ts`**, **`data`**). |
-| `POST` | `/api/v1/memory/search` | **`express.json()`** | **Stub:** **`{ results: [], count: 0, note: 'Hosted memory search requires vector provider (future.)' }`** — MCP **`memory-informed-search`** must treat as **no semantic recall** until replaced. |
+| `POST` | `/api/v1/memory/search` | **`express.json()`** | **Stub:** **`{ results: [], count: 0, note: 'Hosted memory search requires vector provider (future.)' }`** — **not** used for Track B3 **`memory-informed-search`** (self-hosted uses **`GET …/memory?type=search`** + vault **`POST …/search`**). Replace stub in a **later** phase when memory-store semantic search is specified (rate limits, isolation, cost). |
 | `DELETE` | `/api/v1/memory/clear` | **`requireBridgeAuth`**, **`requireBridgeEditorOrAdmin`** | Query **`type`**, **`before`**; passes through to **`MemoryManager.clear`**. |
 | `GET` | `/api/v1/memory-stats` | — | **`MemoryManager.stats()`** JSON. |
 | `POST` | `/api/v1/memory/consolidate` | **`requireBridgeAuth`**, **`requireBridgeEditorOrAdmin`**, **`express.json()`** | LLM + cooldown + cost; see bridge source for **`429`** / **`503`** codes. |
