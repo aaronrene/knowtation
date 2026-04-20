@@ -10,7 +10,7 @@ This document is the **handoff** for continuing work on **anti-drift** between t
 
 **Track B2 — merged:** PR **#175** is merged to **`main`** (five additional prompts: `meeting-notes`, `knowledge-gap`, `causal-chain`, `extract-entities`, `write-from-capture`; ACL `HOSTED_PROMPT_IDS` + **`write-from-capture`** → **editor** minimum; tests + docs). Post-merge: **`prompts/list`** shows **9** prompts for **viewer**, **10** for **editor**/**admin** (confirmed in Cursor when hosted MCP is healthy).
 
-**Track B3 — prep merged; implementation next:** PR **#177** merged to **`main`**: hosted memory **H0** (interlock + parity matrix § Agent memory) and **`test/gateway-memory-bridge-proxy.test.mjs`**. **Remaining work:** implement the three **`registerPrompt`** memory handlers in **`hub/gateway/mcp-hosted-server.mjs`** via **`upstreamFetch`**, ACL + golden tests (**13** prompts when B3 ships), and optionally **replace** the bridge **`POST /api/v1/memory/search`** stub with real search when the vector path is agreed.
+**Track B3 — prep merged; implementation next:** PR **#177** merged to **`main`**: hosted memory **H0** (interlock + parity matrix § Agent memory) and **`test/gateway-memory-bridge-proxy.test.mjs`**. **Remaining work:** implement the three **`registerPrompt`** memory handlers in **`hub/gateway/mcp-hosted-server.mjs`** via **`upstreamFetch`**, ACL + golden tests (**13** prompts when B3 ships). **`POST /api/v1/memory/search`** (memory-store semantic search) stays a **later phase**—see [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md) § decided scope; **`memory-informed-search`** parity uses **`GET /api/v1/memory?type=search`** + vault **`POST /api/v1/search`**, not that stub.
 
 **Active workspace branch (implementation):** **`feat/b3-memory-prompts-implementation`** — create from latest **`main`** if missing. **Do not** merge **docs-only** changes to **`main`**; accumulate commits here; **push + one PR** when **code + tests + docs** for B3 are complete. Session handoff for this phase: [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md).
 
@@ -98,11 +98,11 @@ G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174
 |------|------|---------------------------|
 | **G0 + G1** | Parity matrix + team rule (H0–H4) | **Should precede Track B** (implementing hosted prompts) so new prompts do not encode duplicate rules. **Does not** block **Track A** (recipes markdown only). |
 | **Track A** | Recipes doc (tools-only flows) | **No dependency** — can run **in parallel** with G0. |
-| **Track B** | **B1 + B2 merged** (PRs **#174**, **#175**, 10 prompts on editor/admin); **B3** implementation after prep on `main` | **B1–B2** on `main`; **B3 prep** merged (PR **#177**); **B3** = memory trio **`registerPrompt`** + tests (+ optional bridge search stub replacement). |
+| **Track B** | **B1 + B2 merged** (PRs **#174**, **#175**, 10 prompts on editor/admin); **B3** implementation after prep on `main` | **B1–B2** on `main`; **B3 prep** merged (PR **#177**); **B3** = memory trio **`registerPrompt`** + tests. **`POST /api/v1/memory/search`** real implementation = **separate** phase (not required for B3 parity). |
 | **G2** | Refactor hot-spot duplicates | As needed when G0 finds issues. |
 | **G4** | Hosted resources | **Separate phase** after Track B proves stable (optional note-read template first). |
 
-**Bottom line:** **G0 + Track A + Track B1 + Track B2 + Track B3 prep** are on **`main`** (through PR **#177**). The next **hosted prompts** milestone is **Track B3 implementation** (three memory prompts + golden tests; bridge **`memory/search`** as agreed). Use branch **`feat/b3-memory-prompts-implementation`**; handoff [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md).
+**Bottom line:** **G0 + Track A + Track B1 + Track B2 + Track B3 prep** are on **`main`** (through PR **#177**). The next **hosted prompts** milestone is **Track B3 implementation** (three memory prompts + golden tests). **`POST /api/v1/memory/search`** beyond the stub is **not** part of that milestone. Use branch **`feat/b3-memory-prompts-implementation`**; handoff [`NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md`](./NEXT-SESSION-TRACK-B3-MEMORY-IMPLEMENTATION.md).
 
 ---
 
@@ -122,7 +122,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 |-------|------------------|-----------|
 | **B1 — First coded batch** | **`daily-brief`**, **`search-and-synthesize`**, **`project-summary`**, **`temporal-summary`**, **`content-plan`** | **Merged to `main` (PR #174).** Same tools: `list_notes`, `search`, `get_note`. |
 | **B2 — Second batch (5)** | **`meeting-notes`**, **`knowledge-gap`**, **`causal-chain`**, **`extract-entities`**, **`write-from-capture`** | **Merged to `main` (PR #175).** Handlers use list/search/get; **`causal-chain`** uses **`POST …/search`** with **`chain`** + canister **`GET …/notes/:path`**. **`write-from-capture`**: no local template file; **editor** ACL minimum. |
-| **B3 — Memory trio (3)** | **`memory-context`**, **`memory-informed-search`**, **`resume-session`** | **Prep on `main` (PR #177).** **Implementation:** **`registerPrompt`** + ACL + tests; optional real **`POST /api/v1/memory/search`** when vector path is ready. |
+| **B3 — Memory trio (3)** | **`memory-context`**, **`memory-informed-search`**, **`resume-session`** | **Prep on `main` (PR #177).** **Implementation:** **`registerPrompt`** + ACL + tests. **`POST /api/v1/memory/search`** (memory-store semantic search) → **later phase**, not B3. |
 
 ### Resources (hosted)
 
