@@ -11,18 +11,30 @@ import { createHostedMcpServer } from '../hub/gateway/mcp-hosted-server.mjs';
 const CANISTER_URL = 'http://canister.test:4322';
 const BRIDGE_URL = 'http://bridge.test:4321';
 
-function installNoteFetchMock(noteResponse) {
+/**
+ * @param {unknown} getNoteResponse - JSON for GET /api/v1/notes/:path
+ * @param {{ notes?: unknown[], total?: number }} [listNotesResponse] - JSON for GET /api/v1/notes?…
+ */
+function installNoteFetchMock(getNoteResponse, listNotesResponse = { notes: [], total: 0 }) {
   const calls = [];
   const origFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
     const u = String(url);
     calls.push({ url: u, init });
+    if (u.includes('/api/v1/notes?')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => listNotesResponse,
+        text: async () => JSON.stringify(listNotesResponse),
+      };
+    }
     if (u.startsWith(`${CANISTER_URL}/api/v1/notes/`)) {
       return {
         ok: true,
         status: 200,
-        json: async () => noteResponse,
-        text: async () => JSON.stringify(noteResponse),
+        json: async () => getNoteResponse,
+        text: async () => JSON.stringify(getNoteResponse),
       };
     }
     return {
@@ -126,6 +138,35 @@ describe('hosted MCP R1 — vault note resource template', () => {
     const { resources } = await client.listResources();
     const vault = resources.find((r) => r.uri === 'knowtation://hosted/vault-info');
     assert.ok(vault, 'vault-info still present');
+  });
+
+  it('resources/list merges template list so Cursor-style clients see note URIs (cap 50)', async () => {
+    const listNotesResponse = {
+      notes: [
+        { path: 'inbox/a.md', frontmatter: { title: 'A' }, body: 'alpha' },
+        { path: 'projects/p/b.md', frontmatter: {}, body: '# B\nbody' },
+      ],
+      total: 2,
+    };
+    mock = installNoteFetchMock({ path: 'x.md', frontmatter: {}, body: '' }, listNotesResponse);
+    ({ client } = await connect({
+      userId: 'u1',
+      vaultId: 'v1',
+      role: 'viewer',
+      token: 't',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    }));
+
+    const { resources } = await client.listResources();
+    const uris = resources.map((r) => r.uri);
+    assert.ok(uris.includes('knowtation://hosted/vault-info'));
+    assert.ok(uris.includes('knowtation://hosted/vault/inbox/a.md'));
+    assert.ok(uris.includes('knowtation://hosted/vault/projects/p/b.md'));
+
+    const listCalls = mock.calls.filter((c) => String(c.url).includes('/api/v1/notes?'));
+    assert.equal(listCalls.length, 1);
+    assert.match(listCalls[0].url, /limit=50/);
   });
 
   it('rejects path traversal', async () => {

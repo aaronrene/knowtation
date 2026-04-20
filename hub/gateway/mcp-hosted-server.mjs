@@ -81,6 +81,9 @@ const HOSTED_CLUSTER_PAGE_SIZE = 100;
 const HOSTED_CLUSTER_MAX_NOTES = 200;
 const HOSTED_CLUSTER_TEXT_SLICE = 800;
 
+/** Max notes expanded into MCP `resources/list` for the hosted vault note template (SDK merges `list` results there). */
+const HOSTED_VAULT_RESOURCE_LIST_MAX = 50;
+
 function vaultPathKey(p) {
   return String(p ?? '').replace(/\\/g, '/').trim();
 }
@@ -2252,9 +2255,42 @@ export function createHostedMcpServer(ctx) {
   /**
    * R1 hosted resources: one `ResourceTemplate` for note reads (same upstream as `get_note`).
    * `.md` paths only — folder JSON listings stay deferred to R2.
+   *
+   * When `list_notes` is allowed, a `list` callback is set so the MCP SDK merges concrete URIs into
+   * `resources/list` (see `@modelcontextprotocol/sdk` McpServer `setResourceRequestHandlers`). Cursor’s
+   * “N resources” UI counts that list; templates without `list` only appear under `resourceTemplates/list`.
    */
   if (isToolAllowed('get_note', role)) {
-    const hostedVaultNoteTemplate = new ResourceTemplate('knowtation://hosted/vault/{+path}', {});
+    const templateCallbacks =
+      isToolAllowed('list_notes', role) ?
+        {
+          list: async () => {
+            const params = new URLSearchParams();
+            params.set('limit', String(HOSTED_VAULT_RESOURCE_LIST_MAX));
+            params.set('offset', '0');
+            const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const notes = Array.isArray(data?.notes) ? data.notes : [];
+            const resources = [];
+            for (const n of notes) {
+              const p = n?.path != null ? String(n.path) : '';
+              if (!p || !p.endsWith('.md')) continue;
+              const uri = `knowtation://hosted/vault/${p}`;
+              const fm = materializeListFrontmatter(n.frontmatter);
+              const bodyStr = n.body != null ? String(n.body) : '';
+              const title = displayTitleFromHostedNote({ path: p, frontmatter: fm, body: bodyStr }) || p.split('/').pop() || p;
+              const description = bodyStr.slice(0, 160).replace(/\s+/g, ' ').trim();
+              resources.push({
+                uri,
+                name: title,
+                mimeType: 'text/markdown',
+                description: description || undefined,
+              });
+            }
+            return { resources };
+          },
+        }
+      : {};
+    const hostedVaultNoteTemplate = new ResourceTemplate('knowtation://hosted/vault/{+path}', templateCallbacks);
     server.registerResource(
       'hosted-vault-note',
       hostedVaultNoteTemplate,
