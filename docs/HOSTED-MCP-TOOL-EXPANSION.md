@@ -34,6 +34,8 @@ Cross-check each sequence against the living table in [`docs/PARITY-MATRIX-HOSTE
 
 **Technical / jargon:** **H0–H4** again for **`POST {bridge}/api/v1/memory/search`**: contract with `sqlite-vec` / embedding pipeline on the bridge store, alignment with self-hosted **`memory_search`**, **`upstreamFetch`** from hosted MCP, **`npm run verify:hosted-mcp-checklist`**, and parity-matrix row updates. **Not** part of Track B3 **`registerPrompt`** parity, which uses **`GET /api/v1/memory`** and vault **`POST /api/v1/search`** only.
 
+**Implementation reality:** The bridge handler is still a **stub** (`hub/bridge/server.mjs` — empty `results` + explanatory `note`). You **reuse** the same **embedding and HTTP auth patterns** as vault search, but you still **build** a **memory-specific index lifecycle** (where vectors for events live, caps, backfill vs on-write). Self-hosted semantic memory uses **`VectorMemoryProvider`** / **`mem0`** (`lib/memory-provider-*.mjs`); hosted file/blob paths do **not** automatically get that behavior.
+
 **Track B (next batches):** B2/B3 prompts from [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) follow the same rules: **`registerPrompt`** only on top of documented bridge/canister routes; extend [`test/mcp-hosted-prompts.test.mjs`](../test/mcp-hosted-prompts.test.mjs) golden lists; keep args schemas free of `z.record(z.unknown())` in `mcp-hosted*.mjs` per [`scripts/check-mcp-hosted-schema.mjs`](../scripts/check-mcp-hosted-schema.mjs).
 
 ## Reality check: safeguards vs new tools

@@ -130,6 +130,36 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 
 **Jargon:** Treat **`POST {bridge}/api/v1/memory/search`** as a **separate H0–H4 deliverable** (embedding-backed retrieval on the memory DB, parity with self-hosted **`memory_search`** MCP tool if desired). Documented as **future** in [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) (§ Agent memory) and **Phase B3+** in [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md).
 
+#### Phase B3+ — what it takes, reuse vs new work, recommendation
+
+**What it takes (facts from code):** The bridge route **`POST /api/v1/memory/search`** in [`hub/bridge/server.mjs`](../hub/bridge/server.mjs) currently returns **`{ results: [], count: 0, note: 'Hosted memory search requires vector provider (future).' }`** — no embeddings, no index. Turning it into real semantic search means: **(1)** defining where vectors for **memory events** live (per hosted user + vault, alongside or separate from vault chunk vectors); **(2)** on **append/list** paths, **embedding** event text (or batches) with the **same** embedding stack the bridge already uses for vault search (`embedWithUsage` / Voyage — **reuse the plumbing**, not “invent a new vendor”); **(3)** **query-time** embed + kNN (sqlite-vec or equivalent) over that memory index; **(4)** **limits**, **auth** (same as `GET /api/v1/memory`), **rate limits / billing** if this becomes a heavy endpoint; **(5)** tests + parity matrix row + optional hosted MCP **`registerTool('memory_search', …)`** mirroring [`mcp/tools/memory.mjs`](../mcp/tools/memory.mjs). Self-hosted **`memory_search`** already requires **`memory.provider: vector` or `mem0`** and calls **`MemoryManager.search()`** → provider **`searchEvents`** ([`lib/memory-provider-vector.mjs`](../lib/memory-provider-vector.mjs), etc.). Hosted **file/blob** memory today follows **`FileMemoryProvider`**, whose **`searchEvents`** is a no-op — so **hosted is not “flip a flag”**; it is **new bridge indexing + handler logic**, reusing **patterns** from vault search and from **`VectorMemoryProvider`**, not a copy-paste of one existing route.
+
+**Recommendation:** **Defer** unless you have a concrete product need (“agents must find old memory lines by meaning at scale”). Reasons: **cost** (embeddings on every memory write or periodic backfill), **complexity** (second vector surface to secure and debug), **overlap** with today’s **`memory-informed-search`** prompt (vault semantic search + **recent search-type memory lines** via **`GET …/memory?type=search`**). **Higher leverage next steps:** **Track A** recipes (docs) or **R1** one note **resource template** — same user-visible “Cursor polish” with less new infra.
+
+---
+
+## Paste this as your next session prompt — Phase B3+ (hosted memory semantic search)
+
+**Only if** you are prioritizing **`POST /api/v1/memory/search`** over recipes / R1 resources.
+
+```
+You are implementing Phase B3+ — real semantic search over the hosted memory event log (bridge POST /api/v1/memory/search), optional parity with self-hosted memory_search.
+
+Read first:
+1. hub/bridge/server.mjs — POST /api/v1/memory/search stub; GET /api/v1/memory + bridgeMemoryAuth + where events are stored (file vs blobs)
+2. lib/memory.mjs + lib/memory-provider-vector.mjs — how self-hosted searchEvents works; mcp/tools/memory.mjs — memory_search tool contract
+3. hub/bridge/server.mjs — vault POST /api/v1/search + embed path (reuse embedding client, limits, billing patterns)
+4. docs/PARITY-MATRIX-HOSTED.md § Agent memory — extend row when POST returns real results
+5. docs/HOSTED-HUB-MCP-INTERLOCK.md — H0–H4 for this endpoint
+
+Deliverables:
+- Replace stub with: load events for uid+vault → embed query + candidates (or incremental index) → ranked results JSON { results, count } with stable shape
+- Tests (bridge or lib) + rate limits; document billing if embeddings accrue
+- Optional: hosted MCP registerTool memory_search + ACL + mcp-hosted-tools-list golden + verify:hosted-mcp-checklist
+
+Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
+```
+
 ### Resources (hosted)
 
 | Phase | Target | Rationale |
@@ -159,7 +189,7 @@ From [`mcp/prompts/register.mjs`](../mcp/prompts/register.mjs):
 | Track B1–B3 | Hosted prompts batches |
 | **B1** | **Done** — merged PR **#174** (`main`). |
 | **B2** | **Done** — merged PR **#175** (`main`). Post-B2 smoke was **`prompts/list`** nine (viewer) / ten (editor/admin); with **B3** see **twelve** / **thirteen**. |
-| **B3 (in progress)** | Memory trio — prep on **`main`** (PR **#177**); **`registerPrompt`** implementation on **`feat/b3-memory-prompts-implementation`**. |
+| **B3** | **Done** — memory trio **`registerPrompt`** merged to **`main`** (PR **#178**); prep PR **#177**. |
 | R0–R3+ | Hosted resources |
 
 **Cursor plan file (local):** `.cursor/plans/hosted_mcp_prompts_resources_2303a796.plan.md` — MCP-only phases (Phase 0–3 for prompts pick + recipes + registerPrompt); anti-drift G0–G5 summarized there with link to this repo doc.
