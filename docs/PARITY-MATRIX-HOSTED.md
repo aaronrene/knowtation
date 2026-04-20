@@ -7,6 +7,7 @@
 | Check | Done |
 |-------|------|
 | **H0** Outcome + exact routes/auth documented | ☐ |
+| **H0** Agent memory `/api/v1/memory*` (Track B3 prep) | ☑ — contract in [`HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) § Track B3 prep; gateway→bridge tests in [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
 | **H1** Shared core implemented once (canister / bridge / `lib/`) | ☐ |
 | **H2** First client shipped | ☐ |
 | **H3** Second client calls same H1 paths | ☐ |
@@ -80,6 +81,23 @@ These MCP tools **reuse** the same canister and bridge primitives as rows above;
 
 ---
 
+## Agent memory (`/api/v1/memory*`) — Hub ↔ bridge ↔ future hosted MCP (Track B3 prep)
+
+Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/server.mjs`) proxies to **bridge** (`hub/bridge/server.mjs`) with the same **`Authorization: Bearer <JWT>`** and **`X-Vault-Id`** model as other bridge-backed routes; bridge derives `uid` from JWT and `vaultId` from **`X-Vault-Id`** or **`vault_id`** query (see `bridgeMemoryAuth`). **Hosted MCP** must use **`upstreamFetch`** to these gateway URLs (not disk `lib/memory`) once **`registerPrompt`** ships — **not registered until** list/search JSON is mapped and tested end-to-end.
+
+| User capability | Hub entry (UI / flow) | Canonical API (first hop) | Hosted MCP (planned) | Parity notes |
+|-----------------|----------------------|---------------------------|----------------------|--------------|
+| List memory events (time / type filters) | Settings → consolidation flow loads recent passes: `GET /api/v1/memory?type=consolidation_pass&limit=20` (`web/hub/hub.js`) | Gateway → **`GET {bridge}/api/v1/memory`** | Track B3: **`prompts/get`** (`memory-context`, `resume-session`, …) via **`GET …/memory?…`** | JSON **`{ events, count }`**. Each element includes **`type`**, **`ts`**, **`data`** (and typically **`id`**) — same fields `formatMemoryEventsAsync` reads from local `mm.list()` in [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs). Bridge applies **`type`**, **`since`**, **`until`**, **`limit`** (default **20**, max **100**). **Hosted (Netlify Blobs):** list reads blob store; **self-hosted:** `MemoryManager` + file provider. |
+| Latest value for a memory key | — (no dedicated Hub control; API exists) | Gateway → **`GET {bridge}/api/v1/memory/:key`** | Optional future tool/prompt helper | JSON **`{ key, value, updated_at, id? }`** (`value` is event **`data`** or null). |
+| Store / upsert user memory event | — | Gateway → **`POST {bridge}/api/v1/memory/store`** JSON **`{ key, value, ttl? }`** | Track B3+ if exposed | Bridge **`requireBridgeAuth`** + **`requireBridgeEditorOrAdmin`** (viewers **403**). |
+| Semantic search over memory | — | Gateway → **`POST {bridge}/api/v1/memory/search`** | **`memory-informed-search`** depends on real results | Bridge currently returns **`{ results: [], count: 0, note: 'Hosted memory search requires vector provider (future.)' }`** — **not equivalent** to local vector-backed search until implemented. |
+| Clear memory | — | Gateway → **`DELETE {bridge}/api/v1/memory/clear`** optional query **`type`**, **`before`** | Editor+ if exposed | Bridge **`requireBridgeAuth`** + **`requireBridgeEditorOrAdmin`**. |
+| Memory file stats | — | Gateway → **`GET {bridge}/api/v1/memory-stats`** | — | JSON from `MemoryManager.stats()`. |
+| Run consolidation (LLM) | Hub consolidation UI: preview + run | Gateway → **`POST {bridge}/api/v1/memory/consolidate`** (gateway **`runBillingGate`** + billing-aware body merge on hosted) | — | Bridge requires editor+; cooldown / cost fields — see interlock § Track B3 prep. |
+| Consolidation quota / cooldown | Hub reads status after run | Gateway → **`GET {bridge}/api/v1/memory/consolidate/status`** | — | JSON cooldown + cost summary fields. |
+
+---
+
 ## Session / identity (MCP resource)
 
 | User capability | Hub entry | Canonical API | Hosted MCP surface | Parity notes |
@@ -95,7 +113,7 @@ Capabilities that **correctly** have **no** row in the MCP column today (non-goa
 - Auth, invites, workspace admin: `/api/v1/auth/*`, `/api/v1/invites*`, `/api/v1/workspace`, `/api/v1/vault-access`, `/api/v1/scope`, `/api/v1/roles`
 - Billing: `/api/v1/billing/*`
 - Proposals CRUD / policy: `/api/v1/proposals*`, `/api/v1/settings/proposal-policy`
-- Memory API: `/api/v1/memory*` (hosted MCP memory prompts deferred per [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md))
+- *(Agent memory is covered in § **Agent memory** above; hosted MCP memory **prompts** remain unregistered until list/search contract tests land — [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).)*
 - Facets / folders helpers: `GET /api/v1/notes/facets`, `GET /api/v1/vault/folders` (Hub filters; MCP tools use `list_notes` / paths)
 - Attestations: `/api/v1/attest*`
 - Image upload / proxy: `upload-image`, `image-proxy*`
@@ -111,4 +129,4 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
 4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 
-Last inventory pass: **2026-04-19** — seventeen hosted tools and **ten** hosted prompts (Track B1 + B2; nine visible to **viewer** because `write-from-capture` requires **editor**) from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL tables.
+Last inventory pass: **2026-04-19** — seventeen hosted tools and **ten** hosted prompts (Track B1 + B2; nine visible to **viewer** because `write-from-capture` requires **editor**) from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL tables; **eight** gateway-proxied memory routes inventoried (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`) for Track B3 prep.

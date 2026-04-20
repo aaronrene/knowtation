@@ -57,6 +57,54 @@ Use this table when a capability must exist in **both** the browser and Cursor.
 | **H3** | Hub UI not required (composition / agent prefill only). |
 | **H4** | Docs: playbook prompt inventory + parity matrix row; tests: `mcp-hosted-prompts.test.mjs`; smoke: **`prompts/list`** nine (viewer) or ten (editor/admin); **`getPrompt`** for `knowledge-gap` / `causal-chain` after deploy. |
 
+### Track B3 prep — hosted agent memory HTTP (**H0** contract)
+
+**Outcome:** The Hub and (later) hosted MCP **prompts** use the **same** first-hop URLs under **`/api/v1/memory*`** — no second retention or partition rule in MCP. **B3 `registerPrompt` is not shipped** until **`GET /api/v1/memory`** and **`POST /api/v1/memory/search`** response JSON are mapped to prompt text (aligned with **`formatMemoryEventsAsync`** in [`mcp/prompts/helpers.mjs`](../mcp/prompts/helpers.mjs)) and covered by tests beyond the proxy smoke below.
+
+| Step | Track B3 memory (list / key / search / writes / consolidation) |
+|------|------------------------------------------------------------------|
+| **H0** | This subsection + parity matrix § **Agent memory**; gateway forwards **`Authorization`** + **`X-Vault-Id`**; bridge **`bridgeMemoryAuth`** parses JWT `sub` and vault id. |
+| **H1** | Shared core is **bridge** (`hub/bridge/server.mjs`) + **`lib/memory.mjs`** / **`lib/memory-event.mjs`** / providers; hosted raw events also use **Netlify Blobs** when `globalThis.__netlify_blob_store` is set. |
+| **H2** | **Hub** already calls consolidation + list passes (`web/hub/hub.js`). |
+| **H3** | **Hosted MCP** — future **`upstreamFetch`** from `mcp-hosted-server.mjs` to **gateway** paths (same as Hub), then map JSON → markdown lines for prompts. |
+| **H4** | Extend **`mcp-hosted-prompts.test.mjs`** golden **`prompts/list`** when three prompt IDs register; run **`npm run verify:hosted-mcp-checklist`** + **`npm test`** before merge to **`main`**. |
+
+#### Gateway proxy inventory (`hub/gateway/server.mjs`)
+
+All of the following use **`proxyTo(BRIDGE_URL, …)`** except **`POST /api/v1/memory/consolidate`**, which runs **`runBillingGate`** then optional billing merge on **`req.body`**, then proxies. Forwarded headers match other bridge proxies: **`Host`**, allowlisted **`content-type`** and **`accept`**, **`accept-language`**, **`accept-encoding`**, **`authorization`**, **`x-vault-id`** (see **`PROXY_HEADER_ALLOWLIST`** plus explicit auth/vault copy in **`proxyTo`**).
+
+| Gateway route | Upstream bridge path |
+|---------------|----------------------|
+| `GET /api/v1/memory/:key` | `GET /api/v1/memory/:key` (+ query preserved) |
+| `POST /api/v1/memory/store` | `POST /api/v1/memory/store` |
+| `GET /api/v1/memory` | `GET /api/v1/memory` (+ query preserved) |
+| `POST /api/v1/memory/search` | `POST /api/v1/memory/search` |
+| `DELETE /api/v1/memory/clear` | `DELETE /api/v1/memory/clear` |
+| `GET /api/v1/memory-stats` | `GET /api/v1/memory-stats` |
+| `POST /api/v1/memory/consolidate` | `POST /api/v1/memory/consolidate` (after billing gate) |
+| `GET /api/v1/memory/consolidate/status` | `GET /api/v1/memory/consolidate/status` |
+
+**Boundary tests (no live bridge):** [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) asserts path, query, JSON body, **`Authorization`**, and **`X-Vault-Id`** reach a mock bridge for **`GET /api/v1/memory`**, **`GET /api/v1/memory/:key`**, and **`POST /api/v1/memory/search`**.
+
+#### Bridge handlers (`hub/bridge/server.mjs`) — auth and shapes
+
+**`bridgeMemoryAuth`:** **`Authorization: Bearer <JWT>`** required for JSON responses that need a user; JWT verified with bridge session secret; **`x-vault-id`** header or **`vault_id`** query selects vault; invalid/missing Bearer → **`401`** with **`{ error, code: 'UNAUTHORIZED' }`**.
+
+| Bridge method | Path | Extra middleware | Response / notes |
+|---------------|------|-------------------|------------------|
+| `GET` | `/api/v1/memory/:key` | — | Latest event for semantic key: **`{ key, value, updated_at, id? }`**. |
+| `POST` | `/api/v1/memory/store` | **`requireBridgeAuth`**, **`requireBridgeEditorOrAdmin`**, **`express.json()`** | Body **`{ key, value, ttl? }`**; **`400`** if missing key/value. |
+| `GET` | `/api/v1/memory` | — | Query **`type`**, **`since`**, **`until`**, **`limit`** (cap **100**); **`{ events, count }`**. Events are **`createMemoryEvent`**-shaped objects (at minimum **`type`**, **`ts`**, **`data`**). |
+| `POST` | `/api/v1/memory/search` | **`express.json()`** | **Stub:** **`{ results: [], count: 0, note: 'Hosted memory search requires vector provider (future.)' }`** — MCP **`memory-informed-search`** must treat as **no semantic recall** until replaced. |
+| `DELETE` | `/api/v1/memory/clear` | **`requireBridgeAuth`**, **`requireBridgeEditorOrAdmin`** | Query **`type`**, **`before`**; passes through to **`MemoryManager.clear`**. |
+| `GET` | `/api/v1/memory-stats` | — | **`MemoryManager.stats()`** JSON. |
+| `POST` | `/api/v1/memory/consolidate` | **`requireBridgeAuth`**, **`requireBridgeEditorOrAdmin`**, **`express.json()`** | LLM + cooldown + cost; see bridge source for **`429`** / **`503`** codes. |
+| `GET` | `/api/v1/memory/consolidate/status` | — | Cooldown + pass counts for UI. |
+
+#### JSON → prompt text (`formatMemoryEventsAsync` parity)
+
+Self-hosted prompts call **`mm.list()`** and format lines as **`- **${e.ts}** [${e.type}] ${JSON.stringify(e.data).slice(0, 200)}`**. Hosted MCP should consume **`GET /api/v1/memory`** **`events[]`** with the **same field names** so the markdown block matches user expectations. **`limit`:** local helper caps at **`MAX_MEMORY_EVENTS` (30)** with default **20**; bridge allows **`limit` ≤ 100** — prompts should pass an explicit **`limit`** (e.g. **20**) for stable parity until product aligns caps.
+
 ---
 
 ## Where code lives (quick map)

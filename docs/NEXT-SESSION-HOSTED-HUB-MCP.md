@@ -85,7 +85,7 @@ G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174
 |-----------|--------|--------|
 | **Track B1** — five prompts | **Merged** to `main` (PR **#174**) | `mcp-hosted-server.mjs` + ACL + tests |
 | **Track B2** — five prompts | **Merged** to `main` (PR **#175**) | Same; **`prompts/list`** = **9** (viewer) / **10** (editor/admin) |
-| **Track B3** — memory trio | **Not started** on hosted MCP | Blocked: contract + tests below |
+| **Track B3** — memory trio | **Prep in progress** (H0 + gateway proxy tests on branch) | **`registerPrompt` not added** until list/search JSON mapping + tests; see parity matrix § Agent memory + [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
 
 ---
 
@@ -97,9 +97,9 @@ G0 matrix and Track A recipes are in repo. Track B1 + B2 are on `main` (PRs #174
 
 ### Suggested steps (in order)
 
-1. **Inventory (read-only):** List every `app.*('/api/v1/memory` route in `hub/gateway/server.mjs` and the matching handler in `hub/bridge/server.mjs`. Note which require **`requireBridgeEditorOrAdmin`** vs read-only.
-2. **H0 doc row:** Add or extend a row in [`HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) / [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md): Hub action → gateway proxy path → bridge → **future** MCP tool or **prompt** `upstreamFetch` (no second implementation of retention or billing rules in MCP).
-3. **Shape comparison:** Compare bridge `GET /api/v1/memory` (and `search` body/response) to local `createMemoryManager(config).list(...)` output used by `formatMemoryEventsAsync`. Document field mapping or intentional deltas.
+1. **Inventory (read-only):** List every `app.*('/api/v1/memory` route in `hub/gateway/server.mjs` and the matching handler in `hub/bridge/server.mjs`. Note which require **`requireBridgeEditorOrAdmin`** vs read-only. **Done (2026-04-19):** eight gateway routes ↔ bridge; table in [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) § Agent memory.
+2. **H0 doc row:** Add or extend a row in [`HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) / [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md): Hub action → gateway proxy path → bridge → **future** MCP tool or **prompt** `upstreamFetch` (no second implementation of retention or billing rules in MCP). **Done (2026-04-19):** interlock § Track B3 prep + matrix section.
+3. **Shape comparison:** Compare bridge `GET /api/v1/memory` (and `search` body/response) to local `createMemoryManager(config).list(...)` output used by `formatMemoryEventsAsync`. Document field mapping or intentional deltas. **Done in H0 text:** same **`type` / `ts` / `data`** line format; **`POST /memory/search`** stub documented; **`limit`** cap delta (bridge max 100 vs helper max 30) noted in interlock.
 4. **Tests first at the boundary:** Prefer tests that hit the bridge contract with mocks (or integration if you have a harness), then add a thin **`registerTool`** optional phase (e.g. `memory_list`) if prompts need shared fetch logic — *only if* that reduces duplication; otherwise prompts call `upstreamFetch` directly like B1/B2.
 5. **Implement B3 prompts** on `feat/hosted-mcp-prompts-b3`: `memory-context`, `memory-informed-search`, `resume-session`; extend `HOSTED_PROMPT_IDS`, golden `prompts/list` tests, **`verify:hosted-mcp-checklist`**.
 6. **Single PR to `main`:** Ship gateway + tests + doc updates together (no docs-only PR).
