@@ -4,7 +4,8 @@
  * Tools are role-filtered based on user permissions.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import {
@@ -2243,6 +2244,60 @@ export function createHostedMcpServer(ctx) {
           });
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  /**
+   * R1 hosted resources: one `ResourceTemplate` for note reads (same upstream as `get_note`).
+   * `.md` paths only — folder JSON listings stay deferred to R2.
+   */
+  if (isToolAllowed('get_note', role)) {
+    const hostedVaultNoteTemplate = new ResourceTemplate('knowtation://hosted/vault/{+path}', {});
+    server.registerResource(
+      'hosted-vault-note',
+      hostedVaultNoteTemplate,
+      {
+        title: 'Hosted vault note',
+        description: 'Read a single markdown note by vault-relative path (same canister GET as get_note).',
+      },
+      async (uri, variables) => {
+        let rel = variables.path;
+        if (Array.isArray(rel)) rel = rel[0];
+        rel = decodeURIComponent(String(rel || '').replace(/\\/g, '/'));
+        if (!rel || rel.includes('..')) {
+          throw new McpError(ErrorCode.InvalidParams, 'Invalid path');
+        }
+        if (!rel.endsWith('.md')) {
+          throw new McpError(ErrorCode.InvalidParams, 'Resource supports .md note paths only (folder listings are R2).');
+        }
+        try {
+          const data = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(rel)}`,
+            canisterFetchOpts
+          );
+          const path = data.path != null ? String(data.path) : rel;
+          const markdown = noteToMarkdown({
+            path,
+            frontmatter: data.frontmatter && typeof data.frontmatter === 'object' ? data.frontmatter : {},
+            body: data.body != null ? String(data.body) : '',
+          });
+          const title = displayTitleFromHostedNote(data) || path.split('/').pop() || path;
+          const desc = String(data.body || '').slice(0, 160).replace(/\s+/g, ' ').trim();
+          return {
+            contents: [
+              {
+                uri: uri.toString(),
+                mimeType: 'text/markdown',
+                text: markdown,
+                _meta: { title, description: desc || undefined },
+              },
+            ],
+          };
+        } catch (e) {
+          const msg = e.message || String(e);
+          throw new McpError(ErrorCode.InternalError, msg);
         }
       }
     );
