@@ -269,6 +269,20 @@ describe('hosted MCP canister user parity', () => {
   });
 
   it('vault-info resource exposes actor userId and canisterUserId', async () => {
+    origFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.startsWith(`${CANISTER_URL}/api/v1/notes`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ notes: [], total: 0 }),
+          text: async () => '{"notes":[],"total":0}',
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    };
+
     const mcpServer = createHostedMcpServer({
       userId: 'google:actor',
       canisterUserId: 'google:owner',
