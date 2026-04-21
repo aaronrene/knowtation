@@ -84,6 +84,9 @@ const HOSTED_CLUSTER_TEXT_SLICE = 800;
 /** Max notes expanded into MCP `resources/list` for the hosted vault note template (SDK merges `list` results there). */
 const HOSTED_VAULT_RESOURCE_LIST_MAX = 50;
 
+/** R2: static `knowtation://hosted/vault-listing` uses this cap (same canister list as `list_notes`). */
+const HOSTED_VAULT_LISTING_RESOURCE_LIMIT = 100;
+
 function vaultPathKey(p) {
   return String(p ?? '').replace(/\\/g, '/').trim();
 }
@@ -2335,6 +2338,35 @@ export function createHostedMcpServer(ctx) {
           const msg = e.message || String(e);
           throw new McpError(ErrorCode.InternalError, msg);
         }
+      }
+    );
+  }
+
+  /**
+   * R2 (initial): static JSON listing resource — first page only; filters/pagination remain on `list_notes`.
+   */
+  if (isToolAllowed('list_notes', role)) {
+    server.registerResource(
+      'hosted-vault-listing',
+      'knowtation://hosted/vault-listing',
+      {
+        title: 'Hosted vault listing (first page)',
+        description: `JSON from GET /api/v1/notes?limit=${HOSTED_VAULT_LISTING_RESOURCE_LIMIT}&offset=0 (same upstream as list_notes).`,
+      },
+      async () => {
+        const params = new URLSearchParams();
+        params.set('limit', String(HOSTED_VAULT_LISTING_RESOURCE_LIMIT));
+        params.set('offset', '0');
+        const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+        return {
+          contents: [
+            {
+              uri: 'knowtation://hosted/vault-listing',
+              mimeType: 'application/json',
+              text: JSON.stringify(data),
+            },
+          ],
+        };
       }
     );
   }

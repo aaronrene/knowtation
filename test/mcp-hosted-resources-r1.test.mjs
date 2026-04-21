@@ -203,3 +203,50 @@ describe('hosted MCP R1 — vault note resource template', () => {
     );
   });
 });
+
+describe('hosted MCP R2 — vault-listing static resource', () => {
+  let mock;
+  let client;
+
+  afterEach(async () => {
+    mock?.restore();
+    try {
+      await client?.close();
+    } catch (_) {}
+  });
+
+  it('readResource uses GET /api/v1/notes?limit=100&offset=0', async () => {
+    mock = installNoteFetchMock({}, { notes: [{ path: 'a.md', frontmatter: {}, body: '' }], total: 99 });
+    ({ client } = await connect({
+      userId: 'u1',
+      vaultId: 'v1',
+      role: 'viewer',
+      token: 't',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    }));
+
+    const read = await client.readResource({ uri: 'knowtation://hosted/vault-listing' });
+    assert.equal(read.contents[0].mimeType, 'application/json');
+    const j = JSON.parse(read.contents[0].text);
+    assert.equal(j.total, 99);
+
+    const listCalls = mock.calls.filter((c) => String(c.url).includes('/api/v1/notes?'));
+    assert.ok(listCalls.some((c) => c.url.includes('limit=100') && c.url.includes('offset=0')));
+  });
+
+  it('listResources includes knowtation://hosted/vault-listing', async () => {
+    mock = installNoteFetchMock({}, { notes: [], total: 0 });
+    ({ client } = await connect({
+      userId: 'u1',
+      vaultId: 'v1',
+      role: 'viewer',
+      token: 't',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    }));
+    const { resources } = await client.listResources();
+    const row = resources.find((r) => r.uri === 'knowtation://hosted/vault-listing');
+    assert.ok(row, 'vault-listing listed');
+  });
+});
