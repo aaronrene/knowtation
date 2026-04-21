@@ -2256,8 +2256,8 @@ export function createHostedMcpServer(ctx) {
   }
 
   /**
-   * R1 hosted resources: one `ResourceTemplate` for note reads (same upstream as `get_note`).
-   * `.md` paths only — folder JSON listings stay deferred to R2.
+   * R1 + R2 hosted resources: one `ResourceTemplate` for note reads (same upstream as `get_note`)
+   * and folder JSON listings (same upstream as `list_notes` with `folder`).
    *
    * When `list_notes` is allowed, a `list` callback is set so the MCP SDK merges concrete URIs into
    * `resources/list` (see `@modelcontextprotocol/sdk` McpServer `setResourceRequestHandlers`). Cursor’s
@@ -2298,39 +2298,81 @@ export function createHostedMcpServer(ctx) {
       'hosted-vault-note',
       hostedVaultNoteTemplate,
       {
-        title: 'Hosted vault note',
-        description: 'Read a single markdown note by vault-relative path (same canister GET as get_note).',
+        title: 'Hosted vault note or folder',
+        description:
+          'Markdown note if path ends with .md (same canister GET as get_note); otherwise JSON folder listing (GET /api/v1/notes?folder=…, same as list_notes).',
       },
       async (uri, variables) => {
         let rel = variables.path;
         if (Array.isArray(rel)) rel = rel[0];
-        rel = decodeURIComponent(String(rel || '').replace(/\\/g, '/'));
-        if (!rel || rel.includes('..')) {
+        rel = decodeURIComponent(String(rel || '').replace(/\\/g, '/')).trim();
+        if (rel.includes('..')) {
           throw new McpError(ErrorCode.InvalidParams, 'Invalid path');
         }
-        if (!rel.endsWith('.md')) {
-          throw new McpError(ErrorCode.InvalidParams, 'Resource supports .md note paths only (folder listings are R2).');
+        const isNote = rel.endsWith('.md');
+        if (isNote && !rel) {
+          throw new McpError(ErrorCode.InvalidParams, 'Invalid path');
         }
-        try {
-          const data = await upstreamFetch(
-            `${canisterUrl}/api/v1/notes/${encodeURIComponent(rel)}`,
-            canisterFetchOpts
+        if (isNote) {
+          try {
+            const data = await upstreamFetch(
+              `${canisterUrl}/api/v1/notes/${encodeURIComponent(rel)}`,
+              canisterFetchOpts
+            );
+            const path = data.path != null ? String(data.path) : rel;
+            const markdown = noteToMarkdown({
+              path,
+              frontmatter: data.frontmatter && typeof data.frontmatter === 'object' ? data.frontmatter : {},
+              body: data.body != null ? String(data.body) : '',
+            });
+            const title = displayTitleFromHostedNote(data) || path.split('/').pop() || path;
+            const desc = String(data.body || '').slice(0, 160).replace(/\s+/g, ' ').trim();
+            return {
+              contents: [
+                {
+                  uri: uri.toString(),
+                  mimeType: 'text/markdown',
+                  text: markdown,
+                  _meta: { title, description: desc || undefined },
+                },
+              ],
+            };
+          } catch (e) {
+            const msg = e.message || String(e);
+            throw new McpError(ErrorCode.InternalError, msg);
+          }
+        }
+
+        if (!isToolAllowed('list_notes', role)) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'Folder listing requires list_notes to be allowed for this session.',
           );
-          const path = data.path != null ? String(data.path) : rel;
-          const markdown = noteToMarkdown({
-            path,
-            frontmatter: data.frontmatter && typeof data.frontmatter === 'object' ? data.frontmatter : {},
-            body: data.body != null ? String(data.body) : '',
-          });
-          const title = displayTitleFromHostedNote(data) || path.split('/').pop() || path;
-          const desc = String(data.body || '').slice(0, 160).replace(/\s+/g, ' ').trim();
+        }
+        const folderNorm = rel.replace(/\/+$/, '');
+        try {
+          const params = new URLSearchParams();
+          params.set('limit', String(HOSTED_VAULT_LISTING_RESOURCE_LIMIT));
+          params.set('offset', '0');
+          if (folderNorm) params.set('folder', folderNorm);
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(data?.notes) ? data.notes : [];
+          const total = typeof data?.total === 'number' ? data.total : notes.length;
+          const limit = HOSTED_VAULT_LISTING_RESOURCE_LIMIT;
+          const folderLabel = folderNorm ? `/${folderNorm.replace(/^\/+/, '')}` : '/';
+          const payload = {
+            folder: folderLabel,
+            notes,
+            total,
+            limit,
+            truncated: total > limit,
+          };
           return {
             contents: [
               {
                 uri: uri.toString(),
-                mimeType: 'text/markdown',
-                text: markdown,
-                _meta: { title, description: desc || undefined },
+                mimeType: 'application/json',
+                text: JSON.stringify(payload),
               },
             ],
           };
