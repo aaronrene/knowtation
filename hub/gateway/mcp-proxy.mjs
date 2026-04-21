@@ -60,6 +60,7 @@ export function parseMcpMaxSessionsPerUser(env = process.env) {
  *   userId: string,
  *   vaultId: string,
  *   lastActive: number,
+ *   liveAuth?: { token: string, vaultId: string },
  * }} McpSession
  */
 
@@ -164,6 +165,8 @@ export function createMcpProxyRouter(deps) {
     const vaultId = String(req.headers['x-vault-id'] || 'default');
     const role = ctx.role || 'viewer';
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    /** Mutated on every `/mcp` request so hosted tools use the current Bearer (JWT refresh), not only the connect-time token. */
+    const liveAuth = { token, vaultId };
     /** Match `gatewayProxyGetNotesList` / `proxyToCanister`: canister reads use effective workspace user when set. */
     const canisterUserId =
       typeof ctx.effective_canister_user_id === 'string' && ctx.effective_canister_user_id.trim() !== ''
@@ -179,6 +182,7 @@ export function createMcpProxyRouter(deps) {
           userId: uid,
           vaultId,
           lastActive: Date.now(),
+          liveAuth,
         };
         sessions.set(id, session);
         const set = userSessions.get(uid) || new Set();
@@ -197,6 +201,7 @@ export function createMcpProxyRouter(deps) {
       canisterAuthSecret: canisterAuthSecret || '',
       bridgeUrl,
       scope: ctx.scope || {},
+      liveAuth,
     });
 
     await mcpServer.connect(transport);
@@ -218,6 +223,13 @@ export function createMcpProxyRouter(deps) {
     }
   }
 
+  function syncLiveAuthFromRequest(req, session) {
+    if (!session?.liveAuth) return;
+    const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (t) session.liveAuth.token = t;
+    session.liveAuth.vaultId = String(req.headers['x-vault-id'] || 'default');
+  }
+
   router.post('/', async (req, res) => {
     try {
       const sessionId = req.headers['mcp-session-id'];
@@ -225,6 +237,7 @@ export function createMcpProxyRouter(deps) {
 
       if (existing && existing.userId === req.mcpUserId) {
         existing.lastActive = Date.now();
+        syncLiveAuthFromRequest(req, existing);
         await existing.transport.handleRequest(req, res, req.body);
         return;
       }
@@ -246,6 +259,7 @@ export function createMcpProxyRouter(deps) {
       return res.status(404).json({ jsonrpc: '2.0', error: { code: -32600, message: 'Session not found' } });
     }
     session.lastActive = Date.now();
+    syncLiveAuthFromRequest(req, session);
     await session.transport.handleRequest(req, res, req.body);
   });
 

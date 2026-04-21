@@ -337,22 +337,34 @@ async function bridgeImportMultipart(bridgeUrl, fetchOpts, formData) {
  *   canisterAuthSecret?: string,
  *   bridgeUrl: string,
  *   scope?: Record<string, unknown>,
+ *   liveAuth?: { token: string, vaultId: string },
  * }} ctx
+ *
+ * When **`liveAuth`** is set, `mcp-proxy` mutates **`token`** / **`vaultId`** on each HTTP request so upstream
+ * calls use the current **`Authorization`** header (JWT refresh). Otherwise the initial `token` is fixed for the process lifetime.
  * @returns {McpServer}
  */
 export function createHostedMcpServer(ctx) {
   const { userId, vaultId, role, token, canisterUrl, canisterAuthSecret, bridgeUrl, scope = {} } = ctx;
+  const liveAuth = ctx.liveAuth && typeof ctx.liveAuth === 'object' ? ctx.liveAuth : null;
   const canisterUserId =
     typeof ctx.canisterUserId === 'string' && ctx.canisterUserId.trim() !== '' ? ctx.canisterUserId.trim() : userId;
   const server = new McpServer(
     { name: 'knowtation-hosted', version: '0.1.0' },
     { capabilities: { logging: {} } }
   );
-  const fetchOpts = { token, vaultId };
-  /** Same as Hub proxy: bridge resolves `effectiveCanisterUid` from JWT; header aids debugging. */
-  const bridgeFetchOpts = { token, vaultId, userId };
-  /** Canister `X-User-Id` matches Hub gateway: `effective_canister_user_id` when MCP session supplies it. */
-  const canisterFetchOpts = { ...fetchOpts, userId: canisterUserId, canisterAuthSecret: canisterAuthSecret || '' };
+  /** Canister + gateway-auth headers (reads `liveAuth` when MCP proxy refreshes JWT each request). */
+  function canisterHeaders() {
+    const tok = liveAuth ? liveAuth.token : token;
+    const vid = liveAuth ? liveAuth.vaultId : vaultId;
+    return { token: tok, vaultId: vid, userId: canisterUserId, canisterAuthSecret: canisterAuthSecret || '' };
+  }
+  /** Bridge headers (JWT + vault + actor `X-User-Id`). */
+  function bridgeHeaders() {
+    const tok = liveAuth ? liveAuth.token : token;
+    const vid = liveAuth ? liveAuth.vaultId : vaultId;
+    return { token: tok, vaultId: vid, userId };
+  }
 
   /**
    * Shared multipart body for bridge `POST /api/v1/import` (hosted `import` and `transcribe` tools).
@@ -389,7 +401,7 @@ export function createHostedMcpServer(ctx) {
         : String(args.tags);
       if (tagsStr) form.set('tags', tagsStr);
     }
-    return bridgeImportMultipart(bridgeUrl, bridgeFetchOpts, form);
+    return bridgeImportMultipart(bridgeUrl, bridgeHeaders(), form);
   }
 
   if (isToolAllowed('search', role)) {
@@ -438,7 +450,7 @@ export function createHostedMcpServer(ctx) {
           if (args.episode != null) body.episode = args.episode;
           if (args.content_scope != null) body.content_scope = args.content_scope;
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body,
           });
@@ -477,7 +489,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const note = await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-            canisterFetchOpts
+            canisterHeaders()
           );
           const titleFm = titleFromCanisterFrontmatter(note.frontmatter) ?? '';
           const body = note.body != null ? String(note.body) : '';
@@ -501,7 +513,7 @@ export function createHostedMcpServer(ctx) {
           }
 
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: searchBody,
           });
@@ -517,7 +529,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const rn = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               related.push({
                 path: p,
@@ -536,7 +548,7 @@ export function createHostedMcpServer(ctx) {
               try {
                 const rn = await upstreamFetch(
                   `${canisterUrl}/api/v1/notes/${encodeURIComponent(r.path)}`,
-                  canisterFetchOpts
+                  canisterHeaders()
                 );
                 const noteForTitle = { ...rn, path: (rn && rn.path) || r.path };
                 r.title = displayTitleFromHostedNote(noteForTitle) ?? pathFallback;
@@ -577,7 +589,7 @@ export function createHostedMcpServer(ctx) {
         try {
           await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-            canisterFetchOpts
+            canisterHeaders()
           );
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
@@ -592,7 +604,7 @@ export function createHostedMcpServer(ctx) {
           const pageSize = Math.min(HOSTED_BACKLINKS_PAGE_SIZE, Math.max(1, remain));
           const list = await upstreamFetch(
             `${canisterUrl}/api/v1/notes?limit=${pageSize}&offset=${offset}`,
-            canisterFetchOpts
+            canisterHeaders()
           );
           const rows = Array.isArray(list.notes) ? list.notes : [];
           if (rows.length === 0) break;
@@ -605,7 +617,7 @@ export function createHostedMcpServer(ctx) {
             try {
               full = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
             } catch {
               continue;
@@ -681,7 +693,7 @@ export function createHostedMcpServer(ctx) {
             if (args.until) params.set('until', args.until);
             params.set('limit', String(pageSize));
             params.set('offset', String(offset));
-            const list = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const list = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
             const rows = Array.isArray(list.notes) ? list.notes : [];
             if (rows.length === 0) break;
             for (const row of rows) {
@@ -695,7 +707,7 @@ export function createHostedMcpServer(ctx) {
                 try {
                   const full = await upstreamFetch(
                     `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                    canisterFetchOpts
+                    canisterHeaders()
                   );
                   body = full.body != null ? String(full.body) : '';
                 } catch {
@@ -766,7 +778,7 @@ export function createHostedMcpServer(ctx) {
             if (args.project) params.set('project', args.project);
             params.set('limit', String(pageSize));
             params.set('offset', String(offset));
-            const list = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const list = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
             const rows = Array.isArray(list.notes) ? list.notes : [];
             if (rows.length === 0) break;
             for (const row of rows) {
@@ -781,7 +793,7 @@ export function createHostedMcpServer(ctx) {
                 try {
                   const full = await upstreamFetch(
                     `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                    canisterFetchOpts
+                    canisterHeaders()
                   );
                   body = full.body != null ? String(full.body) : '';
                 } catch {
@@ -809,7 +821,7 @@ export function createHostedMcpServer(ctx) {
           }
 
           const embedRes = await upstreamFetch(`${bridgeUrl}/api/v1/embed`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: { texts },
           });
@@ -922,7 +934,7 @@ export function createHostedMcpServer(ctx) {
           if (hasPath) {
             const note = await upstreamFetch(
               `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-              canisterFetchOpts
+              canisterHeaders()
             );
             const titleFm = titleFromCanisterFrontmatter(note.frontmatter) ?? '';
             const body = note.body != null ? String(note.body) : '';
@@ -949,7 +961,7 @@ export function createHostedMcpServer(ctx) {
             snippetChars: 200,
           };
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: searchBody,
           });
@@ -969,7 +981,7 @@ export function createHostedMcpServer(ctx) {
               try {
                 noteForTags = await upstreamFetch(
                   `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                  canisterFetchOpts
+                  canisterHeaders()
                 );
               } catch {
                 continue;
@@ -1008,7 +1020,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const data = await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-            canisterFetchOpts
+            canisterHeaders()
           );
           return jsonResponse(data);
         } catch (e) {
@@ -1043,7 +1055,7 @@ export function createHostedMcpServer(ctx) {
           if (args.until) params.set('until', args.until);
           if (args.limit) params.set('limit', String(args.limit));
           if (args.offset) params.set('offset', String(args.offset));
-          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
@@ -1067,7 +1079,7 @@ export function createHostedMcpServer(ctx) {
       async (args) => {
         try {
           const data = await upstreamFetch(`${canisterUrl}/api/v1/notes`, {
-            ...canisterFetchOpts,
+            ...canisterHeaders(),
             method: 'POST',
             body: { path: args.path, body: args.body, frontmatter: args.frontmatter },
           });
@@ -1106,7 +1118,7 @@ export function createHostedMcpServer(ctx) {
             tags: args.tags,
           });
           const data = await upstreamFetch(`${canisterUrl}/api/v1/notes`, {
-            ...canisterFetchOpts,
+            ...canisterHeaders(),
             method: 'POST',
             body: { path, body, frontmatter },
           });
@@ -1162,7 +1174,7 @@ export function createHostedMcpServer(ctx) {
       async () => {
         try {
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/index`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
           });
           return jsonResponse(data);
@@ -1193,7 +1205,7 @@ export function createHostedMcpServer(ctx) {
               ? { repo: String(args.repo).trim() }
               : {};
           const data = await upstreamFetch(`${bridgeUrl}/api/v1/vault/sync`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body,
           });
@@ -1248,7 +1260,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const data = await canisterGetJsonWithByteLimit(
             `${canisterUrl}/api/v1/export`,
-            canisterFetchOpts,
+            canisterHeaders(),
             HOSTED_MCP_EXPORT_MAX_RESPONSE_BYTES
           );
           return jsonResponse(data);
@@ -1283,7 +1295,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               bodies.push(`## ${p}\n${note.body || ''}`);
             } catch (_) {}
@@ -1332,7 +1344,7 @@ export function createHostedMcpServer(ctx) {
         params.set('limit', '80');
         params.set('offset', '0');
         try {
-          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
           const notes = Array.isArray(data.notes) ? data.notes : [];
           const lines = notes.length
             ? notes.map((n, i) => {
@@ -1391,7 +1403,7 @@ export function createHostedMcpServer(ctx) {
         }
         try {
           const searchOut = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: searchBody,
           });
@@ -1411,7 +1423,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
               messages.push({
@@ -1474,7 +1486,7 @@ export function createHostedMcpServer(ctx) {
         params.set('limit', String(PROJECT_SUMMARY_NOTES));
         params.set('offset', '0');
         try {
-          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
           const notes = Array.isArray(out.notes) ? out.notes : [];
           const total = typeof out.total === 'number' ? out.total : notes.length;
           const messages = [
@@ -1491,7 +1503,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
               messages.push({
@@ -1558,7 +1570,7 @@ export function createHostedMcpServer(ctx) {
           }
           try {
             const so = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-              ...bridgeFetchOpts,
+              ...bridgeHeaders(),
               method: 'POST',
               body: {
                 query: String(args.topic),
@@ -1587,7 +1599,7 @@ export function createHostedMcpServer(ctx) {
         params.set('limit', '100');
         params.set('offset', '0');
         try {
-          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
           let notes = Array.isArray(out.notes) ? out.notes : [];
           if (pathSet) {
             notes = notes.filter((n) => n.path && pathSet.has(n.path));
@@ -1655,7 +1667,7 @@ export function createHostedMcpServer(ctx) {
         params.set('limit', String(CONTENT_PLAN_NOTES));
         params.set('offset', '0');
         try {
-          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
           const notes = Array.isArray(out.notes) ? out.notes : [];
           const messages = [
             {
@@ -1671,7 +1683,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
               messages.push({
@@ -1772,7 +1784,7 @@ export function createHostedMcpServer(ctx) {
         }
         try {
           const so = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: searchBody,
           });
@@ -1828,7 +1840,7 @@ export function createHostedMcpServer(ctx) {
         const inc = String(args.include_summaries || '').toLowerCase() === 'true';
         try {
           const searchOut = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: {
               query: chainSlug,
@@ -1852,7 +1864,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               loaded.push({ path: p, note: /** @type {Record<string, unknown>} */ (note) });
             } catch (_) {}
@@ -1937,7 +1949,7 @@ export function createHostedMcpServer(ctx) {
         params.set('limit', String(MAX_ENTITY_NOTES));
         params.set('offset', '0');
         try {
-          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const out = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
           const notes = Array.isArray(out.notes) ? out.notes : [];
           const messages = [
             {
@@ -1953,7 +1965,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
               messages.push({
@@ -2043,7 +2055,7 @@ export function createHostedMcpServer(ctx) {
           params.set('type', String(args.type).trim());
         }
         try {
-          const mem = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${params}`, bridgeFetchOpts);
+          const mem = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${params}`, bridgeHeaders());
           const { text, count } = formatMemoryEventsFromBridgeResponse(mem, { limit });
           return {
             description: `Memory context (${count} events)`,
@@ -2098,7 +2110,7 @@ export function createHostedMcpServer(ctx) {
         }
         try {
           const searchOut = await upstreamFetch(`${bridgeUrl}/api/v1/search`, {
-            ...bridgeFetchOpts,
+            ...bridgeHeaders(),
             method: 'POST',
             body: searchBody,
           });
@@ -2109,7 +2121,7 @@ export function createHostedMcpServer(ctx) {
           const memParams = new URLSearchParams();
           memParams.set('type', 'search');
           memParams.set('limit', '10');
-          const memJson = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${memParams}`, bridgeFetchOpts);
+          const memJson = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${memParams}`, bridgeHeaders());
           const { text: memText, count: memCount } = formatMemoryEventsFromBridgeResponse(memJson, { limit: 10 });
           const messages = [
             {
@@ -2124,7 +2136,7 @@ export function createHostedMcpServer(ctx) {
             try {
               const note = await upstreamFetch(
                 `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                canisterFetchOpts
+                canisterHeaders()
               );
               const uri = `knowtation://hosted/note/${String(p).replace(/^\/+/, '')}`;
               messages.push({
@@ -2176,14 +2188,14 @@ export function createHostedMcpServer(ctx) {
           const paramsAll = new URLSearchParams();
           paramsAll.set('since', since);
           paramsAll.set('limit', '30');
-          const memAll = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${paramsAll}`, bridgeFetchOpts);
+          const memAll = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${paramsAll}`, bridgeHeaders());
           const { text: allText, count: allCount } = formatMemoryEventsFromBridgeResponse(memAll, { limit: 30 });
 
           const paramsSum = new URLSearchParams();
           paramsSum.set('type', 'session_summary');
           paramsSum.set('since', since);
           paramsSum.set('limit', '5');
-          const memSum = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${paramsSum}`, bridgeFetchOpts);
+          const memSum = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${paramsSum}`, bridgeHeaders());
           const { text: summaryText, count: summaryCount } = formatMemoryEventsFromBridgeResponse(memSum, {
             limit: 5,
           });
@@ -2230,7 +2242,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const note = await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
-            canisterFetchOpts
+            canisterHeaders()
           );
           const body = (note.body || '').slice(0, 32000);
           const existingFm = note.frontmatter || {};
@@ -2271,7 +2283,7 @@ export function createHostedMcpServer(ctx) {
             const params = new URLSearchParams();
             params.set('limit', String(HOSTED_VAULT_RESOURCE_LIST_MAX));
             params.set('offset', '0');
-            const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
             const notes = Array.isArray(data?.notes) ? data.notes : [];
             const resources = [];
             for (const n of notes) {
@@ -2314,7 +2326,7 @@ export function createHostedMcpServer(ctx) {
         try {
           const data = await upstreamFetch(
             `${canisterUrl}/api/v1/notes/${encodeURIComponent(rel)}`,
-            canisterFetchOpts
+            canisterHeaders()
           );
           const path = data.path != null ? String(data.path) : rel;
           const markdown = noteToMarkdown({
@@ -2357,7 +2369,7 @@ export function createHostedMcpServer(ctx) {
         const params = new URLSearchParams();
         params.set('limit', String(HOSTED_VAULT_LISTING_RESOURCE_LIMIT));
         params.set('offset', '0');
-        const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+        const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterHeaders());
         return {
           contents: [
             {
