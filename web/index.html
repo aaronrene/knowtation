@@ -456,7 +456,7 @@
       font-size: clamp(1.05rem, 2.2vw, 1.22rem);
       font-weight: 700;
       text-align: center;
-      margin: 0 0 0.4rem;
+      margin: 0 0 0.65rem;
       color: var(--text);
       letter-spacing: -0.02em;
       line-height: 1.25;
@@ -465,7 +465,7 @@
       text-align: center;
       font-size: 0.9rem;
       color: var(--text-muted);
-      margin: 0 auto 1.25rem;
+      margin: 0 auto 1.55rem;
       max-width: 36rem;
       line-height: 1.55;
     }
@@ -482,23 +482,28 @@
     }
     .band-b-step {
       margin: 0;
-      padding: 1rem 0.95rem 1.05rem;
+      padding: 1.1rem 0.95rem 1.15rem;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--surface);
     }
+    .band-b-step-marker {
+      display: block;
+      font-family: var(--font-sans);
+      font-size: clamp(1.85rem, 5vw, 2.65rem);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--accent);
+      margin: 0 0 0.55rem;
+      letter-spacing: -0.03em;
+    }
     .band-b-step-title {
       font-family: var(--font-sans);
-      font-size: clamp(0.95rem, 2vw, 1.02rem);
+      font-size: clamp(0.95rem, 2vw, 1.05rem);
       font-weight: 700;
       margin: 0 0 0.45rem;
       color: var(--text);
       line-height: 1.3;
-    }
-    .band-b-step-marker {
-      color: var(--accent);
-      font-weight: 700;
-      margin-right: 0.2em;
     }
     .band-b-step p {
       margin: 0;
@@ -519,6 +524,14 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
       border-radius: 4px;
+    }
+    .band-b-step-link--secondary {
+      font-weight: 500;
+      margin-top: 0.4rem;
+      color: color-mix(in srgb, var(--accent) 88%, var(--text-muted));
+    }
+    .band-b-step-link--secondary:hover {
+      color: var(--accent);
     }
 
     /* Ecosystem rings (hero graphic) */
@@ -1410,23 +1423,27 @@
 
   <section class="band-b-path wide" aria-labelledby="band-b-heading">
     <div class="band-b-path-inner">
-      <h2 id="band-b-heading" class="band-b-heading">Easy start: 1 · 2 · 3</h2>
-      <p class="band-b-lead">From first notes in the vault, to assistants on MCP, to running the stack yourself when you want full control.</p>
+      <h2 id="band-b-heading" class="band-b-heading">Easy start</h2>
+      <p class="band-b-lead">Vault first, then agents (MCP in the editor, CLI in the terminal), then copy-paste prompts so your assistant can drive setup. Self-host when you are ready—second link in step 3.</p>
       <ul class="band-b-steps" role="list">
         <li class="band-b-step">
-          <h3 class="band-b-step-title"><span class="band-b-step-marker">1</span>Note / import</h3>
+          <span class="band-b-step-marker">1</span>
+          <h3 class="band-b-step-title">Note / import</h3>
           <p>Capture or import so content lives in your indexed vault—not only in chat threads.</p>
           <a href="/hub/" class="band-b-step-link">Hosted Hub (Beta)</a>
         </li>
         <li class="band-b-step">
-          <h3 class="band-b-step-title"><span class="band-b-step-marker">2</span>MCP</h3>
-          <p>Connect assistants where your editor or runtime supports MCP—search, memory, governed writes.</p>
-          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" class="band-b-step-link" target="_blank" rel="noopener">Agent integration (MCP)</a>
+          <span class="band-b-step-marker">2</span>
+          <h3 class="band-b-step-title">Add agents</h3>
+          <p><strong>MCP</strong> is the common path in Cursor and other MCP-capable tools. <strong>CLI</strong> covers terminal workflows and automation. Both reach the same vault, search, memory, and governed writes where your setup allows.</p>
+          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" class="band-b-step-link" target="_blank" rel="noopener">Agent integration (MCP &amp; CLI)</a>
         </li>
         <li class="band-b-step">
-          <h3 class="band-b-step-title"><span class="band-b-step-marker">3</span>Self-host / power</h3>
-          <p>Run locally or on your infra for deeper control—CLI, storage, and policies you operate.</p>
-          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="band-b-step-link" target="_blank" rel="noopener">Self-host quick start</a>
+          <span class="band-b-step-marker">3</span>
+          <h3 class="band-b-step-title">Ask your AI</h3>
+          <p>Paste phased prompts so your assistant walks through install, index, and verification—without pretending self-host is a single click.</p>
+          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AI-ASSISTED-SETUP.md" class="band-b-step-link" target="_blank" rel="noopener">AI-assisted setup (prompts)</a>
+          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="band-b-step-link band-b-step-link--secondary" target="_blank" rel="noopener">Self-host quick start</a>
         </li>
       </ul>
     </div>
