@@ -911,6 +911,14 @@ Okay, we normally see our site on localhost:8888, I believe. When I click on the
       margin: 0 0 0.5rem;
       line-height: 1.25;
     }
+    /* Match “Your notes, become known.” accent line: size, weight, color */
+    .value-pitch-title--like-hero-brand {
+      font-size: clamp(1.26rem, 2.4vw, 1.5rem);
+      font-weight: 400;
+      color: var(--accent);
+      line-height: 1.45;
+      letter-spacing: normal;
+    }
     .value-pitch-lead {
       margin: 0 0 1.25rem;
       color: var(--text-muted);
@@ -1036,7 +1044,11 @@ Okay, we normally see our site on localhost:8888, I believe. When I click on the
       transform: rotate(-180deg);
     }
     .hero-value-fold-title {
+      font-size: clamp(1.26rem, 2.4vw, 1.5rem);
+      font-weight: 400;
       color: var(--accent);
+      line-height: 1.45;
+      letter-spacing: normal;
     }
     .hero-value-fold-body {
       padding: 0 1rem 1.15rem;
@@ -1168,8 +1180,9 @@ Okay, we normally see our site on localhost:8888, I believe. When I click on the
         <summary class="hero-value-fold-summary"><span class="hero-value-fold-title">Structured memory for humans and agents</span></summary>
         <div class="hero-value-fold-body value-pitch-inner">
           <p class="value-pitch-lead">
-            Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time, chains, and entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
-            That is a different layer from shrinking <strong>terminal command output</strong>; Knowtation wins on <strong>knowledge retrieval</strong>, governance, and team-scoped vaults.
+            Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
+            This is a <strong>root solution</strong>, not just shrinking token or terminal command output.
+            Knowtation brings together <strong>semantic search</strong>, <strong>proposals and human review</strong>, <strong>team roles and scoped vaults</strong>, <strong>memory and consolidation</strong>, and <strong>causal / temporal structure</strong> when you want it—more than a trim pass on chat or terminal logs.
           </p>
           <div class="value-pitch-grid">
             <div class="value-blurb">
@@ -1178,6 +1191,7 @@ Okay, we normally see our site on localhost:8888, I believe. When I click on the
                 <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
                 <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
                 <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
+                <li><strong>Imports, capture, and transcribe</strong> keep chats, files, and media in the same indexed corpus your agents can query.</li>
               </ul>
               <details class="landing-details">
                 <summary>Technical pointers</summary>
@@ -1384,10 +1398,11 @@ Okay, we normally see our site on localhost:8888, I believe. When I click on the
 
   <section class="value-pitch wide" id="structured-memory-main" aria-labelledby="value-pitch-title">
     <div class="value-pitch-inner">
-      <h2 id="value-pitch-title" class="value-pitch-title">Structured memory for humans and agents</h2>
+      <h2 id="value-pitch-title" class="value-pitch-title value-pitch-title--like-hero-brand">Structured memory for humans and agents</h2>
       <p class="value-pitch-lead">
-        Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time, chains, and entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
-        That is a different layer from shrinking <strong>terminal command output</strong>; Knowtation wins on <strong>knowledge retrieval</strong>, governance, and team-scoped vaults.
+        Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
+        This is a <strong>root solution</strong>, not just shrinking token or terminal command output.
+        Knowtation brings together <strong>semantic search</strong>, <strong>proposals and human review</strong>, <strong>team roles and scoped vaults</strong>, <strong>memory and consolidation</strong>, and <strong>causal / temporal structure</strong> when you want it—more than a trim pass on chat or terminal logs.
       </p>
       <div class="value-pitch-grid">
         <div class="value-blurb">
@@ -1396,6 +1411,7 @@ Okay, we normally see our site on localhost:8888, I believe. When I click on the
             <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
             <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
             <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
+            <li><strong>Imports, capture, and transcribe</strong> keep chats, files, and media in the same indexed corpus your agents can query.</li>
           </ul>
           <details class="landing-details">
             <summary>Technical pointers</summary>

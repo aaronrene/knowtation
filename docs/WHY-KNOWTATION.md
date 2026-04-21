@@ -6,7 +6,7 @@
 
 ## One-sentence positioning (accurate)
 
-**Vault + retrieval:** Knowtation is where your **owned**, **indexed** Markdown lives so **MCP-capable assistants** pull **small, relevant slices** instead of huge pastes — a different layer from tools that shrink **terminal command output** before the model sees it.
+**Vault + retrieval:** Your **owned**, **indexed** notes with optional **time, chains, episodes, and entities**, plus a deep **MCP** surface for assistants that support it — a **root** knowledge stack (**semantic search**, **proposals and review**, **roles and scoped vaults**, **memory and consolidation**, optional **causal / temporal** structure), not only trimming **chat or terminal tokens**.
 
 **Human gate:** **Agents suggest; humans approve** — proposals stay out of the canonical vault until your team applies governance (roles, rubric evaluation, optional review hints).
 
