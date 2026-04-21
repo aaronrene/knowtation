@@ -211,6 +211,7 @@ Use this as the **program** that runs **alongside** MCP prompt/resource tracks (
 - **Billing:** Import/transcribe paths that must hit metered gateway; do not add a second path that skips metering.
 - **Secrets:** No new credentials in Hub client bundles; agents must not get broader scope than Hub OAuth/JWT allows.
 - **Scope creep:** “Full resource parity with local stdio” is a **multi-sprint** program; keep G4 scoped until G0–G3 prove value.
+- **Hosted video:** The hosted Hub does **not** target **video file import**; notes use **links/URLs** for video (and typical image references). R3+ MCP resources should follow that product line — see [`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) § **1b** and [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) R3+ row — not full local **`note-video`** binary parity by default.
 
 ---
 

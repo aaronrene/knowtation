@@ -121,6 +121,7 @@ Capabilities that **correctly** have **no** row in the MCP column today (non-goa
 - Facets / folders helpers: `GET /api/v1/notes/facets`, `GET /api/v1/vault/folders` (Hub filters; MCP tools use `list_notes` / paths)
 - Attestations: `/api/v1/attest*`
 - Image upload / proxy: `upload-image`, `image-proxy*`
+- **Hosted Hub — video as file import:** not an MVP surface; video in notes uses **markdown links / URLs** (same class as image-by-URL). Documented for MCP **R3+** scoping in [`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) § **1b** and [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
 
 When a future MCP tool overlaps one of these, add a row and complete **H0–H4**.
 

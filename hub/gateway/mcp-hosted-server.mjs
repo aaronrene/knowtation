@@ -2426,5 +2426,11 @@ export function createHostedMcpServer(ctx) {
     })
   );
 
+  /**
+   * R3+ (planned): more hosted `ResourceTemplate`s (templates, SSRF-safe images, memory topics).
+   * Hosted product guardrail: Hub uses video as markdown **links/URLs**, not video **file import** — see
+   * `docs/PRODUCT-DECISIONS-HOSTED-MVP.md` §1b and `docs/NEXT-SESSION-HOSTED-HUB-MCP.md` (R3+ row + paste prompt).
+   */
+
   return server;
 }

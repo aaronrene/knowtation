@@ -167,9 +167,36 @@ Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
 | **R0** | Keep **`knowtation://hosted/vault-info`**; document only | Already shipped. |
 | **R1** | **One** `ResourceTemplate` for note read, e.g. `knowtation://hosted/vault/{+path}` backed by same reads as `get_note` | **Done** on `main` (incl. **`resources/list`** note rows for Cursor). Gateway idle session policy: env **`MCP_SESSION_TTL_MS`**, **`MCP_MAX_SESSIONS_PER_USER`** (`hub/gateway/mcp-proxy.mjs`). |
 | **R2** | Vault listing resources (subset of local static URIs) | **Complete:** static **`knowtation://hosted/vault-listing`** (PR **#182**) + **`knowtation://hosted/vault/{+path}`** when the path does **not** end with **`.md`** → JSON folder listing (`GET …/notes?folder=…&limit=100&offset=0`), aligned with self-hosted `knowtation://vault/{+path}` folder branch. **Optional later:** dedicated URIs for paged **`offset>0`** (until then use **`list_notes`**). |
-| **R3+** | Image/video/templates/memory topic templates | **Separate program:** SSRF, bandwidth, metering — mirror local [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) carefully. |
+| **R3+** | Templates, **image**-oriented resources (SSRF-safe), memory-topic templates | **Separate program:** bandwidth + metering — mirror local [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) **selectively**. **Hosted Hub product:** no **video file import** MVP; video in notes = **markdown links / URLs** (same pattern as photos-by-link) — **already live** in the browser. **Do not** center R3+ on binary **video upload** parity or local **`note-video`** file workflows; prefer URL/embed alignment with Hub, then templates and memory topics. |
 
 **Cursor “86 resources”** on self-hosted includes **template-expanded** URIs — hosted will not match that count until **R2+**; set expectations in docs.
+
+---
+
+## Paste this as your next session prompt — Track **R3+** (hosted MCP resources)
+
+**Branch:** work on **`feat/hosted-mcp-resources-r3`** (rebase on **`main`** if needed), or continue from this branch after docs merge.
+
+**Product guardrail (hosted):** The hosted Hub does **not** ship **video file upload import**. Video appears in vault notes as **links / embeds** (like images via URL) — already true in live Hub. R3+ MCP resource work must **respect** that: no priority on local-style **binary video import** resource parity; focus **templates**, **SSRF-safe image** patterns, **memory topic** templates, caps, and metering.
+
+**Read first:**
+
+1. [`docs/NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) — R0–R3+ table (this file).
+2. [`docs/PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) — § Media in notes (hosted).
+3. [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) — which `ResourceTemplate`s map to **bridge/canister** reads vs **local disk only**.
+4. [`docs/HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) — H0–H4 for new surfaces.
+
+**Deliverables (implementation sessions):** phased PRs with tests; each template handler uses the **same** upstream patterns as **`get_note`** / list APIs; document intentional gaps vs self-hosted stdio.
+
+```
+You are implementing Knowtation **hosted MCP R3+** resources (templates, SSRF-safe image-style resources, memory-topic templates — not binary hosted video file import).
+
+Branch: feat/hosted-mcp-resources-r3 (from main). Product: hosted Hub uses video as markdown links/URLs only; mirror that in MCP resource design.
+
+Read: docs/NEXT-SESSION-HOSTED-HUB-MCP.md, docs/PRODUCT-DECISIONS-HOSTED-MVP.md § Media in notes, mcp/resources/register.mjs, hub/gateway/mcp-hosted-server.mjs existing R1/R2 resources, docs/HOSTED-HUB-MCP-INTERLOCK.md.
+
+Ship small PRs: code + tests + matrix/handoff doc updates together (no docs-only PR to main).
+```
 
 ### Why not “all prompts/resources now”?
 
@@ -206,6 +233,7 @@ Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
 - **`feat/hosted-mcp-prompts-b2`** — merged via PR **#175** (historical)
 - **`feat/b3-memory-prompts-implementation`** — branch for **Track B3** memory **`registerPrompt`** + tests (+ optional bridge search); prep merged via PR **#177**
 - **`feat/hosted-mcp-prompts-b1`** — merged via PR **#174** (historical)
+- **`feat/hosted-mcp-resources-r3`** — **Track R3+** hosted MCP resources scoping + implementation handoff (branch; merge with code + tests per policy)
 
 ---
 
