@@ -92,6 +92,14 @@ const HOSTED_VAULT_LISTING_RESOURCE_LIMIT = 100;
 
 /** R3: `resources/list` merge cap for embedded image URIs (matches self-hosted `MCP_RESOURCE_PAGE_SIZE`). */
 const HOSTED_IMAGE_RESOURCE_LIST_MAX = 50;
+/**
+ * R3: canister `GET /api/v1/notes` page size while scanning the vault for embedded images to merge into
+ * `resources/list`. Paginate until we collect {@link HOSTED_IMAGE_RESOURCE_LIST_MAX} image URIs, the canister
+ * returns no more notes, or we hit {@link HOSTED_IMAGE_LIST_MAX_NOTES_SCANNED} (fairness on very large vaults).
+ */
+const HOSTED_IMAGE_LIST_NOTES_PAGE_SIZE = 50;
+/** R3: upper bound on notes examined per `resources/list` image merge (limits gateway latency / upstream load). */
+const HOSTED_IMAGE_LIST_MAX_NOTES_SCANNED = 5000;
 
 /** R3: bridge `GET /api/v1/memory` max slice for topic derivation / filtering (bridge hard cap 100). */
 const HOSTED_MEMORY_TOPIC_BRIDGE_LIMIT = 100;
@@ -2354,40 +2362,52 @@ export function createHostedMcpServer(ctx) {
       list:
         isToolAllowed('list_notes', role) ?
           async () => {
-            const params = new URLSearchParams();
-            params.set('limit', String(HOSTED_IMAGE_RESOURCE_LIST_MAX));
-            params.set('offset', '0');
-            const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
-            const notes = Array.isArray(data?.notes) ? data.notes : [];
             const resources = [];
-            for (const n of notes) {
-              const p = n?.path != null ? String(n.path) : '';
-              if (!p || !p.endsWith('.md')) continue;
-              let body = n.body != null ? String(n.body) : '';
-              if (!body.trim()) {
-                try {
-                  const full = await upstreamFetch(
-                    `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
-                    canisterFetchOpts
-                  );
-                  body = full.body != null ? String(full.body) : '';
-                } catch (_) {
-                  continue;
+            let offset = 0;
+            let notesScanned = 0;
+            while (
+              resources.length < HOSTED_IMAGE_RESOURCE_LIST_MAX &&
+              notesScanned < HOSTED_IMAGE_LIST_MAX_NOTES_SCANNED
+            ) {
+              const params = new URLSearchParams();
+              params.set('limit', String(HOSTED_IMAGE_LIST_NOTES_PAGE_SIZE));
+              params.set('offset', String(offset));
+              const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+              const notes = Array.isArray(data?.notes) ? data.notes : [];
+              if (notes.length === 0) break;
+              for (const n of notes) {
+                if (notesScanned >= HOSTED_IMAGE_LIST_MAX_NOTES_SCANNED) break;
+                notesScanned += 1;
+                const p = n?.path != null ? String(n.path) : '';
+                if (!p || !p.endsWith('.md')) continue;
+                let body = n.body != null ? String(n.body) : '';
+                if (!body.trim()) {
+                  try {
+                    const full = await upstreamFetch(
+                      `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                      canisterFetchOpts
+                    );
+                    body = full.body != null ? String(full.body) : '';
+                  } catch (_) {
+                    continue;
+                  }
                 }
-              }
-              const images = extractImageUrls(body);
-              for (let i = 0; i < images.length; i++) {
+                const images = extractImageUrls(body);
+                for (let i = 0; i < images.length; i++) {
+                  if (resources.length >= HOSTED_IMAGE_RESOURCE_LIST_MAX) break;
+                  const img = images[i];
+                  const name = img.alt || img.url.split('/').pop().split('?')[0] || `image-${i}`;
+                  resources.push({
+                    uri: `knowtation://hosted/vault-image/${p}/${i}`,
+                    name,
+                    mimeType: img.mimeType,
+                    description: `Image in ${p}`,
+                  });
+                }
                 if (resources.length >= HOSTED_IMAGE_RESOURCE_LIST_MAX) break;
-                const img = images[i];
-                const name = img.alt || img.url.split('/').pop().split('?')[0] || `image-${i}`;
-                resources.push({
-                  uri: `knowtation://hosted/vault-image/${p}/${i}`,
-                  name,
-                  mimeType: img.mimeType,
-                  description: `Image in ${p}`,
-                });
               }
-              if (resources.length >= HOSTED_IMAGE_RESOURCE_LIST_MAX) break;
+              offset += notes.length;
+              if (notes.length < HOSTED_IMAGE_LIST_NOTES_PAGE_SIZE) break;
             }
             return { resources };
           }
