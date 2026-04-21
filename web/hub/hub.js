@@ -87,6 +87,8 @@
   const btnReindex = el('btn-reindex');
   const notesList = el('notes-list');
   const notesTotal = el('notes-total');
+  /** True when the last unfiltered browse list (loadNotes, no list filters) returned zero notes. */
+  let hubBrowseListEmptyUnfiltered = false;
   const filterChipsEl = el('filter-chips');
   const presetsListEl = el('presets-list');
   const presetNameInput = el('preset-name');
@@ -659,7 +661,7 @@
   let onboardingModulePromise = null;
   function loadOnboardingModule() {
     if (!onboardingModulePromise) {
-      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260410a');
+      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260421a');
     }
     return onboardingModulePromise;
   }
@@ -699,6 +701,7 @@
     loadOnboardingModule()
       .then((mod) => {
         persistOnboardingProgress(mod, { status: 'dismissed', dismissedAt: Date.now() });
+        updateEmptyVaultStripVisibility();
       })
       .catch(function () {});
     const modal = el('modal-onboarding');
@@ -745,6 +748,42 @@
         openHowToUse('setup', 'how-to-step-selfhosted-oauth');
         return;
       }
+      if (id === 'openWhyTokenDoc') {
+        window.open(
+          'https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md#two-layers-of-token-savings-say-both-honestly',
+          '_blank',
+          'noopener,noreferrer',
+        );
+        return;
+      }
+      if (id === 'openImportModal') {
+        closeOnboardingWizardResume();
+        openImportModal();
+        return;
+      }
+      if (id === 'openImportSourcesDoc') {
+        window.open(
+          'https://github.com/aaronrene/knowtation/blob/main/docs/IMPORT-SOURCES.md',
+          '_blank',
+          'noopener,noreferrer',
+        );
+        return;
+      }
+      if (id === 'openAgentDocProposals' || id === 'openAgentIntegrationDoc') {
+        window.open(
+          id === 'openAgentDocProposals'
+            ? 'https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md#4-proposals-review-before-commit'
+            : 'https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md',
+          '_blank',
+          'noopener,noreferrer',
+        );
+        return;
+      }
+      if (id === 'focusSuggestedTab') {
+        closeOnboardingWizardResume();
+        switchHubMainTab('suggested');
+        return;
+      }
     }
 
     onboardingRenderStep = function renderOnboardingStep() {
@@ -759,6 +798,10 @@
       const idx = Math.min(Math.max(0, st.stepIndex), total - 1);
       const content = mod.getStepContent(isHosted, idx);
       if (body) body.innerHTML = content ? content.bodyHtml : '';
+      if (content && content.id === 'h-imports' && body) {
+        const ta = body.querySelector('[data-onboarding-llm-prompt]');
+        if (ta) ta.value = mod.LLM_SELF_HELP_EXPORT_PROMPT;
+      }
 
       if (progress) {
         progress.innerHTML = '';
@@ -815,6 +858,18 @@
     if (btnSkip) btnSkip.addEventListener('click', closeOnboardingWizardDismiss);
     if (closeBtn) closeBtn.addEventListener('click', closeOnboardingWizardResume);
     if (backdrop) backdrop.addEventListener('click', closeOnboardingWizardResume);
+
+    modal.addEventListener('click', (ev) => {
+      const copyBtn = ev.target && ev.target.closest && ev.target.closest('.onboarding-copy-llm-btn');
+      if (!copyBtn || !body) return;
+      const ta = body.querySelector('[data-onboarding-llm-prompt]');
+      const txt = ta && ta.value ? String(ta.value) : '';
+      if (!txt || !navigator.clipboard || !navigator.clipboard.writeText) return;
+      ev.preventDefault();
+      void navigator.clipboard.writeText(txt).then(() => {
+        if (typeof showToast === 'function') showToast('Copied export helper prompt');
+      });
+    });
   }
 
   async function openOnboardingWizard(opts) {
@@ -1827,6 +1882,52 @@
     });
   }
 
+  function hasActiveNoteListFilters() {
+    if (filterProject && filterProject.value) return true;
+    if (filterTag && filterTag.value) return true;
+    if (filterFolder && filterFolder.value) return true;
+    if (filterSince && filterSince.value) return true;
+    if (filterUntil && filterUntil.value) return true;
+    if (filterContentScope && filterContentScope.value) return true;
+    if (filterNetwork && filterNetwork.value) return true;
+    if (filterWallet && filterWallet.value) return true;
+    const paymentStatusEl = el('filter-payment-status');
+    if (paymentStatusEl && paymentStatusEl.value) return true;
+    return false;
+  }
+
+  function readOnboardingDismissedSync() {
+    try {
+      const raw = localStorage.getItem('knowtation_onboarding_v1');
+      if (!raw) return false;
+      const o = JSON.parse(raw);
+      return Boolean(o && o.v === 1 && o.status === 'dismissed');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isSearchResultsView() {
+    const t = notesTotal && notesTotal.textContent ? String(notesTotal.textContent) : '';
+    return /\b(keyword|semantic)\b/i.test(t) && /result/i.test(t);
+  }
+
+  function updateEmptyVaultStripVisibility() {
+    const strip = el('hub-empty-vault-strip');
+    if (!strip) return;
+    const mainVisible = main && !main.classList.contains('hidden');
+    const notesTab = document.querySelector('.tabs .tab.active')?.dataset?.tab === 'notes';
+    const q = searchQuery && String(searchQuery.value).trim();
+    const show =
+      Boolean(mainVisible && token) &&
+      readOnboardingDismissedSync() &&
+      hubBrowseListEmptyUnfiltered &&
+      notesTab &&
+      !q &&
+      !isSearchResultsView();
+    strip.classList.toggle('hidden', !show);
+  }
+
   async function loadNotes() {
     const q = new URLSearchParams();
     q.set('limit', '100');
@@ -1875,9 +1976,43 @@
         listSelectedIndex = 0;
         updateListSelection();
       }
+      hubBrowseListEmptyUnfiltered = totalCount === 0 && !hasActiveNoteListFilters();
+      updateEmptyVaultStripVisibility();
     } catch (e) {
       notesList.innerHTML = '<p class="muted">' + escapeHtml(e.message) + '</p>';
       notesTotal.textContent = '';
+      hubBrowseListEmptyUnfiltered = false;
+      updateEmptyVaultStripVisibility();
+    }
+  }
+
+  function switchHubMainTab(name) {
+    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+    const tab = document.querySelector('[data-tab="' + name + '"]');
+    if (tab) tab.classList.add('active');
+    syncHubListSortUI(name);
+    setProposalFiltersBarVisible(
+      name === 'activity' || name === 'suggested' || name === 'problem',
+    );
+    refreshNewProposalTabVisibility();
+    const panel = el(
+      'tab-' +
+        (name === 'notes'
+          ? 'notes'
+          : name === 'activity'
+            ? 'activity'
+            : name === 'suggested'
+              ? 'suggested'
+              : 'problem'),
+    );
+    if (panel) panel.classList.remove('hidden');
+    if (name === 'notes') {
+      loadNotes();
+    } else {
+      if (name === 'activity') loadActivity();
+      if (name === 'suggested' || name === 'problem') loadProposals();
+      updateEmptyVaultStripVisibility();
     }
   }
 
@@ -2181,6 +2316,8 @@
   async function runVaultSearch() {
     const query = searchQuery.value.trim();
     if (!query) return;
+    hubBrowseListEmptyUnfiltered = false;
+    updateEmptyVaultStripVisibility();
     const activeMainTab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
     const useKeyword = searchMode && searchMode.value === 'keyword';
     if (activeMainTab && activeMainTab !== 'notes') {
@@ -2266,6 +2403,9 @@
       e.preventDefault();
       void runVaultSearch();
     }
+  });
+  searchQuery.addEventListener('input', () => {
+    updateEmptyVaultStripVisibility();
   });
 
   function switchNotesView(view) {
@@ -2854,6 +2994,20 @@
     btnHowToOpenOnboarding.addEventListener('click', () => {
       closeHowToUse();
       void openOnboardingWizard({ restart: false });
+    });
+  }
+  const btnEmptyStripWizard = el('btn-empty-strip-wizard');
+  if (btnEmptyStripWizard && !btnEmptyStripWizard.dataset.knowtationBound) {
+    btnEmptyStripWizard.dataset.knowtationBound = '1';
+    btnEmptyStripWizard.addEventListener('click', () => {
+      void openOnboardingWizard({ restart: true });
+    });
+  }
+  const btnEmptyStripGettingStarted = el('btn-empty-strip-getting-started');
+  if (btnEmptyStripGettingStarted && !btnEmptyStripGettingStarted.dataset.knowtationBound) {
+    btnEmptyStripGettingStarted.dataset.knowtationBound = '1';
+    btnEmptyStripGettingStarted.addEventListener('click', () => {
+      openHowToUse('getting-started');
     });
   }
 
@@ -6811,20 +6965,7 @@
 
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.onclick = () => {
-      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-      tab.classList.add('active');
-      const name = tab.dataset.tab;
-      syncHubListSortUI(name);
-      setProposalFiltersBarVisible(
-        name === 'activity' || name === 'suggested' || name === 'problem',
-      );
-      refreshNewProposalTabVisibility();
-      const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'suggested' ? 'suggested' : 'problem'));
-      if (panel) panel.classList.remove('hidden');
-      if (name === 'notes') loadNotes();
-      if (name === 'activity') loadActivity();
-      if (name === 'suggested' || name === 'problem') loadProposals();
+      switchHubMainTab(tab.dataset.tab);
     };
   });
 

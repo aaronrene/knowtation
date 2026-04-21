@@ -16,6 +16,8 @@
 
 ## Phase 2 — Homepage + marketing
 
+**Status:** **Complete** on branch `feature/hub-wizard-hosted-story` (Band B + meta description + tests). Optional UX research below remains open until someone writes it.
+
 - [x] **Band B** on `web/index.html`: explicit **1 · 2 · 3** (note/import → add agents → ask your AI) directly under Band A; link hosted Hub + self-host quick start (step 1) and related docs in steps 2–3.
 - [x] **Meta description** refresh to mention proposals / human gate if character budget allows.
 - [ ] Optional **`docs/UX-SIMPLICITY-REFERENCE-RESEARCH.md`** — long-form research (generic pattern names, ecosystem compaction as optional local add-on).
@@ -24,13 +26,13 @@
 
 ## Phase 3 — Hub wizard (`web/hub/`)
 
-- [ ] **Step 0 / hero**: memory home + honest two-line token story (vault-side vs terminal-side).
-- [ ] **Path picker**: “Bring my stuff in” vs “Connect my AI first”.
-- [ ] **Embed Integrations** (copy MCP + future prime) inside wizard.
-- [ ] **Per-platform import cards** (OpenAI, Anthropic, OpenClaw) + **LLM self-help export prompt** (copyable).
-- [ ] **Proposals** line: where Suggested lives; link [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4.
-- [ ] **Empty-vault strip** if wizard dismissed (same 1-2-3 + link to Getting started).
-- [ ] **“Power tools for agents”** panel: MCP prompts / tools bullets → AGENT-INTEGRATION.
+- [x] **Step 0 / hero**: memory home + honest two-line token story (vault-side vs terminal-side).
+- [x] **Path picker**: “Bring my stuff in” vs “Connect my AI first”.
+- [x] **Embed Integrations** (copy MCP + future prime) inside wizard.
+- [x] **Per-platform import cards** (OpenAI, Anthropic, OpenClaw) + **LLM self-help export prompt** (copyable).
+- [x] **Proposals** line: where Suggested lives; link [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4.
+- [x] **Empty-vault strip** if wizard dismissed (same 1-2-3 + link to Getting started).
+- [x] **“Power tools for agents”** panel: MCP prompts / tools bullets → AGENT-INTEGRATION.
 
 ---
 

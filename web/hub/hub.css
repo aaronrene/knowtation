@@ -2324,15 +2324,132 @@ input[type="date"]::-moz-calendar-picker-indicator {
   border: 0;
 }
 .modal-onboarding-card {
-  max-width: 34rem;
+  max-width: 38rem;
   width: calc(100% - 2rem);
 }
 .onboarding-step-body {
   padding: 0 1.25rem 0.75rem;
   line-height: 1.55;
   color: var(--text);
-  max-height: min(52vh, 22rem);
+  max-height: min(58vh, 28rem);
   overflow-y: auto;
+}
+.onboarding-token-line {
+  font-size: 0.92rem;
+  border-left: 3px solid var(--accent-dim, color-mix(in srgb, var(--accent) 35%, transparent));
+  padding-left: 0.65rem;
+  margin-left: 0.1rem;
+}
+.onboarding-path-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.25rem;
+}
+@media (max-width: 520px) {
+  .onboarding-path-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.onboarding-path-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--border));
+}
+.onboarding-path-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.onboarding-path-card-body {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+ul.onboarding-import-cards {
+  margin: 0.35rem 0 0.75rem;
+  padding-left: 1.15rem;
+  line-height: 1.45;
+}
+ul.onboarding-import-cards li {
+  margin-bottom: 0.4rem;
+}
+.onboarding-llm-prompt {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  min-height: 7rem;
+}
+.onboarding-copy-row {
+  margin: 0.5rem 0 0;
+}
+
+/* Empty vault reminder when onboarding was skipped (Skip for now) */
+.hub-empty-vault-strip {
+  margin: 0 0 0.75rem;
+  padding: 0 0.5rem;
+}
+.hub-empty-vault-strip-inner {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--radius, 8px);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--surface)) 0%, var(--surface) 100%);
+}
+.hub-empty-vault-strip-lede {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+.hub-empty-vault-steps {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.hub-empty-vault-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.hub-empty-vault-num {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.hub-empty-vault-step-body strong {
+  color: var(--text);
+}
+.hub-empty-vault-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 .onboarding-step-body p {
   margin: 0 0 0.75rem 0;
