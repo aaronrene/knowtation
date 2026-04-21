@@ -377,6 +377,9 @@
       background: var(--accent-soft);
       box-shadow: none;
     }
+    .hero .cta-row .cta-secondary {
+      border-color: #ffffff;
+    }
     .cta-row {
       display: flex;
       flex-wrap: wrap;
@@ -426,6 +429,12 @@
     .badge:hover {
       background: color-mix(in srgb, var(--accent) 28%, transparent);
       color: var(--accent);
+    }
+    .badge-wrap .badge {
+      color: var(--text-muted);
+    }
+    .badge-wrap .badge:hover {
+      color: var(--text-muted);
     }
     .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
 
@@ -543,6 +552,22 @@
     .flow-intro-sub--accent {
       color: var(--accent);
       font-weight: 600;
+    }
+    /* Structured memory (hero fold + main): same type scale as Ecosystem visions; doc-link blue, normal weight, centered */
+    .structured-memory-heading {
+      color: #58a6ff;
+      text-align: center;
+      font-weight: 400;
+      text-shadow: none;
+    }
+    html[data-theme="light"] .structured-memory-heading {
+      color: #0969da;
+    }
+    .ecosystem-vision-heading-wrap .flow-intro-title.structured-memory-heading {
+      text-shadow: none;
+    }
+    .hero-value-fold-heading-text {
+      margin: 0;
     }
     .feature-highlights {
       padding: 2.5rem 0 2.75rem;
@@ -905,25 +930,48 @@
       border-bottom: 1px solid var(--border);
     }
     .value-pitch-inner { max-width: 960px; margin: 0 auto; }
-    .value-pitch-title {
-      font-size: clamp(1.35rem, 2.5vw, 1.65rem);
-      font-weight: 700;
-      margin: 0 0 0.5rem;
-      line-height: 1.25;
-    }
-    /* Match “Your notes, become known.” accent line: size, weight, color */
-    .value-pitch-title--like-hero-brand {
-      font-size: clamp(1.26rem, 2.4vw, 1.5rem);
-      font-weight: 400;
-      color: var(--accent);
-      line-height: 1.45;
-      letter-spacing: normal;
+    .value-pitch > .value-pitch-inner > .ecosystem-vision-heading-wrap {
+      padding-top: 0.25rem;
+      padding-bottom: 0.5rem;
     }
     .value-pitch-lead {
       margin: 0 0 1.25rem;
       color: var(--text-muted);
       font-size: 1.05rem;
       max-width: 48rem;
+    }
+    .value-pitch-root-list {
+      list-style: none;
+      margin: 0 0 1.1rem;
+      padding: 0;
+      max-width: none;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: 0.65rem;
+      row-gap: 0.35rem;
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      line-height: 1.45;
+    }
+    .value-pitch-root-list li {
+      position: relative;
+      padding-left: 0.75rem;
+      margin-bottom: 0;
+      flex: 0 1 auto;
+    }
+    .value-pitch-root-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 0.35rem;
+      height: 0.35rem;
+      border-radius: 50%;
+      background: #58a6ff;
+    }
+    html[data-theme="light"] .value-pitch-root-list li::before {
+      background: #0969da;
     }
     .value-pitch-grid {
       display: grid;
@@ -989,6 +1037,26 @@
       cursor: pointer;
       font-weight: 600;
       padding: 0.65rem 0.85rem;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+    .landing-details summary::-webkit-details-marker { display: none; }
+    .landing-details summary::before {
+      content: "▶";
+      font-size: 1rem;
+      line-height: 1;
+      color: #58a6ff;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    html[data-theme="light"] .landing-details summary::before {
+      color: #0969da;
+    }
+    .landing-details[open] summary::before {
+      transform: rotate(90deg);
     }
     .landing-details[open] summary {
       border-bottom: 1px solid var(--border);
@@ -1000,28 +1068,14 @@
       line-height: 1.55;
     }
     .landing-details .landing-details-body a { color: var(--accent); }
-    .value-pitch-more { margin: 0; font-size: 0.92rem; }
-    .value-pitch-more a {
-      color: #58a6ff;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .value-pitch-more a:hover {
-      text-decoration: underline;
-      color: #79c0ff;
-    }
-    html[data-theme="light"] .value-pitch-more a {
-      color: #0969da;
-    }
-    html[data-theme="light"] .value-pitch-more a:hover {
-      color: #0550ae;
-    }
 
-    /* Hero fold: full structured-memory block, collapsed by default */
+    /* Hero fold: full structured-memory block, collapsed by default (sits under hero graphic, above CTAs) */
     .hero-value-fold {
-      margin-top: 1.25rem;
+      margin-top: 1.35rem;
+      margin-bottom: 1.25rem;
       text-align: left;
-      max-width: 52rem;
+      width: 100%;
+      max-width: none;
       margin-left: auto;
       margin-right: auto;
       border: 1px solid var(--border);
@@ -1032,13 +1086,11 @@
     .hero-value-fold-summary {
       list-style: none;
       cursor: pointer;
-      padding: 0.75rem 1rem;
+      padding: 0.85rem 1rem 1.5rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.35rem;
-      font-weight: 700;
-      font-size: clamp(1rem, 2.2vw, 1.15rem);
+      gap: 0.45rem;
     }
     .hero-value-fold-summary::-webkit-details-marker { display: none; }
     .hero-value-fold-summary::after {
@@ -1052,15 +1104,8 @@
     .hero-value-fold[open] .hero-value-fold-summary::after {
       transform: rotate(-180deg);
     }
-    .hero-value-fold-title {
-      font-size: clamp(1.26rem, 2.4vw, 1.5rem);
-      font-weight: 400;
-      color: var(--text);
-      line-height: 1.45;
-      letter-spacing: normal;
-    }
     .hero-value-fold-body {
-      padding: 0 1rem 1.15rem;
+      padding: 1rem 0 2rem;
       border-top: 1px solid var(--border);
     }
 
@@ -1181,18 +1226,22 @@
           <div class="landing-ecosystem-icon landing-ecosystem-icon-20" title="Export">📤</div>
         </div>
       </div>
-      <div class="cta-row">
-        <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
-        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
-      </div>
       <details class="hero-value-fold" id="structured-memory-hero-fold">
-        <summary class="hero-value-fold-summary"><span class="hero-value-fold-title">Structured memory for humans and agents</span></summary>
+        <summary class="hero-value-fold-summary"><span class="flow-intro-title structured-memory-heading hero-value-fold-heading-text">Structured memory for humans and agents</span></summary>
         <div class="hero-value-fold-body value-pitch-inner">
           <p class="value-pitch-lead">
             Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
-            This is a <strong>root solution</strong>, not just shrinking token or terminal command output.
-            Knowtation brings together <strong>semantic search</strong>, <strong>proposals and human review</strong>, <strong>team roles and scoped vaults</strong>, <strong>memory and consolidation</strong>, and <strong>causal / temporal structure</strong> when you want it—more than a trim pass on chat or terminal logs.
           </p>
+          <ul class="value-pitch-root-list">
+            <li>Root Solution</li>
+            <li>Semantic search</li>
+            <li>Agent proposals with human review</li>
+            <li>Team roles</li>
+            <li>Scoped vaults</li>
+            <li>Memory consolidation</li>
+            <li>Causal-temporal structure</li>
+            <li>More than a trim pass on chat or terminal logs.</li>
+          </ul>
           <div class="value-pitch-grid">
             <div class="value-blurb">
               <h3>Depth you can use</h3>
@@ -1263,13 +1312,12 @@
             <li role="listitem">Enrich</li>
             <li role="listitem">Extract tasks</li>
           </ul>
-          <p class="value-pitch-more">
-            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md" target="_blank" rel="noopener">Why Knowtation — full story &amp; messaging guide</a>
-            ·
-            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-WIZARD-HOSTED-STORY.md" target="_blank" rel="noopener">Hub wizard + hosted story checklist</a>
-          </p>
         </div>
       </details>
+      <div class="cta-row">
+        <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
+        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
+      </div>
     </header>
   </div>
 
@@ -1408,12 +1456,22 @@
 
   <section class="value-pitch wide" id="structured-memory-main" aria-labelledby="value-pitch-title">
     <div class="value-pitch-inner">
-      <h2 id="value-pitch-title" class="value-pitch-title value-pitch-title--like-hero-brand">Structured memory for humans and agents</h2>
+      <div class="ecosystem-vision-heading-wrap">
+        <h2 id="value-pitch-title" class="flow-intro-title structured-memory-heading">Structured memory for humans and agents</h2>
+      </div>
       <p class="value-pitch-lead">
         Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
-        This is a <strong>root solution</strong>, not just shrinking token or terminal command output.
-        Knowtation brings together <strong>semantic search</strong>, <strong>proposals and human review</strong>, <strong>team roles and scoped vaults</strong>, <strong>memory and consolidation</strong>, and <strong>causal / temporal structure</strong> when you want it—more than a trim pass on chat or terminal logs.
       </p>
+      <ul class="value-pitch-root-list">
+        <li>Root Solution</li>
+        <li>Semantic search</li>
+        <li>Agent proposals with human review</li>
+        <li>Team roles</li>
+        <li>Scoped vaults</li>
+        <li>Memory consolidation</li>
+        <li>Causal-temporal structure</li>
+        <li>More than a trim pass on chat or terminal logs.</li>
+      </ul>
       <div class="value-pitch-grid">
         <div class="value-blurb">
           <h3>Depth you can use</h3>
@@ -1484,11 +1542,6 @@
         <li role="listitem">Enrich</li>
         <li role="listitem">Extract tasks</li>
       </ul>
-      <p class="value-pitch-more">
-        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md" target="_blank" rel="noopener">Why Knowtation — full story &amp; messaging guide</a>
-        ·
-        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-WIZARD-HOSTED-STORY.md" target="_blank" rel="noopener">Hub wizard + hosted story checklist</a>
-      </p>
     </div>
   </section>
 
