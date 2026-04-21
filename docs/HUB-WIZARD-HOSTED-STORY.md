@@ -16,8 +16,8 @@
 
 ## Phase 2 — Homepage + marketing
 
-- [ ] **Band B** on `web/index.html`: explicit **1 · 2 · 3** (note/import → MCP → self-host / power) directly under Band A; link hosted Hub + self-host quick start.
-- [ ] **Meta description** refresh to mention proposals / human gate if character budget allows.
+- [x] **Band B** on `web/index.html`: explicit **1 · 2 · 3** (note/import → MCP → self-host / power) directly under Band A; link hosted Hub + self-host quick start.
+- [x] **Meta description** refresh to mention proposals / human gate if character budget allows.
 - [ ] Optional **`docs/UX-SIMPLICITY-REFERENCE-RESEARCH.md`** — long-form research (generic pattern names, ecosystem compaction as optional local add-on).
 
 ---
