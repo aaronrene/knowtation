@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import {
   ONBOARDING_LS_KEY,
+  DOCS_BASE,
+  LLM_SELF_HELP_EXPORT_PROMPT,
   parseOnboardingState,
   serializeOnboardingState,
   createFreshState,
@@ -37,8 +39,14 @@ describe('onboarding-wizard.mjs', () => {
   });
 
   it('getStepCount matches hosted vs self-hosted flows', () => {
-    assert.equal(getStepCount(true), 4);
+    assert.equal(getStepCount(true), 9);
     assert.equal(getStepCount(false), 5);
+  });
+
+  it('exports docs base and a non-trivial LLM export helper prompt', () => {
+    assert.ok(DOCS_BASE.includes('github.com'));
+    assert.ok(LLM_SELF_HELP_EXPORT_PROMPT.includes('Knowtation'));
+    assert.ok(LLM_SELF_HELP_EXPORT_PROMPT.length > 120);
   });
 
   it('shouldAutoOpenWizard: null state opens; dismissed/completed do not; in_progress opens', () => {
@@ -64,16 +72,21 @@ describe('onboarding-wizard.mjs', () => {
   });
 
   it('getStepContent returns plain-language blocks for each hosted step', () => {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 9; i++) {
       const c = getStepContent(true, i);
       assert.ok(c && c.id && c.title && c.bodyHtml.length > 20);
     }
+    assert.equal(getStepContent(true, 3).id, 'h-imports');
     assert.equal(getStepContent(true, 99), null);
   });
 
   it('getStepSecondaryActions lists expected hosted shortcuts', () => {
-    assert.ok(getStepSecondaryActions(true, 0).some((a) => a.id === 'projectsHelp'));
-    assert.ok(getStepSecondaryActions(true, 3).some((a) => a.id === 'openSettingsIntegrations'));
+    assert.ok(getStepSecondaryActions(true, 0).some((a) => a.id === 'openWhyTokenDoc'));
+    assert.ok(getStepSecondaryActions(true, 2).some((a) => a.id === 'openSettingsIntegrations'));
+    assert.ok(getStepSecondaryActions(true, 3).some((a) => a.id === 'openImportModal'));
+    assert.ok(getStepSecondaryActions(true, 4).some((a) => a.id === 'focusSuggestedTab'));
+    assert.ok(getStepSecondaryActions(true, 5).some((a) => a.id === 'projectsHelp'));
+    assert.ok(getStepSecondaryActions(true, 8).some((a) => a.id === 'openAgentIntegrationDoc'));
   });
 
   it('getStepSecondaryActions lists self-hosted doc jumps', () => {
