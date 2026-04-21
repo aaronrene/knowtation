@@ -105,7 +105,8 @@ Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/ser
 | User capability | Hub entry | Canonical API | Hosted MCP surface | Parity notes |
 |-----------------|-----------|-----------------|--------------------|--------------|
 | See effective vault actor | Session + vault switcher (implicit via gateway `getHostedAccessContext`) | Bridge `GET /api/v1/hosted-context` (used by gateway and MCP bootstrap) | Resource `knowtation://hosted/vault-info` | Returns `userId` (JWT `sub`) and `canisterUserId` (effective partition); must match Hub list partition — see playbook § **Hosted MCP canister `X-User-Id` parity**. |
-| Read note via MCP **resource URI** (R1) | Note drawer (same bytes as open note) | `GET …/api/v1/notes/:path` | Resource template `knowtation://hosted/vault/{+path}` | **`.md` only** in R1; same `upstreamFetch` + headers as **`get_note`**; folder-prefix JSON listings deferred to **R2**. **`resources/list`** includes up to **50** concrete `knowtation://hosted/vault/…` URIs (same cap pattern as MCP SDK local note template `list`) so clients that count static **`resources/list`** rows (e.g. Cursor) show note resources, not only **`vault-info`**. |
+| Read note via MCP **resource URI** (R1) | Note drawer (same bytes as open note) | `GET …/api/v1/notes/:path` | Resource template `knowtation://hosted/vault/{+path}` | **`.md` only**; same `upstreamFetch` + headers as **`get_note`**. **`resources/list`** includes up to **50** concrete `knowtation://hosted/vault/…` URIs (SDK template `list`) for clients like Cursor. |
+| Vault list JSON (first page) via MCP resource (R2) | Hub main list (first page) | `GET …/api/v1/notes?limit&offset` | Resource `knowtation://hosted/vault-listing` | **R2 slice:** fixed **`limit=100`**, **`offset=0`**; filters / paged offsets use **`list_notes`** until more listing URIs ship. |
 
 ---
 

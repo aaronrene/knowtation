@@ -222,6 +222,16 @@ Expect **200** with JSON for the discovery document and **401** (not **503**) fo
 | `MCP_SESSION_TTL_MS` | **No** | Optional | Optional (EC2 typical) | Idle time before gateway drops MCP session (ms). Default **8h** in code; set **`1800000`** for 30m if you prefer stricter reclaim |
 | `MCP_MAX_SESSIONS_PER_USER` | **No** | Optional | Optional | Max concurrent MCP sessions per user before oldest is closed (default **8**) |
 
+**Where to set these on EC2 (exactly):** add lines to the **repository root** **`.env`** file on the same machine where PM2 runs `hub/gateway/server.mjs` (the gateway loads **`{repo-root}/.env`** — see `hub/gateway/server.mjs`). Example:
+
+```bash
+# MCP session policy (optional — defaults are 8h TTL and 8 sessions if omitted)
+MCP_SESSION_TTL_MS=28800000
+MCP_MAX_SESSIONS_PER_USER=8
+```
+
+Then **`pm2 restart <gateway-app> --update-env`** (or your process manager) so `process.env` picks up changes. **Alternatively**, put the same keys under **`env`** in your **PM2 ecosystem** file if you do not use a root `.env`**.
+
 **Never** commit `.env` or paste live secrets into tickets.
 
 ### Nginx (TLS + optional rate limits)
