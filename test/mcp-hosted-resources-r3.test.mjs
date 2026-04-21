@@ -72,6 +72,73 @@ function installFetchMock(opts = {}) {
   };
 }
 
+/**
+ * Like {@link installFetchMock} but `GET /api/v1/notes?` responses are chosen by `offset` query (paginated list).
+ * @param {{ pages: Array<{ notes?: unknown[], total?: number }>, getNoteResponses?: Record<string, unknown>, memoryResponse?: { events?: unknown[], count?: number } }} opts
+ */
+function installFetchMockPaginatedNotes(opts) {
+  const calls = [];
+  const pages = opts.pages;
+  const getNoteResponses = opts.getNoteResponses || {};
+  const memoryResponse = opts.memoryResponse ?? { events: [], count: 0 };
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    calls.push({ url: u, init });
+    if (u.includes(`${BRIDGE_URL}/api/v1/memory`)) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => memoryResponse,
+        text: async () => JSON.stringify(memoryResponse),
+      };
+    }
+    if (u.includes('/api/v1/notes?')) {
+      let payload = { notes: [], total: 0 };
+      try {
+        const parsed = new URL(u);
+        const offset = parseInt(parsed.searchParams.get('offset') || '0', 10);
+        const limit = parseInt(parsed.searchParams.get('limit') || '50', 10);
+        const idx = Math.floor(offset / limit);
+        payload = pages[idx] ?? { notes: [], total: 0 };
+      } catch (_) {
+        payload = pages[0] ?? { notes: [], total: 0 };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload,
+        text: async () => JSON.stringify(payload),
+      };
+    }
+    const notePrefix = `${CANISTER_URL}/api/v1/notes/`;
+    if (u.startsWith(notePrefix)) {
+      const path = decodeURIComponent(u.slice(notePrefix.length));
+      const body = getNoteResponses[path];
+      if (body !== undefined) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => body,
+          text: async () => JSON.stringify(body),
+        };
+      }
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '{}',
+    };
+  };
+  return {
+    calls,
+    restore() {
+      globalThis.fetch = origFetch;
+    },
+  };
+}
+
 async function connect(ctx) {
   const mcpServer = createHostedMcpServer(ctx);
   const client = new Client({ name: 'r3-resource-test', version: '0.0.1' });
@@ -366,5 +433,45 @@ describe('hosted MCP R3 — note image resource', () => {
     const { resources } = await client.listResources();
     const uris = resources.map((r) => r.uri);
     assert.ok(uris.some((u) => u === 'knowtation://hosted/vault-image/n.md/0'), `got: ${uris.join(',')}`);
+  });
+
+  it('resources/list paginates canister notes until embedded images are found (not only offset 0)', async () => {
+    const filler = Array.from({ length: 50 }, (_, i) => ({
+      path: `bulk/no-img-${i}.md`,
+      frontmatter: {},
+      body: 'text only',
+    }));
+    mock = installFetchMockPaginatedNotes({
+      pages: [
+        { notes: filler, total: 51 },
+        {
+          notes: [
+            {
+              path: 'inbox/paged-image.md',
+              frontmatter: {},
+              body: '![](https://example.com/from-page-2.png)',
+            },
+          ],
+          total: 51,
+        },
+      ],
+    });
+    ({ client } = await connect({
+      userId: 'u1',
+      vaultId: 'v1',
+      role: 'viewer',
+      token: 't',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    }));
+
+    const { resources } = await client.listResources();
+    const uris = resources.map((r) => r.uri);
+    assert.ok(
+      uris.some((u) => u === 'knowtation://hosted/vault-image/inbox/paged-image.md/0'),
+      `expected vault-image URI from second page, got: ${uris.join(',')}`
+    );
+    const listCalls = mock.calls.filter((c) => String(c.url).includes(`${CANISTER_URL}/api/v1/notes?`));
+    assert.ok(listCalls.length >= 2, `expected at least 2 canister list calls, got ${listCalls.length}`);
   });
 });
