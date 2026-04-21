@@ -8,7 +8,7 @@
 
 ## Phase 1 — Shipped on branch (initial)
 
-- [x] **Landing value band** below header on [web/index.html](../web/index.html): differentiation, proposals, glossary chips, `<details>` for technical depth + links to docs.
+- [x] **Landing structured-memory block** on [web/index.html](../web/index.html): differentiation, proposals, expanded glossary chips, `<details>` for technical depth + links to docs. **Layout:** collapsed **hero** `<details>` under main CTAs; **full** section after **Ecosystem visions**, before **Control, customize…**. Doc links use high-contrast blue.
 - [x] **WHY-KNOWTATION.md** (this repo) — canonical differentiation and proposal copy.
 - [x] **This checklist** — execution backlog for follow-on PRs.
 

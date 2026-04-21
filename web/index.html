@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+Okay, we normally see our site on localhost:8888, I believe. When I click on the @index.html  <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -384,14 +384,6 @@
       align-items: center;
       gap: 0.75rem;
       margin-top: 1.25rem;
-    }
-    .landing-onboard-hint {
-      max-width: 36rem;
-      margin: 0.85rem auto 0;
-      font-size: 0.92rem;
-      color: var(--text-muted);
-      line-height: 1.45;
-      text-align: center;
     }
     .hero .cta-row {
       display: grid;
@@ -994,6 +986,62 @@
     }
     .landing-details .landing-details-body a { color: var(--accent); }
     .value-pitch-more { margin: 0; font-size: 0.92rem; }
+    .value-pitch-more a {
+      color: #58a6ff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .value-pitch-more a:hover {
+      text-decoration: underline;
+      color: #79c0ff;
+    }
+    html[data-theme="light"] .value-pitch-more a {
+      color: #0969da;
+    }
+    html[data-theme="light"] .value-pitch-more a:hover {
+      color: #0550ae;
+    }
+
+    /* Hero fold: full structured-memory block, collapsed by default */
+    .hero-value-fold {
+      margin-top: 1.25rem;
+      text-align: left;
+      max-width: 52rem;
+      margin-left: auto;
+      margin-right: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-elevated);
+      padding: 0;
+    }
+    .hero-value-fold-summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      font-weight: 700;
+      font-size: clamp(1rem, 2.2vw, 1.15rem);
+    }
+    .hero-value-fold-summary::-webkit-details-marker { display: none; }
+    .hero-value-fold-summary::after {
+      content: "▾";
+      font-size: 0.85em;
+      color: var(--accent);
+      transition: transform 0.2s ease;
+    }
+    .hero-value-fold[open] .hero-value-fold-summary::after {
+      transform: rotate(-180deg);
+    }
+    .hero-value-fold-title {
+      color: var(--accent);
+    }
+    .hero-value-fold-body {
+      padding: 0 1rem 1.15rem;
+      border-top: 1px solid var(--border);
+    }
 
     footer {
       padding: 2.5rem 1.5rem;
@@ -1069,70 +1117,6 @@
     <a href="#" id="main-signin-github" class="cta cta-signin" data-provider="github">Sign in with GitHub</a>
   </header>
 
-  <section class="value-pitch wide" aria-labelledby="value-pitch-title">
-    <div class="value-pitch-inner">
-      <h2 id="value-pitch-title" class="value-pitch-title">Structured memory for humans and agents</h2>
-      <p class="value-pitch-lead">
-        Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time, chains, and entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
-        That is a different layer from shrinking <strong>terminal command output</strong>; Knowtation wins on <strong>knowledge retrieval</strong>, governance, and team-scoped vaults.
-      </p>
-      <div class="value-pitch-grid">
-        <div class="value-blurb">
-          <h3>Depth you can use</h3>
-          <ul>
-            <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
-            <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
-            <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
-          </ul>
-          <details class="landing-details">
-            <summary>Technical pointers</summary>
-            <div class="landing-details-body">
-              Start with <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener">Intention and temporal</a>,
-              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PARITY-MATRIX-HOSTED.md" target="_blank" rel="noopener">Hosted parity matrix</a>, and
-              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HOSTED-MCP-TOOL-EXPANSION.md" target="_blank" rel="noopener">Hosted MCP tool expansion</a>.
-            </div>
-          </details>
-        </div>
-        <div class="value-blurb">
-          <h3>Agents suggest. Humans approve.</h3>
-          <ul>
-            <li><strong>Proposals</strong> stay out of the canonical vault until reviewers pass rubrics and admins apply changes.</li>
-            <li>Built for teams that need <strong>audit trails</strong>, <strong>roles</strong>, and optional <strong>LLM review hints</strong>—not silent AI overwrites.</li>
-            <li>Same AI speed with a <strong>human gate</strong> and a paper trail.</li>
-          </ul>
-          <details class="landing-details">
-            <summary>How proposals work (API)</summary>
-            <div class="landing-details-body">
-              Agents and editors create rows via <code>POST /api/v1/proposals</code>; humans evaluate; approve writes the vault.
-              See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PROPOSAL-LIFECYCLE.md" target="_blank" rel="noopener">Proposal lifecycle</a> and
-              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration §4</a>.
-            </div>
-          </details>
-        </div>
-      </div>
-      <p class="value-pill-caption" id="value-pill-caption">Glossary chips — concepts you can combine</p>
-      <ul class="value-pill-row" role="list" aria-labelledby="value-pill-caption">
-        <li role="listitem">Semantic search</li>
-        <li role="listitem">Causal chain</li>
-        <li role="listitem">Episode</li>
-        <li role="listitem">Entity</li>
-        <li role="listitem">Snapshot</li>
-        <li role="listitem">Consolidate</li>
-        <li role="listitem">Evaluate</li>
-        <li role="listitem">Propose</li>
-        <li role="listitem">Approve</li>
-        <li role="listitem">MCP prompt</li>
-        <li role="listitem">Wikilink</li>
-        <li role="listitem">Memory event</li>
-      </ul>
-      <p class="value-pitch-more">
-        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md" target="_blank" rel="noopener">Why Knowtation — full story &amp; messaging guide</a>
-        ·
-        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-WIZARD-HOSTED-STORY.md" target="_blank" rel="noopener">Hub wizard + hosted story checklist</a>
-      </p>
-    </div>
-  </section>
-
   <div class="container">
     <header class="hero">
       <h1 class="hero-title-main-only">Knowtation</h1>
@@ -1180,7 +1164,88 @@
         <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
         <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
       </div>
-      <p class="landing-onboard-hint">First time in the Hub? After you sign in, a short setup guide may open automatically. Reopen anytime from <strong>How to use → Getting started</strong> or <strong>Settings → Backup → Setup guide</strong>.</p>
+      <details class="hero-value-fold" id="structured-memory-hero-fold">
+        <summary class="hero-value-fold-summary"><span class="hero-value-fold-title">Structured memory for humans and agents</span></summary>
+        <div class="hero-value-fold-body value-pitch-inner">
+          <p class="value-pitch-lead">
+            Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time, chains, and entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
+            That is a different layer from shrinking <strong>terminal command output</strong>; Knowtation wins on <strong>knowledge retrieval</strong>, governance, and team-scoped vaults.
+          </p>
+          <div class="value-pitch-grid">
+            <div class="value-blurb">
+              <h3>Depth you can use</h3>
+              <ul>
+                <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
+                <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
+                <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
+              </ul>
+              <details class="landing-details">
+                <summary>Technical pointers</summary>
+                <div class="landing-details-body">
+                  Start with <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener">Intention and temporal</a>,
+                  <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PARITY-MATRIX-HOSTED.md" target="_blank" rel="noopener">Hosted parity matrix</a>, and
+                  <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HOSTED-MCP-TOOL-EXPANSION.md" target="_blank" rel="noopener">Hosted MCP tool expansion</a>.
+                </div>
+              </details>
+            </div>
+            <div class="value-blurb">
+              <h3>Agents suggest. Humans approve.</h3>
+              <ul>
+                <li><strong>Proposals</strong> stay out of the canonical vault until reviewers pass rubrics and admins apply changes.</li>
+                <li>Built for teams that need <strong>audit trails</strong>, <strong>roles</strong>, and optional <strong>LLM review hints</strong>—not silent AI overwrites.</li>
+                <li>Same AI speed with a <strong>human gate</strong> and a paper trail.</li>
+              </ul>
+              <details class="landing-details">
+                <summary>How proposals work (API)</summary>
+                <div class="landing-details-body">
+                  Agents and editors create rows via <code>POST /api/v1/proposals</code>; humans evaluate; approve writes the vault.
+                  See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PROPOSAL-LIFECYCLE.md" target="_blank" rel="noopener">Proposal lifecycle</a> and
+                  <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration §4</a>.
+                </div>
+              </details>
+            </div>
+          </div>
+          <p class="value-pill-caption" id="value-pill-caption-hero">Glossary chips — concepts you can combine</p>
+          <ul class="value-pill-row" role="list" aria-labelledby="value-pill-caption-hero">
+            <li role="listitem">Semantic search</li>
+            <li role="listitem">Keyword search</li>
+            <li role="listitem">Causal chain</li>
+            <li role="listitem">Episode</li>
+            <li role="listitem">Entity</li>
+            <li role="listitem">Snapshot</li>
+            <li role="listitem">Summarizes</li>
+            <li role="listitem">Consolidate</li>
+            <li role="listitem">Discover</li>
+            <li role="listitem">Evaluate</li>
+            <li role="listitem">Propose</li>
+            <li role="listitem">Approve</li>
+            <li role="listitem">MCP prompt</li>
+            <li role="listitem">Wikilink</li>
+            <li role="listitem">Memory event</li>
+            <li role="listitem">Temporal summary</li>
+            <li role="listitem">Resume session</li>
+            <li role="listitem">Knowledge gap</li>
+            <li role="listitem">Capture</li>
+            <li role="listitem">Import</li>
+            <li role="listitem">Rubric</li>
+            <li role="listitem">Scoped access</li>
+            <li role="listitem">Multi-vault</li>
+            <li role="listitem">Transcribe</li>
+            <li role="listitem">Attestation</li>
+            <li role="listitem">Indexed vault</li>
+            <li role="listitem">Relate</li>
+            <li role="listitem">Cluster</li>
+            <li role="listitem">Tag suggest</li>
+            <li role="listitem">Enrich</li>
+            <li role="listitem">Extract tasks</li>
+          </ul>
+          <p class="value-pitch-more">
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md" target="_blank" rel="noopener">Why Knowtation — full story &amp; messaging guide</a>
+            ·
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-WIZARD-HOSTED-STORY.md" target="_blank" rel="noopener">Hub wizard + hosted story checklist</a>
+          </p>
+        </div>
+      </details>
     </header>
   </div>
 
@@ -1314,6 +1379,89 @@
           <p class="ecosystem-doc-link-hint">Full narrative, use cases, triple loop, and phasing: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">docs/ECOSYSTEM-VISION.md</a></p>
         </div>
       </details>
+    </div>
+  </section>
+
+  <section class="value-pitch wide" id="structured-memory-main" aria-labelledby="value-pitch-title">
+    <div class="value-pitch-inner">
+      <h2 id="value-pitch-title" class="value-pitch-title">Structured memory for humans and agents</h2>
+      <p class="value-pitch-lead">
+        Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time, chains, and entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
+        That is a different layer from shrinking <strong>terminal command output</strong>; Knowtation wins on <strong>knowledge retrieval</strong>, governance, and team-scoped vaults.
+      </p>
+      <div class="value-pitch-grid">
+        <div class="value-blurb">
+          <h3>Depth you can use</h3>
+          <ul>
+            <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
+            <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
+            <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
+          </ul>
+          <details class="landing-details">
+            <summary>Technical pointers</summary>
+            <div class="landing-details-body">
+              Start with <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener">Intention and temporal</a>,
+              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PARITY-MATRIX-HOSTED.md" target="_blank" rel="noopener">Hosted parity matrix</a>, and
+              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HOSTED-MCP-TOOL-EXPANSION.md" target="_blank" rel="noopener">Hosted MCP tool expansion</a>.
+            </div>
+          </details>
+        </div>
+        <div class="value-blurb">
+          <h3>Agents suggest. Humans approve.</h3>
+          <ul>
+            <li><strong>Proposals</strong> stay out of the canonical vault until reviewers pass rubrics and admins apply changes.</li>
+            <li>Built for teams that need <strong>audit trails</strong>, <strong>roles</strong>, and optional <strong>LLM review hints</strong>—not silent AI overwrites.</li>
+            <li>Same AI speed with a <strong>human gate</strong> and a paper trail.</li>
+          </ul>
+          <details class="landing-details">
+            <summary>How proposals work (API)</summary>
+            <div class="landing-details-body">
+              Agents and editors create rows via <code>POST /api/v1/proposals</code>; humans evaluate; approve writes the vault.
+              See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PROPOSAL-LIFECYCLE.md" target="_blank" rel="noopener">Proposal lifecycle</a> and
+              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration §4</a>.
+            </div>
+          </details>
+        </div>
+      </div>
+      <p class="value-pill-caption" id="value-pill-caption-main">Glossary chips — concepts you can combine</p>
+      <ul class="value-pill-row" role="list" aria-labelledby="value-pill-caption-main">
+        <li role="listitem">Semantic search</li>
+        <li role="listitem">Keyword search</li>
+        <li role="listitem">Causal chain</li>
+        <li role="listitem">Episode</li>
+        <li role="listitem">Entity</li>
+        <li role="listitem">Snapshot</li>
+        <li role="listitem">Summarizes</li>
+        <li role="listitem">Consolidate</li>
+        <li role="listitem">Discover</li>
+        <li role="listitem">Evaluate</li>
+        <li role="listitem">Propose</li>
+        <li role="listitem">Approve</li>
+        <li role="listitem">MCP prompt</li>
+        <li role="listitem">Wikilink</li>
+        <li role="listitem">Memory event</li>
+        <li role="listitem">Temporal summary</li>
+        <li role="listitem">Resume session</li>
+        <li role="listitem">Knowledge gap</li>
+        <li role="listitem">Capture</li>
+        <li role="listitem">Import</li>
+        <li role="listitem">Rubric</li>
+        <li role="listitem">Scoped access</li>
+        <li role="listitem">Multi-vault</li>
+        <li role="listitem">Transcribe</li>
+        <li role="listitem">Attestation</li>
+        <li role="listitem">Indexed vault</li>
+        <li role="listitem">Relate</li>
+        <li role="listitem">Cluster</li>
+        <li role="listitem">Tag suggest</li>
+        <li role="listitem">Enrich</li>
+        <li role="listitem">Extract tasks</li>
+      </ul>
+      <p class="value-pitch-more">
+        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md" target="_blank" rel="noopener">Why Knowtation — full story &amp; messaging guide</a>
+        ·
+        <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-WIZARD-HOSTED-STORY.md" target="_blank" rel="noopener">Hub wizard + hosted story checklist</a>
+      </p>
     </div>
   </section>
 

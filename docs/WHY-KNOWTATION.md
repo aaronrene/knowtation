@@ -65,15 +65,18 @@ Prefer **“uncommon in one product”** over absolute claims. These capabilitie
 
 ## Glossary / “depth words” on the website
 
-Prefer **tag chips** or a **short two-column glossary** over a dense **word cloud** (accessibility, mobile, translation). Example terms: **semantic search**, **causal chain**, **episode**, **entity**, **snapshot**, **consolidate**, **evaluate**, **propose**, **approve**, **MCP prompt**, **wikilink**, **memory event**.
+Prefer **tag chips** or a **short two-column glossary** over a dense **word cloud** (accessibility, mobile, translation). **Decorative word-cloud graphics** are optional later polish ([HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md)).
+
+**Chip set (keep in sync in `web/index.html` — hero fold + main block):** semantic search, keyword search, causal chain, episode, entity, snapshot, summarises, consolidate, discover, evaluate, propose, approve, MCP prompt, wikilink, memory event, temporal summary, resume session, knowledge gap, capture, import, rubric, scoped access, multi-vault, transcribe, attestation, indexed vault, relate, cluster, tag suggest, enrich, extract tasks.
 
 ---
 
 ## Messaging order on the landing page
 
-1. **Band A — Differentiation + human gate** (why Knowtation).  
-2. **Band B — Easy start** (1 · 2 · 3: note/import → connect MCP → power setup) — see [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md).  
-3. **Existing** sections (video, spotlights, imports) stay; refine copy against this page over time.
+1. **Hero fold** — collapsed `<details>` (“Structured memory…”) under main CTAs so the top stays clean.  
+2. **Hero + video + spotlights** — unchanged flow.  
+3. **Band A (full)** — same structured-memory content **after Ecosystem visions**, before “Control, customize…”.  
+4. **Band B — Easy start** (1 · 2 · 3) — still to add; see [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md).
 
 ---
 
