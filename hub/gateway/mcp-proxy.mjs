@@ -10,9 +10,48 @@ import { createHostedMcpServer } from './mcp-hosted-server.mjs';
 
 const DEFAULT_RATE_LIMIT = 60;
 const RATE_WINDOW_MS = 60_000;
-const SESSION_TTL_MS = 30 * 60 * 1000;
-const MAX_SESSIONS_PER_USER = 5;
 const CLEANUP_INTERVAL_MS = 60_000;
+
+/**
+ * Default idle TTL for hosted MCP HTTP sessions (gateway RAM). Longer than the
+ * historical 30m default so Cursor does not lose tools/resources after a coffee break.
+ * Override with **`MCP_SESSION_TTL_MS`** (milliseconds), clamped 5m–24h.
+ */
+const DEFAULT_MCP_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const MIN_MCP_SESSION_TTL_MS = 5 * 60 * 1000;
+const MAX_MCP_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Max concurrent MCP sessions per user id before the oldest is evicted.
+ * Override with **`MCP_MAX_SESSIONS_PER_USER`**, clamped 2–20.
+ */
+const DEFAULT_MCP_MAX_SESSIONS_PER_USER = 8;
+const MIN_MCP_MAX_SESSIONS_PER_USER = 2;
+const MAX_MCP_MAX_SESSIONS_PER_USER = 20;
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {number}
+ */
+export function parseMcpSessionTtlMs(env = process.env) {
+  const raw = env.MCP_SESSION_TTL_MS;
+  if (raw == null || String(raw).trim() === '') return DEFAULT_MCP_SESSION_TTL_MS;
+  const n = parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(n)) return DEFAULT_MCP_SESSION_TTL_MS;
+  return Math.min(MAX_MCP_SESSION_TTL_MS, Math.max(MIN_MCP_SESSION_TTL_MS, n));
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {number}
+ */
+export function parseMcpMaxSessionsPerUser(env = process.env) {
+  const raw = env.MCP_MAX_SESSIONS_PER_USER;
+  if (raw == null || String(raw).trim() === '') return DEFAULT_MCP_MAX_SESSIONS_PER_USER;
+  const n = parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(n)) return DEFAULT_MCP_MAX_SESSIONS_PER_USER;
+  return Math.min(MAX_MCP_MAX_SESSIONS_PER_USER, Math.max(MIN_MCP_MAX_SESSIONS_PER_USER, n));
+}
 
 /**
  * @typedef {{
@@ -55,6 +94,7 @@ function createRateLimiter(maxReqs = DEFAULT_RATE_LIMIT, windowMs = RATE_WINDOW_
  *   sessionSecret: string,
  *   rateLimit?: number,
  *   sessionTtlMs?: number,
+ *   maxSessionsPerUser?: number,
  * }} deps
  * @returns {import('express').Router}
  */
@@ -66,7 +106,8 @@ export function createMcpProxyRouter(deps) {
     canisterAuthSecret,
     bridgeUrl,
     rateLimit = DEFAULT_RATE_LIMIT,
-    sessionTtlMs = SESSION_TTL_MS,
+    sessionTtlMs = parseMcpSessionTtlMs(),
+    maxSessionsPerUser = parseMcpMaxSessionsPerUser(),
   } = deps;
 
   const router = express.Router();
@@ -101,7 +142,7 @@ export function createMcpProxyRouter(deps) {
 
     const uid = req.mcpUserId;
     const userSessionIds = userSessions.get(uid) || new Set();
-    if (userSessionIds.size >= MAX_SESSIONS_PER_USER) {
+    if (userSessionIds.size >= maxSessionsPerUser) {
       let oldest = null;
       let oldestTime = Infinity;
       for (const sid of userSessionIds) {

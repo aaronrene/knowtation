@@ -165,8 +165,8 @@ Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
 | Phase | Target | Rationale |
 |-------|--------|-----------|
 | **R0** | Keep **`knowtation://hosted/vault-info`**; document only | Already shipped. |
-| **R1** | **One** `ResourceTemplate` for note read, e.g. `knowtation://hosted/vault/{+path}` backed by same reads as `get_note` | Unlocks resource-oriented clients without full catalog. |
-| **R2** | Vault listing resources (subset of local static URIs) | Pagination + caps. |
+| **R1** | **One** `ResourceTemplate` for note read, e.g. `knowtation://hosted/vault/{+path}` backed by same reads as `get_note` | **Done** on `main` (incl. **`resources/list`** note rows for Cursor). Gateway idle session policy: env **`MCP_SESSION_TTL_MS`**, **`MCP_MAX_SESSIONS_PER_USER`** (`hub/gateway/mcp-proxy.mjs`). |
+| **R2** | Vault listing resources (subset of local static URIs) | Pagination + caps; folder-prefix JSON, more templates — **next** hosted-resources increment. |
 | **R3+** | Image/video/templates/memory topic templates | **Separate program:** SSRF, bandwidth, metering — mirror local [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) carefully. |
 
 **Cursor “86 resources”** on self-hosted includes **template-expanded** URIs — hosted will not match that count until **R2+**; set expectations in docs.

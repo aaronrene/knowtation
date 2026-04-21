@@ -219,6 +219,8 @@ Expect **200** with JSON for the discovery document and **401** (not **503**) fo
 | `CANISTER_AUTH_SECRET` | **Yes** | Same | Same | |
 | `HUB_BASE_URL` | **No** | Netlify gateway public URL | **MCP public URL** (e.g. `https://mcp.example.com`) | OAuth issuer + callback URLs differ per host |
 | `NETLIFY` | — | `true` (platform default) | **Must be unset** | On EC2, if `NETLIFY` is set, `/mcp` stays **503** |
+| `MCP_SESSION_TTL_MS` | **No** | Optional | Optional (EC2 typical) | Idle time before gateway drops MCP session (ms). Default **8h** in code; set **`1800000`** for 30m if you prefer stricter reclaim |
+| `MCP_MAX_SESSIONS_PER_USER` | **No** | Optional | Optional | Max concurrent MCP sessions per user before oldest is closed (default **8**) |
 
 **Never** commit `.env` or paste live secrets into tickets.
 

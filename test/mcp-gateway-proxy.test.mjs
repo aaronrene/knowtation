@@ -78,6 +78,34 @@ describe('mcp-tool-acl', () => {
 });
 
 describe('mcp-proxy-router', () => {
+  describe('parseMcpSessionTtlMs / parseMcpMaxSessionsPerUser', () => {
+    it('defaults when env unset', async () => {
+      const { parseMcpSessionTtlMs, parseMcpMaxSessionsPerUser } = await import('../hub/gateway/mcp-proxy.mjs');
+      assert.equal(parseMcpSessionTtlMs({}), 8 * 60 * 60 * 1000);
+      assert.equal(parseMcpMaxSessionsPerUser({}), 8);
+    });
+
+    it('respects valid env overrides', async () => {
+      const { parseMcpSessionTtlMs, parseMcpMaxSessionsPerUser } = await import('../hub/gateway/mcp-proxy.mjs');
+      assert.equal(parseMcpSessionTtlMs({ MCP_SESSION_TTL_MS: '3600000' }), 3600000);
+      assert.equal(parseMcpMaxSessionsPerUser({ MCP_MAX_SESSIONS_PER_USER: '12' }), 12);
+    });
+
+    it('clamps TTL and max sessions', async () => {
+      const { parseMcpSessionTtlMs, parseMcpMaxSessionsPerUser } = await import('../hub/gateway/mcp-proxy.mjs');
+      assert.equal(parseMcpSessionTtlMs({ MCP_SESSION_TTL_MS: '1000' }), 5 * 60 * 1000);
+      assert.equal(parseMcpSessionTtlMs({ MCP_SESSION_TTL_MS: '999999999999' }), 24 * 60 * 60 * 1000);
+      assert.equal(parseMcpMaxSessionsPerUser({ MCP_MAX_SESSIONS_PER_USER: '1' }), 2);
+      assert.equal(parseMcpMaxSessionsPerUser({ MCP_MAX_SESSIONS_PER_USER: '99' }), 20);
+    });
+
+    it('ignores non-numeric env (falls back to default)', async () => {
+      const { parseMcpSessionTtlMs, parseMcpMaxSessionsPerUser } = await import('../hub/gateway/mcp-proxy.mjs');
+      assert.equal(parseMcpSessionTtlMs({ MCP_SESSION_TTL_MS: 'abc' }), 8 * 60 * 60 * 1000);
+      assert.equal(parseMcpMaxSessionsPerUser({ MCP_MAX_SESSIONS_PER_USER: 'x' }), 8);
+    });
+  });
+
   describe('createMcpProxyRouter', () => {
     it('creates a router with required methods', async () => {
       const { createMcpProxyRouter } = await import('../hub/gateway/mcp-proxy.mjs');
