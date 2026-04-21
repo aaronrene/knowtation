@@ -1,5 +1,5 @@
 /**
- * R3+ hosted MCP: templates-index, template/{+name}, vault/.../image/{index}, memory/topic/{slug}.
+ * R3+ hosted MCP: templates-index, template/{+name}, vault-image/…/… , memory/topic/{slug}.
  */
 
 import dns from 'node:dns/promises';
@@ -223,15 +223,74 @@ describe('hosted MCP R3 — note image resource', () => {
     }));
 
     await assert.rejects(
-      () => client.readResource({ uri: 'knowtation://hosted/vault/inbox/p.md/image/3' }),
+      () => client.readResource({ uri: 'knowtation://hosted/vault-image/inbox/p.md/3' }),
       /out of range|McpError|invalid/i
     );
     const httpsCalls = mock.calls.filter((c) => String(c.url).startsWith('https://'));
     assert.equal(httpsCalls.length, 0, 'should not fetch remote image URL when index is invalid');
   });
 
-  it('readResource …/note.md/image/0 returns image/* not folder JSON (greedy vault/{+path} fallback)', async () => {
+  it('readResource vault-image/…/0 returns image/* (canonical R3 URI)', async () => {
     /** Avoid real DNS in CI/sandbox; fetchImageAsBase64 resolves hostname before fetch. */
+    const origLookup = dns.lookup;
+    dns.lookup = async () => ({ address: '8.8.8.8', family: 4 });
+    const pngBuf = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const inner = installFetchMock({
+      getNoteResponses: {
+        'inbox/deep/smoke.md': {
+          path: 'inbox/deep/smoke.md',
+          frontmatter: {},
+          body: '![](https://example.org/prove.png)',
+        },
+      },
+      listNotesResponse: { notes: [], total: 0 },
+    });
+    mock = { calls: inner.calls, restore: inner.restore };
+    const chainFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u === 'https://example.org/prove.png') {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: (name) => {
+              const n = String(name).toLowerCase();
+              if (n === 'content-type') return 'image/png';
+              if (n === 'content-length') return String(pngBuf.length);
+              return null;
+            },
+          },
+          arrayBuffer: async () => pngBuf.buffer.slice(pngBuf.byteOffset, pngBuf.byteOffset + pngBuf.byteLength),
+        };
+      }
+      return chainFetch(url, init);
+    };
+    ({ client } = await connect({
+      userId: 'u1',
+      vaultId: 'v1',
+      role: 'viewer',
+      token: 't',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    }));
+    try {
+      const read = await client.readResource({
+        uri: 'knowtation://hosted/vault-image/inbox/deep/smoke.md/0',
+      });
+      assert.notEqual(read.contents[0].mimeType, 'application/json', 'must not be folder listing JSON');
+      assert.match(String(read.contents[0].mimeType), /^image\//);
+      assert.ok(read.contents[0].blob);
+    } finally {
+      globalThis.fetch = chainFetch;
+      dns.lookup = origLookup;
+    }
+  });
+
+  it('legacy …/vault/…/note.md/image/0 still returns image (hosted-vault-note regex)', async () => {
     const origLookup = dns.lookup;
     dns.lookup = async () => ({ address: '8.8.8.8', family: 4 });
     const pngBuf = Buffer.from(
@@ -281,9 +340,7 @@ describe('hosted MCP R3 — note image resource', () => {
       const read = await client.readResource({
         uri: 'knowtation://hosted/vault/inbox/deep/smoke.md/image/0',
       });
-      assert.notEqual(read.contents[0].mimeType, 'application/json', 'must not be folder listing JSON');
       assert.match(String(read.contents[0].mimeType), /^image\//);
-      assert.ok(read.contents[0].blob);
     } finally {
       globalThis.fetch = chainFetch;
       dns.lookup = origLookup;
@@ -308,6 +365,6 @@ describe('hosted MCP R3 — note image resource', () => {
 
     const { resources } = await client.listResources();
     const uris = resources.map((r) => r.uri);
-    assert.ok(uris.some((u) => u === 'knowtation://hosted/vault/n.md/image/0'), `got: ${uris.join(',')}`);
+    assert.ok(uris.some((u) => u === 'knowtation://hosted/vault-image/n.md/0'), `got: ${uris.join(',')}`);
   });
 });
