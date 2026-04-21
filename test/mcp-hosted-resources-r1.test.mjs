@@ -164,8 +164,16 @@ describe('hosted MCP R1 — vault note resource template', () => {
     assert.ok(uris.includes('knowtation://hosted/vault/inbox/a.md'));
     assert.ok(uris.includes('knowtation://hosted/vault/projects/p/b.md'));
 
-    const listCalls = mock.calls.filter((c) => String(c.url).includes('/api/v1/notes?'));
-    assert.equal(listCalls.length, 1);
+    const listCalls = mock.calls.filter((c) => {
+      const u = String(c.url);
+      return (
+        u.includes('/api/v1/notes?') &&
+        u.includes('limit=50') &&
+        u.includes('offset=0') &&
+        !u.includes('folder=')
+      );
+    });
+    assert.ok(listCalls.length >= 1, 'vault note + R3 image list both use first-page canister list');
     assert.match(listCalls[0].url, /limit=50/);
   });
 

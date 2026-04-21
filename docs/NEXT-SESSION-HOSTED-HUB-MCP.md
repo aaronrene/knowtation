@@ -167,7 +167,7 @@ Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
 | **R0** | Keep **`knowtation://hosted/vault-info`**; document only | Already shipped. |
 | **R1** | **One** `ResourceTemplate` for note read, e.g. `knowtation://hosted/vault/{+path}` backed by same reads as `get_note` | **Done** on `main` (incl. **`resources/list`** note rows for Cursor). Gateway idle session policy: env **`MCP_SESSION_TTL_MS`**, **`MCP_MAX_SESSIONS_PER_USER`** (`hub/gateway/mcp-proxy.mjs`). |
 | **R2** | Vault listing resources (subset of local static URIs) | **Complete:** static **`knowtation://hosted/vault-listing`** (PR **#182**) + **`knowtation://hosted/vault/{+path}`** when the path does **not** end with **`.md`** → JSON folder listing (`GET …/notes?folder=…&limit=100&offset=0`), aligned with self-hosted `knowtation://vault/{+path}` folder branch. **Optional later:** dedicated URIs for paged **`offset>0`** (until then use **`list_notes`**). |
-| **R3+** | Templates, **image**-oriented resources (SSRF-safe), memory-topic templates | **Separate program:** bandwidth + metering — mirror local [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) **selectively**. **Hosted Hub product:** no **video file import** MVP; video in notes = **markdown links / URLs** (same pattern as photos-by-link) — **already live** in the browser. **Do not** center R3+ on binary **video upload** parity or local **`note-video`** file workflows; prefer URL/embed alignment with Hub, then templates and memory topics. |
+| **R3+** | Templates, **image**-oriented resources (SSRF-safe), memory-topic templates | **Implemented** in gateway (`hub/gateway/mcp-hosted-server.mjs`): **`knowtation://hosted/templates-index`**, **`knowtation://hosted/template/{+name}`**, **`knowtation://hosted/vault/{+notePath}/image/{index}`**, **`knowtation://hosted/memory/topic/{slug}`**; tests: [`test/mcp-hosted-resources-r3.test.mjs`](../test/mcp-hosted-resources-r3.test.mjs). **Hosted Hub product:** no **video file import** MVP; video in notes = **markdown links / URLs** — **no** hosted MCP **`note-video`**-style binary resource. |
 
 **Cursor “86 resources”** on self-hosted includes **template-expanded** URIs — hosted will not match that count until **R2+**; set expectations in docs.
 
@@ -186,7 +186,7 @@ Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
 3. [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) — which `ResourceTemplate`s map to **bridge/canister** reads vs **local disk only**.
 4. [`docs/HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) — H0–H4 for new surfaces.
 
-**Deliverables (implementation sessions):** phased PRs with tests; each template handler uses the **same** upstream patterns as **`get_note`** / list APIs; document intentional gaps vs self-hosted stdio.
+**Deliverables (implementation sessions):** phased PRs with tests; each template handler uses the **same** upstream patterns as **`get_note`** / list APIs; document intentional gaps vs self-hosted stdio. **R3+ first slice:** templates + SSRF-safe images + memory-topic resources + tests + matrix (this repo state on **`feat/hosted-mcp-resources-r3`**).
 
 ```
 You are implementing Knowtation **hosted MCP R3+** resources (templates, SSRF-safe image-style resources, memory-topic templates — not binary hosted video file import).

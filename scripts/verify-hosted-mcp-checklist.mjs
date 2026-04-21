@@ -21,6 +21,11 @@ function run(label, command, args) {
 run('Hosted MCP schema guard (hub/gateway/mcp-hosted*.mjs)', 'npm', ['run', 'check:mcp-hosted-schema']);
 run('Hosted MCP tools/list regression', 'node', ['--test', 'test/mcp-hosted-tools-list.test.mjs']);
 run('Hosted MCP prompts/list + getPrompt regression', 'node', ['--test', 'test/mcp-hosted-prompts.test.mjs']);
+run('Hosted MCP resources R1–R3 regression', 'node', [
+  '--test',
+  'test/mcp-hosted-resources-r1.test.mjs',
+  'test/mcp-hosted-resources-r3.test.mjs',
+]);
 
 console.log(`
 --- Mandatory production gate (after EC2 deploy) ---
