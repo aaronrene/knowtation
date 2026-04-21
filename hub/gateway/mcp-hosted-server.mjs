@@ -2299,7 +2299,53 @@ export function createHostedMcpServer(ctx) {
    */
   if (isToolAllowed('get_note', role)) {
     /**
-     * R3: embedded images — register **before** `knowtation://hosted/vault/{+path}` so `/image/` URIs match here.
+     * R3 embedded image fetch (shared). Some MCP clients match `knowtation://hosted/vault/{+path}` with a greedy
+     * `{+path}` so `…/note.md/image/0` is **not** routed to the narrower image template — `path` then does not end
+     * in `.md` and was mis-handled as a folder listing. We also handle that shape in `hosted-vault-note` below.
+     */
+    async function hostedReadVaultEmbeddedImage(uri, notePath, idx) {
+      if (notePath.includes('..') || !notePath.endsWith('.md')) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid note path');
+      }
+      if (isNaN(idx) || idx < 0) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid image index');
+      }
+      try {
+        const data = await upstreamFetch(
+          `${canisterUrl}/api/v1/notes/${encodeURIComponent(notePath)}`,
+          canisterFetchOpts
+        );
+        const body = data.body != null ? String(data.body) : '';
+        const images = extractImageUrls(body);
+        if (idx >= images.length) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Image index ${idx} out of range (note has ${images.length} embedded images)`,
+          );
+        }
+        const img = images[idx];
+        const result = await fetchImageAsBase64(img.url, {
+          maxBytes: 5 * 1024 * 1024,
+          timeoutMs: 10000,
+        });
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: result.mimeType,
+              blob: result.blob,
+            },
+          ],
+        };
+      } catch (e) {
+        if (e instanceof McpError) throw e;
+        throw new McpError(ErrorCode.InternalError, e.message || String(e));
+      }
+    }
+
+    /**
+     * R3: embedded images — `list` merged into resources/list; read may also be satisfied via `hosted-vault-note`
+     * when `{+path}` greedily includes `…/image/{n}`.
      * Video URLs stay in markdown only (no binary video resource); see PRODUCT-DECISIONS-HOSTED-MVP §1b.
      */
     const hostedNoteImageTemplate = new ResourceTemplate('knowtation://hosted/vault/{+notePath}/image/{index}', {
@@ -2357,46 +2403,10 @@ export function createHostedMcpServer(ctx) {
         let notePath = variables.notePath;
         if (Array.isArray(notePath)) notePath = notePath[0];
         notePath = decodeURIComponent(String(notePath || '').replace(/\\/g, '/'));
-        if (notePath.includes('..') || !notePath.endsWith('.md')) {
-          throw new McpError(ErrorCode.InvalidParams, 'Invalid note path');
-        }
         let idx = variables.index;
         if (Array.isArray(idx)) idx = idx[0];
         idx = parseInt(String(idx), 10);
-        if (isNaN(idx) || idx < 0) {
-          throw new McpError(ErrorCode.InvalidParams, 'Invalid image index');
-        }
-        try {
-          const data = await upstreamFetch(
-            `${canisterUrl}/api/v1/notes/${encodeURIComponent(notePath)}`,
-            canisterFetchOpts
-          );
-          const body = data.body != null ? String(data.body) : '';
-          const images = extractImageUrls(body);
-          if (idx >= images.length) {
-            throw new McpError(
-              ErrorCode.InvalidParams,
-              `Image index ${idx} out of range (note has ${images.length} embedded images)`,
-            );
-          }
-          const img = images[idx];
-          const result = await fetchImageAsBase64(img.url, {
-            maxBytes: 5 * 1024 * 1024,
-            timeoutMs: 10000,
-          });
-          return {
-            contents: [
-              {
-                uri: uri.toString(),
-                mimeType: result.mimeType,
-                blob: result.blob,
-              },
-            ],
-          };
-        } catch (e) {
-          if (e instanceof McpError) throw e;
-          throw new McpError(ErrorCode.InternalError, e.message || String(e));
-        }
+        return hostedReadVaultEmbeddedImage(uri, notePath, idx);
       }
     );
 
@@ -2444,6 +2454,12 @@ export function createHostedMcpServer(ctx) {
         rel = decodeURIComponent(String(rel || '').replace(/\\/g, '/')).trim();
         if (rel.includes('..')) {
           throw new McpError(ErrorCode.InvalidParams, 'Invalid path');
+        }
+        const embeddedImg = rel.match(/^(.+\.md)\/image\/(\d+)$/);
+        if (embeddedImg) {
+          const notePath = embeddedImg[1];
+          const imageIdx = parseInt(embeddedImg[2], 10);
+          return hostedReadVaultEmbeddedImage(uri, notePath, imageIdx);
         }
         const isNote = rel.endsWith('.md');
         if (isNote && !rel) {

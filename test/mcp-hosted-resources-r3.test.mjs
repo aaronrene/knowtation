@@ -2,6 +2,7 @@
  * R3+ hosted MCP: templates-index, template/{+name}, vault/.../image/{index}, memory/topic/{slug}.
  */
 
+import dns from 'node:dns/promises';
 import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -227,6 +228,66 @@ describe('hosted MCP R3 — note image resource', () => {
     );
     const httpsCalls = mock.calls.filter((c) => String(c.url).startsWith('https://'));
     assert.equal(httpsCalls.length, 0, 'should not fetch remote image URL when index is invalid');
+  });
+
+  it('readResource …/note.md/image/0 returns image/* not folder JSON (greedy vault/{+path} fallback)', async () => {
+    /** Avoid real DNS in CI/sandbox; fetchImageAsBase64 resolves hostname before fetch. */
+    const origLookup = dns.lookup;
+    dns.lookup = async () => ({ address: '8.8.8.8', family: 4 });
+    const pngBuf = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const inner = installFetchMock({
+      getNoteResponses: {
+        'inbox/deep/smoke.md': {
+          path: 'inbox/deep/smoke.md',
+          frontmatter: {},
+          body: '![](https://example.org/prove.png)',
+        },
+      },
+      listNotesResponse: { notes: [], total: 0 },
+    });
+    mock = { calls: inner.calls, restore: inner.restore };
+    const chainFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const u = String(url);
+      if (u === 'https://example.org/prove.png') {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: (name) => {
+              const n = String(name).toLowerCase();
+              if (n === 'content-type') return 'image/png';
+              if (n === 'content-length') return String(pngBuf.length);
+              return null;
+            },
+          },
+          arrayBuffer: async () => pngBuf.buffer.slice(pngBuf.byteOffset, pngBuf.byteOffset + pngBuf.byteLength),
+        };
+      }
+      return chainFetch(url, init);
+    };
+    ({ client } = await connect({
+      userId: 'u1',
+      vaultId: 'v1',
+      role: 'viewer',
+      token: 't',
+      canisterUrl: CANISTER_URL,
+      bridgeUrl: BRIDGE_URL,
+    }));
+    try {
+      const read = await client.readResource({
+        uri: 'knowtation://hosted/vault/inbox/deep/smoke.md/image/0',
+      });
+      assert.notEqual(read.contents[0].mimeType, 'application/json', 'must not be folder listing JSON');
+      assert.match(String(read.contents[0].mimeType), /^image\//);
+      assert.ok(read.contents[0].blob);
+    } finally {
+      globalThis.fetch = chainFetch;
+      dns.lookup = origLookup;
+    }
   });
 
   it('resources/list merges image URIs from notes (cap 50)', async () => {
