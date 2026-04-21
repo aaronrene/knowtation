@@ -32,11 +32,18 @@ describe('landing Band B (Phase 2 easy start)', () => {
     assert.ok(hubInBand !== -1, 'Hosted Hub link missing in Band B');
     assert.ok(selfHostInBand !== -1, 'Self-host quick start link missing in Band B');
     assert.ok(aiSetupInBand !== -1, 'AI-assisted setup link missing in Band B');
+    assert.ok(
+      hubInBand < selfHostInBand,
+      'Hosted Hub should appear before self-host quick start in Band B'
+    );
   });
 
-  it('exposes a semantic heading and three step titles', () => {
-    assert.match(indexHtml, /id="band-b-heading"/);
-    assert.match(indexHtml, /class="band-b-heading">Easy start</);
+  it('exposes section landmark, number beside title, and three step titles', () => {
+    assert.match(
+      indexHtml,
+      /class="band-b-path wide" aria-label="Three steps: note or import, add agents, ask your AI"/
+    );
+    assert.match(indexHtml, /class="band-b-step-head"/);
     assert.match(indexHtml, /class="band-b-step-title">Note \/ import</);
     assert.match(indexHtml, /class="band-b-step-title">Add agents</);
     assert.match(indexHtml, /class="band-b-step-title">Ask your AI</);

@@ -438,7 +438,7 @@
     }
     .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
 
-    /* Band B — Easy start (1 · 2 · 3), after hero + GitHub badge, before deploy headlines */
+    /* Band B — three steps only, after hero + GitHub badge, before deploy headlines */
     .band-b-path {
       margin: 0 auto;
       padding: 0.5rem 1.5rem 1.75rem;
@@ -449,25 +449,7 @@
       border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
       border-radius: var(--radius-lg);
       background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
-      padding: 1.35rem 1.2rem 1.5rem;
-    }
-    .band-b-heading {
-      font-family: var(--font-sans);
-      font-size: clamp(1.05rem, 2.2vw, 1.22rem);
-      font-weight: 700;
-      text-align: center;
-      margin: 0 0 0.65rem;
-      color: var(--text);
-      letter-spacing: -0.02em;
-      line-height: 1.25;
-    }
-    .band-b-lead {
-      text-align: center;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin: 0 auto 1.55rem;
-      max-width: 36rem;
-      line-height: 1.55;
+      padding: 1.2rem 1.15rem 1.35rem;
     }
     .band-b-steps {
       display: grid;
@@ -476,44 +458,62 @@
       list-style: none;
       margin: 0;
       padding: 0;
+      align-items: stretch;
     }
     @media (max-width: 720px) {
       .band-b-steps { grid-template-columns: 1fr; }
     }
     .band-b-step {
       margin: 0;
-      padding: 1.1rem 0.95rem 1.15rem;
+      padding: 1rem 0.9rem 1.05rem;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    .band-b-step-head {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 0 0.5rem;
     }
     .band-b-step-marker {
-      display: block;
+      flex-shrink: 0;
       font-family: var(--font-sans);
-      font-size: clamp(1.85rem, 5vw, 2.65rem);
+      font-size: clamp(1.5rem, 3.8vw, 2.1rem);
       font-weight: 700;
       line-height: 1;
       color: var(--accent);
-      margin: 0 0 0.55rem;
       letter-spacing: -0.03em;
     }
     .band-b-step-title {
       font-family: var(--font-sans);
       font-size: clamp(0.95rem, 2vw, 1.05rem);
       font-weight: 700;
-      margin: 0 0 0.45rem;
+      margin: 0;
       color: var(--text);
-      line-height: 1.3;
+      line-height: 1.25;
     }
     .band-b-step p {
+      flex: 1 1 auto;
       margin: 0;
       font-size: 0.86rem;
       color: var(--text-muted);
       line-height: 1.55;
+      min-height: calc(2 * 1.55 * 0.86rem);
+    }
+    .band-b-step-links {
+      margin-top: auto;
+      padding-top: 0.55rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
     }
     .band-b-step-link {
-      display: inline-block;
-      margin-top: 0.6rem;
       font-size: 0.86rem;
       font-weight: 600;
       color: var(--accent);
@@ -1421,29 +1421,39 @@
     <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">Open source on GitHub</a>
   </div>
 
-  <section class="band-b-path wide" aria-labelledby="band-b-heading">
+  <section class="band-b-path wide" aria-label="Three steps: note or import, add agents, ask your AI">
     <div class="band-b-path-inner">
-      <h2 id="band-b-heading" class="band-b-heading">Easy start</h2>
-      <p class="band-b-lead">Vault first, then agents (MCP in the editor, CLI in the terminal), then copy-paste prompts so your assistant can drive setup. Self-host when you are ready—second link in step 3.</p>
       <ul class="band-b-steps" role="list">
         <li class="band-b-step">
-          <span class="band-b-step-marker">1</span>
-          <h3 class="band-b-step-title">Note / import</h3>
-          <p>Capture or import so content lives in your indexed vault—not only in chat threads.</p>
-          <a href="/hub/" class="band-b-step-link">Hosted Hub (Beta)</a>
+          <div class="band-b-step-head">
+            <span class="band-b-step-marker">1</span>
+            <h3 class="band-b-step-title">Note / import</h3>
+          </div>
+          <p>Capture or import into your indexed vault. Keep work out of chat-only threads.</p>
+          <div class="band-b-step-links">
+            <a href="/hub/" class="band-b-step-link">Hosted Hub (Beta)</a>
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="band-b-step-link band-b-step-link--secondary" target="_blank" rel="noopener">Self-host quick start</a>
+          </div>
         </li>
         <li class="band-b-step">
-          <span class="band-b-step-marker">2</span>
-          <h3 class="band-b-step-title">Add agents</h3>
-          <p><strong>MCP</strong> is the common path in Cursor and other MCP-capable tools. <strong>CLI</strong> covers terminal workflows and automation. Both reach the same vault, search, memory, and governed writes where your setup allows.</p>
-          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" class="band-b-step-link" target="_blank" rel="noopener">Agent integration (MCP &amp; CLI)</a>
+          <div class="band-b-step-head">
+            <span class="band-b-step-marker">2</span>
+            <h3 class="band-b-step-title">Add agents</h3>
+          </div>
+          <p>MCP is a common path in Cursor and other tools; CLI covers terminal workflows and automation. Both reach the same vault, search, memory, and govern rights.</p>
+          <div class="band-b-step-links">
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" class="band-b-step-link" target="_blank" rel="noopener">Agent integration (MCP &amp; CLI)</a>
+          </div>
         </li>
         <li class="band-b-step">
-          <span class="band-b-step-marker">3</span>
-          <h3 class="band-b-step-title">Ask your AI</h3>
-          <p>Paste phased prompts so your assistant walks through install, index, and verification—without pretending self-host is a single click.</p>
-          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AI-ASSISTED-SETUP.md" class="band-b-step-link" target="_blank" rel="noopener">AI-assisted setup (prompts)</a>
-          <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="band-b-step-link band-b-step-link--secondary" target="_blank" rel="noopener">Self-host quick start</a>
+          <div class="band-b-step-head">
+            <span class="band-b-step-marker">3</span>
+            <h3 class="band-b-step-title">Ask your AI</h3>
+          </div>
+          <p>Paste phased prompts for install, index, and checks. Your assistant walks the steps you pick.</p>
+          <div class="band-b-step-links">
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AI-ASSISTED-SETUP.md" class="band-b-step-link" target="_blank" rel="noopener">AI-assisted setup (prompts)</a>
+          </div>
         </li>
       </ul>
     </div>

@@ -76,7 +76,7 @@ Prefer **tag chips** or a **short two-column glossary** over a dense **word clou
 1. **Hero fold** — collapsed `<details>` (“Structured memory…”) under main CTAs so the top stays clean.  
 2. **Hero + video + spotlights** — unchanged flow.  
 3. **Band A (full)** — same structured-memory content **after Ecosystem visions**, before “Control, customize…”.  
-4. **Band B — Easy start** — three steps after the hero and GitHub badge, before deploy headlines on [`web/index.html`](../web/index.html) (note/import → add agents → ask your AI); see [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md).
+4. **Band B — three steps** — after the hero and GitHub badge, before deploy headlines on [`web/index.html`](../web/index.html) (note/import → add agents → ask your AI); see [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md).
 
 ---
 
