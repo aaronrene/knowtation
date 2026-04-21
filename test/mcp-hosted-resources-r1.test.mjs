@@ -1,5 +1,5 @@
 /**
- * R1 hosted MCP: `knowtation://hosted/vault/{+path}` resource template (same canister read as get_note).
+ * R1 + R2 hosted MCP: `knowtation://hosted/vault/{+path}` — note reads (get_note) and folder JSON (list_notes).
  */
 
 import { describe, it, afterEach } from 'node:test';
@@ -186,8 +186,14 @@ describe('hosted MCP R1 — vault note resource template', () => {
     );
   });
 
-  it('rejects non-markdown paths (R2 scope)', async () => {
-    mock = installNoteFetchMock({});
+  it('readResource for non-.md path uses GET /api/v1/notes?folder=… (R2 folder listing)', async () => {
+    mock = installNoteFetchMock(
+      {},
+      {
+        notes: [{ path: 'inbox/a.md', frontmatter: {}, body: '' }],
+        total: 50,
+      },
+    );
     ({ client } = await connect({
       userId: 'u1',
       vaultId: 'v1',
@@ -197,10 +203,19 @@ describe('hosted MCP R1 — vault note resource template', () => {
       bridgeUrl: BRIDGE_URL,
     }));
 
-    await assert.rejects(
-      () => client.readResource({ uri: 'knowtation://hosted/vault/inbox' }),
-      /\.md|R2|invalid/i
-    );
+    const read = await client.readResource({ uri: 'knowtation://hosted/vault/inbox' });
+    assert.equal(read.contents.length, 1);
+    assert.equal(read.contents[0].mimeType, 'application/json');
+    const j = JSON.parse(read.contents[0].text);
+    assert.equal(j.folder, '/inbox');
+    assert.equal(j.total, 50);
+    assert.equal(j.notes.length, 1);
+    assert.equal(j.truncated, false, '50 notes fits in one page of 100');
+
+    const listCalls = mock.calls.filter((c) => String(c.url).includes('/api/v1/notes?'));
+    assert.ok(listCalls.length >= 1);
+    const hit = listCalls.find((c) => c.url.includes('folder=inbox') && c.url.includes('limit=100'));
+    assert.ok(hit, `expected folder=inbox in list URL, got: ${listCalls.map((c) => c.url).join(' | ')}`);
   });
 });
 

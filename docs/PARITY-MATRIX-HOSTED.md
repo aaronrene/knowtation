@@ -106,7 +106,7 @@ Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/ser
 |-----------------|-----------|-----------------|--------------------|--------------|
 | See effective vault actor | Session + vault switcher (implicit via gateway `getHostedAccessContext`) | Bridge `GET /api/v1/hosted-context` (used by gateway and MCP bootstrap) | Resource `knowtation://hosted/vault-info` | Returns `userId` (JWT `sub`) and `canisterUserId` (effective partition); must match Hub list partition — see playbook § **Hosted MCP canister `X-User-Id` parity**. |
 | Read note via MCP **resource URI** (R1) | Note drawer (same bytes as open note) | `GET …/api/v1/notes/:path` | Resource template `knowtation://hosted/vault/{+path}` | **`.md` only**; same `upstreamFetch` + headers as **`get_note`**. **`resources/list`** includes up to **50** concrete `knowtation://hosted/vault/…` URIs (SDK template `list`) for clients like Cursor. |
-| Vault list JSON (first page) via MCP resource (R2) | Hub main list (first page) | `GET …/api/v1/notes?limit&offset` | Resource `knowtation://hosted/vault-listing` | **R2 slice:** fixed **`limit=100`**, **`offset=0`**; filters / paged offsets use **`list_notes`** until more listing URIs ship. |
+| Vault list JSON (first page + per-folder) via MCP resource (R2) | Hub main list / folder-scoped list | `GET …/api/v1/notes?limit&offset` (+ optional **`folder`**) | Resources **`knowtation://hosted/vault-listing`** (root first page) and **`knowtation://hosted/vault/{prefix}`** when **`prefix`** does not end with **`.md`** | Same canister list as **`list_notes`**; **`limit=100`**, **`offset=0`**; **`truncated: true`** when **`total > 100`**. Deeper pages / extra filters → **`list_notes`**. |
 
 ---
 

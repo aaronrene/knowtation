@@ -166,7 +166,7 @@ Ship in a PR that includes code + tests + doc updates (no docs-only PR to main).
 |-------|--------|-----------|
 | **R0** | Keep **`knowtation://hosted/vault-info`**; document only | Already shipped. |
 | **R1** | **One** `ResourceTemplate` for note read, e.g. `knowtation://hosted/vault/{+path}` backed by same reads as `get_note` | **Done** on `main` (incl. **`resources/list`** note rows for Cursor). Gateway idle session policy: env **`MCP_SESSION_TTL_MS`**, **`MCP_MAX_SESSIONS_PER_USER`** (`hub/gateway/mcp-proxy.mjs`). |
-| **R2** | Vault listing resources (subset of local static URIs) | **In progress:** static **`knowtation://hosted/vault-listing`** (first page, cap 100). Further work: folder URIs, **`list`** pagination, parity with local `knowtation://vault/` listings. |
+| **R2** | Vault listing resources (subset of local static URIs) | **Complete:** static **`knowtation://hosted/vault-listing`** (PR **#182**) + **`knowtation://hosted/vault/{+path}`** when the path does **not** end with **`.md`** → JSON folder listing (`GET …/notes?folder=…&limit=100&offset=0`), aligned with self-hosted `knowtation://vault/{+path}` folder branch. **Optional later:** dedicated URIs for paged **`offset>0`** (until then use **`list_notes`**). |
 | **R3+** | Image/video/templates/memory topic templates | **Separate program:** SSRF, bandwidth, metering — mirror local [`mcp/resources/register.mjs`](../mcp/resources/register.mjs) carefully. |
 
 **Cursor “86 resources”** on self-hosted includes **template-expanded** URIs — hosted will not match that count until **R2+**; set expectations in docs.
