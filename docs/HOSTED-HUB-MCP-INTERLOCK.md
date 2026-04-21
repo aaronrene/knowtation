@@ -197,7 +197,7 @@ Use this as the **program** that runs **alongside** MCP prompt/resource tracks (
 | **G1** | **Governance** | Team rule: **H0–H4** for any feature that ships **both** Hub and MCP; optional H2-only if only one surface. | **New** work stops adding silent divergence. |
 | **G2** | **Tighten hot spots** | Pick **1–3** worst duplicates from G0; refactor so **one** API or `lib/` module owns the behavior; Hub + MCP become thin. | Measurable reduction in bug class “works in browser, fails in Cursor.” |
 | **G3** | **Track A + B (MCP)** | Hosted **recipes** doc, then **3–5 hosted prompts** calling same upstreams as tools (Cursor plan). | Better Cursor UX **without** inventing a second vault layer. |
-| **G4** | **Resources (optional)** | Only if product needs `knowtation://`-style reads on hosted; implement **thin** resource handlers on top of **same** read APIs as `get_note`. | Parity for resource-oriented clients. |
+| **G4** | **Resources (optional)** | Only if product needs `knowtation://`-style reads on hosted; implement **thin** resource handlers on top of **same** read APIs as `get_note`. | Parity for resource-oriented clients. **R3+ shipped:** templates, SSRF-safe note images, memory-topic JSON — see [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) § Session / identity; **no** hosted video **file** resource (URLs in markdown only — [`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) §1b). |
 | **G5** | **Ongoing** | PR checklist: “Does this touch Hub **or** MCP? If both, did we update H0 contract + matrix?” | Drift stays **visible**. |
 
 **Timeline (rough):** G0–G1 can be **days** (mostly documentation and process). G2 is **variable** (small refactors vs large). G3 matches your **prompts** schedule. G4 is **larger** if you go beyond one note-read template.
@@ -211,6 +211,7 @@ Use this as the **program** that runs **alongside** MCP prompt/resource tracks (
 - **Billing:** Import/transcribe paths that must hit metered gateway; do not add a second path that skips metering.
 - **Secrets:** No new credentials in Hub client bundles; agents must not get broader scope than Hub OAuth/JWT allows.
 - **Scope creep:** “Full resource parity with local stdio” is a **multi-sprint** program; keep G4 scoped until G0–G3 prove value.
+- **Hosted video:** The hosted Hub does **not** target **video file import**; notes use **links/URLs** for video (and typical image references). R3+ MCP resources should follow that product line — see [`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) § **1b** and [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) R3+ row — not full local **`note-video`** binary parity by default.
 
 ---
 

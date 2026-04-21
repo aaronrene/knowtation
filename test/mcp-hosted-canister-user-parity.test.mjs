@@ -280,6 +280,15 @@ describe('hosted MCP canister user parity', () => {
           text: async () => '{"notes":[],"total":0}',
         };
       }
+      // R3+ resources/list merges memory topic template list → GET bridge /api/v1/memory
+      if (u.startsWith(`${BRIDGE_URL}/api/v1/memory`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ events: [], count: 0 }),
+          text: async () => '{"events":[],"count":0}',
+        };
+      }
       return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
     };
 

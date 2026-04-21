@@ -17,6 +17,16 @@
 
 ---
 
+## 1b. Media in notes — hosted Hub (video and photos)
+
+| Topic | Hosted product (live Hub) |
+|-------|---------------------------|
+| **Video** | **No** first-class **video file upload import** in the hosted browser product. Users bring video in as **markdown links or embeds** (URLs), same mental model as **photos referenced by URL** in note bodies. |
+| **Photos** | Images in notes are typically **URLs**, GitHub-backed uploads where wired, or paste flows — aligned with link-first content. |
+| **MCP R3+** | When adding hosted **`knowtation://hosted/…`** resource templates, **do not** prioritize parity with self-hosted **binary video file** import or local **`note-video`** disk workflows; align with **URL / markdown body** behavior above, plus SSRF-safe **image** fetch patterns where we add MCP resources. |
+
+---
+
 ## 2. Primary hosted COGS to monitor (cannot avoid)
 
 For hosted semantic product quality, **re-index (embeddings)** and **search** are **essential**. They are also the **main variable API cost** (embedding provider + bridge CPU/storage).
@@ -59,3 +69,4 @@ From [HOSTED-CREDITS-DESIGN.md §2](./HOSTED-CREDITS-DESIGN.md):
 | Date | Decision |
 |------|----------|
 | 2026-03-26 | Hosted MVP: **no platform-run transcription**; external transcribe → Markdown/exports; self-hosted **audio** with user’s **OpenAI** key; **video** Hub **coming soon**, CLI optional; **primary meter: index + search** via existing credit tiers. |
+| 2026-04-21 | Hosted Hub + R3+ planning: **no video file import** on hosted; video in vault via **links/URLs** (like photos-by-URL); MCP resources program follows same guardrail — see § **1b** and [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md). |

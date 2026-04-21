@@ -107,6 +107,9 @@ Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/ser
 | See effective vault actor | Session + vault switcher (implicit via gateway `getHostedAccessContext`) | Bridge `GET /api/v1/hosted-context` (used by gateway and MCP bootstrap) | Resource `knowtation://hosted/vault-info` | Returns `userId` (JWT `sub`) and `canisterUserId` (effective partition); must match Hub list partition — see playbook § **Hosted MCP canister `X-User-Id` parity**. |
 | Read note via MCP **resource URI** (R1) | Note drawer (same bytes as open note) | `GET …/api/v1/notes/:path` | Resource template `knowtation://hosted/vault/{+path}` | **`.md` only**; same `upstreamFetch` + headers as **`get_note`**. **`resources/list`** includes up to **50** concrete `knowtation://hosted/vault/…` URIs (SDK template `list`) for clients like Cursor. |
 | Vault list JSON (first page + per-folder) via MCP resource (R2) | Hub main list / folder-scoped list | `GET …/api/v1/notes?limit&offset` (+ optional **`folder`**) | Resources **`knowtation://hosted/vault-listing`** (root first page) and **`knowtation://hosted/vault/{prefix}`** when **`prefix`** does not end with **`.md`** | Same canister list as **`list_notes`**; **`limit=100`**, **`offset=0`**; **`truncated: true`** when **`total > 100`**. Deeper pages / extra filters → **`list_notes`**. |
+| Template markdown via MCP (R3) | — (templates are vault notes under `templates/`) | `GET …/api/v1/notes?folder=templates`, `GET …/api/v1/notes/:path` | **`knowtation://hosted/templates-index`** (JSON path list), **`knowtation://hosted/template/{+name}`** | Same reads as **`get_note`** / **`list_notes`**; mirrors self-hosted `knowtation://vault/templates*` without local disk. |
+| Note-embedded **image** bytes (R3) | Hub renders `![](https://…)` in note body | Canister **`GET …/notes/:path`** + outbound **`fetch`** to image URL | Resource template **`knowtation://hosted/vault/{+notePath}/image/{index}`** | **HTTPS-only**, **`mcp/resources/image-fetch.mjs`** (SSRF-safe). **No** hosted **`note-video`** binary resource; video stays as URLs in markdown ([`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) §1b). |
+| Memory events by **topic** slug (R3) | — | **`GET {bridge}/api/v1/memory?limit≤100`** + client filter | Resource template **`knowtation://hosted/memory/topic/{slug}`** | Same **`extractTopicFromEvent`** heuristics as self-hosted `knowtation://memory/topic/{slug}`; topic **`list`** is derived from the latest bridge window only (not full-store enumeration). |
 
 ---
 
@@ -121,6 +124,7 @@ Capabilities that **correctly** have **no** row in the MCP column today (non-goa
 - Facets / folders helpers: `GET /api/v1/notes/facets`, `GET /api/v1/vault/folders` (Hub filters; MCP tools use `list_notes` / paths)
 - Attestations: `/api/v1/attest*`
 - Image upload / proxy: `upload-image`, `image-proxy*`
+- **Hosted Hub — video as file import:** not an MVP surface; video in notes uses **markdown links / URLs** (same class as image-by-URL). Documented for MCP **R3+** scoping in [`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) § **1b** and [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
 
 When a future MCP tool overlaps one of these, add a row and complete **H0–H4**.
 
@@ -133,4 +137,4 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
 4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 
-Last inventory pass: **2026-04-20** — seventeen hosted tools and **thirteen** hosted prompts on **`feat/b3-memory-prompts-implementation`** (Track B1 + B2 + B3; **twelve** visible to **viewer** because `write-from-capture` requires **editor**) from `mcp-hosted-server.mjs` and [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) ACL tables; **eight** gateway-proxied memory routes (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`).
+Last inventory pass: **2026-04-21** — seventeen hosted tools, **thirteen** hosted prompts (**twelve** for **viewer** when `write-from-capture` is hidden), and **R3+** hosted resources (templates, note images, memory topics) in `mcp-hosted-server.mjs`; **eight** gateway-proxied memory routes (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`).

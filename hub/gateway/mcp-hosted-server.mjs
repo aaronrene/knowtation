@@ -30,6 +30,9 @@ import {
   PROJECT_SUMMARY_NOTES,
   CONTENT_PLAN_NOTES,
 } from '../../mcp/prompts/helpers.mjs';
+import { extractImageUrls } from '../../lib/media-url-extract.mjs';
+import { extractTopicFromEvent, slugify } from '../../lib/memory-event.mjs';
+import { fetchImageAsBase64 } from '../../mcp/resources/image-fetch.mjs';
 import { isToolAllowed, isPromptAllowed } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
@@ -86,6 +89,15 @@ const HOSTED_VAULT_RESOURCE_LIST_MAX = 50;
 
 /** R2: static `knowtation://hosted/vault-listing` uses this cap (same canister list as `list_notes`). */
 const HOSTED_VAULT_LISTING_RESOURCE_LIMIT = 100;
+
+/** R3: `resources/list` merge cap for embedded image URIs (matches self-hosted `MCP_RESOURCE_PAGE_SIZE`). */
+const HOSTED_IMAGE_RESOURCE_LIST_MAX = 50;
+
+/** R3: bridge `GET /api/v1/memory` max slice for topic derivation / filtering (bridge hard cap 100). */
+const HOSTED_MEMORY_TOPIC_BRIDGE_LIMIT = 100;
+
+/** R3: templates folder listing uses the same page size as vault listing resources. */
+const HOSTED_TEMPLATES_LIST_LIMIT = 100;
 
 function vaultPathKey(p) {
   return String(p ?? '').replace(/\\/g, '/').trim();
@@ -238,6 +250,28 @@ function formatMemoryEventsFromBridgeResponse(memoryJson, opts = {}) {
     return `- **${ee.ts}** [${ee.type}] ${summary}`;
   });
   return { text: lines.join('\n'), count: events.length };
+}
+
+/**
+ * @param {unknown[]} events
+ * @param {string} topicParam
+ */
+function filterHostedMemoryEventsByTopic(events, topicParam) {
+  const want = slugify(String(topicParam || ''));
+  if (!want) return [];
+  return events.filter((e) => extractTopicFromEvent(/** @type {object} */ (e)) === want);
+}
+
+/**
+ * @param {unknown[]} events
+ * @returns {string[]}
+ */
+function uniqueHostedMemoryTopicSlugs(events) {
+  const s = new Set();
+  for (const e of events) {
+    s.add(extractTopicFromEvent(/** @type {object} */ (e)));
+  }
+  return [...s].sort();
 }
 
 /**
@@ -2264,6 +2298,118 @@ export function createHostedMcpServer(ctx) {
    * “N resources” UI counts that list; templates without `list` only appear under `resourceTemplates/list`.
    */
   if (isToolAllowed('get_note', role)) {
+    /**
+     * R3 embedded image fetch (shared). Some MCP clients match `knowtation://hosted/vault/{+path}` with a greedy
+     * `{+path}` so `…/note.md/image/0` is **not** routed to the narrower image template — `path` then does not end
+     * in `.md` and was mis-handled as a folder listing. We also handle that shape in `hosted-vault-note` below.
+     */
+    async function hostedReadVaultEmbeddedImage(uri, notePath, idx) {
+      if (notePath.includes('..') || !notePath.endsWith('.md')) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid note path');
+      }
+      if (isNaN(idx) || idx < 0) {
+        throw new McpError(ErrorCode.InvalidParams, 'Invalid image index');
+      }
+      try {
+        const data = await upstreamFetch(
+          `${canisterUrl}/api/v1/notes/${encodeURIComponent(notePath)}`,
+          canisterFetchOpts
+        );
+        const body = data.body != null ? String(data.body) : '';
+        const images = extractImageUrls(body);
+        if (idx >= images.length) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Image index ${idx} out of range (note has ${images.length} embedded images)`,
+          );
+        }
+        const img = images[idx];
+        const result = await fetchImageAsBase64(img.url, {
+          maxBytes: 5 * 1024 * 1024,
+          timeoutMs: 10000,
+        });
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: result.mimeType,
+              blob: result.blob,
+            },
+          ],
+        };
+      } catch (e) {
+        if (e instanceof McpError) throw e;
+        throw new McpError(ErrorCode.InternalError, e.message || String(e));
+      }
+    }
+
+    /**
+     * R3: embedded images — `list` merged into resources/list; read may also be satisfied via `hosted-vault-note`
+     * when `{+path}` greedily includes `…/image/{n}`.
+     * Video URLs stay in markdown only (no binary video resource); see PRODUCT-DECISIONS-HOSTED-MVP §1b.
+     */
+    const hostedNoteImageTemplate = new ResourceTemplate('knowtation://hosted/vault/{+notePath}/image/{index}', {
+      list:
+        isToolAllowed('list_notes', role) ?
+          async () => {
+            const params = new URLSearchParams();
+            params.set('limit', String(HOSTED_IMAGE_RESOURCE_LIST_MAX));
+            params.set('offset', '0');
+            const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+            const notes = Array.isArray(data?.notes) ? data.notes : [];
+            const resources = [];
+            for (const n of notes) {
+              const p = n?.path != null ? String(n.path) : '';
+              if (!p || !p.endsWith('.md')) continue;
+              let body = n.body != null ? String(n.body) : '';
+              if (!body.trim()) {
+                try {
+                  const full = await upstreamFetch(
+                    `${canisterUrl}/api/v1/notes/${encodeURIComponent(p)}`,
+                    canisterFetchOpts
+                  );
+                  body = full.body != null ? String(full.body) : '';
+                } catch (_) {
+                  continue;
+                }
+              }
+              const images = extractImageUrls(body);
+              for (let i = 0; i < images.length; i++) {
+                if (resources.length >= HOSTED_IMAGE_RESOURCE_LIST_MAX) break;
+                const img = images[i];
+                const name = img.alt || img.url.split('/').pop().split('?')[0] || `image-${i}`;
+                resources.push({
+                  uri: `knowtation://hosted/vault/${p}/image/${i}`,
+                  name,
+                  mimeType: img.mimeType,
+                  description: `Image in ${p}`,
+                });
+              }
+              if (resources.length >= HOSTED_IMAGE_RESOURCE_LIST_MAX) break;
+            }
+            return { resources };
+          }
+        : async () => ({ resources: [] }),
+    });
+    server.registerResource(
+      'hosted-vault-note-image',
+      hostedNoteImageTemplate,
+      {
+        title: 'Hosted note embedded image',
+        description:
+          'Image URL in note markdown (![](url)), fetched with SSRF-safe HTTPS-only rules (mcp/resources/image-fetch.mjs).',
+      },
+      async (uri, variables) => {
+        let notePath = variables.notePath;
+        if (Array.isArray(notePath)) notePath = notePath[0];
+        notePath = decodeURIComponent(String(notePath || '').replace(/\\/g, '/'));
+        let idx = variables.index;
+        if (Array.isArray(idx)) idx = idx[0];
+        idx = parseInt(String(idx), 10);
+        return hostedReadVaultEmbeddedImage(uri, notePath, idx);
+      }
+    );
+
     const templateCallbacks =
       isToolAllowed('list_notes', role) ?
         {
@@ -2308,6 +2454,12 @@ export function createHostedMcpServer(ctx) {
         rel = decodeURIComponent(String(rel || '').replace(/\\/g, '/')).trim();
         if (rel.includes('..')) {
           throw new McpError(ErrorCode.InvalidParams, 'Invalid path');
+        }
+        const embeddedImg = rel.match(/^(.+\.md)\/image\/(\d+)$/);
+        if (embeddedImg) {
+          const notePath = embeddedImg[1];
+          const imageIdx = parseInt(embeddedImg[2], 10);
+          return hostedReadVaultEmbeddedImage(uri, notePath, imageIdx);
         }
         const isNote = rel.endsWith('.md');
         if (isNote && !rel) {
@@ -2382,6 +2534,106 @@ export function createHostedMcpServer(ctx) {
         }
       }
     );
+
+    /**
+     * R3: vault markdown templates under `templates/` (same canister reads as get_note; index via list_notes folder=).
+     */
+    if (isToolAllowed('list_notes', role)) {
+      server.registerResource(
+        'hosted-templates-index',
+        'knowtation://hosted/templates-index',
+        {
+          title: 'Hosted vault template paths',
+          description: `JSON listing of notes under templates/ (GET /api/v1/notes?folder=templates&limit=${HOSTED_TEMPLATES_LIST_LIMIT}).`,
+        },
+        async () => {
+          const params = new URLSearchParams();
+          params.set('limit', String(HOSTED_TEMPLATES_LIST_LIMIT));
+          params.set('offset', '0');
+          params.set('folder', 'templates');
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(data?.notes) ? data.notes : [];
+          const relPaths = notes
+            .map((n) => (n?.path != null ? String(n.path) : ''))
+            .filter((p) => p.startsWith('templates/') && p.endsWith('.md'));
+          return {
+            contents: [
+              {
+                uri: 'knowtation://hosted/templates-index',
+                mimeType: 'application/json',
+                text: JSON.stringify({ templates: relPaths, total: relPaths.length }),
+              },
+            ],
+          };
+        }
+      );
+
+      const hostedTemplateFileTemplate = new ResourceTemplate('knowtation://hosted/template/{+name}', {
+        list: async () => {
+          const params = new URLSearchParams();
+          params.set('limit', String(HOSTED_TEMPLATES_LIST_LIMIT));
+          params.set('offset', '0');
+          params.set('folder', 'templates');
+          const data = await upstreamFetch(`${canisterUrl}/api/v1/notes?${params}`, canisterFetchOpts);
+          const notes = Array.isArray(data?.notes) ? data.notes : [];
+          const resources = [];
+          for (const n of notes) {
+            const p = n?.path != null ? String(n.path) : '';
+            if (!p.startsWith('templates/') || !p.endsWith('.md')) continue;
+            const name = p.replace(/^templates\//, '');
+            resources.push({
+              uri: `knowtation://hosted/template/${name}`,
+              name: name.split('/').pop() || name,
+              mimeType: 'text/markdown',
+              description: `Template: ${name}`,
+            });
+          }
+          return { resources };
+        },
+      });
+      server.registerResource(
+        'hosted-template-file',
+        hostedTemplateFileTemplate,
+        {
+          title: 'Hosted vault template',
+          description: 'Markdown file under vault templates/ (same bytes as get_note).',
+        },
+        async (uri, variables) => {
+          let name = variables.name;
+          if (Array.isArray(name)) name = name[0];
+          name = decodeURIComponent(String(name || '').replace(/\\/g, '/'));
+          if (!name || name.includes('..')) {
+            throw new McpError(ErrorCode.InvalidParams, 'Invalid template name');
+          }
+          let rel = `templates/${name}`;
+          if (!rel.endsWith('.md')) rel = `${rel}.md`;
+          try {
+            const data = await upstreamFetch(
+              `${canisterUrl}/api/v1/notes/${encodeURIComponent(rel)}`,
+              canisterFetchOpts
+            );
+            const path = data.path != null ? String(data.path) : rel;
+            const markdown = noteToMarkdown({
+              path,
+              frontmatter: data.frontmatter && typeof data.frontmatter === 'object' ? data.frontmatter : {},
+              body: data.body != null ? String(data.body) : '',
+            });
+            return {
+              contents: [
+                {
+                  uri: uri.toString(),
+                  mimeType: 'text/markdown',
+                  text: markdown,
+                },
+              ],
+            };
+          } catch (e) {
+            const msg = e.message || String(e);
+            throw new McpError(ErrorCode.InternalError, msg);
+          }
+        }
+      );
+    }
   }
 
   /**
@@ -2425,6 +2677,75 @@ export function createHostedMcpServer(ctx) {
       }],
     })
   );
+
+  /**
+   * R3: memory topic JSON — same event shapes as `GET /api/v1/memory`, filtered by `extractTopicFromEvent`
+   * (parity with self-hosted `knowtation://memory/topic/{slug}`). Topic list is derived from the latest bridge window only.
+   * Hosted product guardrail: no video **file** resource; video stays as URLs in note bodies (§1b).
+   */
+  if (isPromptAllowed('memory-context', role)) {
+    const memoryTopicTemplate = new ResourceTemplate('knowtation://hosted/memory/topic/{slug}', {
+      list: async () => {
+        const params = new URLSearchParams();
+        params.set('limit', String(HOSTED_MEMORY_TOPIC_BRIDGE_LIMIT));
+        const memJson = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${params}`, bridgeFetchOpts);
+        const raw = Array.isArray(memJson?.events) ? memJson.events : [];
+        const topics = uniqueHostedMemoryTopicSlugs(raw);
+        return {
+          resources: topics.map((t) => ({
+            uri: `knowtation://hosted/memory/topic/${encodeURIComponent(t)}`,
+            name: t,
+            mimeType: 'application/json',
+            description: `Memory events for topic: ${t}`,
+          })),
+        };
+      },
+    });
+    server.registerResource(
+      'hosted-memory-topic',
+      memoryTopicTemplate,
+      {
+        title: 'Hosted memory topic',
+        description:
+          'Memory events for a topic slug (heuristic partition). Upstream: GET /api/v1/memory with client-side filter; window size follows bridge limit.',
+      },
+      async (uri, variables) => {
+        let slug = variables.slug;
+        if (Array.isArray(slug)) slug = slug[0];
+        slug = decodeURIComponent(String(slug || ''));
+        if (!slug || slug.includes('..')) {
+          throw new McpError(ErrorCode.InvalidParams, 'Invalid topic slug');
+        }
+        try {
+          const params = new URLSearchParams();
+          params.set('limit', String(HOSTED_MEMORY_TOPIC_BRIDGE_LIMIT));
+          const memJson = await upstreamFetch(`${bridgeUrl}/api/v1/memory?${params}`, bridgeFetchOpts);
+          const raw = Array.isArray(memJson?.events) ? memJson.events : [];
+          const events = filterHostedMemoryEventsByTopic(raw, slug);
+          const payload = {
+            topic: slugify(slug),
+            events,
+            count: events.length,
+            window_limit: HOSTED_MEMORY_TOPIC_BRIDGE_LIMIT,
+            note:
+              'Topics use the same slug rules as self-hosted MemoryManager.extractTopicFromEvent. Events are the subset of the latest bridge list (max 100) matching this slug.',
+          };
+          return {
+            contents: [
+              {
+                uri: uri.toString(),
+                mimeType: 'application/json',
+                text: JSON.stringify(payload, null, 2),
+              },
+            ],
+          };
+        } catch (e) {
+          const msg = e.message || String(e);
+          throw new McpError(ErrorCode.InternalError, msg);
+        }
+      }
+    );
+  }
 
   return server;
 }
