@@ -2344,11 +2344,13 @@ export function createHostedMcpServer(ctx) {
     }
 
     /**
-     * R3: embedded images — `list` merged into resources/list; read may also be satisfied via `hosted-vault-note`
-     * when `{+path}` greedily includes `…/image/{n}`.
+     * R3: embedded images — use **`vault-image`** (not `vault/.../image/…`) so the URI does not share a prefix with
+     * `knowtation://hosted/vault/{+path}`; some MCP clients fail template match or treat reads as “not found” when
+     * the same scheme/host overlaps the generic vault template. Legacy `…/vault/…/note.md/image/n` is still read
+     * via the `hosted-vault-note` handler (regex branch).
      * Video URLs stay in markdown only (no binary video resource); see PRODUCT-DECISIONS-HOSTED-MVP §1b.
      */
-    const hostedNoteImageTemplate = new ResourceTemplate('knowtation://hosted/vault/{+notePath}/image/{index}', {
+    const hostedNoteImageTemplate = new ResourceTemplate('knowtation://hosted/vault-image/{+notePath}/{index}', {
       list:
         isToolAllowed('list_notes', role) ?
           async () => {
@@ -2379,7 +2381,7 @@ export function createHostedMcpServer(ctx) {
                 const img = images[i];
                 const name = img.alt || img.url.split('/').pop().split('?')[0] || `image-${i}`;
                 resources.push({
-                  uri: `knowtation://hosted/vault/${p}/image/${i}`,
+                  uri: `knowtation://hosted/vault-image/${p}/${i}`,
                   name,
                   mimeType: img.mimeType,
                   description: `Image in ${p}`,
