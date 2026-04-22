@@ -83,20 +83,38 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 **Status on branch `feat/import-url-documents-mcp`:** **Shipped** (Hub Import modal + docs: explain **one multipart upload**; **ZIP** for folder-capable types; **PDF/DOCX** = single file, not ZIP—see [`IMPORT-SOURCES.md`](./IMPORT-SOURCES.md) § “Hub browser: ZIP and bulk”.)
 
 - **Document clearly** in Hub and `IMPORT-SOURCES.md`: ZIP a folder of **Markdown** (or use ZIP for exports that expect a directory); **PDF** and **DOCX** = upload **one `.pdf` / `.docx` per import** (ZIP extracts to a directory; those importers require a file).
-- **Not in 4A:** client-side ZIP (e.g. JSZip) for folder drag→one upload — optional future slice; adds bundle size and memory limits.
 
-**Complexity:** **Low** for copy/docs only; **low–medium** if JSZip is added later.
+**Complexity:** **Low** (copy/docs only). **4A does not go obsolete** when 4A₂ or 4B land: exports still arrive as ZIPs; the copy stays the contract for server-side extraction.
 
-### 4B — Native multi-file / server-side folder
+### 4A₂ — Client-side ZIP (JSZip) — optional supplement
 
-- **Hub:** `<input type="file" multiple>` and/or **`webkitdirectory`** → many `File`s.
-- **Server:** either **sequential** `POST /api/v1/import` (N requests; simple, works with current multer) or **one batch endpoint** (multipart array + source_type; bridge loops `runImport` or runs a batch helper).
-- **Progress / partial failure:** UX for “3 of 5 succeeded.”
-- **Limits:** max files, max total bytes, rate limits.
+**Goal:** User drags a **folder** (or many files) in the browser; the Hub builds **one** `.zip` and POSTs the existing multipart `POST /api/v1/import` once—**no new server route** if the payload is still one `file` field.
 
-**Complexity:** **Medium** (sequential reuse of Phase 1–3) to **medium–high** (true batch API + transactional semantics + MCP “import_batch”).
+- **Hub:** dependency (e.g. **JSZip**), drag-and-drop path, explicit **size / file-count caps**, cancel, and error UX when memory or limits bite.
+- **Docs:** bundle size tradeoff, browser memory limits, when to prefer “zip in Finder” vs in-app.
+- **Tests:** zip builder with fixtures (unit) or a documented manual checklist if DOM-heavy.
 
-**Recommendation:** **4A** (ZIP + accurate Hub/docs copy for folder vs single-file types) is shipped on this branch; add **4B** when analytics show users still struggle without native multi-file or folder picker.
+**Complexity:** **Low–medium** (limits and UX matter more than LOC). **Scope:** folder-capable `source_type` values only—not PDF/DOCX (see `lib/importers/pdf.mjs` / `docx.mjs`).
+
+### 4B — Native multi-file / folder picker (`webkitdirectory`)
+
+**Goal:** Users can pick **many files** or a **folder** without pre-zipping, within caps.
+
+- **Hub:** `<input type="file" multiple>` and/or **`webkitdirectory`** → many `File`s; progress and per-file outcomes.
+- **Server:** **sequential** `POST /api/v1/import` (N requests; reuses multer + `runImport`) **or** **one batch endpoint** (multipart array + `source_type`; bridge loops `runImport`)—pick one approach and document it.
+- **Progress / partial failure:** UX for “3 of 5 succeeded” (name failures).
+- **Limits:** max files, max total bytes, gateway/bridge timeouts; surface in UI.
+- **Parity:** [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) + MCP docs if caps or routes change.
+
+**Complexity:** **Medium** (sequential client + caps + UX) to **medium–high** (batch API + MCP `import_batch` + stricter semantics).
+
+### Recommended order (next implementation pass)
+
+1. **4A₂ (JSZip)** for folder-capable types: large UX win, one HTTP request, same server contract.
+2. **4B** after or alongside: native multi-file/folder picker; keep **PDF/DOCX** as **one file per import** unless importers are explicitly extended.
+3. **Optional polish:** accessible batch progress (e.g. `aria-live`), documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) when finalized.
+
+**Recommendation:** Treat **4A + 4A₂ + 4B** as a stacked story: copy explains behavior; JSZip reduces friction for ZIP-shaped flows; 4B covers users who never zip. None of these replace the others.
 
 ---
 
@@ -127,22 +145,31 @@ Ease of import **does** affect adoption. Order of impact:
 
 ---
 
-## Next session prompt (Phase 2 — PDF)
+## Next session prompt (Phase 4A₂ JSZip + Phase 4B multi-file / folder)
 
 Copy everything in the block below into a new chat if you want a clean context window. Adjust paths if your clone differs.
 
 ```text
-We are on branch feat/import-url-documents-mcp. Phase 1 (URL import) is merged into this branch — see docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md and commit history for feat(import): Phase 1 URL import.
+We are on branch feat/import-url-documents-mcp. Phases 1–3 (URL, PDF, DOCX) and Phase 4A (bulk import docs + Hub copy: ZIP vs single-file, folder-capable types) are shipped — see docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md § Phase 4 and docs/IMPORT-SOURCES.md § “Hub browser: one upload, ZIP extraction, and bulk”.
 
-Implement Phase 2: PDF import.
-- Add source_type `pdf` in lib/import-source-types.mjs and lib/import.mjs.
-- New lib/importers/pdf.mjs using a maintained parser (e.g. pdf-parse or unpdf); output Markdown notes under a sensible inbox path; frontmatter source/source_id/date; match patterns from lib/importers/url.mjs and markdown.mjs.
-- Hub import modal: ensure .pdf is accepted; add or select PDF source type in web/hub/index.html + hub.js if needed (multipart POST /api/v1/import already exists on bridge/self-hub).
-- Hosted MCP: existing `import` tool with source_type pdf + file_base64 — no new tool unless justified.
-- Tests: fixture PDF in test/fixtures/, extend test/import-source-types.test.mjs for pdf bad input (missing file path), hosted-import-integration or unit tests as appropriate.
-- Docs: IMPORT-SOURCES.md, HUB-API.md if needed, openapi if we document new source_type enum there.
+Implement the strongest Hub bulk UX in one pass, in this order:
 
-Do not push or open PR unless I ask; commit on the feature branch when Phase 2 is done and tests pass.
+**A) Phase 4A₂ — Client-side ZIP (JSZip)**
+- Only for source types where a ZIP of a folder is already valid server-side (e.g. markdown, ChatGPT/Claude-style exports — verify against runImport + zip extraction in hub/server.mjs and hub/bridge/server.mjs). Do NOT offer “zip my folder” for PDF/DOCX (single-file importers; see lib/importers/pdf.mjs and docx.mjs).
+- Add JSZip (or equivalent) to the Hub bundle; drag folder or multi-select files → build one in-memory ZIP with sensible paths (preserve relative paths for markdown trees) → single existing multipart POST /api/v1/import with field `file`.
+- Hard limits: max uncompressed total size, max file count, max zip bytes; clear error UX and cancel where feasible; document tradeoffs (memory, mobile) in IMPORT-SOURCES.md or IMPORT-URL-AND-DOCUMENTS-PHASES.md.
+- Tests: zip builder unit tests with small fixtures, or a tight manual checklist in test docs if full E2E is heavy.
+
+**B) Phase 4B — Native multi-file / webkitdirectory**
+- Hub: enable folder picker and/or multiple file selection where product policy allows; sequential POST /api/v1/import per file OR one batch multipart (pick one approach, justify in PR); progress and partial-failure summary (“3 of 5 imported; failures: …”).
+- Caps: max files, max bytes per file, align with gateway/bridge timeouts; surface limits in UI copy.
+- PDF/DOCX: keep one file per import (multiple PDFs = N requests or explicit batch loop), unless you explicitly extend importer scope in this session.
+- Docs: update IMPORT-SOURCES.md, IMPORT-URL-AND-DOCUMENTS-PHASES.md (mark 4A₂/4B shipped), PARITY-MATRIX-HOSTED.md if user-visible behavior changes; HUB-API.md + openapi.yaml only if HTTP contract or documented limits change.
+- Hosted MCP: only add import_batch or similar if justified; otherwise document that agents still use repeated `import` calls.
+
+**C) Optional polish (if time):** accessibility (live region for batch progress), duplicate-file warnings, telemetry hooks only if the repo already patterns them.
+
+Do not push or open a PR unless I ask; commit on the feature branch in logical slices (e.g. JSZip first, then 4B) with tests passing.
 ```
 
 ---

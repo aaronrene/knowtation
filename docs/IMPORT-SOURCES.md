@@ -50,10 +50,12 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 ### Hub browser: one upload, ZIP extraction, and bulk
 
-The Hub Import modal sends **one** multipart `file` per `POST /api/v1/import` (no multi-select in the UI). When the uploaded filename ends with **`.zip`**, the self-hosted Hub and hosted bridge **extract the archive** to a temporary directory (with zip-slip checks) and pass that **directory path** to `runImport`—the same pattern as a folder path on the CLI.
+The Hub Import modal sends **one** multipart `file` per `POST /api/v1/import` (the picker is **single selection** until Phase **4B** multi-file / folder picker ships—see roadmap below). When the uploaded filename ends with **`.zip`**, the self-hosted Hub and hosted bridge **extract the archive** to a temporary directory (with zip-slip checks) and pass that **directory path** to `runImport`—the same pattern as a folder path on the CLI.
 
 - **Folder-capable types** (for example **`markdown`**, **`chatgpt-export`**, **`claude-export`**, **`notebooklm`** when given a directory): a ZIP of your folder tree is the right way to move **many Markdown files** in one Hub action; the importer walks the tree and picks up each supported file (for `markdown`, **`.md` / `.markdown`** only; other extensions are skipped).
 - **`pdf`** and **`docx`**: the importers require a **single file** on disk and **throw if the input is a directory** (`lib/importers/pdf.mjs`, `lib/importers/docx.mjs`). After a ZIP upload the input is always a directory, so **do not use a ZIP** for PDF or DOCX in the Hub—upload the **`.pdf` or `.docx` file directly**. To batch many PDFs or Word files, use **`knowtation import pdf …` / `docx …`** on paths, run the Hub import repeatedly, or wait for a future multi-file / batch product slice (see [IMPORT-URL-AND-DOCUMENTS-PHASES.md](./IMPORT-URL-AND-DOCUMENTS-PHASES.md) Phase 4B).
+
+**Roadmap:** [IMPORT-URL-AND-DOCUMENTS-PHASES.md](./IMPORT-URL-AND-DOCUMENTS-PHASES.md) Phase **4A** (shipped) documents this behavior; Phase **4A₂** adds optional **in-browser ZIP** (e.g. JSZip) for folder-capable types; Phase **4B** adds **multi-file / folder picker** and batch UX. PDF/DOCX stay **one file per import** unless importers are explicitly extended.
 
 ### At a glance
 
