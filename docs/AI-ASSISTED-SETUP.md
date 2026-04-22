@@ -8,7 +8,7 @@ Set up Knowtation with an AI coding assistant. Each phase below has a **simple t
 
 ## ☁️ Hosted Hub (knowtation.store)
 
-**Goal:** Sign in, copy integration values for your AI tools, and know where **agent and CLI edits** wait for you ([human gate](./WHY-KNOWTATION.md): proposals stay out of the canonical vault until approval).
+**Goal:** Sign in, copy integration values for your AI tools, and know where **agent and CLI edits** wait for you ([human gate](./AGENT-INTEGRATION.md#4-proposals-review-before-commit): proposals stay out of the canonical vault until approval).
 
 **You need**
 
@@ -24,7 +24,7 @@ Set up Knowtation with an AI coding assistant. Each phase below has a **simple t
    - **Bearer token** and **vault id** — used as `Authorization: Bearer …` and `X-Vault-Id` on requests (see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)).
    - **Copy MCP** — paste into your MCP client configuration.
    - **Copy prime** — small JSON for MCP bootstrap; after your client connects to MCP, it can `readResource` **`knowtation://hosted/prime`**. The prime blob does **not** contain your JWT.
-4. **Review proposals** — Queued edits from agents or the CLI appear under the **Suggested** tab (also reachable from the **Suggested** button in the header when signed in). Approve writes to the vault or discard. See [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) (proposals) and [AGENT-INTEGRATION.md §4](./AGENT-INTEGRATION.md#4-proposals-review-before-commit).
+4. **Review proposals** — Queued edits from agents or the CLI appear under the **Suggested** tab (also reachable from the **Suggested** button in the header when signed in). Approve writes to the vault or discard. See [WHITEPAPER.md](./WHITEPAPER.md) (product framing) and [AGENT-INTEGRATION.md §4](./AGENT-INTEGRATION.md#4-proposals-review-before-commit).
 5. **In-app help** — Click **How to use** in the header for guides: **Getting started** (includes **Open setup walkthrough** — the onboarding wizard), **Setup**, **Knowledge & agents**, and more.
 
 **Paste this prompt into your assistant**
@@ -33,7 +33,7 @@ Set up Knowtation with an AI coding assistant. Each phase below has a **simple t
 I'm using Knowtation on the hosted Hub in the browser (not a local clone). Help me:
 1. Confirm I can sign in and open Settings → Integrations.
 2. Explain what to copy: Hub base URL, Bearer token, vault id, Copy MCP, and Copy prime — and that prime is read after MCP connects (no JWT in the prime blob).
-3. Tell me where to review agent/CLI proposals (Suggested tab) and point to docs/AGENT-INTEGRATION.md §4 and docs/WHY-KNOWTATION.md for the human gate.
+3. Tell me where to review agent/CLI proposals (Suggested tab) and point to docs/AGENT-INTEGRATION.md §4 (human gate).
 4. Mention the in-app How to use modal and the setup walkthrough wizard for onboarding.
 ```
 
@@ -368,7 +368,7 @@ Knowtation memory isn't capturing events. Debug this:
 
 ## 🧭 Next steps
 
-- **Hosted path:** [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) (positioning, proposals), [Hosted Hub](#hosted-hub-knowtationstore) above
+- **Hosted path:** [WHITEPAPER.md](./WHITEPAPER.md) (positioning), [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) (cost discipline), [Hosted Hub](#hosted-hub-knowtationstore) above
 - **Whitepaper (thesis + depth):** [WHITEPAPER.md](./WHITEPAPER.md)
 - **MCP tools to try:** `search`, `memory_query`, **`daily-brief`** prompt
 - **Imports:** [IMPORT-SOURCES.md](./IMPORT-SOURCES.md)

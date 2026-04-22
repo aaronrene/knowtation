@@ -60,8 +60,8 @@ Do **not** place Muse on an unauthenticated public URL for Hub users. Credential
 
 - No bulk “move entire vault to MuseHub” in this bridge.
 - No replacement for GitHub backup or Connect Git flows.
-- No MCP “history summary” tool in this slice (deferred; see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Option C).
+- No MCP “history summary” tool in this slice (deferred — future gateway/MCP iteration).
 
 ## Hosted deploy note
 
-After upgrading the **hub** canister, run your usual ICP deploy so approve persists **`external_ref`** on hosted. See [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md).
+After upgrading the **hub** canister, run your usual ICP deploy so approve persists **`external_ref`** on hosted. See **`hub/icp/`** and **`hub/gateway/README.md`** for deploy smoke checks.

@@ -1,7 +1,7 @@
 # Hub wizard + hosted story — implementation checklist
 
 **Branch:** `feature/hub-wizard-hosted-story`  
-**North star doc:** [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) (positioning, proposals, glossary guidance).  
+**North star docs:** [WHITEPAPER.md](./WHITEPAPER.md) (thesis), [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) (retrieval vs cost), [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) (proposals §4).  
 **Purpose:** Track **UI + copy + small product** work so marketing, Hub onboarding, and MCP story stay aligned.
 
 ---
@@ -9,7 +9,7 @@
 ## Phase 1 — Shipped on branch (initial)
 
 - [x] **Landing structured-memory block** on [web/index.html](../web/index.html): differentiation, proposals, expanded glossary chips, `<details>` for technical depth + links to docs. **Layout:** collapsed **hero** `<details>` under main CTAs; **full** section after **Ecosystem visions**, before **Control, customize…**. Doc links use high-contrast blue.
-- [x] **WHY-KNOWTATION.md** (this repo) — canonical differentiation and proposal copy.
+- [x] **WHITEPAPER.md** + **TOKEN-SAVINGS.md** — differentiation and token discipline copy.
 - [x] **This checklist** — execution backlog for follow-on PRs.
 
 ---
@@ -20,7 +20,7 @@
 
 - [x] **Band B** on `web/index.html`: explicit **1 · 2 · 3** (note/import → add agents → ask your AI) directly under Band A; link hosted Hub + self-host quick start (step 1) and related docs in steps 2–3.
 - [x] **Meta description** refresh to mention proposals / human gate if character budget allows.
-- [ ] Optional **`docs/UX-SIMPLICITY-REFERENCE-RESEARCH.md`** — long-form research (generic pattern names, ecosystem compaction as optional local add-on).
+- [ ] Optional **UX simplicity research** — capture in a local notes folder if needed (not shipped in this repo).
 
 ---
 
@@ -42,10 +42,8 @@
 
 **Status:** **Complete** on branch `feature/hub-wizard-hosted-story` (prime resources, Hub Copy prime, `knowtation doctor`, blob-summarize evaluation no-ship, prompts surfaced in docs + wizard + How to use → Knowledge & agents).
 
-**Full session handoff (historical):** [NEXT-SESSION-PHASE-4-MCP-CLI.md](./NEXT-SESSION-PHASE-4-MCP-CLI.md)
-
 - [x] **`knowtation://…` bootstrap MCP resource** + Hub **Copy prime**.
-- [x] **`knowtation doctor`** (hosted vs self-hosted checks per [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) token section).
+- [x] **`knowtation doctor`** (hosted vs self-hosted checks per [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md)).
 - [x] **Evaluate:** MCP tool **summarize pasted blob** (hosted parity: auth, rate, billing) — **no ship**; see [MCP-BLOB-SUMMARIZE-EVALUATION.md](./MCP-BLOB-SUMMARIZE-EVALUATION.md).
 - [x] **Surface MCP prompts** in docs/wizard (`temporal-summary`, `resume-session`, …) per [PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md).
 
@@ -53,7 +51,7 @@
 
 ## Phase 5 — Docs polish + hosted-first clarity
 
-**Next session (copy-paste prompt — use this file only):** [NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md) (fenced block at **“Session prompt (paste into Cursor)”**).
+**Docs polish:** Continue from [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md) and [HUB-SETTINGS-HOSTED-UX-PASS.md](./HUB-SETTINGS-HOSTED-UX-PASS.md); keep session prompts in a **local `development/`** tree if you use Cursor handoffs.
 
 - [x] Refresh [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md) for **hosted** path + **Copy prime** placeholder (after Phase 4) + wizard deep links.
 - [x] **Hub proposals discoverability** (nav or empty-state CTA) — engineering task in `web/hub/hub.js` + `index.html`.

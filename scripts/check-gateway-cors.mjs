@@ -47,7 +47,7 @@ async function main() {
       console.log(origin, '→ ERROR', e.message);
     }
   }
-  console.log('\nProduction: set Netlify HUB_CORS_ORIGIN to both apex and www (see docs/CORS-WWW-AND-APEX.md).');
+  console.log('\nProduction: set Netlify HUB_CORS_ORIGIN to both apex and www (see hub/gateway/cors-middleware.mjs).');
 }
 
 main().catch((e) => {

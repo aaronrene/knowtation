@@ -8,7 +8,7 @@ layer for the entire Knowtation platform.
 **Branch prefix:** `feature/air-improvements` (or implement A–C on a single branch; D–E each
 get their own branch when prioritized).
 
-**Reference:** `lib/air.mjs` (current implementation), [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md) and [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (Phase 12 — `air_id` frontmatter field).
+**Reference:** `lib/air.mjs` (current implementation), [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md) (`air_id` frontmatter field).
 
 ---
 
@@ -148,7 +148,7 @@ recompute the HMAC, compare.
 - `hub/gateway/server.mjs` — add `GET /api/v1/attest/:id` verification route.
 - `hub/gateway/server.mjs` — auto-configure `KNOWTATION_AIR_ENDPOINT` to self when
   `ATTESTATION_SECRET` is set and no external endpoint is provided.
-- `docs/DEPLOY-HOSTED.md` — document `ATTESTATION_SECRET` setup.
+- `hub/gateway/README.md` — document `ATTESTATION_SECRET` setup for operators.
 
 **Security notes:**
 - `ATTESTATION_SECRET` must never appear in committed code. `.env.example` entry only.
@@ -199,7 +199,7 @@ air_block_height: 12345678
   enrich the record.
 - `hub/gateway/server.mjs` — `GET /api/v1/attest/:id/verify` calls both Blobs and canister and
   returns a `{ verified: true, sources: ['blobs', 'icp'] }` response.
-- `docs/DEPLOY-HOSTED.md` — document canister deploy steps for attestation canister.
+- `hub/icp/` — document canister deploy steps for attestation canister (operator runbook).
 
 **Out of scope for this improvement:**
 - Token-based incentives for attestation storage

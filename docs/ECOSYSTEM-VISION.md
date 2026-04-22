@@ -176,7 +176,7 @@ This section ties the vision to **today’s Knowtation design** and **plausible 
 ### Knowtation ↔ AgentCeption
 
 - **Implemented patterns:** Shared vault path, CLI `--json` in worktrees, MCP where the runtime supports it; write-back with `source=agentception` and dates. See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md), [GETTING-STARTED.md](./GETTING-STARTED.md), and `scripts/write-to-vault.sh`.
-- **Longer-term ideas (GitHub Issue #2):** “AgentCeption × Knowtation — The Infinite Machine Brain” tracks cognitive identity from vault, causal chains, async messaging, indexed codebases, and similar themes—intentionally sequenced after hosted stability. Sequencing rationale is summarized in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) and [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md).
+- **Longer-term ideas (GitHub Issue #2):** “AgentCeption × Knowtation — The Infinite Machine Brain” tracks cognitive identity from vault, causal chains, async messaging, indexed codebases, and similar themes—intentionally sequenced after hosted stability. High-level sequencing: **[PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md)** and **[WHITEPAPER.md](./WHITEPAPER.md)**.
 
 ### Muse / MuseHub ↔ AgentCeption
 
@@ -215,7 +215,7 @@ This section ties the vision to **today’s Knowtation design** and **plausible 
 
 ## Part 6 — Roadmap and phasing
 
-This is a **coordination sketch** across repos. Knowtation’s delivery phases: [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). **Agent integration (CLI, MCP, Hub API, proposals):** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md). Muse optional linkage: [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md).
+This is a **coordination sketch** across repos. Knowtation’s shipped surface: **[docs/README.md](./README.md)** index. **Agent integration (CLI, MCP, Hub API, proposals):** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md). Muse optional linkage: [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md).
 
 | Phase | Scope |
 |-------|--------|
@@ -223,7 +223,7 @@ This is a **coordination sketch** across repos. Knowtation’s delivery phases: 
 | **1 — Thin bridge** | Optional Muse linkage and `external_ref` population on approve; operator-only credentials; no Muse on the critical path for login or search. |
 | **2 — MuseHub × knowledge repos** | Treat knowledge repositories (markdown trees, optional index sidecars) as first-class citizens on MuseHub where product choices allow; may mirror or complement vault Git remotes. |
 | **3 — Full domain plugin** | Knowtation-as-Muse-domain when cost/benefit clears—shared DAG and merge engine with Muse core. |
-| **4 — Deep AgentCeption × Knowtation** | Issue #2 slices: cognitive identity, causal intelligence, async messaging, indexed code in vault context, etc.—after hosted parity and multi-vault per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). |
+| **4 — Deep AgentCeption × Knowtation** | Issue #2 slices: cognitive identity, causal intelligence, async messaging, indexed code in vault context, etc.—after hosted parity and multi-vault per **[PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md)**. |
 | **5 — Cross-domain creative loop** | Stori ↔ Muse ↔ Knowtation ↔ agents for production workflows with clear human approval and export contracts. |
 
 ---

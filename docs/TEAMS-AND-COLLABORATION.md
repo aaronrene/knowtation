@@ -58,7 +58,7 @@ Invite-by-link is built. Admins create an invite link in **Settings → Team**; 
 | **Have we developed Teams?** | **Roles are built** (viewer / editor / admin / **evaluator** via `data/hub_roles.json` hosted: bridge blob). **Evaluator** records evaluation; **approve** is allowed per evaluator in **Team** (checkbox) or via `data/hub_evaluator_may_approve.json` (self-hosted) / blob `hub_evaluator_may_approve` (hosted). If a user has **no** explicit row, **`HUB_EVALUATOR_MAY_APPROVE=1`** is the fallback for evaluators. **Discard** is admin-only. On hosted, the **gateway** enforces approve/discard before the canister. Invite by link is built. |
 | **How do you “invite” others today?** | Create an invite link (Settings → Team) and send it; they open and sign in. Or share the Hub URL. |
 | **Do we add them as collaborators on GitHub?** | For the **vault backup repo**, yes — add them on GitHub if you want them to push/pull the repo. That does not control Hub login or “team” in the app. |
-| **What is the phase and plan?** | **Phase 13** in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md): roles and **invite flow done** (see hub/README.md). Next: optional GitHub-backed access. |
+| **What is the phase and plan?** | Roles and **invite flow** are shipped (see **`hub/README.md`**). Next: optional GitHub-backed access. |
 
 **Invite API:** POST /api/v1/invites body “{ role }” → invite_url; GET /api/v1/invites lists pending; DELETE /api/v1/invites/:token revokes. Invitee opens link and signs in; they are added to roles.
 

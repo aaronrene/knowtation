@@ -417,7 +417,7 @@ Both paths use the same codebase, the same vault format, and the same MCP surfac
 | Document | Role |
 |----------|------|
 | [SPEC.md](./SPEC.md) | Formats, CLI, config, contracts |
-| [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases and deliverables |
+| [README.md](./README.md) | Documentation index |
 | [INTENTION-AND-TEMPORAL.md](./INTENTION-AND-TEMPORAL.md) | Time, causation, hierarchical memory |
 | [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) | Commands, token levers, tiered retrieval |
 | [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | Import types and how to run |

@@ -110,7 +110,7 @@ Stripe-backed tiers (free, plus, growth, pro) with token packs, indexing quotas,
 
 Knowtation is designed as a **knowledge backend** for agents and orchestrators.
 
-- **CLI:** `knowtation search|write|import|export|memory|propose|doctor ... --json` — same commands for humans and agents. **`doctor`** checks local vault health and optional Hub API reachability (`docs/WHY-KNOWTATION.md` token layers).
+- **CLI:** `knowtation search|write|import|export|memory|propose|doctor ... --json` — same commands for humans and agents. **`doctor`** checks local vault health and optional Hub API reachability (`docs/TOKEN-SAVINGS.md` — token discipline).
 - **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md). Bootstrap JSON: **`resources/read`** `knowtation://prime` (local) or `knowtation://hosted/prime` (hosted); Hub **Copy prime** on Integrations.
 - **Hub API:** REST with JWT auth. `KNOWTATION_HUB_TOKEN` for agent access. Proposals for human-in-the-loop review.
 - **SKILL.md:** `.cursor/skills/knowtation/SKILL.md` teaches Cursor agents how to use Knowtation without tool-definition bloat.
@@ -159,11 +159,10 @@ knowtation/
 | **[Memory Consolidation](./docs/MEMORY-CONSOLIDATION-GUIDE.md)** | Consolidation daemon operation |
 | **[Hub API](./docs/HUB-API.md)** | REST API, auth, proposals |
 | **[Self-Hosted Checklist](./docs/SELF-HOSTED-SETUP-CHECKLIST.md)** | Step-by-step self-hosted setup |
-| **[Hosted Deployment](./docs/DEPLOY-HOSTED.md)** | Hosted platform deployment |
+| **[Gateway (hosted)](./hub/gateway/README.md)** | OAuth, billing proxy, MCP gateway — deploy alongside `hub/icp` canister |
 | **[Two Paths](./docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)** | Self-hosted vs hosted comparison |
 | **[Teams](./docs/TEAMS-AND-COLLABORATION.md)** | Team roles and collaboration |
 | **[Retrieval Reference](./docs/RETRIEVAL-AND-CLI-REFERENCE.md)** | All CLI commands, token levers |
-| **[Implementation Plan](./docs/IMPLEMENTATION-PLAN.md)** | Development phases and status |
 | **[AI-Assisted Setup](./docs/AI-ASSISTED-SETUP.md)** | Phased prompts for Cursor, Windsurf, Claude Code, etc. |
 
 Full docs index: **[docs/README.md](./docs/README.md)**

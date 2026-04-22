@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * knowtation doctor — self-hosted vault + optional Hub API checks.
- * Token story: two layers from docs/WHY-KNOWTATION.md (vault retrieval vs terminal tooling).
+ * Token story: see docs/TOKEN-SAVINGS.md (vault retrieval vs terminal tooling).
  */
 
 import fs from 'fs';
@@ -19,7 +19,7 @@ export async function runDoctor(opts) {
 
   const tokenLayers = {
     vault_retrieval:
-      'Vault retrieval (MCP/CLI search, snippets, limits) is the primary in-product token saver — see docs/WHY-KNOWTATION.md.',
+      'Vault retrieval (MCP/CLI search, snippets, limits) is the primary in-product token saver — see docs/TOKEN-SAVINGS.md.',
     terminal_tooling:
       'Shrinking shell or terminal logs is optional on your coding host; Knowtation hosted canisters do not run shell hooks for log compaction.',
   };
@@ -187,7 +187,7 @@ export async function runDoctor(opts) {
   } else {
     console.log('Knowtation doctor');
     console.log('');
-    console.log('Token layers (see docs/WHY-KNOWTATION.md):');
+    console.log('Token layers (see docs/TOKEN-SAVINGS.md):');
     console.log(`  Vault / retrieval: ${tokenLayers.vault_retrieval}`);
     console.log(`  Terminal tooling:  ${tokenLayers.terminal_tooling}`);
     console.log('');

@@ -2356,7 +2356,7 @@ export function createHostedMcpServer(ctx) {
      * `knowtation://hosted/vault/{+path}`; some MCP clients fail template match or treat reads as “not found” when
      * the same scheme/host overlaps the generic vault template. Legacy `…/vault/…/note.md/image/n` is still read
      * via the `hosted-vault-note` handler (regex branch).
-     * Video URLs stay in markdown only (no binary video resource); see PRODUCT-DECISIONS-HOSTED-MVP §1b.
+     * Video URLs stay in markdown only (no binary video resource; hosted MVP product choice).
      */
     const hostedNoteImageTemplate = new ResourceTemplate('knowtation://hosted/vault-image/{+notePath}/{index}', {
       list:
@@ -2721,7 +2721,7 @@ export function createHostedMcpServer(ctx) {
           'knowtation://hosted/vault-listing',
         ],
         docs: {
-          why_knowtation: 'docs/WHY-KNOWTATION.md',
+          why_knowtation: 'docs/TOKEN-SAVINGS.md',
           agent_integration: 'docs/AGENT-INTEGRATION.md',
           parity_matrix: 'docs/PARITY-MATRIX-HOSTED.md',
         },

@@ -768,7 +768,7 @@
       }
       if (id === 'openWhyTokenDoc') {
         window.open(
-          'https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md#two-layers-of-token-savings-say-both-honestly',
+          'https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md',
           '_blank',
           'noopener,noreferrer',
         );
@@ -5879,7 +5879,7 @@
     let text = (body || '') + '\n\n---\n' + JSON.stringify(keys.length ? o : {}, null, 2);
     if (keys.length === 0 && hubUserCanWriteNotes()) {
       text +=
-        '\n\n—\nNo metadata is stored for this file on the server yet (common for older hosted notes). Hosted Hub uses the same read view as self-hosted: after you Edit → Save once, the JSON block here fills with keys like title, tags, date, and provenance—same idea as on localhost. Overview and Quick tags then pick that up. To fix many notes at once from a computer, use `npm run resave:hosted-empty-fm` or `node scripts/resave-hosted-empty-frontmatter.mjs` — see docs/HOSTED-HUB-VERIFY.md.';
+        '\n\n—\nNo metadata is stored for this file on the server yet (common for older hosted notes). Hosted Hub uses the same read view as self-hosted: after you Edit → Save once, the JSON block here fills with keys like title, tags, date, and provenance—same idea as on localhost. Overview and Quick tags then pick that up. To fix many notes at once from a computer, use `npm run resave:hosted-empty-fm` or `node scripts/resave-hosted-empty-frontmatter.mjs` (set `KNOWTATION_HUB_TOKEN` per `scripts/resave-hosted-empty-frontmatter.mjs` header).';
     }
     return text;
   }

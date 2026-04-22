@@ -1,6 +1,6 @@
 # Knowtation Hub Gateway
 
-OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the gateway proxies all `/api/v1/*` requests to the ICP canister with an **X-User-Id** header (proof the canister trusts). See [docs/CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md).
+OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the gateway proxies all `/api/v1/*` requests to the ICP canister with an **X-User-Id** header (proof the canister trusts). Trust model: JWT `sub` → **`x-user-id`** on canister requests — see **[docs/HUB-API.md](../../docs/HUB-API.md)** (auth).
 
 ## Routes
 
@@ -9,7 +9,7 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 - **GET /auth/login?provider=google|github** — Redirect to OAuth (plan routes).
 - **GET /api/v1/auth/login?provider=...** — Redirects to `/auth/login` for Hub UI compatibility.
 - **GET /auth/callback/google**, **GET /auth/callback/github** — OAuth callbacks; on success redirect to `HUB_UI_ORIGIN/?token=<jwt>`.
-- **GET /api/v1/billing/summary** — JWT. Hosted billing pools (tier, monthly/add-on cents). See [HOSTED-CREDITS-DESIGN.md](../../docs/HOSTED-CREDITS-DESIGN.md).
+- **GET /api/v1/billing/summary** — JWT. Hosted billing pools (tier, monthly/add-on cents). See **`hub/gateway/billing-*.mjs`** and **[docs/TOKEN-SAVINGS.md](../../docs/TOKEN-SAVINGS.md)** (billing hooks).
 - **POST /api/v1/billing/webhook** — Stripe webhook (**raw JSON body**). No JWT.
 - **GET /api/v1/notes/facets** — JWT + **X-Vault-Id**. Aggregates `projects`, `tags`, and `folders` from the canister note list (`hub/gateway/note-facets.mjs`); not proxied as a literal canister path.
 - **POST /api/v1/notes/delete-by-project**, **POST /api/v1/notes/rename-project** — JWT + **X-Vault-Id**; **editor/admin/member** (not **viewer**). Gateway orchestrates canister list/delete/write + proposal discards (`hub/gateway/metadata-bulk-canister.mjs`). The **Hub** static bundle must include **PR #65** (`web/hub/hub.js`) so Settings on hosted actually calls these routes. See [HUB-METADATA-BULK-OPS.md](../../docs/HUB-METADATA-BULK-OPS.md).
@@ -36,9 +36,9 @@ When the gateway **re-serializes** the JSON body (e.g. provenance merge), it **r
 | **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** | No | Google OAuth (enables "Continue with Google"). |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth (enables "Continue with GitHub"). |
 | **GATEWAY_PORT** or **PORT** | No | Port (default 3340). |
-| **HUB_CORS_ORIGIN** | **Yes (prod)** if Hub UI is on another origin | Comma-separated origins, e.g. `https://knowtation.store,https://www.knowtation.store`. Required for credentialed CORS responses; see [CORS-WWW-AND-APEX.md](../../docs/CORS-WWW-AND-APEX.md) and `hub/gateway/cors-middleware.mjs`. |
+| **HUB_CORS_ORIGIN** | **Yes (prod)** if Hub UI is on another origin | Comma-separated origins, e.g. `https://knowtation.store,https://www.knowtation.store`. Required for credentialed CORS responses — see **`hub/gateway/cors-middleware.mjs`**. |
 | **HUB_JWT_EXPIRY** | No | JWT expiry (default `7d`). |
-| **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** in the JWT and pass **`requireAdmin`** without a bridge call. When **BRIDGE_URL** is set, **Team admins** (bridge **`GET /api/v1/role`** → `role: admin`) also pass **`requireAdmin`** for gateway-only admin routes (e.g. **`POST /api/v1/settings/proposal-policy`**, workspace, vault-access, invites). Bootstrap operators often list at least one id here; further admins can be granted in Team without redeploying env. See [PARITY-PLAN.md](../../docs/PARITY-PLAN.md) Phase 4. |
+| **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** in the JWT and pass **`requireAdmin`** without a bridge call. When **BRIDGE_URL** is set, **Team admins** (bridge **`GET /api/v1/role`** → `role: admin`) also pass **`requireAdmin`** for gateway-only admin routes (e.g. **`POST /api/v1/settings/proposal-policy`**, workspace, vault-access, invites). Bootstrap operators often list at least one id here; further admins can be granted in Team without redeploying env. See **[docs/PARITY-MATRIX-HOSTED.md](../../docs/PARITY-MATRIX-HOSTED.md)** (hosted admin flows). |
 | **HUB_EVALUATOR_MAY_APPROVE** | No | Set to **`1`** so **evaluators** may **approve** when they have **no** explicit row in the bridge blob **`hub_evaluator_may_approve`** (per-user overrides still win). Gateway and bridge honor this; **GET /api/v1/settings** exposes effective **hub_evaluator_may_approve** per user. |
 | **BILLING_ENFORCE** | No | Set to `true` to deduct credits and return **402** when monthly + add-on pools are exhausted (default off = beta open usage). |
 | **BILLING_SHADOW_LOG** | No | Set to `true` or `1` to emit **structured JSON** (`type: knowtation_billing_shadow`) per billable operation for **usage research** (works even when enforcement is off). |
@@ -83,14 +83,14 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 
 ## Deploy (e.g. Netlify)
 
-- **This repo:** Production path is `netlify/functions/gateway.mjs` plus root `netlify.toml`. The build runs `scripts/netlify-redirects.mjs` to generate `public/_redirects` (per-site: gateway vs bridge is controlled by `USE_BRIDGE_FUNCTION` on the bridge site only). Do not add a catch-all `[[redirects]]` in root `netlify.toml` when using a second Netlify site for the bridge—see [docs/DEPLOY-HOSTED.md](../../docs/DEPLOY-HOSTED.md) §3 and [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md).
+- **This repo:** Production path is `netlify/functions/gateway.mjs` plus root `netlify.toml`. The build runs `scripts/netlify-redirects.mjs` to generate `public/_redirects` (per-site: gateway vs bridge is controlled by `USE_BRIDGE_FUNCTION` on the bridge site only). Do not add a catch-all `[[redirects]]` in root `netlify.toml` when using a second Netlify site for the bridge — see **`deploy/bridge`** packaging and **`hub/bridge/README.md`** (Netlify Blobs).
 - **Local / generic Node:** Build is not required when running `npm start` as a normal server.
 - For other hosts, use a Node adapter or deploy the Express app as you would any Node service; set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
 - Ensure **CANISTER_URL** points to the deployed canister and **SESSION_SECRET** is set in env (no secrets in repo).
 
 ## Post-deploy verification (GitHub backup + CORS)
 
-1. **CORS (Hub UI on knowtation.store / www):** From the repo root, run `npm run check:gateway-cors`. Each listed origin should get a **specific** `Allow-Origin` and `Allow-Credentials: true`. If not, set **`HUB_CORS_ORIGIN`** on this gateway site to both apex and www (see [docs/HOSTED-HUB-VERIFY.md](../../docs/HOSTED-HUB-VERIFY.md) §0 and [docs/CORS-WWW-AND-APEX.md](../../docs/CORS-WWW-AND-APEX.md)), then redeploy.
+1. **CORS (Hub UI on knowtation.store / www):** From the repo root, run `npm run check:gateway-cors`. Each listed origin should get a **specific** `Allow-Origin` and `Allow-Credentials: true`. If not, set **`HUB_CORS_ORIGIN`** on this gateway site to both apex and www (`hub/gateway/cors-middleware.mjs`), then redeploy.
 
    **Hosted “Back up now”:** `POST /api/v1/vault/sync` triggers a CORS **preflight** (`OPTIONS`). The gateway must answer **`OPTIONS` with 204** on that path; it must **not** forward preflight to the bridge (the bridge only implements `POST`). If preflight fails, the Hub shows *Could not reach the API* even when `GET /api/v1/settings` works.
 
@@ -100,5 +100,4 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 
 ## Reference
 
-- [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md) — gateway/canister proof contract
-- [HUB-API.md](../../docs/HUB-API.md) — API contract
+- [HUB-API.md](../../docs/HUB-API.md) — API contract (auth, proposals, vault headers)

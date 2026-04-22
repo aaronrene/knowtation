@@ -38,6 +38,6 @@ A tool mirroring “paste a wall of text → get a short summary” for **hosted
 
 - Summarize **vault notes** via hosted MCP **`summarize`** (path + role ACL).  
 - Paste transcripts into the **`meeting-notes`** prompt (bounded transcript slice in `mcp/prompts/register.mjs`).  
-- Summarize **terminal or tool output locally** on the coding host (per `docs/WHY-KNOWTATION.md` — terminal layer is not a canister feature).
+- Summarize **terminal or tool output locally** on the coding host (per `docs/TOKEN-SAVINGS.md` — terminal-side tooling is not a hosted product surface).
 
-If this is revisited, treat it as **H0–H4** in `docs/HOSTED-HUB-MCP-INTERLOCK.md`: explicit byte caps, abuse rate tier, billing class, and parity with any Hub UI that performs the same operation.
+If this is revisited, treat it as **H0–H4** in `docs/PARITY-MATRIX-HOSTED.md`: explicit byte caps, abuse rate tier, billing class, and parity with any Hub UI that performs the same operation.

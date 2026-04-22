@@ -9,7 +9,7 @@ Two **optional** features use a **chat**-capable model for **proposals only** (n
 | **Embeddings** | Indexer + **Meaning** search vectors | `embedding.provider`: `ollama`, `openai`, or `voyage`; keys `OPENAI_API_KEY` (OpenAI), `VOYAGE_API_KEY` (Voyage), or local Ollama. **Anthropic does not expose a public embeddings API** — use another provider for vectors. |
 | **Chat** | Review hints + **Enrich** (`completeChat` in [`lib/llm-complete.mjs`](../lib/llm-complete.mjs)) | `OPENAI_API_KEY` → `ANTHROPIC_API_KEY` → Ollama. If both OpenAI and Anthropic keys are set, OpenAI wins by default; set **`KNOWTATION_CHAT_PREFER_ANTHROPIC=1`** to try Claude first (OpenAI used as fallback if Claude fails). |
 
-Hosted **bridge** index/search uses **`EMBEDDING_PROVIDER`** / **`EMBEDDING_MODEL`** (see [`docs/DEPLOY-HOSTED.md`](./DEPLOY-HOSTED.md)); **`voyage`** is supported the same way as `openai` with **`VOYAGE_API_KEY`**.
+Hosted **bridge** index/search uses **`EMBEDDING_PROVIDER`** / **`EMBEDDING_MODEL`** (see [`hub/bridge/README.md`](../hub/bridge/README.md)); **`voyage`** is supported the same way as `openai` with **`VOYAGE_API_KEY`**.
 
 ## Review hints (plain text for reviewers)
 

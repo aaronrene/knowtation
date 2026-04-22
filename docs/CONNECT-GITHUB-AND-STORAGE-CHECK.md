@@ -2,7 +2,7 @@
 
 > **Note (Phase 3.1):** References to `?token=...` in this doc reflect the original OAuth redirect design. The post-login redirect now delivers the token via a URL fragment (`#token=...`) instead of a query parameter. The Hub reads the token from `location.hash` first, falling back to `location.search` for backward compatibility.
 
-Checklist for fixing the malformed Connect GitHub URL and Unauthorized response. See [BRIDGE-DEPLOY-AND-PREROLL.md](./BRIDGE-DEPLOY-AND-PREROLL.md) for general bridge deploy.
+Checklist for fixing the malformed Connect GitHub URL and Unauthorized response. See **[hub/bridge/README.md](../hub/bridge/README.md)** for bridge deploy.
 
 ---
 
