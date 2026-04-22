@@ -2,7 +2,7 @@
 
 **Accurate context. Lowest cost. Your data.**
 
-Knowtation (*know* + *notation*) was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Three mechanisms work together to fix this — two-step retrieval (narrow first, expand selectively), memory consolidation (compress history so future context is smaller), and memory-aware prompts (skip searches the agent already did). Everything else exists to make those levers practical: 14 importers, a 33-tool MCP server, five memory provider tiers, and an optional Hub — all backed by Markdown files you own.
+Knowtation (*know* + *notation*) was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Three mechanisms work together to fix this — two-step retrieval (narrow first, expand selectively), memory consolidation (compress history so future context is smaller), and memory-aware prompts (skip searches the agent already did). Everything else exists to make those levers practical: **17** import `source_type`s (Markdown, PDF, DOCX, URL, ChatGPT, Claude, exports, audio/video, wallet CSV, and more—see [`lib/import-source-types.mjs`](./lib/import-source-types.mjs)), a 33-tool MCP server with **24** resources (including **`knowtation://prime`** bootstrap JSON), five memory provider tiers, **`knowtation doctor`** for vault/Hub health checks, and an optional Hub — all backed by Markdown files you own.
 
 ---
 
@@ -68,9 +68,9 @@ npm run mcp:http       # HTTP transport
 
 ## 🧩 Feature highlights
 
-### 📥 Imports — 14 sources, one vault
+### 📥 Imports — 17 source types, one vault
 
-ChatGPT, Claude, Mem0, NotebookLM, Google Drive, Notion, Jira, Linear, MIF, Supabase, generic Markdown, audio (Whisper), video (Whisper), wallet/exchange CSV. Each import is idempotent with `source`, `source_id`, `date` frontmatter. Four capture channels (file, webhook, Slack/Discord/Telegram adapters) for live ingestion.
+Generic Markdown, **PDF**, **DOCX** (Word), **https URL** (article or bookmark), ChatGPT, Claude, Mem0, NotebookLM, Google Drive, Notion, Jira, Linear, MIF, Supabase memory, audio (Whisper), video (Whisper), wallet/exchange CSV. Each import uses stable `source` / `source_id` / `date` frontmatter where applicable. **Hub:** multi-file and in-browser folder ZIP for bulk (see [IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md)). Four capture channels (file, webhook, Slack/Discord/Telegram adapters) for live ingestion.
 
 ### 🔍 Search and retrieval
 
@@ -86,7 +86,7 @@ Three-pass LLM engine: consolidate (merge by topic), verify (check against vault
 
 ### 🤖 MCP — 33 tools, 24 resources, 13 prompts
 
-Full vault operations, memory operations, Hub proposal operations. Resources for vault browsing, templates, media, index stats, graph, tags, projects, config, AIR log, and memory. Prompts for daily briefs, search synthesis, project summaries, meeting notes, knowledge gaps, causal chains, content plans, and memory-aware sessions. Hosted MCP adds role-gated access with OAuth 2.1.
+Full vault operations, memory operations, Hub proposal operations. Resources for vault browsing, templates, media, index stats, graph, tags, projects, config, AIR log, memory, and **`knowtation://prime`** (bootstrap JSON for agents—pair with **`knowtation://config`**). Prompts for daily briefs, search synthesis, project summaries, meeting notes, knowledge gaps, causal chains, content plans, and memory-aware sessions. **Hosted** MCP adds **`knowtation://hosted/prime`**, **`import_url`**, and role-gated access with OAuth 2.1.
 
 ### 🌐 Hub — proposals, review, collaboration
 
@@ -110,8 +110,8 @@ Stripe-backed tiers (free, plus, growth, pro) with token packs, indexing quotas,
 
 Knowtation is designed as a **knowledge backend** for agents and orchestrators.
 
-- **CLI:** `knowtation search|write|import|export|memory|propose|doctor ... --json` — same commands for humans and agents. **`doctor`** checks local vault health and optional Hub API reachability (`docs/TOKEN-SAVINGS.md` — token discipline).
-- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md). Bootstrap JSON: **`resources/read`** `knowtation://prime` (local) or `knowtation://hosted/prime` (hosted); Hub **Copy prime** on Integrations.
+- **CLI:** `knowtation search|write|import|export|memory|propose|doctor ... --json` — same commands for humans and agents. **`doctor`** checks local vault config and optional Hub API reachability—see [TOKEN-SAVINGS.md](./docs/TOKEN-SAVINGS.md) for token discipline.
+- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md). On connect, **`readResource`** `knowtation://prime` (self-hosted) or `knowtation://hosted/prime` (hosted) returns a small **bootstrap** JSON (session hints, suggested next URIs). The Hub’s **Settings → Integrations** has **Copy prime** next to the API block.
 - **Hub API:** REST with JWT auth. `KNOWTATION_HUB_TOKEN` for agent access. Proposals for human-in-the-loop review.
 - **SKILL.md:** `.cursor/skills/knowtation/SKILL.md` teaches Cursor agents how to use Knowtation without tool-definition bloat.
 
@@ -155,7 +155,8 @@ knowtation/
 | **[Spec](./docs/SPEC.md)** | Frontmatter, CLI commands/flags, config, MCP, contracts |
 | **[Agent Integration](./docs/AGENT-INTEGRATION.md)** | CLI, MCP, Hub API patterns for agents |
 | **[Agent Orchestration](./docs/AGENT-ORCHESTRATION.md)** | Multi-agent setup with Cursor/Claude |
-| **[Import Sources](./docs/IMPORT-SOURCES.md)** | All 14 importers with formats and usage |
+| **[Import Sources](./docs/IMPORT-SOURCES.md)** | All 17 `source_type` importers, Hub bulk (ZIP, multi-file) |
+| **[Import roadmap](./docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md)** | URL, PDF, DOCX, and Hub bulk (4A–4B) — status and testing notes |
 | **[Memory Consolidation](./docs/MEMORY-CONSOLIDATION-GUIDE.md)** | Consolidation daemon operation |
 | **[Hub API](./docs/HUB-API.md)** | REST API, auth, proposals |
 | **[Self-Hosted Checklist](./docs/SELF-HOSTED-SETUP-CHECKLIST.md)** | Step-by-step self-hosted setup |

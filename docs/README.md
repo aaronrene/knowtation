@@ -11,6 +11,7 @@ Internal roadmaps, deploy runbooks, and session handoffs live outside this tree 
 | [GETTING-STARTED.md](./GETTING-STARTED.md) | Clone, config, index, search, Hub, agents |
 | [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) | Demo notes (`vault/showcase/`) — local tree + hosted seed |
 | [SPEC.md](./SPEC.md) | Data formats, CLI, config — source of truth |
+| [WHITEPAPER.md](./WHITEPAPER.md) | Long-form thesis; **§ Product updates (April 2026)** for prime, doctor, import expansion, Hub bulk, docs hygiene |
 | [HUB-API.md](./HUB-API.md) | Hub REST API (self-hosted and canister-aligned) |
 | [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md) | Delete/rename by project slug (Node Hub + hosted gateway) |
 | [setup.md](./setup.md) | Extended setup (OAuth, transcription, etc.) |
@@ -26,9 +27,9 @@ Internal roadmaps, deploy runbooks, and session handoffs live outside this tree 
 | [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md) | Optional Muse linkage (env, approve `external_ref`, admin read-only proxy) |
 | [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) | CLI reference and retrieval tips |
 | [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) | Token discipline, consolidation, hosted billing hooks |
-| [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | Import paths from ChatGPT, Claude, etc. |
+| [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | All **17** `source_type` importers, Hub in-browser ZIP + multi-file (see also **IMPORT-URL-AND-DOCUMENTS-PHASES**) |
+| [IMPORT-URL-AND-DOCUMENTS-PHASES.md](./IMPORT-URL-AND-DOCUMENTS-PHASES.md) | URL, PDF, DOCX, and Hub bulk (4A–4B) — **roadmap, shipped status, testing, merge notes** |
 | [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md) | Hub proposals: states, review, approve/discard |
-| [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
 
 ## Hosted / operators (high level)

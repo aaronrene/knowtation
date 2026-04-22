@@ -1,6 +1,6 @@
 # Index and search verification
 
-Use this to confirm **local** indexing and semantic search before relying on the Hub UI, MCP, or hosted bridge. For hosted smoke checks, see **`hub/gateway/README.md`** (CORS, `BRIDGE_URL`).
+Use this to confirm **local** indexing and semantic search before relying on the Hub UI, MCP, or hosted bridge. For hosted smoke checks, see **`hub/gateway/README.md`** (CORS, `BRIDGE_URL`). For **import** on hosted (bridge-backed `POST /api/v1/import`), pre-merge checks: [IMPORT-URL-AND-DOCUMENTS-PHASES.md](./IMPORT-URL-AND-DOCUMENTS-PHASES.md) §4V.
 
 ## Config checklist
 

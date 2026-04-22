@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260423a">
+  <link rel="stylesheet" href="hub.css?v=20260422f">
 </head>
 <body>
   <div id="app">
@@ -413,17 +413,13 @@
           <button type="button" id="modal-import-close" class="modal-close">×</button>
         </div>
         <div class="create-panel">
-        <p class="muted small import-modal-lead">Upload a file or ZIP (e.g. ChatGPT export, Markdown, Mem0 JSON). For folder-based sources (ChatGPT, Claude), upload a ZIP of the extracted folder. The file picker may gray out types that don’t match the selected source—<strong>PDF and Word</strong> are not imported directly. <strong>Audio (transcribe):</strong> uses OpenAI Whisper (<code>OPENAI_API_KEY</code> on the Hub process). The limit is <strong>~25&nbsp;MB per file</strong> (OpenAI), which depends on <strong>file size</strong>, not length—uncompressed WAV, high-bitrate recordings, or screen captures can be huge even for short clips; use <strong>M4A/MP3</strong> or a shorter export. <strong>Self-hosted:</strong> if <code>ffmpeg</code> is on the server, Knowtation may auto-compress oversized audio before Whisper (see Settings → Integrations). <strong>Video (transcribe)</strong> is hidden here on purpose: the same limit applies and video files are usually over 25&nbsp;MB—extract audio (or transcribe elsewhere) and import as <strong>Audio</strong> or paste a transcript as Markdown; CLI still supports <code>knowtation import video</code> for small files. You must be signed in.</p>
-        <details class="modal-projects-help-details import-pdf-hint">
-          <summary>PDF or Word → get Markdown first</summary>
-          <p class="small muted import-pdf-hint-p">Knowtation ingests <strong>.md</strong> / <strong>.markdown</strong> notes. For PDFs or Word docs, convert first, then import the Markdown file (or a ZIP that contains those files).</p>
-          <p class="small muted import-pdf-hint-p"><strong>Easiest:</strong> In any chat assistant (ChatGPT, Claude, Gemini, etc.), upload the PDF and ask: <em>“Convert this to clean Markdown. Use <code>#</code> headings, preserve lists and tables, keep link URLs.”</em> Copy the reply into a new <code>.md</code> file and import it here.</p>
-          <p class="small muted import-pdf-hint-p">You can also search the web for <strong>PDF to Markdown</strong> converters and pick one you trust. A future in-app assistant may offer conversion here; not available yet.</p>
-        </details>
-        <p class="muted small import-modal-hosted"><strong>Hosted (e.g. knowtation.store):</strong> If you see <em>Import is not yet available on hosted</em>, this deployment has not enabled bridge-backed import yet (operators configure <code>BRIDGE_URL</code>). Self-hosted Hub already supports the full import flow.</p>
+        <p class="muted small import-modal-lead">Pick a <strong>source type</strong>, then a URL and/or <strong>files</strong> (dashed area or <strong>Choose folder</strong>). <strong>Sign in</strong> first. <strong>~100&nbsp;MB</strong> per request.</p>
         <label for="import-source-type">Source type</label>
         <select id="import-source-type">
+          <option value="url">URL (https — article or bookmark)</option>
           <option value="markdown">Markdown (file or folder)</option>
+          <option value="pdf">PDF (text extraction)</option>
+          <option value="docx">DOCX (Word → Markdown)</option>
           <option value="chatgpt-export">ChatGPT export (ZIP or folder)</option>
           <option value="claude-export">Claude export</option>
           <option value="mem0-export">Mem0 export (JSON)</option>
@@ -436,12 +432,45 @@
           <option value="audio">Audio (transcribe)</option>
           <option value="wallet-csv">Wallet / exchange CSV (transaction history)</option>
         </select>
-        <label for="import-file">File or ZIP</label>
-        <input type="file" id="import-file" accept=".md,.markdown,.json,.csv,.zip,.txt,.pdf,.doc,.docx,audio/*,video/*">
+        <label for="import-url">Import from URL (https only)</label>
+        <input type="url" id="import-url" placeholder="https://example.com/article" autocomplete="off">
+        <label for="import-url-mode">URL capture mode</label>
+        <select id="import-url-mode" aria-describedby="import-url-mode-hint">
+          <option value="auto">Auto (extract article when possible)</option>
+          <option value="bookmark">Bookmark only (save link)</option>
+          <option value="extract">Extract only (fail if not readable HTML)</option>
+        </select>
+        <p id="import-url-mode-hint" class="muted small">Use <strong>Bookmark</strong> for paywalled or login-only pages. <strong>Extract</strong> requires readable HTML.</p>
+        <div
+          id="import-drop-zone"
+          class="import-drop-zone"
+          tabindex="0"
+          role="group"
+          aria-label="Drop files or a folder to import. Chromium recommended for full folder tree paths.">
+          <p class="import-drop-zone-text"><strong>Drop</strong> files or a <strong>folder</strong> here, or use the file picker below.</p>
+          <p id="import-drop-status" class="import-drop-status muted small" hidden></p>
+        </div>
+        <div class="import-file-row import-file-row-actions">
+        <label for="import-file">File(s) or ZIP</label>
+        <p class="muted small">Multi-select or folder. See <strong>More</strong> under the form for batch limits.</p>
+        <input type="file" id="import-file" multiple accept=".md,.markdown,.json,.csv,.zip,.txt,.pdf,.doc,.docx,audio/*,video/*">
+        <input type="file" id="import-file-folder" class="sr-only" tabindex="-1" webkitdirectory>
+        <div class="import-aux-btns">
+        <button type="button" id="btn-import-choose-folder" class="btn-secondary" title="Pick a directory; the Hub can ZIP it in the browser for tree-shaped source types.">Choose folder (ZIP in browser)</button>
+        <button type="button" id="import-batch-cancel" class="btn-secondary hidden">Stop batch</button>
+        </div>
+        <p class="import-folder-hint muted small hidden" id="import-folder-hint">Folder selection will build one in-browser ZIP (folder-shaped source types only, not PDF/DOCX).</p>
+        </div>
+        <p id="import-batch-aria" class="sr-only" aria-live="polite" aria-atomic="true"></p>
         <label for="import-project">Project (optional)</label>
         <input type="text" id="import-project" placeholder="e.g. myproject">
         <label for="import-tags">Tags (comma-separated, optional)</label>
         <input type="text" id="import-tags" placeholder="tag1, tag2">
+        <details class="modal-projects-help-details import-modal-help" id="import-modal-help">
+          <summary>More: folder/ZIP, multi-file, PDF, audio, and hosted</summary>
+          <p class="small muted">Tree-style source types (e.g. <strong>Markdown</strong>, <strong>ChatGPT</strong>, many exports) can use a <code>.zip</code>, the <strong>drop</strong> zone, <strong>Choose folder</strong> (in-browser ZIP), or multi-file. <strong>PDF</strong> and <strong>DOCX</strong> are <em>one file per import</em> (use multiple files for many documents). <strong>Audio</strong> needs a transcribe-capable Hub; <strong>~25&nbsp;MB</strong> per file for OpenAI. <strong>Video</strong> is not in this dialog; use the CLI.</p>
+          <p class="small muted"><strong>Hosted</strong> import needs the operator to set <code>BRIDGE_URL</code> on the gateway. If you see that import is unavailable, ask your host or use self-hosted Hub. Full options and limits: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/IMPORT-SOURCES.md" target="_blank" rel="noopener noreferrer">IMPORT-SOURCES</a>.</p>
+        </details>
         <button type="button" id="btn-import-submit" class="btn-primary">Import</button>
         <p id="import-msg" class="create-msg"></p>
         </div>
@@ -2330,11 +2359,13 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5.5.2/dist/iro.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
   <script type="module">
     import * as HubListSort from './hub-list-sort.mjs';
     globalThis.HubListSort = HubListSort;
   </script>
-  <script defer src="hub.js?v=20260422b"></script>
+  <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
+  <script defer src="hub.js?v=20260422f"></script>
 </body>
 </html>

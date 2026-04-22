@@ -13,6 +13,36 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const scratchVault = path.join(__dirname, 'fixtures', 'tmp-import-source-types-vault');
 
 describe('import source types', () => {
+  it('pdf rejects empty input path', async () => {
+    await assert.rejects(
+      async () => {
+        await runImport('pdf', '', { vaultPath: scratchVault, dryRun: true });
+      },
+      /PDF path is required/
+    );
+  });
+
+  it('docx rejects empty input path', async () => {
+    await assert.rejects(
+      async () => {
+        await runImport('docx', '', { vaultPath: scratchVault, dryRun: true });
+      },
+      /DOCX path is required/
+    );
+  });
+
+  it('docx rejects non-docx extension', async () => {
+    const fake = path.join(scratchVault, 'not-word.txt');
+    if (!fs.existsSync(scratchVault)) fs.mkdirSync(scratchVault, { recursive: true });
+    fs.writeFileSync(fake, 'x', 'utf8');
+    await assert.rejects(
+      async () => {
+        await runImport('docx', fake, { vaultPath: scratchVault, dryRun: true });
+      },
+      /DOCX import requires a \.docx file/
+    );
+  });
+
   it('rejects unknown source type before loadConfig-sensitive work', async () => {
     await assert.rejects(
       () => runImport('typo-not-a-source', '/any/path', { vaultPath: scratchVault }),
@@ -24,9 +54,10 @@ describe('import source types', () => {
     if (!fs.existsSync(scratchVault)) fs.mkdirSync(scratchVault, { recursive: true });
     const missing = path.join(scratchVault, 'definitely-missing-input-xyz');
     for (const sourceType of IMPORT_SOURCE_TYPES) {
+      const badInput = sourceType === 'url' ? 'not-a-valid-url' : missing;
       await assert.rejects(
         async () => {
-          await runImport(sourceType, missing, { vaultPath: scratchVault, dryRun: true });
+          await runImport(sourceType, badInput, { vaultPath: scratchVault, dryRun: true });
         },
         (err) => {
           assert(

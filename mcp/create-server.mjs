@@ -366,18 +366,22 @@ export function mountKnowtationMcp(server) {
   server.registerTool(
     'import',
     {
-      description: `Import from external source. source_type must be one of: ${IMPORT_SOURCE_TYPES_HELP}.`,
+      description: `Import from external source. source_type must be one of: ${IMPORT_SOURCE_TYPES_HELP}. For source_type "url", input is a full https URL string. For source_type "pdf", input is a filesystem path to a .pdf file. For source_type "docx", input is a filesystem path to a .docx file.`,
       inputSchema: {
         source_type: z
           .enum(
             /** @type {[string, string, ...string[]]} */ ([...IMPORT_SOURCE_TYPES])
           )
           .describe('Import source type'),
-        input: z.string().describe('Path to file, folder, or export'),
+        input: z.string().describe('Path to file, folder, export, or https URL when source_type is url'),
         project: z.string().optional(),
         output_dir: z.string().optional().describe('Vault-relative output directory'),
         tags: z.array(z.string()).optional(),
         dry_run: z.boolean().optional(),
+        url_mode: z
+          .enum(['auto', 'bookmark', 'extract'])
+          .optional()
+          .describe('When source_type is url: capture mode (default auto)'),
       },
     },
     async (args, extra) => {
@@ -393,6 +397,7 @@ export function mountKnowtationMcp(server) {
           outputDir: args.output_dir,
           tags: args.tags || [],
           dryRun: args.dry_run,
+          ...(args.source_type === 'url' && args.url_mode ? { urlMode: args.url_mode } : {}),
           onProgress: async (p) => {
             await sendMcpToolProgress(extra, {
               progress: p.progress,

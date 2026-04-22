@@ -1,6 +1,6 @@
 # Knowtation Hub Gateway
 
-OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the gateway proxies all `/api/v1/*` requests to the ICP canister with an **X-User-Id** header (proof the canister trusts). Trust model: JWT `sub` → **`x-user-id`** on canister requests — see **[docs/HUB-API.md](../../docs/HUB-API.md)** (auth).
+OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the gateway proxies all `/api/v1/*` requests to the ICP canister with an **X-User-Id** header (proof the canister trusts). Trust model: JWT `sub` → **`x-user-id`** on canister requests — see **[docs/HUB-API.md](../../docs/HUB-API.md)** (auth). For **pre-merge** verification of **bridge-backed** `POST /api/v1/import` (including 4C drop) when **`BRIDGE_URL`** is set, see **[docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md](../../docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md)** §4V.
 
 ## Routes
 

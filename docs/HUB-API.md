@@ -104,10 +104,12 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "content": string, "filename": string }`. Client may create a blob and trigger download.  
   **400** if path invalid; **404** if note not found.
 
-- **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types: markdown, chatgpt-export, claude-export, mif, mem0-export, audio, video, notion, jira-export, notebooklm, gdrive, linear-export. If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export).  
+- **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types include `markdown`, `pdf`, `docx`, `url`, `chatgpt-export`, `claude-export`, `mif`, `mem0-export`, `supabase-memory`, `notion`, `jira-export`, `notebooklm`, `gdrive`, `linear-export`, `audio`, `video`, `wallet-csv` (see `lib/import-source-types.mjs`). If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export). For **`pdf`**, upload a single `.pdf` file (not a ZIP). For **`docx`**, upload a single `.docx` file (Office Open XML; not legacy `.doc`).  
   After import, the Hub runs a **provenance pass** on each imported path (`author_kind: import`, editor `sub`).  
   **Response:** `{ "imported": [ { "path", "source_id?" } ], "count": number }`.  
   **400** if file or source_type missing/invalid; **500** on import failure.
+
+- **POST /import-url** — Import a public **https** URL into the vault (editor/admin). JSON body: `{ "url": string, "mode"?: "auto" | "bookmark" | "extract", "project"?, "output_dir"?, "tags"? }` (`tags` may be a comma-separated string or string array). Server-side fetch with SSRF protections; article extraction when `mode` allows. Same provenance pass and response shape as **POST /import**. **Hosted:** gateway proxies to bridge when `BRIDGE_URL` is set.
 
 ### 3.3.0 Billing (Phase 16 hosted)
 

@@ -48,6 +48,16 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 
 **Manual verification:** See [IMPORT-MANUAL-CHECKLIST.md](./IMPORT-MANUAL-CHECKLIST.md).
 
+### Hub browser: one upload, ZIP extraction, in-browser ZIP (4A₂), multi-file (4B), and drop (4C)
+
+The Hub Import modal can send **one** multipart `file` per `POST /api/v1/import`, or **several** sequential `POST` requests in one batch. When the uploaded filename ends with **`.zip`**, the self-hosted Hub and hosted bridge **extract the archive** to a temporary directory (with zip-slip checks) and pass that **directory path** to `runImport`—the same pattern as a folder path on the CLI. **Phase 4A₂:** the Hub can also build a **.zip in the browser** (JSZip) for tree-shaped `source_type` values and then upload that single `file`—one HTTP round trip, same server contract. **Phase 4B:** **multiple** file selection, **“Choose folder (ZIP in browser)”** (`webkitdirectory`), and (for **PDF, DOCX, and other single-file-per-importer** types) **sequential** imports with a combined progress/summary. **Phase 4C:** a **dashed drop zone** in the Import dialog accepts **dragged files or a folder** (Chromium: full tree via `DataTransfer` directory entries; other browsers: same as a flatter file list). Dropped content uses the same pipeline and caps as **Choose folder** and multi-file. Caps: **~100MB** per upload (multer), up to **5000** file entries in one client-built ZIP, up to **200** files in one **sequential** run; the whole in-browser zip step holds uncompressed bytes in **memory** (very large trees: zip on the desktop or use the CLI). Hosted: each request is also subject to gateway/bridge time limits (often on the order of **26s** on Netlify).
+
+- **Folder-capable types** (for example **`markdown`**, **`chatgpt-export`**, **`claude-export`**, **`notebooklm`** when given a directory): use a pre-made **ZIP**, **Choose folder** (4A₂), the **4C** drop target, or **multi-select** many files to produce a client **ZIP** when the Hub decides `client_zip` mode (see `web/hub/hub-client-import-zip.mjs`). The importer walks the tree and picks up each supported file (for `markdown`, **`.md` / `.markdown`** only; other extensions are skipped).
+- **`pdf`** and **`docx`**: the importers require a **single file** on disk and **throw if the input is a directory** (`lib/importers/pdf.mjs`, `lib/importers/docx.mjs`). **Do not** upload a server-**ZIP** for these types in the Hub. **Many PDFs or DOCX** in the Hub: **4B** = **N sequential** `POST` imports (one file per request), or the CLI: **`knowtation import pdf` / `docx`** for folder paths.
+- **Hosted MCP:** still **one** `import` call per file (no `import_batch` tool); see [PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md).
+
+**Reference:** [IMPORT-URL-AND-DOCUMENTS-PHASES.md](./IMPORT-URL-AND-DOCUMENTS-PHASES.md) Phases **4A**, **4A₂**, **4B**, **4C** (4A + bulk copy, 4A₂ + 4B + 4C **shipped** on `feat/import-url-documents-mcp`).
+
 ### At a glance
 
 | | Source | Type | Format |
@@ -62,6 +72,9 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 | 📋 | **Linear** | `linear-export` | CSV export |
 | 🔗 | **MIF** | `mif` | Memory Interchange Format |
 | 📄 | **Markdown** | `markdown` | File or folder |
+| 📕 | **PDF** | `pdf` | Single `.pdf` file (text extraction) |
+| 📘 | **DOCX** | `docx` | Single `.docx` file (Word → Markdown via mammoth) |
+| 🌐 | **URL** | `url` | https URL (Hub **Import from URL** / `POST /api/v1/import-url`; CLI `knowtation import url …`) |
 | 🎙️ | **Audio** | `audio` | Whisper transcription |
 | 💰 | **Wallet CSV** | `wallet-csv` | Tx history; 11 formats |
 | 🗄️ | **Supabase** | `supabase-memory` | Memory table import |
@@ -84,7 +97,10 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 | 📁 `gdrive`          | Path to folder of Markdown files | Google Drive: folder of .md files (e.g. from export or pandoc). One note per file; `source: gdrive`, `source_id` from filename. |
 | 📋 `linear-export`   | Path to Linear CSV file | Linear workspace export (CSV). One note per issue; `source: linear`, `source_id`, title, description. |
 | 🔗 `mif`             | Path to `.memory.md` or `.memory.json` or folder of MIF files | [Memory Interchange Format](https://mif-spec.dev/). MIF is Obsidian-native; files can be copied in as-is or normalized to our frontmatter. |
-| 📄 `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. |
+| 📄 `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. **Hub:** a **ZIP of a folder tree** of `.md` / `.markdown` files is supported (server extracts then walks the tree). |
+| 📕 `pdf`             | Path to a single `.pdf` file | Extracts plain text with PDF.js (via **unpdf**). One note under `inbox/imports/pdf/` (or project inbox); frontmatter: `source: pdf-import`, `source_id` (SHA-256 of file bytes), `pdf_file`, `pdf_pages`, `date`, `title`. Fails if no text can be extracted (e.g. some image-only scans). **Hub / hosted MCP:** multipart `POST /api/v1/import` or MCP **`import`** with `source_type: pdf` and file bytes (same as other file-based imports). **Hub:** upload the **`.pdf` file**, not a ZIP (ZIP is extracted to a directory; this importer requires a file). |
+| 📘 `docx`            | Path to a single `.docx` file | Converts to Markdown with **mammoth** (Office Open XML only; not binary `.doc`). One note under `inbox/imports/docx/` (or project inbox); frontmatter: `source: docx-import`, `source_id` (SHA-256 of file bytes), `docx_file`, `date`, `title`. Fails on corrupt files or empty documents. **Hub / hosted MCP:** same multipart / **`import`** pattern as PDF. **Hub:** upload the **`.docx` file**, not a ZIP (same directory-vs-file rule as PDF). |
+| 🌐 `url`             | **HTTPS URL string** (not a filesystem path) | Fetches the URL server-side with SSRF protections. One note under `inbox/imports/url/` (or project inbox); frontmatter: `source: url-import`, `source_id` (hash of canonical URL), `canonical_url`, `date`, `title`. Modes: **`auto`** (extract main article HTML when possible, else bookmark), **`bookmark`** (link + metadata only), **`extract`** (requires readable article HTML or error). **Hub / hosted:** `POST /api/v1/import-url` JSON `{ "url", "mode"?, "project"?, "output_dir"?, "tags"? }`. **CLI:** `knowtation import url "https://…" [--url-mode auto|bookmark|extract]`. Paywalled or bot-blocked pages: use **`bookmark`**. |
 | 🎙️ `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | **Primary path for in-Hub transcription** (self-hosted). OpenAI Whisper; **max ~25 MB** per file. One note per file; frontmatter: `source: audio`, `source_id`, `date`. |
 | 💰 `wallet-csv`      | Path to wallet/exchange transaction history CSV (or folder containing one .csv) | Converts wallet export files into vault notes with blockchain frontmatter. One note per row; `source: wallet-csv-import`, `source_id: tx_hash`, blockchain fields (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`). Notes land in `inbox/wallet-import/`. Auto-detects named formats: **Coinbase**, **Coinbase Pro**, **Exodus**, **ICP Rosetta**, **Kraken**, **Binance**, **MetaMask/Etherscan**, **Phantom (Solana)**, **Ledger Live**. Falls back to generic column alias matching for any other CSV. Re-import is safe: duplicate rows (same output path) are skipped. |
 | 🗄️ `supabase-memory` | Supabase connection + table name | Import memory rows from a Supabase table. For users coming from database-centric stacks. |
@@ -177,6 +193,15 @@ Implementors: follow [SPEC.md](./SPEC.md) import contracts and extend `lib/impor
 knowtation import markdown ./my-notes.md --output-dir imports/notes
 knowtation import markdown ./exported-folder --project myproject
 ```
+
+**URL** (https only; server-side fetch with SSRF limits):
+
+```bash
+knowtation import url "https://example.com/article" --project research --tags reading
+knowtation import url "https://example.com/paywalled" --url-mode bookmark --dry-run --json
+```
+
+**Hub / hosted:** Import modal → paste URL → choose **URL capture mode** → Import; or `POST /api/v1/import-url` with JSON body (same route on self-hosted Hub and hosted gateway → bridge).
 
 **ChatGPT export** — Extract the OpenAI ZIP first, then:
 ```bash

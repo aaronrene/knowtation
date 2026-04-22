@@ -557,20 +557,18 @@ input[type="date"]::-moz-calendar-picker-indicator {
   margin-bottom: 0.5rem;
 }
 .import-modal-lead {
-  margin-bottom: 0.65rem;
-}
-.import-pdf-hint {
-  margin: 0.5rem 0 0.75rem;
-}
-.import-pdf-hint-p {
-  margin: 0 0 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.45;
+  max-width: 40rem;
 }
-.import-pdf-hint-p:last-child {
-  margin-bottom: 0;
+.import-modal-help {
+  margin: 0.75rem 0 0.65rem 0;
 }
-.import-modal-hosted {
-  margin-top: 0.65rem;
+.import-modal-help .small {
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+}
+.import-modal-help .small:last-of-type {
   margin-bottom: 0;
 }
 .create-msg.warn {
@@ -2524,6 +2522,43 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 
 /* Onboarding wizard */
+.import-aux-btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.35rem 0;
+}
+
+.import-drop-zone {
+  border: 2px dashed var(--border, rgba(255, 255, 255, 0.22));
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0 0.75rem 0;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.03));
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.import-drop-zone.import-drop-zone--over {
+  border-color: var(--accent, #89cff0);
+  background: var(--surface-elevated, rgba(137, 207, 240, 0.08));
+}
+
+.import-drop-zone:focus-visible {
+  outline: 2px solid var(--accent, #89cff0);
+  outline-offset: 2px;
+}
+
+.import-drop-zone .import-drop-zone-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.import-drop-status {
+  margin: 0.4rem 0 0 0;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
