@@ -2,6 +2,8 @@
 
 **Goal:** Hosted users see **simple, non-intimidating** copy first. Anything that only applies to **self-hosted** (paths, YAML, env vars, `ffmpeg`, Git on disk, …) or deep **technical** detail is folded behind clear affordances: **Self-hosted** (with a consistent icon/label), **How?**, **Technical details**, or `<details>` blocks. Cross-path concepts (JWT, MCP) can use **How?** / shared “technical” disclosure when both audiences need the same footnote.
 
+**Checklist parent:** [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md) **Phase 5**. **Precedent shipped on branch:** Settings → **Integrations** lede uses an inline **How?** `<details>` for Hub API context (`web/hub/index.html`, styles in `web/hub/hub.css` — search `settings-integ-how-inline`).
+
 **Scope:** `web/hub/index.html` (Settings modals), How to use panels in the same file, and any linked copy in `web/hub/hub.js` that injects settings strings.
 
 **Non-goals:** Do not remove documented behavior from the repo; **relocate and label**, do not delete safety text.
