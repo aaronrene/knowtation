@@ -42,10 +42,10 @@
 
 **Full session handoff (copy-paste prompt + file hints):** [NEXT-SESSION-PHASE-4-MCP-CLI.md](./NEXT-SESSION-PHASE-4-MCP-CLI.md)
 
-- [ ] **`knowtation://…` bootstrap MCP resource** + Hub **Copy prime**.
-- [ ] **`knowtation doctor`** (hosted vs self-hosted checks per [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) token section).
-- [ ] **Evaluate:** MCP tool **summarize pasted blob** (hosted parity: auth, rate, billing).
-- [ ] **Surface MCP prompts** in docs/wizard (`temporal-summary`, `resume-session`, …) per [PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md).
+- [x] **`knowtation://…` bootstrap MCP resource** + Hub **Copy prime**.
+- [x] **`knowtation doctor`** (hosted vs self-hosted checks per [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) token section).
+- [x] **Evaluate:** MCP tool **summarize pasted blob** (hosted parity: auth, rate, billing) — **no ship**; see [MCP-BLOB-SUMMARIZE-EVALUATION.md](./MCP-BLOB-SUMMARIZE-EVALUATION.md).
+- [x] **Surface MCP prompts** in docs/wizard (`temporal-summary`, `resume-session`, …) per [PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md).
 
 ---
 
