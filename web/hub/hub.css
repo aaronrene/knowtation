@@ -2542,6 +2542,35 @@ input[type="date"]::-moz-calendar-picker-indicator {
   margin: 0.4rem 0 0.35rem 0;
 }
 
+.import-drop-zone {
+  border: 2px dashed var(--border, rgba(255, 255, 255, 0.22));
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0 0.75rem 0;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.03));
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.import-drop-zone.import-drop-zone--over {
+  border-color: var(--accent, #89cff0);
+  background: var(--surface-elevated, rgba(137, 207, 240, 0.08));
+}
+
+.import-drop-zone:focus-visible {
+  outline: 2px solid var(--accent, #89cff0);
+  outline-offset: 2px;
+}
+
+.import-drop-zone .import-drop-zone-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.import-drop-status {
+  margin: 0.4rem 0 0 0;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

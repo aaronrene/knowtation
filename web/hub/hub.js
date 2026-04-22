@@ -325,9 +325,127 @@
   const importFolderHintEl = el('import-folder-hint');
   const importBatchCancelBtn = el('import-batch-cancel');
   const importBatchAriaEl = el('import-batch-aria');
+  /** Dropped files/folder (4C) — when set, submit uses this instead of the file inputs. */
+  /** @type {File[] | null} */
+  let importPendingDropFiles = null;
+  const importDropZoneEl = el('import-drop-zone');
+  const importDropStatusEl = el('import-drop-status');
   /** @type {AbortController | null} */
   let importBatchAbort = null;
   const btnImportChooseFolder = el('btn-import-choose-folder');
+
+  function wrapFileWithWebkitRel(file, relPath) {
+    const w = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
+    const rel = String(relPath || file.name).replace(/^\//, '');
+    try {
+      Object.defineProperty(w, 'webkitRelativePath', { value: rel, enumerable: true, configurable: true });
+    } catch (_) {}
+    return w;
+  }
+
+  /**
+   * @param {FileSystemFileEntry} fe
+   * @param {string} pathPrefix
+   * @returns {Promise<File>}
+   */
+  function fileEntryToFileWithPath(fe, pathPrefix) {
+    return new Promise((resolve, reject) => {
+      fe.file(
+        (file) => {
+          const rel = (String(pathPrefix || '') + file.name).replace(/^\//, '');
+          resolve(wrapFileWithWebkitRel(file, rel));
+        },
+        reject,
+      );
+    });
+  }
+
+  /**
+   * @param {FileSystemDirectoryEntry} dirEntry
+   * @param {string} pathPrefix
+   * @returns {Promise<File[]>}
+   */
+  async function readAllFilesInDirectoryEntry(dirEntry, pathPrefix) {
+    const all = [];
+    const reader = dirEntry.createReader();
+    let batch;
+    do {
+      /** @type {FileSystemEntry[]} */
+      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+      for (const e of batch) {
+        if (e.isFile) {
+          all.push(await fileEntryToFileWithPath(/** @type {FileSystemFileEntry} */(e), pathPrefix));
+        } else if (e.isDirectory) {
+          all.push(
+            ...(await readAllFilesInDirectoryEntry(/** @type {FileSystemDirectoryEntry} */(e), pathPrefix + e.name + '/')),
+          );
+        }
+      }
+    } while (batch.length > 0);
+    return all;
+  }
+
+  /**
+   * @param {DataTransfer} dataTransfer
+   * @returns {Promise<File[]>}
+   */
+  async function collectFilesFromDataTransfer(dataTransfer) {
+    if (!dataTransfer) return [];
+    const canEntry =
+      dataTransfer.items &&
+      dataTransfer.items.length > 0 &&
+      Array.from(dataTransfer.items).some((it) => it.kind === 'file' && 'webkitGetAsEntry' in it);
+    if (canEntry) {
+      const all = [];
+      for (const item of Array.from(dataTransfer.items)) {
+        if (item.kind !== 'file') continue;
+        if (item.webkitGetAsEntry) {
+          const entry = item.webkitGetAsEntry();
+          if (entry) {
+            if (entry.isFile) {
+              all.push(await fileEntryToFileWithPath(/** @type {FileSystemFileEntry} */(entry), ''));
+            } else if (entry.isDirectory) {
+              all.push(
+                ...(
+                  await readAllFilesInDirectoryEntry(/** @type {FileSystemDirectoryEntry} */(entry), entry.name + '/')
+                ),
+              );
+            }
+          } else {
+            const f = item.getAsFile();
+            if (f) all.push(wrapFileWithWebkitRel(f, f.name));
+          }
+        } else {
+          const f = item.getAsFile();
+          if (f) all.push(wrapFileWithWebkitRel(f, f.name));
+        }
+      }
+      return all;
+    }
+    if (dataTransfer.files && dataTransfer.files.length) {
+      return Array.from(dataTransfer.files).map((f) => wrapFileWithWebkitRel(f, f.name));
+    }
+    return [];
+  }
+
+  function updateImportDropStatusUi() {
+    if (!importDropStatusEl) return;
+    if (importPendingDropFiles && importPendingDropFiles.length > 0) {
+      importDropStatusEl.hidden = false;
+      importDropStatusEl.textContent =
+        importPendingDropFiles.length +
+        ' file(s) from drop. Click Import, or use the file picker above to replace.';
+    } else {
+      importDropStatusEl.hidden = true;
+      importDropStatusEl.textContent = '';
+    }
+  }
+
+  function clearImportDropPending() {
+    importPendingDropFiles = null;
+    if (importDropZoneEl) importDropZoneEl.classList.remove('import-drop-zone--over');
+    updateImportDropStatusUi();
+  }
 
   function setImportBatchAria(s) {
     if (importBatchAriaEl) importBatchAriaEl.textContent = s || '';
@@ -2856,11 +2974,13 @@
     if (importFolderHintEl) importFolderHintEl.classList.add('hidden');
     if (importBatchCancelBtn) importBatchCancelBtn.classList.add('hidden');
     setImportBatchAria('');
+    clearImportDropPending();
     const urlIn = el('import-url');
     if (urlIn) urlIn.value = '';
   }
   function closeImportModal() {
     el('modal-import').classList.add('hidden');
+    clearImportDropPending();
   }
   if (btnImport) btnImport.onclick = openImportModal;
   el('modal-import-backdrop').onclick = closeImportModal;
@@ -2892,6 +3012,7 @@
   if (importFileFolderEl) {
     importFileFolderEl.addEventListener('change', () => {
       if (importFileFolderEl.files && importFileFolderEl.files.length) {
+        clearImportDropPending();
         if (importFileEl) importFileEl.value = '';
         if (importFolderHintEl) importFolderHintEl.classList.remove('hidden');
       }
@@ -2899,8 +3020,81 @@
   }
   if (importFileEl) {
     importFileEl.addEventListener('change', () => {
+      clearImportDropPending();
       if (importFileFolderEl) importFileFolderEl.value = '';
       if (importFolderHintEl) importFolderHintEl.classList.add('hidden');
+    });
+  }
+  if (importDropZoneEl) {
+    let dragOverCount = 0;
+    const setOver = (on) => {
+      if (on) importDropZoneEl.classList.add('import-drop-zone--over');
+      else importDropZoneEl.classList.remove('import-drop-zone--over');
+    };
+    importDropZoneEl.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragOverCount += 1;
+      setOver(true);
+    });
+    importDropZoneEl.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragOverCount = Math.max(0, dragOverCount - 1);
+      if (dragOverCount === 0) setOver(false);
+    });
+    importDropZoneEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    });
+    importDropZoneEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragOverCount = 0;
+      setOver(false);
+      const msgEl = el('import-msg');
+      const p = (async () => {
+        if (!e.dataTransfer) {
+          if (msgEl) {
+            msgEl.textContent = 'Drop did not include any files.';
+            msgEl.className = 'create-msg err';
+          }
+          return;
+        }
+        let files;
+        try {
+          files = await collectFilesFromDataTransfer(e.dataTransfer);
+        } catch (dropErr) {
+          if (msgEl) {
+            msgEl.textContent =
+              dropErr && dropErr.message ? 'Could not read drop: ' + String(dropErr.message) : 'Could not read drop.';
+            msgEl.className = 'create-msg err';
+          }
+          return;
+        }
+        if (!files || files.length === 0) {
+          if (msgEl) {
+            msgEl.textContent = 'No files in that drop. Try a folder of files, or the file picker below.';
+            msgEl.className = 'create-msg err';
+          }
+          return;
+        }
+        importPendingDropFiles = files;
+        if (importFileEl) importFileEl.value = '';
+        if (importFileFolderEl) importFileFolderEl.value = '';
+        if (importFolderHintEl) importFolderHintEl.classList.remove('hidden');
+        updateImportDropStatusUi();
+        if (msgEl) {
+          msgEl.textContent = 'Ready: ' + files.length + ' file(s) from drop. Choose source type, then click Import.';
+          msgEl.className = 'create-msg';
+        }
+      })();
+      p.catch((err) => {
+        if (el('import-msg')) {
+          const msg = el('import-msg');
+          msg.textContent = err && err.message ? String(err.message) : 'Import drop failed';
+          msg.className = 'create-msg err';
+        }
+      });
     });
   }
   if (importBatchCancelBtn) {
@@ -2985,11 +3179,14 @@
       return;
     }
     const usedFolder = importFileFolderEl && importFileFolderEl.files && importFileFolderEl.files.length > 0;
-    const fileArr = usedFolder
-      ? Array.from(importFileFolderEl.files)
-      : fileInput && fileInput.files
-        ? Array.from(fileInput.files)
-        : [];
+    const usedDrop = importPendingDropFiles && importPendingDropFiles.length > 0;
+    const fileArr = usedDrop
+      ? importPendingDropFiles
+      : usedFolder
+        ? Array.from(importFileFolderEl.files)
+        : fileInput && fileInput.files
+          ? Array.from(fileInput.files)
+          : [];
     if (!useUrlImport && fileArr.length === 0) {
       msgEl.textContent = 'Choose file(s) or a folder to import, or paste an https URL above.';
       msgEl.className = 'create-msg err';

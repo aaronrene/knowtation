@@ -12,10 +12,10 @@ This doc splits work so each phase matches how Knowtation already works: **`lib/
 | Path | Folder import | Multiple files at once |
 |------|----------------|-------------------------|
 | **CLI** (`knowtation import …`) | **Yes** for types that accept a directory (e.g. `markdown` walks a folder of `.md` files; see [`lib/importers/markdown.mjs`](../lib/importers/markdown.mjs)). | Run import multiple times or point at a folder. |
-| **Hub (browser)** | **ZIP:** uploads whose name ends in `.zip` are extracted server-side; `runImport` receives the **extracted directory** (see [`hub/server.mjs`](../hub/server.mjs) and bridge). That matches **folder-capable** importers (e.g. **markdown** walks `.md`/`.markdown`; ChatGPT/Claude exports). **pdf** and **docx** importers require a **single file path** and **reject a directory** ([`lib/importers/pdf.mjs`](../lib/importers/pdf.mjs), [`lib/importers/docx.mjs`](../lib/importers/docx.mjs)), so in practice Hub **PDF/DOCX** = one document per request (4B: **N** sequential `POST` for many files), **not** a server **ZIP** of a folder. **4A₂** builds a **client** ZIP for tree-shaped types. | **Yes (4B + 4A₂):** `multiple`, **Choose folder** (`webkitdirectory`), in-browser **JSZip** when `getHubImportFileMode` says `client_zip` — see [`web/hub/hub.js`](../web/hub/hub.js) and [`web/hub/hub-client-import-zip.mjs`](../web/hub/hub-client-import-zip.mjs). |
+| **Hub (browser)** | **ZIP:** uploads whose name ends in `.zip` are extracted server-side; `runImport` receives the **extracted directory** (see [`hub/server.mjs`](../hub/server.mjs) and bridge). That matches **folder-capable** importers (e.g. **markdown** walks `.md`/`.markdown`; ChatGPT/Claude exports). **pdf** and **docx** importers require a **single file path** and **reject a directory** ([`lib/importers/pdf.mjs`](../lib/importers/pdf.mjs), [`lib/importers/docx.mjs`](../lib/importers/docx.mjs)), so in practice Hub **PDF/DOCX** = one document per request (4B: **N** sequential `POST` for many files), **not** a server **ZIP** of a folder. **4A₂** builds a **client** ZIP for tree-shaped types. | **Yes (4B + 4A₂ + 4C):** `multiple`, **Choose folder** (`webkitdirectory`), the Import modal **drop** zone (§4C), in-browser **JSZip** when `getHubImportFileMode` says `client_zip` — see [`web/hub/hub.js`](../web/hub/hub.js) and [`web/hub/hub-client-import-zip.mjs`](../web/hub/hub-client-import-zip.mjs). |
 | **Hosted MCP `import`** | One **base64 file** (or ZIP) per tool call. | Agents can call **`import`** repeatedly (no `import_batch`). |
 
-So: **entire-folder ingest already exists on the CLI** for supported types; **in the Hub, the practical “folder” path is ZIP**. Native **folder picker** or **multi-select** in the Hub is **not** implemented yet.
+So: **entire-folder ingest already exists on the CLI** for supported types. **In the Hub**, the practical “folder” paths are **pre-made ZIP**, **Choose folder** / **multi-select**, or the **4C** drop target in the Import modal (same in-memory file pipeline and caps as 4A₂/4B; **Chromium** is best for full directory-tree paths from a drag; **Safari** / **Firefox** may see flatter `File` lists, same as a non-Chromium multi-file pick).
 
 ---
 
@@ -111,13 +111,24 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 **Complexity:** **Medium** (client loop + caps + UX).
 
-### Recommended order (next implementation pass) — 4A₂/4B done
+### 4C — Import modal drop zone (drag files or a folder)
+
+**Status:** **Shipped** — the Import dialog includes a **drop** region (`#import-drop-zone` in `web/hub/index.html`); `web/hub/hub.js` uses `DataTransfer` / `webkitGetAsEntry` where available to build a `File[]` with relative paths (Chromium: recursive directory walk; flat `files` fallback otherwise). The same `getHubImportFileMode` + JSZip/sequential pipeline as 4A₂/4B applies. **No new** HTTP route or canister. Clear drop state on modal close and when the file inputs change.
+
+**Goal:** Same outcome as **Choose folder** or multi-file without a click, **inside** the Import modal only (not page-level drop).
+
+- **Parity / caps:** Same as 4A₂/4B (100MB, 200 sequential, JSZip limits, etc.).
+
+**Complexity:** **Low–medium** (80–150 lines of client wiring + HTML/CSS; browser variance in directory drops).
+
+### Recommended order (next implementation pass) — 4A₂/4B/4C done
 
 1. **4A₂ (JSZip)** — **shipped.**
 2. **4B** (multi + folder) — **shipped** (sequential, no new HTTP body).
-3. **Optional next:** drag-drop of folders (Chrome `DataTransfer` directory entries), or documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) (HTTP shape unchanged; limits are product caps).
+3. **4C** (import modal drop zone) — **shipped.**
+4. **Optional next:** documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) (HTTP shape unchanged; limits are product caps).
 
-**Recommendation:** Treat **4A + 4A₂ + 4B** as a stacked story: copy explains behavior; JSZip reduces friction for ZIP-shaped flows; 4B covers users who never zip. None of these replace the others.
+**Recommendation:** Treat **4A + 4A₂ + 4B + 4C** as a stacked story: copy explains behavior; JSZip reduces friction for ZIP-shaped flows; 4B/4C cover users who never zip. None of these replace the others.
 
 ---
 
@@ -154,11 +165,11 @@ Ease of import **does** affect adoption. Order of impact:
 
 - [`test/import-url-importer.test.mjs`](../test/import-url-importer.test.mjs) does a **real** HTTPS request to `https://example.com/` (with `dryRun`). If your environment **blocks DNS or outbound HTTPS** (e.g. some local sandboxes), the test can fail with `getaddrinfo ENOTFOUND` or similar. **That is not a regression from the Hub bulk work.**
 - **CI** (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) `npm test` on `ubuntu-latest`) has normal network, so this test is expected to **pass** there.
-- **New code tests:** `node --test test/hub-client-import-zip.test.mjs` (mode rules + small JSZip build). There is no browser E2E in the repo for the Hub UI; use [`IMPORT-MANUAL-CHECKLIST.md`](./IMPORT-MANUAL-CHECKLIST.md) § “Hub — Phase 4A₂ and 4B” for a quick hands-on check.
+- **New code tests:** `node --test test/hub-client-import-zip.test.mjs` (mode rules + small JSZip build). There is no browser E2E in the repo for the Hub UI; use [`IMPORT-MANUAL-CHECKLIST.md`](./IMPORT-MANUAL-CHECKLIST.md) § “Hub — Phase 4A₂, 4B, and 4C” for a quick hands-on check.
 
 ### Canister / on-chain
 
-- **No ICP canister changes** are required for 4A₂/4B: the same `POST /api/v1/import` and bridge `runImport` path is used. Hosted behavior still depends on bridge + gateway as today.
+- **No ICP canister changes** are required for 4A₂/4B/4C: the same `POST /api/v1/import` and bridge `runImport` path is used. Hosted behavior still depends on bridge + gateway as today.
 
 ### Merge to `main`
 
@@ -166,7 +177,6 @@ Ease of import **does** affect adoption. Order of impact:
 
 ### Optional follow-up work (not blocking merge)
 
-- **Drag-and-drop** of a whole folder (browser `DataTransfer` / directory entries) in addition to **Choose folder** + multi-select.
 - **OpenAPI / HUB-API** prose for product caps (100MB, 200 files per batch) if you want the HTTP doc to spell out client limits (the route contract is unchanged).
 - **Deeper E2E** (Playwright, etc.) if you add that stack later.
 

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260422d">
+  <link rel="stylesheet" href="hub.css?v=20260422e">
 </head>
 <body>
   <div id="app">
@@ -413,7 +413,7 @@
           <button type="button" id="modal-import-close" class="modal-close">×</button>
         </div>
         <div class="create-panel">
-        <p class="muted small import-modal-lead">You can select <strong>one or more</strong> files, or <strong>choose a folder</strong> (builds a ZIP in the browser for types that need a tree). The server still receives <strong>one</strong> multipart <code>file</code> for most folder-shaped sources (in-browser JSZip) or <strong>one</strong> request per file for <strong>PDF / DOCX / single-file CSV/JSON</strong> batch (sequential, up to 200). Uploads are limited to <strong>~100&nbsp;MB</strong> per request (and for in-browser ZIP, compressed size must stay under that cap). <strong>Folder / tree sources (Markdown, ChatGPT, …):</strong> you can make a ZIP on your computer, use <strong>Choose folder</strong> to zip in the app, or multi-select. The Hub extracts <code>.zip</code> server-side. For Markdown, only <code>.md</code> / <code>.markdown</code> in the tree are imported. <strong>ChatGPT</strong> needs a folder (or a zip of it) that contains <code>conversations.json</code>—a raw single JSON upload is wrapped into a small ZIP in the browser if needed. Choose <strong>PDF</strong> for a <strong>single</strong> <code>.pdf</code> (or <strong>many PDFs</strong> one request each). Choose <strong>DOCX</strong> for <code>.docx</code> (same pattern). <strong>Do not upload a server ZIP for PDF or DOCX</strong>: those importers need one document file path, not a directory. <strong>Audio (transcribe):</strong> OpenAI Whisper (<code>OPENAI_API_KEY</code> on the Hub); <strong>~25&nbsp;MB per file</strong> (OpenAI) plus the 100&nbsp;MB gateway form limit. <strong>Self-hosted:</strong> <code>ffmpeg</code> may pre-compress big audio. <strong>Video</strong> is not offered here; use the CLI. You must be signed in.</p>
+        <p class="muted small import-modal-lead">You can select <strong>one or more</strong> files, <strong>choose a folder</strong> (builds a ZIP in the browser for types that need a tree), or <strong>drop</strong> files or a folder on the dashed area above the file field. The server still receives <strong>one</strong> multipart <code>file</code> for most folder-shaped sources (in-browser JSZip) or <strong>one</strong> request per file for <strong>PDF / DOCX / single-file CSV/JSON</strong> batch (sequential, up to 200). Uploads are limited to <strong>~100&nbsp;MB</strong> per request (and for in-browser ZIP, compressed size must stay under that cap). <strong>Folder / tree sources (Markdown, ChatGPT, …):</strong> you can make a ZIP on your computer, use <strong>Choose folder</strong> or <strong>drop</strong> to zip in the app, or multi-select. The Hub extracts <code>.zip</code> server-side. For Markdown, only <code>.md</code> / <code>.markdown</code> in the tree are imported. <strong>ChatGPT</strong> needs a folder (or a zip of it) that contains <code>conversations.json</code>—a raw single JSON upload is wrapped into a small ZIP in the browser if needed. Choose <strong>PDF</strong> for a <strong>single</strong> <code>.pdf</code> (or <strong>many PDFs</strong> one request each). Choose <strong>DOCX</strong> for <code>.docx</code> (same pattern). <strong>Do not upload a server ZIP for PDF or DOCX</strong>: those importers need one document file path, not a directory. <strong>Audio (transcribe):</strong> OpenAI Whisper (<code>OPENAI_API_KEY</code> on the Hub); <strong>~25&nbsp;MB per file</strong> (OpenAI) plus the 100&nbsp;MB gateway form limit. <strong>Self-hosted:</strong> <code>ffmpeg</code> may pre-compress big audio. <strong>Video</strong> is not offered here; use the CLI. You must be signed in.</p>
         <details class="modal-projects-help-details import-bulk-hint">
           <summary>Bulk import on the Hub (ZIP in browser, multi-file, and limits)</summary>
           <p class="small muted import-bulk-hint-p"><strong>Phase 4A₂ (in-browser ZIP):</strong> for source types that accept a <strong>folder</strong> after the server unzips (e.g. <strong>markdown</strong>, <strong>chatgpt-export</strong>, <strong>claude-export</strong> with <code>.md</code> only, <strong>mif</strong>, <strong>gdrive</strong>, <strong>notebooklm</strong>), the Hub can build a single <code>.zip</code> in the browser and send one <code>POST /api/v1/import</code>. <strong>PDF</strong> and <strong>DOCX</strong> do <em>not</em> get this (single-file importers; zipping a folder of PDFs is the wrong shape). Client-side zipping holds files in memory—very large trees can fail; prefer a desktop ZIP for huge vaults. Caps: 100&nbsp;MB per upload, 5000 files, same uncompressed cap for the zip builder (see <code>docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md</code> §4A₂).</p>
@@ -452,6 +452,15 @@
           <option value="extract">Extract only (fail if not readable HTML)</option>
         </select>
         <p id="import-url-mode-hint" class="muted small">Use <strong>Bookmark</strong> for paywalled or login-only pages. <strong>Extract</strong> requires readable HTML.</p>
+        <div
+          id="import-drop-zone"
+          class="import-drop-zone"
+          tabindex="0"
+          role="group"
+          aria-label="Drop files or a folder to import. Chromium recommended for full folder tree paths.">
+          <p class="import-drop-zone-text"><strong>Drop</strong> files or a <strong>folder</strong> here, or use the file picker below.</p>
+          <p id="import-drop-status" class="import-drop-status muted small" hidden></p>
+        </div>
         <div class="import-file-row import-file-row-actions">
         <label for="import-file">File(s) or ZIP</label>
         <p class="muted small">Multi-select. Max 200 files per <strong>sequential</strong> batch (PDF/DOCX/CSV&hellip;); 5000 entries per in-browser ZIP.</p>
@@ -2363,6 +2372,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     globalThis.HubListSort = HubListSort;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260422c"></script>
+  <script defer src="hub.js?v=20260422e"></script>
 </body>
 </html>
