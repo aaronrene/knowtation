@@ -45,6 +45,8 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 **Outcome:** `source_type: pdf`, upload `.pdf` (Hub multipart / MCP base64 / CLI path) → note body with extracted text.
 
+**Status on branch `feat/import-url-documents-mcp`:** **Shipped** (commit `feat(import): pdf source type and importer` — core `lib/importers/pdf.mjs`, `unpdf`, Hub option + copy, hosted MCP enum via `IMPORT_SOURCE_TYPES`, tests, docs).
+
 **Work:**
 
 - `lib/importers/pdf.mjs` + dependency (e.g. `pdf-parse` / `unpdf` — choose in implementation).

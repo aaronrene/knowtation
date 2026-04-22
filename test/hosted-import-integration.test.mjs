@@ -135,6 +135,82 @@ test('bridge POST /api/v1/import: markdown upload → mock canister receives not
   assert.match(JSON.stringify(posted.notes[0].frontmatter), /import/);
 });
 
+test('bridge POST /api/v1/import: pdf upload → note body contains extracted text', async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-bridge-import-pdf-'));
+  t.after(() => {
+    try {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    } catch (_) {}
+  });
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = 'http://mock-canister.test';
+  process.env.SESSION_SECRET = SECRET;
+  process.env.DATA_DIR = dataDir;
+
+  const noteWrites = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('/api/v1/vaults') && (init.method === undefined || init.method === 'GET')) {
+      return new Response(JSON.stringify({ vaults: [{ id: 'default' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (String(init.method || 'GET').toUpperCase() === 'POST' && u.includes('/api/v1/notes')) {
+      let bodyText = '';
+      if (typeof init.body === 'string') bodyText = init.body;
+      else if (init.body != null && typeof init.body === 'object' && Symbol.asyncIterator in init.body) {
+        const chunks = [];
+        for await (const c of init.body) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
+        bodyText = Buffer.concat(chunks).toString('utf8');
+      }
+      noteWrites.push({ url: u, body: bodyText });
+      return new Response(JSON.stringify({ imported: JSON.parse(bodyText).notes?.length ?? 0, written: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return origFetch(url, init);
+  };
+  t.after(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  const bridgeEntry = pathToFileURL(path.join(projectRoot, 'hub', 'bridge', 'server.mjs')).href;
+  const { app } = await import(`${bridgeEntry}?t=${Date.now()}-pdf`);
+
+  const server = http.createServer(app);
+  await new Promise((resolve, reject) => {
+    server.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => server.close(() => r())));
+
+  const { port } = /** @type {import('net').AddressInfo} */ (server.address());
+  const pdfPath = path.join(projectRoot, 'test', 'fixtures', 'pdf-import', 'hello.pdf');
+  const pdfBuf = fs.readFileSync(pdfPath);
+  const token = signTestJwt({ sub: 'github:integration-pdf' });
+  const fd = new FormData();
+  fd.set('source_type', 'pdf');
+  fd.set('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'hello.pdf');
+
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/import`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'X-Vault-Id': 'default' },
+    body: fd,
+  });
+
+  const resText = await res.text();
+  assert.equal(res.status, 200, resText);
+  const json = JSON.parse(resText);
+  assert.equal(json.count, 1);
+  assert.equal(noteWrites.length, 1);
+  const posted = JSON.parse(noteWrites[0].body);
+  assert.ok(posted.notes[0].body.includes('Knowtation PDF fixture'));
+  assert.equal(posted.notes[0].frontmatter.source, 'pdf-import');
+});
+
 test('bridge POST /api/v1/import: ZIP with multiple .md files → one canister batch (≤100 notes)', async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-bridge-import-multi-'));
   t.after(() => {

@@ -76,6 +76,7 @@
     "sqlite-vec": "^0.1.7-alpha.2",
     "stripe": "^17.7.0",
     "turndown": "^7.2.4",
+    "unpdf": "^1.6.0",
     "zod": "^4.3.6"
   },
   "optionalDependencies": {

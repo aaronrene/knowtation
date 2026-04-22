@@ -222,7 +222,9 @@ paths:
               type: object
               required: [source_type, file]
               properties:
-                source_type: { type: string }
+                source_type:
+                  type: string
+                  description: Importer id (e.g. markdown, pdf, url via file upload is not used for URL—use /import-url; chatgpt-export, audio, …). See lib/import-source-types.mjs for the canonical list.
                 file: { type: string, format: binary }
                 project: { type: string }
                 output_dir: { type: string }

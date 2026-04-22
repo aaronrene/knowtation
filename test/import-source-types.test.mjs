@@ -13,6 +13,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const scratchVault = path.join(__dirname, 'fixtures', 'tmp-import-source-types-vault');
 
 describe('import source types', () => {
+  it('pdf rejects empty input path', async () => {
+    await assert.rejects(
+      async () => {
+        await runImport('pdf', '', { vaultPath: scratchVault, dryRun: true });
+      },
+      /PDF path is required/
+    );
+  });
+
   it('rejects unknown source type before loadConfig-sensitive work', async () => {
     await assert.rejects(
       () => runImport('typo-not-a-source', '/any/path', { vaultPath: scratchVault }),
