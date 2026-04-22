@@ -573,6 +573,16 @@ input[type="date"]::-moz-calendar-picker-indicator {
   margin-top: 0.65rem;
   margin-bottom: 0;
 }
+.import-bulk-hint {
+  margin: 0.5rem 0 0.75rem;
+}
+.import-bulk-hint-p {
+  margin: 0 0 0.5rem;
+  line-height: 1.45;
+}
+.import-bulk-hint-p:last-child {
+  margin-bottom: 0;
+}
 .create-msg.warn {
   color: #fbbf24;
 }

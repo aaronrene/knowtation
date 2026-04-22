@@ -12,7 +12,7 @@ This doc splits work so each phase matches how Knowtation already works: **`lib/
 | Path | Folder import | Multiple files at once |
 |------|----------------|-------------------------|
 | **CLI** (`knowtation import …`) | **Yes** for types that accept a directory (e.g. `markdown` walks a folder of `.md` files; see [`lib/importers/markdown.mjs`](../lib/importers/markdown.mjs)). | Run import multiple times or point at a folder. |
-| **Hub (browser)** | **Indirectly:** upload a **ZIP** of a folder; server extracts and passes a directory to `runImport` (same pattern as ChatGPT export). | **No:** the file control is **single file** only (`files[0]` in [`web/hub/hub.js`](../web/hub/hub.js)); no `multiple` or folder-picker attribute today. |
+| **Hub (browser)** | **ZIP:** uploads whose name ends in `.zip` are extracted server-side; `runImport` receives the **extracted directory** (see [`hub/server.mjs`](../hub/server.mjs) and bridge). That matches **folder-capable** importers (e.g. **markdown** walks `.md`/`.markdown`; ChatGPT/Claude exports). **pdf** and **docx** importers require a **single file path** and **reject a directory** ([`lib/importers/pdf.mjs`](../lib/importers/pdf.mjs), [`lib/importers/docx.mjs`](../lib/importers/docx.mjs)), so in practice Hub **PDF/DOCX** = upload the document itself, **not** a ZIP. | **No:** the file control is **single file** only (`files[0]` in [`web/hub/hub.js`](../web/hub/hub.js)); no `multiple` or folder-picker attribute today. |
 | **Hosted MCP `import`** | One **base64 file** (or ZIP) per tool call. | Agents can call **`import`** repeatedly. |
 
 So: **entire-folder ingest already exists on the CLI** for supported types; **in the Hub, the practical “folder” path is ZIP**. Native **folder picker** or **multi-select** in the Hub is **not** implemented yet.
@@ -80,10 +80,12 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 ### 4A — Low cost (recommend first)
 
-- **Document clearly** in Hub: “ZIP a folder of PDFs/Markdown and upload once” per source type rules.
-- Optional: small Hub helper text or **client-side ZIP** (e.g. JSZip) so users drag a folder and you upload one ZIP **without** new server APIs — browser builds ZIP, existing import path unchanged.
+**Status on branch `feat/import-url-documents-mcp`:** **Shipped** (Hub Import modal + docs: explain **one multipart upload**; **ZIP** for folder-capable types; **PDF/DOCX** = single file, not ZIP—see [`IMPORT-SOURCES.md`](./IMPORT-SOURCES.md) § “Hub browser: ZIP and bulk”.)
 
-**Complexity:** **Low–medium** (JSZip adds bundle size and memory caps; still one multipart).
+- **Document clearly** in Hub and `IMPORT-SOURCES.md`: ZIP a folder of **Markdown** (or use ZIP for exports that expect a directory); **PDF** and **DOCX** = upload **one `.pdf` / `.docx` per import** (ZIP extracts to a directory; those importers require a file).
+- **Not in 4A:** client-side ZIP (e.g. JSZip) for folder drag→one upload — optional future slice; adds bundle size and memory limits.
+
+**Complexity:** **Low** for copy/docs only; **low–medium** if JSZip is added later.
 
 ### 4B — Native multi-file / server-side folder
 
@@ -94,7 +96,7 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 **Complexity:** **Medium** (sequential reuse of Phase 1–3) to **medium–high** (true batch API + transactional semantics + MCP “import_batch”).
 
-**Recommendation:** Ship **Phase 1–3** first; add **4A** (ZIP + copy) immediately in docs/UI; add **4B** when analytics show users struggling without it.
+**Recommendation:** **4A** (ZIP + accurate Hub/docs copy for folder vs single-file types) is shipped on this branch; add **4B** when analytics show users still struggle without native multi-file or folder picker.
 
 ---
 
