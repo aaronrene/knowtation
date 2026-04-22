@@ -518,24 +518,17 @@
       font-weight: 600;
       color: var(--accent);
       text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      padding: 0.4rem 0.85rem;
-      border-radius: 8px;
-      border: 1px solid var(--accent);
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      border: none;
+      background: none;
+      padding: 0;
     }
     .band-b-step-link:hover {
-      text-decoration: none;
-      background: color-mix(in srgb, var(--accent) 24%, transparent);
-      border-color: var(--accent);
-      color: var(--accent);
+      text-decoration: underline;
     }
     .band-b-step-link:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
-      border-radius: 8px;
+      border-radius: 4px;
     }
     .band-b-step-link--secondary {
       font-weight: 500;
