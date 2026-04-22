@@ -2005,7 +2005,7 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <details class="how-to-details">
               <summary>Where is the JWT for agents?</summary>
               <div class="how-to-details-body">
-                <p>Log in to the Hub, then open <strong>Settings → Integrations → Hub API</strong> and click <strong>Copy Hub URL, token &amp; vault</strong>. That copies <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code>, and <code>KNOWTATION_HUB_VAULT_ID</code> for curl and orchestrators. <strong>Settings → Agents → Copy embedding env</strong> is separate: it only copies Ollama/embedding lines, not the JWT. See <code>docs/AGENT-INTEGRATION.md</code> for CLI and MCP.</p>
+                <p>Log in to the Hub, then open <strong>Settings → Integrations → Hub API</strong> and click <strong>Copy Hub URL, token &amp; vault</strong>. That copies <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code>, and <code>KNOWTATION_HUB_VAULT_ID</code> for curl and orchestrators. <strong>Copy prime</strong> (next to it) copies a <strong>non-secret</strong> JSON pointer so agents know to <code>readResource</code> <code>knowtation://hosted/prime</code> after MCP connects—use it together with the JWT copy, not as a replacement. <strong>Settings → Agents → Copy embedding env</strong> is separate: it only copies Ollama/embedding lines, not the JWT. See <code>docs/AGENT-INTEGRATION.md</code> for CLI and MCP.</p>
               </div>
             </details>
           </div>
@@ -2042,6 +2042,17 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <section class="how-to-step">
               <h3>How agents find it</h3>
               <p>Agents use the same vault via <strong>CLI</strong>, <strong>MCP</strong>, or <strong>Hub API</strong>: <code>knowtation search "query" --project myapp --limit 5 --json</code>, <code>knowtation list-notes --project myapp --json</code>, then <code>get-note</code> for full content. See RETRIEVAL-AND-CLI-REFERENCE.md and INTENTION-AND-TEMPORAL.md in the repo. Filters: <code>--project</code>, <code>--tag</code>, <code>--folder</code>, <code>--since</code>, <code>--until</code>, <code>--chain</code>, <code>--entity</code>, <code>--episode</code>.</p>
+            </section>
+
+            <section class="how-to-step">
+              <h3>Hosted MCP: secrets vs “prime” bootstrap</h3>
+              <p class="step-what">When you connect Cursor (or another MCP client) to this Hub’s gateway, you need two different kinds of copy/paste:</p>
+              <ul>
+                <li><strong>Secrets (JWT):</strong> <strong>Settings → Integrations → Hub API</strong> → <strong>Copy Hub URL, token &amp; vault</strong>. Treat this like a password; it expires on a schedule—copy again when automations get <code>401</code>.</li>
+                <li><strong>Small bootstrap clip (no JWT):</strong> Same screen → <strong>Copy prime</strong>. That copies JSON with this gateway’s base URL, your current vault id, and the MCP resource URI <code>knowtation://hosted/prime</code>. Paste it into agent notes or setup docs so assistants know what to read <em>after</em> MCP is connected. Then the client runs <strong>read resource</strong> on that URI to see your role and which <strong>MCP prompt</strong> names are registered for <em>your</em> session (or use the client’s <code>prompts/list</code>).</li>
+                <li><strong>Self-hosted CLI check:</strong> On the computer that holds your vault folder, run <code>knowtation doctor</code> (add <code>--json</code> for scripts). It checks the vault path and, if you set Hub env vars, whether the Hub answers—see <code>docs/RETRIEVAL-AND-CLI-REFERENCE.md</code> and <code>docs/WHY-KNOWTATION.md</code> for the two “token savings” layers (vault retrieval vs terminal tooling).</li>
+              </ul>
+              <p class="how-to-note">Full detail: <code>docs/AGENT-INTEGRATION.md</code> in the repo (MCP headers, Cursor <code>mcp.json</code>, and local <code>knowtation://prime</code> for stdio MCP).</p>
             </section>
 
             <section class="how-to-step">

@@ -40,7 +40,9 @@
 
 ## Phase 4 — MCP + CLI bolt-ons
 
-**Full session handoff (copy-paste prompt + file hints):** [NEXT-SESSION-PHASE-4-MCP-CLI.md](./NEXT-SESSION-PHASE-4-MCP-CLI.md)
+**Status:** **Complete** on branch `feature/hub-wizard-hosted-story` (prime resources, Hub Copy prime, `knowtation doctor`, blob-summarize evaluation no-ship, prompts surfaced in docs + wizard + How to use → Knowledge & agents).
+
+**Full session handoff (historical):** [NEXT-SESSION-PHASE-4-MCP-CLI.md](./NEXT-SESSION-PHASE-4-MCP-CLI.md)
 
 - [x] **`knowtation://…` bootstrap MCP resource** + Hub **Copy prime**.
 - [x] **`knowtation doctor`** (hosted vs self-hosted checks per [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) token section).
@@ -50,6 +52,8 @@
 ---
 
 ## Phase 5 — Docs polish + hosted-first clarity
+
+**Next session (copy-paste prompt):** [NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md)
 
 - [ ] Refresh [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md) for **hosted** path + **Copy prime** placeholder (after Phase 4) + wizard deep links.
 - [ ] **Hub proposals discoverability** (nav or empty-state CTA) — engineering task in `web/hub/hub.js` + `index.html`.
