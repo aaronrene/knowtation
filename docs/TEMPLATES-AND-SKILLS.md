@@ -2,6 +2,8 @@
 
 Knowtation has three layers that work together to help users and agents be productive in any domain. This document explains what each layer is, how they compose, and how to use them.
 
+**Long-form prompt catalog and copy-paste starters:** [POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md) — MCP prompt IDs, “paste into any LLM” blocks, CLI one-liners, and wiki / synthesis / research habits. The **Hub** summarizes this under **How to use → Knowledge & agents**.
+
 ---
 
 ## The three layers
@@ -118,6 +120,7 @@ Copy the skill folder to your `.cursor/skills/` directory, or reference it from 
 
 ## Related docs
 
+- [POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md) — MCP prompt names, copy-paste starters, CLI one-liners
 - [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) — All import sources and formats
 - [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) — CLI, MCP, Hub API for agents
 - [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) — Demo vault and seed scripts

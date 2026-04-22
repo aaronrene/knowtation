@@ -148,7 +148,7 @@ Run the MCP server:
 npm run mcp
 ```
 
-Configure your Cursor or Claude Desktop MCP config to point at this server. Then tools like `search`, `get_note`, `list_notes`, `write` appear for the agent. See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
+Configure your Cursor or Claude Desktop MCP config to point at this server. Then tools like `search`, `get_note`, `list_notes`, `write` appear for the agent. See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md). **MCP prompt recipes** (daily brief, search-and-synthesize, knowledge gap, and more) plus **copy-paste** starters for any LLM: [POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md).
 
 ---
 

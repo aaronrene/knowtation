@@ -154,6 +154,7 @@ knowtation/
 | **[Setup (full)](./docs/setup.md)** | Transcription, OAuth, memory, capture, all options |
 | **[Spec](./docs/SPEC.md)** | Frontmatter, CLI commands/flags, config, MCP, contracts |
 | **[Agent Integration](./docs/AGENT-INTEGRATION.md)** | CLI, MCP, Hub API patterns for agents |
+| **[Popular prompts and starters](./docs/POPULAR-PROMPTS-AND-STARTERS.md)** | MCP prompt names, copy-paste blocks for any LLM, CLI one-liners |
 | **[Agent Orchestration](./docs/AGENT-ORCHESTRATION.md)** | Multi-agent setup with Cursor/Claude |
 | **[Import Sources](./docs/IMPORT-SOURCES.md)** | All 17 `source_type` importers, Hub bulk (ZIP, multi-file) |
 | **[Import roadmap](./docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md)** | URL, PDF, DOCX, and Hub bulk (4A–4B) — status and testing notes |

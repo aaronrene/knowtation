@@ -140,6 +140,7 @@ See [`docs/SECURITY-AUDIT-PLAN.md`](./docs/SECURITY-AUDIT-PLAN.md) for the full 
 |----------|---------------|
 | [docs/WHITEPAPER.md](./docs/WHITEPAPER.md) | Product thesis, architecture diagram, full feature inventory |
 | [docs/SPEC.md](./docs/SPEC.md) | Frontmatter, CLI commands, config, MCP, contracts |
+| [docs/POPULAR-PROMPTS-AND-STARTERS.md](./docs/POPULAR-PROMPTS-AND-STARTERS.md) | MCP prompt names, copy-paste starters for any LLM, CLI one-liners |
 | [docs/HUB-API.md](./docs/HUB-API.md) | Hub REST API and auth |
 | [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md) | Multi-agent setup |
 | [docs/MEMORY-CONSOLIDATION-GUIDE.md](./docs/MEMORY-CONSOLIDATION-GUIDE.md) | Consolidation daemon |

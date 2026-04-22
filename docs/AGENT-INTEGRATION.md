@@ -138,6 +138,8 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 - **Sampling:** Tools that benefit from LLM intelligence (`summarize`, `enrich`, `search` rerank) delegate to the host's LLM when the client supports **sampling**; otherwise they use Ollama/OpenAI on the server. Prompts (`search-and-synthesize`, `project-summary`, `knowledge-gap`) may include a sampling-based assistant prefill. Code: `mcp/sampling.mjs` and tool modules under `mcp/tools/`.
 - **Use case:** When the agent runtime speaks MCP; no need to shell out to CLI.
 
+**Prompt catalog and copy-paste starters:** A single reference for **MCP prompt names**, **“paste in any LLM”** instruction blocks, and high-value **CLI** lines (search, list, propose, memory consolidate) — including wiki / synthesis / research patterns — is **[POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md)**. The **Hub** in-app help (**How to use → Knowledge & agents**) summarizes this and links to the same file on GitHub.
+
 See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
 
 ### Hosted MCP (Phase D2/D3)
