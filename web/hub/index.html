@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260421a">
+  <link rel="stylesheet" href="hub.css?v=20260421b">
 </head>
 <body>
   <div id="app">
@@ -602,10 +602,10 @@ Your note body here.</pre>
               <span class="settings-label">API base</span>
               <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
             </div>
-            <div class="settings-row" id="settings-github-connect-row">
+            <div class="settings-row settings-github-connect-row" id="settings-github-connect-row">
               <span class="settings-label">GitHub</span>
               <span id="settings-github-status" class="settings-value">—</span>
-              <button type="button" id="btn-connect-github" class="btn-secondary hidden">Connect GitHub</button>
+              <button type="button" id="btn-connect-github" class="btn-primary hidden">Connect GitHub</button>
             </div>
             <p class="settings-intro small hidden" id="settings-hosted-connect-github-hint">Connects in <strong>this browser tab</strong> (you may leave Settings). Each signed-in user authorizes their own GitHub account for pushes. You need an empty GitHub repo and its <code>owner/repo</code> in the field below before <strong>Back up now</strong>.</p>
             <div id="settings-hosted-backup-repo-section" class="settings-hosted-repo-block hidden" role="region" aria-label="Hosted backup repository">
@@ -968,41 +968,26 @@ Your note body here.</pre>
         </div>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents (AgentCeption). Each block below explains how to connect.</p>
-            <div class="settings-callout" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; background: var(--surface-elevated, rgba(255,255,255,0.03));">
-              <p class="settings-intro small" style="margin: 0 0 0.5rem 0;"><strong>Token savings:</strong> Use <strong>memory consolidation</strong> (Settings → Consolidation) to compress activity into facts. Use <strong>tiered retrieval</strong> in agents—search with a small limit and short fields, then open only the notes you need. Optional <strong>Discover</strong> adds cross-topic insights inside the <em>same</em> consolidation run on hosted plans (one pass per run, not two).</p>
-              <button type="button" id="btn-integrations-how-token-savings" class="btn-link btn-link-small">How to use → Token savings</button>
-            </div>
-            <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
-            <p class="settings-intro small"><strong>Self-hosted Hub — audio import:</strong> Whisper accepts about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed where the Hub runs (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or use our Docker image which includes it), Knowtation can <strong>automatically compress</strong> larger files (e.g. bulky WAV) before sending to OpenAI. Disable with <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>. Set <code>FFMPEG_PATH</code> if the binary is not on <code>PATH</code>.</p>
+            <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents. Optional <strong>Advanced Ecosystems</strong> (Muse, AgentCeption) are grouped below so they are not confused with everyday Hub API and import setup.</p>
             <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 0 10h-3"/><path d="M9 17H6a5 5 0 0 1 0-10h3"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
               Hub API
               <span id="integ-api-status" class="integ-status-dot" title="No token copied yet"></span>
             </h3>
-            <p class="settings-intro small">Agents and scripts use the <strong>same sign-in as this Hub</strong>—no separate API account. After you log in, use the button below to copy <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (a time-limited API token), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. <strong>Keep this block private</strong> (like a password). When the token reaches its expiry, automations may get an error—use this button again for a fresh copy; your normal browser session stays as usual. For HTTP calls, send <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code> on vault-scoped routes (see <code>docs/AGENT-INTEGRATION.md</code>).</p>
-            <div class="settings-actions" style="margin-top: 0.5rem;">
-              <button type="button" id="btn-copy-hub-api-env" class="btn-secondary">Copy Hub URL, token &amp; vault</button>
+            <p class="settings-intro small">Agents and scripts use the <strong>same sign-in as this Hub</strong>—no separate API account. After you log in, use <strong>Copy Hub URL, token &amp; vault</strong> to copy <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (a time-limited API token), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. <strong>Keep this block private</strong> (like a password). Your logged-in Hub tab uses the normal session cookie; the copied values are for tools, curl, and MCP outside the browser.</p>
+            <details class="settings-json-details settings-hub-api-troubleshoot">
+              <summary class="settings-json-details-summary">Troubleshoot: API token, automations, and HTTP headers</summary>
+              <div class="settings-troubleshoot-body">
+                <p class="settings-intro small" style="margin-top: 0.5rem;">The copied <strong>JWT expires on a schedule</strong> (security). <strong>Automations</strong> (cron, CI, static MCP JSON) fail with <strong>401</strong> only if they still send an <strong>old pasted token</strong> after expiry—click <strong>Copy Hub URL, token &amp; vault</strong> again and update the secret where you pasted it. Your <strong>browser session</strong> in this Hub tab is separate and usually keeps working.</p>
+                <p class="settings-intro small"><strong>Reduce surprises:</strong> Prefer <code>${env:KNOWTATION_HUB_TOKEN}</code> in MCP config (see <code>docs/AGENT-INTEGRATION.md</code>) so you rotate one env var instead of editing JSON. Long-running servers may need an occasional re-copy after policy or rotation changes.</p>
+                <p class="settings-intro small">For HTTP calls, send <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code> on vault-scoped routes. Full shapes: <code>docs/AGENT-INTEGRATION.md</code>.</p>
+              </div>
+            </details>
+            <div class="settings-actions settings-hub-api-copy-actions" style="margin-top: 0.65rem;">
+              <button type="button" id="btn-copy-hub-api-env" class="btn-primary">Copy Hub URL, token &amp; vault</button>
               <span id="integrations-hub-api-copy-msg" class="settings-msg"></span>
             </div>
             <p class="settings-intro small">Full agent reference (CLI, MCP, Hub API, no separate signup): <code>docs/AGENT-INTEGRATION.md</code>.</p>
-            <hr class="settings-hr">
-            <h3 class="settings-h3 integ-section-heading">
-              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
-              Muse (optional link)
-            </h3>
-            <div id="settings-muse-panel" class="settings-form" style="margin-top: 0.35rem;">
-              <p class="settings-intro small" style="margin-top: 0;">When enabled on the <strong>server</strong>, Knowtation can attach a small <strong>cross-reference id</strong> (<code>external_ref</code>) to <strong>approved proposals</strong> so the same change can be looked up in <strong>Muse / MuseHub</strong> (structure, lineage, blast radius). Your notes still live in Knowtation; nothing is moved automatically.</p>
-              <p class="settings-intro small"><strong>Not your Git backup URL.</strong> Enter the <strong>HTTP base URL of the Muse service</strong> (the API root your operator exposes), e.g. <code>https://muse.yourcompany.com</code> — same host that serves <code>GET …/knowtation/v1/lineage-ref</code> per <code>docs/MUSE-THIN-BRIDGE.md</code>. The ref stored on the proposal is a <strong>short opaque string</strong> (letters, numbers, common safe punctuation; no control characters), up to 512 characters.</p>
-              <p id="settings-muse-status" class="settings-intro small" style="margin: 0.35rem 0 0 0;">—</p>
-              <p id="settings-muse-env-hint" class="settings-intro small hidden" style="margin: 0.25rem 0 0 0; color: var(--muted, #888);"></p>
-              <label for="settings-muse-url" style="margin-top: 0.65rem;">Muse base URL <span class="settings-label-hint">(self-hosted admins; saved to <code>config/local.yaml</code>)</span></label>
-              <input type="url" id="settings-muse-url" class="settings-input-wide" placeholder="https://your-muse-host.example" autocomplete="off" spellcheck="false">
-              <div class="settings-form-actions" style="margin-top: 0.5rem;">
-                <button type="button" id="btn-settings-muse-save" class="btn-primary hidden">Save Muse URL</button>
-                <span id="settings-muse-msg" class="settings-msg"></span>
-              </div>
-            </div>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
@@ -1121,21 +1106,49 @@ Your note body here.</pre>
               </div>
             </div>
             <hr class="settings-hr">
-            <h3 class="settings-h3 integ-section-heading">
-              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-              AgentCeption (shared vault for agents)
-            </h3>
-            <p class="settings-intro small">Use Knowtation as the shared context for planner and engineer agents. One vault path for the whole setup.</p>
-            <h4 class="settings-h4">How to connect AgentCeption</h4>
-            <p class="settings-intro small">Set the same vault path in the planner and every engineer. Copy the env snippet below into each environment.</p>
-            <div class="settings-form">
-              <label for="integrations-agentception-env">Env snippet (copy)</label>
-              <div class="settings-value-wrap" style="margin-top: 0.25rem;">
-                <code id="integrations-agentception-env" class="settings-code">KNOWTATION_VAULT_PATH=/path/to/shared/vault</code>
-                <button type="button" id="btn-copy-agentception-env" class="btn-copy-small" title="Copy">Copy</button>
-              </div>
+            <div class="settings-callout settings-integ-post-import-callout" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.75rem 0 0.65rem; background: var(--surface-elevated, rgba(255,255,255,0.03));">
+              <p class="settings-intro small" style="margin: 0 0 0.5rem 0;"><strong>Token savings:</strong> Use <strong>memory consolidation</strong> (Settings → Consolidation) to compress activity into facts. Use <strong>tiered retrieval</strong> in agents—search with a small limit and short fields, then open only the notes you need. Optional <strong>Discover</strong> adds cross-topic insights inside the <em>same</em> consolidation run on hosted plans (one pass per run, not two).</p>
+              <button type="button" id="btn-integrations-how-token-savings" class="btn-link btn-link-small">How to use → Token savings</button>
             </div>
-            <p class="settings-intro small"><button type="button" id="btn-integrations-how-to-agentception" class="btn-link btn-link-small">Full setup → How to use (AgentCeption)</button></p>
+            <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
+            <p class="settings-intro small"><strong>Self-hosted Hub — audio import:</strong> Whisper accepts about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed where the Hub runs (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or use our Docker image which includes it), Knowtation can <strong>automatically compress</strong> larger files (e.g. bulky WAV) before sending to OpenAI. Disable with <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>. Set <code>FFMPEG_PATH</code> if the binary is not on <code>PATH</code>.</p>
+            <details class="settings-json-details settings-advanced-ecosystems-details">
+              <summary class="settings-json-details-summary">Advanced Ecosystems</summary>
+              <div class="settings-advanced-ecosystems-body">
+                <h3 class="settings-h3 integ-section-heading" style="margin-top: 0.75rem;">
+                  <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+                  Muse (optional link)
+                </h3>
+                <div id="settings-muse-panel" class="settings-form" style="margin-top: 0.35rem;">
+                  <p class="settings-intro small" style="margin-top: 0;">When enabled on the <strong>server</strong>, Knowtation can attach a small <strong>cross-reference id</strong> (<code>external_ref</code>) to <strong>approved proposals</strong> so the same change can be looked up in <strong>Muse / MuseHub</strong> (structure, lineage, blast radius). Your notes still live in Knowtation; nothing is moved automatically.</p>
+                  <p class="settings-intro small"><strong>Not your Git backup URL.</strong> Enter the <strong>HTTP base URL of the Muse service</strong> (the API root your operator exposes), e.g. <code>https://muse.yourcompany.com</code> — same host that serves <code>GET …/knowtation/v1/lineage-ref</code> per <code>docs/MUSE-THIN-BRIDGE.md</code>. The ref stored on the proposal is a <strong>short opaque string</strong> (letters, numbers, common safe punctuation; no control characters), up to 512 characters.</p>
+                  <p id="settings-muse-status" class="settings-intro small" style="margin: 0.35rem 0 0 0;">—</p>
+                  <p id="settings-muse-env-hint" class="settings-intro small hidden" style="margin: 0.25rem 0 0 0; color: var(--muted, #888);"></p>
+                  <label for="settings-muse-url" style="margin-top: 0.65rem;">Muse base URL <span class="settings-label-hint">(self-hosted admins; saved to <code>config/local.yaml</code>)</span></label>
+                  <input type="url" id="settings-muse-url" class="settings-input-wide" placeholder="https://your-muse-host.example" autocomplete="off" spellcheck="false">
+                  <div class="settings-form-actions" style="margin-top: 0.5rem;">
+                    <button type="button" id="btn-settings-muse-save" class="btn-primary hidden">Save Muse URL</button>
+                    <span id="settings-muse-msg" class="settings-msg"></span>
+                  </div>
+                </div>
+                <hr class="settings-hr settings-advanced-ecosystems-inner-hr">
+                <h3 class="settings-h3 integ-section-heading">
+                  <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                  AgentCeption (shared vault for agents)
+                </h3>
+                <p class="settings-intro small">Use Knowtation as the shared context for planner and engineer agents. One vault path for the whole setup.</p>
+                <h4 class="settings-h4">How to connect AgentCeption</h4>
+                <p class="settings-intro small">Set the same vault path in the planner and every engineer. Copy the env snippet below into each environment.</p>
+                <div class="settings-form">
+                  <label for="integrations-agentception-env">Env snippet (copy)</label>
+                  <div class="settings-value-wrap" style="margin-top: 0.25rem;">
+                    <code id="integrations-agentception-env" class="settings-code">KNOWTATION_VAULT_PATH=/path/to/shared/vault</code>
+                    <button type="button" id="btn-copy-agentception-env" class="btn-copy-small" title="Copy">Copy</button>
+                  </div>
+                </div>
+                <p class="settings-intro small" style="margin-bottom: 0;"><button type="button" id="btn-integrations-how-to-agentception" class="btn-link btn-link-small">Full setup → How to use (AgentCeption)</button></p>
+              </div>
+            </details>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></span>
