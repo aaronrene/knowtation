@@ -148,9 +148,33 @@ Ease of import **does** affect adoption. Order of impact:
 
 ---
 
-## Next session prompt (Phase 4A₂ JSZip + Phase 4B multi-file / folder)
+## Testing, merge, and what’s next (after 4A₂ + 4B)
 
-Copy everything in the block below into a new chat if you want a clean context window. Adjust paths if your clone differs.
+### The “failed” `importUrl` test
+
+- [`test/import-url-importer.test.mjs`](../test/import-url-importer.test.mjs) does a **real** HTTPS request to `https://example.com/` (with `dryRun`). If your environment **blocks DNS or outbound HTTPS** (e.g. some local sandboxes), the test can fail with `getaddrinfo ENOTFOUND` or similar. **That is not a regression from the Hub bulk work.**
+- **CI** (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) `npm test` on `ubuntu-latest`) has normal network, so this test is expected to **pass** there.
+- **New code tests:** `node --test test/hub-client-import-zip.test.mjs` (mode rules + small JSZip build). There is no browser E2E in the repo for the Hub UI; use [`IMPORT-MANUAL-CHECKLIST.md`](./IMPORT-MANUAL-CHECKLIST.md) § “Hub — Phase 4A₂ and 4B” for a quick hands-on check.
+
+### Canister / on-chain
+
+- **No ICP canister changes** are required for 4A₂/4B: the same `POST /api/v1/import` and bridge `runImport` path is used. Hosted behavior still depends on bridge + gateway as today.
+
+### Merge to `main`
+
+- **Reasonable to merge** when: **CI is green** on the PR, you’re happy with a **short manual** pass in the Import modal (self-hosted `npm run hub` or hosted with bridge), and you’re ready to **coordinate deploy** (gateway/bridge/Hub static assets) if you ship hosted. No extra canister work for this feature alone.
+
+### Optional follow-up work (not blocking merge)
+
+- **Drag-and-drop** of a whole folder (browser `DataTransfer` / directory entries) in addition to **Choose folder** + multi-select.
+- **OpenAPI / HUB-API** prose for product caps (100MB, 200 files per batch) if you want the HTTP doc to spell out client limits (the route contract is unchanged).
+- **Deeper E2E** (Playwright, etc.) if you add that stack later.
+
+---
+
+## Next session prompt (optional polish after 4A₂ / 4B)
+
+Phase **4A₂** and **4B** are **shipped** on `feat/import-url-documents-mcp` (see § above). For a new chat, copy the block below if you want to continue with optional polish; adjust paths if your clone differs.
 
 ```text
 We are on branch feat/import-url-documents-mcp. Phases 1–3 (URL, PDF, DOCX) and Phase 4A (bulk import docs + Hub copy: ZIP vs single-file, folder-capable types) are shipped — see docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md § Phase 4 and docs/IMPORT-SOURCES.md § “Hub browser: one upload, ZIP extraction, and bulk”.
