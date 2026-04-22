@@ -557,30 +557,18 @@ input[type="date"]::-moz-calendar-picker-indicator {
   margin-bottom: 0.5rem;
 }
 .import-modal-lead {
-  margin-bottom: 0.65rem;
-}
-.import-pdf-hint {
-  margin: 0.5rem 0 0.75rem;
-}
-.import-pdf-hint-p {
-  margin: 0 0 0.5rem;
+  margin-bottom: 0.75rem;
   line-height: 1.45;
+  max-width: 40rem;
 }
-.import-pdf-hint-p:last-child {
-  margin-bottom: 0;
+.import-modal-help {
+  margin: 0.75rem 0 0.65rem 0;
 }
-.import-modal-hosted {
-  margin-top: 0.65rem;
-  margin-bottom: 0;
-}
-.import-bulk-hint {
-  margin: 0.5rem 0 0.75rem;
-}
-.import-bulk-hint-p {
+.import-modal-help .small {
+  line-height: 1.5;
   margin: 0 0 0.5rem;
-  line-height: 1.45;
 }
-.import-bulk-hint-p:last-child {
+.import-modal-help .small:last-of-type {
   margin-bottom: 0;
 }
 .create-msg.warn {
