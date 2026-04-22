@@ -33,7 +33,7 @@
 
 | User capability | Hub entry | Canonical API | Hosted MCP tool | Parity notes |
 |-----------------|-----------|-----------------|-----------------|--------------|
-| Import files (markdown, etc.) | **Import** modal; `POST /api/v1/import` (multipart) | Gateway `proxyImportToBridge` → bridge `POST /api/v1/import` | `import` | Admin ACL on MCP; gateway runs billing gate when `BRIDGE_URL` set. |
+| Import files (markdown, PDF, DOCX, exports, …) | **Import** modal; `POST /api/v1/import` (multipart) | Gateway `proxyImportToBridge` → bridge `POST /api/v1/import` | `import` | Admin ACL on MCP; gateway runs billing gate when `BRIDGE_URL` set. |
 | Import from **https URL** | **Import** modal → URL field; `POST /api/v1/import-url` (JSON) | Gateway `proxyTo` → bridge `POST /api/v1/import-url` | `import_url` | Admin-only on MCP (same as `import`); SSRF-safe fetch on bridge. |
 | Transcribe audio / video import | Import flow with audio/video | Bridge import + Whisper (`lib/transcribe.mjs`) | `transcribe` | MCP uses base64 + filename; Hub uses file upload — same bridge importer. |
 | Git / GitHub vault backup | Settings → Backup; **Back up now**; `POST /api/v1/vault/sync` | Gateway → bridge `POST /api/v1/vault/sync` | `vault_sync` | Editor+; needs GitHub connected on bridge for success. |

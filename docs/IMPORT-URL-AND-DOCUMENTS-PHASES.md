@@ -62,6 +62,8 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 **Outcome:** `source_type: docx`, upload `.docx` → note(s) via Mammoth (or equivalent).
 
+**Status on branch `feat/import-url-documents-mcp`:** **Shipped** (commit `feat(import): docx source type and importer` — `lib/importers/docx.mjs`, `mammoth`, Hub option + copy, hosted MCP enum via `IMPORT_SOURCE_TYPES`, tests, docs).
+
 **Work:**
 
 - `lib/importers/docx.mjs` + `mammoth` (typical).
@@ -101,7 +103,7 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 | Capability | Hosted MCP | Self-hosted MCP |
 |-------------|------------|-------------------|
 | URL | **`import_url`** (new) | **`import`** + `source_type: url` |
-| PDF / DOCX | **`import`** + `source_type` + base64 file | **`import`** + path or local workflow |
+| PDF / DOCX | **`import`** + `source_type` `pdf` or `docx` + base64 file | **`import`** + path or local workflow |
 
 ---
 
@@ -110,7 +112,7 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 Ease of import **does** affect adoption. Order of impact:
 
 1. **URL** (paste) — removes “save as Markdown” friction for web content.  
-2. **PDF + DOCX** — removes external converter for the two most common office formats.  
+2. **PDF + DOCX** — removes external converter for the two most common office formats (both shipped on this branch).  
 3. **Bulk** — ZIP (and later multi-file) removes friction for migrations and “dump folder here.”
 
 ---

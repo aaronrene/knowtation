@@ -14,6 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesRoot = path.join(__dirname, 'fixtures', 'import');
 const fixtureMarkdown = path.join(__dirname, 'fixtures', 'markdown-import', 'simple.md');
 const fixturePdf = path.join(__dirname, 'fixtures', 'pdf-import', 'hello.pdf');
+const fixtureDocx = path.join(__dirname, 'fixtures', 'docx-import', 'hello.docx');
 const testVault = path.join(__dirname, 'fixtures', 'tmp-import-golden-vault');
 
 function assertIsoDate(value) {
@@ -60,6 +61,22 @@ describe('import golden fixtures', () => {
     assert.ok(String(note.frontmatter.source_id || '').length >= 16);
     assertIsoDate(String(note.frontmatter.date || ''));
     assert(note.body.includes('Knowtation PDF fixture'));
+  });
+
+  it('docx', async () => {
+    const result = await runImport('docx', fixtureDocx, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-docx',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 1);
+    const note = readNote(testVault, result.imported[0].path);
+    assert.strictEqual(note.frontmatter.source, 'docx-import');
+    assert.strictEqual(note.frontmatter.docx_file, 'hello.docx');
+    assert.ok(String(note.frontmatter.source_id || '').length >= 16);
+    assertIsoDate(String(note.frontmatter.date || ''));
+    assert(note.body.includes('Knowtation DOCX fixture'));
+    assert(note.body.includes('Second line for golden test'));
   });
 
   it('markdown empty file', async () => {

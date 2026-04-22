@@ -366,7 +366,7 @@ export function mountKnowtationMcp(server) {
   server.registerTool(
     'import',
     {
-      description: `Import from external source. source_type must be one of: ${IMPORT_SOURCE_TYPES_HELP}. For source_type "url", input is a full https URL string. For source_type "pdf", input is a filesystem path to a .pdf file.`,
+      description: `Import from external source. source_type must be one of: ${IMPORT_SOURCE_TYPES_HELP}. For source_type "url", input is a full https URL string. For source_type "pdf", input is a filesystem path to a .pdf file. For source_type "docx", input is a filesystem path to a .docx file.`,
       inputSchema: {
         source_type: z
           .enum(

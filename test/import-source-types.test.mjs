@@ -22,6 +22,27 @@ describe('import source types', () => {
     );
   });
 
+  it('docx rejects empty input path', async () => {
+    await assert.rejects(
+      async () => {
+        await runImport('docx', '', { vaultPath: scratchVault, dryRun: true });
+      },
+      /DOCX path is required/
+    );
+  });
+
+  it('docx rejects non-docx extension', async () => {
+    const fake = path.join(scratchVault, 'not-word.txt');
+    if (!fs.existsSync(scratchVault)) fs.mkdirSync(scratchVault, { recursive: true });
+    fs.writeFileSync(fake, 'x', 'utf8');
+    await assert.rejects(
+      async () => {
+        await runImport('docx', fake, { vaultPath: scratchVault, dryRun: true });
+      },
+      /DOCX import requires a \.docx file/
+    );
+  });
+
   it('rejects unknown source type before loadConfig-sensitive work', async () => {
     await assert.rejects(
       () => runImport('typo-not-a-source', '/any/path', { vaultPath: scratchVault }),

@@ -2975,10 +2975,12 @@
           msgEl.textContent = useUrlImport
             ? 'Imported 0 notes from URL. Try Bookmark mode or a different link.'
             : sourceType === 'markdown'
-              ? 'Imported 0 notes. This ZIP or folder had no Markdown files we could use—only .md / .markdown (any case). Other formats are skipped unless you pick the matching source type (e.g. PDF).'
+              ? 'Imported 0 notes. This ZIP or folder had no Markdown files we could use—only .md / .markdown (any case). Other formats are skipped unless you pick the matching source type (e.g. PDF or DOCX).'
               : sourceType === 'pdf'
                 ? 'Imported 0 notes. PDF import could not produce a note (wrong file type, corrupt file, or no extractable text—try OCR for scans).'
-                : 'Imported 0 notes. Check that the file matches the selected source type (e.g. ChatGPT export needs chatgpt-export).';
+                : sourceType === 'docx'
+                  ? 'Imported 0 notes. DOCX import could not produce a note (wrong file type, corrupt file, empty document, or not Office Open XML .docx).'
+                  : 'Imported 0 notes. Check that the file matches the selected source type (e.g. ChatGPT export needs chatgpt-export).';
           msgEl.className = 'create-msg warn';
         } else {
           msgEl.textContent = 'Imported ' + count + ' note(s).';

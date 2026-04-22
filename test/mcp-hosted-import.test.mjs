@@ -119,6 +119,18 @@ describe('hosted MCP import — bridge multipart', () => {
     assert.ok(body.get('file'), 'file field set');
   });
 
+  it('accepts source_type docx (multipart parity with Hub)', async () => {
+    ({ client } = await connectPair());
+    const payload = Buffer.from('PK\x03\x04', 'utf8').toString('base64');
+    await client.callTool({
+      name: 'import',
+      arguments: { source_type: 'docx', file_base64: payload, filename: 'x.docx' },
+    });
+    const body = mock.calls[0].init.body;
+    assert.ok(body instanceof FormData);
+    assert.equal(body.get('source_type'), 'docx');
+  });
+
   it('rejects base64 that decodes to an empty file', async () => {
     ({ client } = await connectPair());
     const res = await client.callTool({
