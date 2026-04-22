@@ -1,6 +1,8 @@
 # Documentation index
 
-Public documentation for **Knowtation** (open source). Spec, API contracts, deployment, and contributor-facing guides live here.
+Public documentation for **Knowtation** (open source). Spec, API contracts, and contributor-facing guides live here.
+
+Internal roadmaps, deploy runbooks, and session handoffs live outside this tree (for example under a local **`development/`** or **`docs/archive/`** folder — see repo `.gitignore`).
 
 ## Start here
 
@@ -10,9 +12,9 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [SHOWCASE-VAULT.md](./SHOWCASE-VAULT.md) | Demo notes (`vault/showcase/`) — local tree + hosted seed |
 | [SPEC.md](./SPEC.md) | Data formats, CLI, config — source of truth |
 | [HUB-API.md](./HUB-API.md) | Hub REST API (self-hosted and canister-aligned) |
-| [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md) | Delete/rename by project slug (Node Hub + hosted gateway; Hub client PR #65) |
-| [VAULT-RENAME-SPEC.md](./VAULT-RENAME-SPEC.md) | Vault id migration vs display label (planning spec) |
+| [HUB-METADATA-BULK-OPS.md](./HUB-METADATA-BULK-OPS.md) | Delete/rename by project slug (Node Hub + hosted gateway) |
 | [setup.md](./setup.md) | Extended setup (OAuth, transcription, etc.) |
+| [SELF-HOSTED-SETUP-CHECKLIST.md](./SELF-HOSTED-SETUP-CHECKLIST.md) | Self-hosted checklist |
 
 ## Architecture and agents
 
@@ -23,53 +25,48 @@ Public documentation for **Knowtation** (open source). Spec, API contracts, depl
 | [ECOSYSTEM-VISION.md](./ECOSYSTEM-VISION.md) | Knowtation × Muse × MuseHub × AgentCeption × Stori — unified vision |
 | [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md) | Optional Muse linkage (env, approve `external_ref`, admin read-only proxy) |
 | [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md) | CLI reference and retrieval tips |
-| [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) | Consolidation, Discover, hosted billing per run, encrypt-aware prompts, advanced knobs, phased rollout |
+| [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md) | Token discipline, consolidation, hosted billing hooks |
 | [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) | Import paths from ChatGPT, Claude, etc. |
 | [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md) | Hub proposals: states, review, approve/discard |
-
-## Hosted product (ICP + gateway + bridge)
-
-| Doc | Purpose |
-|-----|---------|
-| [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) | Deploy checklist, re-verification (§5) |
-| [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) | Current hosted status and priorities |
-| [PARITY-PLAN.md](./PARITY-PLAN.md) | Self-hosted vs hosted capability matrix |
-| [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md) | Replace gateway **501** on import (**P0** before billing completion) |
-| [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md) | Gateway ↔ canister auth |
-| [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) | Multi-vault (self-hosted + hosted) |
-| [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) | Hosted team: workspace owner, vault access, scope, gateway headers |
-| [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md) | Stable storage + billing migration |
-| [HOSTED-PLATFORM-BACKUP-ROADMAP.md](./HOSTED-PLATFORM-BACKUP-ROADMAP.md) | Operator DR / canister backup planning (future) |
-| [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) | Hosted billing design |
-| [PRODUCT-DECISIONS-HOSTED-MVP.md](./PRODUCT-DECISIONS-HOSTED-MVP.md) | Hosted MVP: transcription vs Markdown; self-hosted audio; metering focus |
-
-## Product and phases
-
-| Doc | Purpose |
-|-----|---------|
-| [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Phases 1–16+ roadmap |
-| [archive/cursor-plans/marketing-interop-execution_ed7b7af1.plan.md](./archive/cursor-plans/marketing-interop-execution_ed7b7af1.plan.md) | Marketing + interop execution: Phases 1–5 **complete**; Phase 6 on **`feature/phase6-product-depth`** |
 | [WHITEPAPER.md](./WHITEPAPER.md) | Product thesis |
 | [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md) | Cloud vs self-host |
-| [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Test checklist: notes to add, Hub UI checks, CLI commands |
 
-## Manual / phase tests (local developers)
+## Hosted / operators (high level)
 
 | Doc | Purpose |
 |-----|---------|
-| [INDEX-SEARCH-VERIFY.md](./INDEX-SEARCH-VERIFY.md) | CLI index/search, Qdrant vs sqlite-vec, Ollama, Hub search UX notes |
-| [PHASE4-MANUAL-TEST.md](./PHASE4-MANUAL-TEST.md) … [PHASE9-MANUAL-TEST.md](./PHASE9-MANUAL-TEST.md) | Step-by-step checks after feature work |
+| [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) | Multi-vault (self-hosted + hosted) |
+| [PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md) | Hosted vs self-hosted capability matrix |
+| [OPERATOR-BACKUP.md](./OPERATOR-BACKUP.md) | Operator backup notes |
+| [CONNECT-GITHUB-AND-STORAGE-CHECK.md](./CONNECT-GITHUB-AND-STORAGE-CHECK.md) | GitHub connect + storage checks |
+
+Gateway and canister deploy details: **`hub/gateway/README.md`**, **`hub/icp/`** Motoko sources and `dfx` workflow.
+
+## Memory, imports, evals
+
+| Doc | Purpose |
+|-----|---------|
+| [MEMORY-AUGMENTATION-PLAN.md](./MEMORY-AUGMENTATION-PLAN.md) | Memory architecture and rollout |
+| [MEMORY-CONSOLIDATION-GUIDE.md](./MEMORY-CONSOLIDATION-GUIDE.md) | Consolidation daemon |
+| [IMPORT-NORMALIZE-PIPELINE.md](./IMPORT-NORMALIZE-PIPELINE.md) | Import normalization |
+| [IMPORT-EVALS.md](./IMPORT-EVALS.md) | Import evaluations |
+| [IMPORT-MANUAL-CHECKLIST.md](./IMPORT-MANUAL-CHECKLIST.md) | Manual import checks |
+| [DAEMON-CONSOLIDATION-SPEC.md](./DAEMON-CONSOLIDATION-SPEC.md) | Daemon consolidation spec |
+
+## Manual checks (local developers)
+
+| Doc | Purpose |
+|-----|---------|
+| [INDEX-SEARCH-VERIFY.md](./INDEX-SEARCH-VERIFY.md) | CLI index/search, stores, Hub search UX notes |
+| [LOCAL-DEV-TEST-GUIDE.md](./LOCAL-DEV-TEST-GUIDE.md) | Local dev smoke checks |
 
 ## Other
 
 | Doc | Purpose |
 |-----|---------|
-| [archive/cursor-plans/](./archive/cursor-plans/) | Snapshots of Cursor plan files (token-savings, marketing/interop execution) — not loose in `.cursor/plans/` |
-| [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md) | Archived: original MCP GitHub issue phase tables (historical sequencing) |
-| [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) | Archived: long-form Muse × Knowtation design notes |
-| [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) | Proposal **review hints** vs **Enrich** (LLM); roadmap pointer to extended Enrich |
-| [PROPOSAL-ENRICH-EXTENSION-PLAN.md](./PROPOSAL-ENRICH-EXTENSION-PLAN.md) | Plan: Enrich → recommend project, chain, entity, episode, follows, title, … |
 | [openapi.yaml](./openapi.yaml) | OpenAPI sketch for Hub API |
 | [CLI-JSON-SCHEMA.md](./CLI-JSON-SCHEMA.md) | CLI JSON shapes |
+| [HUB-PROPOSAL-LLM-FEATURES.md](./HUB-PROPOSAL-LLM-FEATURES.md) | Proposal review hints vs Enrich (LLM) |
+| [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md) | AI-assisted onboarding prompts |
 
-Session-only notes, forensic write-ups, and per-phase MCP implementation memos were **removed from this tree** for a cleaner OSS repo; maintainers may keep copies under **`development/`** (see repo `.gitignore`).
+Additional topical docs in this folder (security, AIR, blockchain frontmatter, templates, etc.) are listed alphabetically in the repo file tree.

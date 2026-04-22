@@ -166,7 +166,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 - **Any knowledge base:** Google Drive, NotebookLM, ChatGPT, Claude, Mem0, Evernote/Standard Notes (as Markdown), MIF → all have a defined `import` path into the vault.
 - **Any agent or business use:** Once in the vault, content is searchable, project/tag-filterable, and usable for blogs, podcasts, videos, marketing, analysis, writing. No second-class content.
 
-Implementors: see [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) for the phase that builds the importers.
+Implementors: follow [SPEC.md](./SPEC.md) import contracts and extend `lib/importers/` with tests.
 
 ---
 

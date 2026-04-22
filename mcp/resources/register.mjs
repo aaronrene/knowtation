@@ -237,7 +237,7 @@ export function registerKnowtationResources(server) {
           'knowtation://memory/',
         ],
         docs: {
-          why_knowtation: 'docs/WHY-KNOWTATION.md',
+          why_knowtation: 'docs/TOKEN-SAVINGS.md',
           agent_integration: 'docs/AGENT-INTEGRATION.md',
           retrieval: 'docs/RETRIEVAL-AND-CLI-REFERENCE.md',
         },

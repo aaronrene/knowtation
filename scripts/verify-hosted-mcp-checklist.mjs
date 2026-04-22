@@ -36,8 +36,7 @@ console.log(`
    Confirm prompts/list: twelve prompts for viewer, thirteen for editor/admin (see test/mcp-hosted-prompts.test.mjs PROMPTS_VIEWER / PROMPTS_ALL).
 3. Read resource vault-info: userId, vaultId, role match the signed-in workspace.
 4. If MCP log shows red / "Server not initialized" briefly after restart: Logout → Connect
-   or retry once initialize completes (see docs/NEXT-SESSION-HOSTED-MCP.md).
+   or retry once initialize completes.
 
-Full handoff: docs/NEXT-SESSION-HOSTED-MCP.md
-Expansion playbook: docs/HOSTED-MCP-TOOL-EXPANSION.md
+Further context: docs/PARITY-MATRIX-HOSTED.md, docs/AGENT-INTEGRATION.md §2.
 `);

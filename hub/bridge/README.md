@@ -1,6 +1,6 @@
 # Knowtation Hub Bridge
 
-GitHub connect + **Back up now** + **index + search** for the hosted product. Stores GitHub token per user; sync fetches vault from the ICP canister and pushes to the user’s repo. Roles, invites, **workspace owner**, **vault access**, and **scope** persist in Blobs (or DATA_DIR). See [docs/ICP-GITHUB-BRIDGE.md](../../docs/ICP-GITHUB-BRIDGE.md), [docs/HOSTED-ROLES-VIA-BRIDGE.md](../../docs/HOSTED-ROLES-VIA-BRIDGE.md), [docs/HOSTED-WORKSPACE-ACCESS.md](../../docs/HOSTED-WORKSPACE-ACCESS.md).
+GitHub connect + **Back up now** + **index + search** for the hosted product. Stores GitHub token per user; sync fetches vault from the ICP canister and pushes to the user’s repo. Roles, invites, **workspace owner**, **vault access**, and **scope** persist in Blobs (or DATA_DIR). See **[docs/MULTI-VAULT-AND-SCOPED-ACCESS.md](../../docs/MULTI-VAULT-AND-SCOPED-ACCESS.md)** and **[docs/TEAMS-AND-COLLABORATION.md](../../docs/TEAMS-AND-COLLABORATION.md)**; auth contract in **[docs/HUB-API.md](../../docs/HUB-API.md)**.
 
 ## Routes
 
@@ -70,9 +70,9 @@ Hub UI (hosted) must call this bridge for Connect GitHub and Back up now. Either
 
 ## Netlify Blobs (persistence on Netlify)
 
-When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens, per-user vector DBs, **roles/invites**, and **hub_evaluator_may_approve** (per-evaluator approve permission) are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Use a **second Netlify site** with **Package directory** `deploy/bridge` (see [docs/BRIDGE-DEPLOY-AND-PREROLL.md](../../docs/BRIDGE-DEPLOY-AND-PREROLL.md)). Enable **Blobs** for that site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). The wrapper defaults to **eventual** blob consistency; set **`NETLIFY_BLOBS_CONSISTENCY=strong`** on the bridge site if you need read-your-writes immediately after index (see [Netlify Blobs consistency](https://docs.netlify.com/build/data-and-storage/netlify-blobs/)). Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
+When the bridge is deployed as a Netlify function (`netlify/functions/bridge.mjs`), tokens, per-user vector DBs, **roles/invites**, and **hub_evaluator_may_approve** (per-evaluator approve permission) are stored in **Netlify Blobs** (store name: `bridge-data`) so they persist across cold starts. Use a **second Netlify site** with **Package directory** `deploy/bridge`. Enable **Blobs** for that site in the Netlify dashboard (Site configuration → Data & storage or Build & deploy). The wrapper defaults to **eventual** blob consistency; set **`NETLIFY_BLOBS_CONSISTENCY=strong`** on the bridge site if you need read-your-writes immediately after index (see [Netlify Blobs consistency](https://docs.netlify.com/build/data-and-storage/netlify-blobs/)). Locally, or if Blobs are not available, the bridge falls back to `DATA_DIR` (filesystem).
 
 ## Reference
 
-- [ICP-GITHUB-BRIDGE.md](../../docs/ICP-GITHUB-BRIDGE.md)
-- [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md)
+- [CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) — GitHub connect troubleshooting
+- [HUB-API.md](../../docs/HUB-API.md) — API contract

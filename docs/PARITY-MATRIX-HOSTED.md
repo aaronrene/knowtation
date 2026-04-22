@@ -2,18 +2,18 @@
 
 **Purpose (G0):** One place to see **which user-visible capability** is implemented in the **Hub** (`web/hub/hub.js` + static shell), which **HTTP surface** owns the behavior (`hub/gateway/server.mjs` proxy, `hub/bridge/server.mjs`, or `hub/icp` canister), and which **`knowtation-hosted` MCP tool** (if any) calls the same upstream. Use this to spot **empty cells** (missing client) and **documented intentional differences** (not silent drift).
 
-**Governance (G1):** For any change that ships **both** Hub and hosted MCP, follow **H0–H4** in [`HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) and **add or adjust a row here** in the same PR when the capability list changes.
+**Governance (G1):** For any change that ships **both** Hub and hosted MCP, follow **H0–H4** below and **add or adjust a row here** in the same PR when the capability list changes.
 
 | Check | Done |
 |-------|------|
 | **H0** Outcome + exact routes/auth documented | ☐ |
-| **H0** Agent memory `/api/v1/memory*` (Track B3 prep) | ☑ — contract in [`HOSTED-HUB-MCP-INTERLOCK.md`](./HOSTED-HUB-MCP-INTERLOCK.md) § Track B3 prep; gateway→bridge tests in [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
+| **H0** Agent memory `/api/v1/memory*` (Track B3 prep) | ☑ — gateway→bridge tests in [`test/gateway-memory-bridge-proxy.test.mjs`](../test/gateway-memory-bridge-proxy.test.mjs) |
 | **H1** Shared core implemented once (canister / bridge / `lib/`) | ☐ |
 | **H2** First client shipped | ☐ |
 | **H3** Second client calls same H1 paths | ☐ |
 | **H4** Docs + smoke Hub + reconnect MCP smoke | ☐ |
 
-**Related:** [`HOSTED-MCP-TOOL-EXPANSION.md`](./HOSTED-MCP-TOOL-EXPANSION.md) (tool inventory, ACL, tests), [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md) (program order G0–G5, prompts phasing).
+**Related:** **[AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)** §2 (hosted MCP), **`hub/gateway/mcp-hosted-server.mjs`** (tool implementations).
 
 ---
 
@@ -109,7 +109,7 @@ Vault-scoped **event log** and related operations. **Gateway** (`hub/gateway/ser
 | Read note via MCP **resource URI** (R1) | Note drawer (same bytes as open note) | `GET …/api/v1/notes/:path` | Resource template `knowtation://hosted/vault/{+path}` | **`.md` only**; same `upstreamFetch` + headers as **`get_note`**. **`resources/list`** includes up to **50** concrete `knowtation://hosted/vault/…` URIs (SDK template `list`) for clients like Cursor. |
 | Vault list JSON (first page + per-folder) via MCP resource (R2) | Hub main list / folder-scoped list | `GET …/api/v1/notes?limit&offset` (+ optional **`folder`**) | Resources **`knowtation://hosted/vault-listing`** (root first page) and **`knowtation://hosted/vault/{prefix}`** when **`prefix`** does not end with **`.md`** | Same canister list as **`list_notes`**; **`limit=100`**, **`offset=0`**; **`truncated: true`** when **`total > 100`**. Deeper pages / extra filters → **`list_notes`**. |
 | Template markdown via MCP (R3) | — (templates are vault notes under `templates/`) | `GET …/api/v1/notes?folder=templates`, `GET …/api/v1/notes/:path` | **`knowtation://hosted/templates-index`** (JSON path list), **`knowtation://hosted/template/{+name}`** | Same reads as **`get_note`** / **`list_notes`**; mirrors self-hosted `knowtation://vault/templates*` without local disk. |
-| Note-embedded **image** bytes (R3) | Hub renders `![](https://…)` in note body | Canister **`GET …/notes/:path`** + outbound **`fetch`** to image URL | Resource template **`knowtation://hosted/vault-image/{+notePath}/{index}`** (canonical; avoids overlap with **`vault/{+path}`**). Legacy **`knowtation://hosted/vault/…/note.md/image/n`** still handled via **`hosted-vault-note`** regex. | **HTTPS-only**, **`mcp/resources/image-fetch.mjs`** (SSRF-safe). **No** hosted **`note-video`** binary resource; video stays as URLs in markdown ([`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) §1b). |
+| Note-embedded **image** bytes (R3) | Hub renders `![](https://…)` in note body | Canister **`GET …/notes/:path`** + outbound **`fetch`** to image URL | Resource template **`knowtation://hosted/vault-image/{+notePath}/{index}`** (canonical; avoids overlap with **`vault/{+path}`**). Legacy **`knowtation://hosted/vault/…/note.md/image/n`** still handled via **`hosted-vault-note`** regex. | **HTTPS-only**, **`mcp/resources/image-fetch.mjs`** (SSRF-safe). **No** hosted **`note-video`** binary resource; video stays as URLs in markdown (hosted MVP product choice). |
 | Memory events by **topic** slug (R3) | — | **`GET {bridge}/api/v1/memory?limit≤100`** + client filter | Resource template **`knowtation://hosted/memory/topic/{slug}`** | Same **`extractTopicFromEvent`** heuristics as self-hosted `knowtation://memory/topic/{slug}`; topic **`list`** is derived from the latest bridge window only (not full-store enumeration). |
 
 ---
@@ -121,11 +121,11 @@ Capabilities that **correctly** have **no** row in the MCP column today (non-goa
 - Auth, invites, workspace admin: `/api/v1/auth/*`, `/api/v1/invites*`, `/api/v1/workspace`, `/api/v1/vault-access`, `/api/v1/scope`, `/api/v1/roles`
 - Billing: `/api/v1/billing/*`
 - Proposals CRUD / policy: `/api/v1/proposals*`, `/api/v1/settings/proposal-policy`
-- *(Agent memory is covered in § **Agent memory** above; hosted MCP **memory trio** `registerPrompt` handlers use **`GET …/memory`** + vault search as in that table — [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md). **`POST …/memory/search`** remains a **future** row until implemented beyond the stub.)*
+- *(Agent memory is covered in § **Agent memory** above; hosted MCP **memory trio** `registerPrompt` handlers use **`GET …/memory`** + vault search as in that table. **`POST …/memory/search`** remains a **future** row until implemented beyond the stub.)*
 - Facets / folders helpers: `GET /api/v1/notes/facets`, `GET /api/v1/vault/folders` (Hub filters; MCP tools use `list_notes` / paths)
 - Attestations: `/api/v1/attest*`
 - Image upload / proxy: `upload-image`, `image-proxy*`
-- **Hosted Hub — video as file import:** not an MVP surface; video in notes uses **markdown links / URLs** (same class as image-by-URL). Documented for MCP **R3+** scoping in [`PRODUCT-DECISIONS-HOSTED-MVP.md`](./PRODUCT-DECISIONS-HOSTED-MVP.md) § **1b** and [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
+- **Hosted Hub — video as file import:** not an MVP surface; video in notes uses **markdown links / URLs** (same class as image-by-URL).
 
 When a future MCP tool overlaps one of these, add a row and complete **H0–H4**.
 
@@ -134,7 +134,7 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 ## How to maintain this file
 
 1. **New MCP tool:** Add a row; cite `hub/gateway/mcp-hosted-server.mjs` handler and upstream URL in the playbook or in PR description.
-2. **New hosted MCP prompt:** If the prompt exposes a **new** user-facing capability (not just composing existing list/search/read APIs), add a matrix row or document **composition only** in the PR. Track B handoff: [`NEXT-SESSION-HOSTED-HUB-MCP.md`](./NEXT-SESSION-HOSTED-HUB-MCP.md).
+2. **New hosted MCP prompt:** If the prompt exposes a **new** user-facing capability (not just composing existing list/search/read APIs), add a matrix row or document **composition only** in the PR.
 3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
 4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 

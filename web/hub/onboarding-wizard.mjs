@@ -136,7 +136,7 @@ export function getStepContent(isHosted, index) {
           '<p><strong>Terminal chatter:</strong> Shrinking raw shell logs on your laptop is separate optional tooling; it is not what this hosted vault product runs for you.</p>' +
           '<p class="onboarding-tip">Same framing as <a href="' +
           DOCS_BASE +
-          '/WHY-KNOWTATION.md#two-layers-of-token-savings-say-both-honestly" target="_blank" rel="noopener">Why Knowtation — token layers</a>.</p>' +
+          '/TOKEN-SAVINGS.md" target="_blank" rel="noopener">Token savings (retrieval &amp; cost discipline)</a>.</p>' +
           '</div>' +
           '</details>',
       },

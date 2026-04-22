@@ -3,7 +3,7 @@
 Agents increasingly have access to **wallets** and use **blockchain** for payments, attestation,
 and on-chain activity. This document defines the optional frontmatter extensions for **Phase 12**,
 now active on `feature/phase12-blockchain-frontmatter`. Core (Phases 1–10) and Hub (Phase 11)
-are unchanged. See full build plan: [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md).
+are unchanged. See [SPEC.md](./SPEC.md) frontmatter and Hub list/MCP filters for these fields (`network`, `wallet_address`, `tx_hash`, …).
 
 **Naming note:** The existing `--chain` flag and frontmatter `causal_chain_id` refer to *causal
 chains of notes* (see INTENTION-AND-TEMPORAL). For *blockchain* we use `network` (not `chain`) to

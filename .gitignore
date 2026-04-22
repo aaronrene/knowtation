@@ -43,3 +43,15 @@ public/_redirects
 
 # Development — local-only planning, scratch exports, copies of docs removed from docs/ for OSS cleanliness
 development/
+
+# Local doc snapshots (session prompts, old plans) — not published; mirror into development/ or docs/archive locally
+docs/archive/
+
+# Cursor IDE — plan snapshots (YAML frontmatter exports); rules/skills stay tracked
+.cursor/plans/
+
+# Local VS Code / Cursor workspace under docs (do not commit)
+docs/*.code-workspace
+
+# Operational scratch / runbook exports (maintainers keep under development/ or local only)
+scripts/archive/

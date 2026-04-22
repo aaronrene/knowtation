@@ -138,4 +138,4 @@ When **`KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1`**, the Hub may asynchronously po
 - [HUB-API.md](./HUB-API.md) §3.4 Proposals  
 - [IMPORT-EVALS.md](./IMPORT-EVALS.md) (retrieval vs proposal evaluation)  
 - [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 — proposals, metadata, optional Muse linkage  
-- [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Option B+
+- [HUB-API.md](./HUB-API.md) proposals section (lifecycle extensions)

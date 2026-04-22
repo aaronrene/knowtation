@@ -1,6 +1,6 @@
 # Index and search verification
 
-Use this to confirm **local** indexing and semantic search before relying on the Hub UI, MCP, or hosted bridge. Complements [HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) (deploy and CORS).
+Use this to confirm **local** indexing and semantic search before relying on the Hub UI, MCP, or hosted bridge. For hosted smoke checks, see **`hub/gateway/README.md`** (CORS, `BRIDGE_URL`).
 
 ## Config checklist
 
@@ -52,11 +52,11 @@ node cli/index.mjs search "some phrase" --keyword --json
 
 Expect `"mode": "keyword"` in JSON and paths whose text contains the phrase (case-insensitive).
 
-After changing `hub.js`, bump the `hub.js?v=` query string in `web/hub/index.html` so CDNs pick up the new bundle ([HOSTED-HUB-VERIFY.md](./HOSTED-HUB-VERIFY.md) §1).
+After changing `hub.js`, bump the `hub.js?v=` query string in `web/hub/index.html` so CDNs pick up the new bundle.
 
 ## Hosted (bridge)
 
-With `BRIDGE_URL` set, search/index use bridge env for embeddings and per-user sqlite-vec storage. **Keyword** mode on hosted uses the same bridge route with **`mode: keyword`** in the JSON body (canister export + in-memory match; no embedding call). See [hub/bridge/README.md](../hub/bridge/README.md) and [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md).
+With `BRIDGE_URL` set, search/index use bridge env for embeddings and per-user sqlite-vec storage. **Keyword** mode on hosted uses the same bridge route with **`mode: keyword`** in the JSON body (canister export + in-memory match; no embedding call). See [hub/bridge/README.md](../hub/bridge/README.md).
 
 ## Security
 

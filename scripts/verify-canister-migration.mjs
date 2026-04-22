@@ -30,7 +30,7 @@ const migrationChecks = [
     ok: (s) => s.includes('vaultEntries : [(Text, Text, [(Text, (Text, Text))])];'),
   },
   {
-    name: 'StableStorage V1: billingByUser reserved (HOSTED-STORAGE-BILLING-ROADMAP)',
+    name: 'StableStorage V1: billingByUser reserved (hosted billing roadmap)',
     ok: (s) => s.includes('billingByUser : [(Text, BillingRecord)];'),
   },
   {

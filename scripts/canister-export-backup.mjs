@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Operator backup: canister notes + full proposals → JSON (optional AES-256-GCM, optional S3).
- * Env matches docs/DEPLOY-HOSTED.md §6 and .env.example.
+ * Env matches operator notes in .env.example and canister HTTP export expectations.
  *
  * @see scripts/canister-export-backup.sh (invokes this file)
  */

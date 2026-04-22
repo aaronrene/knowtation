@@ -2,7 +2,7 @@
 
 This document defines the **Hub REST API contract** and **auth model** for Phase 11. The same contract is implemented by (a) the self-hosted Node server (Docker) and (b) the ICP canister(s). The Hub UI and CLI talk to either deployment using the same routes and JSON shapes.
 
-**Reference:** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (proposals), [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md), [SPEC.md](./SPEC.md) §4 (CLI semantics), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) Phase 11.
+**Reference:** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (proposals), [PROPOSAL-LIFECYCLE.md](./PROPOSAL-LIFECYCLE.md), [SPEC.md](./SPEC.md) §4 (CLI semantics).
 
 ---
 
@@ -48,7 +48,7 @@ If not implemented in v1, all authenticated users have full access. Document sco
 
 - **Base URL:** Self-hosted: `http(s)://<host>:<port>/api` (or no prefix). ICP: `https://<canister-id>.ic0.app/api` (or as deployed).
 - **Versioning:** Path prefix `/api/v1` recommended (e.g. `GET /api/v1/notes`). Omit version in this doc for brevity; implementations use a consistent prefix.
-- **Vault context (multi-vault / hosted):** Optional header **`X-Vault-Id`** or query param **`vault_id`** to scope requests to a vault. When absent, implementations use a default (e.g. `default` or the single vault). For v1 canister, one user = one vault; vault_id is reserved for future multi-vault. See [CANISTER-AUTH-CONTRACT.md](./CANISTER-AUTH-CONTRACT.md) for gateway/canister auth.
+- **Vault context (multi-vault / hosted):** Optional header **`X-Vault-Id`** or query param **`vault_id`** to scope requests to a vault. When absent, implementations use a default (e.g. `default` or the single vault). Gateway forwards JWT **`sub`** as **`x-user-id`** to the canister for trusted identity.
 
 ---
 
@@ -151,7 +151,7 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
 
 **GET /hosted-context** — JWT. Returns `{ "actor_sub", "workspace_owner_id", "effective_canister_user_id", "delegating", "allowed_vault_ids", "scope": { "projects", "folders" } | null, "role" }` for the current **`X-Vault-Id`** header (default `default`). Used by the gateway and for debugging.
 
-**Gateway → canister headers:** `X-User-Id` = effective partition owner; **`X-Actor-Id`** = JWT `sub` (human/agent who performed the action). Full semantics: [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md).
+**Gateway → canister headers:** `X-User-Id` = effective partition owner; **`X-Actor-Id`** = JWT `sub` (human/agent who performed the action). Full semantics: [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md), [TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md).
 
 ### 3.4 Proposals
 
@@ -262,4 +262,4 @@ After listing user ids, the operator runner calls existing **`GET /api/v1/export
 - **knowtation hub status** — Calls `GET /health` (and optionally an authenticated endpoint) to report whether the Hub at configured URL is reachable and the user is logged in (if token available).
 - **knowtation propose --hub \<url\>** — Creates a proposal via `POST /proposals`; requires Hub URL and credentials (token from login flow or env). Document in setup how to obtain and store the token for CLI use.
 
-See IMPLEMENTATION-PLAN Phase 11 deliverable 6 and SPEC for CLI behavior.
+See SPEC.md for CLI behavior aligned with Hub routes.

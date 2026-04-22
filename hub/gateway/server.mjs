@@ -244,7 +244,7 @@ app.use(passport.initialize());
 
 // CORS: production MUST set HUB_CORS_ORIGIN (apex + www) for credentialed-style responses.
 // If unset, we use * and omit Allow-Credentials — otherwise browsers block (* + credentials = Failed to fetch).
-// See hub/gateway/cors-middleware.mjs and docs/CORS-WWW-AND-APEX.md.
+// See hub/gateway/cors-middleware.mjs.
 const corsOrigins = process.env.HUB_CORS_ORIGIN
   ? process.env.HUB_CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
@@ -355,7 +355,7 @@ if (SESSION_SECRET && !process.env.NETLIFY) {
     // @modelcontextprotocol/sdk OAuth routes use express-rate-limit behind Nginx. The limiter's
     // default validations (X-Forwarded-For vs Express trust proxy) still throw ERR_ERL_* on some
     // Express/SDK mount combinations. Disable express-rate-limit validations for these routes only;
-    // limits stay on; edge limits remain in Nginx (DEPLOY-HOSTED.md §3.1).
+    // limits stay on; edge limits remain in Nginx (gateway deploy notes in hub/gateway/README.md).
     const mcpOAuthSdkRateLimitOpts = {
       rateLimit: { validate: false },
     };

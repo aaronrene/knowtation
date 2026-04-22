@@ -4,7 +4,7 @@ This folder contains the **ICP canister** implementation of the Knowtation Hub A
 
 ## Contract
 
-- **Auth:** For dev, use header `X-Test-User` or `X-User-Id`. In production the gateway sends a proof (e.g. `X-User-Id`) that the canister trusts; see [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md).
+- **Auth:** For dev, use header `X-Test-User` or `X-User-Id`. In production the gateway sends **`x-user-id`** derived from the JWT that the canister trusts; see [HUB-API.md](../../docs/HUB-API.md).
 - **Endpoints:** `GET /health`, **`GET /api/v1/operator/export`** (paginated user-index for backups; header **`X-Operator-Export-Key`**; secret set by controllers via **`admin_set_operator_export_secret`** — see [OPERATOR-BACKUP.md](../../docs/OPERATOR-BACKUP.md)), `GET /api/v1/notes`, `GET /api/v1/notes/:path`, `DELETE /api/v1/notes/:path`, `POST /api/v1/notes`, `POST /api/v1/notes/batch` (bulk write, single stable save), `POST /api/v1/notes/delete-by-prefix` (bulk delete by vault-relative path prefix), `GET /api/v1/export`, `GET /api/v1/vaults`, `GET/POST /api/v1/proposals`, `GET /api/v1/proposals/:id`, **`POST /api/v1/proposals/:id/evaluation`**, `POST /api/v1/proposals/:id/review-hints`, **`POST /api/v1/proposals/:id/enrich`** (stores LLM enrich fields; gateway runs the model on hosted), `POST /api/v1/proposals/:id/approve`, `POST /api/v1/proposals/:id/discard`. **`POST /api/v1/notes/delete-by-project`** and **`POST /api/v1/notes/rename-project`** are **not** canister routes — on hosted, the **gateway** implements them by calling the endpoints above ([HUB-METADATA-BULK-OPS.md](../../docs/HUB-METADATA-BULK-OPS.md)). Notes and export are scoped by **`X-Vault-Id`** (default `default`). Search and settings are not in the canister (gateway/bridge in hosted mode).
 - **Storage:** Vault (path → frontmatter/body) and proposals per user in canister stable memory.
 - **Proposal enrich JSON:** `src/hub/JsonValidate.mo` validates `suggested_labels_json` (must be a JSON array) and `assistant_suggested_frontmatter_json` (must be a JSON object) on **POST …/enrich**; invalid payloads coerce to `[]` / `{}`, oversized valid payloads return **400**. **GET …/proposals/:id** normalizes those fragments so the response body is always valid JSON (protects all clients, including backup).
@@ -28,9 +28,9 @@ npm run canister:preflight
 # or: bash scripts/canister-predeploy.sh
 ```
 
-Both run **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub --network ic`** (matches [canister_ids.json](./canister_ids.json); plain `dfx build hub` targets **local** and fails with “Cannot find canister id” until you run `dfx canister create hub` on a local replica). Override: **`DFX_PREFLIGHT_NETWORK=local`** after local create. Optional JSON backup: set `KNOWTATION_CANISTER_BACKUP_USER_ID` (and optionally `KNOWTATION_CANISTER_URL`; omitted URL is derived from `canister_ids.json`). Preflight delegates to [`scripts/canister-export-backup.mjs`](../../scripts/canister-export-backup.mjs) via **`npm run canister:export-backup`** (notes + proposals for **one** `X-User-Id` partition; optional encrypt + S3 — see [DEPLOY-HOSTED.md](../../docs/DEPLOY-HOSTED.md) §6). Exports land under `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
+Both run **migration shape checks** (`npm run canister:verify-migration`), **`npm test`**, and **`dfx build hub --network ic`** (matches [canister_ids.json](./canister_ids.json); plain `dfx build hub` targets **local** and fails with “Cannot find canister id” until you run `dfx canister create hub` on a local replica). Override: **`DFX_PREFLIGHT_NETWORK=local`** after local create. Optional JSON backup: set `KNOWTATION_CANISTER_BACKUP_USER_ID` (and optionally `KNOWTATION_CANISTER_URL`; omitted URL is derived from `canister_ids.json`). Preflight delegates to [`scripts/canister-export-backup.mjs`](../../scripts/canister-export-backup.mjs) via **`npm run canister:export-backup`** (notes + proposals for **one** `X-User-Id` partition; optional encrypt + S3 — see script header). Exports land under `backups/` (gitignored). If `dfx` crashes with **ColorOutOfRange**, use **`SKIP_DFX_BUILD=1`** after you have built successfully elsewhere, or upgrade `dfx`.
 
-**Full canister state (hub + attestation):** [ICP-CANISTER-SNAPSHOT-RUNBOOK.md](../../docs/ICP-CANISTER-SNAPSHOT-RUNBOOK.md); **`npm run canister:snapshot-backup`** (controller `dfx`; downtime during `stop`).
+**Full canister state (hub + attestation):** see [OPERATOR-BACKUP.md](../../docs/OPERATOR-BACKUP.md); **`npm run canister:snapshot-backup`** (controller `dfx`; downtime during `stop`).
 
 ## Build and deploy
 
@@ -60,7 +60,7 @@ If `dfx deploy` fails with **M0170** / “new type of stable variable `storage` 
 
 **V0** meant one note map per user; **V1** is multi-vault `(userId, vaultId)` + `billingByUser` + `vault_id` on proposals; migrated notes use vault id **`default`**. **V2** adds human **evaluation** fields on each proposal. **V3** adds review-routing and optional hint fields; see [PROPOSAL-LIFECYCLE.md](../../docs/PROPOSAL-LIFECYCLE.md). **V4** adds optional LLM **Enrich** fields (`assistant_*`, `suggested_labels_json`).
 
-Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTED-STORAGE-BILLING-ROADMAP.md). After a one-way upgrade has run on mainnet, a **later** release may only simplify migration if Motoko compatibility allows (see [Motoko upgrades](https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility)).
+Plan any stable change with migration notes in **`Migration.mo`** and redeploy discipline. After a one-way upgrade has run on mainnet, a **later** release may only simplify migration if Motoko compatibility allows (see [Motoko upgrades](https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility)).
 
 ## ICP HTTP gateway behavior (hosted)
 
@@ -76,5 +76,4 @@ Plan any stable change with [HOSTED-STORAGE-BILLING-ROADMAP.md](../../docs/HOSTE
 ## Reference
 
 - [HUB-API.md](../../docs/HUB-API.md) — full API and auth
-- [CANISTER-AUTH-CONTRACT.md](../../docs/CANISTER-AUTH-CONTRACT.md) — gateway/canister auth
-- [IMPLEMENTATION-PLAN.md](../../docs/IMPLEMENTATION-PLAN.md) — Phase 11, "Website and decentralized hosting"
+- [OPERATOR-BACKUP.md](../../docs/OPERATOR-BACKUP.md) — exports and backups

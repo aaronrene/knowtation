@@ -1,6 +1,6 @@
 /**
  * Hosted Hub: resolve which canister partition (X-User-Id) a JWT actor uses.
- * Shared by bridge (hosted-context, index/search/sync) and documented in docs/HOSTED-WORKSPACE-ACCESS.md.
+ * Shared by bridge (hosted-context, index/search/sync); workspace semantics in docs/MULTI-VAULT-AND-SCOPED-ACCESS.md.
  */
 
 /** Roles that participate in workspace delegation (read owner's canister partition). Must match bridge VALID_ROLES. */

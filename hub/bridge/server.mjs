@@ -158,7 +158,7 @@ function bridgeEmbedFailureMessage(err, kind) {
     `Resolved EMBEDDING_PROVIDER="${c.provider}"; OPENAI_API_KEY ${hasOpenAiKey ? 'is set' : 'is missing'}; ` +
     `VOYAGE_API_KEY ${hasVoyageKey ? 'is set' : 'is missing'}. ` +
     'If provider is ollama, OLLAMA_URL must be a full http(s) URL. Remove bad HTTP_PROXY/HTTPS_PROXY if set. ' +
-    'See docs/DEPLOY-HOSTED.md (bridge semantic index/search).'
+    'See hub/bridge/README.md (semantic index/search).'
   );
 }
 

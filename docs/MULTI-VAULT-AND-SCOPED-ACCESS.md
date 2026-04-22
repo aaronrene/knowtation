@@ -19,7 +19,7 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 
 ### Hosted (canister + gateway + bridge) — Phase 15.1 (repo vs production)
 
-**Self-hosted** multi-vault (above) is **fully implemented**. **Hosted** partitions notes by **`(userId, vault_id)`** on the canister. **Team** vault allowlists and **scope** are enforced via the **bridge** + gateway (**[HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)**): set **`POST /api/v1/workspace`** `owner_user_id` so invited teammates use the owner’s canister partition; vault-access and scope JSON match self-hosted semantics.
+**Self-hosted** multi-vault (above) is **fully implemented**. **Hosted** partitions notes by **`(userId, vault_id)`** on the canister. **Team** vault allowlists and **scope** are enforced via the **bridge** + gateway: operators set **`POST /api/v1/workspace`** `owner_user_id` so invited teammates use the owner’s canister partition; vault-access and scope JSON match self-hosted semantics. See **[TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md)** and **[HUB-API.md](./HUB-API.md)** (workspace and vault routes).
 
 **Repository behavior (current code):**
 
@@ -30,7 +30,7 @@ This doc answers: **What if I invite a teammate but don’t want them to see all
 | **Canister** ([hub/icp/src/hub/main.mo](../hub/icp/src/hub/main.mo)) | **`vaultIdFromRequest`**; notes and export are **`getVault(uid, vault_id)`**; **`GET /api/v1/vaults`** lists vault ids persisted for that user. **Mutations** run in **`http_request_update`** and call **`saveStable`** — a new vault id appears in the vault list only after a **write** (e.g. **`POST /api/v1/notes`**) for that id, not from a cold **`GET`** alone. **Proposals** carry **`vault_id`** and list/filter by active vault. |
 | **Bridge** ([hub/bridge/server.mjs](../hub/bridge/server.mjs)) | Index/search storage and **GitHub backup** export use **`X-Vault-Id`** when calling the canister; vectors are keyed by **`(uid, vault_id)`**. |
 
-**Production:** Treat per-vault isolation as **live** only after the ICP canister is **redeployed** from this repo and you run **[DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5** plus **§5.1** (multi-vault checks). See [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md) §2.
+**Production:** Treat per-vault isolation as **live** only after the ICP canister and gateway are **redeployed** from this repo and you run smoke checks from **`hub/gateway/README.md`** (health, auth, multi-vault headers).
 
 **Migration:** V0→V1 stable-memory migration and reserved billing fields are in [hub/icp/src/hub/Migration.mo](../hub/icp/src/hub/Migration.mo). **`npm run canister:verify-migration`** is a **static** source check; it does not call the network.
 
@@ -42,12 +42,12 @@ Order was: **operational hosted baseline** → **canister partition** → **veri
 
 | # | Work item | Status in repo | Notes |
 |---|-----------|----------------|-------|
-| 1 | Bridge + gateway **`BRIDGE_URL`**, smoke: login, note CRUD, index/search | Done (ops) | [DEPLOY-HOSTED.md](./DEPLOY-HOSTED.md) §5 |
+| 1 | Bridge + gateway **`BRIDGE_URL`**, smoke: login, note CRUD, index/search | Done (ops) | `hub/gateway/README.md` — deploy + smoke |
 | 2 | Canister: **`X-Vault-Id`**, partition **`(uid, vault_id) → path → note`** | **Done** | [hub/icp/src/hub/main.mo](../hub/icp/src/hub/main.mo) |
 | 3 | Canister: export / list / get / post scoped to `vault_id` | **Done** | Same |
 | 4 | Proposals: **`vault_id`** + filter by vault | **Done** | Same |
 | 5 | Bridge vault/sync + export scoped by **`X-Vault-Id`** | **Done** | [hub/bridge/server.mjs](../hub/bridge/server.mjs) |
-| 6 | Vault list source of truth on hosted | **Done (canister-derived)** | **Vault access / scope** for teammates: bridge + gateway — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) |
+| 6 | Vault list source of truth on hosted | **Done (canister-derived)** | **Vault access / scope** for teammates: bridge + gateway — [TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md) |
 | 7 | Gateway **`GET /api/v1/settings`** **`vault_list`** / **`allowed_vault_ids`** | **Done** | Fetches canister **`/api/v1/vaults`** |
 | 8 | Tests + migration static verify | Ongoing | **`npm test`**; **`npm run canister:verify-migration`** |
 | 9 | Hub **Settings → Vaults → Create vault** (hosted) | **Done** | PR **#47** — bootstrap note + **`X-Vault-Id`**; refreshes switcher and panel |
@@ -55,7 +55,7 @@ Order was: **operational hosted baseline** → **canister partition** → **veri
 
 **Optional product polish (not required for data parity):** **Second-vault bootstrap** is largely addressed by row 9 (**Create vault** in Settings); agents/CLI can still target a new vault id via **`X-Vault-Id`** as before.
 
-**Next hosted parity:** **Hub Import** on hosted (**501**) — [PARITY-PLAN.md](./PARITY-PLAN.md). **Team vault access + scope** ship in repo via bridge + gateway — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) (operators set **`POST /api/v1/workspace`** `owner_user_id` for shared partition). **MCP D2/D3** — live; see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2. Historical: [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md).
+**Next hosted parity:** Track gaps in **[PARITY-MATRIX-HOSTED.md](./PARITY-MATRIX-HOSTED.md)**. **Team vault access + scope** ship in repo via bridge + gateway (operators set **`POST /api/v1/workspace`** `owner_user_id` for shared partition). **MCP** — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2.
 
 ---
 
@@ -223,7 +223,7 @@ None of this is implemented; the codebase is **not** currently set up for (1) or
 
 - **How to use / FAQ:** State clearly that inviting a teammate gives them access to the **entire** vault for that Hub; there are no in-app filters or gates that hide some notes. If they need to keep personal and shared separate, use **two vaults and two Hub instances** (or one shared Hub + local-only personal vault).
 - **Settings / Team:** When we describe “invite” and “roles,” we should mention that roles control actions (viewer/editor/admin), not which part of the vault is visible. Optionally add a short “Sharing and multiple vaults” link to this doc or a How to use section.
-- **Implementation plan / roadmap:** Treat “scoped access” or “multi-vault in one Hub” as a future phase; capture in IMPLEMENTATION-PLAN or TEAMS-AND-COLLABORATION as a known gap and design option.
+- **Roadmap:** Treat “scoped access” or “multi-vault in one Hub” as a future phase; capture in TEAMS-AND-COLLABORATION or this doc as a known gap and design option.
 
 ---
 
@@ -250,4 +250,4 @@ See **TEAMS-AND-COLLABORATION.md** for roles and invite flow; **SPEC.md** for si
 4. **Bridge:** Index and search keyed by (uid, vault_id); vectors dir and Blob key include vault_id; canister export request sends X-Vault-Id; delete-vault orchestration for hosted (**PR #66**).
 5. **Gateway:** Forwards `x-vault-id` to canister; proxies `DELETE /api/v1/vaults/:vaultId` to bridge when configured (**PR #66**).
 
-**Follow-up (hosted canister):** Canister storage keyed by (uid, vault_id) and migration of existing data to vault_id `default` (Phase 15.4 in IMPLEMENTATION-PLAN).
+**Follow-up (hosted canister):** Canister storage keyed by (uid, vault_id) and migration of existing data to vault_id `default` — see **`hub/icp/src/hub/Migration.mo`** and redeploy procedures with **`hub/gateway/README.md`**.

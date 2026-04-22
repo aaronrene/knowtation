@@ -7,10 +7,10 @@
 **Precedents shipped on branch `feature/hub-wizard-hosted-story`:**
 
 - Settings → **Integrations** lede: inline **How?** `<details>` for Hub API (`web/hub/index.html`, `web/hub/hub.css` — search `settings-integ-how-inline`).
-- How to use → **Knowledge & agents** → **Hosted MCP: secrets vs “prime” bootstrap:** layman-first paragraphs, then **`<details class="how-to-details">`** for URIs, env names, MCP `readResource` / `prompts/list`, and `knowtation doctor` (`web/hub/index.html`). **Phase 5 extends this pattern to all How to use tabs and Settings blocks** (see [NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md)).
+- How to use → **Knowledge & agents** → **Hosted MCP: secrets vs “prime” bootstrap:** layman-first paragraphs, then **`<details class="how-to-details">`** for URIs, env names, MCP `readResource` / `prompts/list`, and `knowtation doctor` (`web/hub/index.html`). **Phase 5 extends this pattern to all How to use tabs and Settings blocks** (track in this file + [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md)).
 - **Self-hosted label in UI** — use plain-English **`<summary>`** lines (e.g. `Self-hosted setup — …`); no separate icon asset required. Hosted-first lead: **`how-to-hosted-lead`** in `hub.css`.
 
-**Session prompt:** Use the fenced block in [NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md) (“Session prompt (paste into Cursor)”) — not the duplicate block below unless you want a shorter reminder.
+**Session prompt:** Start from the quick reminder below or maintain a copy under **`development/`** (gitignored) if you use long Cursor handoffs.
 
 **Scope:** `web/hub/index.html` (Settings modals), How to use panels in the same file, and any linked copy in `web/hub/hub.js` that injects settings strings.
 
@@ -18,11 +18,9 @@
 
 ---
 
-## ~~Copy-paste prompt~~ → use NEXT-SESSION-PHASE-5-HOSTED-DOCS.md
+## Copy-paste prompt (short)
 
-The **canonical** Phase 5 session prompt (includes layman + `<details>` pattern for **all** sections) lives in **[NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md)** under **Session prompt (paste into Cursor)**.
-
-Quick reminder (subset of that prompt):
+Quick reminder:
 
 ```text
 Hosted-first Settings + How to use: layman lead; technical + self-hosted under <details>.
