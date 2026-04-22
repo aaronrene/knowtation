@@ -318,6 +318,20 @@
   const HUB_API_URL_LS = 'hub_api_url';
 
   const VAULT_ID_LS = 'hub_vault_id';
+  /** @see `web/hub/hub-client-import-zip.mjs` — 4B sequential import cap. */
+  const HUB_IMPORT_MAX_SEQUENTIAL = 200;
+  const importFileEl = el('import-file');
+  const importFileFolderEl = el('import-file-folder');
+  const importFolderHintEl = el('import-folder-hint');
+  const importBatchCancelBtn = el('import-batch-cancel');
+  const importBatchAriaEl = el('import-batch-aria');
+  /** @type {AbortController | null} */
+  let importBatchAbort = null;
+  const btnImportChooseFolder = el('btn-import-choose-folder');
+
+  function setImportBatchAria(s) {
+    if (importBatchAriaEl) importBatchAriaEl.textContent = s || '';
+  }
 
   function normalizeUrlOrigin(base) {
     try {
@@ -2837,7 +2851,11 @@
     hideDetailPanelChrome();
     el('modal-import').classList.remove('hidden');
     el('import-msg').textContent = '';
-    el('import-file').value = '';
+    if (importFileEl) importFileEl.value = '';
+    if (importFileFolderEl) importFileFolderEl.value = '';
+    if (importFolderHintEl) importFolderHintEl.classList.add('hidden');
+    if (importBatchCancelBtn) importBatchCancelBtn.classList.add('hidden');
+    setImportBatchAria('');
     const urlIn = el('import-url');
     if (urlIn) urlIn.value = '';
   }
@@ -2866,6 +2884,85 @@
   if (modalProjectsHelpBackdrop) modalProjectsHelpBackdrop.onclick = closeProjectsHelpModal;
   if (modalProjectsHelpClose) modalProjectsHelpClose.onclick = closeProjectsHelpModal;
 
+  if (btnImportChooseFolder && importFileFolderEl) {
+    btnImportChooseFolder.onclick = () => {
+      importFileFolderEl.click();
+    };
+  }
+  if (importFileFolderEl) {
+    importFileFolderEl.addEventListener('change', () => {
+      if (importFileFolderEl.files && importFileFolderEl.files.length) {
+        if (importFileEl) importFileEl.value = '';
+        if (importFolderHintEl) importFolderHintEl.classList.remove('hidden');
+      }
+    });
+  }
+  if (importFileEl) {
+    importFileEl.addEventListener('change', () => {
+      if (importFileFolderEl) importFileFolderEl.value = '';
+      if (importFolderHintEl) importFolderHintEl.classList.add('hidden');
+    });
+  }
+  if (importBatchCancelBtn) {
+    importBatchCancelBtn.onclick = () => {
+      if (importBatchAbort) importBatchAbort.abort();
+    };
+  }
+
+  /**
+   * @param {string} postPath
+   * @param {FormData} formData
+   * @param {Record<string, string>} importHeaders
+   * @returns {Promise<{ ok: boolean, data?: object, errText?: string, status?: number }>}
+   */
+  async function hubPostImportOnce(postPath, formData, importHeaders) {
+    let res;
+    for (let importAttempt = 0; importAttempt < 2; importAttempt++) {
+      try {
+        res = await fetch(postPath, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: importHeaders,
+          body: formData,
+        });
+        break;
+      } catch (importErr) {
+        const em = importErr && importErr.message ? String(importErr.message) : String(importErr);
+        if (importAttempt === 0 && (em === 'Failed to fetch' || em.includes('NetworkError'))) {
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        return { ok: false, errText: em, status: 0 };
+      }
+    }
+    const text = await res.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (_) {
+      data = {};
+    }
+    if (!res.ok) {
+      let apiErr = '';
+      if (data && typeof data === 'object') {
+        const parts = [data.error, data.message, data.detail].filter(
+          (x) => x != null && String(x).trim().length > 0,
+        );
+        apiErr = [...new Set(parts.map((x) => String(x).trim()))].join(' — ');
+      }
+      if (!apiErr && text) {
+        const t = text.trim();
+        if (t.startsWith('<')) {
+          apiErr = `HTTP ${res.status}: server returned an HTML error page (check gateway/bridge Netlify logs).`;
+        } else {
+          apiErr = t.slice(0, 280);
+        }
+      }
+      return { ok: false, errText: apiErr || `Import failed (HTTP ${res.status})`, status: res.status, data };
+    }
+    return { ok: true, data };
+  }
+
   el('btn-import-submit').onclick = async () => {
     const importSubmitBtn = el('btn-import-submit');
     const sourceType = el('import-source-type').value;
@@ -2873,6 +2970,9 @@
     const urlInput = el('import-url');
     const urlTrim = urlInput && urlInput.value ? String(urlInput.value).trim() : '';
     const msgEl = el('import-msg');
+    /** @type {{ getHubImportFileMode: (a: string, f: File[]) => string, buildImportZipBlob: (f: File[], o: object) => Promise<Blob>, assertSingleFileWithinLimit: (f: File) => void } | null | undefined} */
+    const kz = globalThis.knowtationHubImportZip;
+
     if (!token) {
       msgEl.textContent = 'Sign in to import.';
       msgEl.className = 'create-msg err';
@@ -2884,106 +2984,262 @@
       msgEl.className = 'create-msg err';
       return;
     }
-    if (!useUrlImport && (!fileInput || !fileInput.files || fileInput.files.length === 0)) {
-      msgEl.textContent = 'Choose a file or ZIP to import, or paste an https URL above.';
+    const usedFolder = importFileFolderEl && importFileFolderEl.files && importFileFolderEl.files.length > 0;
+    const fileArr = usedFolder
+      ? Array.from(importFileFolderEl.files)
+      : fileInput && fileInput.files
+        ? Array.from(fileInput.files)
+        : [];
+    if (!useUrlImport && fileArr.length === 0) {
+      msgEl.textContent = 'Choose file(s) or a folder to import, or paste an https URL above.';
       msgEl.className = 'create-msg err';
       return;
     }
+    if (sourceType === 'notion' && fileArr.length > 1) {
+      msgEl.textContent = 'Notion: use a single file or the CLI. Page IDs in one text file, or one import at a time.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
+
     const project = (el('import-project') && el('import-project').value) ? el('import-project').value.trim() : '';
     const tags = (el('import-tags') && el('import-tags').value) ? el('import-tags').value.trim() : '';
     const urlModeEl = el('import-url-mode');
     const urlMode = urlModeEl && urlModeEl.value ? urlModeEl.value : 'auto';
-    let fetchUrl = apiBase + '/api/v1/import';
-    /** @type {FormData|undefined} */
-    let formData;
-    /** @type {Record<string, unknown>|undefined} */
-    let jsonBody;
+    const importPostPath = apiBase + '/api/v1/import';
+    const urlPostPath = apiBase + '/api/v1/import-url';
+    const mode =
+      !useUrlImport && kz && typeof kz.getHubImportFileMode === 'function'
+        ? kz.getHubImportFileMode(sourceType, fileArr)
+        : 'direct';
+
+    if (!useUrlImport && !kz && fileArr.length > 1) {
+      msgEl.textContent =
+        'Import helpers (JSZip) did not load. Hard-refresh the page, or import one file at a time, or pre-zip a folder and upload a single .zip.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
+
+    if (!useUrlImport && mode === 'client_zip' && !kz) {
+      msgEl.textContent =
+        'In-browser ZIP helper did not load (JSZip). Hard-refresh the page and try again, or pre-zip the folder and upload a single .zip.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
+    if (!useUrlImport && mode === 'sequential' && fileArr.length > HUB_IMPORT_MAX_SEQUENTIAL) {
+      msgEl.textContent =
+        'Too many files for one batch (max ' +
+        HUB_IMPORT_MAX_SEQUENTIAL +
+        '). Split the batch, use the CLI, or use one in-browser folder ZIP (Phase 4A₂) for tree-shaped source types.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
+
     if (useUrlImport) {
-      fetchUrl = apiBase + '/api/v1/import-url';
-      jsonBody = { url: urlTrim, mode: urlMode };
+      const jsonBody = { url: urlTrim, mode: urlMode };
       if (project) jsonBody.project = project;
       if (tags) jsonBody.tags = tags;
-    } else {
-      formData = new FormData();
-      formData.append('source_type', sourceType);
-      formData.append('file', fileInput.files[0]);
-      if (project) formData.append('project', project);
-      if (tags) formData.append('tags', tags);
+      msgEl.textContent = 'Importing…';
+      msgEl.className = 'create-msg';
+      await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
+        try {
+          const importHeaders = token ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } : {};
+          const importVaultId = getCurrentVaultId();
+          if (importVaultId) importHeaders['X-Vault-Id'] = importVaultId;
+          let res;
+          for (let importAttempt = 0; importAttempt < 2; importAttempt++) {
+            try {
+              res = await fetch(urlPostPath, {
+                method: 'POST',
+                cache: 'no-store',
+                headers: importHeaders,
+                body: JSON.stringify(jsonBody),
+              });
+              break;
+            } catch (importErr) {
+              const em = importErr && importErr.message ? String(importErr.message) : String(importErr);
+              if (importAttempt === 0 && (em === 'Failed to fetch' || em.includes('NetworkError'))) {
+                await new Promise((r) => setTimeout(r, 3000));
+                continue;
+              }
+              throw importErr;
+            }
+          }
+          const text = await res.text();
+          let data = {};
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch (_) {
+            data = {};
+          }
+          if (!res.ok) {
+            let apiErr = '';
+            if (data && typeof data === 'object') {
+              const parts = [data.error, data.message, data.detail].filter(
+                (x) => x != null && String(x).trim().length > 0,
+              );
+              apiErr = [...new Set(parts.map((x) => String(x).trim()))].join(' — ');
+            }
+            if (!apiErr && text) {
+              const t = text.trim();
+              if (t.startsWith('<')) {
+                apiErr = `HTTP ${res.status}: server returned an HTML error page.`;
+              } else {
+                apiErr = t.slice(0, 280);
+              }
+            }
+            msgEl.textContent = apiErr || (res.status ? `Import failed (HTTP ${res.status})` : '') || 'Import failed';
+            msgEl.className = 'create-msg err';
+            return;
+          }
+          const count = data.count ?? data.imported?.length ?? 0;
+          if (count === 0) {
+            msgEl.textContent = 'Imported 0 notes from URL. Try Bookmark mode or a different link.';
+            msgEl.className = 'create-msg warn';
+          } else {
+            msgEl.textContent = 'Imported ' + count + ' note(s).';
+            msgEl.className = 'create-msg ok';
+          }
+          if (typeof loadNotes === 'function') loadNotes();
+          if (typeof loadFacets === 'function') loadFacets();
+          if (typeof showToast === 'function') showToast('Import complete');
+          setTimeout(() => closeImportModal(), 1500);
+        } catch (e) {
+          const raw = e && e.message ? String(e.message) : 'Import failed';
+          const isNetwork =
+            raw === 'Failed to fetch' ||
+            (e && e.name === 'TypeError' && /fetch|network|load failed/i.test(raw));
+          msgEl.textContent = isNetwork
+            ? raw +
+              ' — Often: CORS, upload too large for the gateway, or timeout. On hosted, check DevTools → Network for POST /api/v1/import-url.'
+            : raw;
+          msgEl.className = 'create-msg err';
+        }
+      });
+      return;
     }
+
+    const importHeadersBase = token ? { Authorization: 'Bearer ' + token } : {};
+    const importVaultId = getCurrentVaultId();
+    if (importVaultId) importHeadersBase['X-Vault-Id'] = importVaultId;
+
+    if (mode === 'sequential') {
+      if (importBatchCancelBtn) importBatchCancelBtn.classList.remove('hidden');
+      importBatchAbort = new AbortController();
+      msgEl.textContent = 'Importing ' + fileArr.length + ' file(s)…';
+      msgEl.className = 'create-msg';
+      setImportBatchAria('Starting batch import, 0 of ' + fileArr.length);
+      await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
+        const failures = [];
+        let totalImported = 0;
+        let okN = 0;
+        for (let i = 0; i < fileArr.length; i++) {
+          if (importBatchAbort && importBatchAbort.signal.aborted) {
+            setImportBatchAria('Batch import stopped by user after ' + okN + ' of ' + fileArr.length);
+            break;
+          }
+          const f = fileArr[i];
+          try {
+            if (kz && kz.assertSingleFileWithinLimit) kz.assertSingleFileWithinLimit(f);
+          } catch (limErr) {
+            failures.push({ name: f.name, err: limErr && limErr.message ? String(limErr.message) : String(limErr) });
+            continue;
+          }
+          setImportBatchAria('Importing file ' + (i + 1) + ' of ' + fileArr.length + ': ' + f.name);
+          const fd = new FormData();
+          fd.append('source_type', sourceType);
+          fd.append('file', f);
+          if (project) fd.append('project', project);
+          if (tags) fd.append('tags', tags);
+          const r = await hubPostImportOnce(importPostPath, fd, { ...importHeadersBase });
+          if (r.ok && r.data) {
+            const c = r.data.count ?? r.data.imported?.length ?? 0;
+            totalImported += typeof c === 'number' ? c : 0;
+            okN++;
+          } else {
+            failures.push({ name: f.name, err: r.errText || 'error' });
+          }
+        }
+        if (importBatchCancelBtn) importBatchCancelBtn.classList.add('hidden');
+        importBatchAbort = null;
+        const fl = failures.length
+          ? ' Failures: ' + failures.map((x) => x.name + (x.err ? ' — ' + x.err.slice(0, 120) : '')).join('; ') + '.'
+          : '.';
+        msgEl.textContent =
+          'Batch: ' + okN + ' of ' + fileArr.length + ' file import(s) succeeded' + (totalImported ? ' (' + totalImported + ' note(s) reported).' : '.') + fl;
+        msgEl.className = 'create-msg ' + (failures.length && okN === 0 ? 'err' : failures.length ? 'warn' : 'ok');
+        setImportBatchAria(msgEl.textContent);
+        if (typeof loadNotes === 'function') loadNotes();
+        if (typeof loadFacets === 'function') loadFacets();
+        if (okN > 0 && typeof showToast === 'function') showToast('Import complete');
+        if (okN > 0) setTimeout(() => closeImportModal(), 2000);
+      });
+      return;
+    }
+
     msgEl.textContent = 'Importing…';
     msgEl.className = 'create-msg';
     await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
       try {
-        const importHeaders = token ? { Authorization: 'Bearer ' + token } : {};
-        const importVaultId = getCurrentVaultId();
-        if (importVaultId) importHeaders['X-Vault-Id'] = importVaultId;
-        if (useUrlImport) {
-          importHeaders['Content-Type'] = 'application/json';
-        }
-        let res;
-        for (let importAttempt = 0; importAttempt < 2; importAttempt++) {
-          try {
-            res = await fetch(fetchUrl, {
-              method: 'POST',
-              cache: 'no-store',
-              headers: importHeaders,
-              body: useUrlImport ? JSON.stringify(jsonBody) : formData,
-            });
-            break;
-          } catch (importErr) {
-            const em = importErr && importErr.message ? String(importErr.message) : String(importErr);
-            if (importAttempt === 0 && (em === 'Failed to fetch' || em.includes('NetworkError'))) {
-              await new Promise(r => setTimeout(r, 3000));
-              continue;
-            }
-            throw importErr;
+        const dupWarn = [];
+        const warnFn = (s) => {
+          dupWarn.push(s);
+        };
+        /** @type {FormData} */
+        let formData;
+        if (mode === 'client_zip' && kz) {
+          const blob = await kz.buildImportZipBlob(fileArr, {
+            signal: null,
+            warn: warnFn,
+          });
+          const fileOut = new File([blob], 'hub-bulk.zip', { type: 'application/zip' });
+          formData = new FormData();
+          formData.append('source_type', sourceType);
+          formData.append('file', fileOut);
+          if (project) formData.append('project', project);
+          if (tags) formData.append('tags', tags);
+          if (dupWarn.length) {
+            msgEl.className = 'create-msg';
+            msgEl.textContent = dupWarn.join(' ') + ' Zipping, then uploading…';
           }
-        }
-        const text = await res.text();
-        let data = {};
-        try {
-          data = text ? JSON.parse(text) : {};
-        } catch (_) {
-          data = {};
-        }
-        if (!res.ok) {
-          let apiErr = '';
-          if (data && typeof data === 'object') {
-            const parts = [data.error, data.message, data.detail].filter(
-              (x) => x != null && String(x).trim().length > 0,
-            );
-            apiErr = [...new Set(parts.map((x) => String(x).trim()))].join(' — ');
-          }
-          if (!apiErr && text) {
-            const t = text.trim();
-            if (t.startsWith('<')) {
-              apiErr = `HTTP ${res.status}: server returned an HTML error page (check gateway/bridge Netlify logs).`;
-            } else {
-              apiErr = t.slice(0, 280);
+        } else {
+          if (fileArr[0] && kz && kz.assertSingleFileWithinLimit) {
+            try {
+              kz.assertSingleFileWithinLimit(fileArr[0]);
+            } catch (e1) {
+              msgEl.textContent = e1 && e1.message ? String(e1.message) : String(e1);
+              msgEl.className = 'create-msg err';
+              return;
             }
           }
-          msgEl.textContent =
-            apiErr ||
-            (res.status ? `Import failed (HTTP ${res.status})` : '') ||
-            res.statusText ||
-            'Import failed';
+          formData = new FormData();
+          formData.append('source_type', sourceType);
+          formData.append('file', fileArr[0]);
+          if (project) formData.append('project', project);
+          if (tags) formData.append('tags', tags);
+        }
+        const r = await hubPostImportOnce(importPostPath, formData, { ...importHeadersBase });
+        if (!r.ok) {
+          msgEl.textContent = r.errText || 'Import failed';
           msgEl.className = 'create-msg err';
           return;
         }
+        const data = r.data || {};
         const count = data.count ?? data.imported?.length ?? 0;
+        let extra = '';
+        if (mode === 'client_zip' && dupWarn.length) extra = ' ' + dupWarn.join(' ');
         if (count === 0) {
-          msgEl.textContent = useUrlImport
-            ? 'Imported 0 notes from URL. Try Bookmark mode or a different link.'
-            : sourceType === 'markdown'
+          const zeroMsg =
+            sourceType === 'markdown'
               ? 'Imported 0 notes. This ZIP or folder had no Markdown files we could use—only .md / .markdown (any case). Other formats are skipped unless you pick the matching source type (e.g. PDF or DOCX).'
               : sourceType === 'pdf'
                 ? 'Imported 0 notes. PDF import could not produce a note (wrong file type, corrupt file, or no extractable text—try OCR for scans).'
                 : sourceType === 'docx'
                   ? 'Imported 0 notes. DOCX import could not produce a note (wrong file type, corrupt file, empty document, or not Office Open XML .docx).'
                   : 'Imported 0 notes. Check that the file matches the selected source type (e.g. ChatGPT export needs chatgpt-export).';
+          msgEl.textContent = zeroMsg + extra;
           msgEl.className = 'create-msg warn';
         } else {
-          msgEl.textContent = 'Imported ' + count + ' note(s).';
+          msgEl.textContent = 'Imported ' + count + ' note(s).' + extra;
           msgEl.className = 'create-msg ok';
         }
         if (typeof loadNotes === 'function') loadNotes();
@@ -2992,13 +3248,17 @@
         setTimeout(() => closeImportModal(), 1500);
       } catch (e) {
         const raw = e && e.message ? String(e.message) : 'Import failed';
-        const isNetwork =
-          raw === 'Failed to fetch' ||
-          (e && e.name === 'TypeError' && /fetch|network|load failed/i.test(raw));
-        msgEl.textContent = isNetwork
-          ? raw +
-            ' — Often: CORS, upload too large for the gateway, or timeout. Video/audio need self-hosted Hub plus OPENAI_API_KEY. On hosted beta, Import may be unavailable; check DevTools → Network for POST /api/v1/import or POST /api/v1/import-url.'
-          : raw;
+        if (e && e.name === 'AbortError') {
+          msgEl.textContent = 'Cancelled.';
+        } else {
+          const isNetwork =
+            raw === 'Failed to fetch' ||
+            (e && e.name === 'TypeError' && /fetch|network|load failed/i.test(raw));
+          msgEl.textContent = isNetwork
+            ? raw +
+              ' — Often: CORS, upload too large for the gateway, or timeout. Video/audio need self-hosted Hub plus OPENAI_API_KEY. On hosted, check Network for POST /api/v1/import.'
+            : raw;
+        }
         msgEl.className = 'create-msg err';
       }
     });

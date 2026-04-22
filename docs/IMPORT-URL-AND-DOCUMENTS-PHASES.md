@@ -12,8 +12,8 @@ This doc splits work so each phase matches how Knowtation already works: **`lib/
 | Path | Folder import | Multiple files at once |
 |------|----------------|-------------------------|
 | **CLI** (`knowtation import …`) | **Yes** for types that accept a directory (e.g. `markdown` walks a folder of `.md` files; see [`lib/importers/markdown.mjs`](../lib/importers/markdown.mjs)). | Run import multiple times or point at a folder. |
-| **Hub (browser)** | **ZIP:** uploads whose name ends in `.zip` are extracted server-side; `runImport` receives the **extracted directory** (see [`hub/server.mjs`](../hub/server.mjs) and bridge). That matches **folder-capable** importers (e.g. **markdown** walks `.md`/`.markdown`; ChatGPT/Claude exports). **pdf** and **docx** importers require a **single file path** and **reject a directory** ([`lib/importers/pdf.mjs`](../lib/importers/pdf.mjs), [`lib/importers/docx.mjs`](../lib/importers/docx.mjs)), so in practice Hub **PDF/DOCX** = upload the document itself, **not** a ZIP. | **No:** the file control is **single file** only (`files[0]` in [`web/hub/hub.js`](../web/hub/hub.js)); no `multiple` or folder-picker attribute today. |
-| **Hosted MCP `import`** | One **base64 file** (or ZIP) per tool call. | Agents can call **`import`** repeatedly. |
+| **Hub (browser)** | **ZIP:** uploads whose name ends in `.zip` are extracted server-side; `runImport` receives the **extracted directory** (see [`hub/server.mjs`](../hub/server.mjs) and bridge). That matches **folder-capable** importers (e.g. **markdown** walks `.md`/`.markdown`; ChatGPT/Claude exports). **pdf** and **docx** importers require a **single file path** and **reject a directory** ([`lib/importers/pdf.mjs`](../lib/importers/pdf.mjs), [`lib/importers/docx.mjs`](../lib/importers/docx.mjs)), so in practice Hub **PDF/DOCX** = one document per request (4B: **N** sequential `POST` for many files), **not** a server **ZIP** of a folder. **4A₂** builds a **client** ZIP for tree-shaped types. | **Yes (4B + 4A₂):** `multiple`, **Choose folder** (`webkitdirectory`), in-browser **JSZip** when `getHubImportFileMode` says `client_zip` — see [`web/hub/hub.js`](../web/hub/hub.js) and [`web/hub/hub-client-import-zip.mjs`](../web/hub/hub-client-import-zip.mjs). |
+| **Hosted MCP `import`** | One **base64 file** (or ZIP) per tool call. | Agents can call **`import`** repeatedly (no `import_batch`). |
 
 So: **entire-folder ingest already exists on the CLI** for supported types; **in the Hub, the practical “folder” path is ZIP**. Native **folder picker** or **multi-select** in the Hub is **not** implemented yet.
 
@@ -88,31 +88,34 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 ### 4A₂ — Client-side ZIP (JSZip) — optional supplement
 
+**Status on branch `feat/import-url-documents-mcp`:** **Shipped** — `web/hub/hub-client-import-zip.mjs` (mode rules, `buildImportZipBlobWithJsZip`, default caps) + UMD **JSZip** (CDN) + `hub-import-zip-shim.mjs`; one `POST /api/v1/import` with `file` = `hub-bulk.zip` when `getHubImportFileMode` returns `client_zip` (e.g. **markdown** + multiple files, **chatgpt** without a server `.zip`, **claude** + all `.md`, **mif** / **gdrive** / **notebooklm** trees). **Not** for PDF/DOCX.
+
 **Goal:** User drags a **folder** (or many files) in the browser; the Hub builds **one** `.zip` and POSTs the existing multipart `POST /api/v1/import` once—**no new server route** if the payload is still one `file` field.
 
-- **Hub:** dependency (e.g. **JSZip**), drag-and-drop path, explicit **size / file-count caps**, cancel, and error UX when memory or limits bite.
-- **Docs:** bundle size tradeoff, browser memory limits, when to prefer “zip in Finder” vs in-app.
-- **Tests:** zip builder with fixtures (unit) or a documented manual checklist if DOM-heavy.
+- **Hub:** **“Choose folder (ZIP in browser)”** (`webkitdirectory`); **size / file-count** caps; duplicate path renames with optional warning text; large selections stay in **browser memory** (prefer a desktop-made ZIP for huge trees).
+- **Tests:** [`test/hub-client-import-zip.test.mjs`](../test/hub-client-import-zip.test.mjs).
 
-**Complexity:** **Low–medium** (limits and UX matter more than LOC). **Scope:** folder-capable `source_type` values only—not PDF/DOCX (see `lib/importers/pdf.mjs` / `docx.mjs`).
+**Complexity:** **Low–medium** (limits and UX). **Scope:** folder-capable `source_type` values only—not PDF/DOCX (see `lib/importers/pdf.mjs` / `docx.mjs`).
 
 ### 4B — Native multi-file / folder picker (`webkitdirectory`)
 
+**Status on branch `feat/import-url-documents-mcp`:** **Shipped** — `web/hub/hub.js` + Import modal: **`multiple`** on the main file field; **sequential** `POST /api/v1/import` for `pdf`, `docx`, `mem0-export`, `linear-export`, `jira-export`, `wallet-csv`, `supabase-memory`, `audio`, and `claude-export` when the selection is **not** all-`.md` (multiple JSON → one import per file). **Max 200** files per batch in UI; per-file cap **~100MB** (multer on Hub/bridge). Live region `#import-batch-aria`, **Stop batch** (Abort). **MCP:** no `import_batch`; agents use repeated **`import`** as before.
+
 **Goal:** Users can pick **many files** or a **folder** without pre-zipping, within caps.
 
-- **Hub:** `<input type="file" multiple>` and/or **`webkitdirectory`** → many `File`s; progress and per-file outcomes.
-- **Server:** **sequential** `POST /api/v1/import` (N requests; reuses multer + `runImport`) **or** **one batch endpoint** (multipart array + `source_type`; bridge loops `runImport`)—pick one approach and document it.
-- **Progress / partial failure:** UX for “3 of 5 succeeded” (name failures).
-- **Limits:** max files, max total bytes, gateway/bridge timeouts; surface in UI.
-- **Parity:** [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md) + MCP docs if caps or routes change.
+- **Hub:** `multiple` and `webkitdirectory`; per-file outcome summary.
+- **Server approach:** **sequential** `POST /api/v1/import` (N requests; reuses multer + `runImport` on Hub and bridge).
+- **Progress / partial failure:** “`Batch: x of n` …” and named failure snippets.
+- **Limits:** 200/batch, ~100MB/file, hosted time limits (~26s common on serverless) — see modal copy and [`IMPORT-SOURCES.md`](./IMPORT-SOURCES.md).
+- **Parity:** [`PARITY-MATRIX-HOSTED.md`](./PARITY-MATRIX-HOSTED.md).
 
-**Complexity:** **Medium** (sequential client + caps + UX) to **medium–high** (batch API + MCP `import_batch` + stricter semantics).
+**Complexity:** **Medium** (client loop + caps + UX).
 
-### Recommended order (next implementation pass)
+### Recommended order (next implementation pass) — 4A₂/4B done
 
-1. **4A₂ (JSZip)** for folder-capable types: large UX win, one HTTP request, same server contract.
-2. **4B** after or alongside: native multi-file/folder picker; keep **PDF/DOCX** as **one file per import** unless importers are explicitly extended.
-3. **Optional polish:** accessible batch progress (e.g. `aria-live`), documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) when finalized.
+1. **4A₂ (JSZip)** — **shipped.**
+2. **4B** (multi + folder) — **shipped** (sequential, no new HTTP body).
+3. **Optional next:** drag-drop of folders (Chrome `DataTransfer` directory entries), or documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) (HTTP shape unchanged; limits are product caps).
 
 **Recommendation:** Treat **4A + 4A₂ + 4B** as a stacked story: copy explains behavior; JSZip reduces friction for ZIP-shaped flows; 4B covers users who never zip. None of these replace the others.
 

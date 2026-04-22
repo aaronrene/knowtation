@@ -43,6 +43,17 @@ Use **self-hosted Hub** or **CLI** until [hosted import](./HOSTED-IMPORT-DESIGN.
 - `POST /api/v1/import` returns **501** until the gateway/bridge path in [HOSTED-IMPORT-DESIGN.md](./HOSTED-IMPORT-DESIGN.md) is shipped.
 - Confirm the Hub shows the JSON error body (`NOT_AVAILABLE`) clearly after deploy.
 
+## Hub — Phase 4A₂ (in-browser ZIP) and 4B (sequential multi)
+
+**When:** `npm run hub` (or hosted with bridge), signed in, **Import** modal.
+
+1. **4A₂ — Markdown, two local `.md` (multi-select):** source **Markdown** → expect **one** `POST /api/v1/import` with a `hub-bulk.zip` (DevTools → Network) and >0 notes.
+2. **4A₂ — Choose folder:** source **Markdown** → **Choose folder (ZIP in browser)** on a small tree of `.md` → one POST, **Re-index** if needed, notes present.
+3. **4A₂ — ChatGPT:** a folder that includes `conversations.json` (or only that file) → source **ChatGPT** → one POST with client zip if not already a `.zip` upload; >0 notes.
+4. **4B — Two PDFs:** source **PDF** → multi-select two small PDFs → **two** sequential `POST` / `import` and a **Batch: 2 of 2** success line (or failure text per file).
+5. **4B — Stop batch:** start a 3+ PDF batch, **Stop batch** before the end; message indicates partial/bail.
+6. **Cap:** if you have no large fixtures, trust unit tests: `node --test test/hub-client-import-zip.test.mjs`.
+
 ## Automated regression
 
-- `node --test test/import-importers-golden.test.mjs test/import-source-types.test.mjs test/import-markdown.test.mjs test/embedding-usage.test.mjs`
+- `node --test test/import-importers-golden.test.mjs test/import-source-types.test.mjs test/import-markdown.test.mjs test/embedding-usage.test.mjs test/hub-client-import-zip.test.mjs`
