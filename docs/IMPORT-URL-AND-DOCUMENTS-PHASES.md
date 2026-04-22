@@ -113,6 +113,34 @@ Ease of import **does** affect adoption. Order of impact:
 
 ---
 
+## Git workflow (recommended)
+
+- **Branch:** Stay on **`feat/import-url-documents-mcp`** for Phase 2 (PDF) and Phase 3 (DOCX). **One PR at the end** is a good default: reviewers see URL + PDF + DOCX together or you can open the PR after Phase 2 if you want PDF reviewed before DOCX.
+- **Commits:** Keep **one commit per phase** (or per logical slice). Phase 1 is already committed; add **`feat(import): pdf …`** (and later **`feat(import): docx …`**) on the same branch.
+- **Push / merge to `main`:** **Not required** between phases for local or CI testing. Push when you want backup, CI on the remote, or a **draft PR** for early feedback. Merge to `main` when you are ready to **release** (hosted bridge/gateway deploy coordination).
+
+---
+
+## Next session prompt (Phase 2 — PDF)
+
+Copy everything in the block below into a new chat if you want a clean context window. Adjust paths if your clone differs.
+
+```text
+We are on branch feat/import-url-documents-mcp. Phase 1 (URL import) is merged into this branch — see docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md and commit history for feat(import): Phase 1 URL import.
+
+Implement Phase 2: PDF import.
+- Add source_type `pdf` in lib/import-source-types.mjs and lib/import.mjs.
+- New lib/importers/pdf.mjs using a maintained parser (e.g. pdf-parse or unpdf); output Markdown notes under a sensible inbox path; frontmatter source/source_id/date; match patterns from lib/importers/url.mjs and markdown.mjs.
+- Hub import modal: ensure .pdf is accepted; add or select PDF source type in web/hub/index.html + hub.js if needed (multipart POST /api/v1/import already exists on bridge/self-hub).
+- Hosted MCP: existing `import` tool with source_type pdf + file_base64 — no new tool unless justified.
+- Tests: fixture PDF in test/fixtures/, extend test/import-source-types.test.mjs for pdf bad input (missing file path), hosted-import-integration or unit tests as appropriate.
+- Docs: IMPORT-SOURCES.md, HUB-API.md if needed, openapi if we document new source_type enum there.
+
+Do not push or open PR unless I ask; commit on the feature branch when Phase 2 is done and tests pass.
+```
+
+---
+
 ## Related planning artifact
 
 Cursor plan (implementation checklist): `.cursor/plans/document_and_url_import_4dda68c9.plan.md`
