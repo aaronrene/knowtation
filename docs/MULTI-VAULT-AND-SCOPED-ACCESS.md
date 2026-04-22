@@ -55,7 +55,7 @@ Order was: **operational hosted baseline** → **canister partition** → **veri
 
 **Optional product polish (not required for data parity):** **Second-vault bootstrap** is largely addressed by row 9 (**Create vault** in Settings); agents/CLI can still target a new vault id via **`X-Vault-Id`** as before.
 
-**Next hosted parity:** **Hub Import** on hosted (**501**) — [PARITY-PLAN.md](./PARITY-PLAN.md). **Team vault access + scope** ship in repo via bridge + gateway — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) (operators set **`POST /api/v1/workspace`** `owner_user_id` for shared partition). **MCP D2/D3** — live; see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2. Historical: [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md).
+**Next hosted parity:** **Hub Import** on hosted (**501**) — [PARITY-PLAN.md](./PARITY-PLAN.md). **Team vault access + scope** ship in repo via bridge + gateway — [HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md) (operators set **`POST /api/v1/workspace`** `owner_user_id` for shared partition). **MCP D2/D3** — live; see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 and [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
 
 ---
 

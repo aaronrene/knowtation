@@ -2,8 +2,7 @@
 
 **Prerequisite:** Phase 12A (`feature/phase12-blockchain-frontmatter`) merged to `main`.
 **Branch:** `feature/phase12b-blockchain-remainder`
-**Reference:** [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md),
-[BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md)
+**Reference:** [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md), [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (Phase 12A / 12B rows)
 
 This document covers the two features deferred from Phase 12A:
 
@@ -257,7 +256,7 @@ Branch: feature/phase12b-blockchain-remainder (create from main after Phase 12A 
 
 Read these files before writing any code:
 - docs/PHASE12B-BLOCKCHAIN-REMAINDER.md   (this document)
-- docs/PHASE12-BLOCKCHAIN-PLAN.md         (Phase 12A context)
+- docs/IMPLEMENTATION-PLAN.md              (Phase 12A / 12B context)
 - docs/AIR-IMPROVEMENTS-PLAN.md           (AIR A–E; Part 2 here depends on D)
 - lib/import.mjs                          (existing import pipeline)
 - lib/import-source-types.mjs             (where to add 'wallet-csv')

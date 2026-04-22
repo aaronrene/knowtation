@@ -8,7 +8,7 @@ This document lists **everything** needed to bring the **hosted** product (gatew
 
 **Order of work:** We do **Option B (Muse protocol alignment)** first per [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) — document variation protocol and canister extensibility; then Phase 1 (gateway stubs) below.
 
-**Relation to MCP (GitHub Issue #1):** Implement **Hub MCP gateway + OAuth (D2/D3)** only **after** hosted operations are stable (bridge deployed, `BRIDGE_URL`, env verified, pre-roll). Otherwise the MCP proxy may not match production auth and routing. Rationale (historical): [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
+**Relation to MCP (GitHub Issue #1):** Implement **Hub MCP gateway + OAuth (D2/D3)** only **after** hosted operations are stable (bridge deployed, `BRIDGE_URL`, env verified, pre-roll). Otherwise the MCP proxy may not match production auth and routing. Sequencing rationale: [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md), [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md).
 
 **What we fixed (Phase 1, merged):** On hosted, the Hub UI used to 404 when opening Settings → Team (roles, invites), clicking Save setup (POST /api/v1/setup), using the filter dropdowns (GET /api/v1/notes/facets), or using Import. The canister does not implement those routes. We **fixed** this by adding **gateway stubs** in `hub/gateway/server.mjs`: each of those requests is now handled by the gateway with a valid response (empty list, no-op, or 501 for import) before the request is ever proxied to the canister. No canister changes; the fix is entirely in the gateway. Option B (Muse protocol alignment) and Muse in How to use were shipped in the same branch.
 

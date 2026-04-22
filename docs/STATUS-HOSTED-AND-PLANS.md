@@ -6,7 +6,7 @@ Short reference for **canister/hosted**, **two-path launch**, **multi-vault**, a
 
 **Two-path launch (Phase 14) done.** Landing and Hub offer "Use in the cloud (beta)" and "Run it yourself" (Quick start in [TWO-PATHS-HOSTED-AND-SELF-HOSTED.md](./TWO-PATHS-HOSTED-AND-SELF-HOSTED.md)). Hosting = **beta** with **permissive usage** for research until Phase 16 (**Stripe subscriptions**).
 
-**Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Order (historical rationale): [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md) § Strategic sequencing.
+**Priority vs MCP backlog:** **Hosted parity** (this doc, [PARITY-PLAN.md](./PARITY-PLAN.md), bridge + env + verification) comes **before** **Hub MCP gateway (Issue #1 D2/D3)**. MCP supercharge is **on `main`**; local MCP works without hosted MCP. Sequencing is summarized in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) and this file.
 
 **Hosted multi-vault (Phase 15.1):** **In repo and merged:** canister `vault_id` partitioning, V1 migration, gateway vault list, bridge export+index paths, Hub **Create vault** + busy states — [MULTI-VAULT-AND-SCOPED-ACCESS.md](./MULTI-VAULT-AND-SCOPED-ACCESS.md) § Hosted (**PR #46–#48**). **Ops:** redeploy canister when needed, then preflight + migration verify scripts. With **little or no production data**, migration risk stays **minimal**.
 
@@ -116,7 +116,7 @@ Do Phase 12 in a **separate** session when you’re ready; no need to tie it to 
 | **Hosted multi-vault (canister) — Phase 15.1** | **Repo:** merged (**#46–#48**) + **workspace / vault-access / scope** ([HOSTED-WORKSPACE-ACCESS.md](./HOSTED-WORKSPACE-ACCESS.md)). **Production:** redeploy gateway + bridge + §5.1 if needed. **Hub Import** is **live** when **`BRIDGE_URL`** is set; remaining gaps vs self-hosted — [PARITY-PLAN.md](./PARITY-PLAN.md) §2.1. |
 | **Parity gaps** | Track [PARITY-PLAN.md](./PARITY-PLAN.md) and §2.1 (e.g. bulk **path-prefix** on Node vs canister semantics, `GET /vault/folders` stub on gateway). **Import:** not a **501** when bridge is configured. |
 | **Phase 15 self-hosted** | ✅ `hub_vaults.yaml`, access, scope, Hub UI. |
-| **MCP hosted (Issue #1)** | D2/D3 shipped; see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2. Historical checklist: [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md). |
+| **MCP hosted (Issue #1)** | D2/D3 shipped; see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §2 and [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). |
 | **Phase 16 (hosted billing)** | [HOSTED-CREDITS-DESIGN.md](./HOSTED-CREDITS-DESIGN.md) + [HOSTED-STORAGE-BILLING-ROADMAP.md](./HOSTED-STORAGE-BILLING-ROADMAP.md); Stripe subscriptions + **indexing token** quotas + **rollover token** packs — IMPLEMENTATION-PLAN Phase 16 (**gateway cent scaffold** today; bridge token metering **not** done). |
 | **Phase 12 (blockchain notes)** | Agent wallets / on-chain fields in notes — [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md); separate from Phase 16 ledger. |
 

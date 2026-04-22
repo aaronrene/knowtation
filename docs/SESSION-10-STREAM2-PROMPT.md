@@ -305,5 +305,5 @@ Run `node --test` after implementation to verify the full suite.
 When both streams are done, Session 10 is complete. The next work is:
 - PR: merge `feature/consolidation-ui-testing` → `main`
 - Optionally: merge `feature/daemon-consolidation` → `main` first if not yet done
-- Session 11 candidates: per the long-range roadmap — see `docs/PHASE12-BLOCKCHAIN-PLAN.md`
+- Session 11 candidates: per the long-range roadmap — see `docs/IMPLEMENTATION-PLAN.md`
   or other backlog items

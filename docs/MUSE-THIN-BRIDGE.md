@@ -2,7 +2,7 @@
 
 Knowtation’s **canonical** state remains the vault (and ICP canister on hosted). **Muse** and **MuseHub** are **optional**: login, search, and normal writes do not depend on them.
 
-This document describes the **thin bridge** shipped in-repo: optional env vars, **`external_ref` on approve**, and an **admin-only read-only HTTP proxy**. For product context and security posture, see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (*Optional external lineage*) and [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) §6.3.
+This document describes the **thin bridge** shipped in-repo: optional env vars, **`external_ref` on approve**, and an **admin-only read-only HTTP proxy**. For product context and security posture, see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 (*Optional external lineage*).
 
 ## Enable / disable
 

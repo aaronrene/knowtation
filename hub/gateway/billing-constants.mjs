@@ -1,5 +1,5 @@
 /**
- * Hosted billing constants — Phase 16 tier model. See docs/PHASE16-STRIPE-BILLING-PLAN.md §4.
+ * Hosted billing constants — Phase 16 tier model. See docs/IMPLEMENTATION-PLAN.md and co-located hub/gateway/billing-*.mjs.
  *
  * Tiers: free · plus ($9) · growth ($17) · pro ($25)
  * Legacy aliases: beta (internal dev/no-cap), starter (→ plus), team (reserved for future seats)

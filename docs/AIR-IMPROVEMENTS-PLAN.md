@@ -8,7 +8,7 @@ layer for the entire Knowtation platform.
 **Branch prefix:** `feature/air-improvements` (or implement A–C on a single branch; D–E each
 get their own branch when prioritized).
 
-**Reference:** `lib/air.mjs` (current implementation), [PHASE12-BLOCKCHAIN-PLAN.md](./PHASE12-BLOCKCHAIN-PLAN.md) (introduces `air_id` frontmatter field).
+**Reference:** `lib/air.mjs` (current implementation), [BLOCKCHAIN-AND-AGENT-PAYMENTS.md](./BLOCKCHAIN-AND-AGENT-PAYMENTS.md) and [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) (Phase 12 — `air_id` frontmatter field).
 
 ---
 

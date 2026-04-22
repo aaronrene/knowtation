@@ -306,7 +306,7 @@ curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
 
 Some teams run [Muse](https://github.com/cgcardona/muse) alongside Knowtation for **structural / Git-replayed history** (read-only lineage queries). If you do, keep Muse on **operator-controlled** credentials—never on an unauthenticated public URL for end users. When you **approve** a proposal, you may set **`external_ref`** to a Muse commit or branch id so the approved change is traceable across systems.
 
-A **full Knowtation domain plugin inside Muse** (variations stored in Muse’s DAG, merge engine owned by Muse) is **not** a supported product path unless a concrete partner or deployment needs it. Long-form background for maintainers: [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md).
+A **full Knowtation domain plugin inside Muse** (variations stored in Muse’s DAG, merge engine owned by Muse) is **not** a supported product path unless a concrete partner or deployment needs it. The **thin bridge** and operator flow are documented in [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md) and in §4 of this file.
 
 ---
 

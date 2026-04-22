@@ -168,7 +168,7 @@ This section ties the vision to **today’s Knowtation design** and **plausible 
 ### Knowtation ↔ Muse / MuseHub
 
 - **Implemented today:** Hub proposals carry `base_state_id`, `intent`, and optional `external_ref`. Canonical state stays the vault and Hub; [Muse](https://github.com/cgcardona/muse) is optional. See [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4 and [HUB-API.md](./HUB-API.md).
-- **Optional operator linkage:** Read-only Muse connectivity for lineage; on approve, `external_ref` may point at a Muse commit or branch id. Same section in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4; maintainer depth in [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md).
+- **Optional operator linkage:** Read-only Muse connectivity for lineage; on approve, `external_ref` may point at a Muse commit or branch id. Same section in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) §4; optional Muse merge-engine integration remains deferred — see [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md) and §4 in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
 - **Full Knowtation domain plugin in Muse (deferred):** Snapshot/diff/merge of vault-shaped state inside Muse’s DAG—large effort; pursued when ecosystem or partner need is concrete.
 - **MuseHub hosting:** Vaults in Git today can live on any host; MuseHub as a **home for repos** that include markdown knowledge trees is a product direction, not a Knowtation requirement.
 - **CRDT / multi-agent writes:** Muse documents CRDT-style plugins for convergent collaboration; pairing that with Hub proposals would be a deliberate product decision.
@@ -176,7 +176,7 @@ This section ties the vision to **today’s Knowtation design** and **plausible 
 ### Knowtation ↔ AgentCeption
 
 - **Implemented patterns:** Shared vault path, CLI `--json` in worktrees, MCP where the runtime supports it; write-back with `source=agentception` and dates. See [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md), [GETTING-STARTED.md](./GETTING-STARTED.md), and `scripts/write-to-vault.sh`.
-- **Longer-term ideas (GitHub Issue #2):** “AgentCeption × Knowtation — The Infinite Machine Brain” tracks cognitive identity from vault, causal chains, async messaging, indexed codebases, and similar themes—intentionally sequenced after hosted stability. Historical phase tables: [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md).
+- **Longer-term ideas (GitHub Issue #2):** “AgentCeption × Knowtation — The Infinite Machine Brain” tracks cognitive identity from vault, causal chains, async messaging, indexed codebases, and similar themes—intentionally sequenced after hosted stability. Sequencing rationale is summarized in [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) and [STATUS-HOSTED-AND-PLANS.md](./STATUS-HOSTED-AND-PLANS.md).
 
 ### Muse / MuseHub ↔ AgentCeption
 
@@ -215,7 +215,7 @@ This section ties the vision to **today’s Knowtation design** and **plausible 
 
 ## Part 6 — Roadmap and phasing
 
-This is a **coordination sketch** across repos. Knowtation’s delivery phases: [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). **Agent integration (CLI, MCP, Hub API, proposals):** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md). Historical MCP/Muse design notes: [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md), [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md).
+This is a **coordination sketch** across repos. Knowtation’s delivery phases: [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md). **Agent integration (CLI, MCP, Hub API, proposals):** [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md). Muse optional linkage: [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md).
 
 | Phase | Scope |
 |-------|--------|
@@ -232,8 +232,6 @@ This is a **coordination sketch** across repos. Knowtation’s delivery phases: 
 
 - [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) — Single entry for CLI, MCP, Hub API, proposals, hosted MCP  
 - [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) — Multi-agent patterns (containers, worktrees, write-back)  
-- [archive/MUSE-STYLE-EXTENSION.md](./archive/MUSE-STYLE-EXTENSION.md) — Archived deep-dive on Muse alignment  
-- [archive/BACKLOG-MCP-SUPERCHARGE.md](./archive/BACKLOG-MCP-SUPERCHARGE.md) — Archived GitHub Issues #1 / #2 phase tables  
 - [WHITEPAPER.md](./WHITEPAPER.md) — Thesis, retrieval, agents  
 - [TEAMS-AND-COLLABORATION.md](./TEAMS-AND-COLLABORATION.md) — Hub roles and shared vaults  
 
