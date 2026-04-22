@@ -3369,6 +3369,43 @@
     dot.title = hasToken ? 'Token available — signed in' : 'No token — sign in to enable';
   }
 
+  const btnCopyMcpPrime = el('btn-copy-mcp-prime');
+  if (btnCopyMcpPrime) {
+    btnCopyMcpPrime.onclick = () => {
+      const base = String(apiBase || '').replace(/\/$/, '');
+      const vaultId = getCurrentVaultId() || 'default';
+      const msg = el('integrations-hub-api-copy-msg');
+      const payload = {
+        schema: 'knowtation.hub_copy_prime/v1',
+        mcp_read_resource_uri: 'knowtation://hosted/prime',
+        instructions:
+          'Point your MCP client at {KNOWTATION_HUB_URL}/mcp with Authorization and X-Vault-Id (see docs/AGENT-INTEGRATION.md). After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob.',
+        KNOWTATION_HUB_URL: base,
+        KNOWTATION_HUB_VAULT_ID: vaultId,
+      };
+      const snippet = JSON.stringify(payload, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(snippet).then(() => {
+          if (msg) {
+            msg.textContent = 'Copied prime (URI + hub URL + vault id; no JWT).';
+            msg.className = 'settings-msg';
+          }
+          setTimeout(() => {
+            if (msg) msg.textContent = '';
+          }, 2800);
+        }).catch(() => {
+          if (msg) {
+            msg.textContent = 'Copy failed';
+            msg.className = 'settings-msg err';
+          }
+        });
+      } else if (msg) {
+        msg.textContent = 'Clipboard not available';
+        msg.className = 'settings-msg err';
+      }
+    };
+  }
+
   const btnCopyHubApiEnv = el('btn-copy-hub-api-env');
   if (btnCopyHubApiEnv) {
     btnCopyHubApiEnv.onclick = () => {

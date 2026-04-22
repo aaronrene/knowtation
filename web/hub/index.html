@@ -1155,8 +1155,10 @@ Your note body here.</pre>
             </details>
             <div class="settings-actions settings-hub-api-copy-actions" style="margin-top: 0.65rem;">
               <button type="button" id="btn-copy-hub-api-env" class="btn-primary">Copy Hub URL, token &amp; vault</button>
+              <button type="button" id="btn-copy-mcp-prime" class="btn-secondary">Copy prime</button>
               <span id="integrations-hub-api-copy-msg" class="settings-msg"></span>
             </div>
+            <p class="settings-intro small"><strong>Copy prime</strong> puts a small JSON blob on the clipboard: MCP <code>readResource</code> URI <code>knowtation://hosted/prime</code>, this gateway base URL, and the current vault id — <strong>not</strong> your JWT (use <strong>Copy Hub URL, token &amp; vault</strong> for secrets). After your MCP client connects with valid headers, read that resource for session context and prompt names registered for your role.</p>
             <p class="settings-intro small settings-hub-api-doc-ref">Full agent reference (CLI, MCP, Hub API, no separate signup): <code>docs/AGENT-INTEGRATION.md</code>.</p>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">

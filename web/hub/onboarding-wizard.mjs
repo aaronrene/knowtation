@@ -158,7 +158,7 @@ export function getStepContent(isHosted, index) {
         bodyHtml:
           '<p>Open <strong>Settings → Integrations</strong> while signed in. Copy the <strong>Hub base URL</strong>, <strong>Bearer token</strong>, and <strong>vault id</strong> for remote MCP (e.g. Cursor <code>knowtation-hosted</code>) or REST calls.</p>' +
           '<p>The Integrations tab shows the same JSON shape as the docs: <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code> on <code>POST …/mcp</code> or <code>/api/v1/search</code>, etc.</p>' +
-          '<p class="onboarding-tip"><strong>Copy MCP</strong> lives on that tab. A future <strong>Copy prime</strong> bootstrap (MCP resource) is planned in Phase 4 of the product checklist — not required to finish today’s setup.</p>' +
+          '<p class="onboarding-tip"><strong>Copy MCP</strong> and <strong>Copy prime</strong> (small JSON + <code>knowtation://hosted/prime</code> for <code>readResource</code> after connect — no JWT in the prime blob) live on that tab.</p>' +
           '<p class="onboarding-tip">Deep reference: <a href="' +
           DOCS_BASE +
           '/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration</a> (CLI, MCP, Hub API).</p>',
@@ -219,7 +219,7 @@ export function getStepContent(isHosted, index) {
         title: 'Power tools for agents',
         bodyHtml:
           '<p>Hosted MCP exposes the same operations as the CLI for vault work: <strong>search</strong> (semantic or keyword), <strong>get_note</strong>, <strong>list_notes</strong>, <strong>write</strong>, <strong>propose</strong>, <strong>import</strong>, <strong>index</strong>, and more — with role gates (viewer vs editor vs admin).</p>' +
-          '<p><strong>MCP prompts</strong> (read-only compositions and workflows) are listed on connect; names include reads like <strong>temporal-summary</strong>, <strong>knowledge-gap</strong>, <strong>meeting-notes</strong>, <strong>causal-chain</strong>, and write-gated flows such as <strong>write-from-capture</strong> where your role allows.</p>' +
+          '<p><strong>MCP prompts</strong> (composition templates) are registered per your role — use <code>prompts/list</code> after connect for the exact set on <em>this</em> deployment. Inventory (subset): <strong>daily-brief</strong>, <strong>search-and-synthesize</strong>, <strong>project-summary</strong>, <strong>temporal-summary</strong>, <strong>content-plan</strong>, <strong>meeting-notes</strong>, <strong>knowledge-gap</strong>, <strong>causal-chain</strong>, <strong>extract-entities</strong>, <strong>write-from-capture</strong> (editor+), <strong>memory-context</strong>, <strong>memory-informed-search</strong>, <strong>resume-session</strong>. The <strong>Copy prime</strong> JSON points at <code>knowtation://hosted/prime</code>, which repeats the prompt names allowed for your current session.</p>' +
           '<p class="onboarding-tip">One page for tools, REST, CLI, and proposal semantics: <a href="' +
           DOCS_BASE +
           '/AGENT-INTEGRATION.md" target="_blank" rel="noopener">AGENT-INTEGRATION.md</a>.</p>' +
