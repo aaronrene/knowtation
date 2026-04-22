@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260422b">
+  <link rel="stylesheet" href="hub.css?v=20260423a">
 </head>
 <body>
   <div id="app">
@@ -21,6 +21,7 @@
         <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
         <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
         <button type="button" id="btn-import" class="hidden btn-secondary">Import</button>
+        <button type="button" id="btn-header-suggested" class="hidden btn-secondary" title="Review proposals waiting for approval">Suggested</button>
         <span id="user-name" class="muted"></span>
         <span id="login-buttons-wrap" class="login-buttons-wrap hidden"></span>
         <button id="btn-login-google" type="button" class="hidden btn-provider">Continue with Google</button>
@@ -1143,9 +1144,10 @@ Your note body here.</pre>
                 <hr class="settings-hr settings-advanced-ecosystems-inner-hr">
                 <h3 class="settings-h3 integ-section-heading">
                   <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-                  AgentCeption (shared vault for agents)
+                  AgentCeption <span class="settings-label-hint">(self-hosted — shared disk vault)</span>
                 </h3>
-                <p class="settings-intro small">Use Knowtation as the shared context for planner and engineer agents. One vault path for the whole setup.</p>
+                <p class="settings-intro small"><strong>Hosted beta users:</strong> you typically connect tools with Hub API above; skip this unless you run multi-agent setups against a shared local vault path.</p>
+                <p class="settings-intro small"><strong>Self-hosted:</strong> Use Knowtation as shared context for planner and engineer agents — one on-disk vault path for the whole setup.</p>
                 <h4 class="settings-h4">How to connect AgentCeption</h4>
                 <p class="settings-intro small">Set the same vault path in the planner and every engineer. Copy the env snippet below into each environment.</p>
                 <div class="settings-form">
@@ -1164,7 +1166,13 @@ Your note body here.</pre>
               Hub API
               <span id="integ-api-status" class="integ-status-dot" title="No token copied yet"></span>
             </h3>
-            <p class="settings-intro small">Agents and scripts use the <strong>same sign-in as this Hub</strong>—no separate API account. Works on <strong>hosted</strong> (e.g. knowtation.store gateway) and <strong>self-hosted</strong> Hub: the copied base URL is whatever gateway this page is talking to. After you log in, use <strong>Copy Hub URL, token &amp; vault</strong> to copy <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (a time-limited API token), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. <strong>Keep this block private</strong> (like a password). Your logged-in Hub tab uses the normal session cookie; the copied values are for tools, curl, and MCP outside the browser.</p>
+            <p class="settings-intro small">There is no separate “API signup.” You already signed in above — tools outside the browser (Cursor, scripts, curl, MCP) need a <strong>copy-paste block</strong> from this page. After you log in, click <strong>Copy Hub URL, token &amp; vault</strong> and treat that paste like a <strong>password</strong> (do not share it).</p>
+            <details class="how-to-details">
+              <summary>Technical details — env var names, cookies, hosted vs self-hosted</summary>
+              <div class="how-to-details-body">
+                <p class="settings-intro small" style="margin: 0;">The button copies lines such as <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (time-limited API token), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. The base URL is always <strong>this Hub’s gateway</strong> — hosted (for example knowtation.store) or your own self-hosted Hub. Your <strong>browser tab</strong> keeps a normal session cookie; the pasted block is for MCP, CLI, and automation outside the browser.</p>
+              </div>
+            </details>
             <details class="settings-json-details settings-hub-api-troubleshoot">
               <summary class="settings-json-details-summary">Troubleshoot: API token, automations, and HTTP headers</summary>
               <div class="settings-troubleshoot-body">
@@ -1178,7 +1186,13 @@ Your note body here.</pre>
               <button type="button" id="btn-copy-mcp-prime" class="btn-secondary">Copy prime</button>
               <span id="integrations-hub-api-copy-msg" class="settings-msg"></span>
             </div>
-            <p class="settings-intro small"><strong>Copy prime</strong> puts a small JSON blob on the clipboard: MCP <code>readResource</code> URI <code>knowtation://hosted/prime</code>, this gateway base URL, and the current vault id — <strong>not</strong> your JWT (use <strong>Copy Hub URL, token &amp; vault</strong> for secrets). After your MCP client connects with valid headers, read that resource for session context and prompt names registered for your role.</p>
+            <p class="settings-intro small"><strong>Copy prime</strong> saves a small JSON <strong>reminder</strong> to the clipboard: which Hub you are on and which vault. It does <strong>not</strong> contain your sign-in secret — use <strong>Copy Hub URL, token &amp; vault</strong> for that.</p>
+            <details class="how-to-details">
+              <summary>Technical details — MCP <code>readResource</code> and prime URI</summary>
+              <div class="how-to-details-body">
+                <p class="settings-intro small" style="margin: 0;">The JSON includes the MCP <code>readResource</code> URI <code>knowtation://hosted/prime</code>, this gateway’s base URL, and the current vault id — <strong>not</strong> your JWT. After your MCP client connects with valid <code>Authorization</code> and <code>X-Vault-Id</code> headers, it may read that resource for session context and which MCP prompt names are registered for your role (or use <code>prompts/list</code>).</p>
+              </div>
+            </details>
             <p class="settings-intro small settings-hub-api-doc-ref">Full agent reference (CLI, MCP, Hub API, no separate signup): <code>docs/AGENT-INTEGRATION.md</code>.</p>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">
@@ -1198,7 +1212,13 @@ Your note body here.</pre>
               <span class="settings-label">Ollama URL</span>
               <span id="agents-embedding-ollama-url" class="settings-value">—</span>
             </div>
-            <p class="settings-intro small">Use <strong>Hub API</strong> above for <code>KNOWTATION_HUB_URL</code>, JWT, and vault id. The button below copies <em>only</em> embedding-related lines so indexers match this Hub.</p>
+            <p class="settings-intro small">Use <strong>Copy Hub URL, token &amp; vault</strong> (Hub API section above) for connection secrets. The button below copies <em>only</em> embedding-related lines so a local indexer matches this Hub.</p>
+            <details class="how-to-details">
+              <summary>Technical details — embedding env lines</summary>
+              <div class="how-to-details-body">
+                <p class="settings-intro small" style="margin: 0;">Those lines align Ollama / provider URL and model with this deployment; they are separate from <code>KNOWTATION_HUB_URL</code> / token / vault id.</p>
+              </div>
+            </details>
             <div class="settings-actions" style="margin-top: 0.5rem;">
               <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy embedding env</button>
               <span id="agents-copy-msg" class="settings-msg"></span>

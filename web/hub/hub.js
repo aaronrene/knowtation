@@ -65,6 +65,7 @@
   const btnLogout = el('btn-logout');
   const btnNewNote = el('btn-new-note');
   const btnImport = el('btn-import');
+  const btnHeaderSuggested = el('btn-header-suggested');
   const btnHowToUse = el('btn-how-to-use');
   const btnSettings = el('btn-settings');
   const browseToolbar = el('browse-toolbar');
@@ -242,6 +243,7 @@
       browseToolbar.classList.add('hidden');
       btnNewNote.classList.add('hidden');
       if (btnImport) btnImport.classList.add('hidden');
+      if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
       if (btnHowToUse) btnHowToUse.classList.add('hidden');
       if (btnSettings) btnSettings.classList.add('hidden');
       showLoginChrome();
@@ -661,7 +663,7 @@
   let onboardingModulePromise = null;
   function loadOnboardingModule() {
     if (!onboardingModulePromise) {
-      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260421a');
+      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260424');
     }
     return onboardingModulePromise;
   }
@@ -676,9 +678,25 @@
     }
   }
 
+  /**
+   * Choose the 9-step hosted wizard vs the short self-hosted wizard.
+   * Canister vault from API = hosted. Production Hub hostname = hosted even if settings
+   * have not hydrated yet (avoids showing disk-path steps on knowtation.store).
+   */
+  function wizardHostedFromContext(settingsPayload) {
+    const s = settingsPayload !== undefined ? settingsPayload : lastBackupSettingsPayload;
+    const vd = String(s && s.vault_path_display ? s.vault_path_display : '').toLowerCase();
+    if (vd === 'canister') return true;
+    try {
+      const h = typeof location !== 'undefined' && location.hostname ? String(location.hostname).toLowerCase() : '';
+      if (h === 'knowtation.store' || h === 'www.knowtation.store') return true;
+    } catch (_) {}
+    return false;
+  }
+
   function persistOnboardingProgress(mod, partial) {
     const userKey = getOnboardingUserKey();
-    const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+    const isHosted = wizardHostedFromContext();
     const hostingPath = isHosted ? 'hosted' : 'selfhosted';
     let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
     if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
@@ -788,7 +806,7 @@
 
     onboardingRenderStep = function renderOnboardingStep() {
       const userKey = getOnboardingUserKey();
-      const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+      const isHosted = wizardHostedFromContext();
       const hostingPath = isHosted ? 'hosted' : 'selfhosted';
       let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
       if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
@@ -841,7 +859,7 @@
     if (btnNext) {
       btnNext.addEventListener('click', () => {
         const userKey = getOnboardingUserKey();
-        const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+        const isHosted = wizardHostedFromContext();
         const hostingPath = isHosted ? 'hosted' : 'selfhosted';
         let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY)) || mod.createFreshState(userKey, hostingPath);
         if (st.userKey !== userKey || st.hostingPath !== hostingPath) st = mod.createFreshState(userKey, hostingPath);
@@ -877,7 +895,7 @@
     const mod = await loadOnboardingModule();
     bindOnboardingWizardOnce(mod);
     const userKey = getOnboardingUserKey();
-    const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+    const isHosted = wizardHostedFromContext();
     const hostingPath = isHosted ? 'hosted' : 'selfhosted';
     if (restart) {
       localStorage.setItem(mod.ONBOARDING_LS_KEY, mod.serializeOnboardingState(mod.createFreshState(userKey, hostingPath)));
@@ -900,7 +918,7 @@
     try {
       const mod = await loadOnboardingModule();
       const userKey = getOnboardingUserKey();
-      const isHosted = String(s.vault_path_display || '').toLowerCase() === 'canister';
+      const isHosted = wizardHostedFromContext(s);
       const hostingPath = isHosted ? 'hosted' : 'selfhosted';
       let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
       if (st && st.userKey !== userKey) st = null;
@@ -932,17 +950,20 @@
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
         if (btnImport) btnImport.classList.toggle('hidden', isViewer);
+        if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
         if (btnImport) btnImport.classList.remove('hidden');
+        if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
       }
     } else {
       if (btnNewNote) btnNewNote.classList.add('hidden');
       if (btnImport) btnImport.classList.add('hidden');
+      if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
     }
   }
 
@@ -986,6 +1007,7 @@
     browseToolbar.classList.add('hidden');
     btnNewNote.classList.add('hidden');
     if (btnImport) btnImport.classList.add('hidden');
+    if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
     if (btnHowToUse) btnHowToUse.classList.add('hidden');
     if (btnSettings) btnSettings.classList.add('hidden');
     closeOnboardingWizardResume();
@@ -2189,7 +2211,11 @@
 
   async function loadProposals() {
     const emptySuggested =
-      '<div class="empty-state">No proposals waiting for review. Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</div>';
+      '<div class="empty-state empty-state-suggested">' +
+      '<p><strong>No proposals waiting for review.</strong> Agents and the CLI queue edits here; nothing applies to your live vault until you approve.</p>' +
+      '<p>Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</p>' +
+      '<p class="empty-state-suggested-actions"><button type="button" class="btn-secondary" id="empty-suggested-how-to">How proposals work</button></p>' +
+      '</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
     [
@@ -2205,6 +2231,10 @@
           list = applySortedProposalsClient(list);
           if (list.length === 0) {
             container.innerHTML = emptyHtml;
+            if (kind === 'suggested') {
+              const how = container.querySelector('#empty-suggested-how-to');
+              if (how) how.onclick = () => openHowToUse('knowledge-agents');
+            }
             return;
           }
           const canDiscard = kind === 'suggested' && hubUserCanWriteNotes();
@@ -2269,7 +2299,14 @@
       let list = out.proposals || [];
       list = applySortedProposalsClient(list);
       if (list.length === 0) {
-        container.innerHTML = '<div class="empty-state">No proposal activity yet.</div>';
+        container.innerHTML =
+          '<div class="empty-state empty-state-activity">' +
+          '<p>No proposal activity yet.</p>' +
+          '<p class="muted small">Pending reviews from agents or the CLI appear under the <strong>Suggested</strong> tab first; this tab is the timeline once things move.</p>' +
+          '<p class="empty-state-activity-actions"><button type="button" class="btn-secondary" id="empty-activity-goto-suggested">Open Suggested tab</button></p>' +
+          '</div>';
+        const go = container.querySelector('#empty-activity-goto-suggested');
+        if (go) go.onclick = () => switchHubMainTab('suggested');
         return;
       }
       const canDiscard = hubUserCanWriteNotes();
@@ -7097,6 +7134,9 @@
       switchHubMainTab(tab.dataset.tab);
     };
   });
+  if (btnHeaderSuggested) {
+    btnHeaderSuggested.addEventListener('click', () => switchHubMainTab('suggested'));
+  }
 
   function escapeHtml(s) {
     const div = document.createElement('div');

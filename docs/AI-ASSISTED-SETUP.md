@@ -2,7 +2,46 @@
 
 Set up Knowtation with an AI coding assistant. Each phase below has a **simple title**, a **one-line goal**, a **copy-paste prompt**, then **technical notes** in short bullets so nothing feels like a wall of text.
 
-**How to use this page:** Pick a phase → paste the prompt into your assistant → skim the technical notes only if something fails or you want to know *why*.
+**How to use this page:** If you use the **hosted Hub** at [knowtation.store](https://knowtation.store/hub/), read **[Hosted Hub](#hosted-hub-knowtationstore)** first. The numbered **phases** below are for **self-hosted** installs (clone repo, local vault, `npm run hub`). Pick a phase → paste the prompt into your assistant → skim the technical notes only if something fails or you want to know *why*.
+
+---
+
+## ☁️ Hosted Hub (knowtation.store)
+
+**Goal:** Sign in, copy integration values for your AI tools, and know where **agent and CLI edits** wait for you ([human gate](./WHY-KNOWTATION.md): proposals stay out of the canonical vault until approval).
+
+**You need**
+
+- A browser
+- A Google or GitHub account (sign-in)
+
+**Steps in the Hub**
+
+1. Open the hosted Hub (for example **[https://knowtation.store/hub/](https://knowtation.store/hub/)** — or your operator’s `/hub/` URL if different).
+2. **Sign in** with Google or GitHub.
+3. Open **Settings → Integrations**. Copy what your assistant needs:
+   - **Hub base URL** — gateway root for REST and MCP.
+   - **Bearer token** and **vault id** — used as `Authorization: Bearer …` and `X-Vault-Id` on requests (see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)).
+   - **Copy MCP** — paste into your MCP client configuration.
+   - **Copy prime** — small JSON for MCP bootstrap; after your client connects to MCP, it can `readResource` **`knowtation://hosted/prime`**. The prime blob does **not** contain your JWT.
+4. **Review proposals** — Queued edits from agents or the CLI appear under the **Suggested** tab (also reachable from the **Suggested** button in the header when signed in). Approve writes to the vault or discard. See [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) (proposals) and [AGENT-INTEGRATION.md §4](./AGENT-INTEGRATION.md#4-proposals-review-before-commit).
+5. **In-app help** — Click **How to use** in the header for guides: **Getting started** (includes **Open setup walkthrough** — the onboarding wizard), **Setup**, **Knowledge & agents**, and more.
+
+**Paste this prompt into your assistant**
+
+```
+I'm using Knowtation on the hosted Hub in the browser (not a local clone). Help me:
+1. Confirm I can sign in and open Settings → Integrations.
+2. Explain what to copy: Hub base URL, Bearer token, vault id, Copy MCP, and Copy prime — and that prime is read after MCP connects (no JWT in the prime blob).
+3. Tell me where to review agent/CLI proposals (Suggested tab) and point to docs/AGENT-INTEGRATION.md §4 and docs/WHY-KNOWTATION.md for the human gate.
+4. Mention the in-app How to use modal and the setup walkthrough wizard for onboarding.
+```
+
+**Technical notes**
+
+- Hosted OAuth and gateway configuration are operator concerns; you do not need `config/local.yaml` on your PC for the cloud vault.
+- Client-specific MCP wiring beyond the copy buttons: [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md), [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md).
+- Running your **own** Hub on localhost or a server follows **Phase 1–4** below and [setup.md](./setup.md).
 
 ---
 
@@ -23,7 +62,7 @@ Prompts are IDE-agnostic unless noted.
 
 **Goal:** Confirm you have the basics before phase 1.
 
-**You need**
+**You need** (skip Node and the repo if you only use the browser Hub — see [Hosted Hub](#hosted-hub-knowtationstore))
 - Node.js **18+**
 - A terminal
 - This repo open in your AI IDE
@@ -91,9 +130,9 @@ Now index my vault and verify search works:
 
 ## 🌐 Phase 3 — Hub setup (optional, ~3 min)
 
-**Goal:** Browser UI at `http://localhost:3333`.
+**Goal:** Browser UI at `http://localhost:3333` for **self-hosted** installs.
 
-Skip if you only want CLI/MCP.
+Skip if you only want CLI/MCP. **Hosted** users already use the Hub in the browser ([Hosted Hub](#hosted-hub-knowtationstore)); this phase runs the Hub from a clone.
 
 **Paste this prompt**
 
@@ -329,6 +368,7 @@ Knowtation memory isn't capturing events. Debug this:
 
 ## 🧭 Next steps
 
+- **Hosted path:** [WHY-KNOWTATION.md](./WHY-KNOWTATION.md) (positioning, proposals), [Hosted Hub](#hosted-hub-knowtationstore) above
 - **Whitepaper (thesis + depth):** [WHITEPAPER.md](./WHITEPAPER.md)
 - **MCP tools to try:** `search`, `memory_query`, **`daily-brief`** prompt
 - **Imports:** [IMPORT-SOURCES.md](./IMPORT-SOURCES.md)

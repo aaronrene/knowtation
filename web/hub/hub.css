@@ -1305,6 +1305,8 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .how-to-details summary:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .how-to-details summary::-webkit-details-marker { display: none; }
 .how-to-details-body { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.9rem; line-height: 1.5; }
+/* Settings modals: stack technical <details> under short leads (Integrations, etc.) */
+.settings-body .how-to-details { margin-top: 0.65rem; }
 .how-to-steps-list { margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
 .how-to-steps-list li { margin-bottom: 0.5rem; }
 .settings-list { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.55; }
@@ -2603,6 +2605,16 @@ ul.onboarding-import-cards li {
 }
 .onboarding-copy-row {
   margin: 0.5rem 0 0;
+}
+
+.onboarding-step-body .how-to-details {
+  margin-top: 0.65rem;
+}
+
+/* Proposal list empty states (Suggested / Activity) */
+.empty-state-suggested-actions,
+.empty-state-activity-actions {
+  margin: 0.75rem 0 0;
 }
 
 /* Empty vault reminder when onboarding was skipped (Skip for now) */
