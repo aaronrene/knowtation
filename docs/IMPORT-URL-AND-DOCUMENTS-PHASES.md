@@ -121,12 +121,42 @@ So: **entire-folder ingest already exists on the CLI** for supported types. **In
 
 **Complexity:** **Low–medium** (80–150 lines of client wiring + HTML/CSS; browser variance in directory drops).
 
-### Recommended order (next implementation pass) — 4A₂/4B/4C done
+### 4V — Pre-merge hosted verification
+
+**Status:** **Operational** — this subsection is the full 4V gate. This is the **import** verification track, **not** [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md) “Phase 5” (wizard).
+
+**Goal:** Before merge (or before relying on a hosted release), **prove** bridge-backed `POST /api/v1/import` works in the real gateway + static Hub bundle, including **4C** (same HTTP path as **Choose folder**; client-only diff).
+
+**Premises (code):** Hosted `POST /api/v1/import` is `proxyImportToBridge` on the gateway when `BRIDGE_URL` is set ([`hub/gateway/server.mjs`](../hub/gateway/server.mjs)). If `BRIDGE_URL` is unset, the gateway returns **501** and `code: NOT_AVAILABLE`. **4C** only changes how the browser builds `File[]` in [`web/hub/hub.js`](../web/hub/hub.js).
+
+```mermaid
+flowchart LR
+  subgraph client [Hub browser]
+    Drop4C[4C drop builds File array]
+    ZipSeq[JSZip or sequential]
+  end
+  subgraph gw [Gateway]
+    ImportPOST["POST /api/v1/import"]
+    Proxy["proxyImportToBridge"]
+  end
+  subgraph br [Bridge]
+    RunImport["runImport to canister"]
+  end
+  Drop4C --> ZipSeq
+  ZipSeq --> ImportPOST
+  ImportPOST --> Proxy
+  Proxy --> RunImport
+```
+
+**4V checks (copy into PR as evidence):** **V1** `BRIDGE_URL` on the **gateway** = bridge **origin** only (`https://…`, no path) — [hub/gateway/README.md](../hub/gateway/README.md). **V2** (optional) env without `BRIDGE_URL` → `POST /api/v1/import` returns **501** + `NOT_AVAILABLE`. **V3** With bridge: **Markdown** + small `.md` tree — **Choose folder** once, **4C** drop once (Chromium) — same Network pattern for `client_zip` (e.g. one `hub-bulk.zip`) and >0 notes. **V4** After deploy, `hub.js?v=…` and `#import-drop-zone` in the Import modal. **V5** (optional) `GET {BRIDGE}/api/v1/bridge-version`. **V6** If `BILLING_ENFORCE`, import not blocked. **V7** Small fixtures (hosted timeouts). **Waiver:** If time-critical, state in the PR; follow up in an issue.
+
+### Recommended order (next implementation pass) — 4A₂/4B/4C done; 4V before merge
 
 1. **4A₂ (JSZip)** — **shipped.**
 2. **4B** (multi + folder) — **shipped** (sequential, no new HTTP body).
 3. **4C** (import modal drop zone) — **shipped.**
-4. **Optional next:** documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) (HTTP shape unchanged; limits are product caps).
+4. **4V** (hosted verification) — complete **§4V** checks above before merge of Hub import or gateway `proxyImport` changes.
+5. **Optional next:** documented limits in [`openapi.yaml`](./openapi.yaml) / [`HUB-API.md`](./HUB-API.md) (HTTP shape unchanged; limits are product caps).
 
 **Recommendation:** Treat **4A + 4A₂ + 4B + 4C** as a stacked story: copy explains behavior; JSZip reduces friction for ZIP-shaped flows; 4B/4C cover users who never zip. None of these replace the others.
 
@@ -165,7 +195,7 @@ Ease of import **does** affect adoption. Order of impact:
 
 - [`test/import-url-importer.test.mjs`](../test/import-url-importer.test.mjs) does a **real** HTTPS request to `https://example.com/` (with `dryRun`). If your environment **blocks DNS or outbound HTTPS** (e.g. some local sandboxes), the test can fail with `getaddrinfo ENOTFOUND` or similar. **That is not a regression from the Hub bulk work.**
 - **CI** (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) `npm test` on `ubuntu-latest`) has normal network, so this test is expected to **pass** there.
-- **New code tests:** `node --test test/hub-client-import-zip.test.mjs` (mode rules + small JSZip build). There is no browser E2E in the repo for the Hub UI; use [`IMPORT-MANUAL-CHECKLIST.md`](./IMPORT-MANUAL-CHECKLIST.md) § “Hub — Phase 4A₂, 4B, and 4C” for a quick hands-on check.
+- **New code tests:** `node --test test/hub-client-import-zip.test.mjs` (mode rules + small JSZip build). There is no browser E2E in the repo for the Hub UI; use [`IMPORT-MANUAL-CHECKLIST.md`](./IMPORT-MANUAL-CHECKLIST.md) § “Hub — Phase 4A₂, 4B, and 4C” and **§4V** (hosted) above.
 
 ### Canister / on-chain
 
@@ -173,7 +203,7 @@ Ease of import **does** affect adoption. Order of impact:
 
 ### Merge to `main`
 
-- **Reasonable to merge** when: **CI is green** on the PR, you’re happy with a **short manual** pass in the Import modal (self-hosted `npm run hub` or hosted with bridge), and you’re ready to **coordinate deploy** (gateway/bridge/Hub static assets) if you ship hosted. No extra canister work for this feature alone.
+- **Reasonable to merge** when: **CI is green** on the PR, **4V** (this doc §4V) is **complete** for PRs that change `web/hub` **Import** flows or gateway **`proxyImport` / `POST /api/v1/import`** (or a **waiver** is recorded in the PR), plus a **short manual** pass in the Import modal (self-hosted `npm run hub` and/or **hosted with `BRIDGE_URL`**, deploy preview or production as appropriate), and you’re ready to **coordinate deploy** (gateway/bridge/Hub static assets). No extra canister work for this feature alone.
 
 ### Optional follow-up work (not blocking merge)
 

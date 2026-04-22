@@ -19,6 +19,10 @@ GitHub shows **“Be careful! … redirect_uri is not associated with this appli
 
 **Self-hosted:** `HUB_BASE_URL` must match the host/port in these URLs (see [hub/README.md](../hub/README.md) § GitHub). **Hosted bridge:** `HUB_BASE_URL` on the bridge site must match the `https://…` origin used in the bridge callback row.
 
+**Hosted gateway `HUB_BASE_URL`:** Must be the **gateway** site’s public origin (for example `https://knowtation-gateway.netlify.app` or your production custom domain) — the same host users use to log in via the **gateway** (Passport `callbackURL` uses `HUB_BASE_URL` + `/auth/callback/...`). It must **not** be the **bridge** origin. **Deploy Preview** in Netlify should use the same pattern for that preview’s host.
+
+**Netlify-only env names:** This repo’s bridge code does **not** read a variable named `BRIDGE_REDIRECT_URL`, and there is **no** route `GET /api/v1/callback` on the bridge. If you have such a variable, it does not implement Connect GitHub by itself. The GitHub **Authorization callback URL** for **Connect GitHub (vault push)** on the **bridge** must be exactly **`https://<bridge-host>/auth/callback/github-connect`** (table row above), as implemented in [hub/bridge/server.mjs](../hub/bridge/server.mjs).
+
 ---
 
 ## 1. Does empty Local Storage mean we need to redeploy?
