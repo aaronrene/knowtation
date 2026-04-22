@@ -21,6 +21,11 @@ describe('lib/shims/promise-try', () => {
       await import(base.href);
       assert.equal(typeof Promise.try, 'function');
       assert.equal(await Promise.try(() => 7), 7);
+      assert.equal(
+        await Promise.try((a, b) => a + b, 2, 3),
+        5,
+        'Promise.try(fn, ...args) must forward args (PDF.js workers rely on this)',
+      );
       const err = new Error('sync-fail');
       await assert.rejects(
         () => Promise.try(() => { throw err; }),
