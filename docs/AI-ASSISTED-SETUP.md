@@ -25,7 +25,7 @@ Set up Knowtation with an AI coding assistant. Each phase below has a **simple t
    - **Copy MCP** — paste into your MCP client configuration.
    - **Copy prime** — small JSON for MCP bootstrap; after your client connects to MCP, it can `readResource` **`knowtation://hosted/prime`**. The prime blob does **not** contain your JWT.
 4. **Review proposals** — Queued edits from agents or the CLI appear under the **Suggested** tab (also reachable from the **Suggested** button in the header when signed in). Approve writes to the vault or discard. See [WHITEPAPER.md](./WHITEPAPER.md) (product framing) and [AGENT-INTEGRATION.md §4](./AGENT-INTEGRATION.md#4-proposals-review-before-commit).
-5. **In-app help** — Click **How to use** in the header for guides: **Getting started** (includes **Open setup walkthrough** — the onboarding wizard), **Setup**, **Knowledge & agents**, and more.
+5. **In-app help** — Click **How to use** in the header for guides: **Getting started** (includes **Open setup walkthrough** — the onboarding wizard), **Setup**, **Knowledge & agents** (includes a short take on linked notes, synthesis, and a link to **popular prompts** on GitHub), and more. Full prompt list: [POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md).
 
 **Paste this prompt into your assistant**
 
@@ -55,6 +55,8 @@ Works anywhere you can run shell commands and edit files:
 - **Any MCP-capable agent** that can execute commands
 
 Prompts are IDE-agnostic unless noted.
+
+**Popular starters (all assistants):** For a **printable** list of MCP prompt names, **copy-paste** instructions that work even without MCP, and **CLI** one-liners (search, propose, consolidate, etc.), use **[POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md)**. The **Hosted Hub** also links to the same page from **How to use → Knowledge & agents** (short summary in-app, full detail on GitHub).
 
 ---
 

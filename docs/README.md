@@ -22,6 +22,7 @@ Internal roadmaps, deploy runbooks, and session handoffs live outside this tree 
 | Doc | Purpose |
 |-----|---------|
 | [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) | CLI, MCP, Cursor — integrating agents |
+| [POPULAR-PROMPTS-AND-STARTERS.md](./POPULAR-PROMPTS-AND-STARTERS.md) | MCP prompt names, copy-paste starters, CLI one-liners — Hub **How to use** links here |
 | [AGENT-ORCHESTRATION.md](./AGENT-ORCHESTRATION.md) | MCP + orchestration patterns |
 | [ECOSYSTEM-VISION.md](./ECOSYSTEM-VISION.md) | Knowtation × Muse × MuseHub × AgentCeption × Stori — unified vision |
 | [MUSE-THIN-BRIDGE.md](./MUSE-THIN-BRIDGE.md) | Optional Muse linkage (env, approve `external_ref`, admin read-only proxy) |
