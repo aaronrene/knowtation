@@ -5331,6 +5331,66 @@
     const fromCss = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
     return fromCss || DEFAULT_ACCENT;
   };
+  function accentStringToHex6(str) {
+    if (!str || typeof str !== 'string') return DEFAULT_ACCENT;
+    const t = str.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t.toLowerCase();
+    if (/^#[0-9A-Fa-f]{3}$/.test(t)) {
+      const a = t.slice(1);
+      return ('#' + a[0] + a[0] + a[1] + a[1] + a[2] + a[2]).toLowerCase();
+    }
+    const m = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/.exec(t);
+    if (m) {
+      return (
+        '#' +
+        [1, 2, 3]
+          .map((i) => Number(m[i]).toString(16).padStart(2, '0'))
+          .join('')
+      ).toLowerCase();
+    }
+    return DEFAULT_ACCENT;
+  }
+  function updateAccentCustomHexLabel(hex6) {
+    const out = el('accent-custom-hex');
+    if (out && hex6) out.textContent = String(hex6).toUpperCase();
+  }
+  function setAccentRuntimeOnly(hex) {
+    if (!hex) return;
+    document.documentElement.style.setProperty('--accent', hex);
+    updateAccentCustomHexLabel(accentStringToHex6(hex));
+  }
+  let accentIroPicker = null;
+  let accentIroSuppressChange = false;
+  function ensureAccentIroPicker() {
+    if (accentIroPicker) return accentIroPicker;
+    const mount = el('accent-iro-root');
+    const Iro = typeof window !== 'undefined' && window.iro;
+    if (!mount || !Iro || !Iro.ColorPicker) return null;
+    const brRaw = getComputedStyle(document.documentElement).getPropertyValue('--border');
+    const br = (brRaw && brRaw.trim()) || '';
+    const borderColor = br && (br[0] === '#' || br.startsWith('rgb')) ? br : '#2a3f5c';
+    accentIroPicker = new Iro.ColorPicker(mount, {
+      width: 280,
+      color: accentStringToHex6(currentAccent()),
+      borderWidth: 1,
+      borderColor,
+      layout: [
+        { component: Iro.ui.Box, options: {} },
+        { component: Iro.ui.Slider, options: { sliderType: 'hue' } },
+      ],
+    });
+    accentIroPicker.on('color:change', (color) => {
+      if (accentIroSuppressChange) return;
+      setAccentRuntimeOnly(color.hexString);
+      document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.remove('active'));
+    });
+    accentIroPicker.on('input:end', () => {
+      if (accentIroSuppressChange) return;
+      const h = accentIroPicker.color.hexString;
+      if (h) applyAccent(h);
+    });
+    return accentIroPicker;
+  }
   function paintAccentSwatches() {
     document.querySelectorAll('.accent-swatch').forEach((btn) => {
       const hex = btn.dataset.accent;
@@ -5343,26 +5403,49 @@
       const hex = btn.dataset.accent;
       if (hex) {
         applyAccent(hex);
-        document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.toggle('active', b.dataset.accent === hex));
-        const custom = el('accent-custom');
-        if (custom) custom.value = hex;
+        const norm = accentStringToHex6(hex);
+        document.querySelectorAll('.accent-swatch').forEach((b) => {
+          const bh = b.dataset.accent;
+          b.classList.toggle('active', Boolean(bh) && accentStringToHex6(bh) === norm);
+        });
+        ensureAccentIroPicker();
+        if (accentIroPicker) {
+          accentIroSuppressChange = true;
+          try {
+            try {
+              accentIroPicker.setColor(norm, { silent: true });
+            } catch (_) {
+              accentIroPicker.setColor(norm);
+            }
+          } finally {
+            accentIroSuppressChange = false;
+          }
+        }
+        updateAccentCustomHexLabel(norm);
       }
     });
   });
-  const customAccentEl = el('accent-custom');
-  if (customAccentEl) {
-    customAccentEl.addEventListener('input', () => {
-      const hex = customAccentEl.value;
-      if (hex) {
-        applyAccent(hex);
-        document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.remove('active'));
-      }
-    });
-  }
+  ensureAccentIroPicker();
   function syncAccentUI() {
-    const hex = currentAccent();
-    document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.toggle('active', b.dataset.accent === hex));
-    if (customAccentEl) customAccentEl.value = hex;
+    const norm = accentStringToHex6(currentAccent());
+    document.querySelectorAll('.accent-swatch').forEach((b) => {
+      const bh = b.dataset.accent;
+      b.classList.toggle('active', Boolean(bh) && accentStringToHex6(bh) === norm);
+    });
+    ensureAccentIroPicker();
+    if (accentIroPicker) {
+      accentIroSuppressChange = true;
+      try {
+        try {
+          accentIroPicker.setColor(norm, { silent: true });
+        } catch (_) {
+          accentIroPicker.setColor(norm);
+        }
+      } finally {
+        accentIroSuppressChange = false;
+      }
+    }
+    updateAccentCustomHexLabel(norm);
   }
   function currentTheme() {
     return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -5400,6 +5483,15 @@
       }
     });
   });
+  const scrollDashColorsBtn = el('btn-scroll-dashboard-color-theme');
+  if (scrollDashColorsBtn) {
+    scrollDashColorsBtn.addEventListener('click', () => {
+      const target = el('settings-dashboard-color-theme');
+      if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
 
   el('btn-settings-sync').onclick = async () => {
     const syncBtn = el('btn-settings-sync');

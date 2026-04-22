@@ -57,11 +57,11 @@
 
 - [ ] Refresh [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md) for **hosted** path + **Copy prime** placeholder (after Phase 4) + wizard deep links.
 - [ ] **Hub proposals discoverability** (nav or empty-state CTA) — engineering task in `web/hub/hub.js` + `index.html`.
-- [ ] **Hub Settings + How to use — hosted-first UX** — reduce confusion between **hosted** and **self-hosted** readers:
+- [x] **Hub Settings + How to use — hosted-first UX** — `web/hub/index.html` + `hub.css`: hosted callout on **How to use → Setup**; full install steps under **Self-hosted** `<details>`; Knowledge/Media/Consolidation/Token tabs tightened; **Settings → Backup**/**Integrations** leads and technical env paths under `details` / `settings-json-details`. [HUB-SETTINGS-HOSTED-UX-PASS.md](./HUB-SETTINGS-HOSTED-UX-PASS.md) checkboxes updated.
   - **Layman first, technical tucked away (same pattern as Phase 4 tail):** For **each** major **How to use** tab/section and **Settings** blocks where it helps, put a **short plain-English** lead in the main column; move env var names, URI schemes, code fences, OAuth/JWT/MCP depth, and self-hosted-only paths under a **`<details class="how-to-details">`** (summary e.g. **Technical details** or **Self-hosted details**). **Precedent in repo:** How to use → **Knowledge & agents** → **Hosted MCP: secrets vs “prime” bootstrap** in `web/hub/index.html` (committed on this branch). **Also:** Integrations tab inline **How?** for Hub API (`settings-integ-how-inline` in `hub.css`).
   - **Default surface:** plain language for what a hosted user needs first; no walls of env vars, ports, or disk paths in the primary column.
   - **Self-hosted:** any block that only applies to disk vault, `config/local.yaml`, `ffmpeg`, `git init`, local adapters, etc. → fold under a clearly labeled **Self-hosted** section (same icon/label everywhere — pick one and document it in the handoff doc).
-  - **Wizard (optional):** second pass so hosted wizard lines do not dump self-hosted jargon; mirror the same layman / `<details>` pattern where easy.
+  - [ ] **Wizard (optional):** second pass so hosted wizard lines do not dump self-hosted jargon; mirror the same layman / `<details>` pattern where easy.
   - **Per-tab execution checklist:** [HUB-SETTINGS-HOSTED-UX-PASS.md](./HUB-SETTINGS-HOSTED-UX-PASS.md).
 
 ---

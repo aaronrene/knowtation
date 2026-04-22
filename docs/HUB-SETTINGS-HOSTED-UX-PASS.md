@@ -8,6 +8,7 @@
 
 - Settings → **Integrations** lede: inline **How?** `<details>` for Hub API (`web/hub/index.html`, `web/hub/hub.css` — search `settings-integ-how-inline`).
 - How to use → **Knowledge & agents** → **Hosted MCP: secrets vs “prime” bootstrap:** layman-first paragraphs, then **`<details class="how-to-details">`** for URIs, env names, MCP `readResource` / `prompts/list`, and `knowtation doctor` (`web/hub/index.html`). **Phase 5 extends this pattern to all How to use tabs and Settings blocks** (see [NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md)).
+- **Self-hosted label in UI** — use plain-English **`<summary>`** lines (e.g. `Self-hosted setup — …`); no separate icon asset required. Hosted-first lead: **`how-to-hosted-lead`** in `hub.css`.
 
 **Session prompt:** Use the fenced block in [NEXT-SESSION-PHASE-5-HOSTED-DOCS.md](./NEXT-SESSION-PHASE-5-HOSTED-DOCS.md) (“Session prompt (paste into Cursor)”) — not the duplicate block below unless you want a shorter reminder.
 
@@ -33,7 +34,7 @@ Check off tabs in this file’s checklist as you go.
 
 ## Checklist (execute in the session above)
 
-- [ ] **Backup** — Hosted: repo field + Connect + Back up first; self-hosted: vault path, `git init`, YAML mentions → under **Self-hosted**.
-- [ ] **Integrations** — Capture/Import first; Hub API; fold ports/env adapter lists where possible.
-- [ ] **How to use** — Mirror the same pattern per tab (Getting started, Setup, …).
-- [ ] **Icons** — Pick one SVG or emoji for “Self-hosted” and reuse (document choice in commit).
+- [x] **Backup** — Hosted-first intro + Status context; self-hosted `hub_roles` / heavy proposal explainer → **Technical details** / `details` (`web/hub/index.html`); Danger zone & Configure backup still contain operator-level detail (relocated where noted).
+- [x] **Integrations** — Capture/Import lede; tiles plain-English; ports/API/ffmpeg → **details** blocks.
+- [x] **How to use** — **Setup:** hosted callout + self-hosted in `<details>`; **Getting started**, **Knowledge & agents**, **Media**, **Memory consolidation** (privacy), **Token savings** updated for layman + technical fold-outs.
+- [x] **Icons** — Summaries use text **“Self-hosted”**; no new SVG (documented here).

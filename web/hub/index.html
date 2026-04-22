@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260421d">
+  <link rel="stylesheet" href="hub.css?v=20260422b">
 </head>
 <body>
   <div id="app">
@@ -515,7 +515,7 @@ Your note body here.</pre>
         </nav>
         <div id="settings-panel-backup" class="settings-panel active" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Backup connects your vault to a Git repo (e.g. GitHub) so your notes are versioned and safe. Follow the checklist and configure steps below.</p>
+            <p class="settings-intro"><strong>Hosted users:</strong> we keep your notes in the cloud; GitHub is an <em>optional</em> copy so you “own the repo” and have history. <strong>Self-hosted users:</strong> the vault is a folder on this machine, and the same screen wires Git. Status below always shows <strong>Mode</strong> so you know which world you are in.</p>
             <h3 class="settings-h3">Setup checklist</h3>
             <p class="settings-intro small">Get from zero to using the Hub and (optionally) backing up. Complete each step; optional steps can be skipped.</p>
             <p class="settings-intro small"><button type="button" id="btn-settings-setup-guide" class="btn-link btn-link-small">Setup guide</button> — short walkthrough (hosted and self-hosted).</p>
@@ -543,7 +543,7 @@ Your note body here.</pre>
             </ul>
             <hr class="settings-hr">
             <div class="settings-two-paths-intro" role="region" aria-label="Two options">
-              <p class="settings-intro small"><strong>Two options:</strong> <strong>Hosted (beta)</strong> — we store your vault in the decentralized cloud; Mode and Vault below show “Hosted (beta)” and “Canister”. Optional: Connect GitHub to back up to your repo. <strong>Self-hosted</strong> — your vault is a folder on your machine; Mode shows “Self-hosted” and Vault shows your path. Use <strong>Configure backup</strong> below to set vault path and Git (admins only).</p>
+              <p class="settings-intro small"><strong>At a glance:</strong> <strong>Hosted (beta)</strong> — “Canister” in the Vault line means cloud-stored; optional GitHub export. <strong>Self-hosted</strong> — Vault line shows a disk path. Admins: expand <em>How to connect backup</em> for the Git path + remote you maintain.</p>
             </div>
             <h3 class="settings-h3">Status</h3>
             <p class="settings-intro small">Current vault and backup state.</p>
@@ -558,7 +558,11 @@ Your note body here.</pre>
                 <button type="button" id="btn-copy-user-id" class="btn-copy-small" title="Copy">Copy</button>
               </span>
             </div>
-            <p class="settings-intro small" id="settings-user-id-hint">Admins assign roles in <strong>Team</strong> (or, when self-hosted, <code>data/hub_roles.json</code>): viewer, editor, admin, or evaluator. Your ID is <em>provider:id</em> (e.g. <code>google:…</code>), not your email.</p>
+            <p class="settings-intro small" id="settings-user-id-hint">Admins set roles in <strong>Team</strong>. Your ID is <em>provider:id</em> (e.g. <code>google:…</code>) — it is <strong>not</strong> your email.</p>
+            <details class="settings-json-details">
+              <summary class="settings-json-details-summary">Self-hosted — optional roles on disk</summary>
+              <p class="settings-intro small" style="margin:0.5rem 0 0;">Some installs also read <code>data/hub_roles.json</code>.</p>
+            </details>
             <div class="settings-row">
               <span class="settings-label">Mode</span>
               <span id="settings-mode-display" class="settings-value">—</span>
@@ -597,7 +601,13 @@ Your note body here.</pre>
                 <span id="settings-proposal-policy-msg" class="settings-msg" role="status"></span>
               </div>
             </div>
-            <p class="settings-intro small" id="settings-proposal-eval-explainer"><strong>Proposal evaluation:</strong> When the gate is <strong>On</strong>, new proposals may need a recorded pass/fail (or needs changes) before an admin can approve. <strong>Grade</strong> is optional labels for your records only. <strong>Review hints (LLM)</strong> — when <strong>On</strong>, the Hub can run an optional model after each new proposal and store non-authoritative suggestions in the proposal panel (proposal text may leave your host). <strong>Proposal enrich (LLM)</strong> — when <strong>On</strong>, reviewers can use <strong>Enrich</strong> on a proposal to generate a short summary and suggested labels (also non-authoritative). <strong>Evaluator may approve</strong> — for <em>your</em> account: shown under Status; admins set per evaluator in <strong>Team</strong>. If unset for a user, the server may fall back to <code>HUB_EVALUATOR_MAY_APPROVE=1</code>. Self-hosted: also <code>data/hub_evaluator_may_approve.json</code>. Policy file (self-hosted): <code>data/hub_proposal_policy.json</code>. See <strong>How to use</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
+            <div id="settings-proposal-eval-explainer" class="settings-proposal-eval-explainer-block">
+            <p class="settings-intro small"><strong>Proposal review:</strong> Suggested edits from people or tools wait in the <strong>Suggested</strong> tab. When the <strong>evaluation gate</strong> is on, a reviewer records pass / fail / needs work before (most) approves. <strong>Review hints</strong> and <strong>Enrich</strong> are optional assistive text — never merge gates, and on some hosts proposal text is sent to a model. <strong>Evaluator may approve</strong> is set in <strong>Team</strong> and shown in Status. More context: <strong>How to use</strong> → <strong>Knowledge &amp; agents</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
+            <details class="settings-json-details">
+              <summary class="settings-json-details-summary">Technical details — env and file locations</summary>
+              <p class="settings-intro small" style="margin:0.5rem 0 0;"><strong>Grade</strong> is for your records only. <strong>Evaluator fallback:</strong> server may use <code>HUB_EVALUATOR_MAY_APPROVE=1</code> if no per-user flag exists. <strong>Self-hosted files:</strong> <code>data/hub_evaluator_may_approve.json</code>, <code>data/hub_proposal_policy.json</code>. Greyed checkboxes in policy usually mean the host set <code>HUB_PROPOSAL_*</code> or <code>KNOWTATION_HUB_PROPOSAL_*</code> environment variables.</p>
+            </details>
+            </div>
             <div class="settings-row hidden" id="settings-api-base-row" title="Shown on localhost for self-hosted debugging">
               <span class="settings-label">API base</span>
               <span class="settings-value"><code id="settings-api-base-display" class="settings-code">—</code></span>
@@ -809,7 +819,7 @@ Your note body here.</pre>
               </div>
               <div id="vault-list-help" class="settings-info-panel settings-info-panel--section hidden">Keep id <code>default</code> for your primary vault. <strong>Folder path</strong> is the note directory on disk (absolute or relative). Save after editing.</div>
               <div id="vaults-list-container" class="settings-vaults-list"></div>
-              <div class="vault-list-simple-form" style="margin-top: 0.65rem;">
+              <div class="vault-list-simple-form">
                 <div class="settings-form-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;">
                   <div>
                     <label for="vault-list-form-existing">Pick vault</label>
@@ -982,36 +992,43 @@ Your note body here.</pre>
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
               Capture (messages → inbox)
             </h3>
-            <p class="settings-intro small">Send messages or events into the vault as notes. Capture URL: <code>POST /api/v1/capture</code>. Optional: <code>CAPTURE_WEBHOOK_SECRET</code> + header <code>X-Webhook-Secret</code>.</p>
+            <p class="settings-intro small"><strong>What this is:</strong> turns chats and automations into new notes in your Inbox. Most teams set up a small <strong>bridge</strong> (or Zapier/n8n) once. Walkthrough: <strong>How to use → Setup → Self-hosted setup → Step 5</strong> (same capture path on hosted; only the host URL changes).</p>
             <div class="integ-source-grid integ-capture-grid">
               <div class="integ-source-tile">
                 <span class="integ-source-tile-icon">💬</span>
                 <span class="integ-source-tile-name">Slack</span>
-                <span class="integ-source-tile-desc">Adapter on port 3132; <code>SLACK_SIGNING_SECRET</code></span>
+                <span class="integ-source-tile-desc">Team chat → Inbox</span>
               </div>
               <div class="integ-source-tile">
                 <span class="integ-source-tile-icon">🎮</span>
                 <span class="integ-source-tile-name">Discord</span>
-                <span class="integ-source-tile-desc">Adapter on port 3133; webhook or bot</span>
+                <span class="integ-source-tile-desc">Server messages → Inbox</span>
               </div>
               <div class="integ-source-tile">
                 <span class="integ-source-tile-icon">✈️</span>
                 <span class="integ-source-tile-name">Telegram</span>
-                <span class="integ-source-tile-desc">Adapter on port 3134; or any bot → capture</span>
+                <span class="integ-source-tile-desc">Bot or webhook → Inbox</span>
               </div>
               <div class="integ-source-tile">
                 <span class="integ-source-tile-icon">📱</span>
                 <span class="integ-source-tile-name">WhatsApp</span>
-                <span class="integ-source-tile-desc">Via Zapier/n8n → <code>POST /capture</code></span>
+                <span class="integ-source-tile-desc">Automation → Inbox</span>
               </div>
             </div>
-            <p class="settings-intro small" style="margin-top: 0.5rem;">Run an adapter (or Zapier/n8n) that converts platform events to the capture format, then POSTs to the Hub. Body: <code>{"body": "text", "source": "slack"}</code>. Full details: How to use → Step 5 (Import).</p>
+            <details class="settings-json-details" style="margin-top:0.5rem;">
+              <summary class="settings-json-details-summary">Technical: capture API, ports, and secrets</summary>
+              <p class="settings-intro small" style="margin:0.5rem 0 0.35rem;">Endpoint: <code>POST /api/v1/capture</code> with JSON <code>{"body": "text", "source": "slack", …}</code>. Optional shared secret: <code>CAPTURE_WEBHOOK_SECRET</code> + <code>X-Webhook-Secret</code> header. Default adapter examples in the repo: Slack <strong>3132</strong> (<code>SLACK_SIGNING_SECRET</code>), Discord <strong>3133</strong>, Telegram <strong>3134</strong>. See <code>docs/MESSAGING-INTEGRATION.md</code>.</p>
+            </details>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
               Import sources (files → vault)
             </h3>
-            <p class="settings-intro small">CLI: <code>knowtation import &lt;source-type&gt; &lt;input&gt;</code>. Options: <code>--project</code>, <code>--output-dir</code>, <code>--tags</code>. Hub UI: Import modal. Full reference: <code>docs/IMPORT-SOURCES.md</code>.</p>
+            <p class="settings-intro small"><strong>What this is:</strong> one-time (or scheduled) <strong>imports from files and apps</strong> (Chat exports, Notion, CSV, and more) into your vault. Use the Hub <strong>Import</strong> button when available, or the CLI for large batches. Full list: <code>docs/IMPORT-SOURCES.md</code>.</p>
+            <details class="settings-json-details" style="margin:0.35rem 0 0.5rem;">
+              <summary class="settings-json-details-summary">CLI pattern <code>knowtation import …</code></summary>
+              <p class="settings-intro small" style="margin:0.5rem 0 0.25rem;">Common options: <code>--project</code>, <code>--output-dir</code>, <code>--tags</code>. Exact source names: see the doc above.</p>
+            </details>
             <div class="integ-source-grid">
               <div class="integ-source-tile">
                 <span class="integ-source-tile-icon">🤖</span>
@@ -1100,7 +1117,10 @@ Your note body here.</pre>
               <button type="button" id="btn-integrations-how-token-savings" class="btn-link btn-link-small">How to use → Token savings</button>
             </div>
             <p class="settings-intro small"><strong>Meetings and transcripts:</strong> Hosted Knowtation does not run transcription for you. Export text or Markdown from your recorder (Otter, Zoom, Granola, etc.) or paste into a note, then index—same outcome for search and agents.</p>
-            <p class="settings-intro small"><strong>Self-hosted Hub — audio import:</strong> Whisper accepts about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed where the Hub runs (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or use our Docker image which includes it), Knowtation can <strong>automatically compress</strong> larger files (e.g. bulky WAV) before sending to OpenAI. Disable with <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>. Set <code>FFMPEG_PATH</code> if the binary is not on <code>PATH</code>.</p>
+            <details class="settings-json-details">
+              <summary class="settings-json-details-summary">Self-hosted only — long audio and ffmpeg</summary>
+              <p class="settings-intro small" style="margin:0.5rem 0 0;">Whisper is limited to about <strong>25&nbsp;MB</strong> per file. If <code>ffmpeg</code> is installed on the host (<a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>, or the Docker image we ship), very large files can be compressed first. Toggles: <code>transcription.transcode_oversized: false</code> in <code>config/local.yaml</code> or <code>KNOWTATION_TRANSCODE_OVERSIZED=0</code>; <code>FFMPEG_PATH</code> if not on <code>PATH</code>. Hosted: export transcript text; we do not run this pipeline in the browser.</p>
+            </details>
             <details class="settings-json-details settings-advanced-ecosystems-details">
               <summary class="settings-json-details-summary">Advanced Ecosystems</summary>
               <div class="settings-advanced-ecosystems-body">
@@ -1187,76 +1207,84 @@ Your note body here.</pre>
         </div>
         <div id="settings-panel-appearance" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Appearance controls how the Hub looks in your browser. Changes are saved locally (no server config).</p>
             <h3 class="settings-h3">Theme</h3>
-            <p class="settings-intro small">Switch between night and day. Saved in your browser; applies as soon as you click.</p>
-            <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
-              <button type="button" class="theme-btn" data-theme="dark" aria-pressed="true">Night</button>
-              <button type="button" class="theme-btn" data-theme="light" aria-pressed="false">Day</button>
+            <div class="theme-section-row">
+              <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Night or day">
+                <button type="button" class="theme-btn" data-theme="dark" aria-pressed="true">Night</button>
+                <button type="button" class="theme-btn" data-theme="light" aria-pressed="false">Day</button>
+              </div>
+              <button type="button" class="btn-secondary theme-dashboard-colors-link" id="btn-scroll-dashboard-color-theme" aria-label="Scroll to dashboard color theme">Colors</button>
             </div>
             <hr class="settings-hr">
             <h3 class="settings-h3">Accent color</h3>
-            <p class="settings-intro small">Choose an accent for links, buttons, and highlights. Pick a preset or use the custom color picker. Saved in your browser.</p>
-            <div class="accent-preset-groups">
-              <div class="accent-preset-group">
-                <p class="accent-preset-group-label">Classic</p>
-                <div class="accent-presets" role="group" aria-label="Classic accent colors">
-                  <button type="button" class="accent-swatch" data-accent="#89cff0" title="Baby blue (default)" aria-label="Baby blue default"></button>
-                  <button type="button" class="accent-swatch" data-accent="#22c55e" title="Green" aria-label="Green"></button>
-                  <button type="button" class="accent-swatch" data-accent="#eab308" title="Amber" aria-label="Amber"></button>
-                  <button type="button" class="accent-swatch" data-accent="#f43f5e" title="Rose" aria-label="Rose"></button>
-                  <button type="button" class="accent-swatch" data-accent="#a855f7" title="Violet" aria-label="Violet"></button>
-                  <button type="button" class="accent-swatch" data-accent="#0ea5e9" title="Sky" aria-label="Sky"></button>
+            <p class="settings-intro small">Choose an accent for links, buttons, and highlights. Presets on the left; any exact color on the right.</p>
+            <div class="accent-color-layout">
+              <div class="accent-preset-groups">
+                <div class="accent-preset-group">
+                  <p class="accent-preset-group-label">Classic</p>
+                  <div class="accent-presets" role="group" aria-label="Classic accent colors">
+                    <button type="button" class="accent-swatch" data-accent="#89cff0" title="Baby blue (default)" aria-label="Baby blue default"></button>
+                    <button type="button" class="accent-swatch" data-accent="#22c55e" title="Green" aria-label="Green"></button>
+                    <button type="button" class="accent-swatch" data-accent="#eab308" title="Amber" aria-label="Amber"></button>
+                    <button type="button" class="accent-swatch" data-accent="#f43f5e" title="Rose" aria-label="Rose"></button>
+                    <button type="button" class="accent-swatch" data-accent="#a855f7" title="Violet" aria-label="Violet"></button>
+                    <button type="button" class="accent-swatch" data-accent="#0ea5e9" title="Sky" aria-label="Sky"></button>
+                  </div>
+                </div>
+                <div class="accent-preset-group">
+                  <p class="accent-preset-group-label">Pastels</p>
+                  <div class="accent-presets" role="group" aria-label="Pastel accent colors">
+                    <button type="button" class="accent-swatch" data-accent="#f9a8d4" title="Pink pastel" aria-label="Pink pastel"></button>
+                    <button type="button" class="accent-swatch" data-accent="#6ee7b7" title="Mint" aria-label="Mint pastel"></button>
+                    <button type="button" class="accent-swatch" data-accent="#93c5fd" title="Baby blue" aria-label="Baby blue pastel"></button>
+                    <button type="button" class="accent-swatch" data-accent="#fcd34d" title="Butter yellow" aria-label="Butter yellow pastel"></button>
+                    <button type="button" class="accent-swatch" data-accent="#c4b5fd" title="Lilac" aria-label="Lilac pastel"></button>
+                    <button type="button" class="accent-swatch" data-accent="#bfdbfe" title="Soft sky" aria-label="Soft sky pastel"></button>
+                  </div>
+                </div>
+                <div class="accent-preset-group">
+                  <p class="accent-preset-group-label">Earth</p>
+                  <div class="accent-presets" role="group" aria-label="Earth tone accent colors">
+                    <button type="button" class="accent-swatch" data-accent="#c2410c" title="Terracotta" aria-label="Terracotta"></button>
+                    <button type="button" class="accent-swatch" data-accent="#4d7c0f" title="Moss green" aria-label="Moss green"></button>
+                    <button type="button" class="accent-swatch" data-accent="#a16207" title="Amber brown" aria-label="Amber brown"></button>
+                    <button type="button" class="accent-swatch" data-accent="#0f766e" title="Teal earth" aria-label="Teal earth"></button>
+                    <button type="button" class="accent-swatch" data-accent="#57534e" title="Stone" aria-label="Stone"></button>
+                    <button type="button" class="accent-swatch" data-accent="#6b5344" title="Coffee" aria-label="Coffee earth"></button>
+                  </div>
+                </div>
+                <div class="accent-preset-group">
+                  <p class="accent-preset-group-label">Vivid</p>
+                  <div class="accent-presets" role="group" aria-label="Vivid accent colors">
+                    <button type="button" class="accent-swatch" data-accent="#e11d48" title="Ruby" aria-label="Ruby"></button>
+                    <button type="button" class="accent-swatch" data-accent="#84cc16" title="Lime" aria-label="Lime"></button>
+                    <button type="button" class="accent-swatch" data-accent="#2563eb" title="Royal blue" aria-label="Royal blue"></button>
+                    <button type="button" class="accent-swatch" data-accent="#ea580c" title="Tangerine" aria-label="Tangerine"></button>
+                    <button type="button" class="accent-swatch" data-accent="#d946ef" title="Fuchsia" aria-label="Fuchsia"></button>
+                    <button type="button" class="accent-swatch" data-accent="#14b8a6" title="Teal" aria-label="Teal vivid"></button>
+                  </div>
+                </div>
+                <div class="accent-preset-group">
+                  <p class="accent-preset-group-label">Muted</p>
+                  <div class="accent-presets" role="group" aria-label="Muted accent colors">
+                    <button type="button" class="accent-swatch" data-accent="#64748b" title="Slate" aria-label="Slate muted"></button>
+                    <button type="button" class="accent-swatch" data-accent="#8b7355" title="Taupe" aria-label="Taupe muted"></button>
+                    <button type="button" class="accent-swatch" data-accent="#6b9080" title="Sage" aria-label="Sage muted"></button>
+                    <button type="button" class="accent-swatch" data-accent="#78716b" title="Warm gray" aria-label="Warm gray muted"></button>
+                    <button type="button" class="accent-swatch" data-accent="#7c6f9c" title="Dusty purple" aria-label="Dusty purple muted"></button>
+                    <button type="button" class="accent-swatch" data-accent="#4b5563" title="Blue gray" aria-label="Blue gray muted"></button>
+                  </div>
                 </div>
               </div>
-              <div class="accent-preset-group">
-                <p class="accent-preset-group-label">Pastels</p>
-                <div class="accent-presets" role="group" aria-label="Pastel accent colors">
-                  <button type="button" class="accent-swatch" data-accent="#f9a8d4" title="Pink pastel" aria-label="Pink pastel"></button>
-                  <button type="button" class="accent-swatch" data-accent="#6ee7b7" title="Mint" aria-label="Mint pastel"></button>
-                  <button type="button" class="accent-swatch" data-accent="#93c5fd" title="Baby blue" aria-label="Baby blue pastel"></button>
-                  <button type="button" class="accent-swatch" data-accent="#fcd34d" title="Butter yellow" aria-label="Butter yellow pastel"></button>
-                  <button type="button" class="accent-swatch" data-accent="#c4b5fd" title="Lilac" aria-label="Lilac pastel"></button>
-                </div>
+              <div class="accent-custom-column" aria-label="Custom accent color">
+                <p class="accent-preset-group-label accent-custom-heading">Custom</p>
+                <div id="accent-iro-root" class="accent-iro-root"></div>
+                <p class="accent-custom-hex-row"><code class="accent-custom-hex" id="accent-custom-hex">#89CFF0</code></p>
               </div>
-              <div class="accent-preset-group">
-                <p class="accent-preset-group-label">Earth</p>
-                <div class="accent-presets" role="group" aria-label="Earth tone accent colors">
-                  <button type="button" class="accent-swatch" data-accent="#c2410c" title="Terracotta" aria-label="Terracotta"></button>
-                  <button type="button" class="accent-swatch" data-accent="#4d7c0f" title="Moss green" aria-label="Moss green"></button>
-                  <button type="button" class="accent-swatch" data-accent="#a16207" title="Amber brown" aria-label="Amber brown"></button>
-                  <button type="button" class="accent-swatch" data-accent="#0f766e" title="Teal earth" aria-label="Teal earth"></button>
-                  <button type="button" class="accent-swatch" data-accent="#57534e" title="Stone" aria-label="Stone"></button>
-                </div>
-              </div>
-              <div class="accent-preset-group">
-                <p class="accent-preset-group-label">Vivid</p>
-                <div class="accent-presets" role="group" aria-label="Vivid accent colors">
-                  <button type="button" class="accent-swatch" data-accent="#e11d48" title="Ruby" aria-label="Ruby"></button>
-                  <button type="button" class="accent-swatch" data-accent="#84cc16" title="Lime" aria-label="Lime"></button>
-                  <button type="button" class="accent-swatch" data-accent="#2563eb" title="Royal blue" aria-label="Royal blue"></button>
-                  <button type="button" class="accent-swatch" data-accent="#ea580c" title="Tangerine" aria-label="Tangerine"></button>
-                  <button type="button" class="accent-swatch" data-accent="#d946ef" title="Fuchsia" aria-label="Fuchsia"></button>
-                </div>
-              </div>
-              <div class="accent-preset-group">
-                <p class="accent-preset-group-label">Muted</p>
-                <div class="accent-presets" role="group" aria-label="Muted accent colors">
-                  <button type="button" class="accent-swatch" data-accent="#64748b" title="Slate" aria-label="Slate muted"></button>
-                  <button type="button" class="accent-swatch" data-accent="#8b7355" title="Taupe" aria-label="Taupe muted"></button>
-                  <button type="button" class="accent-swatch" data-accent="#6b9080" title="Sage" aria-label="Sage muted"></button>
-                  <button type="button" class="accent-swatch" data-accent="#78716b" title="Warm gray" aria-label="Warm gray muted"></button>
-                  <button type="button" class="accent-swatch" data-accent="#7c6f9c" title="Dusty purple" aria-label="Dusty purple muted"></button>
-                </div>
-              </div>
-            </div>
-            <div class="settings-form" style="margin-top: 1rem;">
-              <label for="accent-custom">Custom color</label>
-              <input type="color" id="accent-custom" value="#89cff0" aria-label="Custom accent color">
             </div>
             <hr class="settings-hr">
-            <h3 class="settings-h3">Dashboard color theme</h3>
-            <p class="settings-intro small">Backgrounds, panels, borders, and text tones across the hub. Your accent color above still applies to links and primary actions. Saved in your browser. Each preview is Night (left) then Day (right), four bands each: background, surface, border, secondary text—so you can see the real tint.</p>
+            <h3 class="settings-h3" id="settings-dashboard-color-theme">Dashboard color theme</h3>
+            <p class="settings-intro small">Each preview is Night (left) then Day (right), four bands each: background, surface, border, secondary text—so you can see the real tint.</p>
             <div id="dashboard-theme-grid" class="dashboard-theme-grid" role="radiogroup" aria-label="Dashboard color theme">
               <button type="button" class="dashboard-theme-card" role="radio" data-palette="default" aria-checked="true">
                 <span class="dashboard-theme-preview dashboard-theme-preview--classic" aria-hidden="true"></span>
@@ -1579,31 +1607,43 @@ Your note body here.</pre>
         </nav>
         <div id="how-to-panel-getting-started" class="how-to-panel" role="tabpanel">
           <div class="how-to-use-body">
-            <p class="how-to-intro">Short walkthrough for hosted and self-hosted: your vault, first notes, optional backup, and connecting tools. Resume where you left off, or restart from step 1 via Settings.</p>
+            <p class="how-to-intro">Open the in-app walkthrough to create your first notes, see optional GitHub backup, and learn where AI-suggested edits appear (<strong>Suggested</strong>). Best for <strong>hosted</strong> users; self-hosted operators can use it too, then read <strong>Setup → Self-hosted setup</strong> for machine install details.</p>
             <p><button type="button" id="btn-how-to-open-onboarding" class="btn-primary">Open setup walkthrough</button></p>
-            <p class="how-to-note small" style="margin-bottom:0;">Restart from step 1: <strong>Settings → Backup → Setup guide</strong>.</p>
+            <p class="how-to-note small" style="margin-bottom:0;">Start over from step 1: <strong>Settings → Backup → Setup guide</strong>.</p>
           </div>
         </div>
         <div id="how-to-panel-setup" class="how-to-panel active" role="tabpanel">
           <div class="how-to-use-body">
-          <div class="how-to-two-paths-box" role="region" aria-label="Two paths">
-            <h3 class="how-to-two-paths-title">Two paths: choose how you run Knowtation</h3>
-            <ul class="how-to-two-paths-list">
-              <li><strong>Hosted (beta)</strong> — Use Knowtation at <strong>knowtation.store/hub/</strong>. We store your vault in the decentralized cloud. No vault path or Hub to run; just sign in. Optional: Connect GitHub to back up your vault to your repo. Free during beta.</li>
-              <li><strong>Self-hosted</strong> — Run the Hub on your machine. You set <code>KNOWTATION_VAULT_PATH</code> and <code>HUB_JWT_SECRET</code>, run <code>npm run hub</code>, configure OAuth, and (for semantic search) index once with Ollama or OpenAI embeddings per <code>config/local.yaml</code>. Your vault is a folder on your disk. The steps below apply to self-hosted setup.</li>
-            </ul>
-            <p class="how-to-note small">In Settings → Backup, <strong>Mode</strong> shows which path you’re on: “Hosted (beta)” or “Self-hosted”.</p>
+          <div class="how-to-two-paths-box how-to-hosted-lead" role="region" aria-label="Hosted Hub">
+            <h3 class="how-to-two-paths-title">Hosted Hub — start here</h3>
+            <p class="how-to-note small" style="margin-top:0;">If <strong>Settings → Backup → Mode</strong> shows <strong>Hosted (beta)</strong>, you do <em>not</em> install a server or pick a folder on your laptop. Your vault lives in the cloud; we handle search indexing.</p>
+            <ol class="how-to-steps-list" style="margin: 0.5rem 0 0;">
+              <li><strong>Notes</strong> — Import or write notes; use the header <strong>Vault</strong> menu if you have more than one notebook.</li>
+              <li><strong>Optional backup</strong> — Create an <em>empty</em> GitHub repo, connect your account under Backup, enter <code>owner/repo</code>, then <strong>Back up now</strong>.</li>
+              <li><strong>Connect an AI assistant</strong> — <strong>Settings → Integrations → Hub API</strong> has copy buttons. Read <strong>Knowledge &amp; agents</strong> for a plain-English explanation of the two copy types.</li>
+              <li><strong>Edits from tools</strong> — Appear under <strong>Suggested</strong> until you approve (nothing applies to your vault until you approve).</li>
+            </ol>
+            <p class="how-to-note small" style="margin:0.75rem 0 0;">Running the Hub on your own machine instead? Open <strong>Self-hosted setup</strong> below.</p>
           </div>
-          <div class="how-to-two-paths-box" role="region" aria-label="Full documentation">
-            <h3 class="how-to-two-paths-title">More complete instructions (repo docs)</h3>
-            <p class="how-to-note small" style="margin-bottom: 0.5rem;">This modal is a short path. For clone → config → index → search → Hub in detail, use:</p>
-            <ul class="how-to-two-paths-list">
-              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">GETTING-STARTED.md</a> — step-by-step from install to search and optional Hub.</li>
-              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/setup.md" target="_blank" rel="noopener">setup.md</a> — full setup (vector store, embeddings, transcription, MCP, Hub).</li>
-              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/SELF-HOSTED-SETUP-CHECKLIST.md" target="_blank" rel="noopener">SELF-HOSTED-SETUP-CHECKLIST.md</a> — one-page checklist (Quick start → OAuth → backup).</li>
-            </ul>
+
+          <details class="how-to-details how-to-selfhosted-details">
+            <summary>Self-hosted setup — install the Hub on your computer</summary>
+            <div class="how-to-details-body">
+          <div class="how-to-two-paths-box" role="region" aria-label="Self-hosted summary">
+            <h3 class="how-to-two-paths-title">Self-hosted in one sentence</h3>
+            <p class="how-to-note small" style="margin-bottom:0;">You run <code>npm run hub</code>, point it at a <strong>folder of Markdown notes</strong> on disk, sign in with OAuth you configure, and (for meaning-based search) run an indexer once. <strong>Settings → Backup → Mode</strong> shows “Self-hosted”.</p>
           </div>
-          <p class="how-to-intro"><strong>Self-hosted:</strong> follow the steps below in order. <strong>Hosted (knowtation.store):</strong> you skip vault path, Hub install, and local search setup — we run indexing for you; sign in and optional GitHub backup are enough.</p>
+          <details class="how-to-details">
+            <summary>Full developer docs (install, config, MCP, checklist)</summary>
+            <div class="how-to-details-body">
+            <ul class="how-to-two-paths-list" style="margin:0;">
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">GETTING-STARTED.md</a> — install → search → optional Hub.</li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/setup.md" target="_blank" rel="noopener">setup.md</a> — embeddings, transcription, MCP, Hub.</li>
+              <li><a href="https://github.com/aaronrene/knowtation/blob/main/docs/SELF-HOSTED-SETUP-CHECKLIST.md" target="_blank" rel="noopener">SELF-HOSTED-SETUP-CHECKLIST.md</a> — one-page checklist.</li>
+            </ul>
+            </div>
+          </details>
+          <p class="how-to-intro" style="margin-top:1rem;"><strong>Self-hosted:</strong> follow the numbered steps below in order. Skip this whole block if you are on <strong>hosted</strong> only.</p>
 
           <div class="how-to-flow" aria-hidden="true">
             <div class="flow-step"><span class="flow-num">1</span><span>Vault &amp; config</span></div>
@@ -1981,6 +2021,12 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             <p>Or edit <code>config/local.yaml</code> with <code>vault.git.enabled: true</code> and <code>vault.git.remote: https://github.com/you/your-repo.git</code>. Then run <strong>Back up now</strong> in Settings, or <code>knowtation vault sync</code> from the CLI.</p>
             <p class="how-to-note"><strong>Connect GitHub</strong> (push without a deploy key): uses the same GitHub OAuth App; add callback URL <code>…/api/v1/auth/callback/github-connect</code> in your app settings. Optional: <code>vault.git.auto_commit</code> and <code>vault.git.auto_push</code> for automatic sync. See PROVENANCE-AND-GIT.md.</p>
           </section>
+            </div>
+          </details>
+
+            <details class="how-to-details">
+            <summary>More answers (proposals, backup, sharing, AI tokens)</summary>
+            <div class="how-to-details-body">
             <h4 class="how-to-sub">Common questions</h4>
             <details class="how-to-details">
               <summary>Where do proposals come from?</summary>
@@ -2008,15 +2054,21 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
                 <p>Log in to the Hub, then open <strong>Settings → Integrations → Hub API</strong> and click <strong>Copy Hub URL, token &amp; vault</strong>. That copies <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code>, and <code>KNOWTATION_HUB_VAULT_ID</code> for curl and orchestrators. <strong>Copy prime</strong> (next to it) copies a <strong>non-secret</strong> JSON pointer so agents know to <code>readResource</code> <code>knowtation://hosted/prime</code> after MCP connects—use it together with the JWT copy, not as a replacement. <strong>Settings → Agents → Copy embedding env</strong> is separate: it only copies Ollama/embedding lines, not the JWT. See <code>docs/AGENT-INTEGRATION.md</code> for CLI and MCP.</p>
               </div>
             </details>
+            </div>
+            </details>
           </div>
         </div>
         <div id="how-to-panel-knowledge-agents" class="how-to-panel" role="tabpanel">
           <div class="how-to-use-body">
-            <p class="how-to-intro">How your vault feeds agents and how agents interact with Knowtation. One vault, one backup repo; you control what gets into the vault and what gets backed up to GitHub.</p>
+            <p class="how-to-intro">Your notes are the <strong>memory</strong> agents see. You stay in charge: tools suggest edits as <strong>proposals</strong> until you approve. One optional GitHub backup is separate from what agents read.</p>
 
             <section class="how-to-step">
               <h3>What we track (metadata and filters)</h3>
-              <p class="step-what">Every note can carry optional frontmatter. <strong>None of this is auto-extracted by an LLM</strong>—you or an agent add it when creating or editing a note (Hub <strong>+ New note</strong> full form, CLI, or API). When present, the index and search use it.</p>
+              <p class="step-what">Notes can include small labels at the top of the file (frontmatter)—things like <strong>project</strong>, <strong>tags</strong>, and dates. <strong>Nothing is guessed by an AI</strong>; you or your agent set these when creating or editing. They power filters and smarter search.</p>
+              <p class="how-to-note"><strong>In the Hub:</strong> Use <strong>+ New note</strong> (full form) for date, project, tags, and advanced fields. The search bar can narrow by time (<strong>Since</strong> / <strong>Until</strong>).</p>
+              <details class="how-to-details">
+                <summary>Technical reference — frontmatter fields and CLI flags</summary>
+                <div class="how-to-details-body">
               <table class="how-to-table">
                 <thead><tr><th>Field</th><th>Used for</th></tr></thead>
                 <tbody>
@@ -2031,17 +2083,25 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
                   <tr><td><code>summarizes</code>, <code>summarizes_range</code>, <code>state_snapshot</code></td><td>State compression: summary notes for a range or snapshot at a point in time. Optional.</td></tr>
                 </tbody>
               </table>
-              <p class="how-to-note"><strong>In the Hub:</strong> The <strong>+ New note</strong> full form lets you set date, project, tags, causal chain, entity, episode, and follows. Search bar has <strong>Since</strong> and <strong>Until</strong> for time. Agents and humans can set the same fields via CLI or API.</p>
+              <p class="how-to-note" style="margin-bottom:0;">Repo docs: <code>RETRIEVAL-AND-CLI-REFERENCE.md</code>, <code>INTENTION-AND-TEMPORAL.md</code>.</p>
+                </div>
+              </details>
             </section>
 
             <section class="how-to-step">
               <h3>Giving agents context</h3>
-              <p class="step-what">Add notes to your vault the usual way (Hub + New note, capture, import). Use <strong>project</strong> (folder <code>vault/projects/&lt;slug&gt;/</code> or frontmatter <code>project: slug</code>) and <strong>tags</strong> so agents can filter. Optionally add <strong>causal_chain_id</strong>, <strong>entity</strong>, <strong>episode_id</strong>, or <strong>follows</strong> for temporal and hierarchical retrieval. Agents then read only what's relevant.</p>
+              <p class="step-what">Add notes normally (write, import, capture). Use <strong>projects</strong> and <strong>tags</strong> so assistants can fetch a small slice instead of everything. Optional extra fields (chains, episodes, entities) help advanced workflows.</p>
             </section>
 
             <section class="how-to-step">
               <h3>How agents find it</h3>
-              <p>Agents use the same vault via <strong>CLI</strong>, <strong>MCP</strong>, or <strong>Hub API</strong>: <code>knowtation search "query" --project myapp --limit 5 --json</code>, <code>knowtation list-notes --project myapp --json</code>, then <code>get-note</code> for full content. See RETRIEVAL-AND-CLI-REFERENCE.md and INTENTION-AND-TEMPORAL.md in the repo. Filters: <code>--project</code>, <code>--tag</code>, <code>--folder</code>, <code>--since</code>, <code>--until</code>, <code>--chain</code>, <code>--entity</code>, <code>--episode</code>.</p>
+              <p class="step-what">Agents talk to the same vault through the <strong>Hub API</strong>, <strong>MCP</strong>, or the <strong>CLI</strong>. The usual pattern is: <strong>search or list</strong> with a tight limit, then <strong>open only the notes</strong> that matter—saves tokens and avoids noise.</p>
+              <details class="how-to-details">
+                <summary>Technical details — example commands and filter flags</summary>
+                <div class="how-to-details-body">
+                  <p style="margin-top:0;">Examples: <code>knowtation search "query" --project myapp --limit 5 --json</code>, <code>knowtation list-notes --project myapp --json</code>, then fetch full content for chosen paths. Filters include <code>--project</code>, <code>--tag</code>, <code>--folder</code>, <code>--since</code>, <code>--until</code>, <code>--chain</code>, <code>--entity</code>, <code>--episode</code>. See <code>docs/RETRIEVAL-AND-CLI-REFERENCE.md</code> and <code>docs/AGENT-INTEGRATION.md</code>.</p>
+                </div>
+              </details>
             </section>
 
             <section class="how-to-step">
@@ -2071,19 +2131,29 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Proposal review hints and Enrich (optional AI)</h3>
-              <p class="step-what">These are <strong>optional</strong> helpers for <strong>proposals</strong> only. They are <strong>not</strong> merge gates and they do <strong>not</strong> auto-fill imports or note JSON on create. Full operator detail: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-PROPOSAL-LLM-FEATURES.md" target="_blank" rel="noopener"><code>docs/HUB-PROPOSAL-LLM-FEATURES.md</code></a>.</p>
+              <p class="step-what">Optional helpers on the <strong>proposal</strong> screen only. They never auto-approve changes and never replace your judgment. Admins turn them on under <strong>Settings → Backup</strong> (<strong>Save proposal policy</strong>).</p>
               <ul>
-                <li><strong>Turning features on:</strong> <strong>Settings → Backup</strong> (admins): use <strong>Save proposal policy</strong> to enable the evaluation gate, <strong>review hints</strong>, and/or <strong>enrich</strong> without editing host env files. <strong>Self-hosted</strong> saves to <code>data/hub_proposal_policy.json</code>; <strong>hosted</strong> saves in the gateway store (e.g. Netlify Blob).</li>
-                <li><strong>When a checkbox is disabled:</strong> That flag is <strong>locked</strong> because the server set an explicit environment variable (<code>HUB_PROPOSAL_EVALUATION_REQUIRED</code>, <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS</code>, or <code>KNOWTATION_HUB_PROPOSAL_ENRICH</code> to <code>1</code>/<code>0</code> or <code>true</code>/<code>false</code>). Change or remove it on the host to control it from Settings again.</li>
-                <li><strong>Review hints:</strong> Short plain-text suggestions for human reviewers, shown <strong>in the proposal panel</strong> (Activity → open a proposal). After each <strong>new</strong> proposal, the Hub or gateway may run the model asynchronously—refresh after a few seconds. Configure chat (Ollama, OpenAI, or Anthropic) on the same host that runs the Node Hub or gateway.</li>
-                <li><strong>Enrich:</strong> Optional <strong>Enrich</strong> button on a proposal (when enabled) requests a short <strong>summary</strong> and <strong>suggested labels</strong>. Works on <strong>self-hosted</strong> Node Hub and on <strong>hosted</strong> when the gateway runs the LLM and updates the canister.</li>
-                <li><strong>Using them:</strong> Copy hint or assistant text into your <strong>evaluation comment</strong> if it helps the record. Suggested tags are hints only — add them to the note’s frontmatter after approve if you agree (use <strong>Open vault note to edit</strong> in the proposal panel when a file already exists).</li>
+                <li><strong>Review hints</strong> — Short suggestions that may appear after a new proposal (async). Treat as untrusted tips, not a gate.</li>
+                <li><strong>Enrich</strong> — Optional button on a proposal for a short summary and label ideas when enabled.</li>
+                <li><strong>Using them</strong> — Copy text into your evaluation comment if useful; add labels to the note yourself after approve if you agree.</li>
               </ul>
+              <p class="how-to-note">Full operator guide: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HUB-PROPOSAL-LLM-FEATURES.md" target="_blank" rel="noopener">HUB-PROPOSAL-LLM-FEATURES.md</a>.</p>
+              <details class="how-to-details">
+                <summary>Technical details — where settings are stored and env locks</summary>
+                <div class="how-to-details-body">
+                  <ul style="margin:0;">
+                    <li><strong>Self-hosted</strong> — Policy file <code>data/hub_proposal_policy.json</code>.</li>
+                    <li><strong>Hosted</strong> — Stored with the gateway (e.g. Netlify Blob).</li>
+                    <li><strong>Greyed-out checkboxes</strong> — The host locked the feature with <code>HUB_PROPOSAL_EVALUATION_REQUIRED</code>, <code>KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS</code>, or <code>KNOWTATION_HUB_PROPOSAL_ENRICH</code> (<code>1</code>/<code>0</code> or <code>true</code>/<code>false</code>); change env on the server to unlock.</li>
+                    <li><strong>Models</strong> — Review hints need chat model config (Ollama, OpenAI, or Anthropic) on the Node Hub or gateway that runs the job.</li>
+                  </ul>
+                </div>
+              </details>
             </section>
 
             <section class="how-to-step">
               <h3>Orchestrators</h3>
-              <p>Point any orchestrator at this vault and the same project slugs. Use CLI in worktrees or MCP where available. For local models (e.g. Ollama), use the same embedding URL and model as Knowtation—see <strong>Settings → Agents</strong> for the current config and a copyable env snippet.</p>
+              <p class="step-what">Any orchestrator can use the same vault and project names. Match <strong>embedding</strong> settings to this Hub so search behaves the same: <strong>Settings → Integrations → Agent Configuration</strong> (copy snippet).</p>
             </section>
           </div>
         </div>
@@ -2145,8 +2215,14 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
             </section>
 
             <section class="how-to-step">
-              <h3>MCP image and video resources</h3>
-              <p>When an AI agent reads a note via MCP, any embedded image URLs are exposed as typed <code>image/*</code> resources (<code>knowtation://vault/…/image/0</code>, <code>/image/1</code>, …). Video URLs are exposed as <code>video/*</code> resources with the URL as text content. Vision-capable models can receive the image blobs directly. This requires no extra configuration — it is automatic for all notes.</p>
+              <h3>AI assistants reading your note</h3>
+              <p class="step-what">When a compatible assistant reads a note through Knowtation’s MCP connection, images you linked can be passed to <strong>vision-capable</strong> models automatically. You do not configure this per note.</p>
+              <details class="how-to-details">
+                <summary>Technical details — MCP resource URIs</summary>
+                <div class="how-to-details-body">
+                  <p style="margin-top:0;">Embedded image URLs become typed <code>image/*</code> resources (<code>knowtation://vault/…/image/0</code>, …). Direct video file URLs become <code>video/*</code> resources. No extra Hub settings required.</p>
+                </div>
+              </details>
             </section>
           </div>
         </div>
@@ -2193,7 +2269,14 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Privacy</h3>
-              <p>Consolidation builds prompts from <strong>memory events</strong>. By default each line includes a <strong>short JSON snippet</strong> of that event’s <code>data</code> (capped in length). Your full note files are <strong>not</strong> uploaded as a single document, but <strong>fragments of text</strong> that were stored on those events (e.g. search queries, titles) <strong>can</strong> appear. With <strong><code>memory.encrypt: true</code></strong> in <code>config/local.yaml</code> (self-hosted) or <strong><code>CONSOLIDATION_MEMORY_ENCRYPT=true</code></strong> on the hosted bridge, consolidation <strong>omits raw event payloads</strong> from the model prompt (timestamps and event types only). See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>. For maximum privacy: self-hosted <strong>Ollama</strong>, turn consolidation <strong>off</strong>, or limit what gets captured into memory events.</p>
+              <p class="step-what">Consolidation sends <strong>memory events</strong> (activity summaries) to the model—not your whole vault as one file. Small text snippets from those events (for example search text or titles) can still appear in the prompt unless you tighten settings.</p>
+              <p class="how-to-note">Hosted: see <strong>Settings → Consolidation</strong> and your plan docs. Self-hosted: you can run a <strong>local model (Ollama)</strong>, turn consolidation off, or reduce what gets logged to memory events.</p>
+              <details class="how-to-details">
+                <summary>Technical details — encryption flags and config keys</summary>
+                <div class="how-to-details-body">
+                  <p style="margin-top:0;">Default lines include a capped JSON snippet of each event’s <code>data</code>. With <code>memory.encrypt: true</code> in <code>config/local.yaml</code> (self-hosted) or <code>CONSOLIDATION_MEMORY_ENCRYPT=true</code> on the hosted bridge, raw event payloads are omitted from the model prompt (timestamps and types only). See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TOKEN-SAVINGS.md" target="_blank" rel="noopener">TOKEN-SAVINGS.md</a>.</p>
+                </div>
+              </details>
             </section>
           </div>
         </div>
@@ -2226,11 +2309,12 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5.5.2/dist/iro.min.js" crossorigin="anonymous"></script>
   <script src="config.js?v=20260324"></script>
   <script type="module">
     import * as HubListSort from './hub-list-sort.mjs';
     globalThis.HubListSort = HubListSort;
   </script>
-  <script defer src="hub.js?v=20260410c"></script>
+  <script defer src="hub.js?v=20260422b"></script>
 </body>
 </html>
