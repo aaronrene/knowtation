@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Knowtation: Markdown vault you own, semantic search, MCP and CLI for agents, memory consolidation, hosted or self-hosted.">
+  <meta name="description" content="Knowtation — Markdown vault you own, semantic search, MCP/CLI for agents; proposals need human approval; memory consolidation; hosted Hub or self-host.">
   <meta name="theme-color" content="#0a192f">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation — Know and own your data</title>
@@ -377,6 +377,9 @@
       background: var(--accent-soft);
       box-shadow: none;
     }
+    .hero .cta-row .cta-secondary {
+      border-color: var(--accent);
+    }
     .cta-row {
       display: flex;
       flex-wrap: wrap;
@@ -384,14 +387,6 @@
       align-items: center;
       gap: 0.75rem;
       margin-top: 1.25rem;
-    }
-    .landing-onboard-hint {
-      max-width: 36rem;
-      margin: 0.85rem auto 0;
-      font-size: 0.92rem;
-      color: var(--text-muted);
-      line-height: 1.45;
-      text-align: center;
     }
     .hero .cta-row {
       display: grid;
@@ -435,7 +430,114 @@
       background: color-mix(in srgb, var(--accent) 28%, transparent);
       color: var(--accent);
     }
+    .badge-wrap .badge {
+      color: var(--text-muted);
+    }
+    .badge-wrap .badge:hover {
+      color: var(--text-muted);
+    }
     .badge-wrap { text-align: center; padding: 1rem 0 0.5rem; }
+
+    /* Band B — three steps only, after hero + GitHub badge, before deploy headlines */
+    .band-b-path {
+      margin: 0 auto;
+      padding: 0.5rem 1.5rem 1.75rem;
+    }
+    .band-b-path-inner {
+      max-width: 56rem;
+      margin: 0 auto;
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--surface-elevated) 0%, var(--surface) 100%);
+      padding: 1.2rem 1.15rem 1.35rem;
+    }
+    .band-b-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      align-items: stretch;
+    }
+    @media (max-width: 720px) {
+      .band-b-steps { grid-template-columns: 1fr; }
+    }
+    .band-b-step {
+      margin: 0;
+      padding: 1rem 0.9rem 1.05rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    .band-b-step-head {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 0 0.5rem;
+    }
+    .band-b-step-marker {
+      flex-shrink: 0;
+      font-family: var(--font-sans);
+      font-size: clamp(1.5rem, 3.8vw, 2.1rem);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+    }
+    .band-b-step-title {
+      font-family: var(--font-sans);
+      font-size: clamp(0.95rem, 2vw, 1.05rem);
+      font-weight: 700;
+      margin: 0;
+      color: var(--text);
+      line-height: 1.25;
+    }
+    .band-b-step p {
+      flex: 1 1 auto;
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      min-height: calc(2 * 1.55 * 0.86rem);
+    }
+    .band-b-step-links {
+      margin-top: auto;
+      padding-top: 0.55rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+    .band-b-step-link {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+      border: none;
+      background: none;
+      padding: 0;
+    }
+    .band-b-step-link:hover {
+      text-decoration: underline;
+    }
+    .band-b-step-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    .band-b-step-link--secondary {
+      font-weight: 500;
+      margin-top: 0.4rem;
+      color: color-mix(in srgb, var(--accent) 88%, var(--text-muted));
+    }
+    .band-b-step-link--secondary:hover {
+      color: var(--accent);
+    }
 
     /* Ecosystem rings (hero graphic) */
     .landing-ecosystem {
@@ -551,6 +653,22 @@
     .flow-intro-sub--accent {
       color: var(--accent);
       font-weight: 600;
+    }
+    /* Structured memory (hero fold + main): same type scale as Ecosystem visions; doc-link blue, normal weight, centered */
+    .structured-memory-heading {
+      color: #58a6ff;
+      text-align: center;
+      font-weight: 400;
+      text-shadow: none;
+    }
+    html[data-theme="light"] .structured-memory-heading {
+      color: #0969da;
+    }
+    .ecosystem-vision-heading-wrap .flow-intro-title.structured-memory-heading {
+      text-shadow: none;
+    }
+    .hero-value-fold-heading-text {
+      margin: 0;
     }
     .feature-highlights {
       padding: 2.5rem 0 2.75rem;
@@ -906,6 +1024,192 @@
     }
     .flow-closing p { color: var(--text-muted); font-size: 0.95rem; max-width: 32em; margin: 0 auto 1.25rem; }
 
+    /* Value pitch: differentiation + proposals + glossary (see docs/WHY-KNOWTATION.md) */
+    .value-pitch {
+      padding: 1.75rem 1.5rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .value-pitch-inner { max-width: 960px; margin: 0 auto; }
+    .value-pitch > .value-pitch-inner > .ecosystem-vision-heading-wrap {
+      padding-top: 0.25rem;
+      padding-bottom: 0.5rem;
+    }
+    .value-pitch-lead {
+      margin: 0 0 1.25rem;
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 48rem;
+    }
+    .value-pitch-root-list {
+      list-style: none;
+      margin: 0 0 1.1rem;
+      padding: 0;
+      max-width: none;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: 0.65rem;
+      row-gap: 0.35rem;
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      line-height: 1.45;
+    }
+    .value-pitch-root-list li {
+      position: relative;
+      padding-left: 0.75rem;
+      margin-bottom: 0;
+      flex: 0 1 auto;
+    }
+    .value-pitch-root-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 0.35rem;
+      height: 0.35rem;
+      border-radius: 50%;
+      background: #58a6ff;
+    }
+    html[data-theme="light"] .value-pitch-root-list li::before {
+      background: #0969da;
+    }
+    .value-pitch-grid {
+      display: grid;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+      align-items: stretch;
+    }
+    @media (min-width: 768px) {
+      .value-pitch-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .value-blurb {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+    }
+    .value-blurb > .landing-details {
+      margin-top: auto;
+    }
+    .value-blurb h3 {
+      margin: 0 0 0.65rem;
+      font-size: 1.05rem;
+    }
+    .value-blurb ul { margin: 0; padding-left: 1.2rem; color: var(--text-muted); font-size: 0.95rem; }
+    .value-blurb li { margin-bottom: 0.4rem; }
+    .value-pill-caption {
+      margin: 0 0 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .value-pill-row {
+      list-style: none;
+      margin: 0 0 1rem;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .value-pill-row li {
+      margin: 0;
+      font-size: 0.82rem;
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+      color: var(--text);
+    }
+    .landing-details {
+      margin-top: 0.75rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0;
+    }
+    .landing-details + .landing-details { margin-top: 0.5rem; }
+    .landing-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 0.65rem 0.85rem;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+    .landing-details summary::-webkit-details-marker { display: none; }
+    .landing-details summary::before {
+      content: "▶";
+      font-size: 1rem;
+      line-height: 1;
+      color: #58a6ff;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    html[data-theme="light"] .landing-details summary::before {
+      color: #0969da;
+    }
+    .landing-details[open] summary::before {
+      transform: rotate(90deg);
+    }
+    .landing-details[open] summary {
+      border-bottom: 1px solid var(--border);
+    }
+    .landing-details .landing-details-body {
+      padding: 0.75rem 0.85rem 0.9rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .landing-details .landing-details-body a { color: var(--accent); }
+
+    /* Hero fold: full structured-memory block, collapsed by default (sits under hero graphic, above CTAs) */
+    .hero-value-fold {
+      margin-top: 1.35rem;
+      margin-bottom: 1.25rem;
+      text-align: left;
+      width: 100%;
+      max-width: none;
+      margin-left: auto;
+      margin-right: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-elevated);
+      padding: 0;
+    }
+    .hero-value-fold-summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 0.85rem 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+    }
+    .hero-value-fold-summary::-webkit-details-marker { display: none; }
+    .hero-value-fold-summary::after {
+      content: "▾";
+      font-size: 1.35rem;
+      line-height: 1;
+      font-weight: 700;
+      color: var(--accent);
+      transition: transform 0.2s ease;
+    }
+    .hero-value-fold[open] .hero-value-fold-summary::after {
+      transform: rotate(-180deg);
+    }
+    .hero-value-fold-body {
+      padding: 1rem 0 2rem;
+      border-top: 1px solid var(--border);
+    }
+
     footer {
       padding: 2.5rem 1.5rem;
       text-align: center;
@@ -1023,17 +1327,142 @@
           <div class="landing-ecosystem-icon landing-ecosystem-icon-20" title="Export">📤</div>
         </div>
       </div>
+      <details class="hero-value-fold" id="structured-memory-hero-fold">
+        <summary class="hero-value-fold-summary"><span class="flow-intro-title structured-memory-heading hero-value-fold-heading-text">Structured memory for humans and agents</span></summary>
+        <div class="hero-value-fold-body value-pitch-inner">
+          <p class="value-pitch-lead">
+            Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
+          </p>
+          <ul class="value-pitch-root-list">
+            <li>Root Solution</li>
+            <li>Semantic search</li>
+            <li>Agent proposals with human review</li>
+            <li>Team roles</li>
+            <li>Scoped vaults</li>
+            <li>Memory consolidation</li>
+            <li>Causal-temporal structure</li>
+            <li>More than a trim pass on chat or terminal logs.</li>
+          </ul>
+          <div class="value-pitch-grid">
+            <div class="value-blurb">
+              <h3>Depth you can use</h3>
+              <ul>
+                <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
+                <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
+                <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
+                <li><strong>Imports, capture, transcribe</strong> — one indexed vault for humans and agents.</li>
+              </ul>
+              <details class="landing-details">
+                <summary>Technical pointers</summary>
+                <div class="landing-details-body">
+                  Start with <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener">Intention and temporal</a>,
+                  <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PARITY-MATRIX-HOSTED.md" target="_blank" rel="noopener">Hosted parity matrix</a>, and
+                  <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HOSTED-MCP-TOOL-EXPANSION.md" target="_blank" rel="noopener">Hosted MCP tool expansion</a>.
+                </div>
+              </details>
+            </div>
+            <div class="value-blurb">
+              <h3>Agents suggest. Humans approve.</h3>
+              <ul>
+                <li><strong>Proposals</strong> stay out of the canonical vault until reviewers pass rubrics and admins apply changes.</li>
+                <li>Built for teams that need <strong>audit trails</strong>, <strong>roles</strong>, and optional <strong>LLM review hints</strong>—not silent AI overwrites.</li>
+                <li>Same AI speed with a <strong>human gate</strong>, optional <strong>rubrics</strong>, and a durable <strong>paper trail</strong> from propose → evaluate → approve.</li>
+                <li><strong>Scoped roles</strong> — viewer, editor, evaluator, admin — so each person only touches what their job allows.</li>
+              </ul>
+              <details class="landing-details">
+                <summary>How proposals work (API)</summary>
+                <div class="landing-details-body">
+                  Agents and editors create rows via <code>POST /api/v1/proposals</code>; humans evaluate; approve writes the vault.
+                  See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PROPOSAL-LIFECYCLE.md" target="_blank" rel="noopener">Proposal lifecycle</a> and
+                  <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration §4</a>.
+                </div>
+              </details>
+            </div>
+          </div>
+          <p class="value-pill-caption" id="value-pill-caption-hero">Glossary chips — concepts you can combine</p>
+          <ul class="value-pill-row" role="list" aria-labelledby="value-pill-caption-hero">
+            <li role="listitem">Semantic search</li>
+            <li role="listitem">Keyword search</li>
+            <li role="listitem">Causal chain</li>
+            <li role="listitem">Episode</li>
+            <li role="listitem">Entity</li>
+            <li role="listitem">Snapshot</li>
+            <li role="listitem">Summarizes</li>
+            <li role="listitem">Consolidate</li>
+            <li role="listitem">Discover</li>
+            <li role="listitem">Evaluate</li>
+            <li role="listitem">Propose</li>
+            <li role="listitem">Approve</li>
+            <li role="listitem">MCP prompt</li>
+            <li role="listitem">Wikilink</li>
+            <li role="listitem">Memory event</li>
+            <li role="listitem">Temporal summary</li>
+            <li role="listitem">Resume session</li>
+            <li role="listitem">Knowledge gap</li>
+            <li role="listitem">Capture</li>
+            <li role="listitem">Import</li>
+            <li role="listitem">Rubric</li>
+            <li role="listitem">Scoped access</li>
+            <li role="listitem">Multi-vault</li>
+            <li role="listitem">Transcribe</li>
+            <li role="listitem">Attestation</li>
+            <li role="listitem">Indexed vault</li>
+            <li role="listitem">Relate</li>
+            <li role="listitem">Cluster</li>
+            <li role="listitem">Tag suggest</li>
+            <li role="listitem">Enrich</li>
+            <li role="listitem">Extract tasks</li>
+          </ul>
+        </div>
+      </details>
       <div class="cta-row">
         <a href="/hub/" class="cta cta-secondary">Hosted Hub (Beta)</a>
         <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="cta cta-secondary" target="_blank" rel="noopener">Self-host quick start</a>
       </div>
-      <p class="landing-onboard-hint">First time in the Hub? After you sign in, a short setup guide may open automatically. Reopen anytime from <strong>How to use → Getting started</strong> or <strong>Settings → Backup → Setup guide</strong>.</p>
     </header>
   </div>
 
   <div class="badge-wrap">
     <a href="https://github.com/aaronrene/knowtation" class="badge" target="_blank" rel="noopener">Open source on GitHub</a>
   </div>
+
+  <section class="band-b-path wide" aria-label="Three steps: note or import, add agents, ask your AI">
+    <div class="band-b-path-inner">
+      <ul class="band-b-steps" role="list">
+        <li class="band-b-step">
+          <div class="band-b-step-head">
+            <span class="band-b-step-marker">1</span>
+            <h3 class="band-b-step-title">Note / import</h3>
+          </div>
+          <p>Capture or import into your indexed vault. Keep work out of chat-only threads. Export and own your history</p>
+          <div class="band-b-step-links">
+            <a href="/hub/" class="band-b-step-link">Hosted Hub (Beta)</a>
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" class="band-b-step-link band-b-step-link--secondary" target="_blank" rel="noopener">Self-host quick start</a>
+          </div>
+        </li>
+        <li class="band-b-step">
+          <div class="band-b-step-head">
+            <span class="band-b-step-marker">2</span>
+            <h3 class="band-b-step-title">Add agents</h3>
+          </div>
+          <p>MCP is a common path in Cursor and other tools. CLI covers terminal workflows and automation. Both reach the same vault, search, memory, proposals, and govern access rights.</p>
+          <div class="band-b-step-links">
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" class="band-b-step-link" target="_blank" rel="noopener">Agent integration (MCP &amp; CLI)</a>
+          </div>
+        </li>
+        <li class="band-b-step">
+          <div class="band-b-step-head">
+            <span class="band-b-step-marker">3</span>
+            <h3 class="band-b-step-title">Ask your AI</h3>
+          </div>
+          <p>Paste phased prompts for install, index, and checks. Your assistant walks the steps you pick. Customize your specs and schema creatively using our many tags, tools, and prompts.</p>
+          <div class="band-b-step-links">
+            <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AI-ASSISTED-SETUP.md" class="band-b-step-link" target="_blank" rel="noopener">AI-assisted setup (prompts)</a>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </section>
 
   <div class="deploy-headlines wide">
     <p class="deploy-title">Run locally or get online access with our hosted service on decentralized Internet Computer canisters.</p>
@@ -1161,6 +1590,97 @@
           <p class="ecosystem-doc-link-hint">Full narrative, use cases, triple loop, and phasing: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">docs/ECOSYSTEM-VISION.md</a></p>
         </div>
       </details>
+    </div>
+  </section>
+
+  <section class="value-pitch wide" id="structured-memory-main" aria-labelledby="value-pitch-title">
+    <div class="value-pitch-inner">
+      <div class="ecosystem-vision-heading-wrap">
+        <h2 id="value-pitch-title" class="flow-intro-title structured-memory-heading">Structured memory for humans and agents</h2>
+      </div>
+      <p class="value-pitch-lead">
+        Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
+      </p>
+      <ul class="value-pitch-root-list">
+        <li>Root Solution</li>
+        <li>Semantic search</li>
+        <li>Agent proposals with human review</li>
+        <li>Team roles</li>
+        <li>Scoped vaults</li>
+        <li>Memory consolidation</li>
+        <li>Causal-temporal structure</li>
+        <li>More than a trim pass on chat or terminal logs.</li>
+      </ul>
+      <div class="value-pitch-grid">
+        <div class="value-blurb">
+          <h3>Depth you can use</h3>
+          <ul>
+            <li>Causal chains, episodes, entities, snapshots, and summary notes when you add frontmatter.</li>
+            <li>Agent tools such as semantic neighbors, wikilinks, tasks, clustering, and tag suggestions.</li>
+            <li>Hosted prompts and memory flows for long-running work (see docs for full lists).</li>
+            <li><strong>Imports, capture, transcribe</strong> — one indexed vault for humans and agents.</li>
+          </ul>
+          <details class="landing-details">
+            <summary>Technical pointers</summary>
+            <div class="landing-details-body">
+              Start with <a href="https://github.com/aaronrene/knowtation/blob/main/docs/INTENTION-AND-TEMPORAL.md" target="_blank" rel="noopener">Intention and temporal</a>,
+              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PARITY-MATRIX-HOSTED.md" target="_blank" rel="noopener">Hosted parity matrix</a>, and
+              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/HOSTED-MCP-TOOL-EXPANSION.md" target="_blank" rel="noopener">Hosted MCP tool expansion</a>.
+            </div>
+          </details>
+        </div>
+        <div class="value-blurb">
+          <h3>Agents suggest. Humans approve.</h3>
+          <ul>
+            <li><strong>Proposals</strong> stay out of the canonical vault until reviewers pass rubrics and admins apply changes.</li>
+            <li>Built for teams that need <strong>audit trails</strong>, <strong>roles</strong>, and optional <strong>LLM review hints</strong>—not silent AI overwrites.</li>
+            <li>Same AI speed with a <strong>human gate</strong>, optional <strong>rubrics</strong>, and a durable <strong>paper trail</strong> from propose → evaluate → approve.</li>
+            <li><strong>Scoped roles</strong> — viewer, editor, evaluator, admin — so each person only touches what their job allows.</li>
+          </ul>
+          <details class="landing-details">
+            <summary>How proposals work (API)</summary>
+            <div class="landing-details-body">
+              Agents and editors create rows via <code>POST /api/v1/proposals</code>; humans evaluate; approve writes the vault.
+              See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/PROPOSAL-LIFECYCLE.md" target="_blank" rel="noopener">Proposal lifecycle</a> and
+              <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration §4</a>.
+            </div>
+          </details>
+        </div>
+      </div>
+      <p class="value-pill-caption" id="value-pill-caption-main">Glossary chips — concepts you can combine</p>
+      <ul class="value-pill-row" role="list" aria-labelledby="value-pill-caption-main">
+        <li role="listitem">Semantic search</li>
+        <li role="listitem">Keyword search</li>
+        <li role="listitem">Causal chain</li>
+        <li role="listitem">Episode</li>
+        <li role="listitem">Entity</li>
+        <li role="listitem">Snapshot</li>
+        <li role="listitem">Summarizes</li>
+        <li role="listitem">Consolidate</li>
+        <li role="listitem">Discover</li>
+        <li role="listitem">Evaluate</li>
+        <li role="listitem">Propose</li>
+        <li role="listitem">Approve</li>
+        <li role="listitem">MCP prompt</li>
+        <li role="listitem">Wikilink</li>
+        <li role="listitem">Memory event</li>
+        <li role="listitem">Temporal summary</li>
+        <li role="listitem">Resume session</li>
+        <li role="listitem">Knowledge gap</li>
+        <li role="listitem">Capture</li>
+        <li role="listitem">Import</li>
+        <li role="listitem">Rubric</li>
+        <li role="listitem">Scoped access</li>
+        <li role="listitem">Multi-vault</li>
+        <li role="listitem">Transcribe</li>
+        <li role="listitem">Attestation</li>
+        <li role="listitem">Indexed vault</li>
+        <li role="listitem">Relate</li>
+        <li role="listitem">Cluster</li>
+        <li role="listitem">Tag suggest</li>
+        <li role="listitem">Enrich</li>
+        <li role="listitem">Extract tasks</li>
+      </ul>
     </div>
   </section>
 

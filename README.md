@@ -23,7 +23,7 @@ The result: agents get **better answers at a fraction of the cost**, and that ad
 Most knowledge tools put a database at the center. Knowtation puts **files** at the center.
 
 - **Your vault is Markdown.** Open it in Obsidian, VS Code, Foam, SilverBullet, or any text editor. Version it with Git. Copy it to another machine. No export step, no vendor lock.
-- **Agents get depth, not a thin wrapper.** 33 MCP tools, 23 resources, 13 prompts, a full CLI with JSON output, and a Hub REST API. Memory, consolidation, verification, proposals, enrichment, clustering, task extraction — not just search-and-return.
+- **Agents get depth, not a thin wrapper.** 33 MCP tools, 24 resources, 13 prompts, a full CLI with JSON output, and a Hub REST API. Memory, consolidation, verification, proposals, enrichment, clustering, task extraction — not just search-and-return.
 - **Memory compounds.** Five provider tiers (file, vector, Mem0, Supabase, encrypted), 15 event types, LLM consolidation, session summaries. Your agent's second question costs less than the first.
 - **Trust is built in.** Proposals go through human review with rubric scoring. Attestation records can anchor to the Internet Computer blockchain for immutable audit.
 - **Self-hosted or hosted.** Same codebase, same vault format. Migrate by copying a folder.
@@ -84,7 +84,7 @@ File (default), vector, Mem0, Supabase/pgvector, and AES-256-GCM encrypted. Fift
 
 Three-pass LLM engine: consolidate (merge by topic), verify (check against vault state), discover (surface insights). Runs as a background daemon with configurable interval and cost caps.
 
-### 🤖 MCP — 33 tools, 23 resources, 13 prompts
+### 🤖 MCP — 33 tools, 24 resources, 13 prompts
 
 Full vault operations, memory operations, Hub proposal operations. Resources for vault browsing, templates, media, index stats, graph, tags, projects, config, AIR log, and memory. Prompts for daily briefs, search synthesis, project summaries, meeting notes, knowledge gaps, causal chains, content plans, and memory-aware sessions. Hosted MCP adds role-gated access with OAuth 2.1.
 
@@ -110,8 +110,8 @@ Stripe-backed tiers (free, plus, growth, pro) with token packs, indexing quotas,
 
 Knowtation is designed as a **knowledge backend** for agents and orchestrators.
 
-- **CLI:** `knowtation search|write|import|export|memory|propose ... --json` — same commands for humans and agents.
-- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md).
+- **CLI:** `knowtation search|write|import|export|memory|propose|doctor ... --json` — same commands for humans and agents. **`doctor`** checks local vault health and optional Hub API reachability (`docs/WHY-KNOWTATION.md` token layers).
+- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md). Bootstrap JSON: **`resources/read`** `knowtation://prime` (local) or `knowtation://hosted/prime` (hosted); Hub **Copy prime** on Integrations.
 - **Hub API:** REST with JWT auth. `KNOWTATION_HUB_TOKEN` for agent access. Proposals for human-in-the-loop review.
 - **SKILL.md:** `.cursor/skills/knowtation/SKILL.md` teaches Cursor agents how to use Knowtation without tool-definition bloat.
 
@@ -127,7 +127,7 @@ knowtation/
 ├── ARCHITECTURE.md
 ├── cli/                  ← CLI entry point and routing
 ├── lib/                  ← Core library (search, memory, importers, AIR, etc.)
-├── mcp/                  ← MCP server (33 tools, 23 resources, 13 prompts)
+├── mcp/                  ← MCP server (33 tools, 24 resources, 13 prompts)
 ├── hub/                  ← Hub: gateway, bridge, ICP canister
 │   ├── gateway/          ← Auth, billing, proxy, attestation
 │   ├── bridge/           ← Vault operations, teams, import, memory

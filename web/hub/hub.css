@@ -1176,6 +1176,10 @@ input[type="date"]::-moz-calendar-picker-indicator {
   min-height: 0;
 }
 .how-to-two-paths-box { margin: 0 0 1.25rem; padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+/* Hosted-first lead in How to use → Setup (Phase 5) */
+.how-to-hosted-lead { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface)); }
+.how-to-hosted-lead .how-to-two-paths-title { color: var(--text); }
+.how-to-selfhosted-details > summary { font-weight: 600; }
 .how-to-two-paths-title { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; color: var(--text); }
 .how-to-two-paths-list { margin: 0 0 0.5rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.6; color: var(--muted); }
 .how-to-two-paths-list li { margin-bottom: 0.5rem; }
@@ -1301,6 +1305,8 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .how-to-details summary:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .how-to-details summary::-webkit-details-marker { display: none; }
 .how-to-details-body { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.9rem; line-height: 1.5; }
+/* Settings modals: stack technical <details> under short leads (Integrations, etc.) */
+.settings-body .how-to-details { margin-top: 0.65rem; }
 .how-to-steps-list { margin: 0.5rem 0 0.75rem; padding-left: 1.25rem; }
 .how-to-steps-list li { margin-bottom: 0.5rem; }
 .settings-list { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.55; }
@@ -1365,12 +1371,89 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .settings-steps-list { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: 0.9rem; line-height: 1.6; color: var(--text); }
 .settings-steps-list li { margin-bottom: 0.35rem; }
 .settings-label-hint { font-weight: normal; color: var(--muted); font-size: 0.85em; }
+.theme-section-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+}
+.theme-dashboard-colors-link {
+  flex-shrink: 0;
+}
 .theme-toggle { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .theme-btn { padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; cursor: pointer; }
 .theme-btn:hover { border-color: var(--accent); }
 .theme-btn[aria-pressed="true"] { background: var(--accent); color: var(--cta-on-accent); border-color: var(--accent); }
-.accent-preset-groups { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.35rem; width: 100%; }
+/* Accent: presets (left) + large custom + hex (right) */
+.accent-color-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem 1.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+.accent-preset-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex: 1 1 16rem;
+  min-width: min(100%, 16rem);
+  max-width: 100%;
+  margin-top: 0;
+}
 .accent-preset-group { width: 100%; }
+.accent-custom-column {
+  flex: 0 1 20rem;
+  width: min(100%, 20rem);
+  min-width: 14rem;
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 90%, var(--bg));
+  margin-left: auto;
+}
+.accent-custom-heading { margin: 0 0 0.1rem; align-self: center; width: 100%; }
+/* Inline color UI (@jaames/iro): box + hue, centered in the column */
+.accent-iro-root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 8rem;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.accent-iro-root .IroColorPicker,
+.accent-iro-root [class^='Iro'] {
+  margin-left: auto;
+  margin-right: auto;
+}
+.accent-custom-hex-row { margin: 0.1rem 0 0; text-align: center; width: 100%; }
+.accent-custom-hex {
+  font-size: 0.88rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  color: var(--accent);
+  background: var(--bg);
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+@media (max-width: 520px) {
+  .accent-custom-column {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
 .accent-preset-group-label {
   margin: 0 0 0.35rem;
   font-size: 0.72rem;
@@ -1409,8 +1492,6 @@ input[type="date"]::-moz-calendar-picker-indicator {
 [data-theme="light"] .accent-swatch.active {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--surface), 0 0 0 3px var(--text);
 }
-#accent-custom { width: 100%; max-width: 8rem; height: 2.5rem; padding: 0.2rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
-
 /* Appearance → dashboard color theme cards */
 .dashboard-theme-grid {
   display: grid;
@@ -1631,6 +1712,28 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .settings-form label:not(.settings-checkbox-label) { font-size: 0.9rem; font-weight: 500; }
 .settings-form input[type="text"] { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .settings-input-inline, .settings-select-inline { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; }
+/* Settings modal: native <select> without a class (e.g. Team role) — match dark surface, not OS white */
+#modal-settings select,
+.modal-card-settings select {
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  cursor: pointer;
+  max-width: min(100%, 30rem);
+}
+#modal-settings select:hover,
+.modal-card-settings select:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+#modal-settings select:focus,
+.modal-card-settings select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
 .scope-form-simple .settings-form-row label { font-size: 0.9rem; font-weight: 500; }
 .settings-checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: normal; cursor: pointer; }
 .settings-form-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; }
@@ -1650,10 +1753,26 @@ input[type="date"]::-moz-calendar-picker-indicator {
   padding: 0.55rem 1.35rem;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 35%, transparent);
 }
+/* Backup: space below proposal explainer + technical details, before status rows (API / GitHub) */
+.settings-proposal-eval-explainer-block {
+  margin-bottom: 1.5rem;
+}
+.settings-proposal-eval-explainer-block .settings-json-details {
+  margin-top: 0.5rem;
+}
+#settings-api-base-row.settings-row {
+  margin-top: 0.35rem;
+  margin-bottom: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
 .settings-hosted-repo-block { margin: 0.75rem 0 0.25rem; padding-top: 0.25rem; border-top: 1px solid var(--border); }
 .settings-form-compact { margin-top: 0.35rem; }
 .settings-json-textarea { font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; min-height: 6rem; }
-.settings-vaults-list { margin: 0.5rem 0; padding: 0.5rem; background: var(--bg); border-radius: 6px; font-size: 0.9rem; }
+.settings-vaults-list { margin: 0.65rem 0 0.85rem; padding: 0.65rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.9rem; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); }
+.vault-list-simple-form { margin: 0.75rem 0 0.65rem; }
+.vault-list-simple-form .settings-form-row + .settings-form-row,
+.vault-list-simple-form p + .settings-form-row { margin-top: 0.35rem; }
 .settings-vaults-server-view { margin: 0.5rem 0 1rem; line-height: 1.4; }
 
 .vault-switcher-label { display: inline-flex; align-items: center; gap: 0.5rem; }
@@ -1760,8 +1879,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
   margin-top: 0.25rem;
 }
 .settings-vaults-save-row {
-  margin-top: 0.75rem;
-  margin-bottom: 0.35rem;
+  margin-top: 1.05rem;
+  margin-bottom: 0.55rem;
+}
+.settings-vaults-vault-list-block .settings-json-details {
+  margin-top: 0.85rem;
 }
 
 /* Vault list summary (not raw JSON) */
@@ -1825,6 +1947,96 @@ input[type="date"]::-moz-calendar-picker-indicator {
   margin-top: -0.2rem;
 }
 .settings-json-details[open] > .settings-json-details-summary { margin-bottom: 0.35rem; }
+
+/* Settings → Backup: GitHub row + primary Connect button */
+.settings-github-connect-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.settings-github-connect-row .settings-label {
+  flex-shrink: 0;
+}
+.settings-github-connect-row .settings-value {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.settings-github-connect-row #btn-connect-github {
+  flex-shrink: 0;
+}
+
+/* Settings → Integrations: Hub API troubleshoot + copy row */
+.settings-hub-api-troubleshoot {
+  margin-top: 0.5rem;
+}
+.settings-troubleshoot-body .settings-intro.small:last-child {
+  margin-bottom: 0;
+}
+.settings-hub-api-copy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.settings-hub-api-doc-ref {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+.settings-advanced-ecosystems-details {
+  margin-top: 0.85rem;
+}
+.settings-advanced-ecosystems-inner-hr {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Integrations tab: compact inline “How?” for Hub API (hosted + self-hosted) */
+.settings-intro-integrations-lede {
+  margin: 0 0 0.75rem;
+  line-height: 1.55;
+}
+.settings-integ-how-inline {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 0 0 0.15rem;
+  border: none;
+  max-width: 100%;
+}
+.settings-integ-how-inline-summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline;
+  user-select: none;
+}
+.settings-integ-how-inline-summary::-webkit-details-marker,
+.settings-integ-how-inline-summary::marker {
+  display: none;
+  content: '';
+}
+.settings-integ-how-inline-label {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.15em;
+}
+.settings-integ-how-inline[open] .settings-integ-how-inline-label {
+  text-decoration-style: solid;
+}
+.settings-integ-how-inline-body {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
+  max-width: 40rem;
+}
 
 /* Loading state */
 .loading-state { padding: 2rem; text-align: center; color: var(--muted); }
@@ -2324,15 +2536,142 @@ input[type="date"]::-moz-calendar-picker-indicator {
   border: 0;
 }
 .modal-onboarding-card {
-  max-width: 34rem;
+  max-width: 38rem;
   width: calc(100% - 2rem);
 }
 .onboarding-step-body {
   padding: 0 1.25rem 0.75rem;
   line-height: 1.55;
   color: var(--text);
-  max-height: min(52vh, 22rem);
+  max-height: min(58vh, 28rem);
   overflow-y: auto;
+}
+.onboarding-token-line {
+  font-size: 0.92rem;
+  border-left: 3px solid var(--accent-dim, color-mix(in srgb, var(--accent) 35%, transparent));
+  padding-left: 0.65rem;
+  margin-left: 0.1rem;
+}
+.onboarding-path-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.25rem;
+}
+@media (max-width: 520px) {
+  .onboarding-path-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.onboarding-path-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--border));
+}
+.onboarding-path-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.onboarding-path-card-body {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+ul.onboarding-import-cards {
+  margin: 0.35rem 0 0.75rem;
+  padding-left: 1.15rem;
+  line-height: 1.45;
+}
+ul.onboarding-import-cards li {
+  margin-bottom: 0.4rem;
+}
+.onboarding-llm-prompt {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  min-height: 7rem;
+}
+.onboarding-copy-row {
+  margin: 0.5rem 0 0;
+}
+
+.onboarding-step-body .how-to-details {
+  margin-top: 0.65rem;
+}
+
+/* Proposal list empty states (Suggested / Activity) */
+.empty-state-suggested-actions,
+.empty-state-activity-actions {
+  margin: 0.75rem 0 0;
+}
+
+/* Empty vault reminder when onboarding was skipped (Skip for now) */
+.hub-empty-vault-strip {
+  margin: 0 0 0.75rem;
+  padding: 0 0.5rem;
+}
+.hub-empty-vault-strip-inner {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--radius, 8px);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--surface)) 0%, var(--surface) 100%);
+}
+.hub-empty-vault-strip-lede {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+.hub-empty-vault-steps {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.hub-empty-vault-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.hub-empty-vault-num {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.hub-empty-vault-step-body strong {
+  color: var(--text);
+}
+.hub-empty-vault-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 .onboarding-step-body p {
   margin: 0 0 0.75rem 0;

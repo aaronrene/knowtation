@@ -23,6 +23,7 @@ This document (1) lists **all CLI commands and optional features**, (2) explains
 | **write** \<path\> [content] | Create or overwrite a note. | `--stdin`, `--frontmatter`, `--append`, `--json` |
 | **export** \<path-or-query\> \<output\> | Export note(s) to a format/directory. | `--format`, `--project`, `--json` |
 | **import** \<source-type\> \<input\> | Ingest from external platform (ChatGPT, Claude, etc.). | `--project`, `--output-dir`, `--tags`, `--dry-run`, `--json` |
+| **doctor** | Check **self-hosted** vault path (config load, disk readable) and optional **Hub** probes (`KNOWTATION_HUB_URL` health; `KNOWTATION_HUB_TOKEN` + `KNOWTATION_HUB_VAULT_ID` → `GET /api/v1/notes?limit=1`). Prints the two token layers from [WHY-KNOWTATION.md](./WHY-KNOWTATION.md). | `--json`, `--hub <url>` |
 
 **Global:** All commands support `--json` for machine-readable output.
 

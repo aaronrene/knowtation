@@ -65,6 +65,7 @@
   const btnLogout = el('btn-logout');
   const btnNewNote = el('btn-new-note');
   const btnImport = el('btn-import');
+  const btnHeaderSuggested = el('btn-header-suggested');
   const btnHowToUse = el('btn-how-to-use');
   const btnSettings = el('btn-settings');
   const browseToolbar = el('browse-toolbar');
@@ -87,6 +88,8 @@
   const btnReindex = el('btn-reindex');
   const notesList = el('notes-list');
   const notesTotal = el('notes-total');
+  /** True when the last unfiltered browse list (loadNotes, no list filters) returned zero notes. */
+  let hubBrowseListEmptyUnfiltered = false;
   const filterChipsEl = el('filter-chips');
   const presetsListEl = el('presets-list');
   const presetNameInput = el('preset-name');
@@ -240,6 +243,7 @@
       browseToolbar.classList.add('hidden');
       btnNewNote.classList.add('hidden');
       if (btnImport) btnImport.classList.add('hidden');
+      if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
       if (btnHowToUse) btnHowToUse.classList.add('hidden');
       if (btnSettings) btnSettings.classList.add('hidden');
       showLoginChrome();
@@ -659,7 +663,7 @@
   let onboardingModulePromise = null;
   function loadOnboardingModule() {
     if (!onboardingModulePromise) {
-      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260410a');
+      onboardingModulePromise = import('./onboarding-wizard.mjs?v=20260424');
     }
     return onboardingModulePromise;
   }
@@ -674,9 +678,25 @@
     }
   }
 
+  /**
+   * Choose the 9-step hosted wizard vs the short self-hosted wizard.
+   * Canister vault from API = hosted. Production Hub hostname = hosted even if settings
+   * have not hydrated yet (avoids showing disk-path steps on knowtation.store).
+   */
+  function wizardHostedFromContext(settingsPayload) {
+    const s = settingsPayload !== undefined ? settingsPayload : lastBackupSettingsPayload;
+    const vd = String(s && s.vault_path_display ? s.vault_path_display : '').toLowerCase();
+    if (vd === 'canister') return true;
+    try {
+      const h = typeof location !== 'undefined' && location.hostname ? String(location.hostname).toLowerCase() : '';
+      if (h === 'knowtation.store' || h === 'www.knowtation.store') return true;
+    } catch (_) {}
+    return false;
+  }
+
   function persistOnboardingProgress(mod, partial) {
     const userKey = getOnboardingUserKey();
-    const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+    const isHosted = wizardHostedFromContext();
     const hostingPath = isHosted ? 'hosted' : 'selfhosted';
     let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
     if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
@@ -699,6 +719,7 @@
     loadOnboardingModule()
       .then((mod) => {
         persistOnboardingProgress(mod, { status: 'dismissed', dismissedAt: Date.now() });
+        updateEmptyVaultStripVisibility();
       })
       .catch(function () {});
     const modal = el('modal-onboarding');
@@ -745,11 +766,47 @@
         openHowToUse('setup', 'how-to-step-selfhosted-oauth');
         return;
       }
+      if (id === 'openWhyTokenDoc') {
+        window.open(
+          'https://github.com/aaronrene/knowtation/blob/main/docs/WHY-KNOWTATION.md#two-layers-of-token-savings-say-both-honestly',
+          '_blank',
+          'noopener,noreferrer',
+        );
+        return;
+      }
+      if (id === 'openImportModal') {
+        closeOnboardingWizardResume();
+        openImportModal();
+        return;
+      }
+      if (id === 'openImportSourcesDoc') {
+        window.open(
+          'https://github.com/aaronrene/knowtation/blob/main/docs/IMPORT-SOURCES.md',
+          '_blank',
+          'noopener,noreferrer',
+        );
+        return;
+      }
+      if (id === 'openAgentDocProposals' || id === 'openAgentIntegrationDoc') {
+        window.open(
+          id === 'openAgentDocProposals'
+            ? 'https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md#4-proposals-review-before-commit'
+            : 'https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md',
+          '_blank',
+          'noopener,noreferrer',
+        );
+        return;
+      }
+      if (id === 'focusSuggestedTab') {
+        closeOnboardingWizardResume();
+        switchHubMainTab('suggested');
+        return;
+      }
     }
 
     onboardingRenderStep = function renderOnboardingStep() {
       const userKey = getOnboardingUserKey();
-      const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+      const isHosted = wizardHostedFromContext();
       const hostingPath = isHosted ? 'hosted' : 'selfhosted';
       let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
       if (!st || st.userKey !== userKey || st.hostingPath !== hostingPath) {
@@ -759,6 +816,10 @@
       const idx = Math.min(Math.max(0, st.stepIndex), total - 1);
       const content = mod.getStepContent(isHosted, idx);
       if (body) body.innerHTML = content ? content.bodyHtml : '';
+      if (content && content.id === 'h-imports' && body) {
+        const ta = body.querySelector('[data-onboarding-llm-prompt]');
+        if (ta) ta.value = mod.LLM_SELF_HELP_EXPORT_PROMPT;
+      }
 
       if (progress) {
         progress.innerHTML = '';
@@ -798,7 +859,7 @@
     if (btnNext) {
       btnNext.addEventListener('click', () => {
         const userKey = getOnboardingUserKey();
-        const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+        const isHosted = wizardHostedFromContext();
         const hostingPath = isHosted ? 'hosted' : 'selfhosted';
         let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY)) || mod.createFreshState(userKey, hostingPath);
         if (st.userKey !== userKey || st.hostingPath !== hostingPath) st = mod.createFreshState(userKey, hostingPath);
@@ -815,6 +876,18 @@
     if (btnSkip) btnSkip.addEventListener('click', closeOnboardingWizardDismiss);
     if (closeBtn) closeBtn.addEventListener('click', closeOnboardingWizardResume);
     if (backdrop) backdrop.addEventListener('click', closeOnboardingWizardResume);
+
+    modal.addEventListener('click', (ev) => {
+      const copyBtn = ev.target && ev.target.closest && ev.target.closest('.onboarding-copy-llm-btn');
+      if (!copyBtn || !body) return;
+      const ta = body.querySelector('[data-onboarding-llm-prompt]');
+      const txt = ta && ta.value ? String(ta.value) : '';
+      if (!txt || !navigator.clipboard || !navigator.clipboard.writeText) return;
+      ev.preventDefault();
+      void navigator.clipboard.writeText(txt).then(() => {
+        if (typeof showToast === 'function') showToast('Copied export helper prompt');
+      });
+    });
   }
 
   async function openOnboardingWizard(opts) {
@@ -822,7 +895,7 @@
     const mod = await loadOnboardingModule();
     bindOnboardingWizardOnce(mod);
     const userKey = getOnboardingUserKey();
-    const isHosted = String(lastBackupSettingsPayload?.vault_path_display || '').toLowerCase() === 'canister';
+    const isHosted = wizardHostedFromContext();
     const hostingPath = isHosted ? 'hosted' : 'selfhosted';
     if (restart) {
       localStorage.setItem(mod.ONBOARDING_LS_KEY, mod.serializeOnboardingState(mod.createFreshState(userKey, hostingPath)));
@@ -845,7 +918,7 @@
     try {
       const mod = await loadOnboardingModule();
       const userKey = getOnboardingUserKey();
-      const isHosted = String(s.vault_path_display || '').toLowerCase() === 'canister';
+      const isHosted = wizardHostedFromContext(s);
       const hostingPath = isHosted ? 'hosted' : 'selfhosted';
       let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
       if (st && st.userKey !== userKey) st = null;
@@ -877,17 +950,20 @@
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
         if (btnImport) btnImport.classList.toggle('hidden', isViewer);
+        if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
         if (btnImport) btnImport.classList.remove('hidden');
+        if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
       }
     } else {
       if (btnNewNote) btnNewNote.classList.add('hidden');
       if (btnImport) btnImport.classList.add('hidden');
+      if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
     }
   }
 
@@ -931,6 +1007,7 @@
     browseToolbar.classList.add('hidden');
     btnNewNote.classList.add('hidden');
     if (btnImport) btnImport.classList.add('hidden');
+    if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
     if (btnHowToUse) btnHowToUse.classList.add('hidden');
     if (btnSettings) btnSettings.classList.add('hidden');
     closeOnboardingWizardResume();
@@ -1827,6 +1904,52 @@
     });
   }
 
+  function hasActiveNoteListFilters() {
+    if (filterProject && filterProject.value) return true;
+    if (filterTag && filterTag.value) return true;
+    if (filterFolder && filterFolder.value) return true;
+    if (filterSince && filterSince.value) return true;
+    if (filterUntil && filterUntil.value) return true;
+    if (filterContentScope && filterContentScope.value) return true;
+    if (filterNetwork && filterNetwork.value) return true;
+    if (filterWallet && filterWallet.value) return true;
+    const paymentStatusEl = el('filter-payment-status');
+    if (paymentStatusEl && paymentStatusEl.value) return true;
+    return false;
+  }
+
+  function readOnboardingDismissedSync() {
+    try {
+      const raw = localStorage.getItem('knowtation_onboarding_v1');
+      if (!raw) return false;
+      const o = JSON.parse(raw);
+      return Boolean(o && o.v === 1 && o.status === 'dismissed');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isSearchResultsView() {
+    const t = notesTotal && notesTotal.textContent ? String(notesTotal.textContent) : '';
+    return /\b(keyword|semantic)\b/i.test(t) && /result/i.test(t);
+  }
+
+  function updateEmptyVaultStripVisibility() {
+    const strip = el('hub-empty-vault-strip');
+    if (!strip) return;
+    const mainVisible = main && !main.classList.contains('hidden');
+    const notesTab = document.querySelector('.tabs .tab.active')?.dataset?.tab === 'notes';
+    const q = searchQuery && String(searchQuery.value).trim();
+    const show =
+      Boolean(mainVisible && token) &&
+      readOnboardingDismissedSync() &&
+      hubBrowseListEmptyUnfiltered &&
+      notesTab &&
+      !q &&
+      !isSearchResultsView();
+    strip.classList.toggle('hidden', !show);
+  }
+
   async function loadNotes() {
     const q = new URLSearchParams();
     q.set('limit', '100');
@@ -1875,9 +1998,43 @@
         listSelectedIndex = 0;
         updateListSelection();
       }
+      hubBrowseListEmptyUnfiltered = totalCount === 0 && !hasActiveNoteListFilters();
+      updateEmptyVaultStripVisibility();
     } catch (e) {
       notesList.innerHTML = '<p class="muted">' + escapeHtml(e.message) + '</p>';
       notesTotal.textContent = '';
+      hubBrowseListEmptyUnfiltered = false;
+      updateEmptyVaultStripVisibility();
+    }
+  }
+
+  function switchHubMainTab(name) {
+    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+    const tab = document.querySelector('[data-tab="' + name + '"]');
+    if (tab) tab.classList.add('active');
+    syncHubListSortUI(name);
+    setProposalFiltersBarVisible(
+      name === 'activity' || name === 'suggested' || name === 'problem',
+    );
+    refreshNewProposalTabVisibility();
+    const panel = el(
+      'tab-' +
+        (name === 'notes'
+          ? 'notes'
+          : name === 'activity'
+            ? 'activity'
+            : name === 'suggested'
+              ? 'suggested'
+              : 'problem'),
+    );
+    if (panel) panel.classList.remove('hidden');
+    if (name === 'notes') {
+      loadNotes();
+    } else {
+      if (name === 'activity') loadActivity();
+      if (name === 'suggested' || name === 'problem') loadProposals();
+      updateEmptyVaultStripVisibility();
     }
   }
 
@@ -2054,7 +2211,11 @@
 
   async function loadProposals() {
     const emptySuggested =
-      '<div class="empty-state">No proposals waiting for review. Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</div>';
+      '<div class="empty-state empty-state-suggested">' +
+      '<p><strong>No proposals waiting for review.</strong> Agents and the CLI queue edits here; nothing applies to your live vault until you approve.</p>' +
+      '<p>Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</p>' +
+      '<p class="empty-state-suggested-actions"><button type="button" class="btn-secondary" id="empty-suggested-how-to">How proposals work</button></p>' +
+      '</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
     [
@@ -2070,6 +2231,10 @@
           list = applySortedProposalsClient(list);
           if (list.length === 0) {
             container.innerHTML = emptyHtml;
+            if (kind === 'suggested') {
+              const how = container.querySelector('#empty-suggested-how-to');
+              if (how) how.onclick = () => openHowToUse('knowledge-agents');
+            }
             return;
           }
           const canDiscard = kind === 'suggested' && hubUserCanWriteNotes();
@@ -2134,7 +2299,14 @@
       let list = out.proposals || [];
       list = applySortedProposalsClient(list);
       if (list.length === 0) {
-        container.innerHTML = '<div class="empty-state">No proposal activity yet.</div>';
+        container.innerHTML =
+          '<div class="empty-state empty-state-activity">' +
+          '<p>No proposal activity yet.</p>' +
+          '<p class="muted small">Pending reviews from agents or the CLI appear under the <strong>Suggested</strong> tab first; this tab is the timeline once things move.</p>' +
+          '<p class="empty-state-activity-actions"><button type="button" class="btn-secondary" id="empty-activity-goto-suggested">Open Suggested tab</button></p>' +
+          '</div>';
+        const go = container.querySelector('#empty-activity-goto-suggested');
+        if (go) go.onclick = () => switchHubMainTab('suggested');
         return;
       }
       const canDiscard = hubUserCanWriteNotes();
@@ -2181,6 +2353,8 @@
   async function runVaultSearch() {
     const query = searchQuery.value.trim();
     if (!query) return;
+    hubBrowseListEmptyUnfiltered = false;
+    updateEmptyVaultStripVisibility();
     const activeMainTab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
     const useKeyword = searchMode && searchMode.value === 'keyword';
     if (activeMainTab && activeMainTab !== 'notes') {
@@ -2266,6 +2440,9 @@
       e.preventDefault();
       void runVaultSearch();
     }
+  });
+  searchQuery.addEventListener('input', () => {
+    updateEmptyVaultStripVisibility();
   });
 
   function switchNotesView(view) {
@@ -2856,6 +3033,20 @@
       void openOnboardingWizard({ restart: false });
     });
   }
+  const btnEmptyStripWizard = el('btn-empty-strip-wizard');
+  if (btnEmptyStripWizard && !btnEmptyStripWizard.dataset.knowtationBound) {
+    btnEmptyStripWizard.dataset.knowtationBound = '1';
+    btnEmptyStripWizard.addEventListener('click', () => {
+      void openOnboardingWizard({ restart: true });
+    });
+  }
+  const btnEmptyStripGettingStarted = el('btn-empty-strip-getting-started');
+  if (btnEmptyStripGettingStarted && !btnEmptyStripGettingStarted.dataset.knowtationBound) {
+    btnEmptyStripGettingStarted.dataset.knowtationBound = '1';
+    btnEmptyStripGettingStarted.addEventListener('click', () => {
+      openHowToUse('getting-started');
+    });
+  }
 
   function openTokenSavingsHowToFromSettings() {
     closeSettings();
@@ -3213,6 +3404,43 @@
     var hasToken = Boolean(token || (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')));
     dot.classList.toggle('active', hasToken);
     dot.title = hasToken ? 'Token available — signed in' : 'No token — sign in to enable';
+  }
+
+  const btnCopyMcpPrime = el('btn-copy-mcp-prime');
+  if (btnCopyMcpPrime) {
+    btnCopyMcpPrime.onclick = () => {
+      const base = String(apiBase || '').replace(/\/$/, '');
+      const vaultId = getCurrentVaultId() || 'default';
+      const msg = el('integrations-hub-api-copy-msg');
+      const payload = {
+        schema: 'knowtation.hub_copy_prime/v1',
+        mcp_read_resource_uri: 'knowtation://hosted/prime',
+        instructions:
+          'Point your MCP client at {KNOWTATION_HUB_URL}/mcp with Authorization and X-Vault-Id (see docs/AGENT-INTEGRATION.md). After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob.',
+        KNOWTATION_HUB_URL: base,
+        KNOWTATION_HUB_VAULT_ID: vaultId,
+      };
+      const snippet = JSON.stringify(payload, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(snippet).then(() => {
+          if (msg) {
+            msg.textContent = 'Copied prime (URI + hub URL + vault id; no JWT).';
+            msg.className = 'settings-msg';
+          }
+          setTimeout(() => {
+            if (msg) msg.textContent = '';
+          }, 2800);
+        }).catch(() => {
+          if (msg) {
+            msg.textContent = 'Copy failed';
+            msg.className = 'settings-msg err';
+          }
+        });
+      } else if (msg) {
+        msg.textContent = 'Clipboard not available';
+        msg.className = 'settings-msg err';
+      }
+    };
   }
 
   const btnCopyHubApiEnv = el('btn-copy-hub-api-env');
@@ -5140,6 +5368,66 @@
     const fromCss = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
     return fromCss || DEFAULT_ACCENT;
   };
+  function accentStringToHex6(str) {
+    if (!str || typeof str !== 'string') return DEFAULT_ACCENT;
+    const t = str.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t.toLowerCase();
+    if (/^#[0-9A-Fa-f]{3}$/.test(t)) {
+      const a = t.slice(1);
+      return ('#' + a[0] + a[0] + a[1] + a[1] + a[2] + a[2]).toLowerCase();
+    }
+    const m = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/.exec(t);
+    if (m) {
+      return (
+        '#' +
+        [1, 2, 3]
+          .map((i) => Number(m[i]).toString(16).padStart(2, '0'))
+          .join('')
+      ).toLowerCase();
+    }
+    return DEFAULT_ACCENT;
+  }
+  function updateAccentCustomHexLabel(hex6) {
+    const out = el('accent-custom-hex');
+    if (out && hex6) out.textContent = String(hex6).toUpperCase();
+  }
+  function setAccentRuntimeOnly(hex) {
+    if (!hex) return;
+    document.documentElement.style.setProperty('--accent', hex);
+    updateAccentCustomHexLabel(accentStringToHex6(hex));
+  }
+  let accentIroPicker = null;
+  let accentIroSuppressChange = false;
+  function ensureAccentIroPicker() {
+    if (accentIroPicker) return accentIroPicker;
+    const mount = el('accent-iro-root');
+    const Iro = typeof window !== 'undefined' && window.iro;
+    if (!mount || !Iro || !Iro.ColorPicker) return null;
+    const brRaw = getComputedStyle(document.documentElement).getPropertyValue('--border');
+    const br = (brRaw && brRaw.trim()) || '';
+    const borderColor = br && (br[0] === '#' || br.startsWith('rgb')) ? br : '#2a3f5c';
+    accentIroPicker = new Iro.ColorPicker(mount, {
+      width: 280,
+      color: accentStringToHex6(currentAccent()),
+      borderWidth: 1,
+      borderColor,
+      layout: [
+        { component: Iro.ui.Box, options: {} },
+        { component: Iro.ui.Slider, options: { sliderType: 'hue' } },
+      ],
+    });
+    accentIroPicker.on('color:change', (color) => {
+      if (accentIroSuppressChange) return;
+      setAccentRuntimeOnly(color.hexString);
+      document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.remove('active'));
+    });
+    accentIroPicker.on('input:end', () => {
+      if (accentIroSuppressChange) return;
+      const h = accentIroPicker.color.hexString;
+      if (h) applyAccent(h);
+    });
+    return accentIroPicker;
+  }
   function paintAccentSwatches() {
     document.querySelectorAll('.accent-swatch').forEach((btn) => {
       const hex = btn.dataset.accent;
@@ -5152,26 +5440,49 @@
       const hex = btn.dataset.accent;
       if (hex) {
         applyAccent(hex);
-        document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.toggle('active', b.dataset.accent === hex));
-        const custom = el('accent-custom');
-        if (custom) custom.value = hex;
+        const norm = accentStringToHex6(hex);
+        document.querySelectorAll('.accent-swatch').forEach((b) => {
+          const bh = b.dataset.accent;
+          b.classList.toggle('active', Boolean(bh) && accentStringToHex6(bh) === norm);
+        });
+        ensureAccentIroPicker();
+        if (accentIroPicker) {
+          accentIroSuppressChange = true;
+          try {
+            try {
+              accentIroPicker.setColor(norm, { silent: true });
+            } catch (_) {
+              accentIroPicker.setColor(norm);
+            }
+          } finally {
+            accentIroSuppressChange = false;
+          }
+        }
+        updateAccentCustomHexLabel(norm);
       }
     });
   });
-  const customAccentEl = el('accent-custom');
-  if (customAccentEl) {
-    customAccentEl.addEventListener('input', () => {
-      const hex = customAccentEl.value;
-      if (hex) {
-        applyAccent(hex);
-        document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.remove('active'));
-      }
-    });
-  }
+  ensureAccentIroPicker();
   function syncAccentUI() {
-    const hex = currentAccent();
-    document.querySelectorAll('.accent-swatch').forEach((b) => b.classList.toggle('active', b.dataset.accent === hex));
-    if (customAccentEl) customAccentEl.value = hex;
+    const norm = accentStringToHex6(currentAccent());
+    document.querySelectorAll('.accent-swatch').forEach((b) => {
+      const bh = b.dataset.accent;
+      b.classList.toggle('active', Boolean(bh) && accentStringToHex6(bh) === norm);
+    });
+    ensureAccentIroPicker();
+    if (accentIroPicker) {
+      accentIroSuppressChange = true;
+      try {
+        try {
+          accentIroPicker.setColor(norm, { silent: true });
+        } catch (_) {
+          accentIroPicker.setColor(norm);
+        }
+      } finally {
+        accentIroSuppressChange = false;
+      }
+    }
+    updateAccentCustomHexLabel(norm);
   }
   function currentTheme() {
     return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -5209,6 +5520,15 @@
       }
     });
   });
+  const scrollDashColorsBtn = el('btn-scroll-dashboard-color-theme');
+  if (scrollDashColorsBtn) {
+    scrollDashColorsBtn.addEventListener('click', () => {
+      const target = el('settings-dashboard-color-theme');
+      if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
 
   el('btn-settings-sync').onclick = async () => {
     const syncBtn = el('btn-settings-sync');
@@ -6811,22 +7131,12 @@
 
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.onclick = () => {
-      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-      tab.classList.add('active');
-      const name = tab.dataset.tab;
-      syncHubListSortUI(name);
-      setProposalFiltersBarVisible(
-        name === 'activity' || name === 'suggested' || name === 'problem',
-      );
-      refreshNewProposalTabVisibility();
-      const panel = el('tab-' + (name === 'notes' ? 'notes' : name === 'activity' ? 'activity' : name === 'suggested' ? 'suggested' : 'problem'));
-      if (panel) panel.classList.remove('hidden');
-      if (name === 'notes') loadNotes();
-      if (name === 'activity') loadActivity();
-      if (name === 'suggested' || name === 'problem') loadProposals();
+      switchHubMainTab(tab.dataset.tab);
     };
   });
+  if (btnHeaderSuggested) {
+    btnHeaderSuggested.addEventListener('click', () => switchHubMainTab('suggested'));
+  }
 
   function escapeHtml(s) {
     const div = document.createElement('div');
