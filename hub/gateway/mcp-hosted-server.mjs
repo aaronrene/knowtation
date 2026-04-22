@@ -33,7 +33,7 @@ import {
 import { extractImageUrls } from '../../lib/media-url-extract.mjs';
 import { extractTopicFromEvent, slugify } from '../../lib/memory-event.mjs';
 import { fetchImageAsBase64 } from '../../mcp/resources/image-fetch.mjs';
-import { isToolAllowed, isPromptAllowed } from './mcp-tool-acl.mjs';
+import { isToolAllowed, isPromptAllowed, allowedPromptsForRole } from './mcp-tool-acl.mjs';
 
 /** @type {[string, string, ...string[]]} */
 const IMPORT_SOURCE_ENUM = /** @type {any} */ ([...IMPORT_SOURCE_TYPES]);
@@ -2698,6 +2698,50 @@ export function createHostedMcpServer(ctx) {
         text: JSON.stringify({ userId, canisterUserId, vaultId, role, scope }),
       }],
     })
+  );
+
+  server.registerResource(
+    'hosted-prime',
+    'knowtation://hosted/prime',
+    {
+      title: 'Hosted MCP bootstrap (prime)',
+      description:
+        'Compact JSON after auth: vault partition, role, MCP prompt names registered for this session, and suggested resource URIs. No secrets.',
+    },
+    async () => {
+      const mcp_prompts_registered_for_role = [...allowedPromptsForRole(role)].sort();
+      const payload = {
+        schema: 'knowtation.prime/v1',
+        surface: 'hosted',
+        prime_uri: 'knowtation://hosted/prime',
+        session: { userId, canisterUserId, vaultId, role, scope },
+        mcp_prompts_registered_for_role,
+        suggested_next_resources: [
+          'knowtation://hosted/vault-info',
+          'knowtation://hosted/vault-listing',
+        ],
+        docs: {
+          why_knowtation: 'docs/WHY-KNOWTATION.md',
+          agent_integration: 'docs/AGENT-INTEGRATION.md',
+          parity_matrix: 'docs/PARITY-MATRIX-HOSTED.md',
+        },
+        token_layers: {
+          vault_retrieval:
+            'Vault MCP tools (search, list_notes, get_note, …) pull snippets with limits — primary token savings.',
+          terminal_tooling:
+            'Terminal log compaction is optional on your dev host; Knowtation does not execute shell hooks inside hosted canisters.',
+        },
+      };
+      return {
+        contents: [
+          {
+            uri: 'knowtation://hosted/prime',
+            mimeType: 'application/json',
+            text: JSON.stringify(payload, null, 2),
+          },
+        ],
+      };
+    }
   );
 
   /**

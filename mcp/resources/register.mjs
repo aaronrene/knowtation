@@ -210,6 +210,48 @@ export function registerKnowtationResources(server) {
     }
   );
 
+  /**
+   * Bootstrap “prime” — small JSON for agents to readResource first (no vault bodies).
+   * Hosted equivalent: knowtation://hosted/prime (gateway MCP).
+   */
+  server.registerResource(
+    'prime-bootstrap',
+    'knowtation://prime',
+    {
+      title: 'MCP bootstrap (prime)',
+      description:
+        'Session-oriented hints: redacted config summary, suggested next resource URIs, and doc pointers. Pair with knowtation://config for full non-secret config.',
+    },
+    async (uri) => {
+      const config = loadConfig();
+      const snapshot = redactConfig(config);
+      const payload = {
+        schema: 'knowtation.prime/v1',
+        surface: 'self-hosted',
+        prime_uri: 'knowtation://prime',
+        config: snapshot,
+        suggested_next_resources: [
+          'knowtation://config',
+          'knowtation://vault/',
+          'knowtation://index/stats',
+          'knowtation://memory/',
+        ],
+        docs: {
+          why_knowtation: 'docs/WHY-KNOWTATION.md',
+          agent_integration: 'docs/AGENT-INTEGRATION.md',
+          retrieval: 'docs/RETRIEVAL-AND-CLI-REFERENCE.md',
+        },
+        token_layers: {
+          vault_retrieval:
+            'Vault MCP/CLI retrieval (search, snippets, limits) is the primary in-product token saver.',
+          terminal_tooling:
+            'Shrinking terminal or shell logs is optional tooling on your coding host; Knowtation does not run canister-side shell hooks.',
+        },
+      };
+      return jsonContent(uri, payload);
+    }
+  );
+
   server.registerResource(
     'memory-last-search',
     'knowtation://memory/last_search',
