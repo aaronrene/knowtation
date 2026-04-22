@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260421c">
+  <link rel="stylesheet" href="hub.css?v=20260421d">
 </head>
 <body>
   <div id="app">
@@ -968,7 +968,16 @@ Your note body here.</pre>
         </div>
         <div id="settings-panel-integrations" class="settings-panel" role="tabpanel">
           <div class="settings-body">
-            <p class="settings-intro">Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents. <strong>Hub API</strong> (REST + optional MCP) uses the <strong>same sign-in as this tab</strong> on <strong>hosted and self-hosted</strong> gateways—copy URL, JWT, and vault id for scripts and tools outside the browser. The <strong>Hub API</strong> block is at the bottom of this tab (above Agent Configuration). Optional <strong>Advanced Ecosystems</strong> (Muse, AgentCeption) stay in a collapsed section so they are not confused with everyday import wiring.</p>
+            <div class="settings-intro settings-intro-integrations-lede">
+              Integrations connect external tools to your vault: capture (Slack, Discord, etc.), imports (ChatGPT, Notion, etc.), and agents. <strong>Hub API</strong> (REST + optional MCP)
+              <details class="settings-integ-how-inline">
+                <summary class="settings-integ-how-inline-summary"><span class="settings-integ-how-inline-label">How?</span></summary>
+                <div class="settings-integ-how-inline-body">
+                  <p class="settings-intro small" style="margin-top: 0.35rem;">Uses the <strong>same sign-in as this tab</strong> on <strong>hosted and self-hosted</strong> gateways—copy URL, JWT, and vault id for scripts and tools outside the browser.</p>
+                  <p class="settings-intro small" style="margin-bottom: 0;">The <strong>Hub API</strong> block is at the <strong>bottom</strong> of this tab (above Agent Configuration). <strong>Advanced Ecosystems</strong> (Muse, AgentCeption) stay collapsed until you open them.</p>
+                </div>
+              </details>
+            </div>
             <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
               Capture (messages → inbox)

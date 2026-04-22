@@ -49,6 +49,7 @@
 
 - [ ] Refresh [AI-ASSISTED-SETUP.md](./AI-ASSISTED-SETUP.md) for **hosted** path + prime placeholder + wizard deep links.
 - [ ] **Hub proposals discoverability** (nav or empty-state CTA) — engineering task in `web/hub/hub.js` + `index.html`.
+- [ ] **Hub Settings + How to use — hosted-first UX** — fold self-hosted-only and heavy technical blocks behind **Self-hosted** / **How?** / **Technical details** (`<details>`); consistent icon/label for self-hosted. Handoff: [HUB-SETTINGS-HOSTED-UX-PASS.md](./HUB-SETTINGS-HOSTED-UX-PASS.md).
 
 ---
 

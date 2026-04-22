@@ -1872,6 +1872,49 @@ input[type="date"]::-moz-calendar-picker-indicator {
   border-top: 1px solid var(--border);
 }
 
+/* Integrations tab: compact inline “How?” for Hub API (hosted + self-hosted) */
+.settings-intro-integrations-lede {
+  margin: 0 0 0.75rem;
+  line-height: 1.55;
+}
+.settings-integ-how-inline {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 0 0 0.15rem;
+  border: none;
+  max-width: 100%;
+}
+.settings-integ-how-inline-summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline;
+  user-select: none;
+}
+.settings-integ-how-inline-summary::-webkit-details-marker,
+.settings-integ-how-inline-summary::marker {
+  display: none;
+  content: '';
+}
+.settings-integ-how-inline-label {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.15em;
+}
+.settings-integ-how-inline[open] .settings-integ-how-inline-label {
+  text-decoration-style: solid;
+}
+.settings-integ-how-inline-body {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
+  max-width: 40rem;
+}
+
 /* Loading state */
 .loading-state { padding: 2rem; text-align: center; color: var(--muted); }
 .loading-state::before { content: ''; display: inline-block; width: 1.25rem; height: 1.25rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
