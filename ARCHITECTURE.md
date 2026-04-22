@@ -7,9 +7,9 @@
 ## High-level system map
 
 ```
-Sources (14 importers + 4 capture channels)
-  ChatGPT, Claude, Mem0, Notion, Jira, Linear, NotebookLM, GDrive,
-  MIF, Supabase, Markdown, Audio (Whisper), Video (Whisper), Wallet CSV
+Sources (17 import source types + 4 capture channels)
+  Markdown, PDF, DOCX, URL, ChatGPT, Claude, Mem0, Notion, Jira, Linear, NotebookLM,
+  GDrive, MIF, Supabase, Audio (Whisper), Video (Whisper), Wallet CSV
   + file/stdin, HTTP webhook, Slack/Discord/Telegram adapters
           │
           ▼
@@ -23,8 +23,8 @@ Sources (14 importers + 4 capture channels)
           │
           ▼
   Agent surface
-    CLI    — 25+ commands, JSON output, all filters and token levers
-    MCP    — 33 tools, 23 resources, 13 prompts (stdio or HTTP)
+    CLI    — 25+ commands (incl. doctor), JSON output, all filters and token levers
+    MCP    — 33 tools, 24 resources (incl. knowtation://prime), 13 prompts (stdio or HTTP)
     Hub    — REST API + web UI (self-hosted or hosted at knowtation.store)
 ```
 
@@ -143,5 +143,6 @@ See [`docs/SECURITY-AUDIT-PLAN.md`](./docs/SECURITY-AUDIT-PLAN.md) for the full 
 | [docs/HUB-API.md](./docs/HUB-API.md) | Hub REST API and auth |
 | [docs/AGENT-ORCHESTRATION.md](./docs/AGENT-ORCHESTRATION.md) | Multi-agent setup |
 | [docs/MEMORY-CONSOLIDATION-GUIDE.md](./docs/MEMORY-CONSOLIDATION-GUIDE.md) | Consolidation daemon |
-| [docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md) | All 14 importers |
+| [docs/IMPORT-SOURCES.md](./docs/IMPORT-SOURCES.md) | All 17 `source_type` importers, Hub bulk |
+| [docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md](./docs/IMPORT-URL-AND-DOCUMENTS-PHASES.md) | URL/DOCX/PDF and Hub bulk roadmap and status |
 | [docs/SECURITY-AUDIT-PLAN.md](./docs/SECURITY-AUDIT-PLAN.md) | Security audit phases and controls |

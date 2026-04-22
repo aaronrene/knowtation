@@ -1,6 +1,6 @@
 # Knowtation — Whitepaper
 
-**Version:** 3.2 (April 2026)  
+**Version:** 3.3 (April 2026)  
 **Product:** Knowtation (*know* + *notation*) — a personal and team knowledge vault with CLI, MCP, semantic search, memory, attestation, and a full import pipeline. Self-hosted or hosted at [knowtation.store](https://knowtation.store).
 
 ---
@@ -18,13 +18,30 @@
 
 ---
 
+## 🆕 Product updates (April 2026)
+
+This version expands **how** knowledge gets in and how **agents** get oriented—without changing the core thesis (§1–2). Items below map to work merged on `main` and, where noted, the **`feat/import-url-documents-mcp`** branch (URL/PDF/DOCX + Hub bulk). Authoritative `source_type` list: [`lib/import-source-types.mjs`](../lib/import-source-types.mjs).
+
+| Theme | What shipped (plain terms) | Where to read more |
+|--------|----------------------------|-------------------|
+| **Imports** | **17** registered `source_type` values in [`import-source-types.mjs`](../lib/import-source-types.mjs) (earlier public copy said “14” before URL/PDF/DOCX and other additions), including **https URL** (`url`), **`.pdf` text extraction** (`pdf`), and **`.docx` → Markdown** (`docx`); all through the same `runImport` + CLI / Hub / MCP as other file imports. | [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) |
+| **Hub bulk (4A–4B)** | **Multi-file** and **“Choose folder (ZIP in browser)”**: the browser can build one zip for “folder-shaped” import types, or run **one import request per file** (e.g. many PDFs) with a batch summary. Same server `POST /api/v1/import` as before; no canister change. *Branch* `feat/import-url-documents-mcp`. | [IMPORT-URL-AND-DOCUMENTS-PHASES.md](./IMPORT-URL-AND-DOCUMENTS-PHASES.md), [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) |
+| **Agent bootstrap (prime)** | A small **bootstrap JSON** resource: **`knowtation://prime`** (stdio/self-hosted MCP) and **`knowtation://hosted/prime`** (gateway MCP) so clients `readResource` first—session hints, suggested next URIs, no full vault dump. The Hub’s **Settings → Integrations** includes **Copy prime** next to the API block. *Merged on `main`.* | [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) |
+| **Operations** | **`knowtation doctor`**: checks local **vault** config and optionally **Hub** reachability (`--hub` / `KNOWTATION_HUB_*`); use with token-savings guidance. *Merged on `main`.* | [TOKEN-SAVINGS.md](./TOKEN-SAVINGS.md), `cli/doctor.mjs` |
+| **Hub UX** | Hosted-oriented **onboarding / Integrations** copy, **How to use** (a simpler **prime** section for humans, with full technical text folded under collapsible “details” blocks), **appearance** (e.g. inline color picker for accents). *Merged on `main` (e.g. PR #187).* | [HUB-WIZARD-HOSTED-STORY.md](./HUB-WIZARD-HOSTED-STORY.md) (where applicable) |
+| **Public repo hygiene** | Internal **roadmap / handoff** files were **removed from the public default tree**; a short note in [docs/README.md](./README.md) points contributors to local-only paths. *Merged: PR #188 `document-cleanup`.* | [docs/README.md](./README.md) |
+
+**On scope:** Hosted MCP still exposes **`import`**, **`import_url`**, and the rest of the role-gated surface; there is **no** `import_batch` tool—**multiple files for agents = multiple `import` calls** (same as before). **ICP** attestation and canister code are **unchanged** by the import/Hub work above; no Motoko work was required for these features.
+
+---
+
 ## 📌 Abstract
 
 Knowtation was built to solve one problem: **agents waste tokens and get worse answers when retrieval is dumb.** Shoving a full history into the model window is expensive and often harmful — word overlap is not semantic relevance, and the wrong material produces confident but wrong answers. The bottleneck in agent-powered work is not model strength. It is **fetching the right context at the lowest cost.**
 
 Knowtation addresses this with three mechanisms that work together: **two-step retrieval** (narrow search, then selective expansion), **memory consolidation** (compress operational history so future context is smaller), and **memory-aware prompts** (avoid re-searching what the agent already knows). These three levers — retrieval precision, history compression, and session continuity — are the founding thesis of the platform. Everything else (vault, imports, MCP, Hub, attestation, billing) exists to make those levers practical and production-ready.
 
-Your canonical material lives in files you control (Markdown, frontmatter, media), gets indexed with filters for projects, tags, time, entities, causal chains, and episodes, and is invokable by any agent via a CLI, 33-tool MCP server, or Hub REST API — so your notation stays movable, auditable, and yours.
+Your canonical material lives in files you control (Markdown, frontmatter, media), gets indexed with filters for projects, tags, time, entities, causal chains, and episodes, and is invokable by any agent via a CLI, 33-tool MCP server (24 **resources**, including a **`knowtation://prime`** bootstrap), or Hub REST API — so your notation stays movable, auditable, and yours.
 
 **In plain terms:** *Precise retrieval* means faster answers and lower token cost — *narrow search first, open only what matters*; *constant memory consolidation* and flexible context; your Markdown vault stays yours, with optional **Discover** for **cross-topic insights**. **Run locally** or use **hosted** access on **decentralized Internet Computer canisters**. **Attestation records** can **anchor to the Internet Computer blockchain** for **immutable audit** — a differentiator for **legal, compliance, finance**, and any team that must show *who approved a change* and *that the record was not silently rewritten*.
 
@@ -137,13 +154,17 @@ Knowtation's stance:
 
 ---
 
-## 5. 📥 Imports: 14 sources, one vault
+## 5. 📥 Imports: 17 source types, one vault
 
-Knowtation ships importers for fourteen external sources. Each produces vault notes with `source`, `source_id`, `date`; re-imports are idempotent.
+Knowtation registers **17** `source_type` importers in [`lib/import.mjs`](../lib/import.mjs) (see list in [`import-source-types.mjs`](../lib/import-source-types.mjs)). Each produces vault notes with `source`, `source_id`, `date` where applicable; re-imports are idempotent for types that support it.
 
 | Source | What it imports |
 |--------|-----------------|
-| **ChatGPT export** | `conversations.json` from the OpenAI data export |
+| **Generic Markdown** | Markdown files or folders |
+| **PDF** | Single `.pdf` file → text extraction (e.g. unpdf) → vault note |
+| **DOCX** | Single `.docx` (Office Open XML) → Markdown via conversion |
+| **https URL** | SSRF-hardened fetch: article text or bookmark note (`url`) |
+| **ChatGPT export** | `conversations.json` from the OpenAI data export (folder or zip) |
 | **Claude export** | Markdown or JSON from Anthropic export or third-party tools |
 | **Mem0 export** | JSON export — one note per memory |
 | **NotebookLM** | Folder of Markdown or JSON array export |
@@ -153,7 +174,6 @@ Knowtation ships importers for fourteen external sources. Each produces vault no
 | **Linear export** | CSV from Linear's "Export Data" |
 | **MIF** | Memory Interchange Format `.memory.md` files |
 | **Supabase memory** | Any Supabase table → memory event log + optional vault notes |
-| **Generic Markdown** | Markdown files or folders |
 | **Audio** | Audio file → Whisper transcription → vault note |
 | **Video** | Video file → Whisper transcription → vault note |
 | **Wallet CSV** | Exchange/wallet transaction CSV (Coinbase, Binance, Ledger Live, etc.) → per-transaction notes with blockchain frontmatter |
@@ -161,6 +181,8 @@ Knowtation ships importers for fourteen external sources. Each produces vault no
 Beyond imports, four **capture channels** ingest live messages: file/stdin, HTTP webhooks, and adapter scripts for Slack, Discord, and Telegram — all writing to `vault/inbox/` per a documented contract.
 
 **Transcription** uses OpenAI Whisper. Audio and video files become vault notes; the same pipeline backs the `transcribe` MCP tool and the CLI `npm run transcribe` script.
+
+**Hub browser:** the Import modal can upload **a zip made on disk**, a **client-built zip** (in-browser, for “folder-shaped” source types), **multiple files** (sequential imports for e.g. many PDFs), or a **https URL** via a separate JSON route. Details: [IMPORT-SOURCES.md](./IMPORT-SOURCES.md) § “Hub browser”.
 
 ---
 
@@ -249,21 +271,21 @@ The contrast with database-centric systems is architectural: in Knowtation, the 
 
 ---
 
-## 11. 🤖 MCP: 33 tools, 23 resources, 13 prompts
+## 11. 🤖 MCP: 33 tools, 24 resources, 13 prompts
 
 Knowtation exposes one of the deepest MCP surfaces available for a knowledge tool.
 
 ### Tools (33)
 
-**Vault operations:** `search`, `get_note`, `list_notes`, `write`, `export`, `import`, `capture`, `transcribe`, `vault_sync`, `index`, `relate`, `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `summarize`, `enrich`.
+**Vault operations:** `search`, `get_note`, `list_notes`, `write`, `export`, `import`, `capture`, `transcribe`, `vault_sync`, `index`, `relate`, `backlinks`, `extract_tasks`, `cluster`, `tag_suggest`, `summarize`, `enrich`. For **https URL** imports, self-hosted clients use `import` with `source_type: "url"`; **hosted** MCP also exposes a dedicated `import_url` tool (see below).
 
 **Memory operations:** `memory_query`, `memory_store`, `memory_list`, `memory_search`, `memory_clear`, `memory_verify`, `memory_consolidate`, `memory_summarize`, `daemon_status`, `consolidation_history`, `consolidation_settings`.
 
 **Hub operations:** `hub_list_proposals`, `hub_get_proposal`, `hub_create_proposal`, `hub_submit_proposal_evaluation`.
 
-### Resources (23)
+### Resources (24)
 
-Vault browsing (`knowtation://vault/`, `/inbox`, `/captures`, `/imports`, `/media/audio`, `/media/video`, `/templates`), template and note access by path (`knowtation://vault/{+path}`, `knowtation://vault/templates/{+name}`), media access (`knowtation://vault/{+notePath}/image/{index}`, `…/video/{index}`), index stats and graph (`knowtation://index/stats`, `knowtation://index/graph`), tags and projects (`knowtation://tags`, `knowtation://projects`), config snapshot (`knowtation://config`), AIR log (`knowtation://air/log`), and seven memory resources including topic-partitioned access (`knowtation://memory/topic/{slug}`).
+Vault browsing (`knowtation://vault/`, `/inbox`, `/captures`, `/imports`, `/media/audio`, `/media/video`, `/templates`), template and note access by path (`knowtation://vault/{+path}`, `knowtation://vault/templates/{+name}`), media access (`knowtation://vault/{+notePath}/image/{index}`, `…/video/{index}`), index stats and graph (`knowtation://index/stats`, `knowtation://index/graph`), tags and projects (`knowtation://tags`, `knowtation://projects`), config snapshot (`knowtation://config`), **bootstrap prime** (`knowtation://prime` — small JSON for first `readResource`, session hints and next URIs), AIR log (`knowtation://air/log`), and seven memory resources including topic-partitioned access (`knowtation://memory/topic/{slug}`).
 
 ### Prompts (13)
 
@@ -273,7 +295,7 @@ Vault browsing (`knowtation://vault/`, `/inbox`, `/captures`, `/imports`, `/medi
 
 ### Hosted MCP
 
-The Hub gateway exposes a separate `knowtation-hosted` MCP server with role-gated tool access (viewer, editor, admin) and a `knowtation://hosted/vault-info` resource. Both stdio and HTTP transports are supported; the hosted variant adds OAuth 2.1 authentication.
+The Hub gateway exposes a separate `knowtation-hosted` MCP server with role-gated tool access (viewer, editor, admin), **`import_url`** (URL import with JSON to the same bridge as the Hub’s **Import from URL** field), resources such as `knowtation://hosted/vault-info` and **`knowtation://hosted/prime`** (hosted bootstrap, parallel to `knowtation://prime` on self-hosted), and the same `import` + file-base64 path as the Hub. Both stdio and HTTP transports are supported; the hosted variant adds OAuth 2.1 authentication.
 
 ---
 
@@ -318,7 +340,7 @@ Token packs can be purchased for additional indexing capacity, bundled with cons
 
 2. **Data liberation** — Your vault is yours. Export, copy, and host where policy demands. The format is Markdown and frontmatter; migration means copying a folder.
 
-3. **Agent depth** — 33 MCP tools, 23 resources, 13 prompts, a full CLI with JSON output, and a Hub REST API. Agents do not need a thin search-and-return interface; they get memory, verification, consolidation, proposals, enrichment, clustering, and task extraction.
+3. **Agent depth** — 33 MCP tools, 24 resources, 13 prompts, a full CLI (including **`knowtation doctor`**) with JSON output, and a Hub REST API. Agents do not need a thin search-and-return interface; they get memory, verification, consolidation, proposals, enrichment, clustering, and task extraction. Bootstrap with **`knowtation://prime`** (or hosted **`knowtation://hosted/prime`**) on connect.
 
 4. **Memory as a first-class primitive** — Structured, queryable operational memory with five provider tiers, encrypted storage, cross-vault scope, retention enforcement, LLM consolidation, and session summaries. Memory is not an afterthought — it is what lets context compound instead of reset.
 
@@ -334,8 +356,8 @@ Token packs can be purchased for additional indexing capacity, bundled with cons
 
 ```mermaid
 flowchart LR
-  subgraph sources [Sources — 14 importers + 4 capture channels]
-    A[ChatGPT, Claude, Mem0, Notion, Jira, Linear, NotebookLM, GDrive, MIF, Supabase, Markdown, Audio, Video, Wallet CSV]
+  subgraph sources [Sources — 17 import source types + 4 capture channels]
+    A[Markdown, PDF, DOCX, URL, ChatGPT, Claude, Mem0, Notion, Jira, Linear, NotebookLM, GDrive, MIF, Supabase, Audio, Video, Wallet CSV]
     B[Inbox capture: file, webhook, Slack, Discord, Telegram]
     C[Whisper transcription pipeline]
   end
@@ -353,7 +375,7 @@ flowchart LR
   end
   subgraph use [Agent surface]
     CLI[CLI — 25+ commands]
-    MCP[MCP — 33 tools, 23 resources, 13 prompts]
+    MCP[MCP — 33 tools, 24 resources, 13 prompts]
     HUB[Hub — REST API + web UI]
   end
   sources --> V
@@ -373,7 +395,7 @@ flowchart LR
 - **Config** — `config/local.yaml`; vault path, embedding provider (Ollama or OpenAI), vector backend (Qdrant or sqlite-vec), memory provider and settings, AIR, billing, daemon, capture.
 - **Indexer** — Walk vault, chunk by heading or size, embed, upsert idempotently; optional post-index enrichment (per-note summaries via LLM sampling).
 - **Search / list / get-note** — Ranked hits with filters; token levers; keyword and semantic modes.
-- **Write / export / import** — Create notes, export to Markdown/HTML with provenance; import from fourteen external platforms.
+- **Write / export / import** — Create notes, export to Markdown/HTML with provenance; import from the **17** registered `source_type` importers (see §5).
 - **Memory** — Five provider tiers; fifteen event types; session summaries; three-pass consolidation; retention enforcement; topic partitioning; AES-256-GCM encryption at rest.
 - **Attestation** — Intent attestation before write/export; HMAC-signed records; optional ICP canister anchor for immutable audit trail.
 - **Hub** — OAuth, proposals, review queue, rubric scoring, team roles, multi-vault, billing, settings, GitHub backup.
