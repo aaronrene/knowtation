@@ -110,8 +110,8 @@ Stripe-backed tiers (free, plus, growth, pro) with token packs, indexing quotas,
 
 Knowtation is designed as a **knowledge backend** for agents and orchestrators.
 
-- **CLI:** `knowtation search|write|import|export|memory|propose ... --json` — same commands for humans and agents.
-- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md).
+- **CLI:** `knowtation search|write|import|export|memory|propose|doctor ... --json` — same commands for humans and agents. **`doctor`** checks local vault health and optional Hub API reachability (`docs/WHY-KNOWTATION.md` token layers).
+- **MCP:** 33 tools appear directly in Cursor, Claude Desktop, or any MCP-speaking runtime. Configure per [Agent Orchestration](./docs/AGENT-ORCHESTRATION.md). Bootstrap JSON: **`resources/read`** `knowtation://prime` (local) or `knowtation://hosted/prime` (hosted); Hub **Copy prime** on Integrations.
 - **Hub API:** REST with JWT auth. `KNOWTATION_HUB_TOKEN` for agent access. Proposals for human-in-the-loop review.
 - **SKILL.md:** `.cursor/skills/knowtation/SKILL.md` teaches Cursor agents how to use Knowtation without tool-definition bloat.
 

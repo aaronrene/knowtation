@@ -68,4 +68,25 @@ describe('CLI', () => {
       assert.strictEqual(code, 0);
     });
   });
+
+  describe('doctor', () => {
+    it('--json exits 0 with ok and token_layers', () => {
+      const env = { ...process.env, KNOWTATION_VAULT_PATH: fixtureVault };
+      delete env.KNOWTATION_HUB_URL;
+      delete env.KNOWTATION_HUB_TOKEN;
+      delete env.KNOWTATION_HUB_VAULT_ID;
+      const out = execSync('node cli/index.mjs doctor --json', {
+        encoding: 'utf8',
+        cwd: projectRoot,
+        env,
+      });
+      const data = JSON.parse(out);
+      assert.strictEqual(typeof data.ok, 'boolean');
+      assert.ok(data.token_layers);
+      assert.ok(data.token_layers.vault_retrieval);
+      assert.ok(data.token_layers.terminal_tooling);
+      assert.strictEqual(data.self_hosted.config_loaded, true);
+      assert.strictEqual(data.self_hosted.vault_readable, true);
+    });
+  });
 });

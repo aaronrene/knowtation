@@ -40,6 +40,7 @@ Commands:
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
   memory <action>                Memory layer commands: query, list, store, search, clear, export, stats. Requires memory.enabled.
   hub status                    Check Hub reachability (use --hub <url>). Requires Hub API.
+  doctor                        Local vault + optional Hub API checks (token layers per docs/WHY-KNOWTATION.md). Options: --json, --hub <url>.
   propose <path>                Create a proposal from local vault note (body/frontmatter) on the Hub. Options: --hub, --intent, --vault (X-Vault-Id), --external-ref, --labels a,b, --source agent|human|import, --base-state-id, --no-fetch-base.
   vault sync                    Commit and push vault to Git (when vault.git.enabled and remote set). See config.
   mcp                           Start MCP server (stdio transport). For Cursor/Claude Desktop.
@@ -861,6 +862,19 @@ async function main() {
       }
     })();
     return;
+  }
+
+  if (subcommand === 'doctor') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log(
+        'knowtation doctor\n  Checks local vault config (disk vault) and optional Hub API (KNOWTATION_HUB_*).\n  Explains vault vs terminal token layers per docs/WHY-KNOWTATION.md.\n  Options: --json, --hub <url> (override KNOWTATION_HUB_URL for probes only).'
+      );
+      process.exit(0);
+    }
+    const hubUrlOpt = getOpt('hub');
+    const { runDoctor } = await import('./doctor.mjs');
+    const code = await runDoctor({ useJson, hubUrlOpt });
+    process.exit(code);
   }
 
   if (subcommand === 'hub') {
