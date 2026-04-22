@@ -139,3 +139,58 @@ describe('hosted MCP import — bridge multipart', () => {
     assert.ok(res.isError);
   });
 });
+
+describe('hosted MCP import_url — bridge JSON', () => {
+  let mock;
+  let client;
+
+  beforeEach(() => {
+    mock = installFetchMock({ imported: [{ path: 'inbox/imports/url/abc.md' }], count: 1 });
+  });
+
+  afterEach(async () => {
+    mock.restore();
+    try {
+      await client?.close();
+    } catch (_) {}
+  });
+
+  it('POST {bridgeUrl}/api/v1/import-url with JSON body and auth headers', async () => {
+    ({ client } = await connectPair());
+    await client.callTool({
+      name: 'import_url',
+      arguments: { url: 'https://example.com/a', mode: 'bookmark', project: 'p1', tags: 't1,t2' },
+    });
+    assert.equal(mock.calls.length, 1);
+    assert.equal(mock.calls[0].url, `${BRIDGE_URL}/api/v1/import-url`);
+    assert.equal(mock.calls[0].init.method, 'POST');
+    const h = mock.calls[0].init.headers;
+    assert.equal(h['Authorization'], 'Bearer tok-test');
+    assert.equal(h['X-Vault-Id'], 'v-1');
+    assert.equal(h['Content-Type'], 'application/json');
+    const body = JSON.parse(mock.calls[0].init.body);
+    assert.equal(body.url, 'https://example.com/a');
+    assert.equal(body.mode, 'bookmark');
+    assert.equal(body.project, 'p1');
+    assert.equal(body.tags, 't1,t2');
+  });
+
+  it('import_url rejects non-https URL without calling bridge', async () => {
+    ({ client } = await connectPair());
+    const res = await client.callTool({
+      name: 'import_url',
+      arguments: { url: 'http://example.com/x' },
+    });
+    assert.ok(res.isError);
+    assert.equal(mock.calls.length, 0);
+  });
+
+  it('import_url is not registered for viewer', async () => {
+    ({ client } = await connectPair(makeCtx({ role: 'viewer' })));
+    const res = await client.callTool({
+      name: 'import_url',
+      arguments: { url: 'https://example.com/' },
+    });
+    assert.ok(res.isError);
+  });
+});

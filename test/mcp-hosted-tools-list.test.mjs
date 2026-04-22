@@ -39,6 +39,7 @@ const TOOLS_ADMIN = [
   'extract_tasks',
   'get_note',
   'import',
+  'import_url',
   'index',
   'list_notes',
   'relate',

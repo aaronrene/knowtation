@@ -30,6 +30,7 @@ const ADMIN_TOOLS = new Set([
   'index',
   'export',
   'import',
+  'import_url',
 ]);
 
 const ROLE_TOOL_MAP = {

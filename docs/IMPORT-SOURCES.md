@@ -62,6 +62,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 | 📋 | **Linear** | `linear-export` | CSV export |
 | 🔗 | **MIF** | `mif` | Memory Interchange Format |
 | 📄 | **Markdown** | `markdown` | File or folder |
+| 🌐 | **URL** | `url` | https URL (Hub **Import from URL** / `POST /api/v1/import-url`; CLI `knowtation import url …`) |
 | 🎙️ | **Audio** | `audio` | Whisper transcription |
 | 💰 | **Wallet CSV** | `wallet-csv` | Tx history; 11 formats |
 | 🗄️ | **Supabase** | `supabase-memory` | Memory table import |
@@ -85,6 +86,7 @@ The CLI command **`knowtation import <source-type> <input> [options]`** accepts 
 | 📋 `linear-export`   | Path to Linear CSV file | Linear workspace export (CSV). One note per issue; `source: linear`, `source_id`, title, description. |
 | 🔗 `mif`             | Path to `.memory.md` or `.memory.json` or folder of MIF files | [Memory Interchange Format](https://mif-spec.dev/). MIF is Obsidian-native; files can be copied in as-is or normalized to our frontmatter. |
 | 📄 `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. |
+| 🌐 `url`             | **HTTPS URL string** (not a filesystem path) | Fetches the URL server-side with SSRF protections. One note under `inbox/imports/url/` (or project inbox); frontmatter: `source: url-import`, `source_id` (hash of canonical URL), `canonical_url`, `date`, `title`. Modes: **`auto`** (extract main article HTML when possible, else bookmark), **`bookmark`** (link + metadata only), **`extract`** (requires readable article HTML or error). **Hub / hosted:** `POST /api/v1/import-url` JSON `{ "url", "mode"?, "project"?, "output_dir"?, "tags"? }`. **CLI:** `knowtation import url "https://…" [--url-mode auto|bookmark|extract]`. Paywalled or bot-blocked pages: use **`bookmark`**. |
 | 🎙️ `audio`           | Path to audio file or URL (e.g. wearable webhook payload) | **Primary path for in-Hub transcription** (self-hosted). OpenAI Whisper; **max ~25 MB** per file. One note per file; frontmatter: `source: audio`, `source_id`, `date`. |
 | 💰 `wallet-csv`      | Path to wallet/exchange transaction history CSV (or folder containing one .csv) | Converts wallet export files into vault notes with blockchain frontmatter. One note per row; `source: wallet-csv-import`, `source_id: tx_hash`, blockchain fields (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`). Notes land in `inbox/wallet-import/`. Auto-detects named formats: **Coinbase**, **Coinbase Pro**, **Exodus**, **ICP Rosetta**, **Kraken**, **Binance**, **MetaMask/Etherscan**, **Phantom (Solana)**, **Ledger Live**. Falls back to generic column alias matching for any other CSV. Re-import is safe: duplicate rows (same output path) are skipped. |
 | 🗄️ `supabase-memory` | Supabase connection + table name | Import memory rows from a Supabase table. For users coming from database-centric stacks. |
@@ -177,6 +179,15 @@ Implementors: follow [SPEC.md](./SPEC.md) import contracts and extend `lib/impor
 knowtation import markdown ./my-notes.md --output-dir imports/notes
 knowtation import markdown ./exported-folder --project myproject
 ```
+
+**URL** (https only; server-side fetch with SSRF limits):
+
+```bash
+knowtation import url "https://example.com/article" --project research --tags reading
+knowtation import url "https://example.com/paywalled" --url-mode bookmark --dry-run --json
+```
+
+**Hub / hosted:** Import modal → paste URL → choose **URL capture mode** → Import; or `POST /api/v1/import-url` with JSON body (same route on self-hosted Hub and hosted gateway → bridge).
 
 **ChatGPT export** — Extract the OpenAI ZIP first, then:
 ```bash

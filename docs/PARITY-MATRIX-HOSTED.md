@@ -34,6 +34,7 @@
 | User capability | Hub entry | Canonical API | Hosted MCP tool | Parity notes |
 |-----------------|-----------|-----------------|-----------------|--------------|
 | Import files (markdown, etc.) | **Import** modal; `POST /api/v1/import` (multipart) | Gateway `proxyImportToBridge` → bridge `POST /api/v1/import` | `import` | Admin ACL on MCP; gateway runs billing gate when `BRIDGE_URL` set. |
+| Import from **https URL** | **Import** modal → URL field; `POST /api/v1/import-url` (JSON) | Gateway `proxyTo` → bridge `POST /api/v1/import-url` | `import_url` | Admin-only on MCP (same as `import`); SSRF-safe fetch on bridge. |
 | Transcribe audio / video import | Import flow with audio/video | Bridge import + Whisper (`lib/transcribe.mjs`) | `transcribe` | MCP uses base64 + filename; Hub uses file upload — same bridge importer. |
 | Git / GitHub vault backup | Settings → Backup; **Back up now**; `POST /api/v1/vault/sync` | Gateway → bridge `POST /api/v1/vault/sync` | `vault_sync` | Editor+; needs GitHub connected on bridge for success. |
 | Export **single open note** | Note drawer **Export**; `POST /api/v1/export` with `{ path, format }` | Gateway handler for scoped export | — | **No MCP row:** hosted MCP `export` is **full-vault** `GET {canister}/api/v1/export` with MCP-only byte cap (`EXPORT_TOO_LARGE`); not the same operation as Hub single-note export. |
@@ -138,4 +139,4 @@ When a future MCP tool overlaps one of these, add a row and complete **H0–H4**
 3. **New Hub feature that reads/writes vault data:** Add a row; confirm MCP either gains a tool or an explicit “—” with rationale.
 4. **Refactor that moves HTTP paths:** Update the **Canonical API** column only after reading `hub/gateway/server.mjs` and bridge/canister routes in repo.
 
-Last inventory pass: **2026-04-21** — seventeen hosted tools, **thirteen** hosted prompts (**twelve** for **viewer** when `write-from-capture` is hidden), and **R3+** hosted resources (templates, note images, memory topics) in `mcp-hosted-server.mjs`; **eight** gateway-proxied memory routes (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`).
+Last inventory pass: **2026-04-22** — eighteen hosted tools (see `test/mcp-hosted-tools-list.test.mjs` `TOOLS_ADMIN`; includes **`import_url`**), **thirteen** hosted prompts (**twelve** for **viewer** when `write-from-capture` is hidden), and **R3+** hosted resources (templates, note images, memory topics) in `mcp-hosted-server.mjs`; **eight** gateway-proxied memory routes (`hub/gateway/server.mjs` ↔ `hub/bridge/server.mjs`).

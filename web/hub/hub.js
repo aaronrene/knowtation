@@ -2838,6 +2838,8 @@
     el('modal-import').classList.remove('hidden');
     el('import-msg').textContent = '';
     el('import-file').value = '';
+    const urlIn = el('import-url');
+    if (urlIn) urlIn.value = '';
   }
   function closeImportModal() {
     el('modal-import').classList.add('hidden');
@@ -2868,24 +2870,46 @@
     const importSubmitBtn = el('btn-import-submit');
     const sourceType = el('import-source-type').value;
     const fileInput = el('import-file');
+    const urlInput = el('import-url');
+    const urlTrim = urlInput && urlInput.value ? String(urlInput.value).trim() : '';
     const msgEl = el('import-msg');
     if (!token) {
       msgEl.textContent = 'Sign in to import.';
       msgEl.className = 'create-msg err';
       return;
     }
-    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      msgEl.textContent = 'Choose a file or ZIP to import.';
+    const useUrlImport = urlTrim.length > 0;
+    if (sourceType === 'url' && !useUrlImport) {
+      msgEl.textContent = 'Enter an https URL above, or pick another source type and upload a file.';
       msgEl.className = 'create-msg err';
       return;
     }
-    const formData = new FormData();
-    formData.append('source_type', sourceType);
-    formData.append('file', fileInput.files[0]);
+    if (!useUrlImport && (!fileInput || !fileInput.files || fileInput.files.length === 0)) {
+      msgEl.textContent = 'Choose a file or ZIP to import, or paste an https URL above.';
+      msgEl.className = 'create-msg err';
+      return;
+    }
     const project = (el('import-project') && el('import-project').value) ? el('import-project').value.trim() : '';
     const tags = (el('import-tags') && el('import-tags').value) ? el('import-tags').value.trim() : '';
-    if (project) formData.append('project', project);
-    if (tags) formData.append('tags', tags);
+    const urlModeEl = el('import-url-mode');
+    const urlMode = urlModeEl && urlModeEl.value ? urlModeEl.value : 'auto';
+    let fetchUrl = apiBase + '/api/v1/import';
+    /** @type {FormData|undefined} */
+    let formData;
+    /** @type {Record<string, unknown>|undefined} */
+    let jsonBody;
+    if (useUrlImport) {
+      fetchUrl = apiBase + '/api/v1/import-url';
+      jsonBody = { url: urlTrim, mode: urlMode };
+      if (project) jsonBody.project = project;
+      if (tags) jsonBody.tags = tags;
+    } else {
+      formData = new FormData();
+      formData.append('source_type', sourceType);
+      formData.append('file', fileInput.files[0]);
+      if (project) formData.append('project', project);
+      if (tags) formData.append('tags', tags);
+    }
     msgEl.textContent = 'Importing…';
     msgEl.className = 'create-msg';
     await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
@@ -2893,14 +2917,17 @@
         const importHeaders = token ? { Authorization: 'Bearer ' + token } : {};
         const importVaultId = getCurrentVaultId();
         if (importVaultId) importHeaders['X-Vault-Id'] = importVaultId;
+        if (useUrlImport) {
+          importHeaders['Content-Type'] = 'application/json';
+        }
         let res;
         for (let importAttempt = 0; importAttempt < 2; importAttempt++) {
           try {
-            res = await fetch(apiBase + '/api/v1/import', {
+            res = await fetch(fetchUrl, {
               method: 'POST',
               cache: 'no-store',
               headers: importHeaders,
-              body: formData,
+              body: useUrlImport ? JSON.stringify(jsonBody) : formData,
             });
             break;
           } catch (importErr) {
@@ -2945,8 +2972,9 @@
         }
         const count = data.count ?? data.imported?.length ?? 0;
         if (count === 0) {
-          msgEl.textContent =
-            sourceType === 'markdown'
+          msgEl.textContent = useUrlImport
+            ? 'Imported 0 notes from URL. Try Bookmark mode or a different link.'
+            : sourceType === 'markdown'
               ? 'Imported 0 notes. This ZIP or folder had no Markdown files we could use—only .md / .markdown (any case). PDF, Word, and other formats are skipped. Open “PDF or Word → get Markdown first” above, or pick a different source type.'
               : 'Imported 0 notes. Check that the file matches the selected source type (e.g. ChatGPT export needs chatgpt-export).';
           msgEl.className = 'create-msg warn';
@@ -2965,7 +2993,7 @@
           (e && e.name === 'TypeError' && /fetch|network|load failed/i.test(raw));
         msgEl.textContent = isNetwork
           ? raw +
-            ' — Often: CORS, upload too large for the gateway, or timeout. Video/audio need self-hosted Hub plus OPENAI_API_KEY. On hosted beta, Import may be unavailable; check DevTools → Network for POST /api/v1/import.'
+            ' — Often: CORS, upload too large for the gateway, or timeout. Video/audio need self-hosted Hub plus OPENAI_API_KEY. On hosted beta, Import may be unavailable; check DevTools → Network for POST /api/v1/import or POST /api/v1/import-url.'
           : raw;
         msgEl.className = 'create-msg err';
       }

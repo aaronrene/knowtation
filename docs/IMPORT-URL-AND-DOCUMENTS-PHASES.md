@@ -23,6 +23,8 @@ So: **entire-folder ingest already exists on the CLI** for supported types; **in
 
 **Outcome:** Paste an HTTPS URL → one or more vault notes (article text when possible, bookmark fallback).
 
+**Status on branch `feat/import-url-documents-mcp`:** **Shipped** (single implementation commit: core `lib/`, `POST /api/v1/import-url` on Hub + bridge + gateway, Hub modal fields, hosted MCP `import_url`, self-hosted MCP `url_mode`, tests, docs).
+
 **Work (representative):**
 
 - `lib/url-fetch-safe.mjs` — SSRF-safe fetch (HTTPS, DNS, redirects, size, timeout).

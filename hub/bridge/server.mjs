@@ -1797,7 +1797,7 @@ app.post(
     } catch (e) {
       const msg = e.message || String(e);
       const clientError =
-        /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:|Transcription failed|413|Payload Too Large|25MB|Whisper accepts/i.test(
+        /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:|Transcription failed|413|Payload Too Large|25MB|Whisper accepts|Only https|blocked|private IP|timed out|exceeds \d+ bytes|Invalid URL|URL is required|Extract mode requires|Could not extract|DNS resolution failed|Too many redirects|non-https/i.test(
           msg,
         );
       res.status(clientError ? 400 : 500).json({
@@ -1813,6 +1813,110 @@ app.post(
     }
   },
 );
+
+/**
+ * @param {unknown} raw
+ * @returns {'auto' | 'bookmark' | 'extract'}
+ */
+function normalizeBridgeImportUrlMode(raw) {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (s === 'bookmark' || s === 'extract' || s === 'auto') return s;
+  return 'auto';
+}
+
+/**
+ * @param {unknown} body
+ * @returns {string[]}
+ */
+function tagsFromBridgeImportUrlBody(body) {
+  const t = body && body.tags;
+  if (Array.isArray(t)) return t.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof t === 'string') return t.split(',').map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
+app.post('/api/v1/import-url', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-bridge-import-url-'));
+  try {
+    if (!CANISTER_URL) {
+      return res.status(503).json({ error: 'Canister not configured', code: 'SERVICE_UNAVAILABLE' });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const urlStr = typeof body.url === 'string' ? body.url.trim() : '';
+    if (!urlStr) return res.status(400).json({ error: 'url required', code: 'BAD_REQUEST' });
+    const urlMode = normalizeBridgeImportUrlMode(body.mode);
+    const project = body.project != null && String(body.project).trim() !== '' ? String(body.project).trim() : undefined;
+    const outputDir =
+      body.output_dir != null && String(body.output_dir).trim() !== '' ? String(body.output_dir).trim() : undefined;
+    const tags = tagsFromBridgeImportUrlBody(body);
+
+    const hctx = await resolveHostedBridgeContext(req, req.uid);
+    if (!hctx.ok) {
+      return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+    }
+    const vaultPath = path.join(tempDir, 'vault-work');
+    fs.mkdirSync(vaultPath, { recursive: true });
+    const result = await runImport('url', urlStr, { project, outputDir, tags, vaultPath, urlMode });
+    const importStamp = mergeProvenanceFrontmatter({}, {
+      sub: hctx.actorUid,
+      kind: 'import',
+    });
+    /** @type {{ path: string, body: string, frontmatter: Record<string, unknown> }[]} */
+    const notesForCanister = [];
+    for (const item of result.imported || []) {
+      if (item.path && typeof item.path === 'string') {
+        try {
+          writeNote(vaultPath, item.path, { frontmatter: importStamp });
+          const safe = resolveVaultRelativePath(vaultPath, item.path);
+          const fullPath = path.join(vaultPath, safe);
+          const markdownFull = fs.readFileSync(fullPath, 'utf8');
+          const parsed = parseFrontmatterAndBody(markdownFull);
+          const fm =
+            parsed.frontmatter && typeof parsed.frontmatter === 'object' && !Array.isArray(parsed.frontmatter)
+              ? /** @type {Record<string, unknown>} */ ({ ...parsed.frontmatter })
+              : {};
+          notesForCanister.push({
+            path: safe.replace(/\\/g, '/'),
+            body: parsed.body || '',
+            frontmatter: fm,
+          });
+        } catch (e) {
+          console.error('[bridge] import-url prepare note for canister failed for', item.path, e?.message || e);
+          return res.status(502).json({
+            error: e.message || 'Canister write failed',
+            code: 'BAD_GATEWAY',
+          });
+        }
+      }
+    }
+    try {
+      await postNotesBatchToCanister(hctx.effectiveCanisterUid, hctx.actorUid, hctx.vaultId, notesForCanister);
+    } catch (e) {
+      console.error('[bridge] import-url canister batch write failed', e?.message || e);
+      return res.status(502).json({
+        error: e.message || 'Canister write failed',
+        code: 'BAD_GATEWAY',
+      });
+    }
+    return res.json({ imported: result.imported, count: result.count });
+  } catch (e) {
+    const msg = e.message || String(e);
+    const clientError =
+      /OPENAI_API_KEY|required for transcription|Unsupported format|file not found|not found:|Transcription failed|413|Payload Too Large|25MB|Whisper accepts|Only https|blocked|private IP|timed out|exceeds \d+ bytes|Invalid URL|URL is required|Extract mode requires|Could not extract|DNS resolution failed|Too many redirects|non-https/i.test(
+        msg,
+      );
+    res.status(clientError ? 400 : 500).json({
+      error: msg,
+      code: clientError ? 'BAD_REQUEST' : 'RUNTIME_ERROR',
+    });
+  } finally {
+    if (tempDir && fs.existsSync(tempDir)) {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (_) {}
+    }
+  }
+});
 
 // ——— Index + Search (hosted: indexer runs in bridge, canister does not run Node) ———
 const BATCH_EMBED = 10;

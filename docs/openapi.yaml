@@ -245,6 +245,41 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /import-url:
+    post:
+      tags: [Notes]
+      summary: Import from a public https URL (JSON body; editor/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, description: 'Full https URL' }
+                mode: { type: string, enum: [auto, bookmark, extract], description: 'Capture mode (default auto)' }
+                project: { type: string }
+                output_dir: { type: string }
+                tags: { oneOf: [{ type: string }, { type: array, items: { type: string } }] }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported: { type: array, items: { type: object } }
+                  count: { type: integer }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /settings:
     get:
       tags: [Notes]

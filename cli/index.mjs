@@ -507,7 +507,7 @@ async function main() {
   if (subcommand === 'import') {
     if (hasOpt('help') || hasOpt('h')) {
       console.log(
-        `knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json\n  Source types: ${IMPORT_SOURCE_TYPES_HELP}`
+        `knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json, --url-mode auto|bookmark|extract (for source type url only)\n  Source types: ${IMPORT_SOURCE_TYPES_HELP}`
       );
       process.exit(0);
     }
@@ -536,11 +536,25 @@ async function main() {
           } catch (_) {}
         }
 
+        const urlModeRaw = getOpt('url-mode');
+        let urlMode;
+        if (urlModeRaw) {
+          const v = String(urlModeRaw).trim().toLowerCase();
+          if (v !== 'auto' && v !== 'bookmark' && v !== 'extract') {
+            exitWithError(`Invalid --url-mode "${urlModeRaw}". Use auto, bookmark, or extract.`, 1, useJson);
+          }
+          urlMode = v;
+        }
+        if (urlModeRaw && sourceType !== 'url') {
+          exitWithError('--url-mode is only valid when source-type is url.', 1, useJson);
+        }
+
         const importOpts = {
           project: project ?? undefined,
           outputDir: outputDir ?? undefined,
           tags,
           dryRun,
+          ...(sourceType === 'url' && urlMode ? { urlMode } : {}),
         };
         if (memoryManager && sourceType === 'mem0-export' && memoryManager.shouldCapture('capture')) {
           importOpts.onMemoryEvent = (data) => {

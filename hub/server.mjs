@@ -341,6 +341,11 @@ app.use(passport.initialize());
 // Rate limits
 const loginLimiter = rateLimit({ windowMs: 60 * 1000, max: 5, message: { error: 'Too many login attempts', code: 'RATE_LIMIT' } });
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Too many requests', code: 'RATE_LIMIT' } });
+const importUrlLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: { error: 'Too many URL imports. Try again later.', code: 'RATE_LIMIT' },
+});
 
 function captureAuth(req, res, next) {
   const secret = process.env.CAPTURE_WEBHOOK_SECRET;
@@ -906,6 +911,82 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
     }
   }
 });
+
+/**
+ * Normalize `mode` for POST /api/v1/import-url body.
+ * @param {unknown} raw
+ * @returns {'auto' | 'bookmark' | 'extract'}
+ */
+function normalizeImportUrlMode(raw) {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (s === 'bookmark' || s === 'extract' || s === 'auto') return s;
+  return 'auto';
+}
+
+/**
+ * @param {unknown} body
+ * @returns {string[]}
+ */
+function tagsFromImportUrlBody(body) {
+  const t = body && body.tags;
+  if (Array.isArray(t)) return t.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof t === 'string') return t.split(',').map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
+// POST /api/v1/import-url — JSON { url, mode?, project?, output_dir?, tags? }; editor/admin.
+app.post(
+  '/api/v1/import-url',
+  jwtAuth,
+  importUrlLimiter,
+  requireVaultAccess,
+  requireRole('editor', 'admin'),
+  async (req, res) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const urlStr = typeof body.url === 'string' ? body.url.trim() : '';
+      if (!urlStr) return res.status(400).json({ error: 'url required', code: 'BAD_REQUEST' });
+      const urlMode = normalizeImportUrlMode(body.mode);
+      const project = body.project != null && String(body.project).trim() !== '' ? String(body.project).trim() : undefined;
+      const outputDir =
+        body.output_dir != null && String(body.output_dir).trim() !== '' ? String(body.output_dir).trim() : undefined;
+      const tags = tagsFromImportUrlBody(body);
+      const result = await runImport('url', urlStr, {
+        project,
+        outputDir,
+        tags,
+        urlMode,
+        vaultPath: req.vaultPath,
+      });
+      const importStamp = mergeProvenanceFrontmatter({}, {
+        sub: req.user?.sub ?? null,
+        kind: 'import',
+      });
+      for (const item of result.imported || []) {
+        if (item.path && typeof item.path === 'string') {
+          try {
+            writeNote(req.vaultPath, item.path, { frontmatter: importStamp });
+          } catch (e) {
+            console.error('hub import-url provenance pass failed for', item.path, e.message || e);
+          }
+        }
+      }
+      invalidateFacetsCache();
+      maybeAutoSync({ ...config, vault_path: req.vaultPath });
+      res.json({ imported: result.imported, count: result.count });
+    } catch (e) {
+      const msg = e.message || String(e);
+      const clientError =
+        /OPENAI_API_KEY|required for transcription|Only https|blocked|private IP|timed out|exceeds \d+ bytes|Invalid URL|URL is required|Extract mode requires|Could not extract|DNS resolution failed|Too many redirects|non-https/i.test(
+          msg,
+        );
+      res.status(clientError ? 400 : 500).json({
+        error: msg,
+        code: clientError ? 'BAD_REQUEST' : 'RUNTIME_ERROR',
+      });
+    }
+  },
+);
 
 // Phase 18D: Upload image to GitHub backup repo, return raw URL for note embedding
 const imageUploadLimiter = rateLimit({

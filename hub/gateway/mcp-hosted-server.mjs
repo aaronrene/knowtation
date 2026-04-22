@@ -1279,6 +1279,59 @@ export function createHostedMcpServer(ctx) {
     );
   }
 
+  if (isToolAllowed('import_url', role)) {
+    server.registerTool(
+      'import_url',
+      {
+        description:
+          'Import a public https URL into the hosted vault (same as Hub Import from URL). Fetches server-side with SSRF protections; uses article extraction when possible. Requires bridge.',
+        inputSchema: {
+          url: z
+            .string()
+            .min(1)
+            .describe('Full https URL (e.g. https://example.com/article)'),
+          mode: z
+            .enum(['auto', 'bookmark', 'extract'])
+            .optional()
+            .describe('auto = extract when possible else bookmark; bookmark = link only; extract = require readable HTML'),
+          project: z.string().optional().describe('Optional project slug'),
+          output_dir: z.string().optional().describe('Optional vault-relative output folder'),
+          tags: z
+            .union([z.string(), z.array(z.string())])
+            .optional()
+            .describe('Optional tags: comma-separated string or array of strings'),
+        },
+      },
+      async (args) => {
+        try {
+          const u = String(args.url || '').trim();
+          if (!u.startsWith('https://')) {
+            return jsonError('url must start with https://', 'INVALID');
+          }
+          const body = {
+            url: u,
+            mode: args.mode === 'bookmark' || args.mode === 'extract' || args.mode === 'auto' ? args.mode : 'auto',
+          };
+          if (args.project != null && String(args.project).trim() !== '') body.project = String(args.project).trim();
+          if (args.output_dir != null && String(args.output_dir).trim() !== '') body.output_dir = String(args.output_dir).trim();
+          if (args.tags != null) {
+            body.tags = Array.isArray(args.tags)
+              ? args.tags.map((t) => String(t).trim()).filter(Boolean)
+              : String(args.tags);
+          }
+          const data = await upstreamFetch(`${bridgeUrl}/api/v1/import-url`, {
+            ...bridgeFetchOpts,
+            method: 'POST',
+            body,
+          });
+          return jsonResponse(data);
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
   if (isToolAllowed('export', role)) {
     server.registerTool(
       'export',

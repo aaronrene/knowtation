@@ -1497,6 +1497,21 @@ app.post('/api/v1/import', async (req, res) => {
   });
 });
 
+// POST /api/v1/import-url — JSON body; bridge runs URL importer (same auth as import).
+app.post('/api/v1/import-url', async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (BRIDGE_URL) {
+    if (!(await runBillingGate(req, res, getUserId))) return;
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/import-url', req, res);
+    return;
+  }
+  res.status(501).json({
+    error: 'Import URL is not available on hosted (set BRIDGE_URL for bridge-backed import).',
+    code: 'NOT_AVAILABLE',
+  });
+});
+
 // GET /api/v1/notes/facets — aggregate from canister list (Hub filter dropdowns / overview parity)
 app.get('/api/v1/notes/facets', async (req, res) => {
   const uid = getUserId(req);

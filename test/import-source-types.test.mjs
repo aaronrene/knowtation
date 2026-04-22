@@ -24,9 +24,10 @@ describe('import source types', () => {
     if (!fs.existsSync(scratchVault)) fs.mkdirSync(scratchVault, { recursive: true });
     const missing = path.join(scratchVault, 'definitely-missing-input-xyz');
     for (const sourceType of IMPORT_SOURCE_TYPES) {
+      const badInput = sourceType === 'url' ? 'not-a-valid-url' : missing;
       await assert.rejects(
         async () => {
-          await runImport(sourceType, missing, { vaultPath: scratchVault, dryRun: true });
+          await runImport(sourceType, badInput, { vaultPath: scratchVault, dryRun: true });
         },
         (err) => {
           assert(

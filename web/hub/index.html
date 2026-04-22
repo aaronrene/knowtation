@@ -423,6 +423,7 @@
         <p class="muted small import-modal-hosted"><strong>Hosted (e.g. knowtation.store):</strong> If you see <em>Import is not yet available on hosted</em>, this deployment has not enabled bridge-backed import yet (operators configure <code>BRIDGE_URL</code>). Self-hosted Hub already supports the full import flow.</p>
         <label for="import-source-type">Source type</label>
         <select id="import-source-type">
+          <option value="url">URL (https — article or bookmark)</option>
           <option value="markdown">Markdown (file or folder)</option>
           <option value="chatgpt-export">ChatGPT export (ZIP or folder)</option>
           <option value="claude-export">Claude export</option>
@@ -436,6 +437,15 @@
           <option value="audio">Audio (transcribe)</option>
           <option value="wallet-csv">Wallet / exchange CSV (transaction history)</option>
         </select>
+        <label for="import-url">Import from URL (https only)</label>
+        <input type="url" id="import-url" placeholder="https://example.com/article" autocomplete="off">
+        <label for="import-url-mode">URL capture mode</label>
+        <select id="import-url-mode" aria-describedby="import-url-mode-hint">
+          <option value="auto">Auto (extract article when possible)</option>
+          <option value="bookmark">Bookmark only (save link)</option>
+          <option value="extract">Extract only (fail if not readable HTML)</option>
+        </select>
+        <p id="import-url-mode-hint" class="muted small">Use <strong>Bookmark</strong> for paywalled or login-only pages. <strong>Extract</strong> requires readable HTML.</p>
         <label for="import-file">File or ZIP</label>
         <input type="file" id="import-file" accept=".md,.markdown,.json,.csv,.zip,.txt,.pdf,.doc,.docx,audio/*,video/*">
         <label for="import-project">Project (optional)</label>
