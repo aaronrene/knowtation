@@ -15,6 +15,9 @@ const fixturesRoot = path.join(__dirname, 'fixtures', 'import');
 const fixtureMarkdown = path.join(__dirname, 'fixtures', 'markdown-import', 'simple.md');
 const fixturePdf = path.join(__dirname, 'fixtures', 'pdf-import', 'hello.pdf');
 const fixtureDocx = path.join(__dirname, 'fixtures', 'docx-import', 'hello.docx');
+const fixtureGenericCsv = path.join(__dirname, 'fixtures', 'generic-csv-import', 'sample.csv');
+const fixtureJsonRows = path.join(__dirname, 'fixtures', 'json-rows-import', 'sample.json');
+const fixtureVcf = path.join(__dirname, 'fixtures', 'vcf-import', 'sample.vcf');
 const testVault = path.join(__dirname, 'fixtures', 'tmp-import-golden-vault');
 
 function assertIsoDate(value) {
@@ -164,6 +167,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'jira');
     assert.strictEqual(note.frontmatter.source_id, 'PROJ-1');
     assert.strictEqual(note.frontmatter.title, 'Fixture Jira issue');
+    assert.ok(note.body.includes('## All CSV fields (JSON)'));
+    assert.ok(note.body.includes('"Issue key": "PROJ-1"'));
     assertIsoDate(String(note.frontmatter.date || ''));
   });
 
@@ -179,6 +184,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'linear');
     assert.strictEqual(note.frontmatter.source_id, 'LIN-1');
     assertIsoDate(String(note.frontmatter.date || ''));
+    assert(note.body.includes('## All CSV fields (JSON)'));
+    assert(note.body.includes('"id": "LIN-1"'));
     assert(note.body.includes('Fixture Linear'));
   });
 
@@ -208,5 +215,118 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'gdrive');
     assert.strictEqual(note.frontmatter.source_id, 'doc1');
     assert(note.body.includes('Synthetic Google Drive'));
+  });
+
+  it('generic-csv', async () => {
+    const result = await runImport('generic-csv', fixtureGenericCsv, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-generic-csv',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 2);
+    const a = readNote(testVault, result.imported[0].path);
+    const b = readNote(testVault, result.imported[1].path);
+    assert.strictEqual(a.frontmatter.source, 'csv-import');
+    assert.strictEqual(a.frontmatter.csv_file, 'sample.csv');
+    assert.strictEqual(a.frontmatter.title, 'sample.csv · Alice');
+    assert.equal(Number(a.frontmatter.row_index), 1);
+    {
+      const h = a.frontmatter.import_column_headers;
+      const cols = typeof h === 'string' ? JSON.parse(h) : h;
+      assert.deepStrictEqual(cols, ['name', 'amount', 'note']);
+    }
+    assert(a.body.startsWith('# sample.csv · Alice'));
+    assert(a.body.includes('## Full row (JSON)'));
+    assert(a.body.includes('"name": "Alice"'));
+    assert(a.body.includes('Alice') && a.body.includes('10'));
+    assert.equal(Number(b.frontmatter.row_index), 2);
+    assert.strictEqual(b.frontmatter.title, 'sample.csv · Bob');
+    assert(b.body.startsWith('# sample.csv · Bob'));
+    assert(b.body.includes('Bob'));
+  });
+
+  it('json-rows', async () => {
+    const result = await runImport('json-rows', fixtureJsonRows, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-json-rows',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 2);
+    const n0 = readNote(testVault, result.imported[0].path);
+    const n1 = readNote(testVault, result.imported[1].path);
+    assert.strictEqual(n0.frontmatter.source, 'json-import');
+    assert.strictEqual(n0.frontmatter.json_file, 'sample.json');
+    assert.equal(Number(n0.frontmatter.item_index), 0);
+    assert.strictEqual(n0.frontmatter.source_id, 'row-a');
+    assert(n0.body.includes('"name": "First"'));
+    assert.equal(Number(n1.frontmatter.item_index), 1);
+    assert(n1.body.includes('Second'));
+  });
+
+  it('excel-xlsx', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const xlsxPath = path.join(testVault, 'golden-temp.xlsx');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('First');
+    ws.getRow(1).values = [null, 'name', 'n'];
+    ws.getRow(2).values = [null, 'Alpha', 10];
+    ws.getRow(3).values = [null, 'Beta', 20];
+    const buffer = await wb.xlsx.writeBuffer();
+    fs.writeFileSync(xlsxPath, buffer);
+    const result = await runImport('excel-xlsx', xlsxPath, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-excel',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 2);
+    const a = readNote(testVault, result.imported[0].path);
+    const b = readNote(testVault, result.imported[1].path);
+    assert.strictEqual(a.frontmatter.source, 'xlsx-import');
+    assert.strictEqual(a.frontmatter.title, 'golden-temp.xlsx · Alpha');
+    assert.equal(Number(a.frontmatter.row_index), 1);
+    assert(a.body.startsWith('# golden-temp.xlsx · Alpha'));
+    assert(a.body.includes('## Full row (JSON)'));
+    assert(a.body.includes('"name": "Alpha"'));
+    assert(a.body.includes('Alpha') && a.body.includes('10'));
+    assert.strictEqual(b.frontmatter.title, 'golden-temp.xlsx · Beta');
+    assert(b.body.startsWith('# golden-temp.xlsx · Beta'));
+    assert(b.body.includes('Beta'));
+  });
+
+  it('vcf', async () => {
+    const result = await runImport('vcf', fixtureVcf, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-vcf',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 2);
+    const n0 = readNote(testVault, result.imported[0].path);
+    const n1 = readNote(testVault, result.imported[1].path);
+    assert.strictEqual(n0.frontmatter.source, 'vcf-import');
+    assert(n0.path.includes('contacts/') && n0.path.includes('vcf'));
+    assert(n0.body.includes('Alice') && n0.body.includes('alice@example.com'));
+    assert(n1.body.includes('Bob') && n1.body.includes('bob@example.com'));
+  });
+
+  it('google-sheets: requires service account in environment', async () => {
+    const a = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const j = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    try {
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+      await assert.rejects(
+        runImport('google-sheets', '1dummySpreadsheetId', {
+          vaultPath: testVault,
+          outputDir: 'inbox/golden-sheets',
+          dryRun: true,
+        }),
+        /google-sheets import: set GOOGLE_SERVICE_ACCOUNT_JSON/,
+      );
+    } finally {
+      if (a === undefined) delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      else process.env.GOOGLE_APPLICATION_CREDENTIALS = a;
+      if (j === undefined) delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+      else process.env.GOOGLE_SERVICE_ACCOUNT_JSON = j;
+    }
   });
 });

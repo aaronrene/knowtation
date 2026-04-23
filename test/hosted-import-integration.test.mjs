@@ -287,6 +287,86 @@ test('bridge POST /api/v1/import: docx upload → note body contains converted m
   assert.equal(posted.notes[0].frontmatter.source, 'docx-import');
 });
 
+test('bridge POST /api/v1/import: generic-csv upload → one canister note per row', async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-bridge-import-csv-'));
+  t.after(() => {
+    try {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+    } catch (_) {}
+  });
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = 'http://mock-canister.test';
+  process.env.SESSION_SECRET = SECRET;
+  process.env.DATA_DIR = dataDir;
+
+  const noteWrites = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('/api/v1/vaults') && (init.method === undefined || init.method === 'GET')) {
+      return new Response(JSON.stringify({ vaults: [{ id: 'default' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (String(init.method || 'GET').toUpperCase() === 'POST' && u.includes('/api/v1/notes')) {
+      let bodyText = '';
+      if (typeof init.body === 'string') bodyText = init.body;
+      else if (init.body != null && typeof init.body === 'object' && Symbol.asyncIterator in init.body) {
+        const chunks = [];
+        for await (const c of init.body) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
+        bodyText = Buffer.concat(chunks).toString('utf8');
+      }
+      noteWrites.push({ url: u, body: bodyText });
+      return new Response(JSON.stringify({ imported: JSON.parse(bodyText).notes?.length ?? 0, written: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return origFetch(url, init);
+  };
+  t.after(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  const bridgeEntry = pathToFileURL(path.join(projectRoot, 'hub', 'bridge', 'server.mjs')).href;
+  const { app } = await import(`${bridgeEntry}?t=${Date.now()}-gcsv`);
+
+  const server = http.createServer(app);
+  await new Promise((resolve, reject) => {
+    server.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => server.close(() => r())));
+
+  const { port } = /** @type {import('net').AddressInfo} */ (server.address());
+  const csvPath = path.join(projectRoot, 'test', 'fixtures', 'generic-csv-import', 'sample.csv');
+  const csvBuf = fs.readFileSync(csvPath);
+  const token = signTestJwt({ sub: 'github:integration-gcsv' });
+  const fd = new FormData();
+  fd.set('source_type', 'generic-csv');
+  fd.set('file', new Blob([csvBuf], { type: 'text/csv' }), 'sample.csv');
+
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/import`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'X-Vault-Id': 'default' },
+    body: fd,
+  });
+
+  const resText = await res.text();
+  assert.equal(res.status, 200, resText);
+  const json = JSON.parse(resText);
+  assert.equal(json.count, 2);
+  assert.equal(noteWrites.length, 1);
+  const posted = JSON.parse(noteWrites[0].body);
+  assert.equal(posted.notes.length, 2);
+  assert.equal(posted.notes[0].frontmatter.source, 'csv-import');
+  assert.equal(posted.notes[0].frontmatter.title, 'sample.csv · Alice');
+  assert.equal(posted.notes[1].frontmatter.title, 'sample.csv · Bob');
+  assert.ok(posted.notes[0].body.includes('Alice'));
+  assert.ok(posted.notes[1].body.includes('Bob'));
+});
+
 test('bridge POST /api/v1/import: ZIP with multiple .md files → one canister batch (≤100 notes)', async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-bridge-import-multi-'));
   t.after(() => {

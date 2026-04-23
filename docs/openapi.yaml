@@ -213,19 +213,25 @@ paths:
   /import:
     post:
       tags: [Notes]
-      summary: Import from uploaded file or ZIP (multipart: source_type, file; optional project, tags)
+      summary: Import from uploaded file or ZIP (multipart: source_type; file except for google-sheets; optional project, tags, spreadsheet_id for google-sheets)
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [source_type, file]
+              required: [source_type]
               properties:
                 source_type:
                   type: string
-                  description: Importer id (e.g. markdown, pdf, docx, url via file upload is not used for URL—use /import-url; chatgpt-export, audio, …). See lib/import-source-types.mjs for the canonical list.
-                file: { type: string, format: binary }
+                  description: Importer id. For google-sheets, omit file and set spreadsheet_id; optional sheets_range (A1 notation). See lib/import-source-types.mjs.
+                file: { type: string, format: binary, description: Required for all importers except google-sheets. }
+                spreadsheet_id:
+                  type: string
+                  description: Required when source_type is google-sheets (id from the Google Sheets URL).
+                sheets_range:
+                  type: string
+                  description: Optional for google-sheets; A1 range. Omit to read the first sheet from A1.
                 project: { type: string }
                 output_dir: { type: string }
                 tags: { type: string }
