@@ -167,6 +167,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'jira');
     assert.strictEqual(note.frontmatter.source_id, 'PROJ-1');
     assert.strictEqual(note.frontmatter.title, 'Fixture Jira issue');
+    assert.ok(note.body.includes('## All CSV fields (JSON)'));
+    assert.ok(note.body.includes('"Issue key": "PROJ-1"'));
     assertIsoDate(String(note.frontmatter.date || ''));
   });
 
@@ -182,6 +184,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'linear');
     assert.strictEqual(note.frontmatter.source_id, 'LIN-1');
     assertIsoDate(String(note.frontmatter.date || ''));
+    assert(note.body.includes('## All CSV fields (JSON)'));
+    assert(note.body.includes('"id": "LIN-1"'));
     assert(note.body.includes('Fixture Linear'));
   });
 
@@ -224,9 +228,20 @@ describe('import golden fixtures', () => {
     const b = readNote(testVault, result.imported[1].path);
     assert.strictEqual(a.frontmatter.source, 'csv-import');
     assert.strictEqual(a.frontmatter.csv_file, 'sample.csv');
+    assert.strictEqual(a.frontmatter.title, 'sample.csv · Alice');
     assert.equal(Number(a.frontmatter.row_index), 1);
+    {
+      const h = a.frontmatter.import_column_headers;
+      const cols = typeof h === 'string' ? JSON.parse(h) : h;
+      assert.deepStrictEqual(cols, ['name', 'amount', 'note']);
+    }
+    assert(a.body.startsWith('# sample.csv · Alice'));
+    assert(a.body.includes('## Full row (JSON)'));
+    assert(a.body.includes('"name": "Alice"'));
     assert(a.body.includes('Alice') && a.body.includes('10'));
     assert.equal(Number(b.frontmatter.row_index), 2);
+    assert.strictEqual(b.frontmatter.title, 'sample.csv · Bob');
+    assert(b.body.startsWith('# sample.csv · Bob'));
     assert(b.body.includes('Bob'));
   });
 
@@ -249,19 +264,15 @@ describe('import golden fixtures', () => {
   });
 
   it('excel-xlsx', async () => {
-    const xlsx = await import('xlsx');
+    const ExcelJS = (await import('exceljs')).default;
     const xlsxPath = path.join(testVault, 'golden-temp.xlsx');
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(
-      wb,
-      xlsx.utils.aoa_to_sheet([
-        ['name', 'n'],
-        ['Alpha', 10],
-        ['Beta', 20],
-      ]),
-      'First',
-    );
-    xlsx.writeFile(wb, xlsxPath);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('First');
+    ws.getRow(1).values = [null, 'name', 'n'];
+    ws.getRow(2).values = [null, 'Alpha', 10];
+    ws.getRow(3).values = [null, 'Beta', 20];
+    const buffer = await wb.xlsx.writeBuffer();
+    fs.writeFileSync(xlsxPath, buffer);
     const result = await runImport('excel-xlsx', xlsxPath, {
       vaultPath: testVault,
       outputDir: 'inbox/golden-excel',
@@ -271,8 +282,14 @@ describe('import golden fixtures', () => {
     const a = readNote(testVault, result.imported[0].path);
     const b = readNote(testVault, result.imported[1].path);
     assert.strictEqual(a.frontmatter.source, 'xlsx-import');
+    assert.strictEqual(a.frontmatter.title, 'golden-temp.xlsx · Alpha');
     assert.equal(Number(a.frontmatter.row_index), 1);
+    assert(a.body.startsWith('# golden-temp.xlsx · Alpha'));
+    assert(a.body.includes('## Full row (JSON)'));
+    assert(a.body.includes('"name": "Alpha"'));
     assert(a.body.includes('Alpha') && a.body.includes('10'));
+    assert.strictEqual(b.frontmatter.title, 'golden-temp.xlsx · Beta');
+    assert(b.body.startsWith('# golden-temp.xlsx · Beta'));
     assert(b.body.includes('Beta'));
   });
 

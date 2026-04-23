@@ -24,6 +24,12 @@
     "stripe"
   ]
 
+# exceljs is large; bundling it in esbuild for netlify/functions/bridge.mjs can fail Netlify
+# (opaque exit 1, sometimes with @netlify/build TypeError in error formatting). Keep it
+# external for the bridge function only so gateway.zip does not add node_modules/exceljs.
+[functions."bridge"]
+  external_node_modules = ["exceljs"]
+
 # Netlify Pro allows up to 26 s per function. Per-function timeout must be a sub-table;
 # a scalar timeout = N under [functions] is rejected by the config validator.
 [functions."gateway"]

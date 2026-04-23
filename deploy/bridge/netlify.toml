@@ -29,8 +29,10 @@
 
 # Back up now (/api/v1/vault/sync) can exceed the default ~10s limit (export + N proposal GETs + GitHub API).
 # Align with gateway proxy budget (root netlify.toml [functions."gateway"] timeout = 26).
+# exceljs: see root netlify.toml [functions."bridge"] (large bundle; keep external for the bridge function).
 [functions."bridge"]
   timeout = 26
+  external_node_modules = ["exceljs"]
 
 # Send all requests to the bridge function with path preserved (/:splat).
 [[redirects]]
