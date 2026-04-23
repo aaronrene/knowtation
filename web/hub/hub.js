@@ -1727,8 +1727,26 @@
           : 'Project slug matches vault path projects/' + pathProj + '/.';
         hint.className = mismatch ? 'muted small detail-project-hint warn' : 'muted small detail-project-hint';
       } else {
-        hint.textContent = '';
-        hint.className = 'muted small detail-project-hint hidden';
+        hint.classList.remove('hidden');
+        hint.className = 'muted small detail-project-hint';
+        hint.textContent =
+          'Optional frontmatter label for filters and charts. It does not have to match the file path. If you use a path like projects/your-slug/…, the Hub keeps this field aligned with that folder name.';
+      }
+    }
+    const pathTypoEl = el('detail-edit-path-typo-hint');
+    if (pathTypoEl && currentOpenNote) {
+      const sug = projectsPathTypoSuggestion(currentOpenNote.path);
+      if (sug) {
+        pathTypoEl.textContent =
+          'This path starts with project/ — the usual convention is projects/ (with an “s”). Example fix: ' +
+          sug +
+          '. Rename or move the file in your vault (path cannot be edited here).';
+        pathTypoEl.className = 'muted small detail-project-hint warn';
+        pathTypoEl.classList.remove('hidden');
+      } else {
+        pathTypoEl.textContent = '';
+        pathTypoEl.className = 'muted small detail-project-hint hidden';
+        pathTypoEl.classList.add('hidden');
       }
     }
     const tags = f.tags;
@@ -1793,6 +1811,17 @@
     if (!path || typeof path !== 'string') return null;
     const m = path.match(/^projects\/([^/]+)(?:\/|$)/);
     return m ? m[1] : null;
+  }
+
+  /**
+   * Common typo: vault path starts with `project/` instead of `projects/`.
+   * Returns the same path with the corrected prefix, or null if no typo.
+   */
+  function projectsPathTypoSuggestion(path) {
+    const p = String(path || '').trim();
+    if (!p) return null;
+    if (/^project\//.test(p) && !/^projects\//.test(p)) return p.replace(/^project\//, 'projects/');
+    return null;
   }
 
   /** True when any list filter used by loadNotes / Quick chips is set. */
@@ -3056,6 +3085,13 @@
   }
   const btnProjectsHelp = el('btn-projects-help');
   if (btnProjectsHelp) btnProjectsHelp.onclick = openProjectsHelpModal;
+  const btnFullProjectHelp = el('btn-full-project-help');
+  if (btnFullProjectHelp) {
+    btnFullProjectHelp.onclick = () => {
+      const m = el('modal-projects-help');
+      if (m) m.classList.remove('hidden');
+    };
+  }
   const modalProjectsHelpBackdrop = el('modal-projects-help-backdrop');
   const modalProjectsHelpClose = el('modal-projects-help-close');
   if (modalProjectsHelpBackdrop) modalProjectsHelpBackdrop.onclick = closeProjectsHelpModal;
@@ -6380,6 +6416,38 @@
       fp.readOnly = false;
       fp.removeAttribute('title');
     }
+    updateFullPathProjectTypoHint();
+  }
+
+  function updateFullPathProjectTypoHint() {
+    const pi = el('full-path');
+    const hint = el('full-path-project-typo-hint');
+    const fixBtn = el('btn-full-path-fix-typo');
+    if (!pi || !hint) return;
+    const raw = pi.value.trim();
+    const sug = projectsPathTypoSuggestion(raw);
+    if (sug) {
+      hint.textContent =
+        'This looks like project/ instead of projects/. Use the plural prefix for the standard layout. Suggested path: ' + sug;
+      hint.className = 'muted small detail-project-hint warn';
+      hint.classList.remove('hidden');
+      if (fixBtn) {
+        fixBtn.classList.remove('hidden');
+        fixBtn.onclick = () => {
+          pi.value = sug;
+          syncFolderSelectToPathInput();
+          syncFullProjectFromPath();
+        };
+      }
+    } else {
+      hint.textContent = '';
+      hint.className = 'muted small detail-project-hint hidden';
+      hint.classList.add('hidden');
+      if (fixBtn) {
+        fixBtn.classList.add('hidden');
+        fixBtn.onclick = null;
+      }
+    }
   }
 
   const fullPathFolderEl = () => el('full-path-folder');
@@ -6462,6 +6530,14 @@
     const msg = el('create-msg-full');
     if (!notePath) {
       msg.textContent = 'Enter a vault path (e.g. inbox/idea.md).';
+      msg.className = 'create-msg err';
+      return;
+    }
+    const pathTypoSug = projectsPathTypoSuggestion(notePath);
+    if (pathTypoSug) {
+      msg.textContent =
+        'Path uses project/ but the standard prefix is projects/ (plural). Edit the path or click “Use suggested path” under the path field. Suggested: ' +
+        pathTypoSug;
       msg.className = 'create-msg err';
       return;
     }
@@ -7002,6 +7078,7 @@
     bodyEl.className = 'detail-edit-container create-panel';
     bodyEl.innerHTML =
       '<p class="muted small">Path (read-only): <code id="detail-edit-path-display"></code></p>' +
+      '<p id="detail-edit-path-typo-hint" class="muted small detail-project-hint hidden" role="status"></p>' +
       '<label for="detail-edit-title">Title</label>' +
       '<input type="text" id="detail-edit-title" placeholder="Note title" />' +
       '<label for="detail-edit-body">Body (Markdown)</label>' +

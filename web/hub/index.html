@@ -347,8 +347,9 @@
         </div>
         <div id="create-quick" class="create-panel">
           <textarea id="quick-body" rows="6" placeholder="Type or paste anything…"></textarea>
-          <label>Project (optional)</label>
-          <input type="text" id="quick-project" placeholder="e.g. myproject">
+          <label for="quick-project">Project (optional)</label>
+          <input type="text" id="quick-project" placeholder="e.g. myproject" aria-describedby="quick-project-hint">
+          <p id="quick-project-hint" class="muted small">If set, saves under <code>projects/&lt;slug&gt;/inbox/…</code> and sets <code>project</code> in frontmatter. Leave empty to save to <code>inbox/</code> only.</p>
           <p class="muted small">Saves to inbox with today’s date.</p>
           <button type="button" id="btn-quick-save" class="btn-primary">Save to inbox</button>
           <p id="create-msg-quick" class="create-msg"></p>
@@ -358,15 +359,20 @@
           <select id="full-path-folder" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-path-folder-hint"></select>
           <p id="full-path-folder-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a folder on disk under this vault (includes empty folders). Pick <strong>Custom</strong> to type any path.</p>
           <label for="full-path">Path (vault-relative)</label>
-          <input type="text" id="full-path" placeholder="inbox/my-note.md" autocomplete="off" spellcheck="false">
+          <input type="text" id="full-path" placeholder="inbox/my-note.md or projects/my-slug/inbox/note.md" autocomplete="off" spellcheck="false" aria-describedby="full-path-project-typo-hint full-path-folder-caption">
+          <p id="full-path-folder-caption" class="muted small" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">Use <code>projects/your-slug/…</code> so the file lives under the project folder; the plural <strong>projects</strong> matters. The <strong>Project</strong> field below is YAML metadata for filters — it can match that slug or stay empty unless the path uses <code>projects/</code>.</p>
+          <p id="full-path-project-typo-hint" class="muted small detail-project-hint hidden" role="status"></p>
+          <p style="margin: 0 0 0.5rem 0;"><button type="button" id="btn-full-path-fix-typo" class="btn-link btn-link-small hidden">Use suggested path</button></p>
           <label>Title</label>
           <input type="text" id="full-title" placeholder="Note title">
           <label>Body (Markdown)</label>
           <textarea id="full-body" rows="8" placeholder="Content…"></textarea>
           <label>Date (optional)</label>
           <input type="date" id="full-date" placeholder="YYYY-MM-DD">
-          <label>Project (optional)</label>
-          <input type="text" id="full-project" placeholder="slug">
+          <label for="full-project">Project (optional)</label>
+          <input type="text" id="full-project" placeholder="slug" aria-describedby="full-project-field-intro">
+          <p id="full-project-field-intro" class="muted small" style="margin-top: 0; margin-bottom: 0.35rem;">Frontmatter <code>project</code> for filters and charts. If your path starts with <code>projects/slug/</code>, this field follows that slug automatically.</p>
+          <p style="margin: 0 0 0.5rem 0;"><button type="button" id="btn-full-project-help" class="btn-link btn-link-small">How projects work</button></p>
           <label>Tags (comma-separated)</label>
           <input type="text" id="full-tags" placeholder="tag1, tag2">
           <p class="muted small" style="margin-top: 0.5rem;">Temporal and hierarchical (optional):</p>
@@ -522,6 +528,11 @@
           <p style="margin-top:0;">On hosted Knowtation, a <strong>project</strong> is just a name you put on your notes so they stay grouped together.</p>
           <p><strong>To start a project:</strong> create a note (for example with <strong>+ New note</strong>) and add a <strong>project name</strong> on that note. That first note starts the project. Add the same project name on other notes to keep them in the same group.</p>
           <p class="small muted" style="margin-bottom:0;">The name then shows up in the <strong>project</strong> menu and in quick filter chips. It is not a folder path like on self-hosted.</p>
+          <details class="modal-projects-help-details" style="margin-top: 0.75rem;">
+            <summary>Self-hosted: path <code>projects/</code> vs field <code>project</code></summary>
+            <p class="small muted">On disk, many vaults group files under <code>projects/&lt;slug&gt;/…</code> (note the plural <strong>projects</strong>). In the Hub, if a note’s path starts with <code>projects/&lt;slug&gt;/</code>, the <strong>Project</strong> field stays aligned with that folder name on save.</p>
+            <p class="small muted">You can also set <code>project</code> in frontmatter on notes anywhere (for example <code>inbox/idea.md</code>) — that label is for filters and charts and does not create a folder. A common typo is typing <code>project/…</code> instead of <code>projects/…</code> in the path; the Hub warns you when that happens.</p>
+          </details>
           <details class="modal-projects-help-details">
             <summary>Technical: YAML <code>project</code> field</summary>
             <p class="small muted">In the note editor, the project is stored as a <code>project</code> field in the YAML block at the top of the file (frontmatter). Example:</p>
