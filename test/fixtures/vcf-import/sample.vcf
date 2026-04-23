@@ -1,0 +1,12 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Alice Example
+N:Example;Alice;;;
+EMAIL;TYPE=INTERNET:alice@example.com
+TEL;TYPE=CELL:+1-555-0100
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Bob Sample
+EMAIL:bob@example.com
+END:VCARD

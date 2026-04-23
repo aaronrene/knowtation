@@ -427,11 +427,23 @@
           <option value="notebooklm">NotebookLM</option>
           <option value="notion">Notion (API; page IDs)</option>
           <option value="gdrive">Google Drive (Markdown folder)</option>
+          <option value="generic-csv">Generic CSV (one note per row)</option>
           <option value="jira-export">Jira CSV export</option>
           <option value="linear-export">Linear CSV export</option>
           <option value="audio">Audio (transcribe)</option>
           <option value="wallet-csv">Wallet / exchange CSV (transaction history)</option>
+          <option value="json-rows">JSON array (one object per note)</option>
+          <option value="excel-xlsx">Excel .xlsx (first sheet, one note per row)</option>
+          <option value="vcf">vCard / .vcf (contacts, one note per card)</option>
+          <option value="google-sheets">Google Sheets (API — id only, no file)</option>
         </select>
+        <div id="import-sheets-block" class="import-sheets-block" hidden>
+        <label for="import-spreadsheet-id">Google Sheets — spreadsheet id (from the URL)</label>
+        <input type="text" id="import-spreadsheet-id" placeholder="Long id in sheets.google.com/d/…" autocomplete="off" spellcheck="false">
+        <label for="import-sheets-range">Range (optional, A1 notation)</label>
+        <input type="text" id="import-sheets-range" placeholder="e.g. Sheet1!A1:E100 (omit for first tab A1:ZZ)">
+        <p class="muted small" id="import-sheets-hint">No file upload. The bridge must have a Google service account; share the sheet with that account (Viewer). See <a href="https://github.com/aaronrene/knowtation/blob/main/docs/IMPORT-SOURCES.md" target="_blank" rel="noopener noreferrer">IMPORT-SOURCES</a>.</p>
+        </div>
         <label for="import-url">Import from URL (https only)</label>
         <input type="url" id="import-url" placeholder="https://example.com/article" autocomplete="off">
         <label for="import-url-mode">URL capture mode</label>
@@ -453,7 +465,7 @@
         <div class="import-file-row import-file-row-actions">
         <label for="import-file">File(s) or ZIP</label>
         <p class="muted small">Multi-select or folder. See <strong>More</strong> under the form for batch limits.</p>
-        <input type="file" id="import-file" multiple accept=".md,.markdown,.json,.csv,.zip,.txt,.pdf,.doc,.docx,audio/*,video/*">
+        <input type="file" id="import-file" multiple accept=".md,.markdown,.json,.csv,.zip,.txt,.pdf,.doc,.docx,.xlsx,.vcf,.vcard,audio/*,video/*">
         <input type="file" id="import-file-folder" class="sr-only" tabindex="-1" webkitdirectory>
         <div class="import-aux-btns">
         <button type="button" id="btn-import-choose-folder" class="btn-secondary" title="Pick a directory; the Hub can ZIP it in the browser for tree-shaped source types.">Choose folder (ZIP in browser)</button>

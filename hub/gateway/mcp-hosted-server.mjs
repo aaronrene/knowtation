@@ -398,12 +398,36 @@ export function createHostedMcpServer(ctx) {
 
   /**
    * Shared multipart body for bridge `POST /api/v1/import` (hosted `import` and `transcribe` tools).
-   * @param {{ source_type: string, file_base64: string, filename: string, project?: string, output_dir?: string, tags?: string|string[] }} args
+   * @param {{ source_type: string, file_base64?: string, filename?: string, spreadsheet_id?: string, sheets_range?: string, project?: string, output_dir?: string, tags?: string|string[] }} args
    */
   async function hostedBridgeImportFromBase64Args(args) {
+    if (args.source_type === 'google-sheets') {
+      const sid = args.spreadsheet_id != null ? String(args.spreadsheet_id).trim() : '';
+      if (!sid) {
+        const err = new Error('spreadsheet_id is required for source_type google-sheets');
+        /** @type {any} */ (err).code = 'INVALID';
+        throw err;
+      }
+      const form = new FormData();
+      form.set('source_type', 'google-sheets');
+      form.set('spreadsheet_id', sid);
+      if (args.sheets_range != null && String(args.sheets_range).trim() !== '') {
+        form.set('sheets_range', String(args.sheets_range).trim());
+      }
+      if (args.project != null && args.project !== '') form.set('project', String(args.project));
+      if (args.output_dir != null && args.output_dir !== '') form.set('output_dir', String(args.output_dir));
+      if (args.tags != null) {
+        const tagsStr = Array.isArray(args.tags)
+          ? args.tags.map((t) => String(t).trim()).filter(Boolean).join(',')
+          : String(args.tags);
+        if (tagsStr) form.set('tags', tagsStr);
+      }
+      return bridgeImportMultipart(bridgeUrl, bridgeFetchOpts, form);
+    }
+
     let fileBuffer;
     try {
-      fileBuffer = Buffer.from(args.file_base64, 'base64');
+      fileBuffer = Buffer.from(/** @type {string} */ (args.file_base64), 'base64');
     } catch {
       const err = new Error('file_base64 is not valid base64');
       /** @type {any} */ (err).code = 'INVALID';
@@ -1252,13 +1276,29 @@ export function createHostedMcpServer(ctx) {
       'import',
       {
         description:
-          'Import a file into the hosted vault via the bridge (multipart parity with Hub POST /api/v1/import). Provide base64 file bytes, filename, and source_type; optional project, output_dir, tags.',
+          'Import into the hosted vault via the bridge (Hub POST /api/v1/import). For most source types: base64 file, filename, source_type. For google-sheets only: source_type, spreadsheet_id (id from the URL; no file); optional sheets_range (A1 range). The bridge process must have Google service account env for google-sheets.',
         inputSchema: {
           source_type: z
             .enum(IMPORT_SOURCE_ENUM)
             .describe(`Importer id (same as Hub import). Allowed: ${IMPORT_SOURCE_TYPES.join(', ')}`),
-          file_base64: z.string().min(1).describe('File content as standard base64 (decoded size max 100 MiB)'),
-          filename: z.string().min(1).describe('Original filename (e.g. export.zip, notes.md)'),
+          file_base64: z
+            .string()
+            .optional()
+            .describe('File as base64 (max 100 MiB decoded). Omit when source_type is google-sheets.'),
+          filename: z
+            .string()
+            .optional()
+            .describe('Original filename. Omit when source_type is google-sheets.'),
+          spreadsheet_id: z
+            .string()
+            .optional()
+            .describe('Required when source_type is google-sheets: spreadsheet id from the Google Sheets URL.'),
+          sheets_range: z
+            .string()
+            .optional()
+            .describe(
+              'Optional for google-sheets: A1 notation (e.g. Sheet1!A1:E100 or \'My Tab\'!A:Z). Omit to use the first tab from A1.'
+            ),
           project: z.string().optional().describe('Optional project slug'),
           output_dir: z.string().optional().describe('Optional vault-relative output folder'),
           tags: z
@@ -1269,6 +1309,18 @@ export function createHostedMcpServer(ctx) {
       },
       async (args) => {
         try {
+          if (args.source_type === 'google-sheets') {
+            if (!args.spreadsheet_id || !String(args.spreadsheet_id).trim()) {
+              return jsonError('spreadsheet_id is required for source_type google-sheets', 'INVALID');
+            }
+            if (args.file_base64 || args.filename) {
+              return jsonError('For google-sheets, omit file_base64 and filename; use spreadsheet_id only', 'INVALID');
+            }
+          } else {
+            if (!args.file_base64 || !args.filename) {
+              return jsonError('file_base64 and filename are required for this source_type', 'INVALID');
+            }
+          }
           const data = await hostedBridgeImportFromBase64Args(args);
           return jsonResponse(data);
         } catch (e) {
