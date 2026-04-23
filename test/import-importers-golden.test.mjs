@@ -167,6 +167,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'jira');
     assert.strictEqual(note.frontmatter.source_id, 'PROJ-1');
     assert.strictEqual(note.frontmatter.title, 'Fixture Jira issue');
+    assert.ok(note.body.includes('## All CSV fields (JSON)'));
+    assert.ok(note.body.includes('"Issue key": "PROJ-1"'));
     assertIsoDate(String(note.frontmatter.date || ''));
   });
 
@@ -182,6 +184,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'linear');
     assert.strictEqual(note.frontmatter.source_id, 'LIN-1');
     assertIsoDate(String(note.frontmatter.date || ''));
+    assert(note.body.includes('## All CSV fields (JSON)'));
+    assert(note.body.includes('"id": "LIN-1"'));
     assert(note.body.includes('Fixture Linear'));
   });
 
@@ -226,7 +230,14 @@ describe('import golden fixtures', () => {
     assert.strictEqual(a.frontmatter.csv_file, 'sample.csv');
     assert.strictEqual(a.frontmatter.title, 'sample.csv · Alice');
     assert.equal(Number(a.frontmatter.row_index), 1);
+    {
+      const h = a.frontmatter.import_column_headers;
+      const cols = typeof h === 'string' ? JSON.parse(h) : h;
+      assert.deepStrictEqual(cols, ['name', 'amount', 'note']);
+    }
     assert(a.body.startsWith('# sample.csv · Alice'));
+    assert(a.body.includes('## Full row (JSON)'));
+    assert(a.body.includes('"name": "Alice"'));
     assert(a.body.includes('Alice') && a.body.includes('10'));
     assert.equal(Number(b.frontmatter.row_index), 2);
     assert.strictEqual(b.frontmatter.title, 'sample.csv · Bob');
@@ -278,6 +289,8 @@ describe('import golden fixtures', () => {
     assert.strictEqual(a.frontmatter.title, 'golden-temp.xlsx · Alpha');
     assert.equal(Number(a.frontmatter.row_index), 1);
     assert(a.body.startsWith('# golden-temp.xlsx · Alpha'));
+    assert(a.body.includes('## Full row (JSON)'));
+    assert(a.body.includes('"name": "Alpha"'));
     assert(a.body.includes('Alpha') && a.body.includes('10'));
     assert.strictEqual(b.frontmatter.title, 'golden-temp.xlsx · Beta');
     assert(b.body.startsWith('# golden-temp.xlsx · Beta'));
