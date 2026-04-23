@@ -47,6 +47,9 @@ development/
 # Local doc snapshots (session prompts, old plans) — not published; mirror into development/ or docs/archive locally
 docs/archive/
 
+# Internal marketing / GTM docs — keep locally or in a private repo; never push to public GitHub
+docs/marketing-internal/
+
 # Cursor IDE — plan snapshots (YAML frontmatter exports); rules/skills stay tracked
 .cursor/plans/
 
@@ -55,3 +58,6 @@ docs/*.code-workspace
 
 # Operational scratch / runbook exports (maintainers keep under development/ or local only)
 scripts/archive/
+
+# Local transcription / chunk scratch (do not commit binaries)
+.tmp-transcribe-chunks/
