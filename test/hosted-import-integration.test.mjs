@@ -361,6 +361,8 @@ test('bridge POST /api/v1/import: generic-csv upload → one canister note per r
   const posted = JSON.parse(noteWrites[0].body);
   assert.equal(posted.notes.length, 2);
   assert.equal(posted.notes[0].frontmatter.source, 'csv-import');
+  assert.equal(posted.notes[0].frontmatter.title, 'sample.csv · Alice');
+  assert.equal(posted.notes[1].frontmatter.title, 'sample.csv · Bob');
   assert.ok(posted.notes[0].body.includes('Alice'));
   assert.ok(posted.notes[1].body.includes('Bob'));
 });

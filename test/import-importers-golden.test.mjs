@@ -224,9 +224,13 @@ describe('import golden fixtures', () => {
     const b = readNote(testVault, result.imported[1].path);
     assert.strictEqual(a.frontmatter.source, 'csv-import');
     assert.strictEqual(a.frontmatter.csv_file, 'sample.csv');
+    assert.strictEqual(a.frontmatter.title, 'sample.csv · Alice');
     assert.equal(Number(a.frontmatter.row_index), 1);
+    assert(a.body.startsWith('# sample.csv · Alice'));
     assert(a.body.includes('Alice') && a.body.includes('10'));
     assert.equal(Number(b.frontmatter.row_index), 2);
+    assert.strictEqual(b.frontmatter.title, 'sample.csv · Bob');
+    assert(b.body.startsWith('# sample.csv · Bob'));
     assert(b.body.includes('Bob'));
   });
 
@@ -271,8 +275,12 @@ describe('import golden fixtures', () => {
     const a = readNote(testVault, result.imported[0].path);
     const b = readNote(testVault, result.imported[1].path);
     assert.strictEqual(a.frontmatter.source, 'xlsx-import');
+    assert.strictEqual(a.frontmatter.title, 'golden-temp.xlsx · Alpha');
     assert.equal(Number(a.frontmatter.row_index), 1);
+    assert(a.body.startsWith('# golden-temp.xlsx · Alpha'));
     assert(a.body.includes('Alpha') && a.body.includes('10'));
+    assert.strictEqual(b.frontmatter.title, 'golden-temp.xlsx · Beta');
+    assert(b.body.startsWith('# golden-temp.xlsx · Beta'));
     assert(b.body.includes('Beta'));
   });
 
