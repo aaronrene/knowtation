@@ -25,6 +25,8 @@ export const HUB_IMPORT_SEQUENTIAL_MULTI_SOURCE_TYPES = new Set([
   'jira-export',
   'wallet-csv',
   'supabase-memory',
+  'generic-csv',
+  'json-rows',
 ]);
 
 /**

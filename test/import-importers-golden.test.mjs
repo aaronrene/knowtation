@@ -15,6 +15,8 @@ const fixturesRoot = path.join(__dirname, 'fixtures', 'import');
 const fixtureMarkdown = path.join(__dirname, 'fixtures', 'markdown-import', 'simple.md');
 const fixturePdf = path.join(__dirname, 'fixtures', 'pdf-import', 'hello.pdf');
 const fixtureDocx = path.join(__dirname, 'fixtures', 'docx-import', 'hello.docx');
+const fixtureGenericCsv = path.join(__dirname, 'fixtures', 'generic-csv-import', 'sample.csv');
+const fixtureJsonRows = path.join(__dirname, 'fixtures', 'json-rows-import', 'sample.json');
 const testVault = path.join(__dirname, 'fixtures', 'tmp-import-golden-vault');
 
 function assertIsoDate(value) {
@@ -208,5 +210,40 @@ describe('import golden fixtures', () => {
     assert.strictEqual(note.frontmatter.source, 'gdrive');
     assert.strictEqual(note.frontmatter.source_id, 'doc1');
     assert(note.body.includes('Synthetic Google Drive'));
+  });
+
+  it('generic-csv', async () => {
+    const result = await runImport('generic-csv', fixtureGenericCsv, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-generic-csv',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 2);
+    const a = readNote(testVault, result.imported[0].path);
+    const b = readNote(testVault, result.imported[1].path);
+    assert.strictEqual(a.frontmatter.source, 'csv-import');
+    assert.strictEqual(a.frontmatter.csv_file, 'sample.csv');
+    assert.equal(Number(a.frontmatter.row_index), 1);
+    assert(a.body.includes('Alice') && a.body.includes('10'));
+    assert.equal(Number(b.frontmatter.row_index), 2);
+    assert(b.body.includes('Bob'));
+  });
+
+  it('json-rows', async () => {
+    const result = await runImport('json-rows', fixtureJsonRows, {
+      vaultPath: testVault,
+      outputDir: 'inbox/golden-json-rows',
+      dryRun: false,
+    });
+    assert.strictEqual(result.count, 2);
+    const n0 = readNote(testVault, result.imported[0].path);
+    const n1 = readNote(testVault, result.imported[1].path);
+    assert.strictEqual(n0.frontmatter.source, 'json-import');
+    assert.strictEqual(n0.frontmatter.json_file, 'sample.json');
+    assert.equal(Number(n0.frontmatter.item_index), 0);
+    assert.strictEqual(n0.frontmatter.source_id, 'row-a');
+    assert(n0.body.includes('"name": "First"'));
+    assert.equal(Number(n1.frontmatter.item_index), 1);
+    assert(n1.body.includes('Second'));
   });
 });

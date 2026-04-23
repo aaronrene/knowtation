@@ -10,9 +10,12 @@ import {
 test('getHubImportFileMode: direct single, sequential multi pdf, client_zip markdown multi', () => {
   const a = new File([new Uint8Array([1])], 'a.pdf', { type: 'application/pdf' });
   const b = new File([new Uint8Array([1])], 'b.pdf', { type: 'application/pdf' });
+  const c1 = new File([new Uint8Array([1])], 'a.csv', { type: 'text/csv' });
+  const c2 = new File([new Uint8Array([1])], 'b.csv', { type: 'text/csv' });
   const z = new File([new Uint8Array([1])], 'e.zip', { type: 'application/zip' });
   assert.equal(getHubImportFileMode('pdf', [a]), 'direct');
   assert.equal(getHubImportFileMode('pdf', [a, b]), 'sequential');
+  assert.equal(getHubImportFileMode('generic-csv', [c1, c2]), 'sequential');
   const m1 = new File([new Uint8Array([1])], 'x.md', { type: 'text/markdown' });
   const m2 = new File([new Uint8Array([1])], 'y.md', { type: 'text/markdown' });
   assert.equal(getHubImportFileMode('markdown', [m1, m2]), 'client_zip');

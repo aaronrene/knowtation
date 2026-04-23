@@ -69,6 +69,8 @@ The Hub Import modal can send **one** multipart `file` per `POST /api/v1/import`
 | 🎫 | **Jira** | `jira-export` | CSV export |
 | 📓 | **NotebookLM** | `notebooklm` | Markdown or JSON |
 | 📁 | **Google Drive** | `gdrive` | Markdown folder |
+| 📊 | **Generic CSV** | `generic-csv` | Any UTF-8 CSV; one note per data row |
+| 🧩 | **JSON (array)** | `json-rows` | `.json` file; root must be an array of objects |
 | 📋 | **Linear** | `linear-export` | CSV export |
 | 🔗 | **MIF** | `mif` | Memory Interchange Format |
 | 📄 | **Markdown** | `markdown` | File or folder |
@@ -95,6 +97,8 @@ The Hub Import modal can send **one** multipart `file` per `POST /api/v1/import`
 | 🎫 `jira-export`     | Path to Jira CSV file (or folder with one .csv) | Jira Cloud/Server CSV export. One note per issue; `source: jira`, `source_id: issue key`, summary, description. |
 | 📓 `notebooklm`      | Path to folder of .md files or to a .json export | NotebookLM: folder of markdown (e.g. from takeout/Apify) or JSON with sources/conversations array. One note per file or entry; `source: notebooklm`. |
 | 📁 `gdrive`          | Path to folder of Markdown files | Google Drive: folder of .md files (e.g. from export or pandoc). One note per file; `source: gdrive`, `source_id` from filename. |
+| 📊 `generic-csv`     | Path to a **single** `.csv` file (UTF-8; optional BOM) | **Tabular** import: first row = headers, each following row = one note. Body lists each column as a bullet. Frontmatter: `source: csv-import`, `source_id` (from `id` / `uuid` / `key` column if present, else content hash), `csv_file`, `row_index`, `date`. Max **10,000** data rows, **50 MB** file, **32,000** chars per cell (truncated). **Google Sheets:** *File → Download → Comma-separated values (.csv)* then import. |
+| 🧩 `json-rows`       | Path to a **single** `.json` file whose **root** is a **JSON array of plain objects** (not arrays inside the root array) | One note per object. Frontmatter: `source: json-import`, `source_id` (from `id`, `uuid`, or `source_id` if present, else hash of object), `json_file`, `item_index`, optional `title` (from `title` or `name` string), `date`. Body: full object in a fenced `json` code block. Max **10,000** objects, **50 MB** file. **Not** a substitute for `claude-export` / `mem0-export` (those are platform-specific shapes). |
 | 📋 `linear-export`   | Path to Linear CSV file | Linear workspace export (CSV). One note per issue; `source: linear`, `source_id`, title, description. |
 | 🔗 `mif`             | Path to `.memory.md` or `.memory.json` or folder of MIF files | [Memory Interchange Format](https://mif-spec.dev/). MIF is Obsidian-native; files can be copied in as-is or normalized to our frontmatter. |
 | 📄 `markdown`        | Path to file or folder of Markdown files | Generic Markdown import. Preserve or infer frontmatter; add `source: markdown`, `date` if missing. For Evernote/Standard Notes/etc. exports that are already Markdown. **Hub:** a **ZIP of a folder tree** of `.md` / `.markdown` files is supported (server extracts then walks the tree). |
