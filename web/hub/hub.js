@@ -3576,6 +3576,12 @@
     if (ghStatus) ghStatus.textContent = 'Loading…';
     fetchSettingsForBackupModal()
       .then((s) => {
+        // api() returns null for empty 200 body or JSON `null` — do not access s.role (throws → catch → all "—").
+        if (s == null || typeof s !== 'object' || Array.isArray(s)) {
+          throw new Error(
+            'Settings API returned an empty or invalid JSON body. In DevTools → Network, click the "settings" request → Response. You should see an object with role, user_id, vault_path_display. If the body is empty, fix the gateway/proxy or API route.',
+          );
+        }
         applySettingsPayloadToHubChrome(s);
         const roleEl = el('settings-role-display');
         if (roleEl) roleEl.textContent = s.role ? String(s.role) : '—';
@@ -3728,7 +3734,16 @@
         refreshApiBaseFootgunBanner();
         void refreshBulkDeletePresetDropdowns();
       })
-      .catch(() => {
+      .catch((e) => {
+        const syncMsg = el('settings-sync-msg');
+        if (syncMsg) {
+          const m = e && e.message ? String(e.message) : 'Could not load settings.';
+          syncMsg.textContent = m.length > 280 ? m.slice(0, 280) + '…' : m;
+          syncMsg.className = 'settings-msg err';
+        }
+        if (typeof console !== 'undefined' && console.error) {
+          console.error('[openSettings] GET /api/v1/settings failed or invalid payload', e);
+        }
         const hostedGhHint = el('settings-hosted-connect-github-hint');
         if (hostedGhHint) hostedGhHint.classList.add('hidden');
         const roleEl = el('settings-role-display');
@@ -3742,6 +3757,8 @@
         if (evalReqErr) evalReqErr.textContent = '—';
         const hintsErr = el('settings-proposal-hints-enabled');
         if (hintsErr) hintsErr.textContent = '—';
+        const enrichErr = el('settings-proposal-enrich-enabled');
+        if (enrichErr) enrichErr.textContent = '—';
         const evApErr = el('settings-evaluator-may-approve');
         if (evApErr) evApErr.textContent = '—';
         const configureSection = el('settings-configure-backup-section');
@@ -5917,6 +5934,22 @@
     });
     return accentIroPicker;
   }
+  /** iro.js v5 ColorPicker has no `setColor`; use `picker.color.set(hex)`. Kept optional `setColor` for compatibility. */
+  function setAccentPickerColor(picker, hexNorm) {
+    if (!picker || !hexNorm) return;
+    const col = picker.color;
+    if (col && typeof col.set === 'function') {
+      col.set(hexNorm);
+      return;
+    }
+    if (typeof picker.setColor === 'function') {
+      try {
+        picker.setColor(hexNorm, { silent: true });
+      } catch (_) {
+        picker.setColor(hexNorm);
+      }
+    }
+  }
   function paintAccentSwatches() {
     document.querySelectorAll('.accent-swatch').forEach((btn) => {
       const hex = btn.dataset.accent;
@@ -5938,11 +5971,7 @@
         if (accentIroPicker) {
           accentIroSuppressChange = true;
           try {
-            try {
-              accentIroPicker.setColor(norm, { silent: true });
-            } catch (_) {
-              accentIroPicker.setColor(norm);
-            }
+            setAccentPickerColor(accentIroPicker, norm);
           } finally {
             accentIroSuppressChange = false;
           }
@@ -5962,11 +5991,7 @@
     if (accentIroPicker) {
       accentIroSuppressChange = true;
       try {
-        try {
-          accentIroPicker.setColor(norm, { silent: true });
-        } catch (_) {
-          accentIroPicker.setColor(norm);
-        }
+        setAccentPickerColor(accentIroPicker, norm);
       } finally {
         accentIroSuppressChange = false;
       }
