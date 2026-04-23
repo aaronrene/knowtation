@@ -1661,7 +1661,8 @@
       el('detail-edit-date') && el('detail-edit-date').value ? el('detail-edit-date').value.trim() : ymd(new Date());
     const title = (el('detail-edit-title') && el('detail-edit-title').value) || '';
     const tTitle = title.trim();
-    const project = ((el('detail-edit-project') && el('detail-edit-project').value) || '').trim();
+    const pathProj = currentOpenNote && projectSlugFromProjectsPath(currentOpenNote.path);
+    const project = pathProj || ((el('detail-edit-project') && el('detail-edit-project').value) || '').trim();
     const tags = ((el('detail-edit-tags') && el('detail-edit-tags').value) || '').trim();
     const causalChain = el('detail-edit-causal-chain') && el('detail-edit-causal-chain').value.trim();
     const entityRaw = el('detail-edit-entity') && el('detail-edit-entity').value.trim();
@@ -1693,10 +1694,43 @@
 
   function fillDetailEditFieldsFromFrontmatter(fm) {
     const f = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
+    const pathProj = currentOpenNote && projectSlugFromProjectsPath(currentOpenNote.path);
+    const savedProj = f.project != null ? String(f.project).trim() : '';
     if (el('detail-edit-title')) el('detail-edit-title').value = f.title != null ? String(f.title) : '';
     if (el('detail-edit-body')) el('detail-edit-body').value = currentOpenNote.body || '';
     if (el('detail-edit-date')) el('detail-edit-date').value = f.date != null ? String(f.date).slice(0, 10) : '';
-    if (el('detail-edit-project')) el('detail-edit-project').value = f.project != null ? String(f.project) : '';
+    if (el('detail-edit-project')) {
+      const inp = el('detail-edit-project');
+      if (pathProj) {
+        inp.value = pathProj;
+        inp.readOnly = true;
+        inp.title = 'Project is taken from the vault path projects/' + pathProj + '/';
+      } else {
+        inp.readOnly = false;
+        inp.title = '';
+        inp.value = savedProj;
+      }
+    }
+    const hint = el('detail-edit-project-hint');
+    if (hint) {
+      if (pathProj) {
+        hint.classList.remove('hidden');
+        const mismatch = savedProj && normSlug(savedProj) !== normSlug(pathProj);
+        hint.textContent = mismatch
+          ? 'Path implies project «' +
+            pathProj +
+            '»; saved frontmatter had «' +
+            savedProj +
+            '». Saving will store «' +
+            pathProj +
+            '» to match the path.'
+          : 'Project slug matches vault path projects/' + pathProj + '/.';
+        hint.className = mismatch ? 'muted small detail-project-hint warn' : 'muted small detail-project-hint';
+      } else {
+        hint.textContent = '';
+        hint.className = 'muted small detail-project-hint hidden';
+      }
+    }
     const tags = f.tags;
     const tagsStr = Array.isArray(tags) ? tags.join(', ') : tags != null ? String(tags) : '';
     if (el('detail-edit-tags')) el('detail-edit-tags').value = tagsStr;
@@ -1749,6 +1783,16 @@
       .replace(/[^a-z0-9-]/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
+  }
+
+  /**
+   * First path segment after `projects/` (vault-relative). Used so project frontmatter
+   * stays aligned with on-disk layout (projects/<slug>/…).
+   */
+  function projectSlugFromProjectsPath(path) {
+    if (!path || typeof path !== 'string') return null;
+    const m = path.match(/^projects\/([^/]+)(?:\/|$)/);
+    return m ? m[1] : null;
   }
 
   /** True when any list filter used by loadNotes / Quick chips is set. */
@@ -6322,6 +6366,22 @@
     sel.value = bestLen >= 0 ? best : '__custom__';
   }
 
+  /** Keep Project (slug) aligned with projects/<slug>/… vault paths when creating a note. */
+  function syncFullProjectFromPath() {
+    const pi = el('full-path');
+    const fp = el('full-project');
+    if (!pi || !fp) return;
+    const slug = projectSlugFromProjectsPath(pi.value.trim());
+    if (slug) {
+      fp.value = slug;
+      fp.readOnly = true;
+      fp.title = 'Derived from vault path projects/' + slug + '/';
+    } else {
+      fp.readOnly = false;
+      fp.removeAttribute('title');
+    }
+  }
+
   const fullPathFolderEl = () => el('full-path-folder');
   const fullPathInputEl = () => el('full-path');
   if (fullPathFolderEl() && fullPathInputEl()) {
@@ -6329,8 +6389,12 @@
       const sel = fullPathFolderEl();
       if (!sel || sel.value === '__custom__') return;
       fullPathInputEl().value = sel.value + '/note-' + Date.now() + '.md';
+      syncFullProjectFromPath();
     });
-    fullPathInputEl().addEventListener('input', () => syncFolderSelectToPathInput());
+    fullPathInputEl().addEventListener('input', () => {
+      syncFolderSelectToPathInput();
+      syncFullProjectFromPath();
+    });
   }
 
   document.querySelectorAll('.modal-tab').forEach((t) => {
@@ -6346,6 +6410,7 @@
           const pi = el('full-path');
           if (pi && !pi.value.trim()) pi.value = defaultFullPath();
           else syncFolderSelectToPathInput();
+          syncFullProjectFromPath();
         });
       }
     };
@@ -6393,6 +6458,7 @@
   el('btn-full-save').onclick = async () => {
     const fullBtn = el('btn-full-save');
     const notePath = el('full-path').value.trim();
+    const pathProjFull = projectSlugFromProjectsPath(notePath);
     const msg = el('create-msg-full');
     if (!notePath) {
       msg.textContent = 'Enter a vault path (e.g. inbox/idea.md).';
@@ -6406,7 +6472,7 @@
     }
     const title = el('full-title').value.trim();
     const body = el('full-body').value;
-    const project = el('full-project').value.trim();
+    const project = pathProjFull || el('full-project').value.trim();
     const tags = el('full-tags').value.trim();
     const dateVal = el('full-date') && el('full-date').value ? el('full-date').value.trim() : ymd(new Date());
     const causalChain = el('full-causal-chain') && el('full-causal-chain').value.trim();
@@ -6433,6 +6499,7 @@
         void refreshFullPathFolderSelect().then(() => {
           el('full-path').value = defaultFullPath();
           syncFolderSelectToPathInput();
+          syncFullProjectFromPath();
         });
         el('full-title').value = '';
         el('full-body').value = '';
@@ -6943,6 +7010,7 @@
       '<input type="date" id="detail-edit-date" />' +
       '<label for="detail-edit-project">Project (slug)</label>' +
       '<input type="text" id="detail-edit-project" placeholder="slug" />' +
+      '<p id="detail-edit-project-hint" class="muted small detail-project-hint hidden" style="margin-top:-0.35rem;margin-bottom:0.5rem;"></p>' +
       '<label for="detail-edit-tags">Tags (comma-separated)</label>' +
       '<input type="text" id="detail-edit-tags" placeholder="tag1, tag2" />' +
       '<p class="muted small" style="margin-top:0.5rem;">Temporal and hierarchical (optional):</p>' +

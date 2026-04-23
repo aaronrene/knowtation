@@ -578,6 +578,19 @@ input[type="date"]::-moz-calendar-picker-indicator {
   color: #b45309;
 }
 
+.detail-project-hint.warn {
+  color: #fbbf24;
+}
+[data-theme="light"] .detail-project-hint.warn {
+  color: #b45309;
+}
+
+input[readonly]#detail-edit-project,
+input[readonly]#full-project {
+  opacity: 0.92;
+  cursor: default;
+}
+
 /* Vault access: save is easy to miss after Apply — keep a visible outline at rest */
 .btn-vault-access-save-emphasis {
   border: 2px solid var(--accent);
