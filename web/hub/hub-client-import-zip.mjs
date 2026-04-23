@@ -27,6 +27,8 @@ export const HUB_IMPORT_SEQUENTIAL_MULTI_SOURCE_TYPES = new Set([
   'supabase-memory',
   'generic-csv',
   'json-rows',
+  'excel-xlsx',
+  'vcf',
 ]);
 
 /**

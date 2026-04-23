@@ -2959,6 +2959,12 @@
     };
   }
 
+  function syncImportSheetsBlock() {
+    const sel = el('import-source-type');
+    const block = el('import-sheets-block');
+    if (block && sel) block.hidden = sel.value !== 'google-sheets';
+  }
+
   function openImportModal() {
     if (!token) {
       if (typeof showToast === 'function') showToast('Sign in to import into your vault.', true);
@@ -2977,6 +2983,11 @@
     clearImportDropPending();
     const urlIn = el('import-url');
     if (urlIn) urlIn.value = '';
+    const sid = el('import-spreadsheet-id');
+    const srange = el('import-sheets-range');
+    if (sid) sid.value = '';
+    if (srange) srange.value = '';
+    syncImportSheetsBlock();
   }
   function closeImportModal() {
     el('modal-import').classList.add('hidden');
@@ -2985,6 +2996,8 @@
   if (btnImport) btnImport.onclick = openImportModal;
   el('modal-import-backdrop').onclick = closeImportModal;
   el('modal-import-close').onclick = closeImportModal;
+  const importSourceTypeEl = el('import-source-type');
+  if (importSourceTypeEl) importSourceTypeEl.addEventListener('change', syncImportSheetsBlock);
 
   function closeProjectsHelpModal() {
     const m = el('modal-projects-help');
@@ -3178,6 +3191,8 @@
       msgEl.className = 'create-msg err';
       return;
     }
+    const importSpreadsheetIdEl = el('import-spreadsheet-id');
+    const sheetId = importSpreadsheetIdEl && importSpreadsheetIdEl.value ? String(importSpreadsheetIdEl.value).trim() : '';
     const usedFolder = importFileFolderEl && importFileFolderEl.files && importFileFolderEl.files.length > 0;
     const usedDrop = importPendingDropFiles && importPendingDropFiles.length > 0;
     const fileArr = usedDrop
@@ -3187,7 +3202,19 @@
         : fileInput && fileInput.files
           ? Array.from(fileInput.files)
           : [];
-    if (!useUrlImport && fileArr.length === 0) {
+    if (sourceType === 'google-sheets' && !useUrlImport) {
+      if (!sheetId) {
+        msgEl.textContent = 'Enter the spreadsheet id (from the Google Sheet URL) for this source type.';
+        msgEl.className = 'create-msg err';
+        return;
+      }
+      if (fileArr.length > 0) {
+        msgEl.textContent = 'Remove file selection for Google Sheets, or change source type. This import uses the API only (no file upload).';
+        msgEl.className = 'create-msg err';
+        return;
+      }
+    }
+    if (!useUrlImport && fileArr.length === 0 && sourceType !== 'google-sheets') {
       msgEl.textContent = 'Choose file(s) or a folder to import, or paste an https URL above.';
       msgEl.className = 'create-msg err';
       return;
@@ -3377,6 +3404,45 @@
     msgEl.className = 'create-msg';
     await withButtonBusy(importSubmitBtn, 'Importing…', async () => {
       try {
+        if (sourceType === 'google-sheets') {
+          const sid = el('import-spreadsheet-id') && el('import-spreadsheet-id').value
+            ? el('import-spreadsheet-id').value.trim()
+            : '';
+          if (!sid) {
+            msgEl.textContent = 'Enter the spreadsheet id (from the Google Sheet URL).';
+            msgEl.className = 'create-msg err';
+            return;
+          }
+          const rEl = el('import-sheets-range');
+          const range = rEl && rEl.value ? rEl.value.trim() : '';
+          const fd = new FormData();
+          fd.append('source_type', 'google-sheets');
+          fd.append('spreadsheet_id', sid);
+          if (range) fd.append('sheets_range', range);
+          if (project) fd.append('project', project);
+          if (tags) fd.append('tags', tags);
+          const r = await hubPostImportOnce(importPostPath, fd, { ...importHeadersBase });
+          if (!r.ok) {
+            msgEl.textContent = r.errText || 'Import failed';
+            msgEl.className = 'create-msg err';
+            return;
+          }
+          const data = r.data || {};
+          const count = data.count ?? data.imported?.length ?? 0;
+          if (count === 0) {
+            msgEl.textContent =
+              'Imported 0 notes. Check spreadsheet id, sharing with the bridge service account, and optional range. See IMPORT-SOURCES.';
+            msgEl.className = 'create-msg warn';
+          } else {
+            msgEl.textContent = 'Imported ' + count + ' note(s).';
+            msgEl.className = 'create-msg ok';
+          }
+          if (typeof loadNotes === 'function') loadNotes();
+          if (typeof loadFacets === 'function') loadFacets();
+          if (typeof showToast === 'function') showToast('Import complete');
+          setTimeout(() => closeImportModal(), 1500);
+          return;
+        }
         const dupWarn = [];
         const warnFn = (s) => {
           dupWarn.push(s);

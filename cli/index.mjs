@@ -507,14 +507,24 @@ async function main() {
   if (subcommand === 'import') {
     if (hasOpt('help') || hasOpt('h')) {
       console.log(
-        `knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json, --url-mode auto|bookmark|extract (for source type url only)\n  Source types: ${IMPORT_SOURCE_TYPES_HELP}`
+        `knowtation import <source-type> <input>\n  Options: --project, --output-dir, --tags t1,t2, --dry-run, --json, --sheets-range 'A1 range' (google-sheets only), --url-mode auto|bookmark|extract (url only)\n  Source types: ${IMPORT_SOURCE_TYPES_HELP}`
       );
       process.exit(0);
     }
     const sourceType = args[1];
     const input = args[2];
-    if (!sourceType || !input) {
+    if (!sourceType) {
       exitWithError('knowtation import: provide <source-type> and <input>. See docs/IMPORT-SOURCES.md.', 1, useJson);
+    }
+    if (sourceType !== 'google-sheets' && !input) {
+      exitWithError('knowtation import: provide <source-type> and <input>. See docs/IMPORT-SOURCES.md.', 1, useJson);
+    }
+    if (sourceType === 'google-sheets' && !input) {
+      exitWithError(
+        'knowtation import google-sheets: provide the spreadsheet id as <input> (the id from the Google Sheets URL).',
+        1,
+        useJson,
+      );
     }
     if (!IMPORT_SOURCE_TYPES.includes(sourceType)) {
       exitWithError(`Unknown source-type "${sourceType}". Valid: ${IMPORT_SOURCE_TYPES_HELP}.`, 1, useJson);
@@ -548,6 +558,10 @@ async function main() {
         if (urlModeRaw && sourceType !== 'url') {
           exitWithError('--url-mode is only valid when source-type is url.', 1, useJson);
         }
+        const sheetsRangeRaw = getOpt('sheets-range');
+        if (sheetsRangeRaw && sourceType !== 'google-sheets') {
+          exitWithError('--sheets-range is only valid when source-type is google-sheets.', 1, useJson);
+        }
 
         const importOpts = {
           project: project ?? undefined,
@@ -555,6 +569,9 @@ async function main() {
           tags,
           dryRun,
           ...(sourceType === 'url' && urlMode ? { urlMode } : {}),
+          ...(sourceType === 'google-sheets' && sheetsRangeRaw
+            ? { sheetsRange: String(sheetsRangeRaw).trim() }
+            : {}),
         };
         if (memoryManager && sourceType === 'mem0-export' && memoryManager.shouldCapture('capture')) {
           importOpts.onMemoryEvent = (data) => {

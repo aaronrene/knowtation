@@ -853,17 +853,32 @@ const importUpload = multer({
 app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), importTempDirMiddleware, importUpload, async (req, res) => {
   const tempDir = req._importTempDir;
   try {
-    if (!req.file) return res.status(400).json({ error: 'file required', code: 'BAD_REQUEST' });
     const sourceType = (req.body && req.body.source_type) ? String(req.body.source_type).trim() : '';
     if (!IMPORT_SOURCE_TYPES.includes(sourceType)) {
       return res.status(400).json({ error: `source_type must be one of: ${IMPORT_SOURCE_TYPES.join(', ')}`, code: 'BAD_REQUEST' });
+    }
+    const sheetId = req.body && req.body.spreadsheet_id ? String(req.body.spreadsheet_id).trim() : '';
+    const sheetsRange = req.body && req.body.sheets_range ? String(req.body.sheets_range).trim() : undefined;
+    if (sourceType === 'google-sheets') {
+      if (!sheetId) {
+        return res
+          .status(400)
+          .json({ error: 'google-sheets: spreadsheet_id is required in the multipart body', code: 'BAD_REQUEST' });
+      }
+      if (req.file) {
+        return res
+          .status(400)
+          .json({ error: 'google-sheets: do not send a file; use spreadsheet_id only', code: 'BAD_REQUEST' });
+      }
+    } else if (!req.file) {
+      return res.status(400).json({ error: 'file required', code: 'BAD_REQUEST' });
     }
     const project = req.body && req.body.project ? String(req.body.project).trim() : undefined;
     const outputDir = req.body && req.body.output_dir ? String(req.body.output_dir).trim() : undefined;
     const tagsRaw = req.body && req.body.tags ? String(req.body.tags) : '';
     const tags = tagsRaw ? tagsRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-    let inputPath = req.file.path;
-    if (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.zip')) {
+    let inputPath = sourceType === 'google-sheets' ? sheetId : req.file.path;
+    if (sourceType !== 'google-sheets' && req.file && req.file.originalname && req.file.originalname.toLowerCase().endsWith('.zip')) {
       const extractDir = path.join(tempDir, 'extracted');
       fs.mkdirSync(extractDir, { recursive: true });
       const zip = new AdmZip(req.file.path);
@@ -878,7 +893,13 @@ app.post('/api/v1/import', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
       zip.extractAllTo(extractDir, true);
       inputPath = extractDir;
     }
-    const result = await runImport(sourceType, inputPath, { project, outputDir, tags, vaultPath: req.vaultPath });
+    const result = await runImport(sourceType, inputPath, {
+      project,
+      outputDir,
+      tags,
+      vaultPath: req.vaultPath,
+      ...(sheetsRange ? { sheetsRange } : {}),
+    });
     const importStamp = mergeProvenanceFrontmatter({}, {
       sub: req.user?.sub ?? null,
       kind: 'import',
