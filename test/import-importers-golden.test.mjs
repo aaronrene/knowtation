@@ -264,19 +264,15 @@ describe('import golden fixtures', () => {
   });
 
   it('excel-xlsx', async () => {
-    const xlsx = await import('xlsx');
+    const ExcelJS = (await import('exceljs')).default;
     const xlsxPath = path.join(testVault, 'golden-temp.xlsx');
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(
-      wb,
-      xlsx.utils.aoa_to_sheet([
-        ['name', 'n'],
-        ['Alpha', 10],
-        ['Beta', 20],
-      ]),
-      'First',
-    );
-    xlsx.writeFile(wb, xlsxPath);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('First');
+    ws.getRow(1).values = [null, 'name', 'n'];
+    ws.getRow(2).values = [null, 'Alpha', 10];
+    ws.getRow(3).values = [null, 'Beta', 20];
+    const buffer = await wb.xlsx.writeBuffer();
+    fs.writeFileSync(xlsxPath, buffer);
     const result = await runImport('excel-xlsx', xlsxPath, {
       vaultPath: testVault,
       outputDir: 'inbox/golden-excel',
