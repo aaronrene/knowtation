@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260422f">
+  <link rel="stylesheet" href="hub.css?v=20260423b">
 </head>
 <body>
   <div id="app">
@@ -148,7 +148,7 @@
           <button type="button" class="view-tab" data-view="graph">Overview</button>
           <div class="browse-key-wrap">
             <details id="search-key-help" class="browse-toolbar-key-details">
-              <summary class="search-key-summary" aria-label="At-a-glance key: notes, proposals, agents, memory, and search. Click again to close." title="At-a-glance: notes &amp; import, proposals &amp; agents, search, memory, attestation">
+              <summary class="search-key-summary" aria-label="At-a-glance key: connection helpers, notes, proposals, agents, memory, and search. Click again to close." title="At-a-glance: connection helpers, notes &amp; import, proposals &amp; agents, memory, attestation">
                 <svg class="search-key-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <circle cx="7.5" cy="12.5" r="3.5"/>
                   <path d="M10.5 12.5H21"/>
@@ -158,7 +158,7 @@
                 <span class="search-key-collapse-cue" aria-hidden="true">▲</span>
               </summary>
               <div class="search-key-body">
-                <p class="search-key-lede">One vault for <strong class="search-key-term">people</strong> and <strong class="search-key-term">agents</strong> (Hub UI, CLI, MCP, API). The same notes, imports, and proposal queues apply to both; what you can open follows your <strong class="search-key-term">role</strong> and tokens—there is no separate hidden “agent-only” corpus for everyday work.</p>
+                <p class="search-key-lede">One vault for <strong class="search-key-term">people</strong> and <strong class="search-key-term">agents</strong> (Hub UI, CLI, MCP, API). The same notes, imports, and proposal queues apply to both; what you can open follows your <strong class="search-key-term">role</strong> and tokens. Use whichever you prefer.</p>
                 <div class="search-key-columns" role="presentation">
                   <div class="search-key-col">
                     <p class="search-key-col-title">Notes &amp; import</p>
@@ -190,6 +190,13 @@
                     <li><strong class="search-key-term">Discover</strong> — Optional pass during consolidation that adds cross-topic “insight” links between themes; augments memory, not a separate Hub screen.</li>
                     <li><strong class="search-key-term">Attestation</strong> — Signing (and optional Internet Computer anchoring) for audit trails on approved changes; complements proposals after commit, not day-to-day browsing.</li>
                   </ul>
+                </div>
+                <div class="search-key-assist search-key-assist-after-memory" role="region" aria-label="Connection helpers: Copy prime and knowtation doctor">
+                  <p class="search-key-col-title search-key-assist-title">Connection helpers</p>
+                  <div class="search-key-assist-pair">
+                    <p><strong class="search-key-term">Copy prime</strong> — <strong>Settings → Integrations → Hub API</strong> → <strong>Copy prime</strong>. A short “you are here” for your tool after it connects; not your login token.</p>
+                    <p><strong class="search-key-term">Doctor</strong> — With the CLI on your computer: <code>knowtation doctor</code> checks the vault folder and (optionally) the Hub. See <code>docs/RETRIEVAL-AND-CLI-REFERENCE.md</code>.</p>
+                  </div>
                 </div>
               </div>
             </details>
@@ -347,8 +354,9 @@
         </div>
         <div id="create-quick" class="create-panel">
           <textarea id="quick-body" rows="6" placeholder="Type or paste anything…"></textarea>
-          <label>Project (optional)</label>
-          <input type="text" id="quick-project" placeholder="e.g. myproject">
+          <label for="quick-project">Project (optional)</label>
+          <input type="text" id="quick-project" placeholder="e.g. myproject" aria-describedby="quick-project-hint">
+          <p id="quick-project-hint" class="muted small">If set, saves under <code>projects/&lt;slug&gt;/inbox/…</code> and sets <code>project</code> in frontmatter. Leave empty to save to <code>inbox/</code> only.</p>
           <p class="muted small">Saves to inbox with today’s date.</p>
           <button type="button" id="btn-quick-save" class="btn-primary">Save to inbox</button>
           <p id="create-msg-quick" class="create-msg"></p>
@@ -358,15 +366,20 @@
           <select id="full-path-folder" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-path-folder-hint"></select>
           <p id="full-path-folder-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a folder on disk under this vault (includes empty folders). Pick <strong>Custom</strong> to type any path.</p>
           <label for="full-path">Path (vault-relative)</label>
-          <input type="text" id="full-path" placeholder="inbox/my-note.md" autocomplete="off" spellcheck="false">
+          <input type="text" id="full-path" placeholder="inbox/my-note.md or projects/my-slug/inbox/note.md" autocomplete="off" spellcheck="false" aria-describedby="full-path-project-typo-hint full-path-folder-caption">
+          <p id="full-path-folder-caption" class="muted small" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">Use <code>projects/your-slug/…</code> so the file lives under the project folder; the plural <strong>projects</strong> matters. The <strong>Project</strong> field below is YAML metadata for filters — it can match that slug or stay empty unless the path uses <code>projects/</code>.</p>
+          <p id="full-path-project-typo-hint" class="muted small detail-project-hint hidden" role="status"></p>
+          <p style="margin: 0 0 0.5rem 0;"><button type="button" id="btn-full-path-fix-typo" class="btn-link btn-link-small hidden">Use suggested path</button></p>
           <label>Title</label>
           <input type="text" id="full-title" placeholder="Note title">
           <label>Body (Markdown)</label>
           <textarea id="full-body" rows="8" placeholder="Content…"></textarea>
           <label>Date (optional)</label>
           <input type="date" id="full-date" placeholder="YYYY-MM-DD">
-          <label>Project (optional)</label>
-          <input type="text" id="full-project" placeholder="slug">
+          <label for="full-project">Project (optional)</label>
+          <input type="text" id="full-project" placeholder="slug" aria-describedby="full-project-field-intro">
+          <p id="full-project-field-intro" class="muted small" style="margin-top: 0; margin-bottom: 0.35rem;">Frontmatter <code>project</code> for filters and charts. If your path starts with <code>projects/slug/</code>, this field follows that slug automatically.</p>
+          <p style="margin: 0 0 0.5rem 0;"><button type="button" id="btn-full-project-help" class="btn-link btn-link-small">How projects work</button></p>
           <label>Tags (comma-separated)</label>
           <input type="text" id="full-tags" placeholder="tag1, tag2">
           <p class="muted small" style="margin-top: 0.5rem;">Temporal and hierarchical (optional):</p>
@@ -522,6 +535,11 @@
           <p style="margin-top:0;">On hosted Knowtation, a <strong>project</strong> is just a name you put on your notes so they stay grouped together.</p>
           <p><strong>To start a project:</strong> create a note (for example with <strong>+ New note</strong>) and add a <strong>project name</strong> on that note. That first note starts the project. Add the same project name on other notes to keep them in the same group.</p>
           <p class="small muted" style="margin-bottom:0;">The name then shows up in the <strong>project</strong> menu and in quick filter chips. It is not a folder path like on self-hosted.</p>
+          <details class="modal-projects-help-details" style="margin-top: 0.75rem;">
+            <summary>Self-hosted: path <code>projects/</code> vs field <code>project</code></summary>
+            <p class="small muted">On disk, many vaults group files under <code>projects/&lt;slug&gt;/…</code> (note the plural <strong>projects</strong>). In the Hub, if a note’s path starts with <code>projects/&lt;slug&gt;/</code>, the <strong>Project</strong> field stays aligned with that folder name on save.</p>
+            <p class="small muted">You can also set <code>project</code> in frontmatter on notes anywhere (for example <code>inbox/idea.md</code>) — that label is for filters and charts and does not create a folder. A common typo is typing <code>project/…</code> instead of <code>projects/…</code> in the path; the Hub warns you when that happens.</p>
+          </details>
           <details class="modal-projects-help-details">
             <summary>Technical: YAML <code>project</code> field</summary>
             <p class="small muted">In the note editor, the project is stored as a <code>project</code> field in the YAML block at the top of the file (frontmatter). Example:</p>
@@ -1207,11 +1225,11 @@ Your note body here.</pre>
               Hub API
               <span id="integ-api-status" class="integ-status-dot" title="No token copied yet"></span>
             </h3>
-            <p class="settings-intro small">There is no separate “API signup.” You already signed in above — tools outside the browser (Cursor, scripts, curl, MCP) need a <strong>copy-paste block</strong> from this page. After you log in, click <strong>Copy Hub URL, token &amp; vault</strong> and treat that paste like a <strong>password</strong> (do not share it).</p>
+            <p class="settings-intro small">There is no separate “API signup.” You already signed in above — tools outside the browser (Cursor, scripts, curl, API clients) need a <strong>copy-paste block</strong> from this page. After you log in, click <strong>Copy Hub URL, token &amp; vault</strong> and treat that paste like a <strong>password</strong> (do not share it). The same token works for the <strong>Hub REST API</strong> and, when your deployment includes it, a separate <strong>remote MCP</strong> URL—see the copied comments.</p>
             <details class="how-to-details">
-              <summary>Technical details — env var names, cookies, hosted vs self-hosted</summary>
+              <summary>Technical details — Hub URL vs MCP URL, Bearer, hosted vs self-hosted</summary>
               <div class="how-to-details-body">
-                <p class="settings-intro small" style="margin: 0;">The button copies lines such as <code>KNOWTATION_HUB_URL</code>, <code>KNOWTATION_HUB_TOKEN</code> (time-limited API token), and <code>KNOWTATION_HUB_VAULT_ID</code> for the vault selected in the header. The base URL is always <strong>this Hub’s gateway</strong> — hosted (for example knowtation.store) or your own self-hosted Hub. Your <strong>browser tab</strong> keeps a normal session cookie; the pasted block is for MCP, CLI, and automation outside the browser.</p>
+                <p class="settings-intro small" style="margin: 0;"><code>KNOWTATION_HUB_URL</code> is always <strong>this product’s API gateway</strong> (e.g. Netlify for knowtation.store) — use it for <code>GET/POST /api/v1/...</code>. The token <code>KNOWTATION_HUB_TOKEN</code> is the <strong>raw JWT</strong>; in HTTP you must send <code>Authorization: Bearer &lt;token&gt;</code> (the word <code>Bearer</code>, a space, then the token). The copy block includes a curl example. When the deployment sets <code>window.HUB_MCP_PUBLIC_URL</code> in <code>web/hub/config.js</code>, the same paste also includes <code>KNOWTATION_MCP_URL</code> (full URL to <code>…/mcp</code> on a <strong>persistent</strong> host). Do not use the Netlify gateway URL as the only MCP endpoint on serverless: it does not run stateful Streamable HTTP MCP. Your <strong>browser tab</strong> uses a normal cookie; the pasted lines are for automation and agents.</p>
               </div>
             </details>
             <details class="settings-json-details settings-hub-api-troubleshoot">
@@ -1219,7 +1237,7 @@ Your note body here.</pre>
               <div class="settings-troubleshoot-body">
                 <p class="settings-intro small" style="margin-top: 0.5rem;">The copied <strong>JWT expires on a schedule</strong> (security). <strong>Automations</strong> (cron, CI, static MCP JSON) fail with <strong>401</strong> only if they still send an <strong>old pasted token</strong> after expiry—click <strong>Copy Hub URL, token &amp; vault</strong> again and update the secret where you pasted it. Your <strong>browser session</strong> in this Hub tab is separate and usually keeps working.</p>
                 <p class="settings-intro small"><strong>Reduce surprises:</strong> Prefer <code>${env:KNOWTATION_HUB_TOKEN}</code> in MCP config (see <code>docs/AGENT-INTEGRATION.md</code>) so you rotate one env var instead of editing JSON. Long-running servers may need an occasional re-copy after policy or rotation changes.</p>
-                <p class="settings-intro small">For HTTP calls, send <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code> on vault-scoped routes. Full shapes: <code>docs/AGENT-INTEGRATION.md</code>.</p>
+                <p class="settings-intro small">For HTTP calls, send <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code> on vault-scoped routes. JSON MCP <code>headers</code> must use the <strong>full</strong> <code>Authorization</code> value: <code>Bearer &lt;KNOWTATION_HUB_TOKEN&gt;</code>, not the token alone. Full shapes: <code>docs/AGENT-INTEGRATION.md</code>.</p>
               </div>
             </details>
             <div class="settings-actions settings-hub-api-copy-actions" style="margin-top: 0.65rem;">
@@ -2226,6 +2244,14 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
               <h3>Orchestrators</h3>
               <p class="step-what">Any orchestrator can use the same vault and project names. Match <strong>embedding</strong> settings to this Hub so search behaves the same: <strong>Settings → Integrations → Agent Configuration</strong> (copy snippet).</p>
             </section>
+
+            <div class="search-key-assist how-to-connection-helpers" role="region" aria-label="Connection helpers: Copy prime and knowtation doctor">
+              <p class="search-key-col-title search-key-assist-title">Connection helpers</p>
+              <div class="search-key-assist-pair">
+                <p><strong class="search-key-term">Copy prime</strong> — <strong>Settings → Integrations → Hub API</strong> → <strong>Copy prime</strong>. Small “where to point” JSON after the tool is connected; not your JWT.</p>
+                <p><strong class="search-key-term">Doctor</strong> — <code>knowtation doctor</code> on the machine with the vault (optional <code>--json</code>). See <code>docs/RETRIEVAL-AND-CLI-REFERENCE.md</code> and the <strong>Hosted MCP</strong> section above.</p>
+              </div>
+            </div>
           </div>
         </div>
 

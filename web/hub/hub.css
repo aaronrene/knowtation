@@ -417,6 +417,47 @@ input[type="date"]::-moz-calendar-picker-indicator {
   line-height: 1.55;
   color: var(--muted);
 }
+.search-key-assist {
+  margin: 0.55rem 0 0;
+  padding: 0.5rem 0.7rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.search-key-assist-title {
+  margin: 0 0 0.4rem;
+}
+.search-key-assist-lede {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.search-key-assist-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.search-key-assist-pair p {
+  margin: 0;
+}
+.search-key-meta + .search-key-assist.search-key-assist-after-memory {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+.how-to-connection-helpers {
+  margin-top: 1.25rem;
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .search-key-assist-pair {
+    grid-template-columns: 1fr;
+  }
+}
 .search-key-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -576,6 +617,19 @@ input[type="date"]::-moz-calendar-picker-indicator {
 }
 [data-theme="light"] .create-msg.warn {
   color: #b45309;
+}
+
+.detail-project-hint.warn {
+  color: #fbbf24;
+}
+[data-theme="light"] .detail-project-hint.warn {
+  color: #b45309;
+}
+
+input[readonly]#detail-edit-project,
+input[readonly]#full-project {
+  opacity: 0.92;
+  cursor: default;
 }
 
 /* Vault access: save is easy to miss after Apply — keep a visible outline at rest */

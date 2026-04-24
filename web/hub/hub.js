@@ -37,6 +37,16 @@
     }
     return (localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333').replace(/\/$/, '');
   })();
+  /** Public MCP endpoint (https://…/mcp) when operator sets window.HUB_MCP_PUBLIC_URL in web/hub/config.js; else ''. */
+  const mcpPublicUrl = (function resolveMcpPublicUrl() {
+    if (typeof window === 'undefined') return '';
+    if (!Object.prototype.hasOwnProperty.call(window, 'HUB_MCP_PUBLIC_URL')) return '';
+    const v = window.HUB_MCP_PUBLIC_URL;
+    if (v == null) return '';
+    const s = String(v).trim();
+    if (s === '') return '';
+    return s.replace(/\/$/, '');
+  })();
   const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
   /** Used to defer onboarding until invite consume has run (see scheduleMaybeShowOnboardingWizard). */
   const pageLoadHadInviteQuery = Boolean(params.get('invite'));
@@ -626,6 +636,13 @@
   function hubUserMayEnrichProposal() {
     const r = window.__hubUserRole;
     return r === 'editor' || r === 'admin' || r === 'member' || r === 'evaluator';
+  }
+
+  /** Multi-vault copy/move in note detail (Settings must list ≥2 allowed vaults). */
+  function hubHasMultipleVaultsForCopy() {
+    const s = lastBackupSettingsPayload;
+    if (!s || !Array.isArray(s.allowed_vault_ids)) return false;
+    return s.allowed_vault_ids.filter(Boolean).length >= 2;
   }
 
   function hubUserIsAdmin() {
@@ -1661,7 +1678,8 @@
       el('detail-edit-date') && el('detail-edit-date').value ? el('detail-edit-date').value.trim() : ymd(new Date());
     const title = (el('detail-edit-title') && el('detail-edit-title').value) || '';
     const tTitle = title.trim();
-    const project = ((el('detail-edit-project') && el('detail-edit-project').value) || '').trim();
+    const pathProj = currentOpenNote && projectSlugFromProjectsPath(currentOpenNote.path);
+    const project = pathProj || ((el('detail-edit-project') && el('detail-edit-project').value) || '').trim();
     const tags = ((el('detail-edit-tags') && el('detail-edit-tags').value) || '').trim();
     const causalChain = el('detail-edit-causal-chain') && el('detail-edit-causal-chain').value.trim();
     const entityRaw = el('detail-edit-entity') && el('detail-edit-entity').value.trim();
@@ -1693,10 +1711,61 @@
 
   function fillDetailEditFieldsFromFrontmatter(fm) {
     const f = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
+    const pathProj = currentOpenNote && projectSlugFromProjectsPath(currentOpenNote.path);
+    const savedProj = f.project != null ? String(f.project).trim() : '';
     if (el('detail-edit-title')) el('detail-edit-title').value = f.title != null ? String(f.title) : '';
     if (el('detail-edit-body')) el('detail-edit-body').value = currentOpenNote.body || '';
     if (el('detail-edit-date')) el('detail-edit-date').value = f.date != null ? String(f.date).slice(0, 10) : '';
-    if (el('detail-edit-project')) el('detail-edit-project').value = f.project != null ? String(f.project) : '';
+    if (el('detail-edit-project')) {
+      const inp = el('detail-edit-project');
+      if (pathProj) {
+        inp.value = pathProj;
+        inp.readOnly = true;
+        inp.title = 'Project is taken from the vault path projects/' + pathProj + '/';
+      } else {
+        inp.readOnly = false;
+        inp.title = '';
+        inp.value = savedProj;
+      }
+    }
+    const hint = el('detail-edit-project-hint');
+    if (hint) {
+      if (pathProj) {
+        hint.classList.remove('hidden');
+        const mismatch = savedProj && normSlug(savedProj) !== normSlug(pathProj);
+        hint.textContent = mismatch
+          ? 'Path implies project «' +
+            pathProj +
+            '»; saved frontmatter had «' +
+            savedProj +
+            '». Saving will store «' +
+            pathProj +
+            '» to match the path.'
+          : 'Project slug matches vault path projects/' + pathProj + '/.';
+        hint.className = mismatch ? 'muted small detail-project-hint warn' : 'muted small detail-project-hint';
+      } else {
+        hint.classList.remove('hidden');
+        hint.className = 'muted small detail-project-hint';
+        hint.textContent =
+          'Optional frontmatter label for filters and charts. It does not have to match the file path. If you use a path like projects/your-slug/…, the Hub keeps this field aligned with that folder name.';
+      }
+    }
+    const pathTypoEl = el('detail-edit-path-typo-hint');
+    if (pathTypoEl && currentOpenNote) {
+      const sug = projectsPathTypoSuggestion(currentOpenNote.path);
+      if (sug) {
+        pathTypoEl.textContent =
+          'This path starts with project/ — the usual convention is projects/ (with an “s”). Example fix: ' +
+          sug +
+          '. Rename or move the file in your vault (path cannot be edited here).';
+        pathTypoEl.className = 'muted small detail-project-hint warn';
+        pathTypoEl.classList.remove('hidden');
+      } else {
+        pathTypoEl.textContent = '';
+        pathTypoEl.className = 'muted small detail-project-hint hidden';
+        pathTypoEl.classList.add('hidden');
+      }
+    }
     const tags = f.tags;
     const tagsStr = Array.isArray(tags) ? tags.join(', ') : tags != null ? String(tags) : '';
     if (el('detail-edit-tags')) el('detail-edit-tags').value = tagsStr;
@@ -1749,6 +1818,27 @@
       .replace(/[^a-z0-9-]/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
+  }
+
+  /**
+   * First path segment after `projects/` (vault-relative). Used so project frontmatter
+   * stays aligned with on-disk layout (projects/<slug>/…).
+   */
+  function projectSlugFromProjectsPath(path) {
+    if (!path || typeof path !== 'string') return null;
+    const m = path.match(/^projects\/([^/]+)(?:\/|$)/);
+    return m ? m[1] : null;
+  }
+
+  /**
+   * Common typo: vault path starts with `project/` instead of `projects/`.
+   * Returns the same path with the corrected prefix, or null if no typo.
+   */
+  function projectsPathTypoSuggestion(path) {
+    const p = String(path || '').trim();
+    if (!p) return null;
+    if (/^project\//.test(p) && !/^projects\//.test(p)) return p.replace(/^project\//, 'projects/');
+    return null;
   }
 
   /** True when any list filter used by loadNotes / Quick chips is set. */
@@ -3012,6 +3102,13 @@
   }
   const btnProjectsHelp = el('btn-projects-help');
   if (btnProjectsHelp) btnProjectsHelp.onclick = openProjectsHelpModal;
+  const btnFullProjectHelp = el('btn-full-project-help');
+  if (btnFullProjectHelp) {
+    btnFullProjectHelp.onclick = () => {
+      const m = el('modal-projects-help');
+      if (m) m.classList.remove('hidden');
+    };
+  }
   const modalProjectsHelpBackdrop = el('modal-projects-help-backdrop');
   const modalProjectsHelpClose = el('modal-projects-help-close');
   if (modalProjectsHelpBackdrop) modalProjectsHelpBackdrop.onclick = closeProjectsHelpModal;
@@ -3984,13 +4081,19 @@
       const base = String(apiBase || '').replace(/\/$/, '');
       const vaultId = getCurrentVaultId() || 'default';
       const msg = el('integrations-hub-api-copy-msg');
+      const mcpLine =
+        mcpPublicUrl !== ''
+          ? 'Use your copied KNOWTATION_MCP_URL (or this URL) as the MCP client "url", not necessarily KNOWTATION_HUB_URL + /mcp — serverless gateway hosts do not run stateful /mcp. Send Authorization: Bearer <same token as hub> and X-Vault-Id. '
+          : 'If your operator set KNOWTATION_MCP_URL in the full copy block, use that for the MCP client "url" when the gateway is serverless. Otherwise self-hosted same-origin can use {KNOWTATION_HUB_URL}/mcp when the Node gateway mounts it. ';
       const payload = {
         schema: 'knowtation.hub_copy_prime/v1',
         mcp_read_resource_uri: 'knowtation://hosted/prime',
         instructions:
-          'Point your MCP client at {KNOWTATION_HUB_URL}/mcp with Authorization and X-Vault-Id (see docs/AGENT-INTEGRATION.md). After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob.',
+          mcpLine +
+          'After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob. See docs/AGENT-INTEGRATION.md.',
         KNOWTATION_HUB_URL: base,
         KNOWTATION_HUB_VAULT_ID: vaultId,
+        ...(mcpPublicUrl !== '' ? { KNOWTATION_MCP_URL: mcpPublicUrl } : {}),
       };
       const snippet = JSON.stringify(payload, null, 2);
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -4029,17 +4132,30 @@
         }
         return;
       }
-      const snippet =
-        'KNOWTATION_HUB_URL=' +
-        base +
-        '\n' +
-        'KNOWTATION_HUB_TOKEN=' +
-        hubTok +
-        '\n' +
-        'KNOWTATION_HUB_VAULT_ID=' +
-        vaultId +
-        '\n' +
-        '# curl: add -H "Authorization: Bearer $KNOWTATION_HUB_TOKEN" -H "Content-Type: application/json" -H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"';
+      const copyLines = [
+        'KNOWTATION_HUB_URL=' + base,
+        'KNOWTATION_HUB_TOKEN=' + hubTok,
+        'KNOWTATION_HUB_VAULT_ID=' + vaultId,
+        '#',
+        '# Hub REST API (scripts, curl, OpenAPI clients): use KNOWTATION_HUB_URL — paths are /api/v1/...',
+        '# The token is the raw JWT. In HTTP, always send: Authorization: Bearer <token> (the word Bearer, a space, then the token).',
+      ];
+      if (mcpPublicUrl !== '') {
+        copyLines.push('KNOWTATION_MCP_URL=' + mcpPublicUrl);
+        copyLines.push(
+          '# Remote MCP (Cursor, Claude HTTP, etc.): set the client "url" to KNOWTATION_MCP_URL. Do not use KNOWTATION_HUB_URL for /mcp on serverless Netlify; it does not host stateful MCP. Same headers: Authorization: Bearer $KNOWTATION_HUB_TOKEN and X-Vault-Id: $KNOWTATION_HUB_VAULT_ID'
+        );
+      } else {
+        copyLines.push(
+          '# Optional remote MCP URL: if your operator provides a dedicated MCP host, they set window.HUB_MCP_PUBLIC_URL in web/hub/config.js (see repository docs) so the next copy includes KNOWTATION_MCP_URL. Self‑hosted Node Hub often uses ' +
+            base +
+            '/mcp on the same process.'
+        );
+      }
+      copyLines.push(
+        '# Example curl: add  -H "Authorization: Bearer $KNOWTATION_HUB_TOKEN"  -H "Content-Type: application/json"  -H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"'
+      );
+      const snippet = copyLines.join('\n');
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(snippet).then(() => {
           if (msg) {
@@ -6322,6 +6438,54 @@
     sel.value = bestLen >= 0 ? best : '__custom__';
   }
 
+  /** Keep Project (slug) aligned with projects/<slug>/… vault paths when creating a note. */
+  function syncFullProjectFromPath() {
+    const pi = el('full-path');
+    const fp = el('full-project');
+    if (!pi || !fp) return;
+    const slug = projectSlugFromProjectsPath(pi.value.trim());
+    if (slug) {
+      fp.value = slug;
+      fp.readOnly = true;
+      fp.title = 'Derived from vault path projects/' + slug + '/';
+    } else {
+      fp.readOnly = false;
+      fp.removeAttribute('title');
+    }
+    updateFullPathProjectTypoHint();
+  }
+
+  function updateFullPathProjectTypoHint() {
+    const pi = el('full-path');
+    const hint = el('full-path-project-typo-hint');
+    const fixBtn = el('btn-full-path-fix-typo');
+    if (!pi || !hint) return;
+    const raw = pi.value.trim();
+    const sug = projectsPathTypoSuggestion(raw);
+    if (sug) {
+      hint.textContent =
+        'This looks like project/ instead of projects/. Use the plural prefix for the standard layout. Suggested path: ' + sug;
+      hint.className = 'muted small detail-project-hint warn';
+      hint.classList.remove('hidden');
+      if (fixBtn) {
+        fixBtn.classList.remove('hidden');
+        fixBtn.onclick = () => {
+          pi.value = sug;
+          syncFolderSelectToPathInput();
+          syncFullProjectFromPath();
+        };
+      }
+    } else {
+      hint.textContent = '';
+      hint.className = 'muted small detail-project-hint hidden';
+      hint.classList.add('hidden');
+      if (fixBtn) {
+        fixBtn.classList.add('hidden');
+        fixBtn.onclick = null;
+      }
+    }
+  }
+
   const fullPathFolderEl = () => el('full-path-folder');
   const fullPathInputEl = () => el('full-path');
   if (fullPathFolderEl() && fullPathInputEl()) {
@@ -6329,8 +6493,12 @@
       const sel = fullPathFolderEl();
       if (!sel || sel.value === '__custom__') return;
       fullPathInputEl().value = sel.value + '/note-' + Date.now() + '.md';
+      syncFullProjectFromPath();
     });
-    fullPathInputEl().addEventListener('input', () => syncFolderSelectToPathInput());
+    fullPathInputEl().addEventListener('input', () => {
+      syncFolderSelectToPathInput();
+      syncFullProjectFromPath();
+    });
   }
 
   document.querySelectorAll('.modal-tab').forEach((t) => {
@@ -6346,6 +6514,7 @@
           const pi = el('full-path');
           if (pi && !pi.value.trim()) pi.value = defaultFullPath();
           else syncFolderSelectToPathInput();
+          syncFullProjectFromPath();
         });
       }
     };
@@ -6393,9 +6562,18 @@
   el('btn-full-save').onclick = async () => {
     const fullBtn = el('btn-full-save');
     const notePath = el('full-path').value.trim();
+    const pathProjFull = projectSlugFromProjectsPath(notePath);
     const msg = el('create-msg-full');
     if (!notePath) {
       msg.textContent = 'Enter a vault path (e.g. inbox/idea.md).';
+      msg.className = 'create-msg err';
+      return;
+    }
+    const pathTypoSug = projectsPathTypoSuggestion(notePath);
+    if (pathTypoSug) {
+      msg.textContent =
+        'Path uses project/ but the standard prefix is projects/ (plural). Edit the path or click “Use suggested path” under the path field. Suggested: ' +
+        pathTypoSug;
       msg.className = 'create-msg err';
       return;
     }
@@ -6406,7 +6584,7 @@
     }
     const title = el('full-title').value.trim();
     const body = el('full-body').value;
-    const project = el('full-project').value.trim();
+    const project = pathProjFull || el('full-project').value.trim();
     const tags = el('full-tags').value.trim();
     const dateVal = el('full-date') && el('full-date').value ? el('full-date').value.trim() : ymd(new Date());
     const causalChain = el('full-causal-chain') && el('full-causal-chain').value.trim();
@@ -6433,6 +6611,7 @@
         void refreshFullPathFolderSelect().then(() => {
           el('full-path').value = defaultFullPath();
           syncFolderSelectToPathInput();
+          syncFullProjectFromPath();
         });
         el('full-title').value = '';
         el('full-body').value = '';
@@ -6673,7 +6852,156 @@
     exportBtn.type = 'button';
     exportBtn.textContent = 'Export';
     exportBtn.onclick = () => exportCurrentNote('md');
-    actionsEl.append(editBtn, proposeBtn, delBtn, exportBtn);
+    if (hubHasMultipleVaultsForCopy()) {
+      const copyVaultBtn = document.createElement('button');
+      copyVaultBtn.type = 'button';
+      copyVaultBtn.textContent = 'Copy to vault…';
+      copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
+      actionsEl.append(editBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
+    } else {
+      actionsEl.append(editBtn, proposeBtn, delBtn, exportBtn);
+    }
+  }
+
+  function openCopyNoteToVaultModal() {
+    if (!currentOpenNote || !token) return;
+    if (!hubHasMultipleVaultsForCopy()) {
+      if (typeof showToast === 'function') showToast('At least two vaults are required.', true);
+      return;
+    }
+    const existing = document.getElementById('modal-copy-note-vault');
+    if (existing) existing.remove();
+    const s = lastBackupSettingsPayload;
+    const allowed = new Set((s.allowed_vault_ids || []).map(String));
+    const vaultList = (s.vault_list || []).filter((v) => v && v.id != null && allowed.has(String(v.id)));
+    const fromId = String(getCurrentVaultId() || 'default');
+    const targets = vaultList.filter((v) => String(v.id) !== fromId);
+    if (targets.length === 0) {
+      if (typeof showToast === 'function') showToast('No other vaults available to copy into.', true);
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.id = 'modal-copy-note-vault';
+    wrap.className = 'modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-label', 'Copy note to another vault');
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '480px';
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    const h2 = document.createElement('h2');
+    h2.textContent = 'Copy to vault';
+    const btnClose = document.createElement('button');
+    btnClose.type = 'button';
+    btnClose.className = 'modal-close';
+    btnClose.textContent = '×';
+    btnClose.setAttribute('aria-label', 'Close');
+    header.appendChild(h2);
+    header.appendChild(btnClose);
+    const body = document.createElement('div');
+    body.style.padding = '1rem 1.25rem';
+    const lbl = document.createElement('label');
+    lbl.className = 'detail-field-label';
+    lbl.textContent = 'Target vault';
+    lbl.setAttribute('for', 'copy-note-vault-select');
+    const sel = document.createElement('select');
+    sel.id = 'copy-note-vault-select';
+    sel.className = 'vault-switcher-select';
+    sel.style.width = '100%';
+    sel.style.marginTop = '0.35rem';
+    for (const v of targets) {
+      const id = String(v.id);
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = v.label != null && String(v.label).trim() !== '' ? String(v.label) : id;
+      sel.appendChild(opt);
+    }
+    const moveRow = document.createElement('label');
+    moveRow.style.display = 'flex';
+    moveRow.style.alignItems = 'center';
+    moveRow.style.gap = '0.5rem';
+    moveRow.style.marginTop = '1rem';
+    moveRow.style.cursor = 'pointer';
+    const moveChk = document.createElement('input');
+    moveChk.type = 'checkbox';
+    moveChk.id = 'copy-note-delete-source';
+    const moveSpan = document.createElement('span');
+    moveSpan.textContent = 'Delete from this vault (move)';
+    moveRow.appendChild(moveChk);
+    moveRow.appendChild(moveSpan);
+    const hint = document.createElement('p');
+    hint.className = 'muted small';
+    hint.style.marginTop = '0.75rem';
+    hint.style.fontSize = '0.85rem';
+    hint.textContent =
+      'If a note with the same path exists in the target vault, it will be overwritten. On hosted, semantic search catches up after re-index (started automatically).';
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.justifyContent = 'flex-end';
+    actions.style.gap = '0.5rem';
+    actions.style.marginTop = '1.25rem';
+    const btnCancel = document.createElement('button');
+    btnCancel.type = 'button';
+    btnCancel.className = 'btn-secondary';
+    btnCancel.textContent = 'Cancel';
+    const btnGo = document.createElement('button');
+    btnGo.type = 'button';
+    btnGo.className = 'btn-primary';
+    btnGo.textContent = 'Copy';
+    actions.appendChild(btnCancel);
+    actions.appendChild(btnGo);
+    body.appendChild(lbl);
+    body.appendChild(sel);
+    body.appendChild(moveRow);
+    body.appendChild(hint);
+    body.appendChild(actions);
+    card.appendChild(header);
+    card.appendChild(body);
+    wrap.appendChild(backdrop);
+    wrap.appendChild(card);
+    function close() {
+      wrap.remove();
+    }
+    backdrop.onclick = close;
+    btnClose.onclick = close;
+    btnCancel.onclick = close;
+    btnGo.onclick = async () => {
+      const toId = sel.value;
+      if (!toId || !currentOpenNote) return;
+      await withButtonBusy(btnGo, 'Copying…', async () => {
+        try {
+          const res = await api('/api/v1/notes/copy', {
+            method: 'POST',
+            body: JSON.stringify({
+              from_vault_id: fromId,
+              to_vault_id: toId,
+              path: currentOpenNote.path,
+              delete_source: moveChk.checked,
+            }),
+          });
+          close();
+          if (typeof showToast === 'function') {
+            showToast(res.moved ? 'Note moved to ' + toId : 'Note copied to ' + toId);
+          }
+          if (res.moved) {
+            currentOpenNote = null;
+            currentNotePathForCopy = '';
+            hideDetailPanelChrome();
+            const bcp = el('btn-copy-path');
+            if (bcp) bcp.classList.add('hidden');
+            loadNotes();
+            loadFacets();
+          }
+        } catch (e) {
+          if (typeof showToast === 'function') showToast(e.message || String(e), true);
+        }
+      });
+    };
+    document.body.appendChild(wrap);
   }
 
   async function exportCurrentNote(format) {
@@ -6935,6 +7263,7 @@
     bodyEl.className = 'detail-edit-container create-panel';
     bodyEl.innerHTML =
       '<p class="muted small">Path (read-only): <code id="detail-edit-path-display"></code></p>' +
+      '<p id="detail-edit-path-typo-hint" class="muted small detail-project-hint hidden" role="status"></p>' +
       '<label for="detail-edit-title">Title</label>' +
       '<input type="text" id="detail-edit-title" placeholder="Note title" />' +
       '<label for="detail-edit-body">Body (Markdown)</label>' +
@@ -6943,6 +7272,7 @@
       '<input type="date" id="detail-edit-date" />' +
       '<label for="detail-edit-project">Project (slug)</label>' +
       '<input type="text" id="detail-edit-project" placeholder="slug" />' +
+      '<p id="detail-edit-project-hint" class="muted small detail-project-hint hidden" style="margin-top:-0.35rem;margin-bottom:0.5rem;"></p>' +
       '<label for="detail-edit-tags">Tags (comma-separated)</label>' +
       '<input type="text" id="detail-edit-tags" placeholder="tag1, tag2" />' +
       '<p class="muted small" style="margin-top:0.5rem;">Temporal and hierarchical (optional):</p>' +

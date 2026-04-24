@@ -176,13 +176,15 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 
 **What to paste (shape only — use your real values from the Hub copy button; do not commit secrets)**
 
-The Hub copy gives you `KNOWTATION_HUB_URL` (gateway base, **no** `/mcp` suffix). The MCP endpoint is **`{KNOWTATION_HUB_URL}/mcp`**.
+The Hub copy gives **`KNOWTATION_HUB_URL`** (the **REST** gateway, e.g. Netlify). When your deployment sets **`HUB_MCP_PUBLIC_URL`** in `web/hub/config.js`, the same paste includes **`KNOWTATION_MCP_URL`**, which is the **full** URL to use for remote MCP (e.g. `https://mcp.example.com/mcp`). **Do not** assume `KNOWTATION_HUB_URL + /mcp` works for every deployment: **serverless** gateways return **503** for `/mcp` (see §2). When `KNOWTATION_MCP_URL` is absent, self-hosted **Node** Hub on one process often uses **`{KNOWTATION_HUB_URL}/mcp`**.
+
+The **`Authorization` header value must be the full `Bearer <token>` string.** The variable `KNOWTATION_HUB_TOKEN` from the copy block is **only** the JWT; in JSON headers, prefix with `Bearer ` (or use `${env:KNOWTATION_HUB_TOKEN}` after `Bearer ` as below).
 
 ```json
 {
   "mcpServers": {
     "knowtation-hosted": {
-      "url": "https://YOUR-GATEWAY-HOST/mcp",
+      "url": "https://YOUR-MCP-HOST/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_HUB_TOKEN_FROM_COPY_BUTTON",
         "X-Vault-Id": "YOUR_VAULT_ID_FROM_COPY_BUTTON"
@@ -198,7 +200,7 @@ The Hub copy gives you `KNOWTATION_HUB_URL` (gateway base, **no** `/mcp` suffix)
 {
   "mcpServers": {
     "knowtation-hosted": {
-      "url": "https://YOUR-GATEWAY-HOST/mcp",
+      "url": "https://YOUR-MCP-HOST/mcp",
       "headers": {
         "Authorization": "Bearer ${env:KNOWTATION_HUB_TOKEN}",
         "X-Vault-Id": "${env:KNOWTATION_HUB_VAULT_ID}"
@@ -260,7 +262,9 @@ Cursor, Claude Desktop, and other MCP hosts can load **multiple MCP servers** in
 - **Base URL:** e.g. `https://hub.example.com` (REST paths are under `/api/v1/...`).
 - **Auth:** JWT via OAuth (Google/GitHub). Header on every protected request: `Authorization: Bearer <token>`.
 - **Vault:** For vault-scoped routes, send header `X-Vault-Id` (e.g. `default` or the id shown in the Hub header). Match the vault you intend to act on.
-- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That copies `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID` as lines you can paste into a shell or agent config. **Treat that block as a secret** (do not post it in Slack, tickets, or chat). **Why it stops working sometimes:** the token is a time-limited “API password” (default **24 hours** on the hosted gateway unless your deployment sets `HUB_JWT_EXPIRY`). When it runs out, tools may see **401**—that is normal, not a bug. **Fix:** open the Hub in the browser (you stay signed in the usual way), go back to **Copy Hub URL, token & vault**, and paste the **new** lines into your agent or secret store. You are **not** expected to re-sign in to the website every few minutes; only **refresh the copied API block** when automations that rely on it start failing.
+- **Copy or move a note to another vault:** **`POST /api/v1/notes/copy`** with JSON `from_vault_id`, `to_vault_id`, `path`, and optional `delete_source` (move). Same JWT and hosted allowlist rules as other writes; Hub UI exposes this as **Copy to vault…** on a note. See [HUB-API.md](./HUB-API.md) §3.3.
+- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That copies `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID`, plus **comment lines** explaining REST vs optional remote MCP. When the deployment sets `window.HUB_MCP_PUBLIC_URL` in `web/hub/config.js`, the same paste also includes **`KNOWTATION_MCP_URL`** (full URL to a **persistent** gateway’s `/mcp` endpoint). **Industry standard:** `KNOWTATION_HUB_TOKEN` is the **raw JWT**; clients compose `Authorization: Bearer <token>` (the curl example in the copy block uses shell variable expansion for that). Do not put `Bearer` inside the token env var—compose the header at call time. **Treat that block as a secret** (do not post it in Slack, tickets, or chat). **Why it stops working sometimes:** the token is a time-limited “API password” (default **24 hours** on the hosted gateway unless your deployment sets `HUB_JWT_EXPIRY`). When it runs out, tools may see **401**—that is normal, not a bug. **Fix:** open the Hub in the browser (you stay signed in the usual way), go back to **Copy Hub URL, token & vault**, and paste the **new** lines into your agent or secret store. You are **not** expected to re-sign in to the website every few minutes; only **refresh the copied API block** when automations that rely on it start failing.
+- **Hub REST vs remote MCP URL:** Use **`KNOWTATION_HUB_URL`** for **`/api/v1/...`** (notes, search, proposals, etc.). For **Cursor / HTTP MCP**, when `KNOWTATION_MCP_URL` is present in the copy block, set the MCP client’s **`url`** to that value (not `KNOWTATION_HUB_URL + /mcp` on **Netlify**, which does not mount stateful MCP—see §2 hosted MCP). For **large or scripted writes**, **REST** `POST /api/v1/notes` is the most reliable path; MCP is for interactive agent tools.
 - **Not the same button:** **Settings → Agents → Copy embedding env** copies only embedding-related lines (e.g. Ollama URL / model comment) so local indexers match the Hub—it does **not** copy the Hub JWT.
 
 **Example `curl` (create proposal):** `.env` alone does not attach headers; you must pass the bearer token explicitly.
@@ -280,6 +284,7 @@ curl -sS -X POST "${KNOWTATION_HUB_URL}/api/v1/proposals" \
 | List notes    | GET    | /notes            | folder, project, tag, limit, offset, order, fields, count_only |
 | Get note      | GET    | /notes/{path}     | —          |
 | Write note    | POST   | /notes            | path, body?, frontmatter?, append? |
+| Copy/move note | POST | /notes/copy     | from_vault_id, to_vault_id, path, delete_source? |
 | Search        | POST   | /search           | query, mode? (semantic\|keyword), match? (phrase\|all_terms), folder?, project?, tag?, limit?, order?, fields?, content_scope?, … |
 | List proposals| GET    | /proposals        | status, limit, offset |
 | Get proposal  | GET    | /proposals/:id    | —          |
