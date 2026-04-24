@@ -56,6 +56,7 @@ import {
   proposalIdFromApprovePath,
   fetchMuseProxiedGet,
 } from '../../lib/muse-thin-bridge.mjs';
+import { exportNoteRecordToContent } from '../../lib/export.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -2233,6 +2234,90 @@ app.post('/api/v1/attest/anchor-pending', requireAdmin, async (req, res) => {
     console.error('[gateway] POST /api/v1/attest/anchor-pending error:', e?.message || e);
     return res.status(500).json({ error: 'Anchor failed', code: 'INTERNAL_ERROR' });
   }
+});
+
+/**
+ * Hosted: single-note export for Hub UI (POST /api/v1/export). Self-hosted Node Hub implements
+ * this with filesystem; the ICP canister only supports GET /api/v1/export (full vault JSON), so
+ * POST was returning 404 from the canister. We fetch the note and build the same download payload
+ * as lib/export.mjs.
+ */
+app.post('/api/v1/export', async (req, res) => {
+  if (!CANISTER_URL) {
+    return res.status(503).json({ error: 'Hosted export not configured', code: 'SERVICE_UNAVAILABLE' });
+  }
+  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const notePath = typeof body.path === 'string' ? body.path.replace(/\\/g, '/').trim() : '';
+  const fmt = body.format === 'html' ? 'html' : 'md';
+  if (!notePath || notePath.includes('..') || notePath.startsWith('/')) {
+    return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
+  }
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  const { role } = await resolveHostedActorRole(req, hctx);
+  if (role === 'viewer') {
+    return res.status(403).json({ error: 'This action requires editor or admin.', code: 'FORBIDDEN' });
+  }
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  const enc = notePath.split('/').map(encodeURIComponent).join('/');
+  const url = `${CANISTER_URL}/api/v1/notes/${enc}`;
+  let upstream;
+  try {
+    upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': uid,
+        'x-vault-id': vaultId,
+        ...canisterAuthHeaders(),
+      },
+    });
+  } catch (e) {
+    console.error('[gateway] export fetch note:', e?.message || e);
+    return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
+  const text = await upstream.text();
+  if (upstream.status === 404) {
+    return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+  }
+  if (!upstream.ok) {
+    return res.status(upstream.status).type('application/json').send(text);
+  }
+  let note;
+  try {
+    note = JSON.parse(text);
+  } catch {
+    return res.status(502).json({ error: 'Invalid note response', code: 'BAD_GATEWAY' });
+  }
+  const scope = scopeActiveForGateway(hctx) ? hctx.scope : null;
+  if (scope) {
+    const withProj = {
+      path: note.path,
+      project: materializeListFrontmatter(note.frontmatter).project ?? null,
+    };
+    const filtered = applyScopeFilterToNotes([withProj], scope);
+    if (filtered.length === 0) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+  }
+  const fm = materializeListFrontmatter(note.frontmatter);
+  const { content, filename } = exportNoteRecordToContent(
+    { body: note.body != null ? String(note.body) : '', frontmatter: fm },
+    note.path || notePath,
+    { format: fmt },
+  );
+  res.set('Cache-Control', 'private, no-store, must-revalidate');
+  return res.json({ content, filename });
 });
 
 app.use('/api/v1', async (req, res) => {

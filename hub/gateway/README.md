@@ -37,7 +37,7 @@ When the gateway **re-serializes** the JSON body (e.g. provenance merge), it **r
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth (enables "Continue with GitHub"). |
 | **GATEWAY_PORT** or **PORT** | No | Port (default 3340). |
 | **HUB_CORS_ORIGIN** | **Yes (prod)** if Hub UI is on another origin | Comma-separated origins, e.g. `https://knowtation.store,https://www.knowtation.store`. Required for credentialed CORS responses — see **`hub/gateway/cors-middleware.mjs`**. |
-| **HUB_JWT_EXPIRY** | No | JWT expiry (default `7d`). |
+| **HUB_JWT_EXPIRY** | No | JWT expiry for **issued API tokens** (gateway default in code is **`24h`** unless overridden; match `docs/AGENT-INTEGRATION.md`). |
 | **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** in the JWT and pass **`requireAdmin`** without a bridge call. When **BRIDGE_URL** is set, **Team admins** (bridge **`GET /api/v1/role`** → `role: admin`) also pass **`requireAdmin`** for gateway-only admin routes (e.g. **`POST /api/v1/settings/proposal-policy`**, workspace, vault-access, invites). Bootstrap operators often list at least one id here; further admins can be granted in Team without redeploying env. See **[docs/PARITY-MATRIX-HOSTED.md](../../docs/PARITY-MATRIX-HOSTED.md)** (hosted admin flows). |
 | **HUB_EVALUATOR_MAY_APPROVE** | No | Set to **`1`** so **evaluators** may **approve** when they have **no** explicit row in the bridge blob **`hub_evaluator_may_approve`** (per-user overrides still win). Gateway and bridge honor this; **GET /api/v1/settings** exposes effective **hub_evaluator_may_approve** per user. |
 | **BILLING_ENFORCE** | No | Set to `true` to deduct credits and return **402** when monthly + add-on pools are exhausted (default off = beta open usage). |
@@ -46,6 +46,8 @@ When the gateway **re-serializes** the JSON body (e.g. provenance merge), it **r
 | **STRIPE_WEBHOOK_SECRET** | No | Signing secret for **POST /api/v1/billing/webhook**. |
 | **STRIPE_PRICE_STARTER**, **STRIPE_PRICE_PRO**, **STRIPE_PRICE_TEAM** | No | Stripe Price ids for subscription tiers → included credits/month. |
 | **STRIPE_PRICE_PACK_10**, **STRIPE_PRICE_PACK_25**, **STRIPE_PRICE_PACK_50** | No | Stripe Price ids for add-on packs (10 / 25 / 50 credits). |
+
+**Hub static UI (`web/hub/config.js`, separate from this server’s env):** The browser bundle may set `window.HUB_MCP_PUBLIC_URL` to the **public URL of a persistent gateway** that serves `POST /mcp` (e.g. `https://mcp.example.com/mcp`), so **Settings → Integrations → Copy Hub URL, token & vault** can emit **`KNOWTATION_MCP_URL`** next to `KNOWTATION_HUB_URL`. The **Netlify** site for the REST API does **not** run stateful MCP; operators who split API (Netlify) and MCP (VPS) document both URLs in that copy block. See **`docs/AGENT-INTEGRATION.md`** §2–3.
 
 **Billing storage:** Local file **`data/hosted_billing.json`** (gitignored with `data/`). On **Netlify**, the gateway function uses Blob store **`gateway-billing`** (see `netlify/functions/gateway.mjs`).
 

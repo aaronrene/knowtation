@@ -37,6 +37,16 @@
     }
     return (localStorage.getItem('hub_api_url') || location.origin || 'http://localhost:3333').replace(/\/$/, '');
   })();
+  /** Public MCP endpoint (https://…/mcp) when operator sets window.HUB_MCP_PUBLIC_URL in web/hub/config.js; else ''. */
+  const mcpPublicUrl = (function resolveMcpPublicUrl() {
+    if (typeof window === 'undefined') return '';
+    if (!Object.prototype.hasOwnProperty.call(window, 'HUB_MCP_PUBLIC_URL')) return '';
+    const v = window.HUB_MCP_PUBLIC_URL;
+    if (v == null) return '';
+    const s = String(v).trim();
+    if (s === '') return '';
+    return s.replace(/\/$/, '');
+  })();
   const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
   /** Used to defer onboarding until invite consume has run (see scheduleMaybeShowOnboardingWizard). */
   const pageLoadHadInviteQuery = Boolean(params.get('invite'));
@@ -4064,13 +4074,19 @@
       const base = String(apiBase || '').replace(/\/$/, '');
       const vaultId = getCurrentVaultId() || 'default';
       const msg = el('integrations-hub-api-copy-msg');
+      const mcpLine =
+        mcpPublicUrl !== ''
+          ? 'Use your copied KNOWTATION_MCP_URL (or this URL) as the MCP client "url", not necessarily KNOWTATION_HUB_URL + /mcp — serverless gateway hosts do not run stateful /mcp. Send Authorization: Bearer <same token as hub> and X-Vault-Id. '
+          : 'If your operator set KNOWTATION_MCP_URL in the full copy block, use that for the MCP client "url" when the gateway is serverless. Otherwise self-hosted same-origin can use {KNOWTATION_HUB_URL}/mcp when the Node gateway mounts it. ';
       const payload = {
         schema: 'knowtation.hub_copy_prime/v1',
         mcp_read_resource_uri: 'knowtation://hosted/prime',
         instructions:
-          'Point your MCP client at {KNOWTATION_HUB_URL}/mcp with Authorization and X-Vault-Id (see docs/AGENT-INTEGRATION.md). After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob.',
+          mcpLine +
+          'After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob. See docs/AGENT-INTEGRATION.md.',
         KNOWTATION_HUB_URL: base,
         KNOWTATION_HUB_VAULT_ID: vaultId,
+        ...(mcpPublicUrl !== '' ? { KNOWTATION_MCP_URL: mcpPublicUrl } : {}),
       };
       const snippet = JSON.stringify(payload, null, 2);
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -4109,17 +4125,30 @@
         }
         return;
       }
-      const snippet =
-        'KNOWTATION_HUB_URL=' +
-        base +
-        '\n' +
-        'KNOWTATION_HUB_TOKEN=' +
-        hubTok +
-        '\n' +
-        'KNOWTATION_HUB_VAULT_ID=' +
-        vaultId +
-        '\n' +
-        '# curl: add -H "Authorization: Bearer $KNOWTATION_HUB_TOKEN" -H "Content-Type: application/json" -H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"';
+      const copyLines = [
+        'KNOWTATION_HUB_URL=' + base,
+        'KNOWTATION_HUB_TOKEN=' + hubTok,
+        'KNOWTATION_HUB_VAULT_ID=' + vaultId,
+        '#',
+        '# Hub REST API (scripts, curl, OpenAPI clients): use KNOWTATION_HUB_URL — paths are /api/v1/...',
+        '# The token is the raw JWT. In HTTP, always send: Authorization: Bearer <token> (the word Bearer, a space, then the token).',
+      ];
+      if (mcpPublicUrl !== '') {
+        copyLines.push('KNOWTATION_MCP_URL=' + mcpPublicUrl);
+        copyLines.push(
+          '# Remote MCP (Cursor, Claude HTTP, etc.): set the client "url" to KNOWTATION_MCP_URL. Do not use KNOWTATION_HUB_URL for /mcp on serverless Netlify; it does not host stateful MCP. Same headers: Authorization: Bearer $KNOWTATION_HUB_TOKEN and X-Vault-Id: $KNOWTATION_HUB_VAULT_ID'
+        );
+      } else {
+        copyLines.push(
+          '# Optional remote MCP URL: if your operator provides a dedicated MCP host, they set window.HUB_MCP_PUBLIC_URL in web/hub/config.js (see repository docs) so the next copy includes KNOWTATION_MCP_URL. Self‑hosted Node Hub often uses ' +
+            base +
+            '/mcp on the same process.'
+        );
+      }
+      copyLines.push(
+        '# Example curl: add  -H "Authorization: Bearer $KNOWTATION_HUB_TOKEN"  -H "Content-Type: application/json"  -H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"'
+      );
+      const snippet = copyLines.join('\n');
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(snippet).then(() => {
           if (msg) {

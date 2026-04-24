@@ -102,7 +102,8 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **POST /export** — Export one note to downloadable content (editor/admin). Body: `{ "path": string, "format"?: "md" | "html" }`.  
   **Response:** `{ "content": string, "filename": string }`. Client may create a blob and trigger download.  
-  **400** if path invalid; **404** if note not found.
+  **400** if path invalid; **404** if note not found.  
+  **Hosted:** the gateway implements this (fetch note from the canister, then build Markdown/HTML) because the ICP canister’s **`GET /api/v1/export`** is a full-vault JSON export, not a single-file download; a bare **POST** to the canister would return **404**.
 
 - **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types include `markdown`, `pdf`, `docx`, `url`, `chatgpt-export`, `claude-export`, `mif`, `mem0-export`, `supabase-memory`, `notion`, `jira-export`, `notebooklm`, `gdrive`, `linear-export`, `audio`, `video`, `wallet-csv` (see `lib/import-source-types.mjs`). If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export). For **`pdf`**, upload a single `.pdf` file (not a ZIP). For **`docx`**, upload a single `.docx` file (Office Open XML; not legacy `.doc`).  
   After import, the Hub runs a **provenance pass** on each imported path (`author_kind: import`, editor `sub`).  
