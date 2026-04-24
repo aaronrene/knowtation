@@ -920,6 +920,41 @@ async function getHostedAccessContext(req) {
   }
 }
 
+/**
+ * Hosted team context for an explicit vault (e.g. cross-vault copy source/target checks).
+ * @param {string} authorization Bearer JWT
+ * @param {string} vaultId
+ * @returns {Promise<Record<string, unknown>|null>}
+ */
+async function fetchHostedAccessContextForVault(authorization, vaultId) {
+  if (!BRIDGE_URL || !authorization || !authorization.startsWith('Bearer ')) return null;
+  const token = authorization.slice(7);
+  const sub = verifyToken(token);
+  if (!sub) return null;
+  const vid = String(vaultId || 'default').trim() || 'default';
+  const cacheKey = `${sub}\0${vid}`;
+  const now = Date.now();
+  const hit = hostedCtxCache.get(cacheKey);
+  if (hit && hit.expires > now) return hit.data;
+  try {
+    const r = await fetch(BRIDGE_URL + '/api/v1/hosted-context', {
+      method: 'GET',
+      headers: {
+        Authorization: authorization,
+        Accept: 'application/json',
+        'X-Vault-Id': vid,
+      },
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data && data.error && !data.effective_canister_user_id) return null;
+    hostedCtxCache.set(cacheKey, { expires: now + HOSTED_CTX_TTL_MS, data });
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
+
 const metadataBulkHandlers = createMetadataBulkHandlers({
   CANISTER_URL,
   CANISTER_AUTH_SECRET,
@@ -1827,7 +1862,13 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
 async function getNoteCountForUser(userId, req) {
   if (!CANISTER_URL) return 0;
   try {
-    const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    let vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    const pathOnly = effectiveRequestPath(req).replace(/\/+$/, '') || '/';
+    if (req.method === 'POST' && pathOnly === '/api/v1/notes/copy') {
+      const b = req.body && typeof req.body === 'object' ? req.body : {};
+      const toV = typeof b.to_vault_id === 'string' ? b.to_vault_id.replace(/\\/g, '/').trim() : '';
+      if (toV) vaultId = toV;
+    }
     const hctx = await getHostedAccessContext(req);
     const effective =
       hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
@@ -2318,6 +2359,216 @@ app.post('/api/v1/export', async (req, res) => {
   );
   res.set('Cache-Control', 'private, no-store, must-revalidate');
   return res.json({ content, filename });
+});
+
+/**
+ * Cross-vault copy/move (hosted gateway): GET note from canister vault A, POST to vault B, optional DELETE on A.
+ * Conflicts: if `path` already exists in the target vault, the write **overwrites** (same as POST /notes).
+ * After success, triggers bridge **Re-index** for the target vault and, when moving, the source vault (fire-and-forget).
+ */
+app.post('/api/v1/notes/copy', async (req, res) => {
+  if (!CANISTER_URL) {
+    return res.status(503).json({ error: 'Hosted copy not configured', code: 'SERVICE_UNAVAILABLE' });
+  }
+  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const authHeader = req.headers.authorization || '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const fromVault = typeof body.from_vault_id === 'string' ? body.from_vault_id.replace(/\\/g, '/').trim() : '';
+  const toVault = typeof body.to_vault_id === 'string' ? body.to_vault_id.replace(/\\/g, '/').trim() : '';
+  const notePath = typeof body.path === 'string' ? body.path.replace(/\\/g, '/').trim() : '';
+  const deleteSource = body.delete_source === true;
+  if (!fromVault || !toVault || !notePath || notePath.includes('..') || notePath.startsWith('/')) {
+    return res.status(400).json({
+      error: 'from_vault_id, to_vault_id, and path are required (vault-relative path)',
+      code: 'BAD_REQUEST',
+    });
+  }
+  if (fromVault === toVault) {
+    return res.status(400).json({ error: 'from_vault_id and to_vault_id must differ', code: 'BAD_REQUEST' });
+  }
+  /** @type {Record<string, unknown>|null} */
+  let hctxFrom = null;
+  if (BRIDGE_URL) {
+    hctxFrom = await fetchHostedAccessContextForVault(authHeader, fromVault);
+    if (!hctxFrom) {
+      return res.status(403).json({ error: 'Hosted workspace context unavailable.', code: 'FORBIDDEN' });
+    }
+    if (Array.isArray(hctxFrom.allowed_vault_ids)) {
+      if (!hctxFrom.allowed_vault_ids.includes(fromVault) || !hctxFrom.allowed_vault_ids.includes(toVault)) {
+        return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+      }
+    }
+  }
+  const { role } = await resolveHostedActorRole(req, hctxFrom);
+  if (role === 'viewer') {
+    return res.status(403).json({ error: 'This action requires editor or admin.', code: 'FORBIDDEN' });
+  }
+  const effective =
+    hctxFrom && typeof hctxFrom.effective_canister_user_id === 'string' && hctxFrom.effective_canister_user_id
+      ? hctxFrom.effective_canister_user_id
+      : uid;
+  const enc = notePath.split('/').map(encodeURIComponent).join('/');
+  const getUrl = `${CANISTER_URL}/api/v1/notes/${enc}`;
+  let upstream;
+  try {
+    upstream = await fetch(getUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': uid,
+        'x-vault-id': fromVault,
+        ...canisterAuthHeaders(),
+      },
+    });
+  } catch (e) {
+    console.error('[gateway] notes/copy fetch source:', e?.message || e);
+    return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
+  const getText = await upstream.text();
+  if (upstream.status === 404) {
+    return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+  }
+  if (!upstream.ok) {
+    return res.status(upstream.status).type('application/json').send(getText);
+  }
+  let note;
+  try {
+    note = JSON.parse(getText);
+  } catch {
+    return res.status(502).json({ error: 'Invalid note response', code: 'BAD_GATEWAY' });
+  }
+  const scope = scopeActiveForGateway(hctxFrom) ? hctxFrom.scope : null;
+  if (scope) {
+    const withProj = {
+      path: note.path,
+      project: materializeListFrontmatter(note.frontmatter).project ?? null,
+    };
+    const filtered = applyScopeFilterToNotes([withProj], scope);
+    if (filtered.length === 0) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+  }
+  const outPath = note.path || notePath;
+  let fmRaw = note.frontmatter;
+  if (typeof fmRaw === 'string') {
+    try {
+      fmRaw = fmRaw.trim() ? JSON.parse(fmRaw) : {};
+    } catch {
+      fmRaw = {};
+    }
+  }
+  if (!fmRaw || typeof fmRaw !== 'object' || Array.isArray(fmRaw)) {
+    fmRaw = {};
+  }
+  let gatewayAirId = null;
+  if (process.env.KNOWTATION_AIR_ENDPOINT) {
+    try {
+      const { attestBeforeWrite: gwAttest } = await import('../../lib/air.mjs');
+      const airId = await gwAttest(
+        { air: { enabled: true, required: false, endpoint: process.env.KNOWTATION_AIR_ENDPOINT } },
+        outPath,
+      );
+      if (airId && airId !== 'air-placeholder-write') {
+        gatewayAirId = airId;
+      }
+    } catch (e) {
+      console.error('[gateway] AIR attestation (copy, non-fatal):', e?.message || String(e));
+    }
+  }
+  const postBody = mergeHostedNoteBodyForCanister(
+    {
+      path: outPath,
+      body: note.body != null ? String(note.body) : '',
+      frontmatter: fmRaw,
+    },
+    uid,
+    gatewayAirId,
+  );
+  const postHeaders = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    host: new URL(CANISTER_URL).host,
+    'x-user-id': effective,
+    'x-actor-id': uid,
+    'x-vault-id': toVault,
+    ...canisterAuthHeaders(),
+  };
+  const postOpts = { method: 'POST', headers: postHeaders, body: JSON.stringify(postBody) };
+  stripStaleOutboundBodyHeaders(postHeaders);
+  let postUpstream;
+  try {
+    postUpstream = await fetch(`${CANISTER_URL}/api/v1/notes`, postOpts);
+  } catch (e) {
+    console.error('[gateway] notes/copy post target:', e?.message || e);
+    return res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
+  }
+  const postText = await postUpstream.text();
+  if (!postUpstream.ok) {
+    return res.status(postUpstream.status).type('application/json').send(postText);
+  }
+  if (deleteSource) {
+    let delUpstream;
+    try {
+      delUpstream = await fetch(getUrl, {
+        method: 'DELETE',
+        headers: {
+          Accept: 'application/json',
+          'x-user-id': effective,
+          'x-actor-id': uid,
+          'x-vault-id': fromVault,
+          ...canisterAuthHeaders(),
+        },
+      });
+    } catch (e) {
+      console.error('[gateway] notes/copy delete source:', e?.message || e);
+      return res.status(502).json({
+        error:
+          'Note was copied to the target vault but deleting the source failed. Remove the duplicate from the target vault if you retry.',
+        code: 'DELETE_FAILED',
+      });
+    }
+    const delText = await delUpstream.text();
+    if (!delUpstream.ok && delUpstream.status !== 404) {
+      return res.status(delUpstream.status).json({
+        error: 'Note was copied to the target vault but deleting the source failed.',
+        code: 'DELETE_FAILED',
+        detail: typeof delText === 'string' ? delText.slice(0, 500) : '',
+      });
+    }
+  }
+  const reindexVaults = deleteSource ? [toVault, fromVault] : [toVault];
+  void (async () => {
+    if (!BRIDGE_URL) return;
+    for (const vid of reindexVaults) {
+      try {
+        const idxRes = await fetch(BRIDGE_URL + '/api/v1/index', {
+          method: 'POST',
+          headers: {
+            Authorization: authHeader,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Vault-Id': String(vid || 'default').trim() || 'default',
+          },
+          body: '{}',
+        });
+        const idxText = await idxRes.text();
+        await recordIndexingTokensAfterBridgeIndex(uid, idxRes.status, idxText);
+      } catch (e) {
+        console.warn('[gateway] notes/copy reindex:', e?.message || e);
+      }
+    }
+  })();
+  res.set('Cache-Control', 'private, no-store, must-revalidate');
+  return res.json({
+    ok: true,
+    path: outPath,
+    from_vault_id: fromVault,
+    to_vault_id: toVault,
+    moved: deleteSource,
+  });
 });
 
 app.use('/api/v1', async (req, res) => {

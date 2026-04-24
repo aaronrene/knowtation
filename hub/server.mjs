@@ -76,6 +76,7 @@ import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
 import { readHubVaults, writeHubVaults } from '../lib/hub-vaults.mjs';
 import { deleteSelfHostedVault } from './hub-delete-vault.mjs';
 import { applyScopeFilterToNotes as applyScopeFilter } from './lib/scope-filter.mjs';
+import { materializeListFrontmatter } from './gateway/note-facets.mjs';
 import {
   readEvaluatorMayApprove,
   writeEvaluatorMayApprove,
@@ -835,6 +836,86 @@ app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
   } catch (e) {
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     res.status(404).json({ error: e.message || 'Note not found', code: 'NOT_FOUND' });
+  }
+});
+
+// POST /api/v1/notes/copy — copy or move one note between vaults (editor/admin; multi-vault). Overwrites target path if it exists.
+app.post('/api/v1/notes/copy', requireRole('editor', 'admin'), (req, res) => {
+  const body = req.body || {};
+  const fromVault = typeof body.from_vault_id === 'string' ? body.from_vault_id.replace(/\\/g, '/').trim() : '';
+  const toVault = typeof body.to_vault_id === 'string' ? body.to_vault_id.replace(/\\/g, '/').trim() : '';
+  const rawPath = typeof body.path === 'string' ? body.path.replace(/\\/g, '/').trim() : '';
+  const deleteSource = body.delete_source === true;
+  if (!fromVault || !toVault || !rawPath || rawPath.includes('..') || rawPath.startsWith('/')) {
+    return res.status(400).json({
+      error: 'from_vault_id, to_vault_id, and path are required (vault-relative path)',
+      code: 'BAD_REQUEST',
+    });
+  }
+  if (fromVault === toVault) {
+    return res.status(400).json({ error: 'from_vault_id and to_vault_id must differ', code: 'BAD_REQUEST' });
+  }
+  const allowed = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+  if (!allowed.includes(fromVault) || !allowed.includes(toVault)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  const fromPath = config.resolveVaultPath(fromVault);
+  const toPath = config.resolveVaultPath(toVault);
+  if (!fromPath || !toPath) {
+    return res.status(404).json({ error: 'Vault not found.', code: 'NOT_FOUND' });
+  }
+  try {
+    resolveVaultRelativePath(fromPath, rawPath);
+    const note = readNote(fromPath, rawPath);
+    const scopeFrom = getScopeForUserVault(config.data_dir, req.user?.sub ?? '', fromVault);
+    if (scopeFrom && (scopeFrom.projects?.length || scopeFrom.folders?.length)) {
+      const withProj = {
+        path: note.path,
+        project: materializeListFrontmatter(note.frontmatter).project ?? null,
+      };
+      const filtered = applyScopeFilter([withProj], scopeFrom);
+      if (filtered.length === 0) {
+        return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+      }
+    }
+    const sub = req.user?.sub ?? '';
+    const baseFm =
+      typeof note.frontmatter === 'object' && note.frontmatter && !Array.isArray(note.frontmatter)
+        ? { ...note.frontmatter }
+        : {};
+    const fm = mergeProvenanceFrontmatter(baseFm, { sub: sub || null, kind: 'human' });
+    writeNote(toPath, note.path, { body: note.body, frontmatter: fm });
+    invalidateFacetsCache();
+    maybeAutoSync({ ...config, vault_path: toPath });
+    fireCaptureEvent('write', { path: note.path, action: 'write' }, config, toVault);
+    if (deleteSource) {
+      try {
+        deleteNote(fromPath, note.path);
+      } catch (e) {
+        return res.status(502).json({
+          error: 'Note was copied to the target vault but deleting the source failed.',
+          code: 'DELETE_FAILED',
+        });
+      }
+      invalidateFacetsCache();
+      maybeAutoSync({ ...config, vault_path: fromPath });
+      fireCaptureEvent('write', { path: note.path, action: 'delete' }, config, fromVault);
+    }
+    res.json({
+      ok: true,
+      path: note.path,
+      from_vault_id: fromVault,
+      to_vault_id: toVault,
+      moved: deleteSource,
+    });
+  } catch (e) {
+    if (e.message && e.message.includes('not found')) {
+      return res.status(404).json({ error: e.message, code: 'NOT_FOUND' });
+    }
+    if (e.message && e.message.includes('Invalid path')) {
+      return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
+    }
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });
 

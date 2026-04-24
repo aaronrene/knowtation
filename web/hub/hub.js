@@ -638,6 +638,13 @@
     return r === 'editor' || r === 'admin' || r === 'member' || r === 'evaluator';
   }
 
+  /** Multi-vault copy/move in note detail (Settings must list ≥2 allowed vaults). */
+  function hubHasMultipleVaultsForCopy() {
+    const s = lastBackupSettingsPayload;
+    if (!s || !Array.isArray(s.allowed_vault_ids)) return false;
+    return s.allowed_vault_ids.filter(Boolean).length >= 2;
+  }
+
   function hubUserIsAdmin() {
     return window.__hubUserRole === 'admin';
   }
@@ -6845,7 +6852,156 @@
     exportBtn.type = 'button';
     exportBtn.textContent = 'Export';
     exportBtn.onclick = () => exportCurrentNote('md');
-    actionsEl.append(editBtn, proposeBtn, delBtn, exportBtn);
+    if (hubHasMultipleVaultsForCopy()) {
+      const copyVaultBtn = document.createElement('button');
+      copyVaultBtn.type = 'button';
+      copyVaultBtn.textContent = 'Copy to vault…';
+      copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
+      actionsEl.append(editBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
+    } else {
+      actionsEl.append(editBtn, proposeBtn, delBtn, exportBtn);
+    }
+  }
+
+  function openCopyNoteToVaultModal() {
+    if (!currentOpenNote || !token) return;
+    if (!hubHasMultipleVaultsForCopy()) {
+      if (typeof showToast === 'function') showToast('At least two vaults are required.', true);
+      return;
+    }
+    const existing = document.getElementById('modal-copy-note-vault');
+    if (existing) existing.remove();
+    const s = lastBackupSettingsPayload;
+    const allowed = new Set((s.allowed_vault_ids || []).map(String));
+    const vaultList = (s.vault_list || []).filter((v) => v && v.id != null && allowed.has(String(v.id)));
+    const fromId = String(getCurrentVaultId() || 'default');
+    const targets = vaultList.filter((v) => String(v.id) !== fromId);
+    if (targets.length === 0) {
+      if (typeof showToast === 'function') showToast('No other vaults available to copy into.', true);
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.id = 'modal-copy-note-vault';
+    wrap.className = 'modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-label', 'Copy note to another vault');
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '480px';
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    const h2 = document.createElement('h2');
+    h2.textContent = 'Copy to vault';
+    const btnClose = document.createElement('button');
+    btnClose.type = 'button';
+    btnClose.className = 'modal-close';
+    btnClose.textContent = '×';
+    btnClose.setAttribute('aria-label', 'Close');
+    header.appendChild(h2);
+    header.appendChild(btnClose);
+    const body = document.createElement('div');
+    body.style.padding = '1rem 1.25rem';
+    const lbl = document.createElement('label');
+    lbl.className = 'detail-field-label';
+    lbl.textContent = 'Target vault';
+    lbl.setAttribute('for', 'copy-note-vault-select');
+    const sel = document.createElement('select');
+    sel.id = 'copy-note-vault-select';
+    sel.className = 'vault-switcher-select';
+    sel.style.width = '100%';
+    sel.style.marginTop = '0.35rem';
+    for (const v of targets) {
+      const id = String(v.id);
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = v.label != null && String(v.label).trim() !== '' ? String(v.label) : id;
+      sel.appendChild(opt);
+    }
+    const moveRow = document.createElement('label');
+    moveRow.style.display = 'flex';
+    moveRow.style.alignItems = 'center';
+    moveRow.style.gap = '0.5rem';
+    moveRow.style.marginTop = '1rem';
+    moveRow.style.cursor = 'pointer';
+    const moveChk = document.createElement('input');
+    moveChk.type = 'checkbox';
+    moveChk.id = 'copy-note-delete-source';
+    const moveSpan = document.createElement('span');
+    moveSpan.textContent = 'Delete from this vault (move)';
+    moveRow.appendChild(moveChk);
+    moveRow.appendChild(moveSpan);
+    const hint = document.createElement('p');
+    hint.className = 'muted small';
+    hint.style.marginTop = '0.75rem';
+    hint.style.fontSize = '0.85rem';
+    hint.textContent =
+      'If a note with the same path exists in the target vault, it will be overwritten. On hosted, semantic search catches up after re-index (started automatically).';
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.justifyContent = 'flex-end';
+    actions.style.gap = '0.5rem';
+    actions.style.marginTop = '1.25rem';
+    const btnCancel = document.createElement('button');
+    btnCancel.type = 'button';
+    btnCancel.className = 'btn-secondary';
+    btnCancel.textContent = 'Cancel';
+    const btnGo = document.createElement('button');
+    btnGo.type = 'button';
+    btnGo.className = 'btn-primary';
+    btnGo.textContent = 'Copy';
+    actions.appendChild(btnCancel);
+    actions.appendChild(btnGo);
+    body.appendChild(lbl);
+    body.appendChild(sel);
+    body.appendChild(moveRow);
+    body.appendChild(hint);
+    body.appendChild(actions);
+    card.appendChild(header);
+    card.appendChild(body);
+    wrap.appendChild(backdrop);
+    wrap.appendChild(card);
+    function close() {
+      wrap.remove();
+    }
+    backdrop.onclick = close;
+    btnClose.onclick = close;
+    btnCancel.onclick = close;
+    btnGo.onclick = async () => {
+      const toId = sel.value;
+      if (!toId || !currentOpenNote) return;
+      await withButtonBusy(btnGo, 'Copying…', async () => {
+        try {
+          const res = await api('/api/v1/notes/copy', {
+            method: 'POST',
+            body: JSON.stringify({
+              from_vault_id: fromId,
+              to_vault_id: toId,
+              path: currentOpenNote.path,
+              delete_source: moveChk.checked,
+            }),
+          });
+          close();
+          if (typeof showToast === 'function') {
+            showToast(res.moved ? 'Note moved to ' + toId : 'Note copied to ' + toId);
+          }
+          if (res.moved) {
+            currentOpenNote = null;
+            currentNotePathForCopy = '';
+            hideDetailPanelChrome();
+            const bcp = el('btn-copy-path');
+            if (bcp) bcp.classList.add('hidden');
+            loadNotes();
+            loadFacets();
+          }
+        } catch (e) {
+          if (typeof showToast === 'function') showToast(e.message || String(e), true);
+        }
+      });
+    };
+    document.body.appendChild(wrap);
   }
 
   async function exportCurrentNote(format) {

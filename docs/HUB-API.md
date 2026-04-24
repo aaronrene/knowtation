@@ -105,6 +105,15 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **400** if path invalid; **404** if note not found.  
   **Hosted:** the gateway implements this (fetch note from the canister, then build Markdown/HTML) because the ICP canister’s **`GET /api/v1/export`** is a full-vault JSON export, not a single-file download; a bare **POST** to the canister would return **404**.
 
+- **POST /notes/copy** — Copy or move a **single** note from one vault to another for the same user/team (editor/admin; **viewer** denied). Body: `{ "from_vault_id": string, "to_vault_id": string, "path": string, "delete_source"?: boolean }`.  
+  **`path`** is vault-relative (same as GET/POST note). **`delete_source: true`** performs a **move**: after a successful write to the target vault, the source note is deleted.  
+  **Access:** `from_vault_id` and `to_vault_id` must both appear in the session **`allowed_vault_ids`** (hosted: bridge `hosted-context`; self-hosted: `hub_vault_access` / defaults).  
+  **Conflicts:** If `path` already exists in the target vault, the operation **overwrites** that note (same semantics as `POST /notes`).  
+  **Response (success):** `{ "ok": true, "path", "from_vault_id", "to_vault_id", "moved": boolean }`.  
+  **400** if vault ids match, path invalid, or body incomplete; **403** if role or vault access fails; **404** if source note not found or outside scope; **502** with **`DELETE_FAILED`** if the copy succeeded but source delete failed (move).  
+  **Hosted:** implemented on the **gateway** (GET source note from canister → POST to target → optional DELETE); not a native canister multi-vault call. After success, the gateway triggers **Re-index** on the bridge for the target vault and, when moving, the source vault (asynchronous; same expectation as other hosted writes for semantic search).  
+  **Self-hosted:** Node Hub reads/writes filesystem vaults on disk (`hub/server.mjs`).
+
 - **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types include `markdown`, `pdf`, `docx`, `url`, `chatgpt-export`, `claude-export`, `mif`, `mem0-export`, `supabase-memory`, `notion`, `jira-export`, `notebooklm`, `gdrive`, `linear-export`, `audio`, `video`, `wallet-csv` (see `lib/import-source-types.mjs`). If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export). For **`pdf`**, upload a single `.pdf` file (not a ZIP). For **`docx`**, upload a single `.docx` file (Office Open XML; not legacy `.doc`).  
   After import, the Hub runs a **provenance pass** on each imported path (`author_kind: import`, editor `sub`).  
   **Response:** `{ "imported": [ { "path", "source_id?" } ], "count": number }`.  

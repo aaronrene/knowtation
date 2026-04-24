@@ -24,6 +24,7 @@ function operationFromRequest(method, req) {
   if (method === 'POST' && path.endsWith('/index')) return 'index';
   if (method === 'POST' && /\/memory\/consolidate\/?$/.test(path)) return 'consolidation';
   if (method === 'POST' && /\/api\/v1\/notes\/?$/.test(path)) return 'note_write';
+  if (method === 'POST' && /\/api\/v1\/notes\/copy\/?$/.test(path)) return 'note_write';
   if (method === 'POST' && /\/api\/v1\/notes\/delete-by-prefix\/?$/.test(path)) return 'note_write';
   if (method === 'POST' && /\/api\/v1\/notes\/delete-by-project\/?$/.test(path)) return 'note_write';
   if (method === 'POST' && /\/api\/v1\/notes\/rename-project\/?$/.test(path)) return 'note_write';
@@ -40,12 +41,12 @@ function operationFromRequest(method, req) {
 }
 
 /**
- * Returns true if the request is a note CREATE (POST /api/v1/notes), which is the only operation
- * that increases note count and needs the storage cap check.
+ * POST /api/v1/notes or POST /api/v1/notes/copy — storage cap uses target vault; getNoteCount reads to_vault_id from body for copy.
  */
 function isNoteCreate(method, req) {
-  const path = effectiveRequestPath(req);
-  return method === 'POST' && /\/api\/v1\/notes\/?$/.test(path);
+  const path = (effectiveRequestPath(req) || '/').replace(/\/+$/, '') || '/';
+  if (method !== 'POST') return false;
+  return path === '/api/v1/notes' || path === '/api/v1/notes/copy';
 }
 
 /**
