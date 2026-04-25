@@ -5,6 +5,7 @@
 
 import { completeChat } from '../../lib/llm-complete.mjs';
 import { validateAndNormalizeEnrichResult, serializeSuggestedFrontmatterJson } from '../../lib/proposal-enrich-llm.mjs';
+import { canisterAuthHeaders } from './canister-auth-headers.mjs';
 
 function miniLlmConfig() {
   return {
@@ -55,6 +56,7 @@ export async function runHostedProposalEnrichAndPost(opts) {
     'x-user-id': effectiveUserId,
     'x-actor-id': actorUserId,
     'x-vault-id': vaultId,
+    ...canisterAuthHeaders(),
   };
   let getRes;
   try {
@@ -63,7 +65,13 @@ export async function runHostedProposalEnrichAndPost(opts) {
     return { ok: false, status: 502, code: 'UPSTREAM', detail: `fetch: ${e?.message || String(e)}` };
   }
   if (!getRes.ok) {
-    return { ok: false, status: getRes.status === 404 ? 404 : 502, code: 'UPSTREAM' };
+    const t = await getRes.text().catch(() => '');
+    return {
+      ok: false,
+      status: getRes.status === 404 ? 404 : 502,
+      code: 'UPSTREAM',
+      detail: t ? t.slice(0, 500) : undefined,
+    };
   }
   let p;
   try {

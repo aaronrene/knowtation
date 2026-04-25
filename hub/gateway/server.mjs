@@ -57,6 +57,7 @@ import {
   fetchMuseProxiedGet,
 } from '../../lib/muse-thin-bridge.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
+import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -116,8 +117,7 @@ function roleForSub(sub) {
 }
 
 function canisterAuthHeaders() {
-  if (!CANISTER_AUTH_SECRET) return {};
-  return { 'x-gateway-auth': CANISTER_AUTH_SECRET };
+  return canisterAuthHeadersFromEnv();
 }
 
 passport.serializeUser((user, done) => done(null, user));
