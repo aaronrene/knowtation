@@ -3,7 +3,8 @@
   --bg: #0a192f;
   --surface: #0d2138;
   --border: #2a3f5c;
-  --text: #fafafa;
+  /* Primary copy: off-white (slightly grayer than pure #fafafa) to ease contrast on dark surfaces */
+  --text: color-mix(in srgb, #fafafa 97%, #9a9a9a 3%);
   --muted: #a1a1a1;
   --accent: #89cff0;
   --accent-dim: rgba(137, 207, 240, 0.18);
@@ -35,7 +36,7 @@ html[data-palette="ocean"]:not([data-theme="light"]) {
   --bg: #0a0f1a;
   --surface: #111b2e;
   --border: #2a4f6e;
-  --text: #e8f0ff;
+  --text: color-mix(in srgb, #e8f0ff 97%, #9a9a9a 3%);
   --muted: #6b8fb3;
 }
 html[data-theme="light"][data-palette="ocean"] {
@@ -49,7 +50,7 @@ html[data-palette="forest"]:not([data-theme="light"]) {
   --bg: #0a120f;
   --surface: #131f1a;
   --border: #2a4f42;
-  --text: #e8f5ef;
+  --text: color-mix(in srgb, #e8f5ef 97%, #9a9a9a 3%);
   --muted: #6b9a7f;
 }
 html[data-theme="light"][data-palette="forest"] {
@@ -63,7 +64,7 @@ html[data-palette="sunset"]:not([data-theme="light"]) {
   --bg: #140d0d;
   --surface: #1f1412;
   --border: #4f3a30;
-  --text: #fff0ea;
+  --text: color-mix(in srgb, #fff0ea 97%, #9a9a9a 3%);
   --muted: #c48b7a;
 }
 html[data-theme="light"][data-palette="sunset"] {
@@ -77,7 +78,7 @@ html[data-palette="lavender"]:not([data-theme="light"]) {
   --bg: #100d14;
   --surface: #181222;
   --border: #3f3552;
-  --text: #f3edff;
+  --text: color-mix(in srgb, #f3edff 97%, #9a9a9a 3%);
   --muted: #9b8bb8;
 }
 html[data-theme="light"][data-palette="lavender"] {
@@ -91,7 +92,7 @@ html[data-palette="ember"]:not([data-theme="light"]) {
   --bg: #120a08;
   --surface: #1e110c;
   --border: #4f3628;
-  --text: #ffe8dc;
+  --text: color-mix(in srgb, #ffe8dc 97%, #9a9a9a 3%);
   --muted: #c9856a;
 }
 html[data-theme="light"][data-palette="ember"] {
@@ -105,7 +106,7 @@ html[data-palette="arctic"]:not([data-theme="light"]) {
   --bg: #0c1014;
   --surface: #131a20;
   --border: #344452;
-  --text: #eef5fa;
+  --text: color-mix(in srgb, #eef5fa 97%, #9a9a9a 3%);
   --muted: #7a95ab;
 }
 html[data-theme="light"][data-palette="arctic"] {
@@ -119,7 +120,7 @@ html[data-palette="slate"]:not([data-theme="light"]) {
   --bg: #0c0e12;
   --surface: #151922;
   --border: #3a4352;
-  --text: #eef1f7;
+  --text: color-mix(in srgb, #eef1f7 97%, #9a9a9a 3%);
   --muted: #8892a6;
 }
 html[data-theme="light"][data-palette="slate"] {
@@ -133,7 +134,7 @@ html[data-palette="midnight"]:not([data-theme="light"]) {
   --bg: #080a18;
   --surface: #101428;
   --border: #2e345a;
-  --text: #eae8ff;
+  --text: color-mix(in srgb, #eae8ff 97%, #9a9a9a 3%);
   --muted: #8b87c4;
 }
 html[data-theme="light"][data-palette="midnight"] {
@@ -147,7 +148,7 @@ html[data-palette="sakura"]:not([data-theme="light"]) {
   --bg: #120e11;
   --surface: #1a1418;
   --border: #4c3a46;
-  --text: #ffeaf2;
+  --text: color-mix(in srgb, #ffeaf2 97%, #9a9a9a 3%);
   --muted: #c49aaa;
 }
 html[data-theme="light"][data-palette="sakura"] {
@@ -161,7 +162,7 @@ html[data-palette="sand"]:not([data-theme="light"]) {
   --bg: #100e0c;
   --surface: #1a1714;
   --border: #4c463a;
-  --text: #f5efe6;
+  --text: color-mix(in srgb, #f5efe6 97%, #9a9a9a 3%);
   --muted: #b8a892;
 }
 html[data-theme="light"][data-palette="sand"] {
@@ -175,7 +176,7 @@ html[data-palette="mint"]:not([data-theme="light"]) {
   --bg: #0a1211;
   --surface: #121d1c;
   --border: #2e4a46;
-  --text: #e6fff9;
+  --text: color-mix(in srgb, #e6fff9 97%, #9a9a9a 3%);
   --muted: #6ab5a8;
 }
 html[data-theme="light"][data-palette="mint"] {
@@ -210,6 +211,102 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
 .btn-new-note:hover { filter: brightness(1.08); border-color: #4ade80; }
 .btn-secondary { background: var(--surface); }
 .btn-primary { background: var(--accent); color: var(--cta-on-accent); border-color: var(--accent); font-weight: 600; }
+
+/*
+ * Header nav: 35%/65% border/accent. Search: same stroke; borders ~20% less bright (mix header-equivalent 80% + black 20%).
+ */
+.hub-header .btn-secondary {
+  /* +1px vs search section / browse row (1.3px) so header nav reads slightly heavier */
+  border-width: 2.3px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--border) 35%, var(--accent) 65%);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.hub-header .btn-secondary:hover {
+  border-color: color-mix(in srgb, var(--accent) 82%, white 18%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 48%, transparent);
+  filter: brightness(1.12);
+}
+.hub-header .btn-secondary:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 82%, white 18%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 48%, transparent);
+  filter: brightness(1.12);
+  outline: none;
+}
+.hub-header .btn-secondary:active {
+  filter: brightness(1.02);
+  box-shadow: none;
+}
+
+/* Search: 1.3px stroke; borders dimmer than header (20% mix toward black = lower luminance) */
+.search-section .search-row-filters input[type="text"],
+.search-section .search-row-filters select,
+.search-section .search-row-dates-actions input[type="date"],
+.search-section .search-row-dates-actions .btn-secondary {
+  border-width: 1.3px;
+  border-style: solid;
+  border-color: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--border) 35%, var(--accent) 65%) 80%,
+    black 20%
+  );
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.search-section .search-row-dates-actions .btn-secondary:hover,
+.search-section .search-row-dates-actions .btn-secondary:focus-visible {
+  border-color: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--accent) 82%, white 18%) 80%,
+    black 20%
+  );
+  box-shadow: 0 0 0 1px
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--accent) 48%, transparent) 80%,
+      black 20%
+    );
+  filter: brightness(1.12);
+  outline: none;
+}
+.search-section .search-row-dates-actions .btn-secondary:active {
+  filter: brightness(1.02);
+  box-shadow: none;
+}
+/* Search fields: hover/focus — dimmer than header; no brightness filter on inputs */
+.search-section .search-row-filters input[type="text"]:hover,
+.search-section .search-row-filters select:hover,
+.search-section .search-row-dates-actions input[type="date"]:hover,
+.search-section .search-row-filters input[type="text"]:focus-visible,
+.search-section .search-row-filters select:focus-visible,
+.search-section .search-row-dates-actions input[type="date"]:focus-visible {
+  border-color: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--accent) 82%, white 18%) 80%,
+    black 20%
+  );
+  box-shadow: 0 0 0 1px
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--accent) 48%, transparent) 80%,
+      black 20%
+    );
+  outline: none;
+}
+
+/* Browse + proposal filters: outlined controls — slightly stronger than base button (not search row) */
+.browse-toolbar .view-tab,
+.browse-toolbar .presets-row button,
+.proposal-list-filters .btn-secondary {
+  border-width: 1.1px;
+  border-color: color-mix(in srgb, var(--border) 90%, var(--accent) 10%);
+}
+.browse-toolbar .view-tab:hover {
+  border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
+}
+.browse-toolbar .presets-row button:hover,
+.proposal-list-filters .btn-secondary:hover {
+  border-color: color-mix(in srgb, var(--border) 75%, var(--accent) 25%);
+}
 .btn-primary:hover:not(:disabled):not(.btn-busy) {
   filter: brightness(1.1);
   border-color: var(--accent);
@@ -279,7 +376,7 @@ button.btn-new-note.btn-busy::after {
   min-width: 200px;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  /* border: unified with .hub-header .btn-secondary (see block above) */
   background: var(--surface);
   color: var(--text);
 }
@@ -322,15 +419,21 @@ input[type="date"]::-moz-calendar-picker-indicator {
   mask-repeat: no-repeat;
   mask-position: center;
 }
-.search-section select {
+.search-section .search-row-filters select {
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  /* border: unified with header (see .hub-header .btn-secondary block) */
   background: var(--surface);
   color: var(--text);
 }
 .search-section .filter-date-label { font-size: 0.8rem; color: var(--muted); margin-right: 0.2rem; }
-.search-section input[type="date"] { padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.search-section .search-row-dates-actions input[type="date"] {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  /* border: unified with header */
+  background: var(--surface);
+  color: var(--text);
+}
 .search-section .search-hint { margin: 0.25rem 0 0; line-height: 1.45; max-width: 72rem; }
 .browse-key-wrap {
   display: inline-flex;
@@ -359,7 +462,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.35rem;
   cursor: pointer;
   user-select: none;
   padding: 0.2rem 0.25rem;
@@ -399,6 +502,9 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .search-key-icon {
   display: block;
   flex-shrink: 0;
+  width: 31px;
+  height: 31px;
+  /* 30% smaller than 44px (~1.4× original 22px) */
 }
 .search-key-body {
   margin: 0.5rem 0 0;
@@ -2272,7 +2378,8 @@ input[readonly]#full-project {
   border-radius: 5px;
   cursor: pointer;
   background: var(--accent);
-  color: #fff;
+  /* Slightly off-pure-white on accent (matches softened primary text intent) */
+  color: #f2f2f2;
   border: none;
   transition: opacity 0.15s;
 }

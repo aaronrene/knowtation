@@ -47,6 +47,8 @@
     if (s === '') return '';
     return s.replace(/\/$/, '');
   })();
+  /** Canonical doc: where Hub token, REST, remote MCP, and local CLI differ (copy blocks point here). */
+  const INTEGRATION_DOC_URL = 'https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md';
   const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
   /** Used to defer onboarding until invite consume has run (see scheduleMaybeShowOnboardingWizard). */
   const pageLoadHadInviteQuery = Boolean(params.get('invite'));
@@ -1209,8 +1211,14 @@
     } else {
       oauthNotConfigured.classList.add('hidden');
       if (loginIntro) loginIntro.classList.remove('hidden');
-      if (providers.google) btnLoginGoogle.classList.remove('hidden');
-      if (providers.github) btnLoginGithub.classList.remove('hidden');
+      // Do not show header OAuth buttons when already signed in; initProviders runs async after showMain().
+      const loggedIn =
+        Boolean(token) ||
+        (typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('hub_token')));
+      if (!loggedIn) {
+        if (providers.google) btnLoginGoogle.classList.remove('hidden');
+        if (providers.github) btnLoginGithub.classList.remove('hidden');
+      }
     }
   }
 
@@ -2896,7 +2904,7 @@
           labels: topProjects.map((x) => x[0]),
           datasets: [{ label: 'Notes', data: topProjects.map((x) => x[1]), backgroundColor: 'rgba(137, 207, 240, 0.5)', borderColor: '#89cff0' }],
         },
-        options: { ...commonOpts, plugins: { ...commonOpts.plugins, title: { display: true, text: 'By project', color: '#fafafa' } } },
+        options: { ...commonOpts, plugins: { ...commonOpts.plugins, title: { display: true, text: 'By project', color: '#ebebeb' } } },
       })
     );
 
@@ -2908,7 +2916,7 @@
           labels: topTags.map((x) => x[0]),
           datasets: [{ data: topTags.map((x) => x[1]), backgroundColor: ['#89cff0', '#22c55e', '#a78bfa', '#f472b6', '#fb923c', '#6b9dc4', '#4ade80', '#c084fc'] }],
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a1a1a1' } }, title: { display: true, text: 'Top tags', color: '#fafafa' } } },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a1a1a1' } }, title: { display: true, text: 'Top tags', color: '#ebebeb' } } },
       })
     );
 
@@ -2920,7 +2928,7 @@
           labels: weeks,
           datasets: [{ label: 'Notes per month', data: weeks.map((w) => byWeek[w]), borderColor: '#89cff0', backgroundColor: 'rgba(137, 207, 240, 0.1)', fill: true, tension: 0.2 }],
         },
-        options: { ...commonOpts, plugins: { ...commonOpts.plugins, title: { display: true, text: 'By month (note date)', color: '#fafafa' } } },
+        options: { ...commonOpts, plugins: { ...commonOpts.plugins, title: { display: true, text: 'By month (note date)', color: '#ebebeb' } } },
       })
     );
   }
@@ -4081,16 +4089,12 @@
       const base = String(apiBase || '').replace(/\/$/, '');
       const vaultId = getCurrentVaultId() || 'default';
       const msg = el('integrations-hub-api-copy-msg');
-      const mcpLine =
-        mcpPublicUrl !== ''
-          ? 'Use your copied KNOWTATION_MCP_URL (or this URL) as the MCP client "url", not necessarily KNOWTATION_HUB_URL + /mcp — serverless gateway hosts do not run stateful /mcp. Send Authorization: Bearer <same token as hub> and X-Vault-Id. '
-          : 'If your operator set KNOWTATION_MCP_URL in the full copy block, use that for the MCP client "url" when the gateway is serverless. Otherwise self-hosted same-origin can use {KNOWTATION_HUB_URL}/mcp when the Node gateway mounts it. ';
       const payload = {
         schema: 'knowtation.hub_copy_prime/v1',
         mcp_read_resource_uri: 'knowtation://hosted/prime',
         instructions:
-          mcpLine +
-          'After connect, resources/read mcp_read_resource_uri for vault partition, role, and prompt names for this session — no JWT in this blob. See docs/AGENT-INTEGRATION.md.',
+          'Non-secret snapshot (no JWT): gateway URL, optional KNOWTATION_MCP_URL, vault id. For secrets and which URL to use for REST vs MCP vs local CLI, use "Copy Hub URL, token & vault" and read ' +
+          INTEGRATION_DOC_URL,
         KNOWTATION_HUB_URL: base,
         KNOWTATION_HUB_VAULT_ID: vaultId,
         ...(mcpPublicUrl !== '' ? { KNOWTATION_MCP_URL: mcpPublicUrl } : {}),
@@ -4136,24 +4140,17 @@
         'KNOWTATION_HUB_URL=' + base,
         'KNOWTATION_HUB_TOKEN=' + hubTok,
         'KNOWTATION_HUB_VAULT_ID=' + vaultId,
-        '#',
-        '# Hub REST API (scripts, curl, OpenAPI clients): use KNOWTATION_HUB_URL — paths are /api/v1/...',
-        '# The token is the raw JWT. In HTTP, always send: Authorization: Bearer <token> (the word Bearer, a space, then the token).',
       ];
       if (mcpPublicUrl !== '') {
         copyLines.push('KNOWTATION_MCP_URL=' + mcpPublicUrl);
-        copyLines.push(
-          '# Remote MCP (Cursor, Claude HTTP, etc.): set the client "url" to KNOWTATION_MCP_URL. Do not use KNOWTATION_HUB_URL for /mcp on serverless Netlify; it does not host stateful MCP. Same headers: Authorization: Bearer $KNOWTATION_HUB_TOKEN and X-Vault-Id: $KNOWTATION_HUB_VAULT_ID'
-        );
-      } else {
-        copyLines.push(
-          '# Optional remote MCP URL: if your operator provides a dedicated MCP host, they set window.HUB_MCP_PUBLIC_URL in web/hub/config.js (see repository docs) so the next copy includes KNOWTATION_MCP_URL. Self‑hosted Node Hub often uses ' +
-            base +
-            '/mcp on the same process.'
-        );
       }
+      copyLines.push('');
+      copyLines.push('# Use with Hub REST, remote MCP, and local CLI: ' + INTEGRATION_DOC_URL);
       copyLines.push(
-        '# Example curl: add  -H "Authorization: Bearer $KNOWTATION_HUB_TOKEN"  -H "Content-Type: application/json"  -H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"'
+        '# Example curl (append these headers to any Hub REST call): ' +
+          '-H "Authorization: Bearer $KNOWTATION_HUB_TOKEN" ' +
+          '-H "Content-Type: application/json" ' +
+          '-H "X-Vault-Id: $KNOWTATION_HUB_VAULT_ID"'
       );
       const snippet = copyLines.join('\n');
       if (navigator.clipboard && navigator.clipboard.writeText) {

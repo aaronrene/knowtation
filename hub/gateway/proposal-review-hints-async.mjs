@@ -4,6 +4,7 @@
  */
 
 import { completeChat } from '../../lib/llm-complete.mjs';
+import { canisterAuthHeaders } from './canister-auth-headers.mjs';
 
 /**
  * Run LLM review hints inline (before response is sent), bounded by a deadline.
@@ -90,6 +91,7 @@ export async function runHostedProposalReviewHintsJob({
     'x-user-id': effectiveUserId,
     'x-actor-id': actorUserId,
     'x-vault-id': vaultId,
+    ...canisterAuthHeaders(),
   };
   const miniConfig = {
     embedding: { ollama_url: process.env.OLLAMA_URL },
@@ -108,11 +110,12 @@ export async function runHostedProposalReviewHintsJob({
       return { ok: false, status: 502, code: 'UPSTREAM', detail: `fetch: ${e?.message || String(e)}` };
     }
     if (!getRes.ok) {
+      const t = await getRes.text().catch(() => '');
       return {
         ok: false,
         status: getRes.status === 404 ? 404 : 502,
         code: 'UPSTREAM',
-        detail: `GET proposal ${getRes.status}`,
+        detail: (t && t.slice(0, 500)) || `GET proposal ${getRes.status}`,
       };
     }
     let p;
