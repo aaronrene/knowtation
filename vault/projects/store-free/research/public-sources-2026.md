@@ -31,9 +31,6 @@ depends_on: []
 | Marketing / main site | `https://bornfree.io` | Also `https://www.bornfree.io` — confirm which is primary for external links. |
 | Web app (signed-in experience) | `https://app.bornfree.io` | CORS and production app URL in `bornfree-hub` docs. |
 | Store Free (in-app area) | `https://app.bornfree.io/storefree` | Public path referenced in PWA / Store Free docs. |
-| Technical white paper (HTML, comprehensive) | `https://bornfree.io/whitepaper.html` | Public; same content as `bornfree-pwa/public/whitepaper.md`. |
-| Technical white paper (Markdown) | `https://bornfree.io/whitepaper.md` | Public linkable copy when the GitHub repo is private. |
-| White paper (alias) | `https://bornfree.io/comprehensive-whitepaper.html` | Redirects to the HTML white paper. |
 | PWA / debug (ops) | `https://app.bornfree.io/pwa-debug.html` | For troubleshooting, not standard GTM copy. |
 
 **Last checked:** 2026-04-26 (URLs taken from `bornfree-hub` repo; re-verify in browser before major launch.)
@@ -44,7 +41,7 @@ depends_on: []
 
 | What | URL | Notes |
 |------|-----|--------|
-| Hosted Hub / product | `https://knowtation.store` | Cited in Knowtation `docs/WHITEPAPER.md` and gateway docs. |
+| Hosted Hub / product | `https://knowtation.store` | Product site (separate from Born Free; see Knowtation repo for product docs). |
 
 **Last checked:** 2026-04-26
 
@@ -54,7 +51,7 @@ depends_on: []
 
 | What | Public URL | Vault copy (after you import) |
 |------|------------|---------------------------------|
-| Born Free technical white paper (canonical public) | `https://bornfree.io/whitepaper.html` / `https://bornfree.io/whitepaper.md` | Import the vault copy from the same text as `bornfree-pwa/public/whitepaper.md` (v3.1+). |
+| White paper (Born Free / ecosystem — **add when you import**) | `[ADD public PDF or landing URL]` | See **Imported materials** below — recommended path for the import. |
 
 **Note:** If the only stable artifact is a **file in the vault** (no public URL yet), keep the URL cell as “N/A” and list the vault path as the **internal** source of truth until a public link ships.
 
