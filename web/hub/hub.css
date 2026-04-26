@@ -213,11 +213,12 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
 .btn-primary { background: var(--accent); color: var(--cta-on-accent); border-color: var(--accent); font-weight: 600; }
 
 /*
- * Header nav: 35%/65% border/accent. Search: same stroke; borders ~20% less bright (mix header-equivalent 80% + black 20%).
+ * Header nav: 35%/65% border/accent. Header outline: 1.61px.
+ * Search row matches Save preset (.browse-toolbar .presets-row button): 1.1px, border 90% + accent 10%.
+ * Re-index: 1.3px border (unchanged weight), soft accent fill; Clear/Apply use preset stroke.
  */
 .hub-header .btn-secondary {
-  /* +1px vs search section / browse row (1.3px) so header nav reads slightly heavier */
-  border-width: 2.3px;
+  border-width: 1.61px;
   border-style: solid;
   border-color: color-mix(in srgb, var(--border) 35%, var(--accent) 65%);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
@@ -238,11 +239,22 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   box-shadow: none;
 }
 
-/* Search: 1.3px stroke; borders dimmer than header (20% mix toward black = lower luminance) */
+/* Search: same stroke as Save preset — see .browse-toolbar .presets-row button */
 .search-section .search-row-filters input[type="text"],
 .search-section .search-row-filters select,
 .search-section .search-row-dates-actions input[type="date"],
-.search-section .search-row-dates-actions .btn-secondary {
+.search-section .search-row-dates-actions .btn-secondary:not(#btn-reindex) {
+  border-width: 1.1px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--border) 90%, var(--accent) 10%);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.search-section .btn-inline-field-help {
+  border-width: 1.1px;
+  border-color: color-mix(in srgb, var(--border) 90%, var(--accent) 10%);
+}
+/* Re-index: keep heavier border; soft fill so it reads as a primary maintenance action */
+.search-section .search-row-dates-actions #btn-reindex {
   border-width: 1.3px;
   border-style: solid;
   border-color: color-mix(
@@ -250,46 +262,45 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
     color-mix(in srgb, var(--border) 35%, var(--accent) 65%) 80%,
     black 20%
   );
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface) 88%);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-.search-section .search-row-dates-actions .btn-secondary:hover,
-.search-section .search-row-dates-actions .btn-secondary:focus-visible {
-  border-color: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--accent) 82%, white 18%) 80%,
-    black 20%
-  );
-  box-shadow: 0 0 0 1px
-    color-mix(
-      in srgb,
-      color-mix(in srgb, var(--accent) 48%, transparent) 80%,
-      black 20%
-    );
-  filter: brightness(1.12);
+.search-section .search-row-dates-actions .btn-secondary:not(#btn-reindex):hover,
+.search-section .search-row-dates-actions .btn-secondary:not(#btn-reindex):focus-visible {
+  border-color: color-mix(in srgb, var(--border) 75%, var(--accent) 25%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  filter: none;
   outline: none;
 }
-.search-section .search-row-dates-actions .btn-secondary:active {
-  filter: brightness(1.02);
+.search-section .search-row-dates-actions .btn-secondary:not(#btn-reindex):active {
   box-shadow: none;
 }
-/* Search fields: hover/focus — dimmer than header; no brightness filter on inputs */
+.search-section .search-row-dates-actions #btn-reindex:hover,
+.search-section .search-row-dates-actions #btn-reindex:focus-visible {
+  border-color: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  filter: none;
+  outline: none;
+}
+.search-section .search-row-dates-actions #btn-reindex:active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
+  box-shadow: none;
+}
+/* Search fields: hover/focus — same family as Save preset + presets name input */
 .search-section .search-row-filters input[type="text"]:hover,
 .search-section .search-row-filters select:hover,
 .search-section .search-row-dates-actions input[type="date"]:hover,
 .search-section .search-row-filters input[type="text"]:focus-visible,
 .search-section .search-row-filters select:focus-visible,
 .search-section .search-row-dates-actions input[type="date"]:focus-visible {
-  border-color: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--accent) 82%, white 18%) 80%,
-    black 20%
-  );
-  box-shadow: 0 0 0 1px
-    color-mix(
-      in srgb,
-      color-mix(in srgb, var(--accent) 48%, transparent) 80%,
-      black 20%
-    );
+  border-color: color-mix(in srgb, var(--border) 75%, var(--accent) 25%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+  outline: none;
+}
+.search-section .btn-inline-field-help:hover,
+.search-section .btn-inline-field-help:focus-visible {
+  border-color: color-mix(in srgb, var(--border) 75%, var(--accent) 25%);
   outline: none;
 }
 
@@ -342,7 +353,7 @@ button.btn-new-note.btn-busy::after {
   border-color: rgba(0, 0, 0, 0.22);
   border-top-color: rgba(0, 0, 0, 0.75);
 }
-.btn-provider, #btn-logout { background: var(--accent); color: var(--cta-on-accent); border-color: var(--accent); }
+.btn-provider { background: var(--accent); color: var(--cta-on-accent); border-color: var(--accent); }
 .login-buttons-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .oauth-setup { margin-top: 1.25rem; padding: 1rem 1.25rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
 .oauth-setup code { font-size: 0.85rem; background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 4px; }
@@ -1936,6 +1947,9 @@ input[readonly]#full-project {
 .vault-switcher-label { display: inline-flex; align-items: center; gap: 0.5rem; }
 .vault-switcher-text { font-size: 0.9rem; color: var(--muted); }
 .vault-switcher-select { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; cursor: pointer; }
+.hub-header .vault-switcher-select {
+  border-width: 0.7px;
+}
 
 /* Toast (Re-index, etc.) */
 .toast {
