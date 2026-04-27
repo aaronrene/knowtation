@@ -102,6 +102,15 @@
   const notesTotal = el('notes-total');
   /** True when the last unfiltered browse list (loadNotes, no list filters) returned zero notes. */
   let hubBrowseListEmptyUnfiltered = false;
+  /** Last facets from {@link fetchFacetsResolved} (Hub create panel project pickers + similarity guard). */
+  let lastHubFacets = null;
+  /** Latest `/api/v1/vault/folders` list for subfolder derivation under `projects/<slug>/`. */
+  let lastVaultFoldersForCreate = [];
+  /** After “Keep my path” on similar-project modal, allow one create without re-prompting. */
+  let fullCreateSimilarOverrideOnce = false;
+  let fullCreateSimilarModalSuggestedSlug = '';
+  let fullCreateSimilarModalPendingPath = '';
+  let fullPathSimilarDebounceTimer = 0;
   const filterChipsEl = el('filter-chips');
   const presetsListEl = el('presets-list');
   const presetNameInput = el('preset-name');
@@ -1795,6 +1804,7 @@
       const savedNetwork = filterNetwork ? filterNetwork.value : '';
       const savedWallet = filterWallet ? filterWallet.value : '';
       const facets = await fetchFacetsResolved();
+      lastHubFacets = facets;
       filterProject.innerHTML = '<option value="">All projects</option>' + (facets.projects || []).map((p) => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('');
       filterTag.innerHTML = '<option value="">All tags</option>' + (facets.tags || []).map((t) => '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>').join('');
       filterFolder.innerHTML = '<option value="">All folders</option>' + (facets.folders || []).map((f) => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join('');
@@ -1815,8 +1825,11 @@
         if (wallets.includes(savedWallet)) filterWallet.value = savedWallet;
       }
       renderFilterChips(facets);
+      hydrateFullCreateProjectSlugSelect(facets);
     } catch (_) {
       renderFilterChips(null);
+      lastHubFacets = null;
+      hydrateFullCreateProjectSlugSelect(null);
     }
   }
 
@@ -1847,6 +1860,300 @@
     if (!p) return null;
     if (/^project\//.test(p) && !/^projects\//.test(p)) return p.replace(/^project\//, 'projects/');
     return null;
+  }
+
+  function normalizeProjectKeyForSimilarity(s) {
+    return String(s || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  function levenshteinHub(a, b) {
+    const m = a.length;
+    const n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+    const row = new Array(n + 1);
+    for (let j = 0; j <= n; j++) row[j] = j;
+    for (let i = 1; i <= m; i++) {
+      let prev = row[0];
+      row[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const cur = row[j];
+        const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
+        prev = cur;
+      }
+    }
+    return row[n];
+  }
+
+  /**
+   * If path uses `projects/<slug>/` where <slug> is close-but-not-equal to a facet project, return that facet string.
+   * Exact normSlug match returns null (no warning).
+   */
+  function findSimilarFacetProject(userSlug, projectsArr) {
+    if (!userSlug || !projectsArr || !projectsArr.length) return null;
+    const uNorm = normSlug(String(userSlug));
+    if (!uNorm) return null;
+    for (const p of projectsArr) {
+      if (normSlug(String(p)) === uNorm) return null;
+    }
+    const uCompact = normalizeProjectKeyForSimilarity(userSlug).replace(/-/g, '');
+    let best = null;
+    let bestScore = Infinity;
+    for (const p of projectsArr) {
+      const pv = String(p).trim();
+      if (!pv) continue;
+      const pNorm = normSlug(pv);
+      if (!pNorm) continue;
+      const pCompact = normalizeProjectKeyForSimilarity(pv).replace(/-/g, '');
+      let score = Infinity;
+      if (uCompact.length >= 3 && pCompact.length >= 3 && uCompact === pCompact) score = 0;
+      if (score > 0) {
+        const a = normalizeProjectKeyForSimilarity(userSlug);
+        const b = normalizeProjectKeyForSimilarity(pv);
+        const d = levenshteinHub(a, b);
+        if (d <= 2 && Math.abs(a.length - b.length) <= 3) score = Math.min(score, d + 0.1);
+      }
+      if (score > 0) {
+        const a = normalizeProjectKeyForSimilarity(userSlug);
+        const b = normalizeProjectKeyForSimilarity(pv);
+        const shorter = a.length <= b.length ? a : b;
+        const longer = a.length <= b.length ? b : a;
+        if (shorter.length >= 3 && longer.startsWith(shorter) && longer.length - shorter.length <= 2) {
+          score = Math.min(score, longer.length - shorter.length + 0.5);
+        }
+      }
+      if (score < bestScore) {
+        bestScore = score;
+        best = pv;
+      }
+    }
+    return bestScore < 10 ? best : null;
+  }
+
+  function collectProjectSubroots(slug, folderStrings) {
+    const prefix = 'projects/' + slug.replace(/^\/+|\/+$/g, '') + '/';
+    const subs = new Set();
+    for (const f of folderStrings || []) {
+      if (!f || typeof f !== 'string') continue;
+      const n = f.replace(/\\/g, '/').replace(/\/+$/, '');
+      if (!n.startsWith(prefix)) continue;
+      const rest = n.slice(prefix.length);
+      if (!rest) continue;
+      const first = rest.split('/')[0];
+      if (first) subs.add(first);
+    }
+    return [...subs].sort((a, b) => a.localeCompare(b));
+  }
+
+  function fullCreatePathFilename(pathVal) {
+    const t = String(pathVal || '').trim();
+    const parts = t.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && /\.md$/i.test(last)) return last;
+    return 'note-' + Date.now() + '.md';
+  }
+
+  function mergeFolderStringsForSubroots() {
+    const out = new Set();
+    for (const f of lastVaultFoldersForCreate || []) {
+      if (f && typeof f === 'string') out.add(f.replace(/\\/g, '/').replace(/\/+$/, ''));
+    }
+    for (const f of (lastHubFacets && lastHubFacets.folders) || []) {
+      if (f && typeof f === 'string') out.add(f.replace(/\\/g, '/').replace(/\/+$/, ''));
+    }
+    return [...out];
+  }
+
+  function updateFullCreatePathLayoutVisibility() {
+    const slugSel = el('full-create-project-slug');
+    const subWrap = el('full-create-project-subroot-wrap');
+    const nonProj = el('full-create-nonproject-folder-wrap');
+    const subSel = el('full-create-project-subroot');
+    if (!slugSel) return;
+    const v = slugSel.value;
+    const useProject = v && v !== '__custom__';
+    if (subWrap) subWrap.classList.toggle('hidden', !useProject);
+    if (nonProj) nonProj.classList.toggle('hidden', useProject);
+    if (subSel) subSel.disabled = !useProject;
+  }
+
+  function refreshFullCreateSubrootSelect() {
+    const slugSel = el('full-create-project-slug');
+    const subSel = el('full-create-project-subroot');
+    if (!slugSel || !subSel) return;
+    const slug = slugSel.value;
+    const preserve = subSel.value;
+    if (!slug || slug === '__custom__') {
+      subSel.innerHTML = '';
+      subSel.disabled = true;
+      return;
+    }
+    const subs = collectProjectSubroots(slug, mergeFolderStringsForSubroots());
+    const head = document.createElement('option');
+    head.value = '';
+    head.textContent = subs.length ? '— Project root (no extra folder) —' : '— Type path or add folders —';
+    subSel.innerHTML = '';
+    subSel.appendChild(head);
+    for (const s of subs) {
+      const o = document.createElement('option');
+      o.value = s;
+      o.textContent = s;
+      subSel.appendChild(o);
+    }
+    const custom = document.createElement('option');
+    custom.value = '__custom_sub__';
+    custom.textContent = 'Custom (edit path)';
+    subSel.appendChild(custom);
+    subSel.disabled = false;
+    if (preserve === '__custom_sub__') subSel.value = '__custom_sub__';
+    else if (preserve && subs.includes(preserve)) subSel.value = preserve;
+    else if (subs.includes('inbox')) subSel.value = 'inbox';
+    else if (subs.length === 1) subSel.value = subs[0];
+    else subSel.value = '';
+  }
+
+  function composeFullPathFromCreatePickers() {
+    const slugSel = el('full-create-project-slug');
+    const subSel = el('full-create-project-subroot');
+    const pathInp = el('full-path');
+    if (!slugSel || !pathInp) return;
+    const slugVal = slugSel.value;
+    if (!slugVal || slugVal === '__custom__') return;
+    if (subSel && subSel.value === '__custom_sub__') return;
+    const sub =
+      subSel && subSel.value && subSel.value !== '__custom_sub__' ? String(subSel.value).replace(/^\/+|\/+$/g, '') : '';
+    const fname = fullCreatePathFilename(pathInp.value);
+    const base = sub ? 'projects/' + slugVal + '/' + sub + '/' + fname : 'projects/' + slugVal + '/' + fname;
+    pathInp.value = base;
+  }
+
+  function syncFullCreatePickersFromPath() {
+    const slugSel = el('full-create-project-slug');
+    const subSel = el('full-create-project-subroot');
+    const pathInp = el('full-path');
+    if (!slugSel || !pathInp) return;
+    const raw = pathInp.value.trim();
+    const m = raw.match(/^projects\/([^/]+)\/([\s\S]*)$/);
+    if (!m) {
+      slugSel.value = raw ? '__custom__' : '';
+      refreshFullCreateSubrootSelect();
+      updateFullCreatePathLayoutVisibility();
+      return;
+    }
+    const diskSlug = m[1];
+    const rest = m[2];
+    const projects = (lastHubFacets && lastHubFacets.projects) || [];
+    const match = projects.find((p) => normSlug(String(p)) === normSlug(diskSlug));
+    if (match) slugSel.value = match;
+    else slugSel.value = '__custom__';
+    refreshFullCreateSubrootSelect();
+    if (slugSel.value && slugSel.value !== '__custom__' && subSel) {
+      const segments = rest.split('/').filter(Boolean);
+      const lastSeg = segments[segments.length - 1];
+      const hasFile = lastSeg && /\.md$/i.test(lastSeg);
+      const dirParts = hasFile ? segments.slice(0, -1) : segments.slice();
+      const firstDir = dirParts[0] || '';
+      const allowed = new Set(
+        [...subSel.options].map((o) => o.value).filter((v) => v && v !== '__custom_sub__'),
+      );
+      if (firstDir && allowed.has(firstDir)) subSel.value = firstDir;
+      else if (firstDir) subSel.value = '__custom_sub__';
+      else subSel.value = '';
+    }
+    updateFullCreatePathLayoutVisibility();
+  }
+
+  function hydrateFullCreateProjectSlugSelect(facets) {
+    const sel = el('full-create-project-slug');
+    if (!sel) return;
+    const f = facets && typeof facets === 'object' ? facets : lastHubFacets;
+    const projects = f && Array.isArray(f.projects) ? [...f.projects].filter((p) => p != null && String(p).trim()) : [];
+    const preserve = sel.value;
+    sel.innerHTML =
+      '<option value="">— Not under projects/ —</option>' +
+      projects.map((p) => '<option value="' + escapeHtml(String(p)) + '">' + escapeHtml(String(p)) + '</option>').join('') +
+      '<option value="__custom__">Custom (type full path)</option>';
+    if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
+    refreshFullCreateSubrootSelect();
+    updateFullCreatePathLayoutVisibility();
+  }
+
+  function updateFullCreateSimilarInlineHint() {
+    const hint = el('full-path-similar-hint');
+    const btn = el('btn-full-path-use-similar-project');
+    const pathInp = el('full-path');
+    if (!hint || !pathInp) return;
+    const notePath = pathInp.value.trim();
+    const slug = projectSlugFromProjectsPath(notePath);
+    const similar =
+      slug && (lastHubFacets && lastHubFacets.projects)
+        ? findSimilarFacetProject(slug, lastHubFacets.projects)
+        : null;
+    if (similar && notePath.startsWith('projects/')) {
+      hint.textContent =
+        'A filter project «' + similar + '» looks like a better match than «' + slug + '» in your path. You can fix the path before creating.';
+      hint.className = 'muted small detail-project-hint warn';
+      hint.classList.remove('hidden');
+      if (btn) {
+        btn.classList.remove('hidden');
+        btn.onclick = () => {
+          const fixed = notePath.replace(/^projects\/[^/]+/, 'projects/' + similar);
+          pathInp.value = fixed;
+          syncFolderSelectToPathInput();
+          syncFullCreatePickersFromPath();
+          syncFullProjectFromPath();
+          updateFullPathProjectTypoHint();
+          updateFullCreateSimilarInlineHint();
+        };
+      }
+    } else {
+      hint.textContent = '';
+      hint.className = 'muted small detail-project-hint hidden';
+      hint.classList.add('hidden');
+      if (btn) {
+        btn.classList.add('hidden');
+        btn.onclick = null;
+      }
+    }
+  }
+
+  function scheduleFullCreateSimilarHint() {
+    if (fullPathSimilarDebounceTimer) clearTimeout(fullPathSimilarDebounceTimer);
+    fullPathSimilarDebounceTimer = window.setTimeout(() => {
+      fullPathSimilarDebounceTimer = 0;
+      updateFullCreateSimilarInlineHint();
+    }, 220);
+  }
+
+  function openFullCreateSimilarModal(notePath, suggestedSlug) {
+    const modal = el('modal-create-similar-project');
+    const body = el('modal-create-similar-project-body');
+    if (!modal || !body) return;
+    fullCreateSimilarModalSuggestedSlug = suggestedSlug;
+    fullCreateSimilarModalPendingPath = notePath;
+    const bad = projectSlugFromProjectsPath(notePath) || '…';
+    body.textContent =
+      'Your path starts with projects/' +
+      bad +
+      '/ but an existing project slug is «' +
+      suggestedSlug +
+      '». Use the existing slug so filters and charts stay consistent, or keep your path if you intend a separate folder.';
+    modal.classList.remove('hidden');
+    const focusBtn = el('btn-modal-create-similar-use-existing');
+    if (focusBtn) window.setTimeout(() => focusBtn.focus(), 0);
+  }
+
+  function closeFullCreateSimilarModal() {
+    const modal = el('modal-create-similar-project');
+    if (modal) modal.classList.add('hidden');
+    fullCreateSimilarModalSuggestedSlug = '';
+    fullCreateSimilarModalPendingPath = '';
   }
 
   /** True when any list filter used by loadNotes / Quick chips is set. */
@@ -2935,15 +3242,28 @@
 
   function openCreateModal() {
     closeCreateProposalModal();
+    closeFullCreateSimilarModal();
     hideDetailPanelChrome();
     el('modal-create').classList.remove('hidden');
     el('create-msg-quick').textContent = '';
     el('create-msg-quick').className = 'create-msg';
     el('create-msg-full').textContent = '';
     el('create-msg-full').className = 'create-msg';
-    if (token) void refreshFullPathFolderSelect();
+    fullCreateSimilarOverrideOnce = false;
+    if (token) {
+      void (async () => {
+        await refreshFullPathFolderSelect();
+        if (!lastHubFacets) {
+          try {
+            lastHubFacets = await fetchFacetsResolved();
+          } catch (_) {}
+        }
+        hydrateFullCreateProjectSlugSelect(lastHubFacets);
+      })();
+    }
   }
   function closeCreateModal() {
+    closeFullCreateSimilarModal();
     el('modal-create').classList.add('hidden');
   }
   function closeCreateProposalModal() {
@@ -6398,6 +6718,7 @@
     } catch (_) {
       if (my !== fullPathFolderLoadToken) return;
     }
+    lastVaultFoldersForCreate = folders.slice();
     const preserve = sel.value;
     sel.innerHTML = '';
     for (const f of folders) {
@@ -6412,6 +6733,7 @@
     sel.appendChild(custom);
     if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
     else sel.value = folders[0] || 'inbox';
+    refreshFullCreateSubrootSelect();
   }
 
   function syncFolderSelectToPathInput() {
@@ -6469,7 +6791,9 @@
         fixBtn.onclick = () => {
           pi.value = sug;
           syncFolderSelectToPathInput();
+          syncFullCreatePickersFromPath();
           syncFullProjectFromPath();
+          scheduleFullCreateSimilarHint();
         };
       }
     } else {
@@ -6490,11 +6814,47 @@
       const sel = fullPathFolderEl();
       if (!sel || sel.value === '__custom__') return;
       fullPathInputEl().value = sel.value + '/note-' + Date.now() + '.md';
+      syncFullCreatePickersFromPath();
       syncFullProjectFromPath();
+      updateFullPathProjectTypoHint();
+      scheduleFullCreateSimilarHint();
     });
     fullPathInputEl().addEventListener('input', () => {
       syncFolderSelectToPathInput();
+      syncFullCreatePickersFromPath();
       syncFullProjectFromPath();
+      updateFullPathProjectTypoHint();
+      scheduleFullCreateSimilarHint();
+    });
+    fullPathInputEl().addEventListener('change', () => {
+      syncFullCreatePickersFromPath();
+      updateFullCreateSimilarInlineHint();
+    });
+  }
+
+  const fullCreateProjectSlugEl = el('full-create-project-slug');
+  const fullCreateProjectSubEl = el('full-create-project-subroot');
+  if (fullCreateProjectSlugEl) {
+    fullCreateProjectSlugEl.addEventListener('change', () => {
+      refreshFullCreateSubrootSelect();
+      updateFullCreatePathLayoutVisibility();
+      const v = fullCreateProjectSlugEl.value;
+      const pi = el('full-path');
+      if (v && v !== '__custom__') composeFullPathFromCreatePickers();
+      else if (v === '' && pi && /^projects\//.test(pi.value.trim())) pi.value = defaultFullPath();
+      syncFolderSelectToPathInput();
+      syncFullProjectFromPath();
+      updateFullPathProjectTypoHint();
+      scheduleFullCreateSimilarHint();
+    });
+  }
+  if (fullCreateProjectSubEl) {
+    fullCreateProjectSubEl.addEventListener('change', () => {
+      composeFullPathFromCreatePickers();
+      syncFolderSelectToPathInput();
+      syncFullProjectFromPath();
+      updateFullPathProjectTypoHint();
+      scheduleFullCreateSimilarHint();
     });
   }
 
@@ -6507,12 +6867,22 @@
       el('create-full').classList.toggle('hidden', tab !== 'full');
       if (tab === 'full') {
         if (el('full-date') && !el('full-date').value) el('full-date').value = ymd(new Date());
-        void refreshFullPathFolderSelect().then(() => {
+        void (async () => {
+          await refreshFullPathFolderSelect();
+          if (!lastHubFacets) {
+            try {
+              lastHubFacets = await fetchFacetsResolved();
+            } catch (_) {}
+          }
+          hydrateFullCreateProjectSlugSelect(lastHubFacets);
           const pi = el('full-path');
           if (pi && !pi.value.trim()) pi.value = defaultFullPath();
           else syncFolderSelectToPathInput();
+          syncFullCreatePickersFromPath();
           syncFullProjectFromPath();
-        });
+          updateFullPathProjectTypoHint();
+          updateFullCreateSimilarInlineHint();
+        })();
       }
     };
   });
@@ -6556,7 +6926,7 @@
     });
   };
 
-  el('btn-full-save').onclick = async () => {
+  async function submitFullCreateNote() {
     const fullBtn = el('btn-full-save');
     const notePath = el('full-path').value.trim();
     const pathProjFull = projectSlugFromProjectsPath(notePath);
@@ -6579,6 +6949,17 @@
       msg.className = 'create-msg err';
       return;
     }
+    const slugFromPath = projectSlugFromProjectsPath(notePath);
+    const projectsForSimilar = (lastHubFacets && lastHubFacets.projects) || [];
+    const similarGuess =
+      !fullCreateSimilarOverrideOnce && slugFromPath && notePath.startsWith('projects/')
+        ? findSimilarFacetProject(slugFromPath, projectsForSimilar)
+        : null;
+    if (similarGuess) {
+      openFullCreateSimilarModal(notePath, similarGuess);
+      return;
+    }
+    fullCreateSimilarOverrideOnce = false;
     const title = el('full-title').value.trim();
     const body = el('full-body').value;
     const project = pathProjFull || el('full-project').value.trim();
@@ -6608,7 +6989,9 @@
         void refreshFullPathFolderSelect().then(() => {
           el('full-path').value = defaultFullPath();
           syncFolderSelectToPathInput();
+          syncFullCreatePickersFromPath();
           syncFullProjectFromPath();
+          updateFullCreateSimilarInlineHint();
         });
         el('full-title').value = '';
         el('full-body').value = '';
@@ -6627,7 +7010,45 @@
         msg.className = 'create-msg err';
       }
     });
+  }
+
+  el('btn-full-save').onclick = () => {
+    void submitFullCreateNote();
   };
+
+  const modalSimilarBackdrop = el('modal-create-similar-project-backdrop');
+  const modalSimilarClose = el('modal-create-similar-project-close');
+  const btnSimilarUseExisting = el('btn-modal-create-similar-use-existing');
+  const btnSimilarKeep = el('btn-modal-create-similar-keep');
+  if (modalSimilarBackdrop) modalSimilarBackdrop.onclick = closeFullCreateSimilarModal;
+  if (modalSimilarClose) modalSimilarClose.onclick = closeFullCreateSimilarModal;
+  if (btnSimilarUseExisting) {
+    btnSimilarUseExisting.onclick = () => {
+      const path = fullCreateSimilarModalPendingPath;
+      const slug = fullCreateSimilarModalSuggestedSlug;
+      closeFullCreateSimilarModal();
+      if (path && slug) {
+        const pi = el('full-path');
+        if (pi) {
+          pi.value = path.replace(/^projects\/[^/]+/, 'projects/' + slug);
+          syncFolderSelectToPathInput();
+          syncFullCreatePickersFromPath();
+          syncFullProjectFromPath();
+          updateFullPathProjectTypoHint();
+          updateFullCreateSimilarInlineHint();
+        }
+      }
+      fullCreateSimilarOverrideOnce = false;
+      void submitFullCreateNote();
+    };
+  }
+  if (btnSimilarKeep) {
+    btnSimilarKeep.onclick = () => {
+      closeFullCreateSimilarModal();
+      fullCreateSimilarOverrideOnce = true;
+      void submitFullCreateNote();
+    };
+  }
 
   function formatDetailReadBody(body, fm) {
     const o = fm && typeof fm === 'object' && !Array.isArray(fm) ? fm : {};
@@ -7979,6 +8400,9 @@
         e.preventDefault();
       } else if (el('modal-import') && !el('modal-import').classList.contains('hidden')) {
         closeImportModal();
+        e.preventDefault();
+      } else if (el('modal-create-similar-project') && !el('modal-create-similar-project').classList.contains('hidden')) {
+        closeFullCreateSimilarModal();
         e.preventDefault();
       } else if (el('modal-create-proposal') && !el('modal-create-proposal').classList.contains('hidden')) {
         closeCreateProposalModal();

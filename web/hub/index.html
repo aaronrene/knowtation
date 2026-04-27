@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260425i">
+  <link rel="stylesheet" href="hub.css?v=20260427d">
 </head>
 <body>
   <div id="app">
@@ -21,12 +21,12 @@
         <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
         <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
         <button type="button" id="btn-import" class="hidden btn-secondary">Import</button>
-        <button type="button" id="btn-header-suggested" class="hidden btn-secondary" title="Review proposals waiting for approval">Suggested</button>
+        <button type="button" id="btn-header-suggested" class="hidden btn-primary" title="Review proposals waiting for approval">Suggested</button>
         <span id="user-name" class="muted"></span>
         <span id="login-buttons-wrap" class="login-buttons-wrap hidden"></span>
         <button id="btn-login-google" type="button" class="hidden btn-provider">Continue with Google</button>
         <button id="btn-login-github" type="button" class="hidden btn-provider">Continue with GitHub</button>
-        <button id="btn-logout" type="button" class="hidden">Log out</button>
+        <button id="btn-logout" type="button" class="hidden btn-secondary">Log out</button>
       </div>
     </header>
 
@@ -341,11 +341,11 @@
       </aside>
     </main>
 
-    <div id="modal-create" class="modal hidden" aria-modal="true" role="dialog">
+    <div id="modal-create" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-create-title">
       <div class="modal-backdrop" id="modal-create-backdrop"></div>
       <div class="modal-card">
         <div class="modal-header">
-          <h2>Add to vault</h2>
+          <h2 id="modal-create-title">Add to vault</h2>
           <button type="button" id="modal-create-close" class="modal-close">×</button>
         </div>
         <div class="modal-tabs">
@@ -362,14 +362,28 @@
           <p id="create-msg-quick" class="create-msg"></p>
         </div>
         <div id="create-full" class="create-panel hidden">
-          <label for="full-path-folder">Folder</label>
-          <select id="full-path-folder" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-path-folder-hint"></select>
-          <p id="full-path-folder-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a folder on disk under this vault (includes empty folders). Pick <strong>Custom</strong> to type any path.</p>
-          <label for="full-path">Path (vault-relative)</label>
-          <input type="text" id="full-path" placeholder="inbox/my-note.md or projects/my-slug/inbox/note.md" autocomplete="off" spellcheck="false" aria-describedby="full-path-project-typo-hint full-path-folder-caption">
-          <p id="full-path-folder-caption" class="muted small" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">Use <code>projects/your-slug/…</code> so the file lives under the project folder; the plural <strong>projects</strong> matters. The <strong>Project</strong> field below is YAML metadata for filters — it can match that slug or stay empty unless the path uses <code>projects/</code>.</p>
+          <div class="create-path-group" role="group" aria-label="Note path">
+            <label for="full-create-project-slug"><strong class="create-label-em">Project</strong> in vault</label>
+            <select id="full-create-project-slug" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-create-project-slug-hint"></select>
+            <p id="full-create-project-slug-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a <strong class="create-hint-em">Project</strong> or use <strong class="create-hint-em">Custom</strong> (type full path) for anything else.</p>
+            <div id="full-create-project-subroot-wrap" class="hidden">
+              <label for="full-create-project-subroot">Subfolder under project</label>
+              <select id="full-create-project-subroot" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-create-project-subroot-hint"></select>
+              <p id="full-create-project-subroot-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Segments that already exist under this project in the vault or in indexed notes. <strong>Custom</strong> if your path does not match a listed folder.</p>
+            </div>
+            <div id="full-create-nonproject-folder-wrap">
+              <label for="full-path-folder"><strong class="create-label-em">Folder</strong> in vault (when not using a project above)</label>
+              <select id="full-path-folder" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-path-folder-hint"></select>
+              <p id="full-path-folder-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a <strong class="create-hint-em">Folder</strong> on this vault. Pick <strong class="create-hint-em">Custom</strong> to type any path.</p>
+            </div>
+          </div>
+          <label for="full-path"><strong class="create-label-em">Path</strong> (vault-relative)</label>
+          <input type="text" id="full-path" placeholder="inbox/my-note.md or projects/my-slug/inbox/note.md" autocomplete="off" spellcheck="false" aria-describedby="full-path-folder-caption full-path-project-typo-hint full-path-similar-hint">
+          <p id="full-path-folder-caption" class="muted small" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">Choose &lsquo;Custom&rsquo; in <strong class="create-hint-em">Project</strong>, <strong class="create-hint-em">Folder</strong>, or <strong class="create-hint-em">Path</strong> to change your final path.</p>
           <p id="full-path-project-typo-hint" class="muted small detail-project-hint hidden" role="status"></p>
           <p style="margin: 0 0 0.5rem 0;"><button type="button" id="btn-full-path-fix-typo" class="btn-link btn-link-small hidden">Use suggested path</button></p>
+          <p id="full-path-similar-hint" class="muted small detail-project-hint hidden" role="status" aria-live="polite"></p>
+          <p style="margin: 0 0 0.5rem 0;"><button type="button" id="btn-full-path-use-similar-project" class="btn-link btn-link-small hidden">Use suggested project slug</button></p>
           <label>Title</label>
           <input type="text" id="full-title" placeholder="Note title">
           <label>Body (Markdown)</label>
@@ -393,6 +407,23 @@
           <input type="text" id="full-follows" placeholder="e.g. inbox/prior-note.md">
           <button type="button" id="btn-full-save" class="btn-primary">Create note</button>
           <p id="create-msg-full" class="create-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-create-similar-project" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-create-similar-project-title">
+      <div class="modal-backdrop" id="modal-create-similar-project-backdrop"></div>
+      <div class="modal-card modal-card-narrow">
+        <div class="modal-header">
+          <h2 id="modal-create-similar-project-title">Similar project already exists</h2>
+          <button type="button" id="modal-create-similar-project-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="create-panel">
+          <p id="modal-create-similar-project-body" class="muted small"></p>
+          <div class="modal-create-similar-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+            <button type="button" id="btn-modal-create-similar-use-existing" class="btn-primary">Use existing</button>
+            <button type="button" id="btn-modal-create-similar-keep" class="btn-secondary">Keep my path</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2414,6 +2445,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     globalThis.HubListSort = HubListSort;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260422h"></script>
+  <script defer src="hub.js?v=20260427a"></script>
 </body>
 </html>
