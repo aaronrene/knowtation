@@ -122,6 +122,8 @@
   let currentNotePathForCopy = '';
   /** @type {{ path: string, body: string, frontmatter: Record<string, string> } | null} */
   let currentOpenNote = null;
+  /** AbortController for window resize while note edit body layout is active. */
+  let detailEditBodyLayoutAbort = null;
 
   /** Hide the detail drawer (does not clear currentOpenNote). */
   function hideDetailPanelChrome() {
@@ -135,6 +137,7 @@
   /** User dismisses the drawer (Escape, Close): clear open-note state. */
   function closeDetailPanel() {
     currentOpenNote = null;
+    teardownDetailEditBodyLayout();
     hideDetailPanelChrome();
   }
 
@@ -7495,6 +7498,7 @@
 
   function switchNoteToReadMode() {
     if (!currentOpenNote) return;
+    teardownDetailEditBodyLayout();
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
     bodyEl.innerHTML = buildNoteReadHtml(currentOpenNote.body, currentOpenNote.frontmatter);
@@ -7512,6 +7516,7 @@
       if (typeof showToast === 'function') showToast('Note deleted');
       currentOpenNote = null;
       currentNotePathForCopy = '';
+      teardownDetailEditBodyLayout();
       hideDetailPanelChrome();
       el('btn-copy-path').classList.add('hidden');
       loadNotes();
@@ -7717,6 +7722,118 @@
   var MEDIA_IMAGE_EXTS = /\.(jpe?g|png|gif|webp)(\?|#|$)/i;
   var MEDIA_VIDEO_EXTS = /\.(mp4|webm|mov)(\?|#|$)/i;
   var MEDIA_URL_SAFE = /^https?:\/\//i;
+
+  function teardownDetailEditBodyLayout() {
+    if (detailEditBodyLayoutAbort) {
+      detailEditBodyLayoutAbort.abort();
+      detailEditBodyLayoutAbort = null;
+    }
+  }
+
+  function detailEditBodyMaxTextareaPx() {
+    var wrap = el('detail-edit-body-wrap');
+    var ta = el('detail-edit-body');
+    if (!wrap || !ta) return 400;
+    var toolbar = el('media-toolbar');
+    var grip = wrap.querySelector('.detail-edit-body-resize-handle');
+    var tb = toolbar ? toolbar.offsetHeight : 0;
+    var gh = grip ? grip.offsetHeight : 0;
+    var slack = 10;
+    var hard = Math.min(520, Math.floor(window.innerHeight * 0.55));
+    var fallback = Math.round(window.innerHeight * 0.28);
+    var wr = wrap.getBoundingClientRect();
+    var next = wrap.nextElementSibling;
+    var slice = 0;
+    if (next && next.nodeType === 1) {
+      var nr = next.getBoundingClientRect();
+      slice = Math.floor(nr.top - wr.top - slack - tb - gh);
+    } else {
+      var body = el('detail-body');
+      if (body) {
+        var br = body.getBoundingClientRect();
+        slice = Math.floor(br.bottom - wr.top - slack - tb - gh);
+      }
+    }
+    if (!Number.isFinite(slice) || slice < 120) {
+      slice = fallback;
+    }
+    return Math.max(160, Math.min(hard, slice));
+  }
+
+  function sizeDetailEditBodyToFill() {
+    var ta = el('detail-edit-body');
+    if (!ta) return;
+    ta.style.removeProperty('height');
+  }
+
+  function wireDetailEditBodyLayout() {
+    teardownDetailEditBodyLayout();
+    var ta = el('detail-edit-body');
+    var wrap = el('detail-edit-body-wrap');
+    if (!ta || !wrap) return;
+    var grip = wrap.querySelector('.detail-edit-body-resize-handle');
+    if (!grip) {
+      grip = document.createElement('div');
+      grip.className = 'detail-edit-body-resize-handle';
+      grip.setAttribute('role', 'separator');
+      grip.setAttribute('aria-orientation', 'horizontal');
+      grip.setAttribute('aria-label', 'Resize editor height');
+      var next = ta.nextSibling;
+      if (next && next.id === 'media-toolbar') {
+        wrap.insertBefore(grip, next);
+      } else {
+        wrap.appendChild(grip);
+      }
+    }
+    if (grip.dataset.wired !== '1') {
+      grip.dataset.wired = '1';
+      function startDrag(clientY) {
+        var startY = clientY;
+        var startH = ta.offsetHeight;
+        document.body.style.userSelect = 'none';
+        function onMove(e2) {
+          if (e2.touches && e2.cancelable) e2.preventDefault();
+          var y = e2.touches ? e2.touches[0].clientY : e2.clientY;
+          var dy = y - startY;
+          var cap = detailEditBodyMaxTextareaPx();
+          var nh = Math.max(160, Math.min(cap, startH + dy));
+          ta.style.height = nh + 'px';
+        }
+        function onUp() {
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+      }
+      grip.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        startDrag(e.clientY);
+      });
+      grip.addEventListener('touchstart', function (e) {
+        if (!e.touches || !e.touches[0]) return;
+        e.preventDefault();
+        startDrag(e.touches[0].clientY);
+      }, { passive: false });
+    }
+    window.requestAnimationFrame(function () {
+      sizeDetailEditBodyToFill();
+    });
+    detailEditBodyLayoutAbort = new AbortController();
+    window.addEventListener(
+      'resize',
+      function () {
+        if (!el('detail-edit-body-wrap')) return;
+        sizeDetailEditBodyToFill();
+      },
+      { signal: detailEditBodyLayoutAbort.signal }
+    );
+  }
 
   function attachMediaToolbar() {
     var textarea = el('detail-edit-body');
@@ -7961,7 +8078,9 @@
       '<label for="detail-edit-title">Title</label>' +
       '<input type="text" id="detail-edit-title" placeholder="Note title" />' +
       '<label for="detail-edit-body">Body (Markdown)</label>' +
-      '<textarea id="detail-edit-body" class="detail-edit-body" rows="10" placeholder="Content…"></textarea>' +
+      '<div id="detail-edit-body-wrap" class="detail-edit-body-wrap">' +
+      '<textarea id="detail-edit-body" class="detail-edit-body" rows="14" placeholder="Content…"></textarea>' +
+      '</div>' +
       '<label for="detail-edit-date">Date</label>' +
       '<input type="date" id="detail-edit-date" />' +
       '<label for="detail-edit-project">Project (slug)</label>' +
@@ -7982,6 +8101,7 @@
     if (pathDisp) pathDisp.textContent = currentOpenNote.path;
     fillDetailEditFieldsFromFrontmatter(fm);
     attachMediaToolbar();
+    wireDetailEditBodyLayout();
     actionsEl.innerHTML = '';
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
@@ -8019,6 +8139,7 @@
   }
 
   function openNote(path) {
+    teardownDetailEditBodyLayout();
     closeCreateModal();
     currentNotePathForCopy = path;
     currentOpenNote = null;

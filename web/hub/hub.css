@@ -1116,10 +1116,50 @@ input[readonly]#full-project {
 .note-meta-pre { margin-top: 0.5rem; background: var(--border); border-radius: 5px; padding: 0.6rem 0.8rem; overflow-x: auto; font-family: ui-monospace, monospace; font-size: 0.8rem; white-space: pre; }
 .note-meta-hint { margin-top: 0.5rem; font-size: 0.78rem; color: var(--muted, #888); }
 .note-body-fallback { white-space: pre-wrap; font-size: 0.9rem; }
+/* Edit form lives in #detail-body which defaults to pre-wrap for read view — override for layout. */
+#detail-body.detail-edit-container {
+  white-space: normal;
+}
 .detail-edit-container { display: flex; flex-direction: column; gap: 0.75rem; }
 .detail-edit-container label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.25rem; }
 .detail-edit-body, .detail-edit-fm { width: 100%; min-height: 8rem; padding: 0.5rem; font-family: inherit; font-size: 0.9rem; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
 .detail-edit-fm { min-height: 6rem; font-family: ui-monospace, monospace; }
+/* Body editor wrapper: no flex-grow; flex-shrink 0 so the block cannot collapse to zero height.
+   Default textarea size uses CSS (height auto); JS only sets height after user drags grip. */
+#detail-body.detail-edit-container #detail-edit-body-wrap {
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+#detail-body.detail-edit-container #detail-edit-body-wrap > textarea.detail-edit-body {
+  width: 100%;
+  min-height: 12rem;
+  height: auto;
+  max-height: min(52vh, 30rem);
+  flex: 0 0 auto;
+  resize: none;
+  overflow: auto;
+  box-sizing: border-box;
+}
+#detail-body.detail-edit-container #detail-edit-body-wrap > #media-toolbar {
+  flex: 0 0 auto;
+}
+.detail-edit-body-resize-handle {
+  flex: 0 0 auto;
+  height: 10px;
+  margin: 0;
+  border-radius: 0 0 6px 6px;
+  cursor: ns-resize;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-top: none;
+  box-sizing: border-box;
+}
+.detail-edit-body-resize-handle:hover {
+  background: color-mix(in srgb, var(--accent) 28%, var(--border) 72%);
+}
 .detail-actions { flex-shrink: 0; padding: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .detail-actions button { flex: 1; min-width: 6rem; }
 .detail-footer {
