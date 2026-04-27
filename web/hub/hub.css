@@ -1299,6 +1299,7 @@ input[readonly]#full-project {
 .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1rem; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
 .modal-card { position: relative; width: 100%; max-width: 520px; max-height: 90vh; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+.modal-card-narrow { max-width: 420px; }
 .modal-card-settings {
   max-width: 820px;
   width: 92%;
@@ -1324,7 +1325,18 @@ input[readonly]#full-project {
 .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .create-panel { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .create-panel label { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+/* New note path row: lead word bolder + brighter accent tint (not full --text / white). */
+#create-full label .create-label-em {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--accent) 72%, var(--muted) 28%);
+}
 .create-panel input, .create-panel textarea { padding: 0.5rem 0.65rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; }
+/* Hint key terms: bold only; same color as surrounding .muted copy. */
+#create-full .create-hint-em,
+#create-full .muted strong {
+  font-weight: 700;
+  color: inherit;
+}
 .create-msg { min-height: 1.25rem; font-size: 0.85rem; }
 .create-msg.ok { color: #22c55e; }
 .create-msg.err { color: #f87171; }
