@@ -1326,14 +1326,17 @@ input[readonly]#full-project {
 .create-panel { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .create-panel label { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
 /* New note path row: lead word bolder + brighter accent tint (not full --text / white). */
-#create-full label .create-label-em {
+#create-full label .create-label-em,
+#import-create-path-block label .create-label-em {
   font-weight: 700;
   color: color-mix(in srgb, var(--accent) 72%, var(--muted) 28%);
 }
 .create-panel input, .create-panel textarea { padding: 0.5rem 0.65rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; }
 /* Hint key terms: bold only; same color as surrounding .muted copy. */
 #create-full .create-hint-em,
-#create-full .muted strong {
+#create-full .muted strong,
+#import-create-path-block .create-hint-em,
+#import-create-path-block .muted strong {
   font-weight: 700;
   color: inherit;
 }

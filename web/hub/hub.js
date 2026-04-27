@@ -1826,10 +1826,12 @@
       }
       renderFilterChips(facets);
       hydrateFullCreateProjectSlugSelect(facets);
+      hydrateImportCreateProjectSlugSelect(facets);
     } catch (_) {
       renderFilterChips(null);
       lastHubFacets = null;
       hydrateFullCreateProjectSlugSelect(null);
+      hydrateImportCreateProjectSlugSelect(null);
     }
   }
 
@@ -2082,6 +2084,177 @@
     if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
     refreshFullCreateSubrootSelect();
     updateFullCreatePathLayoutVisibility();
+  }
+
+  function updateImportPathLayoutVisibility() {
+    const slugSel = el('import-create-project-slug');
+    const subWrap = el('import-create-project-subroot-wrap');
+    const nonProj = el('import-nonproject-folder-wrap');
+    const subSel = el('import-create-project-subroot');
+    if (!slugSel) return;
+    const v = slugSel.value;
+    const useProject = v && v !== '__custom__';
+    if (subWrap) subWrap.classList.toggle('hidden', !useProject);
+    if (nonProj) nonProj.classList.toggle('hidden', useProject);
+    if (subSel) subSel.disabled = !useProject;
+  }
+
+  function refreshImportCreateSubrootSelect() {
+    const slugSel = el('import-create-project-slug');
+    const subSel = el('import-create-project-subroot');
+    if (!slugSel || !subSel) return;
+    const slug = slugSel.value;
+    const preserve = subSel.value;
+    if (!slug || slug === '__custom__') {
+      subSel.innerHTML = '';
+      subSel.disabled = true;
+      return;
+    }
+    const subs = collectProjectSubroots(slug, mergeFolderStringsForSubroots());
+    const head = document.createElement('option');
+    head.value = '';
+    head.textContent = subs.length ? '— Project root (no extra folder) —' : '— Type path or add folders —';
+    subSel.innerHTML = '';
+    subSel.appendChild(head);
+    for (const s of subs) {
+      const o = document.createElement('option');
+      o.value = s;
+      o.textContent = s;
+      subSel.appendChild(o);
+    }
+    const custom = document.createElement('option');
+    custom.value = '__custom_sub__';
+    custom.textContent = 'Custom (edit path)';
+    subSel.appendChild(custom);
+    subSel.disabled = false;
+    if (preserve === '__custom_sub__') subSel.value = '__custom_sub__';
+    else if (preserve && subs.includes(preserve)) subSel.value = preserve;
+    else if (subs.includes('inbox')) subSel.value = 'inbox';
+    else if (subs.length === 1) subSel.value = subs[0];
+    else subSel.value = '';
+  }
+
+  function composeImportOutputDirFromPickers() {
+    const slugSel = el('import-create-project-slug');
+    const subSel = el('import-create-project-subroot');
+    const outInp = el('import-output-dir');
+    if (!slugSel || !outInp) return;
+    const slugVal = slugSel.value;
+    if (!slugVal || slugVal === '__custom__') return;
+    if (subSel && subSel.value === '__custom_sub__') return;
+    const sub =
+      subSel && subSel.value && subSel.value !== '__custom_sub__' ? String(subSel.value).replace(/^\/+|\/+$/g, '') : '';
+    const subUse = sub || 'inbox';
+    outInp.value = 'projects/' + slugVal + '/' + subUse;
+  }
+
+  function syncImportPickersFromOutputDir() {
+    const slugSel = el('import-create-project-slug');
+    const subSel = el('import-create-project-subroot');
+    const outInp = el('import-output-dir');
+    if (!slugSel || !outInp) return;
+    const raw = outInp.value.trim().replace(/\/+$/, '');
+    const m = raw.match(/^projects\/([^/]+)(?:\/(.*))?$/);
+    if (!m) {
+      slugSel.value = raw ? '__custom__' : '';
+      refreshImportCreateSubrootSelect();
+      updateImportPathLayoutVisibility();
+      return;
+    }
+    const diskSlug = m[1];
+    const rest = m[2] || '';
+    const projects = (lastHubFacets && lastHubFacets.projects) || [];
+    const match = projects.find((p) => normSlug(String(p)) === normSlug(diskSlug));
+    if (match) slugSel.value = match;
+    else slugSel.value = '__custom__';
+    refreshImportCreateSubrootSelect();
+    if (slugSel.value && slugSel.value !== '__custom__' && subSel) {
+      const segments = rest.split('/').filter(Boolean);
+      const firstDir = segments[0] || '';
+      const allowed = new Set(
+        [...subSel.options].map((o) => o.value).filter((v) => v && v !== '__custom_sub__'),
+      );
+      if (firstDir && allowed.has(firstDir)) subSel.value = firstDir;
+      else if (firstDir) subSel.value = '__custom_sub__';
+      else subSel.value = '';
+    }
+    updateImportPathLayoutVisibility();
+  }
+
+  function hydrateImportCreateProjectSlugSelect(facets) {
+    const sel = el('import-create-project-slug');
+    if (!sel) return;
+    const f = facets && typeof facets === 'object' ? facets : lastHubFacets;
+    const projects = f && Array.isArray(f.projects) ? [...f.projects].filter((p) => p != null && String(p).trim()) : [];
+    const preserve = sel.value;
+    sel.innerHTML =
+      '<option value="">— Not under projects/ —</option>' +
+      projects.map((p) => '<option value="' + escapeHtml(String(p)) + '">' + escapeHtml(String(p)) + '</option>').join('') +
+      '<option value="__custom__">Custom (type full path)</option>';
+    if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
+    refreshImportCreateSubrootSelect();
+    updateImportPathLayoutVisibility();
+  }
+
+  function syncImportFolderSelectToOutputDir() {
+    const outInp = el('import-output-dir');
+    const sel = el('import-vault-folder');
+    if (!outInp || !sel) return;
+    const p = outInp.value.trim().replace(/\/+$/, '');
+    if (!p) return;
+    let best = '__custom__';
+    let bestLen = -1;
+    for (const opt of sel.options) {
+      const v = opt.value;
+      if (v === '__custom__') continue;
+      if (p === v || p.startsWith(v + '/')) {
+        if (v.length > bestLen) {
+          best = v;
+          bestLen = v.length;
+        }
+      }
+    }
+    sel.value = bestLen >= 0 ? best : '__custom__';
+  }
+
+  function defaultImportOutputDir() {
+    const slugSel = el('import-create-project-slug');
+    if (slugSel && slugSel.value && slugSel.value !== '__custom__') {
+      const subSel = el('import-create-project-subroot');
+      const sub =
+        subSel && subSel.value && subSel.value !== '__custom_sub__' ? String(subSel.value).replace(/^\/+|\/+$/g, '') : '';
+      const subUse = sub || 'inbox';
+      return 'projects/' + slugSel.value + '/' + subUse;
+    }
+    const sel = el('import-vault-folder');
+    const folder = sel && sel.value && sel.value !== '__custom__' ? sel.value : 'inbox';
+    return folder;
+  }
+
+  function getImportProjectAndOutputDir() {
+    const outInp = el('import-output-dir');
+    const slugSel = el('import-create-project-slug');
+    const raw = outInp && outInp.value ? String(outInp.value).trim().replace(/\/+$/, '') : '';
+    if (raw) {
+      const sug = projectsPathTypoSuggestion(raw);
+      if (sug) {
+        return {
+          err: 'Destination uses project/ but the standard prefix is projects/ (plural). Edit the path or use the suggested value: ' + sug,
+          project: '',
+          outputDir: undefined,
+        };
+      }
+    }
+    const outputDir = raw || undefined;
+    let project = '';
+    if (slugSel && slugSel.value && slugSel.value !== '__custom__') {
+      project = normSlug(slugSel.value);
+    }
+    if (!project && outputDir) {
+      const m = outputDir.match(/^projects\/([^/]+)/);
+      if (m) project = normSlug(m[1]);
+    }
+    return { err: null, project: project || '', outputDir: outputDir || undefined };
   }
 
   function updateFullCreateSimilarInlineHint() {
@@ -3406,6 +3579,22 @@
     if (sid) sid.value = '';
     if (srange) srange.value = '';
     syncImportSheetsBlock();
+    const outDirEl = el('import-output-dir');
+    if (outDirEl) outDirEl.value = '';
+    void (async () => {
+      await refreshImportVaultFolderSelect();
+      if (!lastHubFacets) {
+        try {
+          lastHubFacets = await fetchFacetsResolved();
+        } catch (_) {}
+      }
+      hydrateImportCreateProjectSlugSelect(lastHubFacets);
+      const out = el('import-output-dir');
+      if (out) out.value = defaultImportOutputDir();
+      syncImportFolderSelectToOutputDir();
+      syncImportPickersFromOutputDir();
+      updateImportPathLayoutVisibility();
+    })();
   }
   function closeImportModal() {
     el('modal-import').classList.add('hidden');
@@ -3650,7 +3839,14 @@
       return;
     }
 
-    const project = (el('import-project') && el('import-project').value) ? el('import-project').value.trim() : '';
+    const dest = getImportProjectAndOutputDir();
+    if (dest.err) {
+      msgEl.textContent = dest.err;
+      msgEl.className = 'create-msg err';
+      return;
+    }
+    const project = dest.project || '';
+    const outputDir = dest.outputDir;
     const tags = (el('import-tags') && el('import-tags').value) ? el('import-tags').value.trim() : '';
     const urlModeEl = el('import-url-mode');
     const urlMode = urlModeEl && urlModeEl.value ? urlModeEl.value : 'auto';
@@ -3686,6 +3882,7 @@
     if (useUrlImport) {
       const jsonBody = { url: urlTrim, mode: urlMode };
       if (project) jsonBody.project = project;
+      if (outputDir) jsonBody.output_dir = outputDir;
       if (tags) jsonBody.tags = tags;
       msgEl.textContent = 'Importing…';
       msgEl.className = 'create-msg';
@@ -3798,6 +3995,7 @@
           fd.append('source_type', sourceType);
           fd.append('file', f);
           if (project) fd.append('project', project);
+          if (outputDir) fd.append('output_dir', outputDir);
           if (tags) fd.append('tags', tags);
           const r = await hubPostImportOnce(importPostPath, fd, { ...importHeadersBase });
           if (r.ok && r.data) {
@@ -3845,6 +4043,7 @@
           fd.append('spreadsheet_id', sid);
           if (range) fd.append('sheets_range', range);
           if (project) fd.append('project', project);
+          if (outputDir) fd.append('output_dir', outputDir);
           if (tags) fd.append('tags', tags);
           const r = await hubPostImportOnce(importPostPath, fd, { ...importHeadersBase });
           if (!r.ok) {
@@ -3884,6 +4083,7 @@
           formData.append('source_type', sourceType);
           formData.append('file', fileOut);
           if (project) formData.append('project', project);
+          if (outputDir) formData.append('output_dir', outputDir);
           if (tags) formData.append('tags', tags);
           if (dupWarn.length) {
             msgEl.className = 'create-msg';
@@ -3903,6 +4103,7 @@
           formData.append('source_type', sourceType);
           formData.append('file', fileArr[0]);
           if (project) formData.append('project', project);
+          if (outputDir) formData.append('output_dir', outputDir);
           if (tags) formData.append('tags', tags);
         }
         const r = await hubPostImportOnce(importPostPath, formData, { ...importHeadersBase });
@@ -6734,6 +6935,39 @@
     if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
     else sel.value = folders[0] || 'inbox';
     refreshFullCreateSubrootSelect();
+    if (el('import-create-project-slug')) refreshImportCreateSubrootSelect();
+  }
+
+  let importVaultFolderLoadToken = 0;
+  async function refreshImportVaultFolderSelect() {
+    const sel = el('import-vault-folder');
+    if (!sel || !token) return;
+    const my = ++importVaultFolderLoadToken;
+    let folders = ['inbox'];
+    try {
+      const data = await api('/api/v1/vault/folders');
+      if (my !== importVaultFolderLoadToken) return;
+      if (data && Array.isArray(data.folders) && data.folders.length) folders = data.folders;
+    } catch (_) {
+      if (my !== importVaultFolderLoadToken) return;
+    }
+    lastVaultFoldersForCreate = folders.slice();
+    const preserve = sel.value;
+    sel.innerHTML = '';
+    for (const f of folders) {
+      const o = document.createElement('option');
+      o.value = f;
+      o.textContent = f;
+      sel.appendChild(o);
+    }
+    const custom = document.createElement('option');
+    custom.value = '__custom__';
+    custom.textContent = 'Custom (type path below)';
+    sel.appendChild(custom);
+    if (preserve && [...sel.options].some((opt) => opt.value === preserve)) sel.value = preserve;
+    else sel.value = folders[0] || 'inbox';
+    refreshImportCreateSubrootSelect();
+    if (el('full-create-project-slug')) refreshFullCreateSubrootSelect();
   }
 
   function syncFolderSelectToPathInput() {
@@ -6855,6 +7089,48 @@
       syncFullProjectFromPath();
       updateFullPathProjectTypoHint();
       scheduleFullCreateSimilarHint();
+    });
+  }
+
+  const importCreateProjectSlugEl = el('import-create-project-slug');
+  const importCreateProjectSubEl = el('import-create-project-subroot');
+  const importVaultFolderEl = el('import-vault-folder');
+  const importOutputDirEl = el('import-output-dir');
+  if (importVaultFolderEl) {
+    importVaultFolderEl.addEventListener('change', () => {
+      const sel = importVaultFolderEl;
+      const out = el('import-output-dir');
+      if (!sel || !out || sel.value === '__custom__') return;
+      out.value = sel.value;
+      syncImportPickersFromOutputDir();
+    });
+  }
+  if (importOutputDirEl) {
+    importOutputDirEl.addEventListener('input', () => {
+      syncImportFolderSelectToOutputDir();
+      syncImportPickersFromOutputDir();
+    });
+  }
+  if (importCreateProjectSlugEl) {
+    importCreateProjectSlugEl.addEventListener('change', () => {
+      refreshImportCreateSubrootSelect();
+      updateImportPathLayoutVisibility();
+      const v = importCreateProjectSlugEl.value;
+      const out = el('import-output-dir');
+      if (v && v !== '__custom__') composeImportOutputDirFromPickers();
+      else if (v === '' && out && /^projects\//.test(out.value.trim())) {
+        const sel = el('import-vault-folder');
+        out.value = sel && sel.value && sel.value !== '__custom__' ? sel.value : 'inbox';
+      }
+      syncImportFolderSelectToOutputDir();
+      syncImportPickersFromOutputDir();
+    });
+  }
+  if (importCreateProjectSubEl) {
+    importCreateProjectSubEl.addEventListener('change', () => {
+      composeImportOutputDirFromPickers();
+      syncImportFolderSelectToOutputDir();
+      syncImportPickersFromOutputDir();
     });
   }
 

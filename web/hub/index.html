@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260427d">
+  <link rel="stylesheet" href="hub.css?v=20260428b">
 </head>
 <body>
   <div id="app">
@@ -369,7 +369,7 @@
             <div id="full-create-project-subroot-wrap" class="hidden">
               <label for="full-create-project-subroot">Subfolder under project</label>
               <select id="full-create-project-subroot" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-create-project-subroot-hint"></select>
-              <p id="full-create-project-subroot-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Segments that already exist under this project in the vault or in indexed notes. <strong>Custom</strong> if your path does not match a listed folder.</p>
+              <p id="full-create-project-subroot-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a subfolder or use <strong class="create-hint-em">Custom</strong> to type any path.</p>
             </div>
             <div id="full-create-nonproject-folder-wrap">
               <label for="full-path-folder"><strong class="create-label-em">Folder</strong> in vault (when not using a project above)</label>
@@ -518,8 +518,24 @@
         <p class="import-folder-hint muted small hidden" id="import-folder-hint">Folder selection will build one in-browser ZIP (folder-shaped source types only, not PDF/DOCX).</p>
         </div>
         <p id="import-batch-aria" class="sr-only" aria-live="polite" aria-atomic="true"></p>
-        <label for="import-project">Project (optional)</label>
-        <input type="text" id="import-project" placeholder="e.g. myproject">
+        <div id="import-create-path-block" class="create-path-group" role="group" aria-label="Import destination">
+          <label for="import-create-project-slug"><strong class="create-label-em">Project</strong> in vault</label>
+          <select id="import-create-project-slug" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="import-create-project-slug-hint"></select>
+          <p id="import-create-project-slug-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a <strong class="create-hint-em">Project</strong> or use <strong class="create-hint-em">Custom</strong> (type full path) for anything else.</p>
+          <div id="import-create-project-subroot-wrap" class="hidden">
+            <label for="import-create-project-subroot">Subfolder under project</label>
+            <select id="import-create-project-subroot" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="import-create-project-subroot-hint"></select>
+            <p id="import-create-project-subroot-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a subfolder or use <strong class="create-hint-em">Custom</strong> to type any path.</p>
+          </div>
+          <div id="import-nonproject-folder-wrap">
+            <label for="import-vault-folder"><strong class="create-label-em">Folder</strong> in vault (when not using a project above)</label>
+            <select id="import-vault-folder" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="import-vault-folder-hint"></select>
+            <p id="import-vault-folder-hint" class="muted small" style="margin-top: 0; margin-bottom: 0.5rem;">Choose a <strong class="create-hint-em">Folder</strong> on this vault. Pick <strong class="create-hint-em">Custom</strong> to type any path.</p>
+          </div>
+          <label for="import-output-dir"><strong class="create-label-em">Path</strong> (vault-relative)</label>
+          <input type="text" id="import-output-dir" placeholder="inbox or projects/my-slug/inbox" autocomplete="off" spellcheck="false" aria-describedby="import-output-dir-caption">
+          <p id="import-output-dir-caption" class="muted small" style="margin-top: 0.15rem; margin-bottom: 0.35rem;">Choose &lsquo;Custom&rsquo; in <strong class="create-hint-em">Project</strong>, <strong class="create-hint-em">Folder</strong>, or <strong class="create-hint-em">Path</strong> to change your final path.</p>
+        </div>
         <label for="import-tags">Tags (comma-separated, optional)</label>
         <input type="text" id="import-tags" placeholder="tag1, tag2">
         <details class="modal-projects-help-details import-modal-help" id="import-modal-help">
@@ -2445,6 +2461,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     globalThis.HubListSort = HubListSort;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260427a"></script>
+  <script defer src="hub.js?v=20260428b"></script>
 </body>
 </html>
