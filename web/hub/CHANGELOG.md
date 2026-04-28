@@ -2,6 +2,10 @@
 
 ## 2026-04-28
 
+- **Search / Meaning index:** After vault-changing actions (new note, edit save, delete, import with new notes, proposal approve, bulk delete/rename, hosted new-vault bootstrap, cross-vault copy/move), a **banner** above the search row reminds you that **Meaning** search may be stale until **Re-index** succeeds. State is per vault in `localStorage` (dismiss clears only the current vault’s flag). **Re-index now** triggers the same action as the header **Re-index** button.
+- **Note detail — duplicate:** **Duplicate…** (editors) opens **Add to vault → New note (full)** with body/title/tags and other fields prefilled, suggested `…-copy.md` path, same project/folder/path pickers as new note; optional **delete original after successful save** (blocked if destination path equals source). Path info tooltip text updated (duplicate flow + agents/scripts may keep using the old path).
+- **Note detail — copy body:** Floating **copy** control on read view copies the Markdown **body** to the clipboard (hidden for proposals, edit mode, and while loading).
+- **Note detail (read view):** Info control next to the path explains that vault-relative paths stay fixed after save (agents, search, links), duplicate + optional delete, and that cross-vault copy/move keeps the same path string in the target vault (not inbox).
 - **Import / New note copy parity:** Path helper is one sentence on both (“Choose ‘Custom’ in **Project**, **Folder**, or **Path**…”). Subfolder helper matches on both (“Choose a subfolder or use **Custom**…”).
 - **Import modal:** Same project / folder / path controls as **New note (full)** — facet-backed project dropdown, vault folder picker, subfolders under `projects/<slug>/`, and an editable vault-relative **destination folder** (maps to `project` + `output_dir` on `POST /api/v1/import` and import-url JSON).
 

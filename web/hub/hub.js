@@ -122,6 +122,9 @@
   let currentNotePathForCopy = '';
   /** @type {{ path: string, body: string, frontmatter: Record<string, string> } | null} */
   let currentOpenNote = null;
+  /** When set, full-create save may delete this path after posting the duplicate (optional checkbox). */
+  /** @type {{ path: string } | null} */
+  let pendingDuplicateDeleteSource = null;
   /** AbortController for window resize while note edit body layout is active. */
   let detailEditBodyLayoutAbort = null;
 
@@ -137,8 +140,13 @@
   /** User dismisses the drawer (Escape, Close): clear open-note state. */
   function closeDetailPanel() {
     currentOpenNote = null;
+    currentNotePathForCopy = '';
     teardownDetailEditBodyLayout();
     hideDetailPanelChrome();
+    const bcbClose = el('btn-detail-copy-body');
+    if (bcbClose) bcbClose.classList.add('hidden');
+    const bcp = el('btn-copy-path');
+    if (bcp) bcp.classList.add('hidden');
   }
 
   let listSelectedIndex = 0;
@@ -553,6 +561,52 @@
     } catch (_) {}
   }
 
+  /** Per-vault hint: Meaning (semantic) search may lag vault edits until Re-index runs successfully. */
+  const HUB_SEMANTIC_INDEX_STALE_PREFIX = 'hub_semantic_index_stale_v1:';
+
+  function hubSemanticIndexStaleLsKey(vaultId) {
+    const v = vaultId != null && String(vaultId).trim() !== '' ? String(vaultId).trim() : 'default';
+    return HUB_SEMANTIC_INDEX_STALE_PREFIX + v;
+  }
+
+  function hubRefreshIndexStaleBanner() {
+    const banner = el('hub-index-stale-banner');
+    if (!banner) return;
+    let flagged = false;
+    try {
+      flagged = Boolean(localStorage.getItem(hubSemanticIndexStaleLsKey(getCurrentVaultId())));
+    } catch (_) {
+      flagged = false;
+    }
+    if (!flagged) {
+      banner.classList.add('hidden');
+      return;
+    }
+    banner.classList.remove('hidden');
+  }
+
+  function hubMarkSemanticIndexStaleForVault(vaultId) {
+    try {
+      localStorage.setItem(hubSemanticIndexStaleLsKey(vaultId), String(Date.now()));
+    } catch (_) {}
+    hubRefreshIndexStaleBanner();
+  }
+
+  function hubMarkSemanticIndexStale() {
+    hubMarkSemanticIndexStaleForVault(getCurrentVaultId());
+  }
+
+  function hubClearSemanticIndexStaleForVault(vaultId) {
+    try {
+      localStorage.removeItem(hubSemanticIndexStaleLsKey(vaultId));
+    } catch (_) {}
+    hubRefreshIndexStaleBanner();
+  }
+
+  function hubClearSemanticIndexStale() {
+    hubClearSemanticIndexStaleForVault(getCurrentVaultId());
+  }
+
   function updateVaultSwitcher(vaultList, allowedVaultIds) {
     const wrap = el('vault-switcher-wrap');
     const select = el('vault-switcher');
@@ -588,6 +642,7 @@
       loadFacets();
       loadNotes();
       loadProposals();
+      hubRefreshIndexStaleBanner();
     };
   }
 
@@ -1128,6 +1183,7 @@
       if (btnImport) btnImport.classList.add('hidden');
       if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
     }
+    hubRefreshIndexStaleBanner();
   }
 
   function loginUrl(provider) {
@@ -2603,6 +2659,7 @@
           try {
             await api('/api/v1/notes/' + encodeURIComponent(path), { method: 'DELETE' });
             if (typeof showToast === 'function') showToast('Deleted: ' + path);
+            hubMarkSemanticIndexStale();
             if (currentOpenNote && currentOpenNote.path === path) {
               currentOpenNote = null;
               hideDetailPanelChrome();
@@ -2879,12 +2936,26 @@
           const n = out.notesProcessed ?? 0;
           const c = out.chunksIndexed ?? 0;
           showToast('Indexed ' + n + ' notes, ' + c + ' chunks.');
+          hubClearSemanticIndexStale();
           loadFacets();
           loadNotes();
         } catch (e) {
           showToast(e.message || 'Re-index failed', true);
         }
       });
+    };
+  }
+
+  const hubIndexStaleRun = el('hub-index-stale-run');
+  const hubIndexStaleDismiss = el('hub-index-stale-dismiss');
+  if (hubIndexStaleRun && btnReindex) {
+    hubIndexStaleRun.onclick = () => {
+      btnReindex.click();
+    };
+  }
+  if (hubIndexStaleDismiss) {
+    hubIndexStaleDismiss.onclick = () => {
+      hubClearSemanticIndexStale();
     };
   }
 
@@ -3416,7 +3487,20 @@
     );
   }
 
+  function resetDuplicateCreateState() {
+    pendingDuplicateDeleteSource = null;
+    const ban = el('duplicate-source-banner');
+    if (ban) ban.classList.add('hidden');
+    const chk = el('duplicate-delete-after-save');
+    if (chk) chk.checked = false;
+    const mt = el('modal-create-title');
+    if (mt && mt.textContent === 'Duplicate note') mt.textContent = 'Add to vault';
+    const fs = el('btn-full-save');
+    if (fs && fs.textContent === 'Save duplicate') fs.textContent = 'Create note';
+  }
+
   function openCreateModal() {
+    resetDuplicateCreateState();
     closeCreateProposalModal();
     closeFullCreateSimilarModal();
     hideDetailPanelChrome();
@@ -3438,8 +3522,96 @@
       })();
     }
   }
+
+  /** Suggested path for a duplicate (`note.md` → `note-copy.md`). */
+  function suggestDuplicateVaultPath(srcPath) {
+    const t = String(srcPath || '')
+      .replace(/\\/g, '/')
+      .trim();
+    if (!t) return 'inbox/duplicate-' + Date.now() + '.md';
+    if (/\.md$/i.test(t)) return t.replace(/\.md$/i, '-copy.md');
+    return (t.replace(/\/$/, '') || 'inbox') + '-copy.md';
+  }
+
+  function tagsInputFromFrontmatter(tagsVal) {
+    if (tagsVal == null) return '';
+    if (Array.isArray(tagsVal)) return tagsVal.map((x) => String(x).trim()).filter(Boolean).join(', ');
+    return String(tagsVal).trim();
+  }
+
+  /**
+   * Open Add to vault → New note (full) prefilled from the open note, for same-vault duplicate.
+   * Optional checkbox deletes the source path after a successful save (different path only).
+   */
+  async function openDuplicateNoteModal() {
+    if (!currentOpenNote || !hubUserCanWriteNotes()) return;
+    if (!token) {
+      if (typeof showToast === 'function') showToast('Sign in to duplicate notes.', true);
+      return;
+    }
+    pendingDuplicateDeleteSource = { path: currentOpenNote.path };
+    closeCreateProposalModal();
+    closeFullCreateSimilarModal();
+    el('modal-create').classList.remove('hidden');
+    el('create-msg-quick').textContent = '';
+    el('create-msg-quick').className = 'create-msg';
+    el('create-msg-full').textContent = '';
+    el('create-msg-full').className = 'create-msg';
+    fullCreateSimilarOverrideOnce = false;
+    const mt = el('modal-create-title');
+    if (mt) mt.textContent = 'Duplicate note';
+    const fs = el('btn-full-save');
+    if (fs) fs.textContent = 'Save duplicate';
+    document.querySelectorAll('#modal-create .modal-tab').forEach((x) => x.classList.remove('active'));
+    const tabFull = document.querySelector('#modal-create .modal-tab[data-create-tab="full"]');
+    const tabQuick = document.querySelector('#modal-create .modal-tab[data-create-tab="quick"]');
+    if (tabFull) tabFull.classList.add('active');
+    if (tabQuick) tabQuick.classList.remove('active');
+    el('create-quick').classList.add('hidden');
+    el('create-full').classList.remove('hidden');
+    if (token) {
+      try {
+        await refreshFullPathFolderSelect();
+        if (!lastHubFacets) {
+          try {
+            lastHubFacets = await fetchFacetsResolved();
+          } catch (_) {}
+        }
+        hydrateFullCreateProjectSlugSelect(lastHubFacets);
+      } catch (_) {}
+    }
+    const fm = stripReservedHubFm(materializeFrontmatter(currentOpenNote.frontmatter));
+    if (el('full-body')) el('full-body').value = currentOpenNote.body || '';
+    if (el('full-title')) el('full-title').value = fm.title != null ? String(fm.title) : '';
+    if (el('full-tags')) el('full-tags').value = tagsInputFromFrontmatter(fm.tags);
+    if (el('full-date')) el('full-date').value = fm.date != null ? String(fm.date).slice(0, 10) : ymd(new Date());
+    if (el('full-causal-chain')) el('full-causal-chain').value = fm.causal_chain_id != null ? String(fm.causal_chain_id) : '';
+    if (el('full-entity')) {
+      const ent = fm.entity;
+      el('full-entity').value = Array.isArray(ent) ? ent.join(', ') : ent != null ? String(ent) : '';
+    }
+    if (el('full-episode')) el('full-episode').value = fm.episode_id != null ? String(fm.episode_id) : '';
+    if (el('full-follows')) el('full-follows').value = fm.follows != null ? String(fm.follows) : '';
+    const sug = suggestDuplicateVaultPath(currentOpenNote.path);
+    if (el('full-path')) {
+      el('full-path').value = sug;
+      if (typeof syncFolderSelectToPathInput === 'function') syncFolderSelectToPathInput();
+      if (typeof syncFullCreatePickersFromPath === 'function') syncFullCreatePickersFromPath();
+      if (typeof syncFullProjectFromPath === 'function') syncFullProjectFromPath();
+      if (typeof updateFullPathProjectTypoHint === 'function') updateFullPathProjectTypoHint();
+      if (typeof updateFullCreateSimilarInlineHint === 'function') updateFullCreateSimilarInlineHint();
+    }
+    const dsp = el('duplicate-source-path');
+    if (dsp) dsp.textContent = currentOpenNote.path;
+    const ban = el('duplicate-source-banner');
+    if (ban) ban.classList.remove('hidden');
+    const chk = el('duplicate-delete-after-save');
+    if (chk) chk.checked = false;
+  }
+
   function closeCreateModal() {
     closeFullCreateSimilarModal();
+    resetDuplicateCreateState();
     el('modal-create').classList.add('hidden');
   }
   function closeCreateProposalModal() {
@@ -3948,6 +4120,7 @@
             msgEl.textContent = 'Imported ' + count + ' note(s).';
             msgEl.className = 'create-msg ok';
           }
+          if (count > 0) hubMarkSemanticIndexStale();
           if (typeof loadNotes === 'function') loadNotes();
           if (typeof loadFacets === 'function') loadFacets();
           if (typeof showToast === 'function') showToast('Import complete');
@@ -4018,6 +4191,7 @@
           'Batch: ' + okN + ' of ' + fileArr.length + ' file import(s) succeeded' + (totalImported ? ' (' + totalImported + ' note(s) reported).' : '.') + fl;
         msgEl.className = 'create-msg ' + (failures.length && okN === 0 ? 'err' : failures.length ? 'warn' : 'ok');
         setImportBatchAria(msgEl.textContent);
+        if (totalImported > 0) hubMarkSemanticIndexStale();
         if (typeof loadNotes === 'function') loadNotes();
         if (typeof loadFacets === 'function') loadFacets();
         if (okN > 0 && typeof showToast === 'function') showToast('Import complete');
@@ -4064,6 +4238,7 @@
             msgEl.textContent = 'Imported ' + count + ' note(s).';
             msgEl.className = 'create-msg ok';
           }
+          if (count > 0) hubMarkSemanticIndexStale();
           if (typeof loadNotes === 'function') loadNotes();
           if (typeof loadFacets === 'function') loadFacets();
           if (typeof showToast === 'function') showToast('Import complete');
@@ -4134,6 +4309,7 @@
           msgEl.textContent = 'Imported ' + count + ' note(s).' + extra;
           msgEl.className = 'create-msg ok';
         }
+        if (count > 0) hubMarkSemanticIndexStale();
         if (typeof loadNotes === 'function') loadNotes();
         if (typeof loadFacets === 'function') loadFacets();
         if (typeof showToast === 'function') showToast('Import complete');
@@ -5741,6 +5917,7 @@
               frontmatter: { title: 'New vault', tags: ['knowtation-setup'] },
             }),
           });
+          hubMarkSemanticIndexStaleForVault(id);
           const s = await api('/api/v1/settings');
           lastBackupSettingsPayload = s;
           if (s.role) window.__hubUserRole = String(s.role);
@@ -6024,6 +6201,7 @@
           if (typeof showToast === 'function') {
             showToast('Deleted ' + n + ' note(s). Run Re-index if you use semantic search.', false);
           }
+          if (n > 0 || pd > 0) hubMarkSemanticIndexStale();
           loadNotes();
           loadFacets();
           if (typeof loadProposals === 'function') loadProposals();
@@ -6073,6 +6251,7 @@
           if (typeof showToast === 'function') {
             showToast('Deleted ' + n + ' note(s) in project. Run Re-index if you use semantic search.', false);
           }
+          if (n > 0 || pd > 0) hubMarkSemanticIndexStale();
           loadNotes();
           loadFacets();
           if (typeof loadProposals === 'function') loadProposals();
@@ -6123,6 +6302,7 @@
           if (typeof showToast === 'function') {
             showToast('Renamed project on ' + n + ' note(s).', false);
           }
+          if (n > 0) hubMarkSemanticIndexStale();
           loadNotes();
           loadFacets();
           void refreshBulkDeletePresetDropdowns();
@@ -7192,6 +7372,7 @@
             ...(pslug && { project: pslug }),
           }),
         });
+        hubMarkSemanticIndexStale();
         msg.textContent = 'Saved: ' + path;
         msg.className = 'create-msg ok';
         el('quick-body').value = '';
@@ -7228,6 +7409,16 @@
       msg.className = 'create-msg err';
       return;
     }
+    if (pendingDuplicateDeleteSource && pendingDuplicateDeleteSource.path) {
+      const src = String(pendingDuplicateDeleteSource.path).replace(/\\/g, '/');
+      const dest = notePath.replace(/\\/g, '/');
+      if (src === dest) {
+        msg.textContent =
+          'When duplicating, pick a different path than the original (same path would overwrite the original).';
+        msg.className = 'create-msg err';
+        return;
+      }
+    }
     const slugFromPath = projectSlugFromProjectsPath(notePath);
     const projectsForSimilar = (lastHubFacets && lastHubFacets.projects) || [];
     const similarGuess =
@@ -7260,11 +7451,37 @@
       ...(episode && { episode_id: episode }),
       ...(follows && { follows }),
     };
-    await withButtonBusy(fullBtn, 'Creating…', async () => {
+    const savingLabel = pendingDuplicateDeleteSource ? 'Saving duplicate…' : 'Creating…';
+    await withButtonBusy(fullBtn, savingLabel, async () => {
       try {
         await api('/api/v1/notes', { method: 'POST', body: stringifyNotePostPayload(notePath, body, fm) });
-        msg.textContent = 'Created: ' + notePath;
+        hubMarkSemanticIndexStale();
+        msg.textContent = pendingDuplicateDeleteSource ? 'Saved duplicate: ' + notePath : 'Created: ' + notePath;
         msg.className = 'create-msg ok';
+        const dupSrc = pendingDuplicateDeleteSource;
+        const delChk = el('duplicate-delete-after-save');
+        const shouldDeleteOriginal =
+          dupSrc &&
+          dupSrc.path &&
+          delChk &&
+          delChk.checked &&
+          String(dupSrc.path).replace(/\\/g, '/') !== notePath.replace(/\\/g, '/');
+        if (shouldDeleteOriginal) {
+          try {
+            await api('/api/v1/notes/' + encodeURIComponent(dupSrc.path), { method: 'DELETE' });
+            if (typeof showToast === 'function') showToast('Original note deleted');
+            if (currentOpenNote && currentOpenNote.path === dupSrc.path) closeDetailPanel();
+            const bcb = el('btn-detail-copy-body');
+            if (bcb) bcb.classList.add('hidden');
+          } catch (delErr) {
+            if (typeof showToast === 'function') {
+              showToast(
+                'Duplicate saved but could not delete the original: ' + (delErr.message || String(delErr)),
+                true,
+              );
+            }
+          }
+        }
         void refreshFullPathFolderSelect().then(() => {
           el('full-path').value = defaultFullPath();
           syncFolderSelectToPathInput();
@@ -7505,6 +7722,8 @@
     bodyEl.className = 'note-rendered-body';
     actionsEl.innerHTML = '';
     attachNoteDetailReadActions(actionsEl);
+    const bcbRead = el('btn-detail-copy-body');
+    if (bcbRead) bcbRead.classList.remove('hidden');
   }
 
   async function deleteOpenNote() {
@@ -7514,11 +7733,14 @@
     try {
       await api('/api/v1/notes/' + encodeURIComponent(p), { method: 'DELETE' });
       if (typeof showToast === 'function') showToast('Note deleted');
+      hubMarkSemanticIndexStale();
       currentOpenNote = null;
       currentNotePathForCopy = '';
       teardownDetailEditBodyLayout();
       hideDetailPanelChrome();
       el('btn-copy-path').classList.add('hidden');
+      const bcbDel = el('btn-detail-copy-body');
+      if (bcbDel) bcbDel.classList.add('hidden');
       loadNotes();
       loadFacets();
     } catch (e) {
@@ -7532,6 +7754,13 @@
     editBtn.type = 'button';
     editBtn.textContent = 'Edit';
     editBtn.onclick = () => switchNoteToEditMode();
+    const dupBtn = document.createElement('button');
+    dupBtn.type = 'button';
+    dupBtn.textContent = 'Duplicate…';
+    dupBtn.title = 'Open New note (full) with this content and a suggested new path; optional delete of the original after save.';
+    dupBtn.onclick = () => {
+      void openDuplicateNoteModal();
+    };
     const proposeBtn = document.createElement('button');
     proposeBtn.type = 'button';
     proposeBtn.textContent = 'Propose change';
@@ -7556,9 +7785,9 @@
       copyVaultBtn.type = 'button';
       copyVaultBtn.textContent = 'Copy to vault…';
       copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
-      actionsEl.append(editBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
+      actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
     } else {
-      actionsEl.append(editBtn, proposeBtn, delBtn, exportBtn);
+      actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, exportBtn);
     }
   }
 
@@ -7682,6 +7911,8 @@
               delete_source: moveChk.checked,
             }),
           });
+          hubMarkSemanticIndexStaleForVault(toId);
+          if (res.moved) hubMarkSemanticIndexStaleForVault(fromId);
           close();
           if (typeof showToast === 'function') {
             showToast(res.moved ? 'Note moved to ' + toId : 'Note copied to ' + toId);
@@ -8068,6 +8299,8 @@
   function switchNoteToEditMode() {
     if (!currentOpenNote) return;
     closeCreateModal();
+    const bcbEdit = el('btn-detail-copy-body');
+    if (bcbEdit) bcbEdit.classList.add('hidden');
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
     const fm = stripReservedHubFm(materializeFrontmatter(currentOpenNote.frontmatter));
@@ -8116,6 +8349,7 @@
             method: 'POST',
             body: stringifyNotePostPayload(currentOpenNote.path, body, frontmatter),
           });
+          hubMarkSemanticIndexStale();
           if (typeof showToast === 'function') showToast('Note saved');
           const refreshed = await api('/api/v1/notes/' + encodeURIComponent(currentOpenNote.path));
           const nfm = materializeFrontmatter(refreshed.frontmatter);
@@ -8149,6 +8383,8 @@
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
     const btnCopy = el('btn-copy-path');
+    const btnCopyBody = el('btn-detail-copy-body');
+    if (btnCopyBody) btnCopyBody.classList.add('hidden');
     title.textContent = path;
     bodyEl.textContent = 'Loading…';
     bodyEl.className = '';
@@ -8162,16 +8398,41 @@
         bodyEl.innerHTML = buildNoteReadHtml(note.body, fm);
         bodyEl.className = 'note-rendered-body';
         attachNoteDetailReadActions(actionsEl);
+        if (btnCopyBody) btnCopyBody.classList.remove('hidden');
       })
       .catch((e) => {
         bodyEl.textContent = 'Error: ' + e.message;
         bodyEl.className = '';
+        if (btnCopyBody) btnCopyBody.classList.add('hidden');
       });
   }
 
   el('btn-copy-path').onclick = () => {
     if (currentNotePathForCopy) navigator.clipboard.writeText(currentNotePathForCopy);
   };
+
+  const btnDetailCopyBody = el('btn-detail-copy-body');
+  if (btnDetailCopyBody) {
+    btnDetailCopyBody.onclick = () => {
+      if (!currentOpenNote) {
+        if (typeof showToast === 'function') showToast('Open a note first.', true);
+        return;
+      }
+      const text = currentOpenNote.body != null ? String(currentOpenNote.body) : '';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          () => {
+            if (typeof showToast === 'function') showToast('Note body copied (Markdown).');
+          },
+          () => {
+            if (typeof showToast === 'function') showToast('Could not copy to clipboard.', true);
+          },
+        );
+      } else if (typeof showToast === 'function') {
+        showToast('Clipboard not available in this browser.', true);
+      }
+    };
+  }
 
   const btnCopyUserId = el('btn-copy-user-id');
   if (btnCopyUserId) {
@@ -8302,6 +8563,8 @@
     currentNotePathForCopy = '';
     currentOpenNote = null;
     el('btn-copy-path').classList.add('hidden');
+    const bcbProp = el('btn-detail-copy-body');
+    if (bcbProp) bcbProp.classList.add('hidden');
     const panel = el('detail-panel');
     panel.classList.add('detail-panel-proposal-wide');
     const title = el('detail-title');
@@ -8686,6 +8949,7 @@
         );
       }
       hideDetailPanelChrome();
+      hubMarkSemanticIndexStale();
       loadProposals();
       loadNotes();
       loadActivity();

@@ -96,6 +96,13 @@
 
     <main id="main" class="hidden">
       <section class="search-section">
+        <div id="hub-index-stale-banner" class="hub-index-stale-banner hidden" role="status" aria-live="polite">
+          <span class="hub-index-stale-banner-text">Notes changed since the last <strong>Re-index</strong>. <strong>Meaning</strong> search may be out of date until you run it again.</span>
+          <div class="hub-index-stale-banner-actions">
+            <button type="button" id="hub-index-stale-run" class="btn-secondary btn-small">Re-index now</button>
+            <button type="button" id="hub-index-stale-dismiss" class="btn-link btn-link-small">Dismiss</button>
+          </div>
+        </div>
         <div class="search-row search-row-filters" role="group" aria-label="Search query and filters">
           <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query">
           <select id="search-mode" class="search-mode-select" title="Meaning = similar ideas (indexed). Keyword = text in path, body, and key frontmatter fields." aria-label="Search mode">
@@ -326,11 +333,29 @@
         <div class="detail-header">
           <h2 id="detail-title"></h2>
           <div class="detail-header-actions">
+            <button
+              type="button"
+              id="btn-detail-path-info"
+              class="detail-header-info"
+              aria-label="About note paths. Paths do not change after save. Use Duplicate (in the note actions) to pick a new path with the same project picker as New note; you may delete the original after save if you intend to replace it—agents, automation, or bookmarks may still rely on the old path, so you can leave both copies. Cross-vault copy keeps the same vault-relative path in the target vault (not inbox)."
+              title="Paths stay fixed after save. Duplicate to place a copy at a new path, then delete the old note only if you mean to replace it—agents or scripts may still use the old path.">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </button>
             <button type="button" id="btn-copy-path" class="hidden">Copy path</button>
             <button type="button" id="detail-close">Close</button>
           </div>
         </div>
-        <div id="detail-body"></div>
+        <div class="detail-body-wrap">
+          <button
+            type="button"
+            id="btn-detail-copy-body"
+            class="detail-copy-body-btn hidden"
+            aria-label="Copy note body as Markdown"
+            title="Copy note body (Markdown)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <div id="detail-body"></div>
+        </div>
         <div id="detail-actions" class="detail-actions"></div>
         <div class="detail-footer">
           <div class="detail-footer-row">
@@ -362,6 +387,14 @@
           <p id="create-msg-quick" class="create-msg"></p>
         </div>
         <div id="create-full" class="create-panel hidden">
+          <div id="duplicate-source-banner" class="duplicate-source-banner hidden" role="region" aria-label="Duplicate note">
+            <p class="muted small duplicate-source-banner-lede">Duplicating from <code id="duplicate-source-path"></code>. Choose a <strong>new</strong> path (same pickers as New note). Saving at the same path would overwrite the original.</p>
+            <label class="duplicate-delete-label">
+              <input type="checkbox" id="duplicate-delete-after-save" />
+              <span>After a successful save, delete the original note</span>
+            </label>
+            <p class="muted small duplicate-delete-hint">Uncheck to keep two copies if agents, automation, or bookmarks might still need the old path.</p>
+          </div>
           <div class="create-path-group" role="group" aria-label="Note path">
             <label for="full-create-project-slug"><strong class="create-label-em">Project</strong> in vault</label>
             <select id="full-create-project-slug" class="settings-input-inline" style="width: 100%; max-width: 22rem; margin-bottom: 0.35rem;" aria-describedby="full-create-project-slug-hint"></select>

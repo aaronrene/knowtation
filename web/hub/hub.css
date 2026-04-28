@@ -1041,6 +1041,40 @@ input[readonly]#full-project {
 .chart-wide { margin-bottom: 1rem; min-height: 240px; }
 .dashboard-footnote { font-size: 0.8rem; margin-top: 0.5rem; }
 
+/* Meaning-search index may lag vault edits until user runs Re-index */
+.hub-index-stale-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-soft, rgba(137, 207, 240, 0.1));
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.hub-index-stale-banner.hidden {
+  display: none;
+}
+.hub-index-stale-banner-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.hub-index-stale-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  flex-shrink: 0;
+}
+.hub-index-stale-banner .btn-small {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.82rem;
+}
+
 .detail-panel {
   position: fixed;
   top: 0;
@@ -1072,8 +1106,86 @@ input[readonly]#full-project {
   border-bottom: 1px solid var(--border);
 }
 .detail-header h2 { margin: 0; font-size: 1rem; word-break: break-all; flex: 1; }
-.detail-header-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.detail-header-actions { display: flex; gap: 0.35rem; flex-shrink: 0; align-items: center; }
 .detail-header-actions button { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
+/* Note path explainer (hover / focus for title + aria-label) */
+.detail-header-info {
+  padding: 0.2rem;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: help;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.detail-header-info:hover,
+.detail-header-info:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  outline: none;
+}
+.detail-header-info svg { display: block; }
+
+/* Note read body + optional copy control */
+.detail-body-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.detail-copy-body-btn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 2;
+  padding: 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 0;
+}
+.detail-copy-body-btn:hover,
+.detail-copy-body-btn:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  outline: none;
+}
+.detail-copy-body-btn.hidden {
+  display: none;
+}
+
+.duplicate-source-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--accent-soft, rgba(137, 207, 240, 0.08));
+}
+.duplicate-source-banner-lede {
+  margin: 0 0 0.65rem;
+}
+.duplicate-delete-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.duplicate-delete-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+}
+
 #detail-body {
   flex: 1;
   min-height: 0;
@@ -1084,7 +1196,11 @@ input[readonly]#full-project {
 }
 
 /* Rendered markdown note body */
-#detail-body.note-rendered-body { white-space: normal; line-height: 1.65; }
+#detail-body.note-rendered-body {
+  white-space: normal;
+  line-height: 1.65;
+  padding-top: 2.35rem;
+}
 #detail-body.note-rendered-body h1,
 #detail-body.note-rendered-body h2,
 #detail-body.note-rendered-body h3,
