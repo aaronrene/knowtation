@@ -150,6 +150,8 @@
   }
 
   let listSelectedIndex = 0;
+  /** Increments on each `openNote` call so stale fetch completions do not append duplicate actions or overwrite UI. */
+  let hubOpenNoteSeq = 0;
   /** @type {import('chart.js').Chart[]} */
   let chartInstances = [];
 
@@ -8373,6 +8375,7 @@
   }
 
   function openNote(path) {
+    const seq = ++hubOpenNoteSeq;
     teardownDetailEditBodyLayout();
     closeCreateModal();
     currentNotePathForCopy = path;
@@ -8393,14 +8396,17 @@
     panel.classList.remove('hidden');
     api('/api/v1/notes/' + encodeURIComponent(path))
       .then((note) => {
+        if (seq !== hubOpenNoteSeq) return;
         const fm = materializeFrontmatter(note.frontmatter);
         currentOpenNote = { path, body: note.body || '', frontmatter: fm };
         bodyEl.innerHTML = buildNoteReadHtml(note.body, fm);
         bodyEl.className = 'note-rendered-body';
+        actionsEl.innerHTML = '';
         attachNoteDetailReadActions(actionsEl);
         if (btnCopyBody) btnCopyBody.classList.remove('hidden');
       })
       .catch((e) => {
+        if (seq !== hubOpenNoteSeq) return;
         bodyEl.textContent = 'Error: ' + e.message;
         bodyEl.className = '';
         if (btnCopyBody) btnCopyBody.classList.add('hidden');
