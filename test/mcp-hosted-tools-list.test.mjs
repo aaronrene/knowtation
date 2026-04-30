@@ -21,6 +21,7 @@ const TOOLS_EDITOR = [
   'enrich',
   'extract_tasks',
   'get_note',
+  'hub_create_proposal',
   'list_notes',
   'relate',
   'search',
@@ -38,6 +39,7 @@ const TOOLS_ADMIN = [
   'export',
   'extract_tasks',
   'get_note',
+  'hub_create_proposal',
   'import',
   'import_url',
   'index',
@@ -63,6 +65,7 @@ async function listToolNamesForRole(role) {
     token: 'tok-test',
     canisterUrl: CANISTER_URL,
     bridgeUrl: BRIDGE_URL,
+    gatewayApiBaseUrl: 'http://gateway.test:5555',
   });
   const client = new Client({ name: 'tools-list-test', version: '0.0.1' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -101,5 +104,10 @@ describe('hosted MCP tools/list (JSON Schema export)', () => {
   it('admin role lists expected tools without throw', async () => {
     const names = sortNames(await listToolNamesForRole('admin'));
     assert.deepEqual(names, TOOLS_ADMIN);
+  });
+
+  it('evaluator role lists same tools as editor (incl. hub_create_proposal)', async () => {
+    const names = sortNames(await listToolNamesForRole('evaluator'));
+    assert.deepEqual(names, TOOLS_EDITOR);
   });
 });
