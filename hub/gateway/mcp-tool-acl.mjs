@@ -1,6 +1,6 @@
 /**
  * Issue #1 Phase D2 — role-based tool access control for hosted MCP.
- * Filters available tools based on user role (viewer, editor, admin).
+ * Filters available tools based on user role (viewer, editor, admin, evaluator).
  * Hosted prompts (Track B1–B3): default **viewer**; **`write-from-capture`** is **editor** (implies persisting notes).
  */
 
@@ -20,6 +20,7 @@ const READ_TOOLS = new Set([
 const WRITE_TOOLS = new Set([
   ...READ_TOOLS,
   'write',
+  'hub_create_proposal',
   'capture',
   'transcribe',
   'vault_sync',
@@ -36,6 +37,8 @@ const ADMIN_TOOLS = new Set([
 const ROLE_TOOL_MAP = {
   viewer: READ_TOOLS,
   editor: WRITE_TOOLS,
+  /** Same tool surface as editor (incl. hub_create_proposal); bridge hosted-context may report role evaluator. */
+  evaluator: WRITE_TOOLS,
   admin: ADMIN_TOOLS,
 };
 
@@ -57,7 +60,7 @@ const HOSTED_PROMPT_IDS = new Set([
 ]);
 
 /** Minimum role per prompt (`write-from-capture` implies vault write → editor). */
-const PROMPT_MIN_ROLE = /** @type {Record<string, 'viewer' | 'editor' | 'admin'>} */ ({
+const PROMPT_MIN_ROLE = /** @type {Record<string, 'viewer' | 'editor' | 'admin' | 'evaluator'>} */ ({
   'daily-brief': 'viewer',
   'search-and-synthesize': 'viewer',
   'project-summary': 'viewer',
@@ -73,11 +76,12 @@ const PROMPT_MIN_ROLE = /** @type {Record<string, 'viewer' | 'editor' | 'admin'>
   'resume-session': 'viewer',
 });
 
-const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 };
+/** evaluator ≥ editor for prompts; admin remains highest for future admin-only prompts. */
+const ROLE_RANK = { viewer: 0, editor: 1, evaluator: 2, admin: 3 };
 
 /**
  * Get the set of allowed tool names for a given role.
- * @param {'viewer' | 'editor' | 'admin'} role
+ * @param {'viewer' | 'editor' | 'admin' | 'evaluator'} role
  * @returns {Set<string>}
  */
 export function allowedToolsForRole(role) {
@@ -87,7 +91,7 @@ export function allowedToolsForRole(role) {
 /**
  * Check whether a specific tool is allowed for the given role.
  * @param {string} toolName
- * @param {'viewer' | 'editor' | 'admin'} role
+ * @param {'viewer' | 'editor' | 'admin' | 'evaluator'} role
  * @returns {boolean}
  */
 export function isToolAllowed(toolName, role) {
@@ -98,7 +102,7 @@ export function isToolAllowed(toolName, role) {
 /**
  * Filter a list of tool definitions to only those allowed for the role.
  * @param {{ name: string }[]} tools
- * @param {'viewer' | 'editor' | 'admin'} role
+ * @param {'viewer' | 'editor' | 'admin' | 'evaluator'} role
  * @returns {{ name: string }[]}
  */
 export function filterToolsByRole(tools, role) {
@@ -108,7 +112,7 @@ export function filterToolsByRole(tools, role) {
 
 /**
  * Prompt names exposed for this role (subset of {@link HOSTED_PROMPT_IDS} when min role not met).
- * @param {'viewer' | 'editor' | 'admin'} role
+ * @param {'viewer' | 'editor' | 'admin' | 'evaluator'} role
  * @returns {Set<string>}
  */
 export function allowedPromptsForRole(role) {
@@ -123,7 +127,7 @@ export function allowedPromptsForRole(role) {
 
 /**
  * @param {string} promptName
- * @param {'viewer' | 'editor' | 'admin'} role
+ * @param {'viewer' | 'editor' | 'admin' | 'evaluator'} role
  */
 export function isPromptAllowed(promptName, role) {
   if (!HOSTED_PROMPT_IDS.has(promptName)) return false;

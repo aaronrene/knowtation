@@ -385,6 +385,7 @@ if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
       canisterUrl: CANISTER_URL,
       canisterAuthSecret: CANISTER_AUTH_SECRET,
       bridgeUrl: BRIDGE_URL,
+      gatewayApiBaseUrl: BASE_URL.replace(/\/$/, ''),
       sessionSecret: SESSION_SECRET || '',
     });
     app.use('/mcp', mcpRouter);

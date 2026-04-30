@@ -306,6 +306,71 @@ async function upstreamFetch(url, opts = {}) {
 }
 
 /**
+ * POST JSON to this Hub gateway REST API (e.g. POST /api/v1/proposals) so middleware runs
+ * (billing, proposal policy + review triggers) before the canister.
+ *
+ * @param {string} gatewayBaseUrl e.g. https://hub.example.com (no trailing slash)
+ * @param {{ token: string, vaultId: string }} auth
+ * @param {Record<string, unknown>} body
+ */
+async function gatewayHubPostJson(gatewayBaseUrl, auth, body) {
+  const base = String(gatewayBaseUrl || '').replace(/\/$/, '');
+  const url = `${base}/api/v1/proposals`;
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${auth.token}`,
+    'X-Vault-Id': String(auth.vaultId || 'default').trim() || 'default',
+  };
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const text = await res.text().catch(() => '');
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { error: text.slice(0, 500), code: 'INVALID_JSON' };
+  }
+  if (!res.ok) {
+    const msg =
+      data && typeof data === 'object' && typeof data.error === 'string' && data.error.trim()
+        ? data.error.trim()
+        : `Hub returned ${res.status}`;
+    const err = new Error(msg);
+    /** @type {any} */ (err).status = res.status;
+    /** @type {any} */ (err).code = data && typeof data === 'object' ? data.code : undefined;
+    /** @type {any} */ (err).detail = data && typeof data === 'object' ? data.detail : undefined;
+    /** @type {any} */ (err).hub = data && typeof data === 'object' ? data : undefined;
+    throw err;
+  }
+  return data;
+}
+
+/** @param {unknown} e */
+function jsonHubUpstreamError(e) {
+  const ex = /** @type {any} */ (e);
+  const status = typeof ex?.status === 'number' ? ex.status : undefined;
+  const code = typeof ex?.code === 'string' ? ex.code : undefined;
+  const detail = ex?.detail;
+  const hub = ex?.hub;
+  const payload = {
+    error: ex?.message || String(e),
+    code: code || 'HUB_ERROR',
+    ...(status !== undefined ? { http_status: status } : {}),
+    ...(detail != null && String(detail) !== '' ? { detail: String(detail) } : {}),
+  };
+  if (hub && typeof hub === 'object' && hub !== null && !Array.isArray(hub)) {
+    const o = /** @type {Record<string, unknown>} */ (hub);
+    for (const k of ['proposal_id', 'path', 'status', 'evaluation_status', 'review_queue']) {
+      if (o[k] !== undefined) {
+        if (!payload.hub_fields) payload.hub_fields = {};
+        /** @type {Record<string, unknown>} */ (payload.hub_fields)[k] = o[k];
+      }
+    }
+  }
+  return { content: [{ type: 'text', text: JSON.stringify(payload) }], isError: true };
+}
+
+/**
  * GET JSON from the canister with a hard cap on response body bytes (hosted export safety).
  * @param {string} url
  * @param {{ token?: string, vaultId?: string, userId?: string, canisterAuthSecret?: string }} opts
@@ -373,17 +438,32 @@ async function bridgeImportMultipart(bridgeUrl, fetchOpts, formData) {
  *   userId: string,
  *   canisterUserId?: string,
  *   vaultId: string,
- *   role: 'viewer' | 'editor' | 'admin',
+ *   role: 'viewer' | 'editor' | 'admin' | 'evaluator',
  *   token: string,
  *   canisterUrl: string,
  *   canisterAuthSecret?: string,
  *   bridgeUrl: string,
+ *   gatewayApiBaseUrl: (string|undefined) — public gateway base (e.g. HUB_BASE_URL); enables hub_create_proposal (POST /api/v1/proposals).
  *   scope?: Record<string, unknown>,
  * }} ctx
  * @returns {McpServer}
  */
 export function createHostedMcpServer(ctx) {
-  const { userId, vaultId, role, token, canisterUrl, canisterAuthSecret, bridgeUrl, scope = {} } = ctx;
+  const {
+    userId,
+    vaultId,
+    role,
+    token,
+    canisterUrl,
+    canisterAuthSecret,
+    bridgeUrl,
+    gatewayApiBaseUrl: gatewayApiBaseUrlRaw,
+    scope = {},
+  } = ctx;
+  const gatewayApiBaseUrl =
+    typeof gatewayApiBaseUrlRaw === 'string' && gatewayApiBaseUrlRaw.trim() !== ''
+      ? gatewayApiBaseUrlRaw.trim().replace(/\/$/, '')
+      : '';
   const canisterUserId =
     typeof ctx.canisterUserId === 'string' && ctx.canisterUserId.trim() !== '' ? ctx.canisterUserId.trim() : userId;
   const server = new McpServer(
@@ -1140,6 +1220,45 @@ export function createHostedMcpServer(ctx) {
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('hub_create_proposal', role) && gatewayApiBaseUrl) {
+    server.registerTool(
+      'hub_create_proposal',
+      {
+        description:
+          'Create a Hub proposal (review-before-commit): POST /api/v1/proposals on this gateway with your JWT and X-Vault-Id (same contract as Hub UI and stdio hub_create_proposal). Editor, evaluator, or admin. Body: docs/HUB-API.md §3.4.',
+        inputSchema: {
+          path: z.string().min(1).describe('Vault-relative note path (required)'),
+          body: z.string().optional().describe('Proposed Markdown body (default empty)'),
+          frontmatter: z.record(z.string(), z.unknown()).optional().describe('Proposed frontmatter object'),
+          intent: z.string().optional().describe('Reason for the change'),
+          base_state_id: z.string().optional().describe('kn1_… optimistic concurrency id from note state'),
+          external_ref: z.string().optional().describe('Optional cross-system reference (e.g. Muse)'),
+          labels: z.array(z.string()).optional(),
+          source: z.string().optional().describe('e.g. agent | human | import'),
+        },
+      },
+      async (args) => {
+        try {
+          /** @type {Record<string, unknown>} */
+          const payload = {
+            path: args.path,
+            body: args.body ?? '',
+            frontmatter: args.frontmatter ?? {},
+          };
+          if (args.intent !== undefined) payload.intent = args.intent;
+          if (args.base_state_id !== undefined) payload.base_state_id = args.base_state_id;
+          if (args.external_ref !== undefined) payload.external_ref = args.external_ref;
+          if (args.labels !== undefined) payload.labels = args.labels;
+          if (args.source !== undefined) payload.source = args.source;
+          const data = await gatewayHubPostJson(gatewayApiBaseUrl, { token, vaultId }, payload);
+          return jsonResponse(data);
+        } catch (e) {
+          return jsonHubUpstreamError(e);
         }
       }
     );

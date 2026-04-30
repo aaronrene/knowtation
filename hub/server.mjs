@@ -1330,7 +1330,7 @@ app.post('/api/v1/proposals/:id/evaluation', requireRole('admin', 'evaluator'), 
   res.json(result.proposal);
 });
 
-app.post('/api/v1/proposals', requireRole('editor', 'admin'), (req, res) => {
+app.post('/api/v1/proposals', requireRole('editor', 'admin', 'evaluator'), (req, res) => {
   const {
     path: notePath,
     body,

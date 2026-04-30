@@ -91,6 +91,7 @@ function createRateLimiter(maxReqs = DEFAULT_RATE_LIMIT, windowMs = RATE_WINDOW_
  *   canisterUrl: string,
  *   canisterAuthSecret?: string,
  *   bridgeUrl: string,
+ *   gatewayApiBaseUrl: (string|undefined) — public gateway base (no path), e.g. HUB_BASE_URL; enables hub_create_proposal.
  *   sessionSecret: string,
  *   rateLimit?: number,
  *   sessionTtlMs?: number,
@@ -105,6 +106,7 @@ export function createMcpProxyRouter(deps) {
     canisterUrl,
     canisterAuthSecret,
     bridgeUrl,
+    gatewayApiBaseUrl,
     rateLimit = DEFAULT_RATE_LIMIT,
     sessionTtlMs = parseMcpSessionTtlMs(),
     maxSessionsPerUser = parseMcpMaxSessionsPerUser(),
@@ -197,6 +199,9 @@ export function createMcpProxyRouter(deps) {
       canisterAuthSecret: canisterAuthSecret || '',
       bridgeUrl,
       scope: ctx.scope || {},
+      ...(gatewayApiBaseUrl && String(gatewayApiBaseUrl).trim()
+        ? { gatewayApiBaseUrl: String(gatewayApiBaseUrl).trim().replace(/\/$/, '') }
+        : {}),
     });
 
     await mcpServer.connect(transport);

@@ -21,15 +21,24 @@ describe('mcp-tool-acl', () => {
       const tools = allowedToolsForRole('editor');
       assert.ok(tools.has('search'));
       assert.ok(tools.has('write'));
+      assert.ok(tools.has('hub_create_proposal'));
       assert.ok(tools.has('capture'));
       assert.ok(!tools.has('index'));
       assert.ok(!tools.has('export'));
+    });
+
+    it('evaluator gets same write-class tools as editor (incl. hub_create_proposal)', () => {
+      const tools = allowedToolsForRole('evaluator');
+      assert.ok(tools.has('write'));
+      assert.ok(tools.has('hub_create_proposal'));
+      assert.ok(!tools.has('index'));
     });
 
     it('admin gets all tools', () => {
       const tools = allowedToolsForRole('admin');
       assert.ok(tools.has('search'));
       assert.ok(tools.has('write'));
+      assert.ok(tools.has('hub_create_proposal'));
       assert.ok(tools.has('index'));
       assert.ok(tools.has('export'));
       assert.ok(tools.has('import'));
@@ -47,12 +56,16 @@ describe('mcp-tool-acl', () => {
     it('returns true for allowed tool', () => {
       assert.ok(isToolAllowed('search', 'viewer'));
       assert.ok(isToolAllowed('write', 'editor'));
+      assert.ok(isToolAllowed('hub_create_proposal', 'editor'));
+      assert.ok(isToolAllowed('hub_create_proposal', 'evaluator'));
       assert.ok(isToolAllowed('index', 'admin'));
     });
 
     it('returns false for disallowed tool', () => {
       assert.ok(!isToolAllowed('write', 'viewer'));
+      assert.ok(!isToolAllowed('hub_create_proposal', 'viewer'));
       assert.ok(!isToolAllowed('index', 'editor'));
+      assert.ok(!isToolAllowed('index', 'evaluator'));
     });
   });
 
