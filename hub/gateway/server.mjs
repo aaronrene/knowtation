@@ -42,6 +42,7 @@ import {
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
+import { proposalDataForHostedReviewHintsFromCreate } from './proposal-hints-create-context.mjs';
 import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
 import { isAttestationConfigured, createAttestation, verifyAttestation, verifyWithIcp, anchorPendingAttestations } from './attest-store.mjs';
 import { loadBillingDb, mutateBillingDb } from './billing-store.mjs';
@@ -2048,12 +2049,8 @@ async function proxyToCanister(req, res) {
     ) {
       try {
         const j = JSON.parse(body);
-        if (j && typeof j.proposal_id === 'string') {
-          parsedProposalData = {
-            path: j.path != null ? String(j.path) : '',
-            body: j.body != null ? String(j.body) : '',
-          };
-        }
+        const merged = proposalDataForHostedReviewHintsFromCreate(j, bodyOut);
+        if (merged) parsedProposalData = merged;
       } catch (_) {}
     }
     try {
