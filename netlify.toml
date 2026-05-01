@@ -30,10 +30,16 @@
 [functions."bridge"]
   external_node_modules = ["exceljs"]
 
-# Netlify Pro allows up to 26 s per function. Per-function timeout must be a sub-table;
-# a scalar timeout = N under [functions] is rejected by the config validator.
+# Netlify sync-function platform max is 60 s per docs.netlify.com/build/functions/overview.
+# Per-function timeout must be a sub-table; a scalar `timeout = N` under [functions] is
+# rejected by the config validator. Gateway raised from 26 → 60 to give the bridge-proxy
+# index call (POST /api/v1/index) headroom under the DeepInfra (BAAI/bge-large-en-v1.5)
+# embedding latency profile, which can run 2× the OpenAI text-embedding-3-small wall
+# time for the same vault. See `hub/bridge/index-timing.mjs` and the timing logs
+# (`type:knowtation_index_step`) in bridge logs to identify which sub-step dominates
+# before deciding on a parallelize/async fix.
 [functions."gateway"]
-  timeout = 26
+  timeout = 60
 
 [functions."warmup"]
   timeout = 26
