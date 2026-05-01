@@ -164,6 +164,80 @@ describe('vector-store-sqlite — content_hash cache surface', () => {
     store.close();
   });
 
+  it('default config still throws on dimension mismatch (CLI safety preserved)', async () => {
+    const dir = freshDir('dim-throw');
+    const store = createSqliteVectorStore({ data_dir: dir });
+    await store.ensureCollection(3);
+    await assert.rejects(
+      () => store.ensureCollection(5),
+      /dimension mismatch/,
+      'default (no allow_dimension_migration) must throw — protects CLI users from accidental EMBEDDING_PROVIDER swaps',
+    );
+    store.close();
+  });
+
+  it('with allow_dimension_migration: true, ensureCollection drops + recreates at the new dimension', async () => {
+    const dir = freshDir('dim-migrate');
+    const store = createSqliteVectorStore({
+      data_dir: dir,
+      allow_dimension_migration: true,
+    });
+    await store.ensureCollection(3);
+    await store.upsert([
+      pointFor({ id: 'vA::a_0', vault: 'vA', vector: [1, 0, 0], hash: 'v1:openai:m:abc' }),
+    ]);
+    assert.equal(await store.count(), 1);
+
+    // Capture the warn so the migration is auditable in production logs.
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args.join(' '));
+    try {
+      await store.ensureCollection(5);
+    } finally {
+      console.warn = originalWarn;
+    }
+    assert.equal(await store.count(), 0, 'migration must wipe vectors at the old dimension');
+    assert.ok(
+      warnings.some((w) => /dimension migration/i.test(w)),
+      'must console.warn so the operator can see why all vectors were wiped',
+    );
+
+    // New dimension is in effect — upsert at dim=5 succeeds.
+    await store.upsert([
+      pointFor({ id: 'vA::b_0', vault: 'vA', vector: [1, 0, 0, 0, 0], hash: 'v1:deepinfra:m:def' }),
+    ]);
+    assert.equal(await store.count(), 1);
+    store.close();
+  });
+
+  it('allow_dimension_migration only triggers when dimensions actually differ (no-op when same)', async () => {
+    const dir = freshDir('dim-noop');
+    const store = createSqliteVectorStore({
+      data_dir: dir,
+      allow_dimension_migration: true,
+    });
+    await store.ensureCollection(4);
+    await store.upsert([
+      pointFor({ id: 'vA::keep_0', vault: 'vA', vector: [1, 0, 0, 0], hash: 'v1:p:m:keep' }),
+    ]);
+    const originalWarn = console.warn;
+    const warnings = [];
+    console.warn = (...args) => warnings.push(args.join(' '));
+    try {
+      await store.ensureCollection(4);
+    } finally {
+      console.warn = originalWarn;
+    }
+    assert.equal(await store.count(), 1, 'same dimension must not wipe rows');
+    assert.equal(
+      warnings.filter((w) => /dimension migration/i.test(w)).length,
+      0,
+      'must not warn when dimensions match',
+    );
+    store.close();
+  });
+
   it('ensureCollection migrates a legacy table that lacks content_hash by dropping + recreating', async () => {
     const dir = freshDir('migrate');
     const dbPath = path.join(dir, 'knowtation_vectors.db');
