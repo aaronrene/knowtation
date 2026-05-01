@@ -182,6 +182,11 @@ function getBridgeStoreConfig(uid, vectorsDirOverride) {
     vector_store: 'sqlite-vec',
     data_dir: vectorsDir,
     embedding: getBridgeEmbeddingConfig(),
+    // Bridge owns the data lifecycle (downloads from blob → re-indexes → uploads to blob).
+    // A dimension change (e.g. OpenAI 1536 → DeepInfra 1024) can only resolve via a full
+    // re-embed of every vault in this DB. CLI keeps the throw so an accidental swap surfaces
+    // loudly. See `lib/vector-store-sqlite.mjs ensureCollection` migration logic.
+    allow_dimension_migration: true,
   };
 }
 
@@ -2039,11 +2044,15 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       for (const c of chunks) allChunks.push(c);
     }
     // Tag every chunk with a versioned content hash + the namespaced store id so the
-    // sqlite-vec backend's `getChunkHashes(vaultId)` lookup keys line up.
+    // sqlite-vec backend's `getChunkHashes(vaultId)` lookup keys line up. The hash prefix
+    // includes the active provider+model so a same-dimension model swap (e.g. BGE-large 1024
+    // → BGE-m3 1024) automatically invalidates the cache instead of silently keeping stale
+    // vectors. See `lib/chunk-content-hash.mjs:computeChunkContentHashTagged`.
+    const embeddingConfigForHash = storeConfig.embedding;
     const chunksWithHash = allChunks.map((chunk) => ({
       chunk,
       storeId: `${vaultId}::${chunk.id}`,
-      contentHash: computeChunkContentHashTagged(chunk),
+      contentHash: computeChunkContentHashTagged(chunk, embeddingConfigForHash),
     }));
     timer.step('chunk_notes', { chunk_count: allChunks.length });
 

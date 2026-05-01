@@ -126,20 +126,91 @@ describe('computeChunkContentHash', () => {
 });
 
 describe('computeChunkContentHashTagged', () => {
-  it('prefixes the active version so future algo bumps can be detected on read', () => {
-    const tagged = computeChunkContentHashTagged({ text: 'hello', path: 'a.md' });
-    assert.ok(tagged.startsWith(CHUNK_CONTENT_HASH_VERSION + ':'));
-    const [, hex] = tagged.split(':');
-    assert.match(hex, /^[0-9a-f]{32}$/);
+  const cfg = { provider: 'deepinfra', model: 'BAAI/bge-large-en-v1.5' };
+
+  it('format is "v<N>:<provider>:<model>:<32-hex>" with provider lowercased', () => {
+    const tagged = computeChunkContentHashTagged({ text: 'hello', path: 'a.md' }, cfg);
+    const parts = tagged.split(':');
+    assert.equal(parts[0], 'v1');
+    assert.equal(parts[1], 'deepinfra');
+    assert.equal(parts[2], 'BAAI/bge-large-en-v1.5');
+    assert.match(parts[3], /^[0-9a-f]{32}$/);
   });
 
   it('current version is v1', () => {
     assert.equal(CHUNK_CONTENT_HASH_VERSION, 'v1');
   });
 
-  it('two equivalent chunks produce equal tagged hashes', () => {
-    const a = computeChunkContentHashTagged({ text: 'x', path: 'a.md', tags: ['b', 'a'] });
-    const b = computeChunkContentHashTagged({ text: 'x', path: 'a.md', tags: ['a', 'b'] });
+  it('two equivalent chunks under same provider+model produce equal tagged hashes', () => {
+    const a = computeChunkContentHashTagged({ text: 'x', path: 'a.md', tags: ['b', 'a'] }, cfg);
+    const b = computeChunkContentHashTagged({ text: 'x', path: 'a.md', tags: ['a', 'b'] }, cfg);
     assert.equal(a, b);
+  });
+
+  it('changing provider invalidates the cache (different prefix)', () => {
+    const chunk = { text: 'same', path: 'a.md' };
+    const a = computeChunkContentHashTagged(chunk, { provider: 'openai', model: 'text-embedding-3-small' });
+    const b = computeChunkContentHashTagged(chunk, { provider: 'deepinfra', model: 'BAAI/bge-large-en-v1.5' });
+    assert.notEqual(a, b, 'same chunk under different providers must hash differently');
+  });
+
+  it('changing model (same provider, same dimension) invalidates the cache', () => {
+    // The whole point of putting model in the prefix: BGE-large (1024) → BGE-m3 (1024)
+    // is a same-dimension swap that the dimension check cannot catch. Without model in the
+    // hash, every chunk would be a cache hit and we would silently keep stale vectors.
+    const chunk = { text: 'same', path: 'a.md' };
+    const a = computeChunkContentHashTagged(chunk, { provider: 'deepinfra', model: 'BAAI/bge-large-en-v1.5' });
+    const b = computeChunkContentHashTagged(chunk, { provider: 'deepinfra', model: 'BAAI/bge-m3' });
+    assert.notEqual(a, b, 'same chunk under different models must hash differently');
+  });
+
+  it('provider is lowercased + alphanumeric-stripped (deterministic across casing/typos)', () => {
+    const chunk = { text: 'x', path: 'a.md' };
+    const a = computeChunkContentHashTagged(chunk, { provider: 'DeepInfra', model: 'm' });
+    const b = computeChunkContentHashTagged(chunk, { provider: 'deepinfra', model: 'm' });
+    const c = computeChunkContentHashTagged(chunk, { provider: 'deepinfra ', model: 'm' });
+    assert.equal(a, b);
+    assert.equal(a, c);
+  });
+
+  it('model preserves slashes (e.g. BAAI/bge-large) but collapses whitespace', () => {
+    const chunk = { text: 'x', path: 'a.md' };
+    const tagged = computeChunkContentHashTagged(chunk, {
+      provider: 'deepinfra',
+      model: '  BAAI/bge-large-en-v1.5  ',
+    });
+    assert.match(tagged, /^v1:deepinfra:BAAI\/bge-large-en-v1\.5:[0-9a-f]{32}$/);
+  });
+
+  it('throws if embeddingConfig is missing — silent fallback would re-introduce the silent-corruption bug', () => {
+    const chunk = { text: 'x', path: 'a.md' };
+    assert.throws(
+      () => computeChunkContentHashTagged(chunk),
+      /embeddingConfig is required/,
+    );
+    assert.throws(
+      () => computeChunkContentHashTagged(chunk, null),
+      /embeddingConfig is required/,
+    );
+  });
+
+  it('throws on missing/empty provider or model (caller bug surfaces loudly)', () => {
+    const chunk = { text: 'x', path: 'a.md' };
+    assert.throws(
+      () => computeChunkContentHashTagged(chunk, { model: 'm' }),
+      /provider must be a non-empty string/,
+    );
+    assert.throws(
+      () => computeChunkContentHashTagged(chunk, { provider: '', model: 'm' }),
+      /provider must be a non-empty string/,
+    );
+    assert.throws(
+      () => computeChunkContentHashTagged(chunk, { provider: 'deepinfra' }),
+      /model must be a non-empty string/,
+    );
+    assert.throws(
+      () => computeChunkContentHashTagged(chunk, { provider: 'deepinfra', model: '   ' }),
+      /model must be a non-empty string/,
+    );
   });
 });

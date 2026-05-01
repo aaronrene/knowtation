@@ -109,3 +109,28 @@ test('parallel embed loop uses runWithConcurrency, not a serial for-of/await', (
     'embed step must call runWithConcurrency with embedBatches.map of thunks',
   );
 });
+
+test('getBridgeStoreConfig sets allow_dimension_migration: true so a provider switch unblocks the indexer', () => {
+  // Without this, an OpenAI(1536) → DeepInfra(1024) switch leaves a 1536-dim table on disk and
+  // every subsequent `POST /api/v1/index` aborts with "Vector store dimension mismatch" before
+  // the new content-hash migration logic can run. The bridge owns the data lifecycle (downloads
+  // from blob → re-indexes → uploads to blob), so an automatic drop+recreate is the only correct
+  // resolution. CLI keeps the throw — see `lib/vector-store-sqlite.mjs:ensureCollection`.
+  assert.match(
+    bridgeJs,
+    /function getBridgeStoreConfig[\s\S]{0,1500}?allow_dimension_migration:\s*true/,
+    'getBridgeStoreConfig must set allow_dimension_migration: true',
+  );
+});
+
+test('chunk content-hash is bound to the active embedding provider+model', () => {
+  // The hash call site MUST pass the embedding config. Without it,
+  // `computeChunkContentHashTagged` throws (loud caller bug) — but the test asserts the
+  // intentional wiring so a future refactor cannot silently drop the second arg and re-introduce
+  // the same-dimension model-swap silent corruption (BGE-large 1024 → BGE-m3 1024 etc.).
+  assert.match(
+    bridgeJs,
+    /computeChunkContentHashTagged\(\s*chunk\s*,\s*embeddingConfigForHash\s*\)/,
+    'bridge must call computeChunkContentHashTagged(chunk, embeddingConfigForHash) so a model swap invalidates the cache',
+  );
+});
