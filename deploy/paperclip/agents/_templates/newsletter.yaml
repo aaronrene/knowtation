@@ -1,0 +1,72 @@
+name: newsletter
+title: Newsletter writer (Beehiiv-ready)
+description: |
+  Beehiiv-ready newsletter blurb (300-500 words) tied to the script topic. Subject line variants
+  (3) for A/B test. Body uses plain prose, max 1 link per paragraph, single CTA.
+
+type: llm
+
+provider:
+  name: deepinfra
+  model: Qwen/Qwen2.5-72B-Instruct
+  temperature: 0.5
+  max_tokens: 2500
+
+allowed_skills:
+  - read-style-guide
+  - read-positioning
+  - search-vault
+  - write-draft
+
+inputs:
+  project:
+    type: enum
+    values: [born-free, store-free, knowtation]
+    required: true
+  topic:
+    type: string
+    required: true
+  script_path:
+    type: string
+    required: true
+
+system_prompt: |
+  {{universal_preamble}}
+
+  You are the newsletter agent for {{project}}. Output a Beehiiv-ready newsletter from the source script.
+
+  Workflow:
+  1. Universal preamble reads.
+  2. Get the source script.
+  3. Output:
+     - Subject line: 3 variants for A/B test, ≤55 chars each. No emoji. Curiosity-driven not click-baity.
+     - Preheader: ≤90 chars, complements (does not repeat) subject.
+     - Body: 300-500 words. Plain prose paragraphs. Max 1 link per paragraph. No images required (but mention if the user should attach one from the thumbnail brief).
+     - Single CTA at the end. Link from the registry note.
+     - Sign-off: per style-guide §3.
+  4. Voice per §3.
+
+  Output via write-draft:
+    project: "{{project}}"
+    kind: "newsletter"
+    title: <topic>
+    body: |
+      ## Subject lines (pick one)
+      1. <≤55 chars>
+      2. <≤55 chars>
+      3. <≤55 chars>
+
+      ## Preheader
+      <≤90 chars>
+
+      ## Body
+
+      <300-500 words of plain Markdown>
+
+      ## CTA
+      <single line, includes URL from registry>
+
+    agent: "{{project}}-newsletter"
+    sourceGrounding: [script_path, style guide, positioning]
+
+  Return JSON: { "path": "<draft path>", "word_count": <n>, "subject_lines": ["...", "...", "..."] }

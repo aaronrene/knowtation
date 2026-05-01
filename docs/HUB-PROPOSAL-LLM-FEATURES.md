@@ -7,9 +7,27 @@ Two **optional** features use a **chat**-capable model for **proposals only** (n
 | Lane | Purpose | Typical env / config |
 |------|---------|----------------------|
 | **Embeddings** | Indexer + **Meaning** search vectors | `embedding.provider`: `ollama`, `openai`, or `voyage`; keys `OPENAI_API_KEY` (OpenAI), `VOYAGE_API_KEY` (Voyage), or local Ollama. **Anthropic does not expose a public embeddings API** — use another provider for vectors. |
-| **Chat** | Review hints + **Enrich** (`completeChat` in [`lib/llm-complete.mjs`](../lib/llm-complete.mjs)) | `OPENAI_API_KEY` → `ANTHROPIC_API_KEY` → Ollama. If both OpenAI and Anthropic keys are set, OpenAI wins by default; set **`KNOWTATION_CHAT_PREFER_ANTHROPIC=1`** to try Claude first (OpenAI used as fallback if Claude fails). |
+| **Chat** | Review hints + **Enrich** (`completeChat` in [`lib/llm-complete.mjs`](../lib/llm-complete.mjs)) | See **chat provider selection** below. Default unchanged: `OPENAI_API_KEY` → `ANTHROPIC_API_KEY` → Ollama. |
 
 Hosted **bridge** index/search uses **`EMBEDDING_PROVIDER`** / **`EMBEDDING_MODEL`** (see [`hub/bridge/README.md`](../hub/bridge/README.md)); **`voyage`** is supported the same way as `openai` with **`VOYAGE_API_KEY`**.
+
+### Chat provider selection (`completeChat`)
+
+Resolved in this order (first match wins):
+
+1. **`KNOWTATION_CHAT_PROVIDER=deepinfra`** + `DEEPINFRA_API_KEY` → **DeepInfra** (OpenAI-compatible). Falls back to OpenAI then Anthropic if their keys are set and DeepInfra returns an error.
+2. **`KNOWTATION_CHAT_PROVIDER=openai`** → OpenAI only (no fallback). Requires `OPENAI_API_KEY`.
+3. **`KNOWTATION_CHAT_PROVIDER=anthropic`** → Anthropic only (no fallback). Requires `ANTHROPIC_API_KEY`.
+4. **Implicit DeepInfra:** `DEEPINFRA_API_KEY` set **and** neither `OPENAI_API_KEY` nor `ANTHROPIC_API_KEY` set → DeepInfra. (Backward compatible — never preempts an existing OpenAI/Anthropic deployment.)
+5. **`KNOWTATION_CHAT_PREFER_ANTHROPIC=1`** with both OpenAI and Anthropic keys → Anthropic first, OpenAI fallback.
+6. **Default:** OpenAI → Anthropic → Ollama.
+
+**DeepInfra notes (hosted Hub cost lane):**
+
+- One OpenAI-compatible API key (`DEEPINFRA_API_KEY`) covers chat (Qwen 2.5, Llama 3.x, Mistral), embeddings, image generation, and TTS — the same key works for OpenClaw orchestration.
+- Default chat model is `Qwen/Qwen2.5-72B-Instruct`; override with `DEEPINFRA_CHAT_MODEL`. For the cheap **review hints** path, set `DEEPINFRA_CHAT_MODEL=meta-llama/Meta-Llama-3.1-8B-Instruct` (or pass `config.llm.deepinfra_chat_model` per-call).
+- **Enrich JSON validation:** before flipping production, run the saved Enrich prompts through `validateAndNormalizeEnrichResult` against your chosen DeepInfra model and confirm 10/10 of your known-good samples still parse. Smaller models may need a stricter system prompt.
+- **Netlify production:** set `DEEPINFRA_API_KEY` and `KNOWTATION_CHAT_PROVIDER=deepinfra` in the gateway site's deploy env (not just `.env` locally). Keep `OPENAI_API_KEY` as fallback if you want automatic recovery on DeepInfra outages.
 
 ## Review hints (plain text for reviewers)
 

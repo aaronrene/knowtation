@@ -1,0 +1,34 @@
+project: born-free
+display_name: Born Free
+description: AI-readable proof for products / claims; faraday-bag chair safer for newborns is the launch vertical.
+vault_root: projects/born-free
+
+# Bind every conveyor template with project=born-free.
+# Loader instantiates each template into a project-scoped agent named "born-free-<template-name>".
+agents:
+  - template: ../_templates/script-writer.yaml
+    instance_name: born-free-script-writer
+  - template: ../_templates/social-poster.yaml
+    instance_name: born-free-social-poster
+  - template: ../_templates/thumbnail-brief.yaml
+    instance_name: born-free-thumbnail-brief
+  - template: ../_templates/clip-factory.yaml
+    instance_name: born-free-clip-factory
+  - template: ../_templates/blog-seo.yaml
+    instance_name: born-free-blog-seo
+  - template: ../_templates/newsletter.yaml
+    instance_name: born-free-newsletter
+
+# Project-specific guardrails (loader merges into agent system prompts at instantiation).
+extra_voice_rules: |
+  This project speaks to expectant parents. Every claim about safety, EMF, or pediatric outcomes
+  must cite a peer-reviewed source listed in projects/born-free/research/public-sources-2026.md
+  OR be marked [NEEDS CONFIRMATION]. Never imply medical advice. Never cite a study you have not
+  read in the registry note. Per style-guide §5, fear marketing is forbidden — we educate, we
+  do not scare.
+
+# Beehiiv list ID for the newsletter agent's CTA construction.
+beehiiv_list_id_env: BEEHIIV_BORNFREE_LIST_ID
+
+# Default lead magnet for CTA construction. Falls back to "[NEEDS HUMAN CTA]" if missing.
+default_lead_magnet: projects/born-free/research/lead-magnet-spec.md

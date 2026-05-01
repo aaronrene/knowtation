@@ -1,0 +1,29 @@
+project: knowtation
+display_name: Knowtation
+description: Personal knowledge spine. Markdown vault + MCP server + CLI. Notation for what you know.
+vault_root: projects/knowtation
+
+agents:
+  - template: ../_templates/script-writer.yaml
+    instance_name: knowtation-script-writer
+  - template: ../_templates/social-poster.yaml
+    instance_name: knowtation-social-poster
+  - template: ../_templates/thumbnail-brief.yaml
+    instance_name: knowtation-thumbnail-brief
+  - template: ../_templates/clip-factory.yaml
+    instance_name: knowtation-clip-factory
+  - template: ../_templates/blog-seo.yaml
+    instance_name: knowtation-blog-seo
+  - template: ../_templates/newsletter.yaml
+    instance_name: knowtation-newsletter
+
+extra_voice_rules: |
+  This project speaks to power-knowledge-workers and AI builders. Claims about agent capabilities,
+  MCP semantics, or model behavior must cite either the source code (a vault path) or a published
+  spec (registry note). Never invent benchmarks or model claims. When comparing to Notion, Obsidian,
+  or other tools, compare on FUNCTIONAL difference, not on dunking — per style-guide §5 (we do not
+  punch down on competitors). When the topic is "Markdown vs <X>", the contrast must be specific
+  (e.g. "Notion's API rate-limits agentic reads at 3 req/sec per integration") and verifiable.
+
+beehiiv_list_id_env: BEEHIIV_KNOWTATION_LIST_ID
+default_lead_magnet: projects/knowtation/research/lead-magnet-spec.md

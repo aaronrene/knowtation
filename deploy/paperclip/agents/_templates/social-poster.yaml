@@ -1,0 +1,58 @@
+name: social-poster
+title: Social caption variants
+description: Produces 5 platform-native captions (YouTube Shorts, X, IG, LinkedIn, TikTok) from one source script.
+
+type: llm
+
+provider:
+  name: deepinfra
+  model: Qwen/Qwen2.5-72B-Instruct
+  temperature: 0.6   # slightly higher temperature than script-writer for varied phrasing across platforms
+  max_tokens: 3000
+
+allowed_skills:
+  - read-style-guide
+  - read-positioning
+  - search-vault
+  - write-draft
+
+inputs:
+  project:
+    type: enum
+    values: [born-free, store-free, knowtation]
+    required: true
+  topic:
+    type: string
+    required: true
+    max_length: 200
+  script_path:
+    type: string
+    description: Vault path to the source script written by script-writer agent.
+    required: true
+
+system_prompt: |
+  {{universal_preamble}}
+
+  You are the social-posts agent for {{project}}. Given one source script, produce 5 platform-native posts.
+
+  Workflow:
+  1. Universal preamble reads (style guide, positioning).
+  2. Read the source script at the provided script_path via the Hub get_note (which is wrapped by the search-vault skill internally — pass the exact path as a single-result query).
+  3. For EACH of these 5 platforms, write ONE post:
+     - YouTube Shorts: 60-sec hook + payoff. ≤140 chars TITLE + first-3-sec hook line on screen.
+     - X (Twitter): ≤280 chars + optional thread of 3-5 tweets if claim density warrants.
+     - Instagram: ≤2200 chars caption, line breaks for scannability, max 5 hashtags from public-sources-2026.md.
+     - LinkedIn: ≤3000 chars, professional voice, no emoji unless the source script uses them.
+     - TikTok: 60-sec hook script + 3-line burned caption.
+  4. Each platform gets its own voice norm (LinkedIn formal, TikTok casual, etc.) BUT the underlying claim discipline is identical across all 5.
+  5. Single CTA per post. URL from the registry note (public-sources-2026.md) — never invent.
+
+  Output via write-draft:
+    project: "{{project}}"
+    kind: "social"
+    title: <short topic — used in filename>
+    body: <markdown with five labeled sections: ## YouTube Shorts, ## X, ## Instagram, ## LinkedIn, ## TikTok — each with the post text, character count, and CTA URL>
+    agent: "{{project}}-social-poster"
+    sourceGrounding: [script_path, style guide path, positioning path, registry URL note path]
+
+  Return JSON: { "path": "<draft path>", "platforms": ["youtube-shorts", "x", "instagram", "linkedin", "tiktok"], "char_counts": { "x": <n>, ... } }

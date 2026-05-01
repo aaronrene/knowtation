@@ -1,0 +1,150 @@
+name: controller
+title: Project content controller
+description: |
+  Orchestrates the 6 conveyor-belt agents per project (script-writer, social-poster,
+  thumbnail-brief, clip-factory, blog-seo, newsletter) plus the 3 SaaS bridges
+  (heygen-render, elevenlabs-tts, descript-import). Watches budgets, surfaces drafts
+  in the Hub UI for human approval. One run produces a complete content package
+  (1 long-form + 5 shorts + blog + newsletter + 5 social captions + 1 thumbnail).
+
+# Controller is a deterministic pipeline runner, not an LLM. It uses no model.
+# It reads the per-project config, kicks off the 6 conveyor agents in parallel
+# (where dependencies allow), then chains the bridges sequentially.
+type: pipeline
+
+inputs:
+  project:
+    type: enum
+    values: [born-free, store-free, knowtation]
+    required: true
+  topic:
+    type: string
+    required: true
+    max_length: 200
+  dry_run:
+    type: boolean
+    default: false
+  kinds:
+    type: array
+    items:
+      enum: [script, social, thumbnail, clip, blog, newsletter]
+    default: [script, social, thumbnail, clip, blog, newsletter]
+
+# Dependency graph — each step lists its prerequisites.
+# Paperclip topologically sorts and runs independent steps in parallel.
+steps:
+  - id: research
+    skill: search-vault
+    args:
+      project: "{{project}}"
+      query: "{{topic}}"
+      limit: 8
+    outputs: [research_results]
+
+  - id: write_script
+    agent: script-writer
+    needs: [research]
+    when: "{{ 'script' in kinds }}"
+    inputs:
+      project: "{{project}}"
+      topic: "{{topic}}"
+      research: "{{research_results}}"
+    outputs: [script_path]
+
+  - id: render_video
+    agent: heygen-render
+    needs: [write_script]
+    when: "{{ 'script' in kinds and not dry_run }}"
+    inputs:
+      project: "{{project}}"
+      script_path: "{{script_path}}"
+    outputs: [video_url]
+    timeout_seconds: 1200  # HeyGen Avatar IV can take 5-10 min for 5 min content
+
+  - id: import_to_descript
+    agent: descript-import
+    needs: [render_video]
+    when: "{{ 'clip' in kinds and not dry_run }}"
+    inputs:
+      project: "{{project}}"
+      video_url: "{{video_url}}"
+    outputs: [descript_project_id]
+
+  - id: write_social
+    agent: social-poster
+    needs: [write_script]
+    when: "{{ 'social' in kinds }}"
+    inputs:
+      project: "{{project}}"
+      topic: "{{topic}}"
+      script_path: "{{script_path}}"
+    outputs: [social_path]
+
+  - id: write_thumbnail_brief
+    agent: thumbnail-brief
+    needs: [write_script]
+    when: "{{ 'thumbnail' in kinds }}"
+    inputs:
+      project: "{{project}}"
+      topic: "{{topic}}"
+      script_path: "{{script_path}}"
+    outputs: [thumbnail_path]
+
+  - id: write_clips
+    agent: clip-factory
+    needs: [write_script]
+    when: "{{ 'clip' in kinds }}"
+    inputs:
+      project: "{{project}}"
+      topic: "{{topic}}"
+      script_path: "{{script_path}}"
+    outputs: [clips_path]
+
+  - id: write_blog
+    agent: blog-seo
+    needs: [write_script]
+    when: "{{ 'blog' in kinds }}"
+    inputs:
+      project: "{{project}}"
+      topic: "{{topic}}"
+      script_path: "{{script_path}}"
+    outputs: [blog_path]
+
+  - id: write_newsletter
+    agent: newsletter
+    needs: [write_script]
+    when: "{{ 'newsletter' in kinds }}"
+    inputs:
+      project: "{{project}}"
+      topic: "{{topic}}"
+      script_path: "{{script_path}}"
+    outputs: [newsletter_path]
+
+# Budget guards. Hard stop the controller (and therefore all agents) before this.
+# Reset monthly. Visible in the Hub UI.
+budgets:
+  per_run:
+    deepinfra_usd: 2.00      # one full content package across 6 agents @ Qwen 2.5-72B
+    heygen_credits: 100      # one Avatar IV render of ~5 min
+    elevenlabs_credits: 5000 # one ~5-min voice gen
+    descript_minutes: 30     # one media file imported
+  per_month_per_project:
+    deepinfra_usd: 80.00
+    heygen_credits: 800      # ~40 min/mo of Avatar IV per project
+    elevenlabs_credits: 30000 # ~30 min/mo per project (90 min/mo across 3 projects vs 100 min Creator quota)
+    descript_minutes: 600    # ~10 hrs/mo per project (3.3 hrs/mo each on 10-hr plan)
+
+# What a successful run produces.
+expected_artifacts:
+  - kind: script
+    path_pattern: "projects/{{project}}/drafts/{{date}}-script-*.md"
+  - kind: social
+    path_pattern: "projects/{{project}}/drafts/{{date}}-social-*.md"
+  - kind: thumbnail
+    path_pattern: "projects/{{project}}/drafts/{{date}}-thumbnail-*.md"
+  - kind: clip
+    path_pattern: "projects/{{project}}/drafts/{{date}}-clip-*.md"
+  - kind: blog
+    path_pattern: "projects/{{project}}/drafts/{{date}}-blog-*.md"
+  - kind: newsletter
+    path_pattern: "projects/{{project}}/drafts/{{date}}-newsletter-*.md"
