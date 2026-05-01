@@ -1,0 +1,27 @@
+project: store-free
+display_name: Store Free
+description: Receipt-grade AI proof for stores and products. Standalone service within Born Free's umbrella.
+vault_root: projects/store-free
+
+agents:
+  - template: ../_templates/script-writer.yaml
+    instance_name: store-free-script-writer
+  - template: ../_templates/social-poster.yaml
+    instance_name: store-free-social-poster
+  - template: ../_templates/thumbnail-brief.yaml
+    instance_name: store-free-thumbnail-brief
+  - template: ../_templates/clip-factory.yaml
+    instance_name: store-free-clip-factory
+  - template: ../_templates/blog-seo.yaml
+    instance_name: store-free-blog-seo
+  - template: ../_templates/newsletter.yaml
+    instance_name: store-free-newsletter
+
+extra_voice_rules: |
+  This project speaks to retailers, brands, and consumers comparing products. Claims about provenance,
+  certifications, or supplier integrity must cite the registry note projects/store-free/research/public-sources-2026.md
+  OR be marked [NEEDS CONFIRMATION]. Never claim "verified" without naming the verification mechanism.
+  Per style-guide §5, no defamation of competitors — compare on standards, never on character.
+
+beehiiv_list_id_env: BEEHIIV_STOREFREE_LIST_ID
+default_lead_magnet: projects/store-free/research/lead-magnet-spec.md

@@ -1,0 +1,42 @@
+######################################################################
+# Copy this file to terraform.tfvars and fill in your values.
+# DO NOT commit terraform.tfvars to git — it contains your Tailscale
+# auth key. Add it to .gitignore (already done at the repo root).
+######################################################################
+
+# Region: us-west-2 for west-coast users, us-east-1 for east-coast.
+aws_region = "us-west-2"
+
+# 'prod' is the only environment for now. Add 'staging' later if needed.
+environment = "prod"
+
+# t3.medium = 2 vCPU, 4 GB RAM, ~$30/mo. Sufficient for 22 agents @ 30 videos/wk.
+# Upgrade to t3.large (4 GB → 8 GB) if you see OOMs in journalctl -u paperclip.
+instance_type = "t3.medium"
+
+# 30 GB covers Paperclip + Postgres + 6mo of agent logs + Node modules + headroom.
+ebs_size_gb = 30
+
+# Your home/office public IP. Find with: curl ifconfig.me
+# Format: <IP>/32 for a single IP. SSH on port 22 is locked to this.
+# Tailscale (the preferred path) is independent of this — Tailnet works regardless.
+home_ip_cidr = "REPLACE_ME/32"
+
+# Your SSH public key. Get with: cat ~/.ssh/id_ed25519.pub
+ssh_public_key = "ssh-ed25519 AAAAREPLACEME aaron@laptop"
+
+# Tailscale ephemeral auth key.
+# Generate at https://login.tailscale.com/admin/settings/keys with:
+#   - Reusable: false
+#   - Ephemeral: false
+#   - Pre-approved: true (so the box joins without manual approval)
+#   - Tags: tag:paperclip-prod (you must define this tag in your ACL first)
+# The key is single-use. After the box joins, the key is consumed.
+tailscale_auth_key = "tskey-auth-REPLACE_ME"
+
+# Knowtation hosted Hub URL. Pre-seeded into SSM as a non-secret String parameter.
+# Leave empty if you'd rather push it later via push-secrets.sh.
+knowtation_hub_url = "https://hub.knowtation.dev"
+
+# Vault ID. Default is fine for single-vault users.
+knowtation_vault_id = "default"

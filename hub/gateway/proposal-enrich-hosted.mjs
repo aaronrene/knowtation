@@ -15,10 +15,23 @@ function miniLlmConfig() {
 }
 
 function chatModelLabel() {
-  if (process.env.OPENAI_API_KEY) {
+  const provider = String(process.env.KNOWTATION_CHAT_PROVIDER || '').trim().toLowerCase();
+  const hasOpenai = Boolean(process.env.OPENAI_API_KEY);
+  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  const hasDeepinfra = Boolean(process.env.DEEPINFRA_API_KEY);
+  if (provider === 'deepinfra' || (hasDeepinfra && !hasOpenai && !hasAnthropic)) {
+    return process.env.DEEPINFRA_CHAT_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
+  }
+  if (provider === 'openai' && hasOpenai) {
     return process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini';
   }
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (provider === 'anthropic' && hasAnthropic) {
+    return process.env.ANTHROPIC_CHAT_MODEL || 'claude-3-5-haiku-20241022';
+  }
+  if (hasOpenai) {
+    return process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini';
+  }
+  if (hasAnthropic) {
     return process.env.ANTHROPIC_CHAT_MODEL || 'claude-3-5-haiku-20241022';
   }
   return process.env.OLLAMA_CHAT_MODEL || process.env.OLLAMA_MODEL || 'ollama';
