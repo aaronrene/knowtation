@@ -240,15 +240,24 @@
     // GET/HEAD: retry up to 2×. POST/PATCH/DELETE: retry once only on pure network failures
     // (before any HTTP response), which means the server never received the request so retrying
     // is safe. Never retry on HTTP error responses (4xx/5xx) — those were received and processed.
-    const maxNetworkRetries = (method === 'GET' || method === 'HEAD') ? 2 : 1;
+    //
+    // `opts.noRetry: true` opts out of retries entirely. Used by `POST /api/v1/index`: a 30s
+    // gateway timeout (Netlify Function cap) drops the client connection, which the browser
+    // surfaces as `Failed to fetch`. With retry on, the bridge then receives a SECOND index
+    // request while the first is still running, double-billing DeepInfra and worsening contention.
+    const maxNetworkRetries = opts.noRetry === true
+      ? 0
+      : (method === 'GET' || method === 'HEAD') ? 2 : 1;
+    // Strip non-fetch keys before forwarding to fetch() so they don't pollute the request init.
+    const { noRetry: _noRetry, ...fetchOpts } = opts;
     let res;
     let networkRetries = maxNetworkRetries;
     for (;;) {
       try {
         res = await fetch(apiBase + path, {
-          ...opts,
-          cache: opts.cache != null ? opts.cache : 'no-store',
-          headers: { ...headers(), ...opts.headers },
+          ...fetchOpts,
+          cache: fetchOpts.cache != null ? fetchOpts.cache : 'no-store',
+          headers: { ...headers(), ...fetchOpts.headers },
         });
         break;
       } catch (e) {
@@ -2934,10 +2943,20 @@
     btnReindex.onclick = async () => {
       await withButtonBusy(btnReindex, 'Indexing…', async () => {
         try {
-          const out = await api('/api/v1/index', { method: 'POST' });
+          // `noRetry: true`: the gateway proxy for /api/v1/index can hit Netlify's 30s
+          // sync-function cap and drop the client connection, which the browser surfaces
+          // as `Failed to fetch`. The default api() retry would then double-fire the
+          // bridge index, doubling DeepInfra spend and worsening contention. The bridge-side
+          // background-job PR makes the wait short anyway; here we just stop the duplicate.
+          const out = await api('/api/v1/index', { method: 'POST', noRetry: true });
           const n = out.notesProcessed ?? 0;
           const c = out.chunksIndexed ?? 0;
-          showToast('Indexed ' + n + ' notes, ' + c + ' chunks.');
+          const skipped = out.chunksSkippedCached ?? 0;
+          const embedded = out.chunksEmbedded ?? c;
+          const detail = skipped > 0
+            ? ' (' + embedded + ' embedded, ' + skipped + ' cached)'
+            : '';
+          showToast('Indexed ' + n + ' notes, ' + c + ' chunks' + detail + '.');
           hubClearSemanticIndexStale();
           loadFacets();
           loadNotes();

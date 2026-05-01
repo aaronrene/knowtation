@@ -23,6 +23,13 @@ import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../../lib/github-commit-image.mjs';
 import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
 import { createIndexTimer } from './index-timing.mjs';
+import { computeChunkContentHashTagged } from '../../lib/chunk-content-hash.mjs';
+import {
+  runWithConcurrency,
+  parseEmbedConcurrency,
+  parseEmbedBatchSize,
+} from '../../lib/parallel-embed-pool.mjs';
+import { partitionChunksForReindex } from '../../lib/index-partition.mjs';
 import { writeNote } from '../../lib/write.mjs';
 import { resolveVaultRelativePath, parseFrontmatterAndBody } from '../../lib/vault.mjs';
 import {
@@ -1941,7 +1948,14 @@ app.post('/api/v1/import-url', requireBridgeAuth, requireBridgeEditorOrAdmin, as
 });
 
 // ——— Index + Search (hosted: indexer runs in bridge, canister does not run Node) ———
-const BATCH_EMBED = 10;
+// BATCH_EMBED + INDEXER_EMBED_CONCURRENCY together drive how much wall time the index
+// step takes against Netlify's 60 s sync-function cap. With DeepInfra (BAAI/bge-large-en-v1.5)
+// per-batch latencies trending 2.5 – 8.5 s, the previous serial loop at BATCH=10 ran ~65 – 80 s
+// for a 251-chunk vault and got killed. Defaults below (BATCH=50, CONCURRENCY=5) bring that
+// same vault under ~10 – 15 s when a full re-embed is needed; the content-hash cache below
+// makes subsequent re-indexes a few seconds regardless of vault size.
+const BATCH_EMBED_DEFAULT = parseEmbedBatchSize(process.env.INDEXER_EMBED_BATCH_SIZE);
+const EMBED_CONCURRENCY_DEFAULT = parseEmbedConcurrency(process.env.INDEXER_EMBED_CONCURRENCY);
 const BATCH_UPSERT = 50;
 
 app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
@@ -2024,13 +2038,22 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       const chunks = chunkNote(note, chunkOpts);
       for (const c of chunks) allChunks.push(c);
     }
+    // Tag every chunk with a versioned content hash + the namespaced store id so the
+    // sqlite-vec backend's `getChunkHashes(vaultId)` lookup keys line up.
+    const chunksWithHash = allChunks.map((chunk) => ({
+      chunk,
+      storeId: `${vaultId}::${chunk.id}`,
+      contentHash: computeChunkContentHashTagged(chunk),
+    }));
     timer.step('chunk_notes', { chunk_count: allChunks.length });
-    if (allChunks.length === 0) {
-      const store = await createVectorStore(storeConfig);
-      const dim = embeddingDimension(storeConfig.embedding);
-      await store.ensureCollection(dim);
-      timer.step('ensure_collection_empty', { dim });
-      // Drop prior vectors for this vault so search cannot return paths no longer in the export.
+
+    const dim = embeddingDimension(storeConfig.embedding);
+    const store = await createVectorStore(storeConfig);
+    await store.ensureCollection(dim);
+    timer.step('ensure_collection', { dim });
+
+    // Empty vault: drop everything for this vault and persist (covers note-deletion case).
+    if (chunksWithHash.length === 0) {
       let vectors_deleted = 0;
       if (typeof store.deleteByVaultId === 'function') {
         vectors_deleted = await store.deleteByVaultId(vaultId);
@@ -2046,49 +2069,105 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
           notes_processed: notes.length,
           chunks_indexed: 0,
           vectors_deleted,
+          chunks_skipped_cached: 0,
         }),
       );
-      timer.finish({ ok: true, notes_processed: notes.length, chunks_indexed: 0, vectors_deleted });
+      timer.finish({
+        ok: true,
+        notes_processed: notes.length,
+        chunks_indexed: 0,
+        vectors_deleted,
+        chunks_skipped_cached: 0,
+      });
       return res.json({
         ok: true,
         notesProcessed: notes.length,
         chunksIndexed: 0,
         embedding_input_tokens: 0,
         vectors_deleted,
+        chunksSkippedCached: 0,
       });
     }
+
+    // Content-hash cache lookup. If the store doesn't expose getChunkHashes (older
+    // backend or test mock), treat every chunk as cache miss — correct, just slower.
+    let existingHashes = new Map();
+    if (typeof store.getChunkHashes === 'function') {
+      try {
+        existingHashes = await store.getChunkHashes(vaultId);
+      } catch (e) {
+        console.warn(
+          '[bridge] getChunkHashes failed; falling back to full re-embed for this vault:',
+          e?.message || e,
+        );
+        existingHashes = new Map();
+      }
+    }
+    const partitioned = partitionChunksForReindex(chunksWithHash, existingHashes);
+    const toEmbed = partitioned.toEmbed;
+    const chunks_skipped_cached = partitioned.skippedCachedCount;
+    timer.step('cache_lookup', {
+      cache_size: existingHashes.size,
+      chunks_total: chunksWithHash.length,
+      chunks_skipped_cached,
+      chunks_to_embed: toEmbed.length,
+      orphan_count: partitioned.orphanIds.length,
+    });
+
     const embeddingConfig = storeConfig.embedding;
-    const vectors = [];
+    const BATCH_EMBED = BATCH_EMBED_DEFAULT;
+    const EMBED_CONCURRENCY = EMBED_CONCURRENCY_DEFAULT;
+    const embedBatches = [];
+    for (let i = 0; i < toEmbed.length; i += BATCH_EMBED) {
+      embedBatches.push(toEmbed.slice(i, i + BATCH_EMBED));
+    }
     let embedding_input_tokens = 0;
     let embed_total_ms = 0;
     let embed_max_batch_ms = 0;
-    let embed_min_batch_ms = Number.POSITIVE_INFINITY;
-    const embedBatchCount = Math.ceil(allChunks.length / BATCH_EMBED);
-    for (let i = 0; i < allChunks.length; i += BATCH_EMBED) {
-      const batch = allChunks.slice(i, i + BATCH_EMBED);
-      const texts = batch.map((c) => c.text);
-      const batchStart = Date.now();
-      const { vectors: batchVectors, embedding_input_tokens: batchTok } = await embedWithUsage(
-        texts,
-        embeddingConfig,
-        { voyageInputType: 'document' },
-      );
-      const batchMs = Date.now() - batchStart;
-      embed_total_ms += batchMs;
-      if (batchMs > embed_max_batch_ms) embed_max_batch_ms = batchMs;
-      if (batchMs < embed_min_batch_ms) embed_min_batch_ms = batchMs;
+    let embed_min_batch_ms = embedBatches.length > 0 ? Number.POSITIVE_INFINITY : 0;
+    const embedBatchCount = embedBatches.length;
+    // Result vectors keyed by toEmbed index (preserves order so the upsert step can
+    // zip vectors[i] back to toEmbed[i].chunk without depending on completion order).
+    const embedResults = await runWithConcurrency(
+      embedBatches.map((batch, batchIndex) => async () => {
+        const texts = batch.map((item) => item.chunk.text);
+        const { vectors: batchVectors, embedding_input_tokens: batchTok } = await embedWithUsage(
+          texts,
+          embeddingConfig,
+          { voyageInputType: 'document' },
+        );
+        return { batchIndex, batchVectors, batchTok };
+      }),
+      {
+        concurrency: EMBED_CONCURRENCY,
+        onSettled: ({ index, ok, ms, error }) => {
+          if (!ok) {
+            timer.step('embed_batch_error', {
+              batch_index: index,
+              embed_ms: ms,
+              error: error?.message || String(error),
+            });
+            return;
+          }
+          embed_total_ms += ms;
+          if (ms > embed_max_batch_ms) embed_max_batch_ms = ms;
+          if (ms < embed_min_batch_ms) embed_min_batch_ms = ms;
+          timer.step('embed_batch', {
+            batch_index: index,
+            batch_size: embedBatches[index].length,
+            embed_ms: ms,
+          });
+        },
+      },
+    );
+    const vectorsByEmbedIndex = new Array(toEmbed.length);
+    for (const { batchIndex, batchVectors, batchTok } of embedResults) {
       embedding_input_tokens += batchTok;
+      const start = batchIndex * BATCH_EMBED;
+      const batch = embedBatches[batchIndex];
       for (let j = 0; j < batch.length; j++) {
-        vectors.push(batchVectors[j] || []);
+        vectorsByEmbedIndex[start + j] = batchVectors[j] || [];
       }
-      // Per-batch step is dominant variable; log every batch so post-mortem can spot tail latencies.
-      // For very large vaults (>1000 batches) consider raising threshold; tracked in fix/index-timing-and-timeout-audit.
-      timer.step('embed_batch', {
-        batch_index: Math.floor(i / BATCH_EMBED),
-        batch_size: batch.length,
-        embed_ms: batchMs,
-        tokens_in_batch: batchTok,
-      });
     }
     timer.step('embed_total', {
       batches: embedBatchCount,
@@ -2097,35 +2176,48 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       embed_min_batch_ms: embed_min_batch_ms === Number.POSITIVE_INFINITY ? 0 : embed_min_batch_ms,
       embed_max_batch_ms,
       embedding_input_tokens,
+      concurrency: EMBED_CONCURRENCY,
+      batch_size: BATCH_EMBED,
       provider: embeddingConfig?.provider || null,
       model: embeddingConfig?.model || null,
     });
-    const dim = embeddingDimension(embeddingConfig);
-    const store = await createVectorStore(storeConfig);
-    await store.ensureCollection(dim);
-    timer.step('ensure_collection', { dim });
-    // Remove stale chunk rows for this vault before upsert; otherwise deleted notes stay in KNN.
+
+    // Orphans = chunk_ids in the store but not in the current export (deleted/renamed notes).
     let vectors_deleted = 0;
-    if (typeof store.deleteByVaultId === 'function') {
+    if (partitioned.orphanIds.length > 0 && typeof store.deleteByChunkIds === 'function') {
+      vectors_deleted = await store.deleteByChunkIds(partitioned.orphanIds);
+    } else if (
+      partitioned.orphanIds.length === 0 &&
+      existingHashes.size === 0 &&
+      typeof store.deleteByVaultId === 'function'
+    ) {
+      // First run for this vault (no prior cache rows) — clear any leftover rows that
+      // lacked content_hash but might still match the vault, so search cannot return paths
+      // that no longer exist in the export.
       vectors_deleted = await store.deleteByVaultId(vaultId);
     }
-    timer.step('delete_old_vectors', { vectors_deleted });
+    timer.step('delete_old_vectors', {
+      vectors_deleted,
+      orphan_count: partitioned.orphanIds.length,
+    });
+
     let upsert_total_ms = 0;
-    const upsertBatchCount = Math.ceil(allChunks.length / BATCH_UPSERT);
-    for (let i = 0; i < allChunks.length; i += BATCH_UPSERT) {
-      const batch = allChunks.slice(i, i + BATCH_UPSERT);
-      const points = batch.map((chunk, j) => ({
-        id: `${vaultId}::${chunk.id}`,
-        vector: vectors[i + j] || [],
-        text: chunk.text,
-        path: chunk.path,
+    const upsertBatchCount = Math.ceil(toEmbed.length / BATCH_UPSERT);
+    for (let i = 0; i < toEmbed.length; i += BATCH_UPSERT) {
+      const slice = toEmbed.slice(i, i + BATCH_UPSERT);
+      const points = slice.map((item, j) => ({
+        id: item.storeId,
+        vector: vectorsByEmbedIndex[i + j] || [],
+        text: item.chunk.text,
+        path: item.chunk.path,
         vault_id: vaultId,
-        project: chunk.project,
-        tags: chunk.tags,
-        date: chunk.date,
-        causal_chain_id: chunk.causal_chain_id,
-        entity: chunk.entity,
-        episode_id: chunk.episode_id,
+        project: item.chunk.project,
+        tags: item.chunk.tags,
+        date: item.chunk.date,
+        causal_chain_id: item.chunk.causal_chain_id,
+        entity: item.chunk.entity,
+        episode_id: item.chunk.episode_id,
+        content_hash: item.contentHash,
       }));
       const upsertStart = Date.now();
       await store.upsert(points);
@@ -2135,7 +2227,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       batches: upsertBatchCount,
       upsert_total_ms,
       upsert_avg_batch_ms: upsertBatchCount > 0 ? Math.round(upsert_total_ms / upsertBatchCount) : 0,
-      points_upserted: allChunks.length,
+      points_upserted: toEmbed.length,
     });
     await persistVectorsToBlob(req, canisterUid, vectorsDir);
     timer.step('persist_vectors');
@@ -2146,6 +2238,8 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
         canister_uid: sanitizeUserId(canisterUid),
         notes_processed: notes.length,
         chunks_indexed: allChunks.length,
+        chunks_skipped_cached,
+        chunks_embedded: toEmbed.length,
         vectors_deleted,
       }),
     );
@@ -2153,6 +2247,8 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       ok: true,
       notesProcessed: notes.length,
       chunksIndexed: allChunks.length,
+      chunksSkippedCached: chunks_skipped_cached,
+      chunksEmbedded: toEmbed.length,
       embedding_input_tokens,
       vectors_deleted,
     };
@@ -2160,13 +2256,21 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       ok: true,
       notes_processed: notes.length,
       chunks_indexed: allChunks.length,
+      chunks_skipped_cached,
+      chunks_embedded: toEmbed.length,
       vectors_deleted,
       embedding_input_tokens,
     });
     res.json(indexResult);
     fireBridgeCaptureEvent(
       'index',
-      { note_count: notes.length, chunk_count: allChunks.length, vectors_deleted },
+      {
+        note_count: notes.length,
+        chunk_count: allChunks.length,
+        chunks_skipped_cached,
+        chunks_embedded: toEmbed.length,
+        vectors_deleted,
+      },
       sanitizeUserId(uid),
       vaultId,
     );

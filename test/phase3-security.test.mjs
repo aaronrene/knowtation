@@ -190,13 +190,27 @@ describe('3.3 Bridge write routes guarded by requireBridgeEditorOrAdmin', () => 
     assert.ok(indexLine.includes('requireBridgeEditorOrAdmin'), '/index must require editor or admin');
   });
 
-  test('POST /api/v1/index clears prior vault vectors before upsert (no orphan search paths)', () => {
+  test('POST /api/v1/index removes stale rows so search cannot return paths no longer in the export', () => {
+    // Contract intent: after `feat/bridge-embed-hash-cache`, the bridge does incremental
+    // indexing rather than blind delete-then-upsert. Same semantic guarantee, two paths:
+    //   - empty vault → store.deleteByVaultId(vaultId) clears every row for the vault;
+    //   - non-empty vault → store.deleteByChunkIds(orphanIds) removes chunk_ids in the
+    //     store that are absent from the current export (deleted notes / renamed paths).
+    // Both calls must remain in the source so a future refactor cannot silently regress
+    // the security property that prompted this test.
     const src = load();
     assert.ok(
-      src.includes('deleteByVaultId(vaultId)') &&
-        src.includes('Remove stale chunk rows for this vault before upsert') &&
-        src.includes('Drop prior vectors for this vault so search cannot return paths no longer in the export'),
-      'bridge index must deleteByVaultId for this vault before upsert and when chunk list is empty',
+      src.includes('store.deleteByVaultId(vaultId)'),
+      'bridge index must call store.deleteByVaultId(vaultId) on the empty / first-run path',
+    );
+    assert.ok(
+      src.includes('store.deleteByChunkIds(partitioned.orphanIds)'),
+      'bridge index must call store.deleteByChunkIds(partitioned.orphanIds) for incremental orphan cleanup',
+    );
+    assert.ok(
+      src.includes('search cannot return paths') ||
+        src.includes('search cannot return paths no longer in the export'),
+      'bridge index must keep the comment explaining the search-orphan invariant',
     );
   });
 
