@@ -2,7 +2,7 @@
 
 > ## Decision: DeepInfra single-provider — 2026-04-30
 >
-> **Status:** code merged on `feat/hosted-mcp-hub-create-proposal`; staging validation pending; production flip pending.
+> **Status:** code on `feat/hosted-mcp-hub-create-proposal`; staging validation pending; production flip pending.
 >
 > **What was decided:** Replace per-feature LLM providers (OpenAI primary, Anthropic fallback, separate Voyage / OpenAI embeddings, juggling ElevenLabs / image-gen keys) with a **single DeepInfra OpenAI-compatible key** (`DEEPINFRA_API_KEY`). The same key drives:
 > - hosted Hub chat (review hints + Enrich) via `lib/llm-complete.mjs` when `KNOWTATION_CHAT_PROVIDER=deepinfra`.
@@ -21,7 +21,7 @@
 > - Run `node scripts/validate-deepinfra-enrich.mjs` with `KNOWTATION_CHAT_PROVIDER=deepinfra` on a staging Netlify deploy. Pass condition: 10/10 of the built-in Enrich samples must return `parseOk=true` and produce only allow-list frontmatter keys. If <10/10, do **not** flip — try a stronger model (`Qwen/Qwen2.5-72B-Instruct` is the default; for cheap review hints set `DEEPINFRA_CHAT_MODEL=meta-llama/Meta-Llama-3.1-8B-Instruct` only after validating the chosen model still passes Enrich).
 > - Re-index a non-production vault on `EMBEDDING_PROVIDER=deepinfra` + `EMBEDDING_MODEL=BAAI/bge-large-en-v1.5` and verify Meaning search returns the same top-3 notes for 10 known queries. Embedding-dimension change requires a full vault re-index (1024 dim by default; see `embeddingDimension` in `lib/embedding.mjs`).
 >
-> **Production flip (single deploy, all-or-nothing):** Set on Netlify gateway site (and bridge if separate): `DEEPINFRA_API_KEY`, `KNOWTATION_CHAT_PROVIDER=deepinfra`, optionally `DEEPINFRA_CHAT_MODEL`, `EMBEDDING_PROVIDER=deepinfra`, `EMBEDDING_MODEL=BAAI/bge-large-en-v1.5`. Keep `OPENAI_API_KEY` set for fallback. Watch `proposal-review-hints-async` + `proposal-enrich-hosted` logs for 24h. Roll back by removing `KNOWTATION_CHAT_PROVIDER` (chat falls back to OpenAI) and switching `EMBEDDING_PROVIDER` back (then re-index on the prior model).
+> **Production flip:** On the **gateway** Netlify site: `DEEPINFRA_API_KEY`, `KNOWTATION_CHAT_PROVIDER=deepinfra`, optionally `DEEPINFRA_CHAT_MODEL`. Keep `OPENAI_API_KEY` set for fallback. On the **bridge** Netlify site (when separate): `DEEPINFRA_API_KEY`, `EMBEDDING_PROVIDER=deepinfra`, `EMBEDDING_MODEL=BAAI/bge-large-en-v1.5`, then re-index. Watch `proposal-review-hints-async` + `proposal-enrich-hosted` logs for 24h. Roll back by removing `KNOWTATION_CHAT_PROVIDER` (chat falls back to OpenAI) and switching `EMBEDDING_PROVIDER` back on the bridge (then re-index on the prior model).
 >
 > **What this supersedes from the original options table below:** the "Groq via OpenAI-compat", "Remote Ollama on small VPS", and "Hybrid" rows. The DeepInfra row is the answer for our scale and time budget. The remaining Groq / Ollama notes stay only as historical alternatives in case DeepInfra has an outage longer than fallback can absorb.
 >
@@ -46,7 +46,7 @@ Use this document to **plan research and implementation** for reducing or elimin
 
 - **Proposal review hints** (`hub/gateway/proposal-review-hints-async.mjs`)
 - **Proposal Enrich** (`hub/gateway/proposal-enrich-hosted.mjs`)
-- **Hosted MCP** or other **gateway** paths that import `completeChat` in the same deploy
+- **MCP summarize**, **hosted MCP**, or other **gateway** paths that import `completeChat` in the same deploy
 
 **Embeddings** (indexing / Meaning search on the **hosted bridge**) are a **separate** configuration (`EMBEDDING_PROVIDER`, bridge env, `embedding.*` in config). This session focuses on **chat** completions for the **gateway** unless you explicitly decide to align bridge + gateway secrets in one pass.
 
@@ -64,7 +64,7 @@ Use this document to **plan research and implementation** for reducing or elimin
 
 ## Problem statement
 
-- **Goal:** On **hosted Hub**, keep **review hints**, **Enrich**, and related **gateway** LLM features **functionally equivalent** (quality acceptable for internal/advisory use) while **avoiding per-token OpenAI bills** where possible.
+- **Goal:** On **hosted Hub**, keep **review hints**, **Enrich**, **MCP summarize**, and related **gateway** LLM features **functionally equivalent** (quality acceptable for internal/advisory use) while **avoiding per-token OpenAI bills** where possible.
 - **Constraint:** Prefer **no** new always-on server only if a **managed API** (Groq, Together, OpenRouter, etc.) is sufficient for **Netlify-side** calls; accept a **small VPS + Ollama/vLLM** ($15–20/mo) if traffic, privacy, or rate limits require it.
 
 ---
@@ -73,7 +73,7 @@ Use this document to **plan research and implementation** for reducing or elimin
 
 ### A. Volume and cost (hosted)
 
-- [ ] Export **Netlify / gateway logs** or billing: approximate **chat calls per day** (hints + enrich + hosted MCP summarize).
+- [ ] Export **Netlify / gateway logs** or billing: approximate **chat calls per day** (hints + enrich + MCP summarize + hosted MCP).
 - [ ] Estimate **tokens per call** (hints/enrich caps in code: e.g. `maxTokens: 400`, body slices ~12k chars).
 - [ ] Price **OpenAI `gpt-4o-mini`** vs **Groq** vs **OpenRouter** small models at that volume.
 
