@@ -22,6 +22,7 @@ import { runImport } from '../../lib/import.mjs';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../../lib/github-commit-image.mjs';
 import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
+import { createIndexTimer } from './index-timing.mjs';
 import { writeNote } from '../../lib/write.mjs';
 import { resolveVaultRelativePath, parseFrontmatterAndBody } from '../../lib/vault.mjs';
 import {
@@ -1945,8 +1946,12 @@ const BATCH_UPSERT = 50;
 
 app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
   const uid = req.uid;
+  const earlyVaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  const timer = createIndexTimer({ vaultId: earlyVaultId, canisterUid: null });
   const hctx = await resolveHostedBridgeContext(req, uid);
+  timer.step('resolve_context', { ok: hctx.ok });
   if (!hctx.ok) {
+    timer.finish({ ok: false, phase: 'resolve_context', status: hctx.status, code: hctx.code });
     return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
   }
   const canisterUid = hctx.effectiveCanisterUid;
@@ -1958,20 +1963,25 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       headers: canisterHeaders({ 'X-User-Id': canisterUid, 'X-Vault-Id': vaultId }),
     });
   } catch (e) {
+    timer.finish({ ok: false, phase: 'canister_export_fetch', error: e?.message || String(e) });
     return res.status(502).json({ error: 'Could not reach canister', code: 'BAD_GATEWAY' });
   }
   if (!exportRes.ok) {
+    timer.finish({ ok: false, phase: 'canister_export_status', status: exportRes.status });
     return res.status(502).json({ error: 'Canister export failed', code: 'BAD_GATEWAY', status: exportRes.status });
   }
   let vault;
   try {
     vault = await exportRes.json();
   } catch (_) {
+    timer.finish({ ok: false, phase: 'canister_export_parse' });
     return res.status(502).json({ error: 'Invalid canister response', code: 'BAD_GATEWAY' });
   }
   let notes = vault.notes || [];
+  timer.step('canister_export', { note_count: notes.length, scoped: Boolean(hctx.scope) });
   if (hctx.scope) {
     notes = applyScopeFilterToNotes(notes, hctx.scope);
+    timer.step('scope_filter', { note_count_after: notes.length });
   }
   try {
     if (!globalThis.__knowtation_bridge_embed_logged) {
@@ -1993,9 +2003,11 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     const { chunkNote } = await import('../../lib/chunk.mjs');
     const { embedWithUsage, embeddingDimension } = await import('../../lib/embedding.mjs');
     const { createVectorStore } = await import('../../lib/vector-store.mjs');
+    timer.step('import_modules');
 
     const vectorsDir = await getVectorsDirForUser(req, canisterUid);
     const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
+    timer.step('get_vectors_dir');
     const chunkOpts = {
       chunkSize: parseInt(process.env.INDEXER_CHUNK_SIZE || '2048', 10),
       chunkOverlap: parseInt(process.env.INDEXER_CHUNK_OVERLAP || '256', 10),
@@ -2012,16 +2024,20 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       const chunks = chunkNote(note, chunkOpts);
       for (const c of chunks) allChunks.push(c);
     }
+    timer.step('chunk_notes', { chunk_count: allChunks.length });
     if (allChunks.length === 0) {
       const store = await createVectorStore(storeConfig);
       const dim = embeddingDimension(storeConfig.embedding);
       await store.ensureCollection(dim);
+      timer.step('ensure_collection_empty', { dim });
       // Drop prior vectors for this vault so search cannot return paths no longer in the export.
       let vectors_deleted = 0;
       if (typeof store.deleteByVaultId === 'function') {
         vectors_deleted = await store.deleteByVaultId(vaultId);
       }
+      timer.step('delete_old_vectors_empty', { vectors_deleted });
       await persistVectorsToBlob(req, canisterUid, vectorsDir);
+      timer.step('persist_vectors_empty');
       console.log(
         '[bridge] index',
         JSON.stringify({
@@ -2032,6 +2048,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
           vectors_deleted,
         }),
       );
+      timer.finish({ ok: true, notes_processed: notes.length, chunks_indexed: 0, vectors_deleted });
       return res.json({
         ok: true,
         notesProcessed: notes.length,
@@ -2043,27 +2060,58 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     const embeddingConfig = storeConfig.embedding;
     const vectors = [];
     let embedding_input_tokens = 0;
+    let embed_total_ms = 0;
+    let embed_max_batch_ms = 0;
+    let embed_min_batch_ms = Number.POSITIVE_INFINITY;
+    const embedBatchCount = Math.ceil(allChunks.length / BATCH_EMBED);
     for (let i = 0; i < allChunks.length; i += BATCH_EMBED) {
       const batch = allChunks.slice(i, i + BATCH_EMBED);
       const texts = batch.map((c) => c.text);
+      const batchStart = Date.now();
       const { vectors: batchVectors, embedding_input_tokens: batchTok } = await embedWithUsage(
         texts,
         embeddingConfig,
         { voyageInputType: 'document' },
       );
+      const batchMs = Date.now() - batchStart;
+      embed_total_ms += batchMs;
+      if (batchMs > embed_max_batch_ms) embed_max_batch_ms = batchMs;
+      if (batchMs < embed_min_batch_ms) embed_min_batch_ms = batchMs;
       embedding_input_tokens += batchTok;
       for (let j = 0; j < batch.length; j++) {
         vectors.push(batchVectors[j] || []);
       }
+      // Per-batch step is dominant variable; log every batch so post-mortem can spot tail latencies.
+      // For very large vaults (>1000 batches) consider raising threshold; tracked in fix/index-timing-and-timeout-audit.
+      timer.step('embed_batch', {
+        batch_index: Math.floor(i / BATCH_EMBED),
+        batch_size: batch.length,
+        embed_ms: batchMs,
+        tokens_in_batch: batchTok,
+      });
     }
+    timer.step('embed_total', {
+      batches: embedBatchCount,
+      embed_total_ms,
+      embed_avg_batch_ms: embedBatchCount > 0 ? Math.round(embed_total_ms / embedBatchCount) : 0,
+      embed_min_batch_ms: embed_min_batch_ms === Number.POSITIVE_INFINITY ? 0 : embed_min_batch_ms,
+      embed_max_batch_ms,
+      embedding_input_tokens,
+      provider: embeddingConfig?.provider || null,
+      model: embeddingConfig?.model || null,
+    });
     const dim = embeddingDimension(embeddingConfig);
     const store = await createVectorStore(storeConfig);
     await store.ensureCollection(dim);
+    timer.step('ensure_collection', { dim });
     // Remove stale chunk rows for this vault before upsert; otherwise deleted notes stay in KNN.
     let vectors_deleted = 0;
     if (typeof store.deleteByVaultId === 'function') {
       vectors_deleted = await store.deleteByVaultId(vaultId);
     }
+    timer.step('delete_old_vectors', { vectors_deleted });
+    let upsert_total_ms = 0;
+    const upsertBatchCount = Math.ceil(allChunks.length / BATCH_UPSERT);
     for (let i = 0; i < allChunks.length; i += BATCH_UPSERT) {
       const batch = allChunks.slice(i, i + BATCH_UPSERT);
       const points = batch.map((chunk, j) => ({
@@ -2079,9 +2127,18 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
         entity: chunk.entity,
         episode_id: chunk.episode_id,
       }));
+      const upsertStart = Date.now();
       await store.upsert(points);
+      upsert_total_ms += Date.now() - upsertStart;
     }
+    timer.step('upsert_total', {
+      batches: upsertBatchCount,
+      upsert_total_ms,
+      upsert_avg_batch_ms: upsertBatchCount > 0 ? Math.round(upsert_total_ms / upsertBatchCount) : 0,
+      points_upserted: allChunks.length,
+    });
     await persistVectorsToBlob(req, canisterUid, vectorsDir);
+    timer.step('persist_vectors');
     console.log(
       '[bridge] index',
       JSON.stringify({
@@ -2099,6 +2156,13 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       embedding_input_tokens,
       vectors_deleted,
     };
+    timer.finish({
+      ok: true,
+      notes_processed: notes.length,
+      chunks_indexed: allChunks.length,
+      vectors_deleted,
+      embedding_input_tokens,
+    });
     res.json(indexResult);
     fireBridgeCaptureEvent(
       'index',
@@ -2109,6 +2173,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     return;
   } catch (e) {
     console.error('Bridge index error:', e);
+    timer.finish({ ok: false, phase: 'catch', error: e?.message || String(e) });
     return res.status(500).json({
       error: 'Index failed',
       code: 'INTERNAL_ERROR',

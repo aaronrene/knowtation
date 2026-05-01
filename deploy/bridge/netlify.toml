@@ -28,10 +28,14 @@
   ]
 
 # Back up now (/api/v1/vault/sync) can exceed the default ~10s limit (export + N proposal GETs + GitHub API).
-# Align with gateway proxy budget (root netlify.toml [functions."gateway"] timeout = 26).
+# Align with gateway proxy budget (root netlify.toml [functions."gateway"] timeout = 60).
+# Raised 26 → 60 (Netlify sync-function platform max per docs.netlify.com/build/functions/overview)
+# so POST /api/v1/index has headroom under DeepInfra embedding latency. See
+# `hub/bridge/index-timing.mjs` for per-step instrumentation that lets us identify
+# which sub-step dominates before choosing parallelize/async as the next step.
 # exceljs: see root netlify.toml [functions."bridge"] (large bundle; keep external for the bridge function).
 [functions."bridge"]
-  timeout = 26
+  timeout = 60
   external_node_modules = ["exceljs"]
 
 # Send all requests to the bridge function with path preserved (/:splat).
