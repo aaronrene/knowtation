@@ -1,0 +1,145 @@
+/**
+ * Tests for `lib/chunk-content-hash.mjs`. The bridge will compare these hashes
+ * against the `+content_hash` column in sqlite-vec to decide whether to skip
+ * embedding a chunk on re-index, so the contract that matters here is:
+ *   1. Same logical input → same digest, deterministically, across processes.
+ *   2. Different text OR different search-relevant metadata → different digest.
+ *   3. Tag/entity array order is not significant (chunks built in different
+ *      orders must hash identically).
+ *   4. Missing/null/undefined for optional fields hash identically (so a chunk
+ *      with `tags: undefined` matches one with `tags: []`).
+ *   5. Tagged variant carries the version prefix `v1:` so future algo bumps
+ *      can be detected on read without touching every callsite.
+ *   6. Bad input throws (so a bridge bug surfaces loudly, not silently).
+ */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  computeChunkContentHash,
+  computeChunkContentHashTagged,
+  CHUNK_CONTENT_HASH_VERSION,
+} from '../lib/chunk-content-hash.mjs';
+
+describe('computeChunkContentHash', () => {
+  it('is deterministic and returns 32 lowercase hex chars (128 bits)', () => {
+    const chunk = { text: 'hello world', path: 'notes/a.md' };
+    const a = computeChunkContentHash(chunk);
+    const b = computeChunkContentHash(chunk);
+    assert.equal(a, b);
+    assert.match(a, /^[0-9a-f]{32}$/);
+  });
+
+  it('changes when text changes', () => {
+    const a = computeChunkContentHash({ text: 'one', path: 'a.md' });
+    const b = computeChunkContentHash({ text: 'two', path: 'a.md' });
+    assert.notEqual(a, b);
+  });
+
+  it('changes when path changes (since path is part of the search-relevant payload)', () => {
+    const a = computeChunkContentHash({ text: 'same', path: 'a.md' });
+    const b = computeChunkContentHash({ text: 'same', path: 'b.md' });
+    assert.notEqual(a, b);
+  });
+
+  it('changes when project, date, or tags change (so metadata edits invalidate the cache)', () => {
+    const base = { text: 'x', path: 'a.md' };
+    const baseHash = computeChunkContentHash(base);
+    assert.notEqual(computeChunkContentHash({ ...base, project: 'p1' }), baseHash);
+    assert.notEqual(computeChunkContentHash({ ...base, date: '2026-05-01' }), baseHash);
+    assert.notEqual(computeChunkContentHash({ ...base, tags: ['x'] }), baseHash);
+    assert.notEqual(
+      computeChunkContentHash({ ...base, causal_chain_id: 'c1' }),
+      baseHash,
+    );
+    assert.notEqual(
+      computeChunkContentHash({ ...base, episode_id: 'ep1' }),
+      baseHash,
+    );
+    assert.notEqual(computeChunkContentHash({ ...base, entity: ['e1'] }), baseHash);
+  });
+
+  it('treats tag/entity arrays as sets (order-independent)', () => {
+    const a = computeChunkContentHash({
+      text: 'x',
+      path: 'a.md',
+      tags: ['b', 'a'],
+      entity: ['z', 'y'],
+    });
+    const b = computeChunkContentHash({
+      text: 'x',
+      path: 'a.md',
+      tags: ['a', 'b'],
+      entity: ['y', 'z'],
+    });
+    assert.equal(a, b);
+  });
+
+  it('treats undefined/null/missing equivalently for optional fields', () => {
+    const minimal = { text: 'x', path: 'a.md' };
+    const explicitNulls = {
+      text: 'x',
+      path: 'a.md',
+      project: null,
+      tags: null,
+      date: null,
+      causal_chain_id: null,
+      entity: null,
+      episode_id: null,
+    };
+    const explicitEmpty = {
+      text: 'x',
+      path: 'a.md',
+      project: undefined,
+      tags: [],
+      date: undefined,
+      causal_chain_id: undefined,
+      entity: [],
+      episode_id: undefined,
+    };
+    const h1 = computeChunkContentHash(minimal);
+    const h2 = computeChunkContentHash(explicitNulls);
+    const h3 = computeChunkContentHash(explicitEmpty);
+    assert.equal(h1, h2);
+    assert.equal(h1, h3);
+  });
+
+  it('throws on missing chunk', () => {
+    assert.throws(() => computeChunkContentHash(null), /chunk is required/);
+    assert.throws(() => computeChunkContentHash(undefined), /chunk is required/);
+  });
+
+  it('throws on missing/wrong-type text or path (bridge bug must surface loudly)', () => {
+    assert.throws(
+      () => computeChunkContentHash({ path: 'a.md' }),
+      /chunk\.text must be a string/,
+    );
+    assert.throws(
+      () => computeChunkContentHash({ text: 'x' }),
+      /chunk\.path must be a string/,
+    );
+    assert.throws(
+      () => computeChunkContentHash({ text: 123, path: 'a.md' }),
+      /chunk\.text must be a string/,
+    );
+  });
+});
+
+describe('computeChunkContentHashTagged', () => {
+  it('prefixes the active version so future algo bumps can be detected on read', () => {
+    const tagged = computeChunkContentHashTagged({ text: 'hello', path: 'a.md' });
+    assert.ok(tagged.startsWith(CHUNK_CONTENT_HASH_VERSION + ':'));
+    const [, hex] = tagged.split(':');
+    assert.match(hex, /^[0-9a-f]{32}$/);
+  });
+
+  it('current version is v1', () => {
+    assert.equal(CHUNK_CONTENT_HASH_VERSION, 'v1');
+  });
+
+  it('two equivalent chunks produce equal tagged hashes', () => {
+    const a = computeChunkContentHashTagged({ text: 'x', path: 'a.md', tags: ['b', 'a'] });
+    const b = computeChunkContentHashTagged({ text: 'x', path: 'a.md', tags: ['a', 'b'] });
+    assert.equal(a, b);
+  });
+});
