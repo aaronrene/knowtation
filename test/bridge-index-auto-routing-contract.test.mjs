@@ -237,3 +237,48 @@ test('netlify.toml registers the bridge-index-background function', () => {
     'deploy/bridge/netlify.toml must declare the bridge-index-background function',
   );
 });
+
+test('netlify.toml exempts /.netlify/functions/* from the catch-all redirect (May 2026 hotfix)', () => {
+  // Regression context: the catch-all `[[redirects]] from = "/*" force = true`
+  // captures EVERY URL — including `/.netlify/functions/bridge-index-background`
+  // — because Netlify's normal exemption for `/.netlify/...` paths is bypassed
+  // when `force = true` is set. Without an explicit passthrough rule placed
+  // BEFORE the catch-all, the bridge sync function's kickoff fetch is rewritten
+  // to the regular bridge function and returns 404. The kickoff caller then
+  // falsely believes the background job started.
+  //
+  // This test asserts BOTH that the passthrough rule exists AND that it appears
+  // before the catch-all (Netlify processes redirects top-down; first match wins).
+  const passthroughIdx = bridgeNetlifyToml.indexOf('from = "/.netlify/functions/*"');
+  const catchAllIdx = bridgeNetlifyToml.indexOf('from = "/*"');
+  assert.ok(
+    passthroughIdx > 0,
+    'must declare an explicit passthrough for /.netlify/functions/* paths',
+  );
+  assert.ok(
+    catchAllIdx > 0,
+    'catch-all redirect must still exist (front-end SPA routing depends on it)',
+  );
+  assert.ok(
+    passthroughIdx < catchAllIdx,
+    'passthrough rule MUST appear before the catch-all (Netlify is first-match-wins)',
+  );
+});
+
+test('bridge kickoff helper validates response.status (May 2026 hotfix)', () => {
+  // Regression context: prior code did `await fetch(url, …)` and never inspected
+  // `response.status`. fetch() resolves successfully on 4xx/5xx HTTP responses
+  // (it only throws on network errors), so a 404 from the redirect-bug above was
+  // silently treated as success. Defense in depth: assert the helper imports the
+  // pure validator AND calls it after the fetch.
+  assert.match(
+    bridgeJs,
+    /from\s+['"]\.\.\/\.\.\/lib\/bridge-index-kickoff-response\.mjs['"]/,
+    'must import from lib/bridge-index-kickoff-response.mjs',
+  );
+  assert.match(
+    bridgeJs,
+    /\bassertBackgroundKickoffOk\s*\(/,
+    'kickoff helper MUST call assertBackgroundKickoffOk so a 404/5xx fails loudly',
+  );
+});

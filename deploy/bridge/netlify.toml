@@ -51,13 +51,27 @@
 [functions."bridge-index-background"]
   external_node_modules = ["exceljs"]
 
-# Send all requests to the bridge function with path preserved (/:splat).
-# IMPORTANT: this redirect MUST stay below the [functions."bridge-index-background"]
-# block. Netlify processes redirects top-down and the `force = true` on this rule
-# would otherwise capture every URL — including direct calls to the background
-# function — and route them to the sync `bridge` function, which would NOT have the
-# 15-min timeout. The `/.netlify/functions/...` namespace is reserved by Netlify
-# and is exempt from this redirect by design.
+# Passthrough for direct Netlify-function URLs. MUST appear BEFORE the catch-all
+# below — Netlify processes redirects top-down and first match wins.
+#
+# Why this exists (May 2026 hotfix): the catch-all rule below captures EVERY
+# URL — and its forced rewrite BYPASSES Netlify's normal exemption for
+# /.netlify/... paths (verified empirically: a kickoff fetch from the sync bridge
+# function to /.netlify/functions/bridge-index-background was being rewritten to
+# /.netlify/functions/bridge/.netlify/functions/bridge-index-background, which
+# the bridge function 404'd on, silently breaking the auto-routing path).
+# This explicit passthrough rule reaches the redirect engine first for any
+# /.netlify/functions/* URL and rewrites the path to itself, preventing the
+# catch-all from clobbering it. See the hotfix PR for PR #205 + tests in
+# `test/bridge-index-auto-routing-contract.test.mjs`.
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Send all OTHER requests to the bridge function with path preserved (/:splat).
+# Anything matching `/.netlify/functions/*` is short-circuited above; this rule
+# only sees app-level paths like `/api/v1/index`, `/api/v1/search`, etc.
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/bridge/:splat"

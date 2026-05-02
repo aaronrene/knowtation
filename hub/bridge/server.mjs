@@ -46,6 +46,7 @@ import {
   getLastIndexedAt,
 } from '../../lib/bridge-index-last-indexed.mjs';
 import { signInternalRequest } from '../../lib/bridge-internal-hmac.mjs';
+import { assertBackgroundKickoffOk } from '../../lib/bridge-index-kickoff-response.mjs';
 import { writeNote } from '../../lib/write.mjs';
 import { resolveVaultRelativePath, parseFrontmatterAndBody } from '../../lib/vault.mjs';
 import {
@@ -2030,7 +2031,15 @@ async function kickOffBackgroundIndex(req, jobId, canisterUid, vaultId) {
   // Background functions on Netlify return 202 within ~50–100 ms regardless of
   // what the function body does; we only await that 202 so the sync handler
   // can immediately return its own 202 to the browser.
-  await fetch(url, {
+  //
+  // CRITICAL (May 2026 hotfix): we MUST inspect `response.status`. fetch()
+  // resolves successfully on 4xx/5xx responses (it only throws on network
+  // errors), so without this check a 404 from a misconfigured redirect would
+  // be silently treated as success — the sync handler would return
+  // `202 status:"background"` to the browser while no work runs in the
+  // background. The job lock would then sit for its full 16-min TTL blocking
+  // any retry. See `lib/bridge-index-kickoff-response.mjs` for full context.
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -2044,6 +2053,14 @@ async function kickOffBackgroundIndex(req, jobId, canisterUid, vaultId) {
     },
     body: '{}',
   });
+  let body = '';
+  try {
+    body = await response.text();
+  } catch (_) {
+    // body read failure is non-fatal here — the helper accepts undefined body
+    // and the status code alone is sufficient to detect the failure mode.
+  }
+  assertBackgroundKickoffOk(response, body);
 }
 
 /**
