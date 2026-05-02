@@ -470,6 +470,21 @@ if (BRIDGE_URL) {
       res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
     }
   });
+  // GET /api/v1/index/status — read-only sidecar describing the last successful
+  // index + whether a background job is currently in flight. Added in May 2026
+  // alongside the auto-routing index path (PR #205) so the Hub UI can render
+  // `Last indexed: N minutes ago` next to the Re-index button.
+  //
+  // Auth scoping happens at the bridge (`requireBridgeAuth` + vault-scoping).
+  // We deliberately DO NOT run `runBillingGate` here — this is a passive read,
+  // not a billable index operation, and the Hub UI calls this on every page
+  // load (so charging would be both incorrect and abusive).
+  //
+  // See `test/gateway-index-status-proxy.test.mjs` for the contract test that
+  // prevents this handler from being silently removed.
+  app.get('/api/v1/index/status', async (req, res) => {
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/index/status', req, res);
+  });
   // Roles & invites: proxy to bridge (bridge has persistent storage)
   app.get('/api/v1/roles', requireAdmin, async (req, res) => {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + req.originalUrl, req, res);
