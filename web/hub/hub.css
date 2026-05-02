@@ -287,6 +287,28 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
   box-shadow: none;
 }
+
+/*
+ * "Last indexed: N minutes ago" passive UI. Lives next to the Re-index button
+ * (see #btn-reindex above) and is populated by `web/hub/hub.js` from the
+ * `GET /api/v1/index/status` sidecar that both sync and background re-indexes
+ * write via `lib/bridge-index-last-indexed.mjs`. Intentionally muted styling
+ * because this is read-only context, not an action — the eye should land on
+ * the Re-index button first.
+ */
+.search-section .search-row-dates-actions .hub-index-status {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 60%, transparent 40%);
+  align-self: center;
+  margin-left: 8px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.search-section .search-row-dates-actions .hub-index-status.hub-index-status-running {
+  /* When a background job is in flight the status flips to a softly-pulsing
+     accent color so users know to wait before clicking Re-index again. */
+  color: color-mix(in srgb, var(--accent) 75%, var(--text) 25%);
+}
 /* Search fields: hover/focus — same family as Save preset + presets name input */
 .search-section .search-row-filters input[type="text"]:hover,
 .search-section .search-row-filters select:hover,

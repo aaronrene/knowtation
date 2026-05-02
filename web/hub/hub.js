@@ -2943,29 +2943,112 @@
     btnReindex.onclick = async () => {
       await withButtonBusy(btnReindex, 'Indexing…', async () => {
         try {
-          // `noRetry: true`: the gateway proxy for /api/v1/index can hit Netlify's 30s
-          // sync-function cap and drop the client connection, which the browser surfaces
-          // as `Failed to fetch`. The default api() retry would then double-fire the
-          // bridge index, doubling DeepInfra spend and worsening contention. The bridge-side
-          // background-job PR makes the wait short anyway; here we just stop the duplicate.
+          // `noRetry: true` prevents duplicate bridge invocations on gateway timeout
+          // (see api() helper). Bridge may return one of three shapes:
+          //   200 {ok:true, ...}             → sync completed
+          //   202 {status:'background', ...} → routed to bridge-index-background fn
+          //   409 {status:'already_running'} → another background job in flight
           const out = await api('/api/v1/index', { method: 'POST', noRetry: true });
-          const n = out.notesProcessed ?? 0;
-          const c = out.chunksIndexed ?? 0;
-          const skipped = out.chunksSkippedCached ?? 0;
-          const embedded = out.chunksEmbedded ?? c;
-          const detail = skipped > 0
-            ? ' (' + embedded + ' embedded, ' + skipped + ' cached)'
-            : '';
-          showToast('Indexed ' + n + ' notes, ' + c + ' chunks' + detail + '.');
-          hubClearSemanticIndexStale();
-          loadFacets();
-          loadNotes();
+          if (out && out.status === 'background') {
+            showToast(out.message || 'Large re-index started in the background. Refresh in 1–2 minutes.');
+            hubLoadIndexStatus({ pollWhileRunning: true }).catch(() => {});
+          } else if (out && out.status === 'already_running') {
+            showToast(out.message || 'A background re-index is already running for this vault.');
+            hubLoadIndexStatus({ pollWhileRunning: true }).catch(() => {});
+          } else {
+            const n = out.notesProcessed ?? 0;
+            const c = out.chunksIndexed ?? 0;
+            const skipped = out.chunksSkippedCached ?? 0;
+            const embedded = out.chunksEmbedded ?? c;
+            const detail = skipped > 0
+              ? ' (' + embedded + ' embedded, ' + skipped + ' cached)'
+              : '';
+            showToast('Indexed ' + n + ' notes, ' + c + ' chunks' + detail + '.');
+            hubClearSemanticIndexStale();
+            loadFacets();
+            loadNotes();
+            hubLoadIndexStatus().catch(() => {});
+          }
         } catch (e) {
           showToast(e.message || 'Re-index failed', true);
         }
       });
     };
   }
+
+  /*
+   * Passive "Last indexed: N minutes ago" line next to the Re-index button.
+   * Reads from `GET /api/v1/index/status` which both sync and background paths
+   * keep current via `lib/bridge-index-last-indexed.mjs`. We poll while a
+   * background job is in flight so the line flips from
+   *   "Re-indexing in background…" → "Last indexed: just now"
+   * without the user needing to click anything.
+   */
+  let _hubIndexStatusPollTimer = null;
+  function hubFormatRelativeTime(epochMs) {
+    if (!Number.isFinite(epochMs)) return '';
+    const ageMs = Date.now() - epochMs;
+    if (ageMs < 0) return 'just now';
+    const sec = Math.round(ageMs / 1000);
+    if (sec < 45) return 'just now';
+    const min = Math.round(sec / 60);
+    if (min < 60) return min + ' minute' + (min === 1 ? '' : 's') + ' ago';
+    const hr = Math.round(min / 60);
+    if (hr < 48) return hr + ' hour' + (hr === 1 ? '' : 's') + ' ago';
+    const days = Math.round(hr / 24);
+    return days + ' day' + (days === 1 ? '' : 's') + ' ago';
+  }
+  async function hubLoadIndexStatus(opts) {
+    opts = opts || {};
+    const el = document.getElementById('hub-index-status');
+    if (!el) return;
+    let status;
+    try {
+      status = await api('/api/v1/index/status', { method: 'GET' });
+    } catch (_) {
+      // Endpoint not deployed yet (e.g. older bridge) → leave the line empty.
+      el.textContent = '';
+      el.classList.remove('hub-index-status-running');
+      return;
+    }
+    if (status && status.inProgress) {
+      el.textContent = 'Re-indexing in background…';
+      el.classList.add('hub-index-status-running');
+      // Keep polling so the line auto-clears when the background job finishes.
+      // 5-second cadence matches typical embedding batch completion granularity
+      // and stays well under any sane rate limit.
+      if (_hubIndexStatusPollTimer == null && opts.pollWhileRunning !== false) {
+        _hubIndexStatusPollTimer = setInterval(() => {
+          hubLoadIndexStatus({ pollWhileRunning: true }).catch(() => {});
+        }, 5000);
+      }
+      return;
+    }
+    // No in-flight job — stop polling if we were.
+    if (_hubIndexStatusPollTimer != null) {
+      clearInterval(_hubIndexStatusPollTimer);
+      _hubIndexStatusPollTimer = null;
+    }
+    el.classList.remove('hub-index-status-running');
+    if (status && status.lastIndexed && Number.isFinite(status.lastIndexed.lastIndexedAtEpochMs)) {
+      const rel = hubFormatRelativeTime(status.lastIndexed.lastIndexedAtEpochMs);
+      el.textContent = 'Last indexed: ' + rel;
+      el.title =
+        'Last successful index: ' +
+        (status.lastIndexed.lastIndexedAt || '') +
+        ' · ' +
+        (status.lastIndexed.chunksIndexed || 0) +
+        ' chunks · mode: ' +
+        (status.lastIndexed.mode || 'sync');
+    } else {
+      el.textContent = '';
+      el.title = '';
+    }
+  }
+  // Kick off an initial status load once the user is logged in (the API call
+  // 401s otherwise). We piggyback on the same `loadFacets`/`loadNotes` startup
+  // that already happens after token validation succeeds.
+  hubLoadIndexStatus().catch(() => {});
 
   const hubIndexStaleRun = el('hub-index-stale-run');
   const hubIndexStaleDismiss = el('hub-index-stale-dismiss');
