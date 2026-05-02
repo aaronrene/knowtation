@@ -237,3 +237,42 @@ test('netlify.toml registers the bridge-index-background function', () => {
     'deploy/bridge/netlify.toml must declare the bridge-index-background function',
   );
 });
+
+test('netlify.toml does NOT attempt to redirect /.netlify/* paths (Netlify rejects them)', () => {
+  // Regression guard: an earlier hotfix attempt added an explicit passthrough
+  // `[[redirects]] from = "/.netlify/functions/*"` here, which Netlify rejects
+  // at deploy time with "Invalid /.netlify path in redirect source". The
+  // namespace is auto-exempt from user redirects per
+  // docs.netlify.com/routing/redirects/redirect-options/#shadowing — adding
+  // such a rule is both unnecessary and causes a deploy validation failure.
+  //
+  // This test ensures the rule is not reintroduced.
+  const sources = [];
+  for (const m of bridgeNetlifyToml.matchAll(/from\s*=\s*"([^"]+)"/g)) {
+    sources.push(m[1]);
+  }
+  for (const src of sources) {
+    assert.ok(
+      !src.startsWith('/.netlify'),
+      `redirect source "${src}" starts with /.netlify which Netlify rejects as a reserved namespace`,
+    );
+  }
+});
+
+test('bridge kickoff helper validates response.status (May 2026 hotfix)', () => {
+  // Regression context: prior code did `await fetch(url, …)` and never inspected
+  // `response.status`. fetch() resolves successfully on 4xx/5xx HTTP responses
+  // (it only throws on network errors), so a 404 from the redirect-bug above was
+  // silently treated as success. Defense in depth: assert the helper imports the
+  // pure validator AND calls it after the fetch.
+  assert.match(
+    bridgeJs,
+    /from\s+['"]\.\.\/\.\.\/lib\/bridge-index-kickoff-response\.mjs['"]/,
+    'must import from lib/bridge-index-kickoff-response.mjs',
+  );
+  assert.match(
+    bridgeJs,
+    /\bassertBackgroundKickoffOk\s*\(/,
+    'kickoff helper MUST call assertBackgroundKickoffOk so a 404/5xx fails loudly',
+  );
+});

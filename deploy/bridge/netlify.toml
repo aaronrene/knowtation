@@ -52,12 +52,24 @@
   external_node_modules = ["exceljs"]
 
 # Send all requests to the bridge function with path preserved (/:splat).
-# IMPORTANT: this redirect MUST stay below the [functions."bridge-index-background"]
-# block. Netlify processes redirects top-down and the `force = true` on this rule
-# would otherwise capture every URL — including direct calls to the background
-# function — and route them to the sync `bridge` function, which would NOT have the
-# 15-min timeout. The `/.netlify/functions/...` namespace is reserved by Netlify
-# and is exempt from this redirect by design.
+#
+# Why no explicit passthrough for /.netlify/functions/*: Netlify's redirect
+# engine REJECTS user-defined rules whose `from` starts with `/.netlify/...`
+# (validated at deploy time with "Invalid /.netlify path in redirect source").
+# This rejection is intentional — per
+# https://docs.netlify.com/routing/redirects/redirect-options/#shadowing the
+# `/.netlify/...` namespace is automatically excluded from user redirects,
+# INCLUDING catch-all rules with `force = true`. Direct calls to
+# `/.netlify/functions/<name>` always reach their respective function
+# regardless of what this catch-all says.
+#
+# The May 2026 PR #205 hotfix initially attempted to add an explicit
+# passthrough here; it was rejected by Netlify validation and removed. The
+# defense-in-depth guard now lives in `lib/bridge-index-kickoff-response.mjs`
+# instead — that helper asserts the kickoff fetch actually got HTTP 202 (the
+# only valid response from a Netlify background fn) so a future routing
+# misconfiguration fails loudly instead of silently returning false success
+# to the browser.
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/bridge/:splat"
