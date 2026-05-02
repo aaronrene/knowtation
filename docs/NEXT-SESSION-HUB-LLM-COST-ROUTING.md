@@ -1,8 +1,13 @@
 # Next session: Hub LLM cost routing (**hosted Hub only**)
 
-> ## Decision: DeepInfra single-provider — 2026-04-30
+> ## Decision: DeepInfra single-provider — 2026-04-30 — **SHIPPED & STABLE in production**
 >
-> **Status:** code on `feat/hosted-mcp-hub-create-proposal`; staging validation pending; production flip pending.
+> **Status (2026-05-01):** ✅ DeepInfra is live in production for both chat **and** embeddings on the hosted Hub. Production flip happened with PR #201 (`feat(hub): DeepInfra chat + embeddings, enrich audit, Paperclip deploy pack`). The post-flip indexing scalability cleanup is also complete (see "Indexing scalability initiative" section below). **Next session focus shifts to the Paperclip-on-AWS work in `docs/marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md` Steps 7–9.**
+>
+> Production-state evidence (May 1 2026 bridge logs, Business vault re-index):
+> - `[bridge] embedding (no secrets): {"provider":"deepinfra","model":"BAAI/bge-large-en-v1.5",...}`
+> - `chunks_indexed:251, chunks_skipped_cached:251, mode:"sync", total_ms:1371`
+> - "Last indexed: N minutes ago" UI line confirmed working end-to-end after PR #207.
 >
 > **What was decided:** Replace per-feature LLM providers (OpenAI primary, Anthropic fallback, separate Voyage / OpenAI embeddings, juggling ElevenLabs / image-gen keys) with a **single DeepInfra OpenAI-compatible key** (`DEEPINFRA_API_KEY`). The same key drives:
 > - hosted Hub chat (review hints + Enrich) via `lib/llm-complete.mjs` when `KNOWTATION_CHAT_PROVIDER=deepinfra`.
@@ -29,6 +34,50 @@
 > **Reviewers:** none required for code (all tests green); operator must run the staging validation script before flipping production env vars.
 >
 > ---
+
+## Indexing scalability initiative — COMPLETE (2026-05-01, PRs #202–#207)
+
+> **Why this section exists:** the DeepInfra production flip surfaced an unrelated cluster of indexing-path bugs (Netlify timeouts, no incremental cache, dimension-mismatch crash on provider switch, no observability for long-running re-indexes). This was solved in a single 2-hour session via 6 chained PRs. **Future agents picking up next-session work should not re-investigate any of these symptoms — they are fixed and tested.**
+
+| PR | Branch | What it shipped | Tests added |
+|---|---|---|---|
+| **#202** | `fix/index-timing-and-timeout-audit` | Per-step structured timing logs (`knowtation_index_step` / `knowtation_index_done`); raised Netlify function timeouts gateway+bridge 26→60 s | ~6 |
+| **#203** | `feat/bridge-embed-hash-cache` | Content-hash incremental cache (skip unchanged chunks); bounded parallel embed (`runWithConcurrency`, default N=5, batch=50); 429 backoff respecting `Retry-After`. Effect: full 251-chunk re-index 65 s → 10–15 s; cache hits ~1.4 s. Frontend `noRetry: true` on `POST /api/v1/index` | ~30 |
+| **#204** | `fix/bridge-vector-store-dim-and-hash-model-binding` | Bridge `allow_dimension_migration: true` flag (auto drop+recreate vec0 table on dim mismatch); content hash now includes provider+model (`v1:<provider>:<model>:<32-hex>`) so same-dim model swaps invalidate cache instead of silently corrupting | ~12 |
+| **#205** | `feat/bridge-index-auto-routing` | Auto-routing: large/first-time/dim-migration jobs → `bridge-index-background` Netlify Background Function (15-min cap, HMAC-signed kickoff); small jobs stay sync. Job lock (16-min TTL, overwrite-on-stale), last-indexed sidecar in Netlify Blobs, passive "Last indexed: N ago" UI line, `GET /api/v1/index/status` endpoint | ~30 |
+| **#206** | `hotfix/bridge-index-background-kickoff-routing` | Defense-in-depth: `assertBackgroundKickoffOk(response)` validates the kickoff fetch returned HTTP 202 (Netlify background-fn signal). Any non-202 → throws → catch handler releases lock + returns 502 with diagnostic body. Also documented Netlify's auto-exemption of `/.netlify/...` paths from user redirects (a misdiagnosed earlier hotfix attempted to add a `from = "/.netlify/functions/*"` rule which Netlify rejects at deploy time) | ~11 |
+| **#207** | `hotfix/gateway-index-status-proxy` | Gateway proxy for `GET /api/v1/index/status` (the missing companion to the bridge route from #205). Deliberately runs WITHOUT the billing gate — sidecar reads on every Hub page load must stay free | ~2 |
+
+**Production failure modes that are now impossible** (each backed by tests in `test/bridge-*.test.mjs`, `test/gateway-index-status-proxy.test.mjs`, `test/parallel-embed-pool.test.mjs`, `test/chunk-content-hash.test.mjs`, `test/embedding-deepinfra-429-backoff.test.mjs`):
+
+1. ❌ Silent timeout-then-double-bill on retry
+2. ❌ Re-index loops re-embedding unchanged chunks
+3. ❌ Dimension-mismatch crash on provider swap
+4. ❌ Silent corruption on same-dimension model swap (e.g., BGE-large → BGE-m3)
+5. ❌ 30–60 s sync timeout on large vaults
+6. ❌ Concurrent background jobs double-billing the same vault
+7. ❌ Silent kickoff failure showing false "Large re-index started" toast
+8. ❌ Empty UI status line after successful index
+
+**Net architectural state:** the indexing path is now observable (per-step JSON logs), self-healing (overwrite-on-stale lock, automatic dim migration), cache-efficient (provider+model-bound content hash), defense-in-depth at every kickoff boundary, and scalable to 15-minute background jobs without UX impact for the 99 % cache-hit case.
+
+**Total tests in the project after this initiative: 1895 / 1894 pass / 0 fail / 1 skipped.**
+
+---
+
+## Next session focus (2026-05-02 onwards): Paperclip on AWS
+
+The DeepInfra+indexing chain is ready to feed the Paperclip video factory. Open work, in order, lives in `docs/marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md`:
+
+- **Step 6** (your hands): Pair ElevenLabs voice into HeyGen avatar, render 30-sec sample.
+- **Step 7b** (agent supplies): Terraform at `deploy/paperclip/terraform/` for AWS t3.medium + IAM + SSM Parameter Store namespace + Tailscale join URL output. **This is the next coding task on `feat/paperclip-aws-terraform`.**
+- **Step 8** (agent supplies): `deploy/paperclip/install.sh`, `push-secrets.sh`, `hello-world-test.sh`, `wire-knowtation-mcp.sh`, `load-skills-and-agents.sh`.
+- **Step 8c** (agent supplies): 5 reusable Knowtation skills + 18 conveyor-belt agents (6 × 3 projects) + 1 controller agent + 3 render bridges (HeyGen, ElevenLabs, Descript).
+- **Step 9** (your hands): First parallel run for all 3 projects, review, approve, upload.
+
+**Starting branch:** `feat/paperclip-aws-terraform` (this branch).
+
+---
 
 
 ## Scope (read first)
