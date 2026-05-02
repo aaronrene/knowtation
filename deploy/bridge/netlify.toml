@@ -38,7 +38,26 @@
   timeout = 60
   external_node_modules = ["exceljs"]
 
+# Background function: receives kickoff from the sync `bridge` function when the
+# auto-routing preflight in `hub/bridge/server.mjs POST /api/v1/index` decides a
+# re-index won't fit in 60 s (large vault, dim migration, first-time index, etc.).
+# The `-background` filename suffix is what makes Netlify treat this as a
+# background function (15-min platform max, returns 202 to caller within ~50 ms).
+# See `netlify/functions/bridge-index-background.mjs` and
+# `lib/bridge-index-preflight-estimate.mjs` for the routing math.
+# external_node_modules: same as the sync bridge function (sqlite-vec native code,
+# exceljs is large) — both functions import the same Express app and need the
+# same modules left external.
+[functions."bridge-index-background"]
+  external_node_modules = ["exceljs"]
+
 # Send all requests to the bridge function with path preserved (/:splat).
+# IMPORTANT: this redirect MUST stay below the [functions."bridge-index-background"]
+# block. Netlify processes redirects top-down and the `force = true` on this rule
+# would otherwise capture every URL — including direct calls to the background
+# function — and route them to the sync `bridge` function, which would NOT have the
+# 15-min timeout. The `/.netlify/functions/...` namespace is reserved by Netlify
+# and is exempt from this redirect by design.
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/bridge/:splat"

@@ -30,6 +30,22 @@ import {
   parseEmbedBatchSize,
 } from '../../lib/parallel-embed-pool.mjs';
 import { partitionChunksForReindex } from '../../lib/index-partition.mjs';
+import {
+  estimateEmbedSeconds,
+  shouldUseBackgroundIndex,
+  parseSyncBudgetSeconds,
+  parseMaxSyncChunks,
+} from '../../lib/bridge-index-preflight-estimate.mjs';
+import {
+  acquireJobLock,
+  releaseJobLock,
+  peekJobLock,
+} from '../../lib/bridge-index-job-lock.mjs';
+import {
+  setLastIndexedAt,
+  getLastIndexedAt,
+} from '../../lib/bridge-index-last-indexed.mjs';
+import { signInternalRequest } from '../../lib/bridge-internal-hmac.mjs';
 import { writeNote } from '../../lib/write.mjs';
 import { resolveVaultRelativePath, parseFrontmatterAndBody } from '../../lib/vault.mjs';
 import {
@@ -751,6 +767,18 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use((req, _res, next) => {
   req.blobStore = globalThis.__netlify_blob_store || null;
+  next();
+});
+
+// Background-function marker. `netlify/functions/bridge-index-background.mjs`
+// validates an HMAC-signed inbound request, then sets
+// `globalThis.__bridge_internal_request = { canisterUid, vaultId, jobId }` BEFORE
+// invoking the same Express app via serverless-http. The index handler reads
+// `req.bridgeInternalRequest` to decide whether to route (sync path) or skip
+// routing and execute inline (background path). Globals are used because
+// serverless-http does not let us inject per-request locals from the wrapper.
+app.use((req, _res, next) => {
+  req.bridgeInternalRequest = globalThis.__bridge_internal_request || null;
   next();
 });
 
@@ -1962,6 +1990,92 @@ app.post('/api/v1/import-url', requireBridgeAuth, requireBridgeEditorOrAdmin, as
 const BATCH_EMBED_DEFAULT = parseEmbedBatchSize(process.env.INDEXER_EMBED_BATCH_SIZE);
 const EMBED_CONCURRENCY_DEFAULT = parseEmbedConcurrency(process.env.INDEXER_EMBED_CONCURRENCY);
 const BATCH_UPSERT = 50;
+const SYNC_BUDGET_SECONDS = parseSyncBudgetSeconds(process.env.INDEXER_SYNC_BUDGET_SECONDS);
+const MAX_SYNC_CHUNKS = parseMaxSyncChunks(process.env.INDEXER_MAX_SYNC_CHUNKS);
+
+/**
+ * Kick off the `bridge-index-background` Netlify Function. Used by the
+ * synchronous `POST /api/v1/index` handler when the preflight estimate exceeds
+ * the sync budget (`SYNC_BUDGET_SECONDS`) or the chunk-count safety net
+ * (`MAX_SYNC_CHUNKS`). The background function returns 202 instantly and runs
+ * up to 15 min in a separate Lambda; this fetch only waits for that 202 so the
+ * sync handler can return its own 202 to the browser without blocking on the
+ * actual embed work.
+ *
+ * Two layers of auth on the inbound side (see `lib/bridge-internal-hmac.mjs`):
+ *   1. The user JWT is forwarded verbatim so the background function still
+ *      runs `requireBridgeAuth` and the user must be a real authenticated user.
+ *   2. An HMAC signature over (canisterUid, vaultId, jobId, ts) signed with
+ *      `SESSION_SECRET` proves the request originated from this sync handler
+ *      (the background URL is publicly addressable on Netlify).
+ */
+async function kickOffBackgroundIndex(req, jobId, canisterUid, vaultId) {
+  if (!SESSION_SECRET) {
+    throw new Error(
+      'kickOffBackgroundIndex: SESSION_SECRET is not set; cannot sign internal request',
+    );
+  }
+  const ts = Date.now();
+  const sig = signInternalRequest(SESSION_SECRET, { canisterUid, vaultId, jobId, ts });
+  const protocol =
+    req.protocol ||
+    (req.headers['x-forwarded-proto'] && String(req.headers['x-forwarded-proto']).split(',')[0]) ||
+    'https';
+  const host = (req.get && req.get('host')) || req.headers.host;
+  if (!host) {
+    throw new Error('kickOffBackgroundIndex: cannot determine host header for background URL');
+  }
+  const url = `${protocol}://${host}/.netlify/functions/bridge-index-background`;
+  const auth = req.headers.authorization || '';
+  // Background functions on Netlify return 202 within ~50–100 ms regardless of
+  // what the function body does; we only await that 202 so the sync handler
+  // can immediately return its own 202 to the browser.
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: auth,
+      'x-vault-id': vaultId,
+      'x-bridge-internal-uid': canisterUid,
+      'x-bridge-internal-vault-id': vaultId,
+      'x-bridge-internal-job-id': jobId,
+      'x-bridge-internal-ts': String(ts),
+      'x-bridge-internal-sig': sig,
+    },
+    body: '{}',
+  });
+}
+
+/**
+ * Read-only snapshot of "is the index for this vault currently being rebuilt
+ * in the background, and when did it last finish successfully?". The Hub UI
+ * polls this on page load to render `Last indexed: 2 minutes ago` next to the
+ * Re-index button and to disable the button while a background job is live.
+ *
+ * Same auth + scope as `POST /api/v1/index`: the user must be authenticated
+ * AND have the vault in their effective hosted-bridge context.
+ */
+app.get('/api/v1/index/status', requireBridgeAuth, async (req, res) => {
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  const canisterUid = hctx.effectiveCanisterUid;
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  const lastIndexed = req.blobStore
+    ? await getLastIndexedAt(req.blobStore, { canisterUid, vaultId })
+    : null;
+  const jobLock = req.blobStore
+    ? await peekJobLock(req.blobStore, { canisterUid, vaultId })
+    : null;
+  const inProgress =
+    jobLock != null &&
+    Number.isFinite(jobLock.expiresAt) &&
+    jobLock.expiresAt > Date.now();
+  res.json({
+    lastIndexed,
+    inProgress,
+    job: inProgress ? jobLock : null,
+  });
+});
 
 app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
   const uid = req.uid;
@@ -2070,6 +2184,44 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       timer.step('delete_old_vectors_empty', { vectors_deleted });
       await persistVectorsToBlob(req, canisterUid, vectorsDir);
       timer.step('persist_vectors_empty');
+      // Sidecar update so the Hub UI's "Last indexed" line stays correct even after
+      // an all-notes-deleted re-index (notes=0 is a legitimate steady state).
+      if (req.blobStore) {
+        try {
+          await setLastIndexedAt(req.blobStore, {
+            canisterUid,
+            vaultId,
+            actorUid: sanitizeUserId(uid),
+            notesProcessed: notes.length,
+            chunksIndexed: 0,
+            chunksEmbedded: 0,
+            chunksSkippedCached: 0,
+            vectorsDeleted: vectors_deleted,
+            embeddingInputTokens: 0,
+            durationMs: timer.totalMs(),
+            mode: req.bridgeInternalRequest != null ? 'background' : 'sync',
+            provider: storeConfig.embedding?.provider || null,
+            model: storeConfig.embedding?.model || null,
+          });
+        } catch (sidecarErr) {
+          // Sidecar write failure must not fail the index — UI just falls back to "never indexed".
+          console.warn('[bridge] setLastIndexedAt failed (empty path):', sidecarErr?.message || sidecarErr);
+        }
+      }
+      // If this is a background-mode invocation, release the lock so subsequent
+      // re-indexes are not falsely blocked. Use expectedJobId so a stale background
+      // function (whose lock has since been overwritten) cannot clobber a newer one.
+      if (req.bridgeInternalRequest != null && req.blobStore) {
+        try {
+          await releaseJobLock(req.blobStore, {
+            canisterUid,
+            vaultId,
+            expectedJobId: req.bridgeInternalRequest.jobId,
+          });
+        } catch (lockErr) {
+          console.warn('[bridge] releaseJobLock failed (empty path):', lockErr?.message || lockErr);
+        }
+      }
       console.log(
         '[bridge] index',
         JSON.stringify({
@@ -2123,9 +2275,122 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       orphan_count: partitioned.orphanIds.length,
     });
 
+    // —— Auto-routing: sync vs background ——
+    // The bridge runs as a Netlify synchronous function (60 s platform max). After the
+    // OpenAI(1536)→DeepInfra(1024) switch, a 251-chunk full re-embed costs ~10–15 s
+    // and a 1 500-chunk re-embed pushes past 30 s. To keep the snappy UX for the 99 %
+    // case (small delta or cache-hit) AND eliminate timeout risk for the 1 % case
+    // (first-time index, dim migration, big import), we estimate the embed wall-clock
+    // here and either (a) continue inline OR (b) hand the work to the
+    // `bridge-index-background` Netlify Function (15-min cap).
+    //
+    // The background path itself re-enters this same handler via
+    // `req.bridgeInternalRequest` (set by the wrapper after HMAC verification); when
+    // that's truthy we SKIP the routing decision and execute inline regardless of size.
+    const isInternalBackgroundRequest = req.bridgeInternalRequest != null;
     const embeddingConfig = storeConfig.embedding;
     const BATCH_EMBED = BATCH_EMBED_DEFAULT;
     const EMBED_CONCURRENCY = EMBED_CONCURRENCY_DEFAULT;
+    if (!isInternalBackgroundRequest && toEmbed.length > 0) {
+      const estimatedSeconds = estimateEmbedSeconds({
+        chunksToEmbed: toEmbed.length,
+        batchSize: BATCH_EMBED,
+        concurrency: EMBED_CONCURRENCY,
+      });
+      // `isFirstIndex` covers BOTH a true first-time index (no prior cache rows) AND
+      // the post-dim-migration state where `ensureCollection` just dropped + recreated
+      // the table (so `getChunkHashes` returned empty). Both require a full re-embed
+      // and both should route to background regardless of estimate.
+      const isFirstIndex = existingHashes.size === 0;
+      const decision = shouldUseBackgroundIndex({
+        chunksToEmbed: toEmbed.length,
+        estimatedSeconds,
+        syncBudgetSeconds: SYNC_BUDGET_SECONDS,
+        maxSyncChunks: MAX_SYNC_CHUNKS,
+        isFirstIndex,
+      });
+      timer.step('routing_decision', {
+        chunks_to_embed: toEmbed.length,
+        estimated_seconds: estimatedSeconds,
+        is_first_index: isFirstIndex,
+        sync_budget_seconds: SYNC_BUDGET_SECONDS,
+        max_sync_chunks: MAX_SYNC_CHUNKS,
+        decision: decision.shouldUseBackground ? 'background' : 'sync',
+        reason: decision.reason,
+      });
+      if (decision.shouldUseBackground) {
+        if (!req.blobStore) {
+          // No Blob store available (local self-host without Netlify Blobs): we cannot
+          // safely run the background path because lock + sidecar persistence would be
+          // lost. Fall through to sync — local self-host is single-tenant and operators
+          // can tolerate a longer wait.
+          timer.step('routing_fallback_no_blobstore');
+        } else {
+          const lockResult = await acquireJobLock(req.blobStore, {
+            canisterUid,
+            vaultId,
+            actorUid: sanitizeUserId(uid),
+            chunksToEmbed: toEmbed.length,
+            estimatedSeconds,
+            reason: decision.reason,
+          });
+          if (!lockResult.acquired) {
+            timer.finish({
+              ok: true,
+              phase: 'background_already_running',
+              existing_job_id: lockResult.existing?.jobId || null,
+            });
+            return res.status(409).json({
+              status: 'already_running',
+              message:
+                'A background re-index is already running for this vault. Refresh in a minute.',
+              jobId: lockResult.existing?.jobId || null,
+              startedAt: lockResult.existing?.startedAt || null,
+            });
+          }
+          try {
+            await kickOffBackgroundIndex(req, lockResult.jobId, canisterUid, vaultId);
+          } catch (kickoffErr) {
+            // Kickoff failed (network blip, missing SESSION_SECRET, etc.) — release the
+            // lock so the user can retry, and surface the error.
+            await releaseJobLock(req.blobStore, {
+              canisterUid,
+              vaultId,
+              expectedJobId: lockResult.jobId,
+            });
+            timer.finish({
+              ok: false,
+              phase: 'background_kickoff',
+              error: kickoffErr?.message || String(kickoffErr),
+            });
+            return res.status(502).json({
+              error: 'Could not start background re-index',
+              code: 'BACKGROUND_KICKOFF_FAILED',
+              message: kickoffErr?.message || String(kickoffErr),
+            });
+          }
+          timer.finish({
+            ok: true,
+            phase: 'background_started',
+            job_id: lockResult.jobId,
+            chunks_to_embed: toEmbed.length,
+            estimated_seconds: estimatedSeconds,
+            reason: decision.reason,
+          });
+          return res.status(202).json({
+            status: 'background',
+            jobId: lockResult.jobId,
+            message:
+              'Large re-index started in the background. Refresh in 1–2 minutes — search will use the new vectors as soon as the job finishes.',
+            estimatedSeconds,
+            chunksToEmbed: toEmbed.length,
+            reason: decision.reason,
+          });
+        }
+      }
+    }
+    // —— end auto-routing ——
+
     const embedBatches = [];
     for (let i = 0; i < toEmbed.length; i += BATCH_EMBED) {
       embedBatches.push(toEmbed.slice(i, i + BATCH_EMBED));
@@ -2240,6 +2505,46 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     });
     await persistVectorsToBlob(req, canisterUid, vectorsDir);
     timer.step('persist_vectors');
+    // Sidecar update so the Hub UI's "Last indexed" line is correct after BOTH
+    // the synchronous and the background path. The same record format is read
+    // by `GET /api/v1/index/status` and rendered next to the Re-index button.
+    if (req.blobStore) {
+      try {
+        await setLastIndexedAt(req.blobStore, {
+          canisterUid,
+          vaultId,
+          actorUid: sanitizeUserId(uid),
+          notesProcessed: notes.length,
+          chunksIndexed: allChunks.length,
+          chunksEmbedded: toEmbed.length,
+          chunksSkippedCached: chunks_skipped_cached,
+          vectorsDeleted: vectors_deleted,
+          embeddingInputTokens: embedding_input_tokens,
+          durationMs: timer.totalMs(),
+          mode: req.bridgeInternalRequest != null ? 'background' : 'sync',
+          provider: embeddingConfig?.provider || null,
+          model: embeddingConfig?.model || null,
+        });
+      } catch (sidecarErr) {
+        // Sidecar write failure must not fail the index — UI just falls back to "never indexed".
+        console.warn('[bridge] setLastIndexedAt failed:', sidecarErr?.message || sidecarErr);
+      }
+    }
+    // Background path: release the job lock so a future re-index is not falsely blocked.
+    // `expectedJobId` ensures we only release OUR lock — if a stale background job
+    // finishes after a fresh background job has already acquired a new lock (rare,
+    // but possible if the first job exceeded the lock TTL), we leave the new lock alone.
+    if (req.bridgeInternalRequest != null && req.blobStore) {
+      try {
+        await releaseJobLock(req.blobStore, {
+          canisterUid,
+          vaultId,
+          expectedJobId: req.bridgeInternalRequest.jobId,
+        });
+      } catch (lockErr) {
+        console.warn('[bridge] releaseJobLock failed:', lockErr?.message || lockErr);
+      }
+    }
     console.log(
       '[bridge] index',
       JSON.stringify({
@@ -2250,6 +2555,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
         chunks_skipped_cached,
         chunks_embedded: toEmbed.length,
         vectors_deleted,
+        mode: req.bridgeInternalRequest != null ? 'background' : 'sync',
       }),
     );
     const indexResult = {
@@ -2269,6 +2575,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
       chunks_embedded: toEmbed.length,
       vectors_deleted,
       embedding_input_tokens,
+      mode: req.bridgeInternalRequest != null ? 'background' : 'sync',
     });
     res.json(indexResult);
     fireBridgeCaptureEvent(
@@ -2287,6 +2594,20 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
   } catch (e) {
     console.error('Bridge index error:', e);
     timer.finish({ ok: false, phase: 'catch', error: e?.message || String(e) });
+    // Background path: release the lock on error so the operator can retry without
+    // waiting for the 16-min TTL. We do this defensively regardless of whether the
+    // error happened before or after the lock was acquired.
+    if (req.bridgeInternalRequest != null && req.blobStore) {
+      try {
+        await releaseJobLock(req.blobStore, {
+          canisterUid: req.bridgeInternalRequest.canisterUid,
+          vaultId: req.bridgeInternalRequest.vaultId,
+          expectedJobId: req.bridgeInternalRequest.jobId,
+        });
+      } catch (lockErr) {
+        console.warn('[bridge] releaseJobLock failed (catch path):', lockErr?.message || lockErr);
+      }
+    }
     return res.status(500).json({
       error: 'Index failed',
       code: 'INTERNAL_ERROR',
