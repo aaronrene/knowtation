@@ -238,31 +238,25 @@ test('netlify.toml registers the bridge-index-background function', () => {
   );
 });
 
-test('netlify.toml exempts /.netlify/functions/* from the catch-all redirect (May 2026 hotfix)', () => {
-  // Regression context: the catch-all `[[redirects]] from = "/*" force = true`
-  // captures EVERY URL — including `/.netlify/functions/bridge-index-background`
-  // — because Netlify's normal exemption for `/.netlify/...` paths is bypassed
-  // when `force = true` is set. Without an explicit passthrough rule placed
-  // BEFORE the catch-all, the bridge sync function's kickoff fetch is rewritten
-  // to the regular bridge function and returns 404. The kickoff caller then
-  // falsely believes the background job started.
+test('netlify.toml does NOT attempt to redirect /.netlify/* paths (Netlify rejects them)', () => {
+  // Regression guard: an earlier hotfix attempt added an explicit passthrough
+  // `[[redirects]] from = "/.netlify/functions/*"` here, which Netlify rejects
+  // at deploy time with "Invalid /.netlify path in redirect source". The
+  // namespace is auto-exempt from user redirects per
+  // docs.netlify.com/routing/redirects/redirect-options/#shadowing — adding
+  // such a rule is both unnecessary and causes a deploy validation failure.
   //
-  // This test asserts BOTH that the passthrough rule exists AND that it appears
-  // before the catch-all (Netlify processes redirects top-down; first match wins).
-  const passthroughIdx = bridgeNetlifyToml.indexOf('from = "/.netlify/functions/*"');
-  const catchAllIdx = bridgeNetlifyToml.indexOf('from = "/*"');
-  assert.ok(
-    passthroughIdx > 0,
-    'must declare an explicit passthrough for /.netlify/functions/* paths',
-  );
-  assert.ok(
-    catchAllIdx > 0,
-    'catch-all redirect must still exist (front-end SPA routing depends on it)',
-  );
-  assert.ok(
-    passthroughIdx < catchAllIdx,
-    'passthrough rule MUST appear before the catch-all (Netlify is first-match-wins)',
-  );
+  // This test ensures the rule is not reintroduced.
+  const sources = [];
+  for (const m of bridgeNetlifyToml.matchAll(/from\s*=\s*"([^"]+)"/g)) {
+    sources.push(m[1]);
+  }
+  for (const src of sources) {
+    assert.ok(
+      !src.startsWith('/.netlify'),
+      `redirect source "${src}" starts with /.netlify which Netlify rejects as a reserved namespace`,
+    );
+  }
 });
 
 test('bridge kickoff helper validates response.status (May 2026 hotfix)', () => {

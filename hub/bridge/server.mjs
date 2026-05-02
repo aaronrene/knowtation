@@ -2034,11 +2034,14 @@ async function kickOffBackgroundIndex(req, jobId, canisterUid, vaultId) {
   //
   // CRITICAL (May 2026 hotfix): we MUST inspect `response.status`. fetch()
   // resolves successfully on 4xx/5xx responses (it only throws on network
-  // errors), so without this check a 404 from a misconfigured redirect would
+  // errors), so without this check a non-202 response (function not deployed,
+  // wrong host header, HMAC misconfiguration, future routing bug, etc.) would
   // be silently treated as success — the sync handler would return
   // `202 status:"background"` to the browser while no work runs in the
   // background. The job lock would then sit for its full 16-min TTL blocking
-  // any retry. See `lib/bridge-index-kickoff-response.mjs` for full context.
+  // any retry. See `lib/bridge-index-kickoff-response.mjs` for full context
+  // and the failure-mode test matrix in
+  // `test/bridge-index-kickoff-response.test.mjs`.
   const response = await fetch(url, {
     method: 'POST',
     headers: {

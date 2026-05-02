@@ -51,27 +51,25 @@
 [functions."bridge-index-background"]
   external_node_modules = ["exceljs"]
 
-# Passthrough for direct Netlify-function URLs. MUST appear BEFORE the catch-all
-# below — Netlify processes redirects top-down and first match wins.
+# Send all requests to the bridge function with path preserved (/:splat).
 #
-# Why this exists (May 2026 hotfix): the catch-all rule below captures EVERY
-# URL — and its forced rewrite BYPASSES Netlify's normal exemption for
-# /.netlify/... paths (verified empirically: a kickoff fetch from the sync bridge
-# function to /.netlify/functions/bridge-index-background was being rewritten to
-# /.netlify/functions/bridge/.netlify/functions/bridge-index-background, which
-# the bridge function 404'd on, silently breaking the auto-routing path).
-# This explicit passthrough rule reaches the redirect engine first for any
-# /.netlify/functions/* URL and rewrites the path to itself, preventing the
-# catch-all from clobbering it. See the hotfix PR for PR #205 + tests in
-# `test/bridge-index-auto-routing-contract.test.mjs`.
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-# Send all OTHER requests to the bridge function with path preserved (/:splat).
-# Anything matching `/.netlify/functions/*` is short-circuited above; this rule
-# only sees app-level paths like `/api/v1/index`, `/api/v1/search`, etc.
+# Why no explicit passthrough for /.netlify/functions/*: Netlify's redirect
+# engine REJECTS user-defined rules whose `from` starts with `/.netlify/...`
+# (validated at deploy time with "Invalid /.netlify path in redirect source").
+# This rejection is intentional — per
+# https://docs.netlify.com/routing/redirects/redirect-options/#shadowing the
+# `/.netlify/...` namespace is automatically excluded from user redirects,
+# INCLUDING catch-all rules with `force = true`. Direct calls to
+# `/.netlify/functions/<name>` always reach their respective function
+# regardless of what this catch-all says.
+#
+# The May 2026 PR #205 hotfix initially attempted to add an explicit
+# passthrough here; it was rejected by Netlify validation and removed. The
+# defense-in-depth guard now lives in `lib/bridge-index-kickoff-response.mjs`
+# instead — that helper asserts the kickoff fetch actually got HTTP 202 (the
+# only valid response from a Netlify background fn) so a future routing
+# misconfiguration fails loudly instead of silently returning false success
+# to the browser.
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/bridge/:splat"
