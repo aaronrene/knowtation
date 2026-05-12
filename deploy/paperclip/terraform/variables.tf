@@ -18,7 +18,7 @@ variable "environment" {
 variable "instance_type" {
   description = "EC2 instance type. t3.medium is sufficient for Paperclip + 22 agents at 30 videos/week. Upgrade to t3.large if OOMs occur (one-line change, 90s downtime)."
   type        = string
-  default     = "t3.medium"
+  default     = "t3.xlarge"
 }
 
 variable "ebs_size_gb" {

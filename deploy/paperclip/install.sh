@@ -13,11 +13,12 @@
 #   3. Installs pnpm
 #   4. Installs PostgreSQL 16 + creates database 'paperclip' + role 'paperclip'
 #   5. Clones Paperclip from PAPERCLIP_REPO_URL into /opt/paperclip
-#   6. Runs Paperclip migrations
-#   7. Installs nginx + certbot (Let's Encrypt)
-#   8. Configures nginx reverse proxy (HTTP-only by default; you add HTTPS via certbot if desired)
-#   9. Installs systemd service 'paperclip.service'
-#  10. Loads SSM secrets into the systemd EnvironmentFile every 60 seconds via 'paperclip-secrets-sync.timer'
+#   6. Builds all workspace packages (tsc → dist/) + patches subpath exports
+#   7. Runs Paperclip migrations
+#   8. Installs nginx + certbot (Let's Encrypt)
+#   9. Configures nginx reverse proxy (HTTP-only by default; you add HTTPS via certbot if desired)
+#  10. Installs systemd service 'paperclip.service' (runs compiled JS, no tsx runtime)
+#  11. Loads SSM secrets into the systemd EnvironmentFile every 60 seconds via 'paperclip-secrets-sync.timer'
 #
 # What this does NOT do:
 #   - Push secrets (run scripts/push-secrets.sh after this completes)
@@ -31,15 +32,17 @@ set -euo pipefail
 # Settings
 ############
 
-# Paperclip source. Replace with the actual official repo URL after you've inspected it.
-# As of 2026-04: Paperclip is at https://github.com/paperclip-org/paperclip (placeholder; verify before running).
-: "${PAPERCLIP_REPO_URL:=https://github.com/paperclip-org/paperclip.git}"
-: "${PAPERCLIP_REPO_REF:=main}"
+# Paperclip source — public upstream (default branch is master).
+# Override with forks via: PAPERCLIP_REPO_URL=... PAPERCLIP_REPO_REF=... when invoking install.sh
+: "${PAPERCLIP_REPO_URL:=https://github.com/paperclipai/paperclip.git}"
+: "${PAPERCLIP_REPO_REF:=master}"
 : "${PAPERCLIP_INSTALL_DIR:=/opt/paperclip}"
 : "${PAPERCLIP_USER:=paperclip}"
 : "${PAPERCLIP_DB:=paperclip}"
 : "${PAPERCLIP_PORT:=3000}"
 : "${SSM_NAMESPACE:=/knowtation/paperclip/}"
+# When install is run as `curl … | bash`, $0 is bash — operator assets are fetched from this raw URL instead.
+: "${KNOWTATION_RAW_DEPLOY_BASE:=https://raw.githubusercontent.com/aaronrene/knowtation/main/deploy/paperclip}"
 
 LOG_FILE=/var/log/paperclip-install.log
 exec > >(tee -a "$LOG_FILE") 2>&1
@@ -133,16 +136,50 @@ else
   git pull --ff-only origin "$PAPERCLIP_REPO_REF"
 fi
 
-# Mirror our deploy artifacts into the install dir so operator scripts are at /opt/paperclip/scripts.
-DEPLOY_DIR="$(dirname "$(readlink -f "$0")")"
-mkdir -p "$PAPERCLIP_INSTALL_DIR/scripts"
-cp -f "$DEPLOY_DIR"/scripts/*.sh "$PAPERCLIP_INSTALL_DIR/scripts/" 2>/dev/null || true
+# Mirror Knowtation deploy artifacts into /opt/paperclip (scripts, skills, agents).
+# Piped installs (`curl | bash`): $0 is bash — local DEPLOY_DIR is wrong; fetch from KNOWTATION_RAW_DEPLOY_BASE.
+mkdir -p "$PAPERCLIP_INSTALL_DIR/scripts" "$PAPERCLIP_INSTALL_DIR/skills" "$PAPERCLIP_INSTALL_DIR/agents"
+DEPLOY_DIR=""
+if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != bash && "${BASH_SOURCE[0]}" != */bash ]]; then
+  DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+elif [[ -f "$(readlink -f "$0" 2>/dev/null || true)" ]]; then
+  DEPLOY_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+fi
+if [[ -n "$DEPLOY_DIR" && -f "$DEPLOY_DIR/scripts/push-secrets.sh" ]]; then
+  echo "[install] Copying operator scripts from $DEPLOY_DIR/scripts"
+  cp -f "$DEPLOY_DIR"/scripts/*.sh "$PAPERCLIP_INSTALL_DIR/scripts/"
+else
+  echo "[install] Fetching operator scripts from $KNOWTATION_RAW_DEPLOY_BASE/scripts/"
+  for f in push-secrets.sh hello-world-test.sh wire-knowtation-mcp.sh load-skills-and-agents.sh run-controller.sh; do
+    curl -fsSL "$KNOWTATION_RAW_DEPLOY_BASE/scripts/$f" -o "$PAPERCLIP_INSTALL_DIR/scripts/$f"
+  done
+fi
 chmod +x "$PAPERCLIP_INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 
-# Mirror skills + agents.
-mkdir -p "$PAPERCLIP_INSTALL_DIR/skills" "$PAPERCLIP_INSTALL_DIR/agents"
-cp -rf "$DEPLOY_DIR"/skills/* "$PAPERCLIP_INSTALL_DIR/skills/" 2>/dev/null || true
-cp -rf "$DEPLOY_DIR"/agents/* "$PAPERCLIP_INSTALL_DIR/agents/" 2>/dev/null || true
+if [[ -n "$DEPLOY_DIR" && -d "$DEPLOY_DIR/skills" ]]; then
+  cp -rf "$DEPLOY_DIR"/skills/* "$PAPERCLIP_INSTALL_DIR/skills/" 2>/dev/null || true
+  cp -rf "$DEPLOY_DIR"/agents/* "$PAPERCLIP_INSTALL_DIR/agents/" 2>/dev/null || true
+else
+  echo "[install] Fetching skills from $KNOWTATION_RAW_DEPLOY_BASE/skills/"
+  SKILL_FILES=(
+    write-draft.mjs search-vault.mjs read-style-guide.mjs read-positioning.mjs read-playbook.mjs
+    hub-client.mjs heygen-render.mjs elevenlabs-tts.mjs descript-import.mjs
+  )
+  for f in "${SKILL_FILES[@]}"; do
+    curl -fsSL "$KNOWTATION_RAW_DEPLOY_BASE/skills/$f" -o "$PAPERCLIP_INSTALL_DIR/skills/$f"
+  done
+  echo "[install] Fetching agents from $KNOWTATION_RAW_DEPLOY_BASE/agents/"
+  AGENT_FILES=(
+    knowtation/project.yaml bornfree/project.yaml storefree/project.yaml controller/controller.yaml
+    _universal-preamble.yaml
+    _templates/script-writer.yaml _templates/blog-seo.yaml _templates/newsletter.yaml
+    _templates/social-poster.yaml _templates/clip-factory.yaml _templates/thumbnail-brief.yaml
+  )
+  for f in "${AGENT_FILES[@]}"; do
+    mkdir -p "$PAPERCLIP_INSTALL_DIR/agents/$(dirname "$f")"
+    curl -fsSL "$KNOWTATION_RAW_DEPLOY_BASE/agents/$f" -o "$PAPERCLIP_INSTALL_DIR/agents/$f"
+  done
+fi
 
 chown -R "$PAPERCLIP_USER:$PAPERCLIP_USER" "$PAPERCLIP_INSTALL_DIR"
 
@@ -150,8 +187,32 @@ chown -R "$PAPERCLIP_USER:$PAPERCLIP_USER" "$PAPERCLIP_INSTALL_DIR"
 # 6. Install + migrate Paperclip
 #####################
 
-echo "[install] Running pnpm install"
-sudo -u "$PAPERCLIP_USER" -H bash -c "cd $PAPERCLIP_INSTALL_DIR && pnpm install --frozen-lockfile --prod"
+echo "[install] Running pnpm install (includes devDeps needed for build)"
+sudo -u "$PAPERCLIP_USER" -H bash -c "cd $PAPERCLIP_INSTALL_DIR && pnpm install --frozen-lockfile"
+
+echo "[install] Building workspace packages (compiling TypeScript → JavaScript)"
+sudo -u "$PAPERCLIP_USER" -H bash -c "cd $PAPERCLIP_INSTALL_DIR && NODE_OPTIONS='--max-old-space-size=2048' pnpm -r build"
+
+echo "[install] Patching package.json wildcard exports to use compiled dist/ paths"
+python3 -c "
+import json, glob
+pkgs = glob.glob('$PAPERCLIP_INSTALL_DIR/packages/*/package.json')
+for path in pkgs:
+    with open(path) as f:
+        pkg = json.load(f)
+    exports = pkg.get('exports', {})
+    changed = False
+    for key in list(exports.keys()):
+        val = exports[key]
+        if isinstance(val, str) and val.startswith('./src/') and val.endswith('.ts'):
+            exports[key] = val.replace('./src/', './dist/').replace('.ts', '.js')
+            changed = True
+    if changed:
+        with open(path, 'w') as f:
+            json.dump(pkg, f, indent=2)
+        print('[install] Patched exports:', path)
+print('[install] Export patch complete')
+"
 
 echo "[install] Running database migrations (if Paperclip ships them)"
 if [[ -f "$PAPERCLIP_INSTALL_DIR/package.json" ]] && grep -q '"migrate"' "$PAPERCLIP_INSTALL_DIR/package.json"; then
@@ -288,7 +349,8 @@ EnvironmentFile=/etc/paperclip/env
 Environment=NODE_ENV=production
 Environment=PORT=$PAPERCLIP_PORT
 Environment=DATABASE_URL=postgresql://$PAPERCLIP_USER@localhost/$PAPERCLIP_DB
-ExecStart=/usr/bin/pnpm start
+Environment=NODE_OPTIONS=--max-old-space-size=8192
+ExecStart=/usr/bin/node dist/index.js
 ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=10
