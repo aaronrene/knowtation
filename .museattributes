@@ -1,0 +1,9 @@
+# .museattributes — merge strategy overrides for this repository.
+
+[meta]
+domain = "code"
+
+# [[rules]]
+# path      = "*"
+# dimension = "*"
+# strategy  = "auto"
