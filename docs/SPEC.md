@@ -69,7 +69,24 @@ For temporal sequence, causation, hierarchical memory, and state compression the
 
 Same slug normalization as project/tag for `causal_chain_id` and `entity`. CLI may support `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order` when these are present; see INTENTION-AND-TEMPORAL.
 
-### 2.4 Reserved for Phase 12 (blockchain and agent payments)
+### 2.4 Mist attachment IDs (optional)
+
+Import pipelines and note-creation tools MAY record the original source blob in Mist (Muse's content-addressed object store) and stamp the returned ID in the note's frontmatter.  This enables `muse code impact` to trace which notes depend on a given binary blob (PDF, audio, screenshot, etc.).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `attachments` | string[] | List of mist blob IDs.  Each ID is exactly 12 characters from the [base58](https://en.bitcoin.it/wiki/Base58Check_encoding) alphabet (`123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`), derived from the first 12 characters of the base58-encoded SHA-256 hash of the blob content. |
+
+**Validation:** parsers MUST NOT require `attachments`; notes without it are fully valid.  When present, each entry MUST match the 12-character base58 pattern.
+
+**Mist push workflow (importers):**
+1. `muse mist push <blob>` → returns a mist ID (e.g. `4a7Jz2Xn9Kqw`).
+2. The importer stamps the ID into the note's `attachments` list.
+3. `muse code impact <mist-id>` returns all notes that reference the blob.
+
+**Schema version:** this field is part of frontmatter schema version 2.  Legacy notes (schema v1) are automatically migrated by `migrate_frontmatter`.
+
+### 2.5 Reserved for Phase 12 (blockchain and agent payments)
 
 The following frontmatter fields are **reserved** for a future phase. Notes remain valid without them; parsers and indexers MUST NOT require them. When implemented, they will be optional and used for payment attribution and on-chain provenance.
 
