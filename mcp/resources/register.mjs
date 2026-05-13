@@ -53,6 +53,98 @@ function textContent(uri, mimeType, text) {
 }
 
 /**
+ * Fetch Muse commit-graph context for the ``knowtation://prime`` bootstrap.
+ *
+ * Phase 4.5 implementation: calls `muse log --json --max 100` as a subprocess
+ * to read recent commits, then extracts last_consolidation and hot_notes from
+ * the commit records' metadata fields written by Phase 4.2 (--event-type,
+ * --agent-id, --model-id) and structured_delta.
+ *
+ * Phase 5 upgrade: replace this function body with a JSON-RPC call to the
+ * `knowtation/prime-context` Muse MCP tool once it ships.
+ *
+ * Security: the subprocess is invoked with a fixed argument list — no user
+ * input or interpolated strings enter the command.
+ *
+ * @returns {Promise<object|null>} Prime context object or null on failure.
+ */
+async function _fetchMusePrimeContext() {
+  const { execFile } = await import('child_process');
+  const { promisify } = await import('util');
+  const execFileAsync = promisify(execFile);
+
+  // Fetch recent commits as JSON. 'muse log --json --max 100' is a fixed
+  // command; no user input is interpolated.
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync('muse', ['log', '--json', '--max', '100'], {
+      timeout: 10_000, // 10 s timeout; non-blocking for the MCP caller
+      maxBuffer: 2 * 1024 * 1024, // 2 MiB — enough for 100 commits
+    }));
+  } catch (err) {
+    // muse CLI not available or repo not initialised; return null gracefully.
+    return null;
+  }
+
+  let commits;
+  try {
+    commits = JSON.parse(stdout);
+    if (!Array.isArray(commits)) return null;
+  } catch {
+    return null;
+  }
+
+  const CONSOLIDATION_KINDS = new Set(['consolidation', 'consolidation_pass']);
+  const noteEditCounts = new Map();
+  let lastConsolidation = null;
+
+  for (const commit of commits) {
+    const eventType = commit?.metadata?.event_type ?? null;
+
+    if (lastConsolidation === null && CONSOLIDATION_KINDS.has(eventType)) {
+      lastConsolidation = {
+        commit_id: commit.commit_id ?? '',
+        committed_at: commit.committed_at ?? '',
+        message: (commit.message ?? '').slice(0, 200),
+        agent_id: commit.agent_id ?? '',
+        model_id: commit.model_id ?? '',
+      };
+    }
+
+    // Accumulate note-path edit counts from structured_delta ops.
+    const ops = commit?.structured_delta?.ops ?? [];
+    for (const op of ops) {
+      const addr = op?.address ?? '';
+      let notePath = null;
+      if (typeof addr === 'string') {
+        if (addr.includes('::')) {
+          const [path] = addr.split('::', 2);
+          if (path.endsWith('.md')) notePath = path;
+        } else if (addr.endsWith('.md')) {
+          notePath = addr;
+        }
+      }
+      if (notePath) {
+        noteEditCounts.set(notePath, (noteEditCounts.get(notePath) ?? 0) + 1);
+      }
+    }
+  }
+
+  const hotNotes = [...noteEditCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 10)
+    .map(([path, edits]) => ({ path, edits }));
+
+  return {
+    schema_version: '1.0.0',
+    source: 'muse-commit-graph',
+    commits_scanned: commits.length,
+    last_consolidation: lastConsolidation,
+    hot_notes: hotNotes,
+  };
+}
+
+/**
  * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
  */
 export function registerKnowtationResources(server) {
@@ -225,11 +317,28 @@ export function registerKnowtationResources(server) {
     async (uri) => {
       const config = loadConfig();
       const snapshot = redactConfig(config);
+
+      // Phase 4.5 — Muse commit-graph context (opt-in feature flag).
+      // Set KNOWTATION_MUSE_ENABLED=true to populate muse_context.
+      // Phase 5 upgrade path: replace _fetchMusePrimeContext() with a call to
+      // the `knowtation/prime-context` Muse MCP tool once Phase 5 ships.
+      let museContext = null;
+      if (process.env.KNOWTATION_MUSE_ENABLED === 'true') {
+        museContext = await _fetchMusePrimeContext().catch((err) => {
+          // Non-fatal: muse_context is a best-effort enhancement.
+          console.error('[knowtation://prime] muse context unavailable:', err?.message ?? String(err));
+          return null;
+        });
+      }
+
       const payload = {
         schema: 'knowtation.prime/v1',
         surface: 'self-hosted',
         prime_uri: 'knowtation://prime',
         config: snapshot,
+        // Commit-graph context from Muse (Phase 4.5).
+        // null unless KNOWTATION_MUSE_ENABLED=true and `muse` CLI is reachable.
+        muse_context: museContext,
         suggested_next_resources: [
           'knowtation://config',
           'knowtation://vault/',
