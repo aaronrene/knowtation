@@ -2314,10 +2314,6 @@ app.post('/api/v1/export', async (req, res) => {
   if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
     return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
   }
-  const { role } = await resolveHostedActorRole(req, hctx);
-  if (role === 'viewer') {
-    return res.status(403).json({ error: 'This action requires editor or admin.', code: 'FORBIDDEN' });
-  }
   const effective =
     hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
       ? hctx.effective_canister_user_id

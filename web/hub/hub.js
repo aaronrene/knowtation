@@ -712,6 +712,20 @@
     return r === 'editor' || r === 'admin' || r === 'member';
   }
 
+  /** Same roles as POST /api/v1/proposals on Hub (evaluators propose; viewers do not). */
+  function hubUserMayProposeFromNote() {
+    const r = window.__hubUserRole;
+    return r === 'editor' || r === 'admin' || r === 'member' || r === 'evaluator';
+  }
+
+  /** Download current note (POST /api/v1/export); allowed for any vault reader including viewer. */
+  function hubUserCanExportNote() {
+    const r = window.__hubUserRole || 'member';
+    return (
+      r === 'editor' || r === 'admin' || r === 'member' || r === 'viewer' || r === 'evaluator'
+    );
+  }
+
   /** Proposal Enrich (AI): evaluators may run it without note-write roles; editors/admins/members still qualify. */
   function hubUserMayEnrichProposal() {
     const r = window.__hubUserRole;
@@ -7853,45 +7867,75 @@
   }
 
   function attachNoteDetailReadActions(actionsEl) {
-    if (!hubUserCanWriteNotes()) return;
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.textContent = 'Edit';
-    editBtn.onclick = () => switchNoteToEditMode();
-    const dupBtn = document.createElement('button');
-    dupBtn.type = 'button';
-    dupBtn.textContent = 'Duplicate…';
-    dupBtn.title = 'Open New note (full) with this content and a suggested new path; optional delete of the original after save.';
-    dupBtn.onclick = () => {
-      void openDuplicateNoteModal();
-    };
-    const proposeBtn = document.createElement('button');
-    proposeBtn.type = 'button';
-    proposeBtn.textContent = 'Propose change';
-    proposeBtn.onclick = () => {
-      if (!currentOpenNote) return;
-      openCreateProposalModal({
-        path: currentOpenNote.path,
-        body: currentOpenNote.body || '',
-        fromNote: true,
-      });
-    };
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.textContent = 'Delete';
-    delBtn.onclick = () => deleteOpenNote();
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
     exportBtn.textContent = 'Export';
     exportBtn.onclick = () => exportCurrentNote('md');
-    if (hubHasMultipleVaultsForCopy()) {
-      const copyVaultBtn = document.createElement('button');
-      copyVaultBtn.type = 'button';
-      copyVaultBtn.textContent = 'Copy to vault…';
-      copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
-      actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
-    } else {
-      actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, exportBtn);
+
+    if (hubUserCanWriteNotes()) {
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.textContent = 'Edit';
+      editBtn.onclick = () => switchNoteToEditMode();
+      const dupBtn = document.createElement('button');
+      dupBtn.type = 'button';
+      dupBtn.textContent = 'Duplicate…';
+      dupBtn.title =
+        'Open New note (full) with this content and a suggested new path; optional delete of the original after save.';
+      dupBtn.onclick = () => {
+        void openDuplicateNoteModal();
+      };
+      const proposeBtn = document.createElement('button');
+      proposeBtn.type = 'button';
+      proposeBtn.textContent = 'Propose change';
+      proposeBtn.onclick = () => {
+        if (!currentOpenNote) return;
+        openCreateProposalModal({
+          path: currentOpenNote.path,
+          body: currentOpenNote.body || '',
+          fromNote: true,
+        });
+      };
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.textContent = 'Delete';
+      delBtn.onclick = () => deleteOpenNote();
+      if (hubHasMultipleVaultsForCopy()) {
+        const copyVaultBtn = document.createElement('button');
+        copyVaultBtn.type = 'button';
+        copyVaultBtn.textContent = 'Copy to vault…';
+        copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
+        actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
+      } else {
+        actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, exportBtn);
+      }
+      return;
+    }
+
+    if (hubUserMayProposeFromNote()) {
+      const proposeBtn = document.createElement('button');
+      proposeBtn.type = 'button';
+      proposeBtn.textContent = 'Propose change';
+      proposeBtn.onclick = () => {
+        if (!currentOpenNote) return;
+        openCreateProposalModal({
+          path: currentOpenNote.path,
+          body: currentOpenNote.body || '',
+          fromNote: true,
+        });
+      };
+      actionsEl.appendChild(proposeBtn);
+    }
+    if (hubUserCanExportNote()) {
+      actionsEl.appendChild(exportBtn);
+    }
+    if (window.__hubUserRole === 'viewer' && hubUserCanExportNote()) {
+      const hint = document.createElement('p');
+      hint.className = 'muted small';
+      hint.style.marginTop = '0.5rem';
+      hint.textContent =
+        'Viewer access: you can read and export. Ask a workspace admin for editor access to change notes directly.';
+      actionsEl.appendChild(hint);
     }
   }
 

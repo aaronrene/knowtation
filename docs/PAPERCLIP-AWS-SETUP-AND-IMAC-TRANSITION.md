@@ -1,11 +1,12 @@
 # Paperclip — AWS setup, root-cause notes, and iMac transition plan
 
-**Status as of 2026-05-11**: Paperclip is **live and healthy** at `paperclip-prod` on AWS EC2. Onboarding completed, UI accessible via Tailscale at `http://paperclip-prod/onboarding`. The Gemini CLI adapter authenticates correctly. The CEO agent runs and retries on Gemini API timeouts (a free-tier quirk, not infrastructure).
+**Status as of 2026-05-11 (AWS)**: Paperclip was **live and healthy** at `paperclip-prod` on AWS EC2 (Tailscale, onboarding, Gemini CLI path validated). **Status as of 2026-05-14 (handoff)**: This doc now includes a **full Mac setup checklist**, **environment prep**, and a **copy-paste next-session prompt** for Cursor on the new machine.
 
 This document exists so that:
-1. You can pick up exactly where we left off when the iMac arrives.
+1. You can pick up exactly where we left off when the iMac (or any Mac server) is ready.
 2. You can reconnect to AWS later if you ever need to.
 3. The two days of debugging are not lost.
+4. A new agent chat has everything needed without re-reading the whole thread.
 
 ---
 
@@ -16,8 +17,8 @@ This document exists so that:
 | Is the AWS Paperclip server working? | Yes. Port 3000 listening, nginx 200, all 5 verification layers pass. |
 | Is anything left to do on AWS? | Optional: rotate exposed secrets (see below), apply terraform IAM update. |
 | What's the failure mode the user hit? | CEO agent calls Gemini → free-tier API is slow → Paperclip's internal probe times out. Cosmetic, not infrastructure. |
-| When iMac arrives, do I redo all this? | No. ~95% of the AWS pain is Linux/systemd/SSM specific and won't apply. ~2-3 hours from box-open to working Paperclip on macOS. |
-| Should I open a PR with these doc changes? | No PR right now. Per repo rule, docs-only PRs to `main` are forbidden. Bundle with the next code PR (e.g. when push-secrets.sh changes are tested). |
+| When iMac arrives, do I redo all this? | No. ~95% of the AWS pain is Linux/systemd/SSM specific. Follow the **iMac checklist** below (about 2–4 hours first time). |
+| Should I open a PR with these doc changes? | No PR right now. Per repo rule, docs-only PRs to `main` are forbidden. Bundle with the next code PR (e.g. when push-secrets.sh changes are tested). Prefer **Muse** for canonical commits per [`AGENTS.md`](../AGENTS.md) unless the task explicitly targets GitHub only. |
 
 ---
 
@@ -294,58 +295,155 @@ Per the repo rule [`/.cursor/rules/no-docs-only-pr-to-main.mdc`](../.cursor/rule
 | AWS pain | iMac equivalent |
 |---|---|
 | AWS SSM Parameter Store | macOS Keychain or local `.env` (no sync timer needed) |
-| systemd hardening fights | `launchd` LaunchAgent — much simpler |
-| `paperclip-secrets-sync.timer` overwrites | Doesn't exist on iMac; static env file |
-| MEMORY_PRESSURE_WATCH / JOURNAL_STREAM injection | launchd does not inject these |
-| Tailscale + nginx for routing | Localhost-only; or `tailscale-on-mac` if remote access wanted |
-| t3.xlarge OOMs | iMac has 32GB+ RAM, no OOM concerns |
-| terraform state | Doesn't apply |
+| systemd hardening fights | `launchd` LaunchAgent or LaunchDaemon |
+| `paperclip-secrets-sync.timer` overwrites | Does not exist on Mac; you own the file |
+| MEMORY_PRESSURE_WATCH / JOURNAL_STREAM injection | Not a launchd issue like systemd; no screen wrapper required |
+| Tailscale + nginx for routing | Localhost-only is fine; Tailscale Mac app if you want phone/laptop access without port forwarding |
+| t3.xlarge OOMs | Desktop-class RAM; tune `NODE_OPTIONS` only if you hit limits |
+| terraform state | Only if you keep AWS |
 
 ### What does transfer
 
 - **Knowledge of Paperclip's startup sequence** (embedded PG init takes ~3-5s, server binds 3000 after)
-- **Gemini CLI v0.41 quirks** (key in env var, not settings.json; sandbox needs Docker installed OR `GEMINI_SANDBOX=false`)
-- **Adapter list**: `acpx_local`, `claude_local`, `codex_local`, `cursor` (39 models), `gemini_local`, `hermes_local`, `opencode_local`, `pi_local`. **Strong recommendation: use the `cursor` adapter on iMac since you already pay for Cursor and it gives you 39 models without per-API cost.**
-- **The runbook** at [`docs/marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md`](marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md) — the SaaS signups, voice clone, etc. all carry over
-- **Rotated API keys** — once you rotate them post-leak, they live forever in your password manager regardless of where Paperclip runs
+- **Gemini CLI v0.41 quirks** (key in env var, not settings.json; sandbox needs Docker Desktop OR set `GEMINI_SANDBOX=false` / `GEMINI_NO_SANDBOX=1`)
+- **Adapter list**: `acpx_local`, `claude_local`, `codex_local`, `cursor` (39 models), `gemini_local`, `hermes_local`, `opencode_local`, `pi_local`. **Strong recommendation on Mac: prefer the `cursor` adapter** if you want fewer moving API keys (you already pay for Cursor).
+- **The runbook** at [`docs/marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md`](marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md)
+- **Rotated API keys** in a password manager; never commit `.env`
 
-### Recommended iMac install sequence (estimated 2-3 hours total)
+### Environment ready before you open Cursor on the new Mac
 
-1. **Hardware unbox + macOS first-boot** (15 min)
-2. **Install Docker Desktop** (15 min) — required for Gemini CLI sandbox; or skip and set `GEMINI_SANDBOX=false`
-3. **Install Node 20 + pnpm via Homebrew** (10 min)
-   ```bash
-   brew install node@20 pnpm postgresql@16 nginx
-   brew install --cask tailscale  # if remote access wanted
-   ```
-4. **Clone Paperclip + install** (30 min)
-   ```bash
-   git clone https://github.com/paperclipai/paperclip.git ~/paperclip
-   cd ~/paperclip
-   pnpm install --frozen-lockfile
-   pnpm -r build
-   ```
-5. **Create `~/paperclip/.env`** with rotated keys (10 min)
-6. **Install Gemini CLI**:
-   ```bash
-   npm install -g @google/gemini-cli
-   ```
-7. **Run Paperclip directly** (no launchd/systemd wrapper drama on macOS):
-   ```bash
-   cd ~/paperclip/server
-   set -a; source ~/paperclip/.env; set +a
-   PORT=3000 node dist/index.js
-   ```
-   Should bind in <10 seconds. ~200MB RSS.
-8. **Optional — make it auto-start with launchd** (15 min) — simpler than systemd; create `~/Library/LaunchAgents/com.knowtation.paperclip.plist`
-9. **Open browser to `http://127.0.0.1:3000/onboarding`** — repeat the Paperclip onboarding (issue tracker workspace, agent setup, etc.)
-10. **Recommended: pick the `Cursor` adapter** instead of Gemini CLI to skip the API key juggling entirely
-11. **Wire Knowtation Hub MCP** per `deploy/paperclip/scripts/wire-knowtation-mcp.sh`
-12. **First real video render test** per the runbook
+Do these once so the first agent session is productive:
+
+| Step | Notes |
+|---|---|
+| **Apple ID / iCloud** | Sign in if you use iCloud Keychain or want continuity; optional for a dedicated “server” user. |
+| **Software Update** | Install latest macOS for your hardware. |
+| **FileVault** | On (recommended). After reboot, a **logged-in user session** is usually required before **LaunchAgents** in `~/Library/LaunchAgents` run. Plan for that (see persistence below). |
+| **Time Machine or backup** | External drive or network backup before you rely on the machine for production workflows. |
+| **Knowtation repo on disk** | Clone or sync `knowtation` (this doc lives at `docs/PAPERCLIP-AWS-SETUP-AND-IMAC-TRANSITION.md`). Muse users: pull/snapshot per your normal Muse workflow so the doc is present. |
+| **Paperclip repo** | Clone `https://github.com/paperclipai/paperclip` (or your fork) to a fixed path, e.g. `~/paperclip`. |
+| **Secrets** | Prepare **rotated** keys in a password manager. Create `~/paperclip/.env` locally; do **not** paste keys into Cursor chat. Match variable names to what Paperclip expects (mirror AWS `/etc/paperclip/env` names if migrating). |
+| **AWS CLI (optional)** | Only if you will run `terraform destroy` or read SSM from this Mac; configure a profile with least privilege. |
+| **Cursor** | Install Cursor, sign in, **Open Folder** on `knowtation` and/or `paperclip`. New chat: paste the prompt in [Next session prompt (copy-paste)](#next-session-prompt-copy-paste) below. |
+| **Muse CLI (optional)** | If commits go to MuseHub staging, ensure Muse is installed and authenticated per [`AGENTS.md`](../AGENTS.md). |
+
+### Display off, Mac stays on (headless-friendly)
+
+Use **System Settings** (names vary slightly by macOS version):
+
+1. **Battery** or **Energy**: set **Turn display off after** to a few minutes.
+2. On **Power Adapter**: enable **Prevent automatic sleeping when the display is off** (or equivalent: keep system awake while display sleeps).
+3. Enable **Wake for network access** if you will SSH or use Tailscale while the display is asleep.
+4. On desktops: **Start up automatically after a power failure** (Energy), if available.
+
+This gives you: screen dark, CPU and services running. **Laptop lid closed** behavior differs; for an iMac / Mac mini / Studio, the above is the right model.
+
+### Software to install (checklist)
+
+Install in roughly this order. Adjust if you use **nvm** or **fnm** instead of Homebrew for Node.
+
+| # | Software | Role | Install notes |
+|---:|---|---|---|
+| 1 | **Xcode Command Line Tools** | Compilers for Homebrew / native deps | `xcode-select --install` |
+| 2 | **Homebrew** | Package manager | https://brew.sh |
+| 3 | **Git** | Clone Paperclip + knowtation | `brew install git` |
+| 4 | **Docker Desktop** | Gemini CLI sandbox, future OpenClaw/containers | https://www.docker.com/products/docker-desktop/ — allocate enough **disk** and **RAM** in Docker Settings |
+| 5 | **Node.js 20 LTS** | Match AWS runtime | `brew install node@20` then `echo 'export PATH="/opt/homebrew/opt/node@20/bin:$PATH"' >> ~/.zshrc` (Apple Silicon path; on Intel use `/usr/local/opt/node@20/bin`) |
+| 6 | **pnpm** | Paperclip build | `brew install pnpm` |
+| 7 | **Gemini CLI** (if using `gemini_local`) | Subprocess adapter | `npm install -g @google/gemini-cli` |
+| 8 | **Tailscale** (optional) | Remote access without opening router ports | `brew install --cask tailscale` or App Store |
+| 9 | **jq** / **curl** (optional) | API and JSON debugging | `brew install jq` |
+| 10 | **PostgreSQL / nginx via brew** (optional) | Paperclip ships **embedded Postgres** on the paths we used; brew Postgres is only if you intentionally run an external DB. **nginx** only if you want a local reverse proxy (usually unnecessary on Mac; use `127.0.0.1:3000`). |
+
+**Paperclip embedded Postgres**: default install uses embedded Postgres on a high port (e.g. `:54329` on AWS). Do not install brew `postgresql@16` unless you are switching architectures on purpose.
+
+**Docker without Paperclip**: If you set `GEMINI_SANDBOX=false` and use the **Cursor** adapter, Docker is optional for day one; still recommended for parity and future OpenClaw.
+
+### Recommended iMac install sequence (estimated 2–4 hours first time)
+
+**Phase A — OS (15–30 min)**  
+1. Complete macOS setup wizard, Software Update, FileVault on.  
+2. Apply [Display off, Mac stays on](#display-off-mac-stays-on-headless-friendly) settings.  
+3. Optional: create a **dedicated macOS user** (e.g. `factory`) for long-running services vs. your daily user.
+
+**Phase B — Toolchain (45–60 min)**  
+4. Xcode CLT → Homebrew → `git`, `node@20`, `pnpm`.  
+5. Docker Desktop install, one test `docker run hello-world`.  
+6. Optional: Tailscale, log in, approve machine in admin console.
+
+**Phase C — Paperclip (60–90 min)**  
+7. Clone Paperclip, `pnpm install --frozen-lockfile`, `pnpm -r build`.  
+8. Create `~/paperclip/.env` with rotated secrets (never commit).  
+9. Configure `~/.gemini/settings.json` if using Gemini CLI: auth type `gemini-api-key`; key still from **`GEMINI_API_KEY` in env**.  
+10. First run (foreground):  
+    ```bash
+    cd ~/paperclip/server
+    set -a; source ~/paperclip/.env; set +a
+    export PORT=3000
+    export NODE_ENV=production
+    # Optional if using Gemini subprocess:
+    export GEMINI_SANDBOX=false
+    export GEMINI_NO_SANDBOX=1
+    export GEMINI_CLI_TRUST_WORKSPACE=true
+    node dist/index.js
+    ```  
+11. Browser: `http://127.0.0.1:3000/onboarding` — complete onboarding. Prefer **Cursor** adapter if you want less Gemini quota pain.
+
+**Phase D — Persistence with launchd (30–60 min)**  
+12. Choose one model:  
+    - **LaunchAgent** (`~/Library/LaunchAgents/*.plist`): starts when **that user logs in**. Simple; requires a login session after reboot (FileVault unlock + login).  
+    - **LaunchDaemon** (`/Library/LaunchDaemons/` + `UserName` key): closer to “true server”; more setup and permission care.  
+13. Point `StandardOutPath` / `StandardErrorPath` at files under `~/Library/Logs/` (or `/usr/local/var/log/`) so failures are visible without Cursor.  
+14. `launchctl bootstrap` / `kickstart -k` as appropriate for your macOS version; test **reboot** once.
+
+**Phase E — Knowtation integration (later same day or next)**  
+15. Open **knowtation** repo in Cursor; run or adapt [`deploy/paperclip/scripts/wire-knowtation-mcp.sh`](../deploy/paperclip/scripts/wire-knowtation-mcp.sh) per your vault path.  
+16. Video factory content steps: [`docs/marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md`](marketing-internal/RUNBOOK-VIDEO-FACTORY-2026-04-30.md).
+
+**Phase F — Messaging (later milestone)**  
+17. **Discord** before WhatsApp (simpler bot token flow). WhatsApp usually means **Meta Cloud API** or a bridge—plan separately. Optional architecture: **OpenClaw** or MCP bridges for chat → Paperclip backlog (see prior strategy discussions).
+
+**Phase G — Turn off AWS cost**  
+18. When iMac is proven: from a machine with Terraform state, `terraform destroy` for Paperclip (see [Decommissioning AWS](#decommissioning-aws-when-youre-ready-to-fully-migrate)). Manually remove SSM secrets terraform does not own. Rotate any key that ever lived on EC2 or in chat.
 
 ### iMac storage consideration
 
-Paperclip's data dir is **70MB** on AWS today. Your video assets render in cloud (HeyGen, Descript). **256GB iMac storage is plenty.** Get more RAM, not more storage. Recommended: 32GB RAM minimum.
+Paperclip's data dir was **~70MB** on AWS. Renders live in HeyGen/Descript cloud. **256GB storage is plenty** for this stack; prioritize **RAM** (32GB+ comfortable for Docker + Paperclip + Cursor).
+
+### Cursor on the new machine (how “pick up” works)
+
+1. Install Cursor, sign in with your account.  
+2. **Clone repos on the Mac first** — Cursor does not move code between computers.  
+3. **File → Open Folder** → `knowtation` (for this doc and deploy scripts) and/or `~/paperclip`.  
+4. Start a **new chat** and paste the [Next session prompt](#next-session-prompt-copy-paste). Attach `@docs/PAPERCLIP-AWS-SETUP-AND-IMAC-TRANSITION.md` if the picker supports it.  
+5. Chats do not always carry over as one thread; the doc + prompt replace that gap.
+
+### Muse vs Git for commits
+
+Per [`AGENTS.md`](../AGENTS.md): default product history on MuseHub uses **`muse status` → `muse code add` → `muse commit` → `muse push staging <branch>`**. Use Git only when the task explicitly targets GitHub PRs/CI. Bundling **code + this doc** avoids a docs-only PR to `main` per [`.cursor/rules/no-docs-only-pr-to-main.mdc`](../.cursor/rules/no-docs-only-pr-to-main.mdc).
+
+---
+
+## Next session prompt (copy-paste)
+
+Use this as the **first message** in a new Cursor chat on the Mac (adjust paths if yours differ):
+
+```
+You are helping me finish local "video factory" setup on a new Mac (Apple Silicon, plenty of RAM).
+
+Context: read @docs/PAPERCLIP-AWS-SETUP-AND-IMAC-TRANSITION.md in the knowtation repo — especially the iMac checklist, launchd persistence, and security rotation notes. We previously ran Paperclip on AWS; the Mac does NOT need systemd/SSM/screen wrappers.
+
+Goals (in order):
+1. Verify or install: Xcode CLT, Homebrew, git, Docker Desktop, Node 20, pnpm; optional Tailscale.
+2. Ensure macOS Energy settings: display can sleep, system stays awake on AC, wake for network access on if we use SSH/Tailscale.
+3. Clone/build Paperclip at ~/paperclip (or confirm existing clone), create ~/paperclip/.env from my password manager — do not ask me to paste secrets into chat; use .env file edits locally.
+4. Run Paperclip once in foreground; confirm http://127.0.0.1:3000/onboarding loads.
+5. Add a LaunchAgent plist to auto-start Paperclip on login, with log files under ~/Library/Logs/, and document how to restart it.
+6. Optional: wire Knowtation MCP using deploy/paperclip/scripts/wire-knowtation-mcp.sh from knowtation repo.
+7. When stable, give exact steps to terraform destroy AWS Paperclip stack from the machine that still has state, and remind me to delete remaining SSM secrets and rotate keys if anything was ever exposed.
+
+Constraints: follow knowtation AGENTS.md — prefer Muse for commits when working inside knowtation. Minimal scope; no unrelated refactors. Ask only if blocked (e.g. missing path to paperclip repo).
+```
 
 ---
 

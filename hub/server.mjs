@@ -69,7 +69,13 @@ import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
 import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../lib/github-commit-image.mjs';
-import { loadRoleMap, getRole, readRolesObject, writeRolesFile } from './roles.mjs';
+import {
+  loadRoleMap,
+  getRole,
+  readRolesObject,
+  writeRolesFile,
+  ensureActorAdminOnFirstRolesPopulation,
+} from './roles.mjs';
 import { createInvite, consumeInvite, revokeInvite, listInvites } from './invites.mjs';
 import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
 import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
@@ -822,8 +828,14 @@ app.post('/api/v1/index', jwtAuth, apiLimiter, requireVaultAccess, requireRole('
   }
 });
 
-// POST /api/v1/export — export one note to content (editor/admin). Returns { content, filename } for client download.
-app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
+// POST /api/v1/export — export one note to content (any vault reader). Returns { content, filename } for client download.
+app.post(
+  '/api/v1/export',
+  jwtAuth,
+  apiLimiter,
+  requireVaultAccess,
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
   const { path: notePath, format } = req.body || {};
   if (!notePath || typeof notePath !== 'string') {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
@@ -837,7 +849,8 @@ app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     res.status(404).json({ error: e.message || 'Note not found', code: 'NOT_FOUND' });
   }
-});
+  },
+);
 
 // POST /api/v1/notes/copy — copy or move one note between vaults (editor/admin; multi-vault). Overwrites target path if it exists.
 app.post('/api/v1/notes/copy', requireRole('editor', 'admin'), (req, res) => {
@@ -2031,10 +2044,13 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'role must be admin, editor, viewer, or evaluator', code: 'BAD_REQUEST' });
   }
   try {
+    const beforeMap = loadRoleMap(config.data_dir);
     const current = readRolesObject(config.data_dir);
     const uidKey = userId.trim();
     current[uidKey] = r;
-    writeRolesFile(config.data_dir, current);
+    const actorSub = req.user?.sub ?? '';
+    const toWrite = ensureActorAdminOnFirstRolesPopulation(beforeMap.size, current, actorSub);
+    writeRolesFile(config.data_dir, toWrite);
     roleMap = loadRoleMap(config.data_dir);
     let mayMap = readEvaluatorMayApprove(config.data_dir);
     if (r === 'evaluator' && req.body && Object.prototype.hasOwnProperty.call(req.body, 'evaluator_may_approve')) {
@@ -2045,7 +2061,7 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
       delete next[uidKey];
       writeEvaluatorMayApprove(config.data_dir, next);
     }
-    res.json({ ok: true, roles: current });
+    res.json({ ok: true, roles: toWrite });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
