@@ -59,6 +59,24 @@ export function readRolesObject(dataDir) {
 }
 
 /**
+ * When `hub_roles.json` had **no** rows before this write, force the acting user to `admin` in
+ * the same payload. Otherwise the first saved row makes `roleMap` non-empty and any user not
+ * listed becomes **editor** — the operator who added the first teammate loses admin/Team
+ * immediately (POST /api/v1/roles then fails with FORBIDDEN).
+ *
+ * @param {number} roleMapSizeBefore - `loadRoleMap(dataDir).size` before applying the request
+ * @param {{ [sub: string]: string }} rolesWithNewRow - object to persist (includes the POSTed row)
+ * @param {string} actorSub - `req.user.sub` (JWT `provider:id`)
+ * @returns {{ [sub: string]: string }}
+ */
+export function ensureActorAdminOnFirstRolesPopulation(roleMapSizeBefore, rolesWithNewRow, actorSub) {
+  if (roleMapSizeBefore !== 0 || typeof actorSub !== 'string' || !actorSub.trim()) {
+    return rolesWithNewRow;
+  }
+  return { ...rolesWithNewRow, [actorSub.trim()]: 'admin' };
+}
+
+/**
  * Write roles to data/hub_roles.json. Overwrites the file.
  * @param {string} dataDir
  * @param {{ [sub: string]: string }} roles - e.g. { "github:123": "admin" }
