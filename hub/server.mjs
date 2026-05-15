@@ -822,8 +822,14 @@ app.post('/api/v1/index', jwtAuth, apiLimiter, requireVaultAccess, requireRole('
   }
 });
 
-// POST /api/v1/export — export one note to content (editor/admin). Returns { content, filename } for client download.
-app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
+// POST /api/v1/export — export one note to content (any vault reader). Returns { content, filename } for client download.
+app.post(
+  '/api/v1/export',
+  jwtAuth,
+  apiLimiter,
+  requireVaultAccess,
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
   const { path: notePath, format } = req.body || {};
   if (!notePath || typeof notePath !== 'string') {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
@@ -837,7 +843,8 @@ app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     res.status(404).json({ error: e.message || 'Note not found', code: 'NOT_FOUND' });
   }
-});
+  },
+);
 
 // POST /api/v1/notes/copy — copy or move one note between vaults (editor/admin; multi-vault). Overwrites target path if it exists.
 app.post('/api/v1/notes/copy', requireRole('editor', 'admin'), (req, res) => {
