@@ -9,7 +9,7 @@
 # What this does (in order):
 #   1. Security audit    — npm audit fix (blocks the bridge if high vulns remain)
 #   2. Commit audit fix  — if audit changed package-lock.json, commits it to Muse
-#   3. Bridge export     — muse bridge git-export → muse-mirror branch
+#   3. Bridge export     — muse bridge git-export → isolated .muse/mirror checkout
 #   4. GitHub PR         — opens a PR from muse-mirror to main (skips if one already exists)
 #
 # Requirements:
@@ -18,6 +18,7 @@
 #   - git remote "origin" points to your GitHub/GitLab repo
 #   - MUSE_BRIDGE_GIT_BRANCH env var (default: muse-mirror)
 #   - MUSE_BRIDGE_BASE_BRANCH env var (default: main)
+#   - MUSE_BRIDGE_MIRROR_DIR env var (default: .muse/mirror)
 
 set -euo pipefail
 
@@ -26,6 +27,7 @@ MIRROR_BRANCH="${MUSE_BRIDGE_GIT_BRANCH:-muse-mirror}"
 BASE_BRANCH="${MUSE_BRIDGE_BASE_BRANCH:-main}"
 PR_TITLE="${1:-mirror: deploy from MuseHub $(date '+%Y-%m-%d')}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+MIRROR_DIR="${MUSE_BRIDGE_MIRROR_DIR:-.muse/mirror}"
 
 # ── Colors ─────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -36,13 +38,75 @@ fail()    { echo -e "${RED}[bridge] ERROR:${NC} $*" >&2; exit 1; }
 
 cd "$REPO_ROOT"
 
+if [[ "$MIRROR_DIR" = /* ]]; then
+  MIRROR_DIR_ABS="$MIRROR_DIR"
+else
+  MIRROR_DIR_ABS="${REPO_ROOT}/${MIRROR_DIR}"
+fi
+
+if [[ "$MIRROR_DIR_ABS" == "$REPO_ROOT" ]]; then
+  fail "MUSE_BRIDGE_MIRROR_DIR must not be the repository root. Refusing unsafe --git-dir . workflow."
+fi
+
+cleanup_sentinels() {
+  [[ -n "${ENV_SENTINEL:-}" && -f "$ENV_SENTINEL" ]] && rm -f "$ENV_SENTINEL"
+  [[ -n "${CONFIG_SENTINEL:-}" && -f "$CONFIG_SENTINEL" ]] && rm -f "$CONFIG_SENTINEL"
+  [[ -n "${DATA_SENTINEL:-}" && -f "$DATA_SENTINEL" ]] && rm -f "$DATA_SENTINEL"
+  [[ "${CREATED_DATA_DIR:-0}" == "1" && -d "${REPO_ROOT}/data" ]] && rmdir "${REPO_ROOT}/data" 2>/dev/null || true
+}
+trap cleanup_sentinels EXIT
+
+ensure_mirror_checkout() {
+  local remote_url
+  remote_url=$(git config --get remote.origin.url 2>/dev/null || true)
+  [[ -n "$remote_url" ]] || fail "Git remote 'origin' is not configured."
+
+  if [[ -e "$MIRROR_DIR_ABS" && ! -d "${MIRROR_DIR_ABS}/.git" ]]; then
+    fail "Mirror path exists but is not a git repository: ${MIRROR_DIR_ABS}"
+  fi
+
+  if [[ ! -d "${MIRROR_DIR_ABS}/.git" ]]; then
+    info "Provisioning isolated mirror checkout at ${MIRROR_DIR}..."
+    mkdir -p "$(dirname "$MIRROR_DIR_ABS")"
+    git clone --single-branch --branch "$MIRROR_BRANCH" "$remote_url" "$MIRROR_DIR_ABS"
+  fi
+
+  git -C "$MIRROR_DIR_ABS" remote set-url origin "$remote_url"
+  git -C "$MIRROR_DIR_ABS" fetch origin "$MIRROR_BRANCH"
+  git -C "$MIRROR_DIR_ABS" checkout -B "$MIRROR_BRANCH" "origin/${MIRROR_BRANCH}"
+  git -C "$MIRROR_DIR_ABS" reset --hard "origin/${MIRROR_BRANCH}"
+}
+
+prepare_sentinels() {
+  ENV_SENTINEL="${REPO_ROOT}/.env.bridge-sentinel.$$"
+  CONFIG_SENTINEL="${REPO_ROOT}/config/bridge-sentinel-local.$$.yaml"
+  CREATED_DATA_DIR=0
+
+  if [[ ! -d "${REPO_ROOT}/data" ]]; then
+    mkdir -p "${REPO_ROOT}/data"
+    CREATED_DATA_DIR=1
+  fi
+  DATA_SENTINEL="${REPO_ROOT}/data/bridge-sentinel.$$.db"
+
+  printf 'bridge sentinel: no secrets\n' > "$ENV_SENTINEL"
+  printf 'bridge sentinel: no secrets\n' > "$CONFIG_SENTINEL"
+  printf 'bridge sentinel: no secrets\n' > "$DATA_SENTINEL"
+}
+
+verify_sentinels() {
+  [[ -f "$ENV_SENTINEL" ]] || fail "Bridge safety sentinel disappeared: ${ENV_SENTINEL}. The bridge touched the dev tree."
+  [[ -f "$CONFIG_SENTINEL" ]] || fail "Bridge safety sentinel disappeared: ${CONFIG_SENTINEL}. The bridge touched the dev tree."
+  [[ -f "$DATA_SENTINEL" ]] || fail "Bridge safety sentinel disappeared: ${DATA_SENTINEL}. The bridge touched the dev tree."
+}
+
 # ── Step 1: Security audit ─────────────────────────────────────────────────────
 info "Step 1/4 — Running security audit (npm audit fix)..."
 
 if [[ ! -f package.json ]]; then
   warn "No package.json found — skipping npm audit. Add audits for your stack manually."
 else
-  npm audit fix --audit-level=moderate 2>&1 | tail -5
+  AUDIT_FIX_OUTPUT=$(npm audit fix --audit-level=moderate 2>&1 || true)
+  printf '%s\n' "$AUDIT_FIX_OUTPUT" | tail -5
 
   # Check if high/critical vulns remain after auto-fix
   HIGH_COUNT=$(npm audit --json 2>/dev/null \
@@ -74,13 +138,27 @@ else
 fi
 
 # ── Step 3: Bridge export ──────────────────────────────────────────────────────
-info "Step 3/4 — Bridging Muse main → ${MIRROR_BRANCH}..."
+info "Step 3/4 — Bridging Muse main → ${MIRROR_BRANCH} via isolated mirror checkout..."
+
+ensure_mirror_checkout
+prepare_sentinels
 
 muse bridge git-export \
-  --git-dir . \
+  --git-dir "${MIRROR_DIR_ABS}" \
   --git-branch "${MIRROR_BRANCH}" \
   --git-remote origin \
-  --force-push
+  --force-push \
+  --exclude '.env' \
+  --exclude '.env.local' \
+  --exclude '.env.*.local' \
+  --exclude 'config/local.yaml' \
+  --exclude 'config/*-local.*' \
+  --exclude 'data/*' \
+  --exclude 'data/**' \
+  --exclude '*.db' \
+  --exclude '*.sqlite'
+
+verify_sentinels
 
 success "Bridge complete. ${MIRROR_BRANCH} is up to date on origin."
 

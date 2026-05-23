@@ -59,6 +59,7 @@ import {
 } from '../../lib/muse-thin-bridge.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
+import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -264,6 +265,7 @@ app.use('/api/v1', (req, res, next) => {
 // Health (no auth) — returns { ok: true }. If a CDN or host wrapper returns usage_exceeded, that is outside this app (check Netlify site / account limits and which commit is deployed).
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
+app.use(createScoolingWriteBackSmokeRouter());
 
 // Which OAuth providers are configured (no auth)
 app.get('/api/v1/auth/providers', (_req, res) => {
