@@ -7943,6 +7943,14 @@
     return 'Sections are unavailable right now.';
   }
 
+  function appendSectionSourceDebugRow(list, labelText, valueText) {
+    const label = document.createElement('dt');
+    label.textContent = labelText;
+    const value = document.createElement('dd');
+    value.textContent = valueText;
+    list.append(label, value);
+  }
+
   function renderSectionSourceData(panel, source) {
     panel.className = 'section-source-panel';
     panel.setAttribute('role', 'region');
@@ -7983,32 +7991,47 @@
 
       const heading = document.createElement('p');
       heading.className = 'section-source-heading';
-      heading.textContent = section.heading_text || '(Untitled section)';
+      const levelBadge = document.createElement('span');
+      levelBadge.className = 'section-source-level-label';
+      levelBadge.textContent = 'H' + section.level;
+      const headingText = document.createElement('span');
+      headingText.className = 'section-source-heading-text';
+      headingText.textContent = section.heading_text || '(Untitled section)';
+      heading.append(levelBadge, headingText);
       item.appendChild(heading);
 
       const detail = document.createElement('p');
       detail.className = 'section-source-detail muted small';
-      detail.textContent =
-        'H' +
-        section.level +
-        ' · ' +
-        section.section_id +
-        ' · body returned: no · snippet returned: no';
+      detail.textContent = 'Heading level: H' + section.level;
       item.appendChild(detail);
 
-      if (section.heading_path.length > 1) {
-        const pathLine = document.createElement('p');
-        pathLine.className = 'section-source-path muted small';
-        pathLine.textContent = 'Path: ' + section.heading_path.join(' / ');
-        item.appendChild(pathLine);
-      }
+      const pathLine = document.createElement('p');
+      pathLine.className = 'section-source-path muted small';
+      pathLine.textContent =
+        'Heading path: ' +
+        (section.heading_path.length > 0 ? section.heading_path.join(' / ') : section.heading_text || '(Untitled section)');
+      item.appendChild(pathLine);
 
-      if (section.child_section_ids.length > 0) {
-        const childLine = document.createElement('p');
-        childLine.className = 'section-source-children muted small';
-        childLine.textContent = 'Children: ' + section.child_section_ids.join(', ');
-        item.appendChild(childLine);
-      }
+      const childLine = document.createElement('p');
+      childLine.className = 'section-source-children muted small';
+      childLine.textContent = 'Child sections: ' + section.child_section_ids.length;
+      item.appendChild(childLine);
+
+      const debugDetails = document.createElement('details');
+      debugDetails.className = 'section-source-debug muted small';
+      const debugSummary = document.createElement('summary');
+      debugSummary.textContent = 'IDs';
+      const debugList = document.createElement('dl');
+      debugList.className = 'section-source-debug-list';
+      appendSectionSourceDebugRow(debugList, 'Section ID', section.section_id || 'Unavailable');
+      appendSectionSourceDebugRow(debugList, 'Heading ID', section.heading_id || 'Unavailable');
+      appendSectionSourceDebugRow(
+        debugList,
+        'Child IDs',
+        section.child_section_ids.length > 0 ? section.child_section_ids.join(', ') : 'None',
+      );
+      debugDetails.append(debugSummary, debugList);
+      item.appendChild(debugDetails);
 
       list.appendChild(item);
     }

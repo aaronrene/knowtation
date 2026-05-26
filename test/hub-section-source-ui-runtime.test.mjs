@@ -105,10 +105,29 @@ describe('Hub UI SectionSource runtime', () => {
     assert.match(js, /sectionBtn\.textContent = 'Sections'/);
     assert.match(js, /sectionBtn\.setAttribute\('aria-expanded', 'false'\)/);
     assert.match(js, /data-section-source-panel/);
-    assert.match(html, /hub\.js\?v=20260525a/);
-    assert.match(html, /hub\.css\?v=20260525a/);
+    assert.match(html, /hub\.js\?v=20260526a/);
+    assert.match(html, /hub\.css\?v=20260526a/);
     assert.match(css, /\.section-source-panel\b/);
     assert.match(css, /\.section-source-list\b/);
+  });
+
+  it('unit: renders readable section rows without inline raw ID dumps', () => {
+    const runtime = hubSectionSourceRuntime();
+    const renderer = sourceSlice(runtime, 'function renderSectionSourceData', 'async function loadSectionSourceForCurrentNote');
+    const visibleRows = sourceSlice(renderer, 'const heading = document.createElement', 'const debugDetails = document.createElement');
+    const debugRows = sourceSlice(renderer, 'const debugDetails = document.createElement', 'list.appendChild(item)');
+
+    assert.match(renderer, /levelBadge\.textContent = 'H' \+ section\.level/);
+    assert.match(renderer, /detail\.textContent = 'Heading level: H' \+ section\.level/);
+    assert.match(renderer, /pathLine\.textContent =\s*'Heading path: '/);
+    assert.match(renderer, /childLine\.textContent = 'Child sections: ' \+ section\.child_section_ids\.length/);
+    assert.doesNotMatch(visibleRows, /section\.section_id|section\.heading_id|child_section_ids\.join/);
+    assert.match(debugRows, /const debugDetails = document\.createElement\('details'\)/);
+    assert.match(debugRows, /debugSummary\.textContent = 'IDs'/);
+    assert.match(debugRows, /appendSectionSourceDebugRow\(\s*debugList,\s*'Section ID',\s*section\.section_id/s);
+    assert.match(debugRows, /appendSectionSourceDebugRow\(\s*debugList,\s*'Heading ID',\s*section\.heading_id/s);
+    assert.match(debugRows, /section\.child_section_ids\.join\(', '\)/);
+    assert.doesNotMatch(renderer, /body returned|snippet returned/i);
   });
 
   it('integration: calls only the accepted REST endpoint shape from the Hub UI runtime', () => {
@@ -173,7 +192,8 @@ describe('Hub UI SectionSource runtime', () => {
     assert.doesNotMatch(runtime, /\bsessionStorage\b/);
     assert.doesNotMatch(runtime, /\bwrite(File|Text)?\b/i);
     assert.doesNotMatch(runtime, /\b(method:\s*['"](POST|PUT|PATCH|DELETE)['"]|deleteOpenNote|switchNoteToEditMode)\b/);
-    assert.doesNotMatch(runtime, /\b(index|vector|summary|memory|sidecar|Scooling)\b/i);
+    assert.doesNotMatch(runtime, /\b(index|vector|memory|sidecar|Scooling)\b/i);
+    assert.doesNotMatch(runtime, /\b(summarize|summarization|summaries)\b/i);
   });
 
   it('performance: keeps SectionSource UI reads one-note, no-store, scan-free, and provider-free', () => {
@@ -194,8 +214,9 @@ describe('Hub UI SectionSource runtime', () => {
     assert.match(runtime, /SECTION_SOURCE_FORBIDDEN_KEYS/);
     assert.match(runtime, /body_returned: item\.body_returned === true/);
     assert.match(runtime, /snippet_returned: item\.snippet_returned === true/);
-    assert.match(runtime, /heading\.textContent = section\.heading_text/);
-    assert.match(runtime, /pathLine\.textContent = 'Path: ' \+ section\.heading_path\.join/);
+    assert.match(runtime, /headingText\.textContent = section\.heading_text/);
+    assert.match(runtime, /pathLine\.textContent =\s*'Heading path: '/);
+    assert.match(runtime, /const debugDetails = document\.createElement\('details'\)/);
     assert.match(runtime, /return 'Sections are unavailable right now\.'/);
     assert.match(runtime, /return 'Sections are unavailable for this session\.'/);
     assert.doesNotMatch(runtime, /\.innerHTML\s*=/);
