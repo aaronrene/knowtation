@@ -57,6 +57,9 @@ These MCP tools **reuse** the same canister and bridge primitives as rows above;
 | User capability | Hub entry | Canonical API | Hosted MCP tool | Parity notes |
 |-----------------|-----------|-----------------|-----------------|--------------|
 | Related notes (semantic neighbors) | — | Canister read source + bridge `POST /api/v1/search` | `relate` | Bridge uses query embedding; local `lib/relate.mjs` document embedding — **documented** small gap in playbook. |
+| Note heading outline | — | Canister `GET …/notes/:path` + `lib/note-outline.mjs` | `get_note_outline` | Same read path and role as `get_note`; response excludes body, snippets, full frontmatter, absolute paths, summaries, vectors, and memory events. |
+| Note heading tree | — | Canister `GET …/notes/:path` + `lib/document-tree.mjs` | `get_document_tree` | Same read path and role as `get_note`; response excludes body, snippets, full frontmatter, absolute paths, summaries, vectors, labels, metadata facets, resources, and memory events. |
+| Metadata facets | — | Canister `GET …/notes/:path` + `lib/vault.mjs` `normalizeMetadataFacets` | `get_metadata_facets` | Same read path and role as `get_note`; response excludes body, snippets, full frontmatter, absolute paths, summaries, vectors, labels, OCR, PageIndex output, media metadata, resources, and memory events. |
 | Backlinks (`[[wikilink]]`) | — | Canister list + per-note `GET …/notes/:path` + `lib/wikilink.mjs` | `backlinks` | Soft cap 2000 notes scanned; fields `backlinks_truncated`, `backlinks_notes_scanned`. |
 | Checkbox tasks extraction | — | Canister list/get + `lib/extract-tasks.mjs` | `extract_tasks` | Client-side folder/project/tag/date filters; canister list query not authoritative — see playbook. |
 | Note clustering (embed + k-means) | — | Canister list/get + bridge `POST /api/v1/embed` + `lib/kmeans.mjs` | `cluster` | Caps documented in playbook. |

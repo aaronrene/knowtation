@@ -69,7 +69,7 @@ If your columns use different names, create a **SQL view** in Supabase that alia
 
 ### Step 2 — Point agents at Knowtation (not at raw Supabase for vault reads)
 
-After migration, agents should use **MCP** or **Hub API** for **search / get-note / write / propose** so retrieval goes through Knowtation’s filters and token levers ([§2 MCP](#2-mcp-cursor-claude-code-etc), [§3 Hub API](#3-hub-api-rest)).
+After migration, agents should use **MCP** or **Hub API** for **search / get-note-outline / get-note / write / propose** so retrieval goes through Knowtation’s filters and token levers ([§2 MCP](#2-mcp-cursor-claude-code-etc), [§3 Hub API](#3-hub-api-rest)).
 
 You may still run a **second MCP server** (e.g. generic SQL or an internal Supabase tool) alongside Knowtation for legacy queries during transition — see [Dual MCP (interop)](#dual-mcp-interop-knowtation--another-server) under §2.
 
@@ -106,6 +106,9 @@ This is **not** required to use the vault or MCP; it is an optional backend for 
 knowtation search "query" --limit 5 --json
 knowtation search "exact phrase" --keyword --limit 5 --json
 knowtation list-notes --project my-project --limit 20 --json
+knowtation get-note-outline "path/to/note.md" --json
+knowtation get-document-tree "path/to/note.md" --json
+knowtation get-metadata-facets "path/to/note.md" --json
 knowtation get-note "path/to/note.md" --json
 ```
 
@@ -121,7 +124,7 @@ knowtation write "inbox/capture.md" --body "content" --json
 knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add summary" --json
 ```
 
-**Token levers:** `--limit`, `--fields path` or `path+snippet`, `--count-only`, `--body-only`, `--frontmatter-only`, `--snippet-chars`, **`--keyword`** / **`--match`** for literal text search (no index required). See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
+**Token levers:** `--limit`, `--fields path` or `path+snippet`, `--count-only`, `get-note-outline --json`, `get-document-tree --json`, or `get-metadata-facets --json` before full note reads, `--body-only`, `--frontmatter-only`, `--snippet-chars`, **`--keyword`** / **`--match`** for literal text search (no index required). See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md).
 
 **JSON shapes:** [CLI-JSON-SCHEMA.md](./CLI-JSON-SCHEMA.md) and [SPEC.md](./SPEC.md) §4.2.
 
@@ -130,7 +133,7 @@ knowtation propose "path/to/note.md" --hub https://hub.example.com --intent "Add
 ## 2. MCP (Cursor, Claude Code, etc.)
 
 - **Start:** `knowtation mcp` (stdio transport) or `MCP_TRANSPORT=http knowtation mcp` (Streamable HTTP, default port 3334).
-- **Tools:** Same operations as CLI — search, get-note, list-notes, index, write, export, import. **Hosted:** admins also get **`import_url`** (JSON to `POST /api/v1/import-url`, same as Hub “Import from URL”) and **`import`** with **`file_base64`** + **`filename`** + **`source_type`** (same bridge contract as Hub `POST /api/v1/import`, including **`pdf`** and **`docx`**). **Multiple files in one agent run:** use **`import` repeatedly** (one base64 file per call); the Hub can batch the same work with **4B** (sequential HTTP) and **4A₂** (in-browser ZIP) — there is no separate **`import_batch`** tool. **Self-hosted MCP:** use **`import`** with `source_type: "url"` and `input` = https URL; optional `url_mode`: `auto` \| `bookmark` \| `extract`. Same filters and JSON shapes where applicable. The **`search`** tool accepts **`mode`: `semantic` (default) or `keyword`** plus optional **`match`** (`phrase` \| `all_terms`) for keyword mode, aligned with `POST /api/v1/search`. The search tool also supports **`rerank`** (Phase F4) — when the client supports sampling, results are reranked by the client LLM for better relevance.
+- **Tools:** Same operations as CLI — search, get-note-outline, get-document-tree, get-metadata-facets, get-note, list-notes, index, write, export, import where the transport phase has shipped. Use **`get-note-outline`** / **`get_note_outline`** or **`get-document-tree`** / **`get_document_tree`** to inspect heading structure before loading a full note body; use **`get-metadata-facets`** / **`get_metadata_facets`** to inspect bounded metadata hints without note body or full frontmatter. `get_document_tree` and `get_metadata_facets` are available on self-hosted MCP and hosted MCP as body-free read tools. **Hosted:** admins also get **`import_url`** (JSON to `POST /api/v1/import-url`, same as Hub “Import from URL”) and **`import`** with **`file_base64`** + **`filename`** + **`source_type`** (same bridge contract as Hub `POST /api/v1/import`, including **`pdf`** and **`docx`**). **Multiple files in one agent run:** use **`import` repeatedly** (one base64 file per call); the Hub can batch the same work with **4B** (sequential HTTP) and **4A₂** (in-browser ZIP) — there is no separate **`import_batch`** tool. **Self-hosted MCP:** use **`import`** with `source_type: "url"` and `input` = https URL; optional `url_mode`: `auto` \| `bookmark` \| `extract`. Same filters and JSON shapes where applicable. The **`search`** tool accepts **`mode`: `semantic` (default) or `keyword`** plus optional **`match`** (`phrase` \| `all_terms`) for keyword mode, aligned with `POST /api/v1/search`. The search tool also supports **`rerank`** (Phase F4) — when the client supports sampling, results are reranked by the client LLM for better relevance.
 - **Enrich (Phase F2):** The **`enrich`** tool auto-categorizes a note: suggests project slug, tags, and title via sampling (client LLM) or server-side LLM fallback. Use `apply: true` to write suggestions to frontmatter.
 - **Index enrichment (Phase F3):** The **`index`** tool accepts `enrich: true` to generate per-note AI summaries after indexing (opt-in, expensive). Summaries are stored in `ai_summary` frontmatter.
 - **Scope hint:** On connect, the server sends MCP **`instructions`** naming your vault and data directory as `file://` URIs (Phase G). Add those folders as workspace roots in your MCP host when supported so the assistant's context matches Knowtation.

@@ -75,6 +75,20 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
   **Response:** `{ "path": "...", "frontmatter": { ... }, "body": "..." }` per SPEC §4.2 get-note.  
   **404** if not found.
 
+- **GET /section-source?path=...** — Get body-free SectionSource metadata for one
+  authorized vault-relative note. JWT required. Hosted gateway only in Phase 1N; no canister
+  route is added.  
+  **Response:** `knowtation.section_source/v0` with `{ "schema", "path", "title",
+  "sections", "truncated" }`; each section includes only `{ "section_id", "heading_id",
+  "level", "heading_path", "heading_text", "child_section_ids", "body_available",
+  "body_returned": false, "snippet_returned": false }`.  
+  The response excludes note body text, section body text, snippets, full frontmatter, line
+  ranges, byte offsets, section body lengths, absolute paths, raw canister payloads,
+  provider payloads, and MCP resource URIs.  
+  **400** if `path` is missing or unsafe; **401** if JWT is missing or invalid; **403** if
+  vault access or the upstream note read is forbidden; **404** if the note is missing or
+  outside scoped access; **502** for sanitized upstream failures.
+
 - **POST /search** — Vault search. Default is **semantic** (vector similarity; requires index on self-hosted; hosted bridge uses per-user vector store). Set **`"mode": "keyword"`** for **keyword** search: case-insensitive match over path, body, and selected frontmatter strings (`title`, `intent`, `tags`, etc.), with the same structural filters as list-notes. Optional **`match`** (keyword only): `"phrase"` (default, whole query as substring) or `"all_terms"` (every whitespace-separated token must appear, AND). Body also supports: `"folder?"`, `"project?"`, `"tag?"`, `"limit?"`, `"since?"`, `"until?"`, `"order?"`, `"fields?"`, `"chain?"`, `"entity?"`, `"episode?"`, `"snippetChars?"`, **`content_scope`** (`notes` \| `approval_logs`), **`count_only`** / **`countOnly`**.  
   **Response:** `{ "results": [ { "path", "snippet?", "score", "project", "tags" } ], "query": "...", "mode": "semantic" | "keyword" }`; keyword responses may include `"count"` when `count_only` is true. Per SPEC §4.2 search where applicable.  
   **400** if query missing.

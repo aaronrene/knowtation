@@ -19,6 +19,9 @@ This document (1) lists **all CLI commands and optional features**, (2) explains
 | **search** \<query\> | **Semantic** search over the indexed vault (default), or **keyword** search with `--keyword` (literal text: path, body, key frontmatter; no index required). | Same filters as list-notes: `--folder`, `--project`, `--tag`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--content-scope` (`all` \| `notes` \| `approval_logs`), `--order`, `--limit` (default 10), `--fields`, `--snippet-chars`, `--count-only`, `--json`. **Keyword-only:** `--keyword`, `--match phrase` \| `all-terms`. JSON may include `"mode": "semantic"` \| `"keyword"`. |
 | **list-notes** | List notes with filters (no semantic search). | `--folder`, `--project`, `--tag`, `--limit`, `--offset`, `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order`, `--fields`, `--count-only`, `--json` |
 | **get-note** \<path\> | Return full content of one note (frontmatter + body), or subset. | `--body-only`, `--frontmatter-only`, `--json` |
+| **get-note-outline** \<path\> | Return a derived Markdown heading outline for one note without note body text. | `--json` required |
+| **get-document-tree** \<path\> | Return a derived nested Markdown heading tree for one note without note body text. | `--json` required |
+| **get-metadata-facets** \<path\> | Return bounded metadata facets for one note without note body text or full frontmatter. | `--json` required |
 | **index** | Re-run indexer: vault → chunk → embed → vector store. | (optional: `--json` for machine output) |
 | **write** \<path\> [content] | Create or overwrite a note. | `--stdin`, `--frontmatter`, `--append`, `--json` |
 | **export** \<path-or-query\> \<output\> | Export note(s) to a format/directory. | `--format`, `--project`, `--json` |
@@ -69,8 +72,17 @@ Agent needs an answer
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 3. FETCH ONLY WHAT’S NEEDED                                      │
-│    get-note <path>  only for the 1–2 paths that matter            │
+│ 3. CHECK STRUCTURE OR METADATA BEFORE FULL BODY                  │
+│    get-note-outline <path> --json for promising notes             │
+│    or get-document-tree <path> --json when hierarchy matters      │
+│    or get-metadata-facets <path> --json for metadata hints        │
+│    → Decide whether the note structure or facets are relevant.    │
+└─────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. FETCH ONLY WHAT’S NEEDED                                      │
+│    get-note <path> only for the 1–2 paths that matter             │
 │    → Full body only where necessary → minimal tokens.            │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -79,6 +91,8 @@ Agent needs an answer
 
 - **“What did we decide about X?”** → `search "decisions about X" --entity X --limit 5 --json` → then `get-note` for the top 1–2 paths. Filters + limit + delayed full fetch = low tokens.
 - **“What happened in March?”** → `list-notes --since 2025-03-01 --until 2025-03-31 --limit 20 --json` → then `get-note` for selected paths. Time + limit = bounded tokens.
+- **“Which part of this long note matters?”** → `get-note-outline path/to/note.md --json` or `get-document-tree path/to/note.md --json` → then `get-note` only if the heading structure confirms the note is relevant.
+- **“Is this note in the right project, tag, or chain?”** → `get-metadata-facets path/to/note.md --json` → then `get-note` only if bounded facets confirm it is relevant.
 - **“What’s the chain that led to Y?”** → `search "outcome Y" --chain chain-id --order date-asc --limit 10 --json` → then `get-note` for the chain. One chain, ordered, minimal fetch.
 
 ---
@@ -95,6 +109,9 @@ Agent needs an answer
 | **--order** | Get “newest” or “oldest” first without fetching extra. | Agent can stop after first page when order is meaningful. |
 | **Snippet in search** | Return a short snippet per hit, not full body. | Snippet << full note; agent uses snippet to choose which path to get-note. |
 | **list-notes (no body)** | Returns path + metadata only, no body. | Very small per note; agent then get-note only for chosen paths. |
+| **get-note-outline (no body)** | Shows note structure without body text or snippets. | Lets an agent reject irrelevant long notes before fetching full content. Future nested tree planning lives in [DOCUMENT-TREE-V0-SPEC.md](./DOCUMENT-TREE-V0-SPEC.md). |
+| **get-document-tree (no body)** | Shows nested heading hierarchy without body text or snippets. | Helps an agent understand parent/child heading relationships before fetching full content. |
+| **get-metadata-facets (no body)** | Shows bounded metadata facets without body text or full frontmatter. | Helps an agent filter by project, tags, date, causal chain, entity, and episode before fetching full content. |
 | **Summary notes / state_snapshot** | One note summarizes many or a range. | Retrieve 1 summary instead of N notes → large token saving. |
 | **Memory layer** | “Last query + result” or “provenance for export” stored. | Agent can ask memory “what did we last retrieve?” instead of re-running search. |
 
@@ -118,6 +135,9 @@ The following are **in scope** and specified in SPEC §4.1–4.2.
 - **search:** `--fields path|path+snippet|full` (default path+snippet). `--snippet-chars <n>`. `--count-only` → `{ "count": n, "query": "..." }`. **`--keyword`** → literal text search; JSON includes `"mode": "keyword"` (and `"mode": "semantic"` when using the default path in Hub/repo CLI).
 - **list-notes:** `--fields path|path+metadata|full` (default path+metadata). `--count-only` → `{ "total": number }`.
 - **get-note:** `--body-only` or `--frontmatter-only` for a single note; omit both for full content.
+- **get-note-outline:** `--json` returns a heading-only `knowtation.note_outline/v1` payload for one note.
+- **get-document-tree:** `--json` returns a nested heading-only `knowtation.document_tree/v0` payload for one note.
+- **get-metadata-facets:** `--json` returns a bounded body-free `knowtation.metadata_facets/v0` payload for one note.
 
 ---
 
@@ -128,6 +148,9 @@ The following are **in scope** and specified in SPEC §4.1–4.2.
 | **search** | folder, project, tag, since, until, chain, entity, episode | limit, order | limit, snippet in JSON | **In spec:** --fields, --snippet-chars, --count-only |
 | **list-notes** | folder, project, tag, since, until, chain, entity, episode | limit, offset, order | limit, offset, no body | **In spec:** --fields, --count-only |
 | **get-note** | (one path) | — | — | **In spec:** --body-only, --frontmatter-only |
+| **get-note-outline** | (one path) | — | no body, no snippets | **In spec:** --json heading outline |
+| **get-document-tree** | (one path) | — | no body, no snippets | **In spec:** --json nested heading tree |
+| **get-metadata-facets** | (one path) | — | no body, no full frontmatter | **In spec:** --json bounded metadata facets |
 | **index** | — | — | — | — |
 | **write** | — | — | — | — |
 | **export** | project | — | — | — |
@@ -137,7 +160,7 @@ The following are **in scope** and specified in SPEC §4.1–4.2.
 
 ## 8. Summary
 
-- **All commands:** search, list-notes, get-note, index, write, export, import. Filters (project, tag, folder, since, until, chain, entity, episode) and limit/offset/order apply to search and list-notes.
+- **All commands:** search, list-notes, get-note, get-note-outline, get-document-tree, get-metadata-facets, index, write, export, import. Filters (project, tag, folder, since, until, chain, entity, episode) and limit/offset/order apply to search and list-notes.
 - **Add-ons:** Project/tag/time/chain/entity/episode filters, limit/offset, order, optional memory, summary notes/state snapshots, hub API. Each either narrows scope or reduces payload size.
-- **Interaction:** Narrow with filters → cheap first (paths or count) → get-note only for selected paths. That pattern minimizes tokens.
-- **Token levers (in spec):** `--fields`, `--snippet-chars`, `--count-only` for search/list-notes; `--body-only`/`--frontmatter-only` for get-note; tiered retrieval documented in SKILL. These give agents the knobs to get the right information at the best price token-wise.
+- **Interaction:** Narrow with filters → cheap first (paths or count) → get-note-outline, get-document-tree, or get-metadata-facets for body-free inspection → get-note only for selected paths. That pattern minimizes tokens.
+- **Token levers (in spec):** `--fields`, `--snippet-chars`, `--count-only` for search/list-notes; `--body-only`/`--frontmatter-only` for get-note; `get-note-outline --json` and `get-document-tree --json` for heading-only structure; `get-metadata-facets --json` for bounded metadata hints; tiered retrieval documented in SKILL. These give agents the knobs to get the right information at the best price token-wise.

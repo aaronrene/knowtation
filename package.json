@@ -76,10 +76,12 @@
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
+    "remark-parse": "^11.0.0",
     "serverless-http": "^3.2.0",
     "sqlite-vec": "^0.1.7-alpha.2",
     "stripe": "^17.7.0",
     "turndown": "^7.2.4",
+    "unified": "^11.0.5",
     "unpdf": "^1.6.0",
     "zod": "^4.3.6"
   },

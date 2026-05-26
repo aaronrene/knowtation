@@ -30,6 +30,7 @@ import {
   noteFileExistsInVault,
   listVaultFolderOptions,
 } from '../lib/vault.mjs';
+import { readSectionSource } from '../lib/section-source-note.mjs';
 import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
 import { deleteNotesByProjectSlug, renameProjectSlugInVault } from '../lib/hub-bulk-metadata.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
@@ -542,6 +543,7 @@ app.post('/api/v1/capture', captureAuth, (req, res) => {
 app.use('/api/v1/notes', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/search', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/proposals', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
@@ -557,6 +559,37 @@ app.get('/api/v1/vault/folders', jwtAuth, apiLimiter, requireVaultAccess, (req, 
     res.json({ folders });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/section-source?path=... — body-free section metadata for one authorized note
+app.get('/api/v1/section-source', (req, res) => {
+  const requestedPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!requestedPath) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  try {
+    resolveVaultRelativePath(req.vaultPath, requestedPath);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  if (req.scope?.projects?.length || req.scope?.folders?.length) {
+    const allowed = applyScopeFilter([{ path: requestedPath }], req.scope);
+    if (allowed.length === 0) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  try {
+    res.json(readSectionSource(req.vaultPath, requestedPath));
+  } catch (e) {
+    const message = e?.message ? String(e.message) : '';
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (message.includes('Invalid path')) {
+      return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+    }
+    return res.status(502).json({ error: 'Upstream error', code: 'UPSTREAM_ERROR' });
   }
 });
 

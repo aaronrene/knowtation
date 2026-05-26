@@ -10,7 +10,7 @@
 
 | Kind | What it is | You use it when |
 |------|------------|-----------------|
-| **MCP tools** | Actions: search, list notes, read a note, write, propose, memory tools, import, index, etc. | Your IDE or agent app has Knowtation MCP connected ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)). |
+| **MCP tools** | Actions: search, list notes, inspect a note outline or tree, read a note, write, propose, memory tools, import, index, etc. | Your IDE or agent app has Knowtation MCP connected ([AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md)). |
 | **MCP prompts** | **Named recipes** the client calls: they **pull live vault (or memory) data** and build a full message list. | Same as above; the client offers a **prompt picker** (names below). |
 | **MCP resources** | **Read-only** URIs: e.g. knowledge graph, prime/bootstrap, config hints—not a “chat template.” | Agent calls `read resource` for structure, not for a user-written instruction. |
 | **Copy-paste starters** | **Plain text** you put in the chat yourself. Works **without** MCP (any LLM). | You want a quick behavior without wiring tools, or the tool is CLI-only on your machine. |
@@ -55,6 +55,18 @@ After MCP connects, these **prompt names** are what clients list (some may be **
 ## 4. Copy-paste starters (work in any LLM; adapt paths)
 
 When you do **not** have MCP, combine these with **manual** steps: you search in the Hub or run `knowtation search` in a terminal, paste **snippets** into chat, then save the result yourself—or use **proposals** if your agent is wired to the Hub.
+
+### Check a long note before reading it all
+
+Use this when search finds a promising long note and you want structure before spending tokens on the full body.
+
+```text
+First inspect the note headings with `get-note-outline` / `get_note_outline`.
+Use `get-document-tree` / `get_document_tree` when parent-child heading hierarchy matters.
+Use the heading list to decide whether the note is relevant.
+Only fetch the full note body if the outline confirms it is needed.
+Do not summarize or infer from headings alone; treat the outline or tree as navigation.
+```
 
 ### Wiki + synthesis (first-time layout)
 

@@ -158,6 +158,47 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /section-source:
+    get:
+      tags: [Notes]
+      summary: Body-free SectionSource metadata for one note
+      description: >
+        Returns knowtation.section_source/v0 metadata for one authorized vault-relative note.
+        The response excludes note body text, section body text, snippets, full frontmatter,
+        line ranges, byte offsets, section body lengths, absolute paths, raw canister payloads,
+        provider payloads, and MCP resource URIs.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+          description: Vault-relative Markdown note path.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SectionSource' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /index:
     post:
       tags: [Notes]
@@ -671,6 +712,43 @@ components:
         score: { type: number }
         project: { type: string }
         tags: { type: array, items: { type: string } }
+
+    SectionSource:
+      type: object
+      required: [schema, path, sections, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.section_source/v0]
+        path: { type: string }
+        title: { type: string, nullable: true }
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/SectionSourceSection' }
+        truncated: { type: boolean }
+
+    SectionSourceSection:
+      type: object
+      required:
+        - section_id
+        - heading_id
+        - level
+        - heading_path
+        - heading_text
+        - child_section_ids
+        - body_available
+        - body_returned
+        - snippet_returned
+      properties:
+        section_id: { type: string }
+        heading_id: { type: string }
+        level: { type: integer, minimum: 1, maximum: 6 }
+        heading_path: { type: array, items: { type: string } }
+        heading_text: { type: string }
+        child_section_ids: { type: array, items: { type: string } }
+        body_available: { type: boolean }
+        body_returned: { type: boolean, enum: [false] }
+        snippet_returned: { type: boolean, enum: [false] }
 
     Proposal:
       type: object

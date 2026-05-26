@@ -60,6 +60,7 @@ import {
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
+import { buildSectionSource } from '../../lib/section-source.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -901,6 +902,35 @@ function getUserId(req) {
   return token ? verifyToken(token) : null;
 }
 
+/**
+ * Validate a hosted SectionSource note path before any upstream fetch.
+ * @param {unknown} rawPath
+ * @returns {string}
+ */
+function normalizeGatewaySectionSourcePath(rawPath) {
+  if (typeof rawPath !== 'string' || rawPath.trim() === '') {
+    throw new Error('Invalid path');
+  }
+  const forward = rawPath.trim().replace(/\\/g, '/');
+  if (forward.startsWith('/') || /^[A-Za-z]:\//.test(forward)) {
+    throw new Error('Invalid path');
+  }
+  const parts = forward.split('/').filter(Boolean);
+  if (parts.includes('..')) {
+    throw new Error('Invalid path');
+  }
+  return parts.join('/');
+}
+
+/**
+ * @param {unknown} error
+ */
+function sanitizedSectionSourceGatewayError(error) {
+  const msg = error?.message || String(error ?? '');
+  if (/^Invalid path\b/.test(msg)) return { status: 400, error: 'Invalid path', code: 'INVALID_PATH' };
+  return { status: 502, error: 'Bad Gateway', code: 'BAD_GATEWAY' };
+}
+
 const hostedCtxCache = new Map();
 const HOSTED_CTX_TTL_MS = 5000;
 
@@ -1636,6 +1666,91 @@ app.get('/api/v1/vault/folders', async (req, res) => {
     return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
   }
   res.json({ folders: ['inbox'] });
+});
+
+app.get('/api/v1/section-source', async (req, res) => {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (!CANISTER_URL) {
+    return res.status(503).json({ error: 'Hosted SectionSource is not configured', code: 'SERVICE_UNAVAILABLE' });
+  }
+
+  let requestedPath;
+  try {
+    requestedPath = normalizeGatewaySectionSourcePath(req.query.path);
+  } catch (e) {
+    const err = sanitizedSectionSourceGatewayError(e);
+    return res.status(err.status).json({ error: err.error, code: err.code });
+  }
+
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  if (hctx && Array.isArray(hctx.allowed_vault_ids) && !hctx.allowed_vault_ids.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  const url = `${CANISTER_URL}/api/v1/notes/${encodeURIComponent(requestedPath)}`;
+
+  try {
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effective,
+        'x-actor-id': uid,
+        'x-vault-id': vaultId,
+        ...canisterAuthHeaders(),
+      },
+    });
+    const text = await upstream.text();
+    if (upstream.status === 401 || upstream.status === 403) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+    if (upstream.status === 404) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (!upstream.ok) {
+      return res.status(502).json({ error: `Upstream ${upstream.status}`, code: 'BAD_GATEWAY' });
+    }
+
+    let note;
+    try {
+      note = text ? JSON.parse(text) : {};
+    } catch {
+      return res.status(502).json({ error: 'Invalid note response', code: 'BAD_GATEWAY' });
+    }
+
+    const frontmatter = materializeListFrontmatter(note.frontmatter);
+    const scope = scopeActiveForGateway(hctx) ? hctx.scope : null;
+    if (scope) {
+      const scoped = applyScopeFilterToNotes(
+        [
+          {
+            path: requestedPath,
+            project: frontmatter.project ?? null,
+          },
+        ],
+        scope
+      );
+      if (scoped.length === 0) {
+        return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+      }
+    }
+
+    return res.json(
+      buildSectionSource({
+        path: requestedPath,
+        frontmatter,
+        body: note.body != null ? String(note.body) : '',
+      })
+    );
+  } catch (e) {
+    const err = sanitizedSectionSourceGatewayError(e);
+    return res.status(err.status).json({ error: err.error, code: err.code });
+  }
 });
 
 /**
