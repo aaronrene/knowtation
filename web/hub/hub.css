@@ -1300,6 +1300,60 @@ input[readonly]#full-project {
 }
 .detail-actions { flex-shrink: 0; padding: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .detail-actions button { flex: 1; min-width: 6rem; }
+.section-source-panel {
+  flex: 1 0 100%;
+  max-height: 32vh;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+}
+.section-source-header h3 {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+}
+.section-source-header p,
+.section-source-state {
+  margin: 0;
+}
+.section-source-panel-loading,
+.section-source-panel-empty,
+.section-source-panel-error {
+  color: var(--muted);
+}
+.section-source-panel-error {
+  border-color: color-mix(in srgb, #ef4444 55%, var(--border));
+}
+.section-source-truncated {
+  margin-top: 0.5rem;
+  color: var(--accent);
+}
+.section-source-list {
+  margin: 0.65rem 0 0;
+  padding-left: 1.25rem;
+}
+.section-source-item {
+  margin: 0.5rem 0;
+  padding-left: 0.25rem;
+}
+.section-source-level-3,
+.section-source-level-4,
+.section-source-level-5,
+.section-source-level-6 {
+  margin-left: 0.75rem;
+}
+.section-source-heading {
+  margin: 0;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.section-source-detail,
+.section-source-path,
+.section-source-children {
+  margin: 0.1rem 0 0;
+  word-break: break-word;
+}
 .detail-footer {
   flex-shrink: 0;
   position: relative;

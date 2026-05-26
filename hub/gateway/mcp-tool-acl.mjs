@@ -7,6 +7,10 @@
 const READ_TOOLS = new Set([
   'search',
   'get_note',
+  'get_note_outline',
+  'get_document_tree',
+  'get_metadata_facets',
+  'get_section_source',
   'list_notes',
   'relate',
   'backlinks',

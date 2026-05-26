@@ -8,6 +8,8 @@ describe('mcp-tool-acl', () => {
       const tools = allowedToolsForRole('viewer');
       assert.ok(tools.has('search'));
       assert.ok(tools.has('get_note'));
+      assert.ok(tools.has('get_document_tree'));
+      assert.ok(tools.has('get_metadata_facets'));
       assert.ok(tools.has('list_notes'));
       assert.ok(tools.has('summarize'));
       assert.ok(tools.has('enrich'));
@@ -20,6 +22,8 @@ describe('mcp-tool-acl', () => {
     it('editor gets read + write tools', () => {
       const tools = allowedToolsForRole('editor');
       assert.ok(tools.has('search'));
+      assert.ok(tools.has('get_document_tree'));
+      assert.ok(tools.has('get_metadata_facets'));
       assert.ok(tools.has('write'));
       assert.ok(tools.has('hub_create_proposal'));
       assert.ok(tools.has('capture'));
@@ -29,6 +33,8 @@ describe('mcp-tool-acl', () => {
 
     it('evaluator gets same write-class tools as editor (incl. hub_create_proposal)', () => {
       const tools = allowedToolsForRole('evaluator');
+      assert.ok(tools.has('get_document_tree'));
+      assert.ok(tools.has('get_metadata_facets'));
       assert.ok(tools.has('write'));
       assert.ok(tools.has('hub_create_proposal'));
       assert.ok(!tools.has('index'));
@@ -37,6 +43,8 @@ describe('mcp-tool-acl', () => {
     it('admin gets all tools', () => {
       const tools = allowedToolsForRole('admin');
       assert.ok(tools.has('search'));
+      assert.ok(tools.has('get_document_tree'));
+      assert.ok(tools.has('get_metadata_facets'));
       assert.ok(tools.has('write'));
       assert.ok(tools.has('hub_create_proposal'));
       assert.ok(tools.has('index'));
@@ -55,6 +63,14 @@ describe('mcp-tool-acl', () => {
   describe('isToolAllowed', () => {
     it('returns true for allowed tool', () => {
       assert.ok(isToolAllowed('search', 'viewer'));
+      assert.ok(isToolAllowed('get_document_tree', 'viewer'));
+      assert.ok(isToolAllowed('get_metadata_facets', 'viewer'));
+      assert.ok(isToolAllowed('get_document_tree', 'editor'));
+      assert.ok(isToolAllowed('get_metadata_facets', 'editor'));
+      assert.ok(isToolAllowed('get_document_tree', 'evaluator'));
+      assert.ok(isToolAllowed('get_metadata_facets', 'evaluator'));
+      assert.ok(isToolAllowed('get_document_tree', 'admin'));
+      assert.ok(isToolAllowed('get_metadata_facets', 'admin'));
       assert.ok(isToolAllowed('write', 'editor'));
       assert.ok(isToolAllowed('hub_create_proposal', 'editor'));
       assert.ok(isToolAllowed('hub_create_proposal', 'evaluator'));

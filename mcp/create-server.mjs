@@ -6,7 +6,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { loadConfig } from '../lib/config.mjs';
-import { readNote, resolveVaultRelativePath } from '../lib/vault.mjs';
+import { readNote, resolveVaultRelativePath, normalizeMetadataFacets } from '../lib/vault.mjs';
+import { buildNoteOutline } from '../lib/note-outline.mjs';
+import { buildDocumentTree } from '../lib/document-tree.mjs';
+import { readSectionSource } from '../lib/section-source-note.mjs';
 import { runListNotes } from '../lib/list-notes.mjs';
 import { runSearch } from '../lib/search.mjs';
 import { runKeywordSearch } from '../lib/keyword-search.mjs';
@@ -142,6 +145,85 @@ export function mountKnowtationMcp(server) {
         return jsonResponse({ path: note.path, frontmatter: note.frontmatter, body: note.body });
       } catch (e) {
         return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_note_outline',
+    {
+      description: 'Return a derived Markdown heading outline for one note without body text.',
+      inputSchema: {
+        path: z.string().describe('Vault-relative path (e.g. inbox/foo.md)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = loadConfig();
+        resolveVaultRelativePath(config.vault_path, args.path);
+        const note = readNote(config.vault_path, args.path);
+        return jsonResponse(buildNoteOutline(note));
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_document_tree',
+    {
+      description: 'Return a derived nested Markdown heading tree for one note without body text.',
+      inputSchema: {
+        path: z.string().describe('Vault-relative path (e.g. inbox/foo.md)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = loadConfig();
+        resolveVaultRelativePath(config.vault_path, args.path);
+        const note = readNote(config.vault_path, args.path);
+        return jsonResponse(buildDocumentTree(note));
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_metadata_facets',
+    {
+      description: 'Return bounded body-free MetadataFacets v0 for one note.',
+      inputSchema: {
+        path: z.string().describe('Vault-relative path (e.g. inbox/foo.md)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = loadConfig();
+        resolveVaultRelativePath(config.vault_path, args.path);
+        const note = readNote(config.vault_path, args.path);
+        return jsonResponse(normalizeMetadataFacets(note.path, note.frontmatter));
+      } catch (e) {
+        return jsonError(e.message || String(e), 'RUNTIME_ERROR');
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_section_source',
+    {
+      description: 'Return body-free SectionSource v0 metadata for one note.',
+      inputSchema: {
+        path: z.string().describe('Vault-relative path (e.g. inbox/foo.md)'),
+      },
+    },
+    async (args) => {
+      try {
+        const config = loadConfig();
+        resolveVaultRelativePath(config.vault_path, args.path);
+        return jsonResponse(readSectionSource(config.vault_path, args.path));
+      } catch (e) {
+        return jsonError(sectionSourceMcpErrorMessage(e), 'RUNTIME_ERROR');
       }
     }
   );
@@ -450,6 +532,20 @@ export function mountKnowtationMcp(server) {
   registerHubProposalTools(server);
   registerEnrichTool(server);
   registerResourceSubscriptionHandlers(server);
+}
+
+/**
+ * Keep SectionSource path-safety errors explicit without echoing rejected
+ * absolute or traversal paths back over MCP.
+ * @param {unknown} error
+ * @returns {string}
+ */
+function sectionSourceMcpErrorMessage(error) {
+  const message = error?.message || String(error);
+  if (/Invalid path:/.test(message)) {
+    return 'Invalid path: path must be vault-relative and cannot escape vault';
+  }
+  return message;
 }
 
 /**

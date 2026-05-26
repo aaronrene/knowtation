@@ -25,6 +25,10 @@ import { mergeProvenanceFrontmatter } from '../../lib/hub-provenance.mjs';
 import { createIndexTimer } from './index-timing.mjs';
 import { computeChunkContentHashTagged } from '../../lib/chunk-content-hash.mjs';
 import {
+  defaultBridgeEmbeddingModelForProvider,
+  resolveIndexerChunkOptions,
+} from '../../lib/indexer-chunk-options.mjs';
+import {
   runWithConcurrency,
   parseEmbedConcurrency,
   parseEmbedBatchSize,
@@ -121,13 +125,6 @@ function sanitizeVaultId(vaultId) {
 
 let warnedOllamaLocalhostOnNetlify = false;
 
-function defaultEmbeddingModelForBridge(provider) {
-  const p = String(provider || 'ollama').toLowerCase();
-  if (p === 'openai') return 'text-embedding-3-small';
-  if (p === 'voyage') return 'voyage-4-lite';
-  return 'nomic-embed-text';
-}
-
 /** Trim + default empty env so accidental whitespace does not break provider matching or Ollama URL. */
 function getBridgeEmbeddingConfig() {
   const pEnv = process.env.EMBEDDING_PROVIDER;
@@ -136,7 +133,9 @@ function getBridgeEmbeddingConfig() {
   ).toLowerCase();
   const mEnv = process.env.EMBEDDING_MODEL;
   const model =
-    mEnv == null || String(mEnv).trim() === '' ? defaultEmbeddingModelForBridge(provider) : String(mEnv).trim();
+    mEnv == null || String(mEnv).trim() === ''
+      ? defaultBridgeEmbeddingModelForProvider(provider)
+      : String(mEnv).trim();
   const oEnv = process.env.OLLAMA_URL;
   const ollama_url =
     oEnv == null || String(oEnv).trim() === '' ? 'http://localhost:11434' : String(oEnv).trim();
@@ -2161,10 +2160,7 @@ app.post('/api/v1/index', requireBridgeAuth, requireBridgeEditorOrAdmin, async (
     const vectorsDir = await getVectorsDirForUser(req, canisterUid);
     const storeConfig = getBridgeStoreConfig(canisterUid, vectorsDir);
     timer.step('get_vectors_dir');
-    const chunkOpts = {
-      chunkSize: parseInt(process.env.INDEXER_CHUNK_SIZE || '2048', 10),
-      chunkOverlap: parseInt(process.env.INDEXER_CHUNK_OVERLAP || '256', 10),
-    };
+    const chunkOpts = resolveIndexerChunkOptions(process.env, storeConfig.embedding);
     const allChunks = [];
     for (const n of notes) {
       const note = {

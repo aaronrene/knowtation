@@ -20,6 +20,7 @@ function run(label, command, args) {
 
 run('Hosted MCP schema guard (hub/gateway/mcp-hosted*.mjs)', 'npm', ['run', 'check:mcp-hosted-schema']);
 run('Hosted MCP tools/list regression', 'node', ['--test', 'test/mcp-hosted-tools-list.test.mjs']);
+run('Hosted MCP MetadataFacets regression', 'node', ['--test', 'test/mcp-hosted-metadata-facets.test.mjs']);
 run('Hosted MCP prompts/list + getPrompt regression', 'node', ['--test', 'test/mcp-hosted-prompts.test.mjs']);
 run('Hosted MCP resources R1–R3 regression', 'node', [
   '--test',
@@ -34,8 +35,11 @@ console.log(`
 2. In Cursor (knowtation-hosted): OAuth green; confirm tool count matches role
    (admin: eighteen tools — see test/mcp-hosted-tools-list.test.mjs TOOLS_ADMIN; includes import, import_url, capture, transcribe, tag_suggest, cluster, backlinks, extract_tasks, relate).
    Confirm prompts/list: twelve prompts for viewer, thirteen for editor/admin (see test/mcp-hosted-prompts.test.mjs PROMPTS_VIEWER / PROMPTS_ALL).
-3. Read resource vault-info: userId, vaultId, role match the signed-in workspace.
-4. If MCP log shows red / "Server not initialized" briefly after restart: Logout → Connect
+3. Call get_metadata_facets on a known note path. Confirm schema "knowtation.metadata_facets/v0",
+   vault-relative path only, and no body, snippets, full frontmatter, labels, OCR, PageIndex,
+   media metadata, vectors, summaries, memory events, or absolute filesystem paths.
+4. Read resource vault-info: userId, vaultId, role match the signed-in workspace.
+5. If MCP log shows red / "Server not initialized" briefly after restart: Logout → Connect
    or retry once initialize completes.
 
 Further context: docs/PARITY-MATRIX-HOSTED.md, docs/AGENT-INTEGRATION.md §2.

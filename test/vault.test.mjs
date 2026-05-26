@@ -4,6 +4,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -62,6 +63,25 @@ describe('vault', () => {
         () => readNote(vaultPath, 'inbox/nonexistent.md'),
         /Note not found/
       );
+    });
+
+    it('security: rejects symlinks that resolve outside the vault', () => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-vault-symlink-root-'));
+      const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-vault-symlink-outside-'));
+      try {
+        fs.mkdirSync(path.join(root, 'inbox'), { recursive: true });
+        fs.writeFileSync(path.join(outside, 'secret.md'), '# Secret\n\noutside vault');
+        fs.symlinkSync(path.join(outside, 'secret.md'), path.join(root, 'inbox', 'linked.md'));
+
+        assert.throws(
+          () => readNote(root, 'inbox/linked.md'),
+          /Invalid path|escapes vault|Note not found/
+        );
+        assert.strictEqual(noteFileExistsInVault(root, 'inbox/linked.md'), false);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+        fs.rmSync(outside, { recursive: true, force: true });
+      }
     });
   });
 

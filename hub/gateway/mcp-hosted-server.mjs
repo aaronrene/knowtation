@@ -10,10 +10,14 @@ import { z } from 'zod';
 import { IMPORT_SOURCE_TYPES } from '../../lib/import-source-types.mjs';
 import {
   displayTitleFromHostedNote,
+  parseCanisterFrontmatter,
   titleFromCanisterFrontmatter,
   titleFromPathStem,
 } from '../../lib/canister-frontmatter.mjs';
-import { normalizeSlug, effectiveProjectSlug } from '../../lib/vault.mjs';
+import { normalizeSlug, effectiveProjectSlug, normalizeMetadataFacets } from '../../lib/vault.mjs';
+import { buildNoteOutline } from '../../lib/note-outline.mjs';
+import { buildDocumentTree } from '../../lib/document-tree.mjs';
+import { buildSectionSource } from '../../lib/section-source.mjs';
 import { extractCheckboxTasksFromBody } from '../../lib/extract-tasks.mjs';
 import { materializeListFrontmatter, tagsFromFm } from './note-facets.mjs';
 import { findFirstWikilinkToTargetInBody, vaultBasenameTargetKey } from '../../lib/wikilink.mjs';
@@ -202,6 +206,36 @@ function hostedTagsFromHitOrNote(tagsRaw, canisterNote) {
     return hostedExistingTagsFromCanisterNote(canisterNote);
   }
   return [];
+}
+
+/**
+ * Validate hosted note paths before making upstream read calls for derived DocumentTree
+ * data. Hosted has no local vault root, so this enforces the same vault-relative shape
+ * expected by the builder and avoids forwarding traversal-like paths upstream.
+ * @param {unknown} rawPath
+ * @returns {string}
+ */
+function normalizeHostedDocumentTreePath(rawPath) {
+  if (typeof rawPath !== 'string' || rawPath.trim() === '') {
+    throw new Error('Invalid path: path must be a non-empty vault-relative path');
+  }
+  const forward = rawPath.trim().replace(/\\/g, '/');
+  if (forward.startsWith('/') || /^[A-Za-z]:\//.test(forward)) {
+    throw new Error(`Invalid path: path must be vault-relative (${rawPath})`);
+  }
+  const parts = forward.split('/').filter(Boolean);
+  if (parts.includes('..')) {
+    throw new Error(`Invalid path: path cannot escape vault (${rawPath})`);
+  }
+  return parts.join('/');
+}
+
+function sanitizeHostedSectionSourceError(error) {
+  const msg = error?.message || String(error ?? '');
+  if (/^Invalid path\b/.test(msg)) return 'Invalid path';
+  const upstreamStatus = msg.match(/^Upstream\s+(\d{3})\b/);
+  if (upstreamStatus) return `Upstream ${upstreamStatus[1]}`;
+  return 'Runtime failure';
 }
 
 /**
@@ -1159,6 +1193,124 @@ export function createHostedMcpServer(ctx) {
           return jsonResponse(data);
         } catch (e) {
           return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('get_note_outline', role)) {
+    server.registerTool(
+      'get_note_outline',
+      {
+        description: 'Return a derived Markdown heading outline for one hosted note without body text.',
+        inputSchema: {
+          path: z.string().describe('Vault-relative note path'),
+        },
+      },
+      async (args) => {
+        try {
+          const data = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(args.path)}`,
+            canisterFetchOpts
+          );
+          return jsonResponse(
+            buildNoteOutline({
+              path: String(args.path),
+              frontmatter: parseCanisterFrontmatter(data?.frontmatter) || {},
+              body: data?.body != null ? String(data.body) : '',
+            })
+          );
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('get_document_tree', role)) {
+    server.registerTool(
+      'get_document_tree',
+      {
+        description: 'Return a derived nested Markdown heading tree for one hosted note without body text.',
+        inputSchema: {
+          path: z.string().describe('Vault-relative note path'),
+        },
+      },
+      async (args) => {
+        try {
+          const requestedPath = normalizeHostedDocumentTreePath(args.path);
+          const data = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(requestedPath)}`,
+            canisterFetchOpts
+          );
+          return jsonResponse(
+            buildDocumentTree({
+              path: requestedPath,
+              frontmatter: parseCanisterFrontmatter(data?.frontmatter) || {},
+              body: data?.body != null ? String(data.body) : '',
+            })
+          );
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('get_metadata_facets', role)) {
+    server.registerTool(
+      'get_metadata_facets',
+      {
+        description: 'Return bounded body-free MetadataFacets v0 for one hosted note.',
+        inputSchema: {
+          path: z.string().describe('Vault-relative note path'),
+        },
+      },
+      async (args) => {
+        try {
+          const requestedPath = normalizeHostedDocumentTreePath(args.path);
+          const data = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(requestedPath)}`,
+            canisterFetchOpts
+          );
+          return jsonResponse(
+            normalizeMetadataFacets(
+              requestedPath,
+              parseCanisterFrontmatter(data?.frontmatter) || {}
+            )
+          );
+        } catch (e) {
+          return jsonError(e.message || String(e), 'UPSTREAM_ERROR');
+        }
+      }
+    );
+  }
+
+  if (isToolAllowed('get_section_source', role)) {
+    server.registerTool(
+      'get_section_source',
+      {
+        description: 'Return body-free SectionSource v0 metadata for one hosted note.',
+        inputSchema: {
+          path: z.string().describe('Vault-relative note path'),
+        },
+      },
+      async (args) => {
+        try {
+          const requestedPath = normalizeHostedDocumentTreePath(args.path);
+          const data = await upstreamFetch(
+            `${canisterUrl}/api/v1/notes/${encodeURIComponent(requestedPath)}`,
+            canisterFetchOpts
+          );
+          return jsonResponse(
+            buildSectionSource({
+              path: requestedPath,
+              frontmatter: parseCanisterFrontmatter(data?.frontmatter) || {},
+              body: data?.body != null ? String(data.body) : '',
+            })
+          );
+        } catch (e) {
+          return jsonError(sanitizeHostedSectionSourceError(e), 'UPSTREAM_ERROR');
         }
       }
     );
