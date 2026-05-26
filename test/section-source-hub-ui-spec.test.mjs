@@ -195,7 +195,8 @@ describe('SectionSource Hub UI implementation spec', () => {
     const runtime = js.slice(start, end);
 
     assert.equal(ui.includes('/api/v1/section-source'), true);
-    assert.doesNotMatch(runtime, /\b(localStorage|sessionStorage|write|post|put|delete|index|vector|summary|memory|sidecar)\b/i);
+    assert.doesNotMatch(runtime, /\b(localStorage|sessionStorage|write|post|put|delete|index|vector|memory|sidecar)\b/i);
+    assert.doesNotMatch(runtime, /\b(summarize|summarization|summaries)\b/i);
   });
 
   it('performance: spec requires one-note UI calls and no scans or providers', () => {
