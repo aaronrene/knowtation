@@ -87,5 +87,11 @@
   },
   "optionalDependencies": {
     "@supabase/supabase-js": "^2.49.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    },
+    "tmp": "0.2.6"
   }
 }

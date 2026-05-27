@@ -498,6 +498,21 @@ placeholder until Knowtation exposes the relevant surface.
 - Hosted viewer cannot read outlines outside active vault/scope.
 - Tool listing role tests include `get_note_outline` only when enabled for that role.
 
+## REST And Scooling Bridge Update
+
+The separately reviewed REST slice adds `GET /api/v1/note-outline?path=...` for
+self-hosted Hub and hosted gateway. The route is auth-gated, one-note bounded, and
+returns only the existing `knowtation.note_outline/v1` JSON contract.
+
+The Scooling smoke bridge adds `GET /scooling/note-outline/smoke?path=...`. It is
+disabled by default, limited to local or staging smoke validation, owns the upstream
+bearer token, rejects credentials supplied by Scooling, validates the upstream
+body-free payload, and returns only the raw `NoteOutline` JSON Scooling can validate.
+
+This REST/bridge slice does not add note body output, snippets, full frontmatter,
+absolute paths, MCP resources, search, vectors, PageIndex, OCR, persistence, summaries,
+or write-back.
+
 ## Files To Modify By Phase
 
 ### Phase 1A
@@ -535,8 +550,9 @@ Stop and re-plan if any of the following become necessary:
 
 - returning note body text
 - returning line ranges in hosted output
-- adding a Hub REST route
-- updating OpenAPI
+- broadening the REST route beyond one authorized path
+- accepting credentials from Scooling
+- returning a transport envelope that differs from the raw `NoteOutline` JSON contract
 - changing search/index/vector behavior
 - adding persistence
 - adding PageIndex
@@ -569,10 +585,12 @@ Completed MVP implementation sequence:
 4. CLI command.
 5. Self-hosted MCP tool.
 6. Hosted MCP tool after security tests pass.
+7. Auth-gated REST route and disabled-by-default Scooling smoke bridge after the REST
+   safety review passes.
 
 Next, continue Knowtation development from local Muse `main` while remote staging
 authentication is unavailable.
 
-Do not begin PageIndex, section search, summaries, persistence, or Hub REST as a bundled
-follow-on. Each of those needs a separate review pass, explicit scope, and tests before
-implementation.
+Do not begin PageIndex, section search, summaries, persistence, or broader REST expansion
+as a bundled follow-on. Each of those needs a separate review pass, explicit scope, and
+tests before implementation.

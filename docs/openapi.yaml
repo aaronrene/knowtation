@@ -158,6 +158,129 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /note-outline:
+    get:
+      tags: [Notes]
+      summary: Body-free NoteOutline headings for one note
+      description: >
+        Returns knowtation.note_outline/v1 metadata for one authorized vault-relative note.
+        The response excludes note body text, snippets, full frontmatter, absolute paths,
+        provider payloads, MCP resource URIs, summaries, vectors, OCR, PageIndex output,
+        persistence records, and write-back state.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+          description: Vault-relative Markdown note path.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NoteOutline' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /document-tree:
+    get:
+      tags: [Notes]
+      summary: Body-free DocumentTree heading hierarchy for one note
+      description: >
+        Returns knowtation.document_tree/v0 metadata for one authorized vault-relative note.
+        The response excludes note body text, snippets, full frontmatter, absolute paths,
+        provider payloads, MCP resource URIs, summaries, vectors, OCR, PageIndex output,
+        persistence records, sidecars, LLM calls, and write-back state.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+          description: Vault-relative Markdown note path.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentTree' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /metadata-facets:
+    get:
+      tags: [Notes]
+      summary: Body-free MetadataFacets hints for one note
+      description: >
+        Returns knowtation.metadata_facets/v0 metadata for one authorized vault-relative note.
+        The response excludes note body text, snippets, full frontmatter, absolute paths,
+        provider payloads, MCP resource URIs, summaries, labels, vectors, OCR, PageIndex output,
+        media metadata, memory events, persistence records, sidecars, LLM calls, and write-back state.
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+          description: Vault-relative Markdown note path.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetadataFacets' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /section-source:
     get:
       tags: [Notes]
@@ -712,6 +835,92 @@ components:
         score: { type: number }
         project: { type: string }
         tags: { type: array, items: { type: string } }
+
+    NoteOutline:
+      type: object
+      required: [schema, path, headings, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.note_outline/v1]
+        path: { type: string }
+        title: { type: string, nullable: true }
+        headings:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/NoteOutlineHeading' }
+        truncated: { type: boolean }
+
+    NoteOutlineHeading:
+      type: object
+      required: [level, text, id]
+      properties:
+        level: { type: integer, minimum: 1, maximum: 6 }
+        text: { type: string }
+        id: { type: string }
+
+    DocumentTree:
+      type: object
+      required: [schema, path, root, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.document_tree/v0]
+        path: { type: string }
+        title: { type: string, nullable: true }
+        root:
+          type: object
+          required: [children]
+          properties:
+            children:
+              type: array
+              maxItems: 500
+              items: { $ref: '#/components/schemas/DocumentTreeNode' }
+        truncated: { type: boolean }
+
+    DocumentTreeNode:
+      type: object
+      required: [id, level, text, children]
+      properties:
+        id: { type: string }
+        level: { type: integer, minimum: 1, maximum: 6 }
+        text: { type: string }
+        children:
+          type: array
+          items: { $ref: '#/components/schemas/DocumentTreeNode' }
+
+    MetadataFacets:
+      type: object
+      required: [schema, path, facets, inferred, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.metadata_facets/v0]
+        path: { type: string }
+        facets:
+          type: object
+          required: [project, tags, date, updated, causal_chain_id, entity, episode_id]
+          properties:
+            project: { type: string, nullable: true }
+            tags:
+              type: array
+              maxItems: 100
+              items: { type: string }
+            date: { type: string, nullable: true }
+            updated: { type: string, nullable: true }
+            causal_chain_id: { type: string, nullable: true }
+            entity:
+              type: array
+              maxItems: 100
+              items: { type: string }
+            episode_id: { type: string, nullable: true }
+        inferred:
+          type: object
+          required: [folder, source_type]
+          properties:
+            folder: { type: string, nullable: true }
+            source_type: { nullable: true, enum: [null] }
+        truncated: { type: boolean }
 
     SectionSource:
       type: object
