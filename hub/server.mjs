@@ -15,6 +15,7 @@ import AdmZip from 'adm-zip';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
@@ -83,6 +84,18 @@ import {
 import { createInvite, consumeInvite, revokeInvite, listInvites } from './invites.mjs';
 import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
 import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
+import {
+  issueRefreshToken,
+  rotateRefreshToken,
+  revokeRefreshToken,
+  pruneRefreshTokens,
+} from './refresh-tokens.mjs';
+import {
+  refreshCookieOptions,
+  issueRefreshCookie,
+  createRefreshHandler,
+  createLogoutHandler,
+} from './auth-session.mjs';
 import { readHubVaults, writeHubVaults } from '../lib/hub-vaults.mjs';
 import { deleteSelfHostedVault } from './hub-delete-vault.mjs';
 import { applyScopeFilterToNotes as applyScopeFilter } from './lib/scope-filter.mjs';
@@ -202,6 +215,41 @@ function issueToken(user) {
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
+}
+
+/**
+ * Re-mint a short-lived access token from a `sub` alone (used by POST /auth/refresh, which
+ * only knows the user id). Role is re-derived from the current role store so a refreshed
+ * token always reflects the latest Team role, exactly like login. Display name is omitted
+ * (the UI reads it from /settings); identity for authorization is the `sub`.
+ * @param {string} sub
+ * @returns {string} signed JWT
+ */
+function issueAccessTokenForSub(sub) {
+  const role = roleMap.size === 0 ? 'admin' : getRole(roleMap, sub);
+  return jwt.sign({ sub, role }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+}
+
+// Persistent sessions (refresh-token rotation). The refresh token is durable, hashed at
+// rest, and delivered as an HttpOnly cookie; the security logic lives in
+// hub/lib/refresh-token-core.mjs via the file store below.
+const refreshStore = {
+  issue: (sub, opts) => issueRefreshToken(config.data_dir, sub, opts),
+  rotate: (token, opts) => rotateRefreshToken(config.data_dir, token, opts),
+  revoke: (token) => revokeRefreshToken(config.data_dir, token),
+};
+
+/**
+ * Cookie policy for the refresh token. Self-hosted Hub serves UI and API from one origin,
+ * so SameSite=Lax is correct; Secure follows whether the deployment is HTTPS. Scoped to the
+ * auth path so the cookie is only sent to /api/v1/auth endpoints.
+ */
+function refreshCookiePolicy() {
+  return refreshCookieOptions({
+    secure: BASE_URL.startsWith('https://'),
+    sameSite: 'lax',
+    maxAgeMs: 90 * 24 * 60 * 60 * 1000,
+  });
 }
 
 function parseQueryBounds(req, res, next) {
@@ -347,6 +395,7 @@ const corsOrigin = process.env.HUB_CORS_ORIGIN;
 const jsonBodyLimit = process.env.HUB_JSON_BODY_LIMIT || '5mb';
 app.use(cors({ origin: corsOrigin ? corsOrigin.split(',') : true, credentials: true }));
 app.use(express.json({ limit: jsonBodyLimit }));
+app.use(cookieParser());
 app.use(passport.initialize());
 
 // Rate limits
@@ -407,19 +456,34 @@ app.get('/api/v1/auth/login', loginLimiter, (req, res, next) => {
 });
 
 // Auth: OAuth callbacks. If state contains invite token, consume it and re-issue JWT with new role.
-function handleAuthCallback(req, res) {
+async function handleAuthCallback(req, res) {
   const redirect = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
   let token = issueToken(req.user);
+  const sub = `${req.user.provider}:${req.user.id}`;
+  // Start a persistent session: durable, HttpOnly refresh cookie alongside the access token.
+  const issueSession = async () => {
+    try {
+      await issueRefreshCookie(res, {
+        store: refreshStore,
+        sub,
+        cookieOptions: refreshCookiePolicy,
+        meta: { ua: String(req.headers['user-agent'] || '').slice(0, 256) },
+      });
+    } catch (_) {
+      // A refresh-store write failure must not block login; the access token still works.
+    }
+  };
   const statePayload = req.query.state ? verifyState(req.query.state, 7 * 24 * 60 * 60 * 1000) : null;
   if (statePayload && statePayload.invite && req.user && req.user.id) {
-    const sub = `${req.user.provider}:${req.user.id}`;
     const consumed = consumeInvite(config.data_dir, statePayload.invite, sub);
     if (consumed) {
       roleMap = loadRoleMap(config.data_dir);
       token = issueToken(req.user);
+      await issueSession();
       return res.redirect(`${redirect}/#token=${encodeURIComponent(token)}&invite_accepted=1`);
     }
   }
+  await issueSession();
   res.redirect(`${redirect}/#token=${encodeURIComponent(token)}`);
 }
 app.get(
@@ -432,6 +496,31 @@ app.get(
   passport.authenticate('github', { session: false }),
   handleAuthCallback
 );
+
+// Persistent sessions: exchange the HttpOnly refresh cookie for a fresh access token, and
+// real server-side logout (revokes the refresh token, not just the client cookie).
+// Refresh is called on access-token expiry, so its limit is looser than the login limiter.
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many refresh attempts', code: 'RATE_LIMIT' },
+});
+app.post(
+  '/api/v1/auth/refresh',
+  refreshLimiter,
+  createRefreshHandler({
+    store: refreshStore,
+    issueAccessToken: issueAccessTokenForSub,
+    cookieOptions: refreshCookiePolicy,
+    meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
+  })
+);
+app.post(
+  '/api/v1/auth/logout',
+  createLogoutHandler({ store: refreshStore, cookieOptions: refreshCookiePolicy })
+);
+// Opportunistically prune dead refresh records at startup (best effort; never fatal).
+try { pruneRefreshTokens(config.data_dir); } catch (_) { /* noop */ }
 
 // Connect GitHub (repo scope): redirect to GitHub, then callback saves token for vault push
 function signState(statePayload) {

@@ -21,9 +21,12 @@ function readRepoFile(relativePath) {
 function routeSource() {
   const src = readRepoFile('hub/server.mjs');
   const start = src.indexOf("app.get('/api/v1/note-outline'");
-  const end = src.indexOf("// GET /api/v1/section-source", start);
+  // Bound to the note-outline route ONLY: end at the very next route (document-tree).
+  // Including later sibling routes (e.g. metadata-facets, which legitimately reads
+  // `note.frontmatter`) would make the body-free assertions below match neighbouring code.
+  const end = src.indexOf("// GET /api/v1/document-tree", start);
   assert.notEqual(start, -1, 'self-hosted note-outline route must exist');
-  assert.notEqual(end, -1, 'route must stay before section-source route');
+  assert.notEqual(end, -1, 'route must stay before the document-tree route');
   return src.slice(start, end);
 }
 
