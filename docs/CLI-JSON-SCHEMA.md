@@ -24,6 +24,24 @@ This document summarizes the **stable JSON shapes** returned by the Knowtation C
 - **`--frontmatter-only`:**  
   `{ "path": string, "frontmatter": object }`
 
+### get-note-outline (--json)
+
+`{ "schema": "knowtation.note_outline/v1", "path": string, "title": string | null, "headings": [ { "level": number, "text": string, "id": string } ], "truncated": boolean }`
+
+The outline is derived from the current Markdown note and excludes body text, snippets, full frontmatter, absolute filesystem paths, line ranges, byte offsets, summaries, vector scores, and memory events.
+
+### get-document-tree (--json)
+
+`{ "schema": "knowtation.document_tree/v0", "path": string, "title": string | null, "root": { "children": [ { "id": string, "level": number, "text": string, "children": [] } ] }, "truncated": boolean }`
+
+The tree is derived from the current Markdown note and excludes body text, snippets, full frontmatter, absolute filesystem paths, line ranges, byte offsets, summaries, vector scores, labels, metadata facets, and memory events.
+
+### get-metadata-facets (--json)
+
+`{ "schema": "knowtation.metadata_facets/v0", "path": string, "facets": { "project": string | null, "tags": string[], "date": string | null, "updated": string | null, "causal_chain_id": string | null, "entity": string[], "episode_id": string | null }, "inferred": { "folder": string | null, "source_type": null }, "truncated": boolean }`
+
+The facets are derived from current note frontmatter and vault-relative path inference. The response excludes body text, snippets, full frontmatter, absolute filesystem paths, label text, OCR text, PageIndex output, summaries, vectors, media metadata, and memory events.
+
 ### list-notes (--json)
 
 - **Default / `--fields path+metadata`:**  

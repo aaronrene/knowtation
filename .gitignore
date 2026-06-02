@@ -1,3 +1,6 @@
+# Muse VCS internals — runtime state (analogous to .git/); .museattributes and .museignore are tracked
+.muse/
+
 # Config and secrets
 config/local.yaml
 config/*-local.*
@@ -30,6 +33,20 @@ config/Untitled
 
 # DFX local build (do not commit)
 hub/icp/.dfx/
+
+# Terraform — state contains real cloud resource IDs, public IPs, and secret handles;
+# *.tfvars contains real values (keep *.tfvars.example tracked as a template);
+# .terraform/ is local provider cache; .terraform.lock.hcl IS committed for reproducible builds.
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+*.auto.tfvars
+*.auto.tfvars.json
+*.tfplan
+*.tfplan.json
+crash.log
+crash.*.log
 
 # Node
 node_modules/

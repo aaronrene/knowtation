@@ -27,10 +27,14 @@ import { runListNotes, runFacets } from '../lib/list-notes.mjs';
 import {
   readNote,
   normalizeSlug,
+  normalizeMetadataFacets,
   resolveVaultRelativePath,
   noteFileExistsInVault,
   listVaultFolderOptions,
 } from '../lib/vault.mjs';
+import { buildNoteOutline } from '../lib/note-outline.mjs';
+import { buildDocumentTree } from '../lib/document-tree.mjs';
+import { readSectionSource } from '../lib/section-source-note.mjs';
 import { writeNote, deleteNote, deleteNotesByPrefix } from '../lib/write.mjs';
 import { deleteNotesByProjectSlug, renameProjectSlugInVault } from '../lib/hub-bulk-metadata.mjs';
 import { mergeProvenanceFrontmatter } from '../lib/hub-provenance.mjs';
@@ -70,7 +74,13 @@ import { maybeAutoSync, runVaultSync } from '../lib/vault-git-sync.mjs';
 import { readHubSetup, writeHubSetup } from '../lib/hub-setup.mjs';
 import { readConnection as readGitHubConnection, writeConnection as writeGitHubConnection } from '../lib/github-connection.mjs';
 import { commitImageToRepo, parseGitHubRepoUrl, validateImageExtension, validateMagicBytes } from '../lib/github-commit-image.mjs';
-import { loadRoleMap, getRole, readRolesObject, writeRolesFile } from './roles.mjs';
+import {
+  loadRoleMap,
+  getRole,
+  readRolesObject,
+  writeRolesFile,
+  ensureActorAdminOnFirstRolesPopulation,
+} from './roles.mjs';
 import { createInvite, consumeInvite, revokeInvite, listInvites } from './invites.mjs';
 import { getAllowedVaultIds, readVaultAccess, writeVaultAccess } from './hub_vault_access.mjs';
 import { getScopeForUserVault, readScope, writeScope } from './hub_scope.mjs';
@@ -625,6 +635,10 @@ app.post('/api/v1/capture', captureAuth, (req, res) => {
 app.use('/api/v1/notes', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/search', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/proposals', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/note-outline', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/document-tree', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/metadata-facets', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
@@ -640,6 +654,131 @@ app.get('/api/v1/vault/folders', jwtAuth, apiLimiter, requireVaultAccess, (req, 
     res.json({ folders });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/note-outline?path=... — body-free heading outline for one authorized note
+app.get('/api/v1/note-outline', (req, res) => {
+  const requestedPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!requestedPath) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  try {
+    resolveVaultRelativePath(req.vaultPath, requestedPath);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  if (req.scope?.projects?.length || req.scope?.folders?.length) {
+    const allowed = applyScopeFilter([{ path: requestedPath }], req.scope);
+    if (allowed.length === 0) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  try {
+    res.json(buildNoteOutline(readNote(req.vaultPath, requestedPath)));
+  } catch (e) {
+    const message = e?.message ? String(e.message) : '';
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (message.includes('Invalid path')) {
+      return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+    }
+    return res.status(502).json({ error: 'Upstream error', code: 'UPSTREAM_ERROR' });
+  }
+});
+
+// GET /api/v1/document-tree?path=... — body-free nested heading tree for one authorized note
+app.get('/api/v1/document-tree', (req, res) => {
+  const requestedPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!requestedPath) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  try {
+    resolveVaultRelativePath(req.vaultPath, requestedPath);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  if (req.scope?.projects?.length || req.scope?.folders?.length) {
+    const allowed = applyScopeFilter([{ path: requestedPath }], req.scope);
+    if (allowed.length === 0) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  try {
+    res.json(buildDocumentTree(readNote(req.vaultPath, requestedPath)));
+  } catch (e) {
+    const message = e?.message ? String(e.message) : '';
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (message.includes('Invalid path')) {
+      return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+    }
+    return res.status(502).json({ error: 'Upstream error', code: 'UPSTREAM_ERROR' });
+  }
+});
+
+// GET /api/v1/metadata-facets?path=... — body-free metadata hints for one authorized note
+app.get('/api/v1/metadata-facets', (req, res) => {
+  const requestedPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!requestedPath) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  try {
+    resolveVaultRelativePath(req.vaultPath, requestedPath);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  if (req.scope?.projects?.length || req.scope?.folders?.length) {
+    const allowed = applyScopeFilter([{ path: requestedPath }], req.scope);
+    if (allowed.length === 0) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  try {
+    const note = readNote(req.vaultPath, requestedPath);
+    res.json(normalizeMetadataFacets(requestedPath, note.frontmatter));
+  } catch (e) {
+    const message = e?.message ? String(e.message) : '';
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (message.includes('Invalid path')) {
+      return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+    }
+    return res.status(502).json({ error: 'Upstream error', code: 'UPSTREAM_ERROR' });
+  }
+});
+
+// GET /api/v1/section-source?path=... — body-free section metadata for one authorized note
+app.get('/api/v1/section-source', (req, res) => {
+  const requestedPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
+  if (!requestedPath) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  try {
+    resolveVaultRelativePath(req.vaultPath, requestedPath);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+  }
+  if (req.scope?.projects?.length || req.scope?.folders?.length) {
+    const allowed = applyScopeFilter([{ path: requestedPath }], req.scope);
+    if (allowed.length === 0) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  try {
+    res.json(readSectionSource(req.vaultPath, requestedPath));
+  } catch (e) {
+    const message = e?.message ? String(e.message) : '';
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
+    }
+    if (message.includes('Invalid path')) {
+      return res.status(400).json({ error: 'Invalid path', code: 'INVALID_PATH' });
+    }
+    return res.status(502).json({ error: 'Upstream error', code: 'UPSTREAM_ERROR' });
   }
 });
 
@@ -911,8 +1050,14 @@ app.post('/api/v1/index', jwtAuth, apiLimiter, requireVaultAccess, requireRole('
   }
 });
 
-// POST /api/v1/export — export one note to content (editor/admin). Returns { content, filename } for client download.
-app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole('editor', 'admin'), (req, res) => {
+// POST /api/v1/export — export one note to content (any vault reader). Returns { content, filename } for client download.
+app.post(
+  '/api/v1/export',
+  jwtAuth,
+  apiLimiter,
+  requireVaultAccess,
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
   const { path: notePath, format } = req.body || {};
   if (!notePath || typeof notePath !== 'string') {
     return res.status(400).json({ error: 'path required', code: 'BAD_REQUEST' });
@@ -926,7 +1071,8 @@ app.post('/api/v1/export', jwtAuth, apiLimiter, requireVaultAccess, requireRole(
     if (e.message && e.message.includes('Invalid path')) return res.status(400).json({ error: e.message, code: 'BAD_REQUEST' });
     res.status(404).json({ error: e.message || 'Note not found', code: 'NOT_FOUND' });
   }
-});
+  },
+);
 
 // POST /api/v1/notes/copy — copy or move one note between vaults (editor/admin; multi-vault). Overwrites target path if it exists.
 app.post('/api/v1/notes/copy', requireRole('editor', 'admin'), (req, res) => {
@@ -2120,10 +2266,13 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'role must be admin, editor, viewer, or evaluator', code: 'BAD_REQUEST' });
   }
   try {
+    const beforeMap = loadRoleMap(config.data_dir);
     const current = readRolesObject(config.data_dir);
     const uidKey = userId.trim();
     current[uidKey] = r;
-    writeRolesFile(config.data_dir, current);
+    const actorSub = req.user?.sub ?? '';
+    const toWrite = ensureActorAdminOnFirstRolesPopulation(beforeMap.size, current, actorSub);
+    writeRolesFile(config.data_dir, toWrite);
     roleMap = loadRoleMap(config.data_dir);
     let mayMap = readEvaluatorMayApprove(config.data_dir);
     if (r === 'evaluator' && req.body && Object.prototype.hasOwnProperty.call(req.body, 'evaluator_may_approve')) {
@@ -2134,7 +2283,7 @@ app.post('/api/v1/roles', jwtAuth, requireRole('admin'), (req, res) => {
       delete next[uidKey];
       writeEvaluatorMayApprove(config.data_dir, next);
     }
-    res.json({ ok: true, roles: current });
+    res.json({ ok: true, roles: toWrite });
   } catch (e) {
     res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }

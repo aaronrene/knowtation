@@ -69,7 +69,24 @@ For temporal sequence, causation, hierarchical memory, and state compression the
 
 Same slug normalization as project/tag for `causal_chain_id` and `entity`. CLI may support `--since`, `--until`, `--chain`, `--entity`, `--episode`, `--order` when these are present; see INTENTION-AND-TEMPORAL.
 
-### 2.4 Reserved for Phase 12 (blockchain and agent payments)
+### 2.4 Mist attachment IDs (optional)
+
+Import pipelines and note-creation tools MAY record the original source blob in Mist (Muse's content-addressed object store) and stamp the returned ID in the note's frontmatter.  This enables `muse code impact` to trace which notes depend on a given binary blob (PDF, audio, screenshot, etc.).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `attachments` | string[] | List of mist blob IDs.  Each ID is exactly 12 characters from the [base58](https://en.bitcoin.it/wiki/Base58Check_encoding) alphabet (`123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`), derived from the first 12 characters of the base58-encoded SHA-256 hash of the blob content. |
+
+**Validation:** parsers MUST NOT require `attachments`; notes without it are fully valid.  When present, each entry MUST match the 12-character base58 pattern.
+
+**Mist push workflow (importers):**
+1. `muse mist push <blob>` → returns a mist ID (e.g. `4a7Jz2Xn9Kqw`).
+2. The importer stamps the ID into the note's `attachments` list.
+3. `muse code impact <mist-id>` returns all notes that reference the blob.
+
+**Schema version:** this field is part of frontmatter schema version 2.  Legacy notes (schema v1) are automatically migrated by `migrate_frontmatter`.
+
+### 2.5 Reserved for Phase 12 (blockchain and agent payments)
 
 The following frontmatter fields are **reserved** for a future phase. Notes remain valid without them; parsers and indexers MUST NOT require them. When implemented, they will be optional and used for payment attribution and on-chain provenance.
 
@@ -108,6 +125,9 @@ All commands support global `--json` for machine-readable output. Paths are vaul
 |--------|-------------|---------------------------|-------|
 | `search <query>` | **Semantic** search over the indexed vault (default), or **keyword** search (`--keyword`: case-insensitive match in path, body, and selected frontmatter strings). | `--folder <path>`, `--project <slug>`, `--tag <tag>`, `--limit <n>` (default 10), `--since <date>`, `--until <date>`, `--chain <id>`, `--entity <id>`, `--episode <id>`, `--content-scope all\|notes\|approval_logs`, `--order date\|date-asc`, `--fields path\|path+snippet\|full` (default path+snippet), `--snippet-chars <n>`, `--count-only`, `--keyword`, `--match phrase\|all-terms` (with `--keyword`), `--json` | Semantic returns ranked chunks by embedding similarity; keyword returns substring / all-terms matches. Time, causal, entity, episode, and content-scope filters apply to both where implemented. See docs/INTENTION-AND-TEMPORAL.md; token levers: docs/RETRIEVAL-AND-CLI-REFERENCE.md. |
 | `get-note <path>` | Return full content of one note (frontmatter + body), or a subset. | `--body-only`, `--frontmatter-only`, `--json` | Path vault-relative. Omit both body/frontmatter flags for full content. |
+| `get-note-outline <path>` | Return a derived Markdown heading outline for one note. | `--json` required | Path vault-relative. Returns heading metadata only; never returns body, snippets, full frontmatter, or absolute filesystem paths. |
+| `get-document-tree <path>` | Return a derived Markdown heading tree for one note. | `--json` required | Path vault-relative. Returns nested heading metadata only; never returns body, snippets, full frontmatter, summaries, vectors, labels, line ranges, or absolute filesystem paths. |
+| `get-metadata-facets <path>` | Return bounded body-free metadata facets for one note. | `--json` required | Path vault-relative. Returns canonical frontmatter facets and deterministic path-inferred fields only; never returns body, snippets, full frontmatter, absolute filesystem paths, label text, OCR text, PageIndex output, summaries, vectors, media metadata, or memory events. |
 | `list-notes` | List notes with optional filters. | `--folder <path>`, `--project <slug>`, `--tag <tag>`, `--limit <n>`, `--offset <n>`, `--since <date>`, `--until <date>`, `--chain <id>`, `--entity <id>`, `--episode <id>`, `--order date\|date-asc`, `--fields path\|path+metadata\|full` (default path+metadata), `--count-only`, `--json` | Order: by date (newest first) or by path; time and causal filters optional. Token levers: see docs/RETRIEVAL-AND-CLI-REFERENCE.md. |
 | `index` | Re-run indexer: vault → chunk → embed → vector store. | (none) | Reads vault and config; writes to vector store and optional sidecar (e.g. docid → path map). |
 | `write <path> [content]` | Create or overwrite a note. | `--stdin`, `--frontmatter k=v [k2=v2 ...]`, `--append`, `--json` | If `--stdin`, body from stdin. Frontmatter merged with existing or created. Inbox writes allowed; for non-inbox, AIR may be required (see Memory and AIR). |
@@ -125,6 +145,15 @@ All commands support global `--json` for machine-readable output. Paths are vaul
   - Default: `{ "path": "...", "frontmatter": { ... }, "body": "..." }`.
   - `--body-only`: `{ "path": "...", "body": "..." }` (no frontmatter).
   - `--frontmatter-only`: `{ "path": "...", "frontmatter": { ... } }` (no body).
+- **get-note-outline (--json):**
+  - `{ "schema": "knowtation.note_outline/v1", "path": "...", "title": "..." | null, "headings": [ { "level": 1, "text": "...", "id": "h1-example-0001" } ], "truncated": false }`.
+  - This response MUST NOT include note body, snippets, full frontmatter, source excerpts, provider keys, absolute filesystem paths, raw HTML rendering, byte offsets, exact line ranges, section body lengths, LLM summaries, vector scores, or memory events.
+- **get-document-tree (--json):**
+  - `{ "schema": "knowtation.document_tree/v0", "path": "...", "title": "..." | null, "root": { "children": [ { "id": "h1-example-0001", "level": 1, "text": "...", "children": [] } ] }, "truncated": false }`.
+  - This response MUST NOT include note body, snippets, full frontmatter, source excerpts, provider keys, absolute filesystem paths, raw HTML rendering, byte offsets, exact line ranges, section body lengths, LLM summaries, vector scores, labels, metadata facets, or memory events.
+- **get-metadata-facets (--json):**
+  - `{ "schema": "knowtation.metadata_facets/v0", "path": "...", "facets": { "project": "..." | null, "tags": [], "date": "..." | null, "updated": "..." | null, "causal_chain_id": "..." | null, "entity": [], "episode_id": "..." | null }, "inferred": { "folder": "..." | null, "source_type": null }, "truncated": false }`.
+  - This response MUST NOT include note body, snippets, full frontmatter, source excerpts, provider keys, absolute filesystem paths, raw HTML rendering, byte offsets, exact line ranges, section body lengths, LLM summaries, vector scores, labels, OCR text, PageIndex output, media metadata, memory events, or MCP resource URIs.
 - **list-notes (--json):**
   - Default or `--fields path+metadata`: `{ "notes": [ { "path": "...", "project": "...", "tags": [], "date": "..." } ], "total": number }`.
   - `--fields path`: notes array has only `path` per entry (and `total`).
@@ -179,7 +208,7 @@ No secrets in config; use env for API keys (e.g. `OPENAI_API_KEY`). Do not commi
 
 ## 6. MCP server (optional)
 
-When an MCP server is provided, it MUST expose the same operations and semantics as the CLI: search, get-note, list-notes, index, write, export, import. Same filters (folder, project, tag), same JSON shapes, same error behavior. MCP is a transport only; the spec is the CLI.
+When an MCP server is provided, it MUST expose the same operations and semantics as the CLI for tools implemented on that transport: search, get-note, get-note-outline, get-document-tree, list-notes, index, write, export, import. `get-document-tree` / `get_document_tree` is implemented for local CLI, self-hosted MCP, and hosted MCP as a body-free derived heading tree. Same filters (folder, project, tag), same JSON shapes, same error behavior. MCP is a transport only; the spec is the CLI.
 
 ---
 

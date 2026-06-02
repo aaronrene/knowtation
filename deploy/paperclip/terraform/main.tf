@@ -1,10 +1,10 @@
 ######################################################################
 # Paperclip orchestrator — AWS infrastructure
 #
-# Provisions ONE EC2 t3.medium with:
+# Provisions ONE EC2 t3.large with:
 #   - Ubuntu 24.04 LTS (latest Canonical AMI for the chosen region)
 #   - 30 GB gp3 EBS root volume (encrypted)
-#   - IAM role with read-only access to /knowtation/paperclip/* in SSM
+#   - IAM role with read/write access to /knowtation/paperclip/* in SSM (push-secrets on instance)
 #   - Security group: SSH from your home IP, Tailscale UDP, HTTP/HTTPS
 #   - User-data script that joins Tailscale on first boot and runs install.sh
 #
@@ -67,7 +67,7 @@ resource "aws_key_pair" "operator" {
 
 resource "aws_security_group" "paperclip" {
   name        = "knowtation-paperclip-${var.environment}-${random_id.suffix.hex}"
-  description = "Paperclip orchestrator: SSH from home IP only, Tailscale, HTTP/HTTPS for Let's Encrypt"
+  description = "Paperclip orchestrator: SSH from home IP only, Tailscale, HTTP for Lets Encrypt"
   vpc_id      = data.aws_vpc.default.id
 
   # SSH (TCP 22) — your home IP only. Primary access is Tailscale; this is fallback.
@@ -90,7 +90,7 @@ resource "aws_security_group" "paperclip" {
 
   # HTTP — Let's Encrypt HTTP-01 challenge ONLY. Paperclip dashboard is Tailscale-only.
   ingress {
-    description = "Let's Encrypt HTTP-01 challenge"
+    description = "Lets Encrypt HTTP-01 challenge port 80"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -134,7 +134,7 @@ resource "aws_iam_role" "paperclip" {
 }
 
 resource "aws_iam_role_policy" "ssm_read" {
-  name = "ssm-read-paperclip-secrets"
+  name = "ssm-paperclip-secrets-readwrite"
   role = aws_iam_role.paperclip.id
 
   policy = jsonencode({
@@ -145,13 +145,19 @@ resource "aws_iam_role_policy" "ssm_read" {
         Action = [
           "ssm:GetParameter",
           "ssm:GetParameters",
-          "ssm:GetParametersByPath"
+          "ssm:GetParametersByPath",
+          "ssm:PutParameter",
+          "ssm:DeleteParameter"
         ]
         Resource = "arn:aws:ssm:${var.aws_region}:*:parameter/knowtation/paperclip/*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["kms:Decrypt"]
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey"
+        ]
         Resource = "*"
         Condition = {
           StringEquals = {

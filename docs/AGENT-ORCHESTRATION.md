@@ -4,7 +4,7 @@
 
 Knowtation is designed as a **knowledge backend** for multi-agent orchestration systems. Orchestrators and their agents can read from and write to the vault via **CLI** or **MCP**. This doc describes both options and how to integrate with systems like [AgentCeption](https://github.com/cgcardona/agentception).
 
-**On this page:** Why both surfaces → **Option A (MCP)** → **Option B (CLI)** → **Patterns** → **AgentCeption** → **Summary** — scroll to the matching emoji heading.
+**On this page:** Why both surfaces → **Option A (MCP)** → **Option B (CLI)** → **Patterns** → **AgentCeption** → **Muse / MuseHub** → **Summary** — scroll to the matching emoji heading.
 
 ---
 
@@ -93,6 +93,38 @@ No change to AgentCeption’s core flow; Knowtation is an optional **context and
 
 ---
 
+## 🗂️ Muse and MuseHub (version control for this repo)
+
+This codebase is tracked with **[Muse](https://staging.musehub.ai/muse/getting-started)** and pushed to **MuseHub (staging)**. **Git / GitHub** remain for **mirrors, PRs, Actions, and collaborators** who are not on Muse yet.
+
+### Default workflow (Muse first)
+
+When you change **source in this repository** and the goal is to **record history on MuseHub**, use the **Muse CLI** (not `git commit`):
+
+1. `muse status`
+2. `muse code add <paths>` or `muse code add .` (respects **`.museignore`**)
+3. `muse commit -m "type: summary"`
+4. `muse push staging <branch>` — staging remote is named **`staging`** (owner/slug: **`aaronrene/knowtation`** on `staging.musehub.ai`).
+
+Say **“Muse commit”** when you mean `muse commit`; say **“Git commit”** when you mean `git commit`.
+
+### When to use Git instead
+
+Use **`git add` / `git commit` / `git push`** when the task is explicitly **GitHub-only** — for example: open or update a **GitHub PR**, satisfy **branch protection**, trigger **GitHub Actions**, or pair with a reviewer who only uses Git. If the user says both, do **Muse first** for the canonical product snapshot, then mirror to Git per the user’s export / PR process.
+
+If the user says only “commit” and does not specify, **prefer Muse** for this tree or **ask once** which remote they want updated.
+
+### Ignores and secrets
+
+- **`.museignore`** controls what Muse snapshots. It is **not** auto-synced from **`.gitignore`**; keep them aligned for sensitive paths (`config/local.yaml`, `data/`, `.tmp-transcribe-chunks/`, etc.).
+- Never commit **`config/local.yaml`** or other **gitignored / museignored** secret paths.
+
+### Vault vs repo
+
+MCP/CLI orchestration above applies to **vault access** for agents. **Private or personal vaults** should live **outside** this repo (or only be referenced from **ignored** local config). Do not put private material under in-repo **`vault/`** if the Muse/Git remote may be public.
+
+---
+
 ## 📋 Summary
 
 | Goal | Use |
@@ -101,5 +133,7 @@ No change to AgentCeption’s core flow; Knowtation is an optional **context and
 | Agents in containers / worktrees (no MCP) | Option B: install Knowtation CLI, set `KNOWTATION_VAULT_PATH`, run `knowtation ... --json` and parse output. |
 | Write-back (plans, summaries) | `knowtation write <path> --stdin --frontmatter source=... date=...`; optional script in `scripts/` to wrap this. |
 | Keep token cost low | Tiered retrieval: small limit, path/snippet only, then get-note for 1–2 paths. See [RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md). |
+| Record code changes for **MuseHub (staging)** | `muse status` → `muse code add` → `muse commit` → `muse push staging <branch>`. See **Muse / MuseHub** section above. |
+| **GitHub-only** work (PR, CI, mirror) | `git` workflow as usual; coordinate with the human so Muse and Git do not diverge unintentionally. |
 
 Spec and CLI/MCP semantics: **[docs/SPEC.md](./SPEC.md)**. Retrieval and token levers: **[docs/RETRIEVAL-AND-CLI-REFERENCE.md](./RETRIEVAL-AND-CLI-REFERENCE.md)**.

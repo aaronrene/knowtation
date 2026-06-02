@@ -11,6 +11,7 @@
 #
 # What this asks for:
 #   - DEEPINFRA_API_KEY                  (required)
+#   - GEMINI_API_KEY                     (required for Gemini CLI adapter)
 #   - HEYGEN_API_KEY                     (required for video render)
 #   - HEYGEN_AVATAR_ID                   (required: your Custom Digital Twin)
 #   - HEYGEN_VOICE_ID                    (required: ElevenLabs-paired voice in HeyGen)
@@ -44,6 +45,7 @@ echo ""
 
 REQUIRED=(
   "DEEPINFRA_API_KEY|DeepInfra API key (https://deepinfra.com/dash/api_keys)"
+  "GEMINI_API_KEY|Google AI Studio API key for Gemini CLI adapter (https://aistudio.google.com/app/apikey)"
   "HEYGEN_API_KEY|HeyGen API key (Settings → API)"
   "HEYGEN_AVATAR_ID|HeyGen Avatar ID (your Custom Digital Twin)"
   "HEYGEN_VOICE_ID|HeyGen Voice ID (your ElevenLabs-paired voice)"

@@ -122,6 +122,8 @@
   let currentNotePathForCopy = '';
   /** @type {{ path: string, body: string, frontmatter: Record<string, string> } | null} */
   let currentOpenNote = null;
+  /** Increments when the SectionSource panel is reset so stale body-free reads do not render. */
+  let hubSectionSourceSeq = 0;
   /** When set, full-create save may delete this path after posting the duplicate (optional checkbox). */
   /** @type {{ path: string } | null} */
   let pendingDuplicateDeleteSource = null;
@@ -141,6 +143,7 @@
   function closeDetailPanel() {
     currentOpenNote = null;
     currentNotePathForCopy = '';
+    resetDetailSectionSourceState();
     teardownDetailEditBodyLayout();
     hideDetailPanelChrome();
     const bcbClose = el('btn-detail-copy-body');
@@ -757,6 +760,20 @@
   function hubUserCanWriteNotes() {
     const r = window.__hubUserRole;
     return r === 'editor' || r === 'admin' || r === 'member';
+  }
+
+  /** Same roles as POST /api/v1/proposals on Hub (evaluators propose; viewers do not). */
+  function hubUserMayProposeFromNote() {
+    const r = window.__hubUserRole;
+    return r === 'editor' || r === 'admin' || r === 'member' || r === 'evaluator';
+  }
+
+  /** Download current note (POST /api/v1/export); allowed for any vault reader including viewer. */
+  function hubUserCanExportNote() {
+    const r = window.__hubUserRole || 'member';
+    return (
+      r === 'editor' || r === 'admin' || r === 'member' || r === 'viewer' || r === 'evaluator'
+    );
   }
 
   /** Proposal Enrich (AI): evaluators may run it without note-write roles; editors/admins/members still qualify. */
@@ -2730,6 +2747,7 @@
             hubMarkSemanticIndexStale();
             if (currentOpenNote && currentOpenNote.path === path) {
               currentOpenNote = null;
+              resetDetailSectionSourceState();
               hideDetailPanelChrome();
             }
             loadNotes();
@@ -7874,8 +7892,268 @@
     );
   }
 
+  const SECTION_SOURCE_SCHEMA = 'knowtation.section_source/v0';
+  const SECTION_SOURCE_FORBIDDEN_KEYS = new Set([
+    'absolute_path',
+    'body',
+    'body_length',
+    'byte_offset',
+    'byte_offsets',
+    'frontmatter',
+    'line_range',
+    'line_ranges',
+    'mcp_resource_uri',
+    'provider_payload',
+    'raw_canister_payload',
+    'resource_uri',
+    'section_body',
+    'section_body_length',
+    'snippet',
+    'snippets',
+  ]);
+
+  function normalizeSectionSourcePathForUi(path) {
+    const value = String(path || '').trim();
+    if (!value) return '';
+    if (value.includes('\\') || value.includes('\0')) return '';
+    if (value.startsWith('/') || /^[A-Za-z]:/.test(value)) return '';
+    if (value.split('/').some((part) => part === '..')) return '';
+    return value;
+  }
+
+  function sectionSourceEndpointForPath(path) {
+    return '/api/v1/section-source?path=' + encodeURIComponent(path);
+  }
+
+  function sectionSourcePayloadHasForbiddenKeys(value) {
+    if (!value || typeof value !== 'object') return false;
+    if (Array.isArray(value)) return value.some((item) => sectionSourcePayloadHasForbiddenKeys(item));
+    for (const [key, child] of Object.entries(value)) {
+      if (SECTION_SOURCE_FORBIDDEN_KEYS.has(key)) return true;
+      if (sectionSourcePayloadHasForbiddenKeys(child)) return true;
+    }
+    return false;
+  }
+
+  function normalizeSectionSourceForRender(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('INVALID_SECTION_SOURCE');
+    }
+    if (sectionSourcePayloadHasForbiddenKeys(data)) {
+      throw new Error('INVALID_SECTION_SOURCE');
+    }
+    if (data.schema !== SECTION_SOURCE_SCHEMA || !Array.isArray(data.sections)) {
+      throw new Error('INVALID_SECTION_SOURCE');
+    }
+    return {
+      schema: SECTION_SOURCE_SCHEMA,
+      path: String(data.path || ''),
+      title: String(data.title || ''),
+      truncated: data.truncated === true,
+      sections: data.sections.map((section) => {
+        const item = section && typeof section === 'object' && !Array.isArray(section) ? section : {};
+        const normalized = {
+          section_id: String(item.section_id || ''),
+          heading_id: String(item.heading_id || ''),
+          level: Number.isInteger(item.level) ? item.level : Number.parseInt(String(item.level || '0'), 10) || 0,
+          heading_path: Array.isArray(item.heading_path) ? item.heading_path.map((part) => String(part)) : [],
+          heading_text: String(item.heading_text || ''),
+          child_section_ids: Array.isArray(item.child_section_ids)
+            ? item.child_section_ids.map((childId) => String(childId))
+            : [],
+          body_available: item.body_available === true,
+          body_returned: item.body_returned === true,
+          snippet_returned: item.snippet_returned === true,
+        };
+        if (normalized.body_returned || normalized.snippet_returned) {
+          throw new Error('INVALID_SECTION_SOURCE');
+        }
+        return normalized;
+      }),
+    };
+  }
+
+  function resetDetailSectionSourceState() {
+    hubSectionSourceSeq += 1;
+    document.querySelectorAll('[data-section-source-panel]').forEach((panel) => panel.remove());
+  }
+
+  function setSectionSourcePanelState(panel, state, message) {
+    panel.className = 'section-source-panel section-source-panel-' + state;
+    panel.setAttribute('role', state === 'error' ? 'alert' : 'region');
+    panel.setAttribute('aria-label', 'Body-free section list');
+    panel.setAttribute('aria-live', 'polite');
+    panel.replaceChildren();
+    const text = document.createElement('p');
+    text.className = 'section-source-state';
+    text.textContent = message;
+    panel.appendChild(text);
+  }
+
+  function sectionSourceErrorMessage(error) {
+    const code = error && error.code ? String(error.code) : '';
+    const message = error && error.message ? String(error.message) : '';
+    if (code === 'INVALID_PATH') return 'Sections are unavailable for this note path.';
+    if (code === 'NOT_FOUND') return 'Sections are unavailable because the note was not found.';
+    if (code === 'FORBIDDEN') return 'Sections are unavailable for this session.';
+    if (message === 'Unauthorized') return 'Sign in to view sections.';
+    return 'Sections are unavailable right now.';
+  }
+
+  function appendSectionSourceDebugRow(list, labelText, valueText) {
+    const label = document.createElement('dt');
+    label.textContent = labelText;
+    const value = document.createElement('dd');
+    value.textContent = valueText;
+    list.append(label, value);
+  }
+
+  function renderSectionSourceData(panel, source) {
+    panel.className = 'section-source-panel';
+    panel.setAttribute('role', 'region');
+    panel.setAttribute('aria-label', 'Body-free section list');
+    panel.setAttribute('aria-live', 'polite');
+    panel.replaceChildren();
+
+    const header = document.createElement('div');
+    header.className = 'section-source-header';
+    const title = document.createElement('h3');
+    title.textContent = 'Sections';
+    const meta = document.createElement('p');
+    meta.className = 'muted small';
+    meta.textContent = source.title ? source.title + ' · ' + source.path : source.path;
+    header.append(title, meta);
+    panel.appendChild(header);
+
+    if (source.truncated) {
+      const truncated = document.createElement('p');
+      truncated.className = 'section-source-state section-source-truncated';
+      truncated.textContent = 'Section list is capped for display.';
+      panel.appendChild(truncated);
+    }
+
+    if (source.sections.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'section-source-state';
+      empty.textContent = 'No headings are available for this note.';
+      panel.appendChild(empty);
+      return;
+    }
+
+    const list = document.createElement('ol');
+    list.className = 'section-source-list';
+    for (const section of source.sections) {
+      const item = document.createElement('li');
+      item.className = 'section-source-item section-source-level-' + Math.min(Math.max(section.level, 1), 6);
+
+      const heading = document.createElement('p');
+      heading.className = 'section-source-heading';
+      const levelBadge = document.createElement('span');
+      levelBadge.className = 'section-source-level-label';
+      levelBadge.textContent = 'H' + section.level;
+      const headingText = document.createElement('span');
+      headingText.className = 'section-source-heading-text';
+      headingText.textContent = section.heading_text || '(Untitled section)';
+      heading.append(levelBadge, headingText);
+      item.appendChild(heading);
+
+      const detail = document.createElement('p');
+      detail.className = 'section-source-detail muted small';
+      detail.textContent = 'Heading level: H' + section.level;
+      item.appendChild(detail);
+
+      const pathLine = document.createElement('p');
+      pathLine.className = 'section-source-path muted small';
+      pathLine.textContent =
+        'Heading path: ' +
+        (section.heading_path.length > 0 ? section.heading_path.join(' / ') : section.heading_text || '(Untitled section)');
+      item.appendChild(pathLine);
+
+      const childLine = document.createElement('p');
+      childLine.className = 'section-source-children muted small';
+      childLine.textContent = 'Child sections: ' + section.child_section_ids.length;
+      item.appendChild(childLine);
+
+      const debugDetails = document.createElement('details');
+      debugDetails.className = 'section-source-debug muted small';
+      const debugSummary = document.createElement('summary');
+      debugSummary.textContent = 'IDs';
+      const debugList = document.createElement('dl');
+      debugList.className = 'section-source-debug-list';
+      appendSectionSourceDebugRow(debugList, 'Section ID', section.section_id || 'Unavailable');
+      appendSectionSourceDebugRow(debugList, 'Heading ID', section.heading_id || 'Unavailable');
+      appendSectionSourceDebugRow(
+        debugList,
+        'Child IDs',
+        section.child_section_ids.length > 0 ? section.child_section_ids.join(', ') : 'None',
+      );
+      debugDetails.append(debugSummary, debugList);
+      item.appendChild(debugDetails);
+
+      list.appendChild(item);
+    }
+    panel.appendChild(list);
+  }
+
+  async function loadSectionSourceForCurrentNote(actionsEl, button) {
+    let panel = actionsEl.querySelector('[data-section-source-panel]');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.dataset.sectionSourcePanel = 'true';
+      actionsEl.appendChild(panel);
+    }
+    const path = normalizeSectionSourcePathForUi(currentOpenNote && currentOpenNote.path);
+    if (!path) {
+      setSectionSourcePanelState(panel, 'error', 'Sections are unavailable for this note path.');
+      return;
+    }
+    const seq = ++hubSectionSourceSeq;
+    const openPath = currentOpenNote.path;
+    setSectionSourcePanelState(panel, 'loading', 'Loading sections...');
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-expanded', 'true');
+    }
+    try {
+      const data = await api(sectionSourceEndpointForPath(path), { method: 'GET' });
+      if (seq !== hubSectionSourceSeq || !currentOpenNote || currentOpenNote.path !== openPath) return;
+      renderSectionSourceData(panel, normalizeSectionSourceForRender(data));
+    } catch (error) {
+      if (seq !== hubSectionSourceSeq || !currentOpenNote || currentOpenNote.path !== openPath) return;
+      setSectionSourcePanelState(panel, 'error', sectionSourceErrorMessage(error));
+    } finally {
+      if (button && currentOpenNote && currentOpenNote.path === openPath) {
+        button.disabled = false;
+      }
+    }
+  }
+
+  function toggleSectionSourcePanel(actionsEl, button) {
+    const panel = actionsEl.querySelector('[data-section-source-panel]');
+    if (panel) {
+      hubSectionSourceSeq += 1;
+      panel.remove();
+      if (button) button.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    void loadSectionSourceForCurrentNote(actionsEl, button);
+  }
+
+  function createSectionSourceButton(actionsEl) {
+    const sectionBtn = document.createElement('button');
+    sectionBtn.type = 'button';
+    sectionBtn.textContent = 'Sections';
+    sectionBtn.className = 'btn-section-source';
+    sectionBtn.setAttribute('aria-expanded', 'false');
+    sectionBtn.setAttribute('aria-controls', 'detail-actions');
+    sectionBtn.title = 'Show body-free section headings for this note';
+    sectionBtn.onclick = () => toggleSectionSourcePanel(actionsEl, sectionBtn);
+    return sectionBtn;
+  }
+
   function switchNoteToReadMode() {
     if (!currentOpenNote) return;
+    resetDetailSectionSourceState();
     teardownDetailEditBodyLayout();
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
@@ -7897,6 +8175,7 @@
       hubMarkSemanticIndexStale();
       currentOpenNote = null;
       currentNotePathForCopy = '';
+      resetDetailSectionSourceState();
       teardownDetailEditBodyLayout();
       hideDetailPanelChrome();
       el('btn-copy-path').classList.add('hidden');
@@ -7910,45 +8189,77 @@
   }
 
   function attachNoteDetailReadActions(actionsEl) {
-    if (!hubUserCanWriteNotes()) return;
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.textContent = 'Edit';
-    editBtn.onclick = () => switchNoteToEditMode();
-    const dupBtn = document.createElement('button');
-    dupBtn.type = 'button';
-    dupBtn.textContent = 'Duplicate…';
-    dupBtn.title = 'Open New note (full) with this content and a suggested new path; optional delete of the original after save.';
-    dupBtn.onclick = () => {
-      void openDuplicateNoteModal();
-    };
-    const proposeBtn = document.createElement('button');
-    proposeBtn.type = 'button';
-    proposeBtn.textContent = 'Propose change';
-    proposeBtn.onclick = () => {
-      if (!currentOpenNote) return;
-      openCreateProposalModal({
-        path: currentOpenNote.path,
-        body: currentOpenNote.body || '',
-        fromNote: true,
-      });
-    };
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.textContent = 'Delete';
-    delBtn.onclick = () => deleteOpenNote();
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
     exportBtn.textContent = 'Export';
     exportBtn.onclick = () => exportCurrentNote('md');
-    if (hubHasMultipleVaultsForCopy()) {
-      const copyVaultBtn = document.createElement('button');
-      copyVaultBtn.type = 'button';
-      copyVaultBtn.textContent = 'Copy to vault…';
-      copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
-      actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, copyVaultBtn, exportBtn);
-    } else {
-      actionsEl.append(editBtn, dupBtn, proposeBtn, delBtn, exportBtn);
+    const sectionBtn = createSectionSourceButton(actionsEl);
+
+    if (hubUserCanWriteNotes()) {
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.textContent = 'Edit';
+      editBtn.onclick = () => switchNoteToEditMode();
+      const dupBtn = document.createElement('button');
+      dupBtn.type = 'button';
+      dupBtn.textContent = 'Duplicate…';
+      dupBtn.title =
+        'Open New note (full) with this content and a suggested new path; optional delete of the original after save.';
+      dupBtn.onclick = () => {
+        void openDuplicateNoteModal();
+      };
+      const proposeBtn = document.createElement('button');
+      proposeBtn.type = 'button';
+      proposeBtn.textContent = 'Propose change';
+      proposeBtn.onclick = () => {
+        if (!currentOpenNote) return;
+        openCreateProposalModal({
+          path: currentOpenNote.path,
+          body: currentOpenNote.body || '',
+          fromNote: true,
+        });
+      };
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.textContent = 'Delete';
+      delBtn.onclick = () => deleteOpenNote();
+      if (hubHasMultipleVaultsForCopy()) {
+        const copyVaultBtn = document.createElement('button');
+        copyVaultBtn.type = 'button';
+        copyVaultBtn.textContent = 'Copy to vault…';
+        copyVaultBtn.onclick = () => openCopyNoteToVaultModal();
+        actionsEl.append(editBtn, dupBtn, proposeBtn, sectionBtn, delBtn, copyVaultBtn, exportBtn);
+      } else {
+        actionsEl.append(editBtn, dupBtn, proposeBtn, sectionBtn, delBtn, exportBtn);
+      }
+      return;
+    }
+
+    if (hubUserMayProposeFromNote()) {
+      const proposeBtn = document.createElement('button');
+      proposeBtn.type = 'button';
+      proposeBtn.textContent = 'Propose change';
+      proposeBtn.onclick = () => {
+        if (!currentOpenNote) return;
+        openCreateProposalModal({
+          path: currentOpenNote.path,
+          body: currentOpenNote.body || '',
+          fromNote: true,
+        });
+      };
+      actionsEl.appendChild(proposeBtn);
+    }
+    actionsEl.appendChild(sectionBtn);
+    if (hubUserCanExportNote()) {
+      actionsEl.appendChild(exportBtn);
+    }
+    if (window.__hubUserRole === 'viewer' && hubUserCanExportNote()) {
+      const hint = document.createElement('p');
+      hint.className = 'muted small';
+      hint.style.marginTop = '0.5rem';
+      hint.textContent =
+        'Viewer access: you can read and export. Ask a workspace admin for editor access to change notes directly.';
+      actionsEl.appendChild(hint);
     }
   }
 
@@ -8081,6 +8392,7 @@
           if (res.moved) {
             currentOpenNote = null;
             currentNotePathForCopy = '';
+            resetDetailSectionSourceState();
             hideDetailPanelChrome();
             const bcp = el('btn-copy-path');
             if (bcp) bcp.classList.add('hidden');
@@ -8460,6 +8772,7 @@
   function switchNoteToEditMode() {
     if (!currentOpenNote) return;
     closeCreateModal();
+    resetDetailSectionSourceState();
     const bcbEdit = el('btn-detail-copy-body');
     if (bcbEdit) bcbEdit.classList.add('hidden');
     const bodyEl = el('detail-body');
@@ -8535,6 +8848,7 @@
 
   function openNote(path) {
     const seq = ++hubOpenNoteSeq;
+    resetDetailSectionSourceState();
     teardownDetailEditBodyLayout();
     closeCreateModal();
     currentNotePathForCopy = path;
@@ -8725,6 +9039,7 @@
   }
 
   function openProposal(id) {
+    resetDetailSectionSourceState();
     currentNotePathForCopy = '';
     currentOpenNote = null;
     el('btn-copy-path').classList.add('hidden');

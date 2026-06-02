@@ -14,7 +14,10 @@ import yaml from 'js-yaml';
 
 const __filename = fileURLToPath(import.meta.url);
 import { loadConfig } from '../lib/config.mjs';
-import { readNote, resolveVaultRelativePath, noteFileExistsInVault } from '../lib/vault.mjs';
+import { readNote, resolveVaultRelativePath, noteFileExistsInVault, normalizeMetadataFacets } from '../lib/vault.mjs';
+import { buildNoteOutline } from '../lib/note-outline.mjs';
+import { buildDocumentTree } from '../lib/document-tree.mjs';
+import { readSectionSource } from '../lib/section-source-note.mjs';
 import { noteStateIdFromHubNoteJson, absentNoteStateId } from '../lib/note-state-id.mjs';
 import { runListNotes as runListNotesOp } from '../lib/list-notes.mjs';
 import { exitWithError } from '../lib/errors.mjs';
@@ -33,6 +36,10 @@ Usage:
 Commands:
   search <query>     Semantic search over vault (default), or --keyword for literal text. Use --project, --tag, --folder, --limit. --json for machine output.
   get-note <path>   Return full content of one note by path. Use --body-only, --frontmatter-only, --json.
+  get-note-outline <path>  Return a derived Markdown heading outline for one note. Requires --json.
+  get-document-tree <path> Return a derived Markdown heading tree for one note. Requires --json.
+  get-metadata-facets <path> Return bounded body-free metadata facets for one note. Requires --json.
+  get-section-source <path> Return body-free SectionSource metadata for one note. Requires --json.
   list-notes        List notes. Use --folder, --project, --tag, --limit, --offset, --fields, --count-only, --json.
   index             Re-run indexer: vault → chunk → embed → vector store (Qdrant or sqlite-vec).
   write <path>      Create or overwrite a note. Use --stdin for body, --frontmatter k=v, --append.
@@ -118,6 +125,145 @@ function runGetNote() {
   process.exit(0);
 }
 
+function runGetNoteOutline() {
+  const pathArg = args.find((a, i) => i >= 1 && !a.startsWith('--'));
+  if (!pathArg) {
+    exitWithError('knowtation get-note-outline: provide a note path.', 1, useJson);
+  }
+  if (!useJson) {
+    exitWithError('knowtation get-note-outline: --json is required in this MVP.', 1, useJson);
+  }
+
+  let config;
+  try {
+    config = loadConfig();
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    resolveVaultRelativePath(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  let note;
+  try {
+    note = readNote(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    console.log(JSON.stringify(buildNoteOutline(note)));
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+  process.exit(0);
+}
+
+function runGetDocumentTree() {
+  const pathArg = args.find((a, i) => i >= 1 && !a.startsWith('--'));
+  if (!pathArg) {
+    exitWithError('knowtation get-document-tree: provide a note path.', 1, useJson);
+  }
+  if (!useJson) {
+    exitWithError('knowtation get-document-tree: --json is required in this MVP.', 1, useJson);
+  }
+
+  let config;
+  try {
+    config = loadConfig();
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    resolveVaultRelativePath(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  let note;
+  try {
+    note = readNote(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    console.log(JSON.stringify(buildDocumentTree(note)));
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+  process.exit(0);
+}
+
+function runGetMetadataFacets() {
+  const pathArg = args.find((a, i) => i >= 1 && !a.startsWith('--'));
+  if (!pathArg) {
+    exitWithError('knowtation get-metadata-facets: provide a note path.', 1, useJson);
+  }
+  if (!useJson) {
+    exitWithError('knowtation get-metadata-facets: --json is required.', 1, useJson);
+  }
+
+  let config;
+  try {
+    config = loadConfig();
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    resolveVaultRelativePath(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  let note;
+  try {
+    note = readNote(config.vault_path, pathArg);
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    console.log(JSON.stringify(normalizeMetadataFacets(note.path, note.frontmatter)));
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+  process.exit(0);
+}
+
+function runGetSectionSource() {
+  const pathArgs = args.filter((a, i) => i >= 1 && !a.startsWith('--'));
+  const pathArg = pathArgs[0];
+  if (!pathArg) {
+    exitWithError('knowtation get-section-source: provide a note path.', 1, useJson);
+  }
+  if (pathArgs.length > 1) {
+    exitWithError('knowtation get-section-source: provide exactly one note path.', 1, useJson);
+  }
+  if (!useJson) {
+    exitWithError('knowtation get-section-source: --json is required.', 1, useJson);
+  }
+
+  let config;
+  try {
+    config = loadConfig();
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+
+  try {
+    console.log(JSON.stringify(readSectionSource(config.vault_path, pathArg)));
+  } catch (e) {
+    exitWithError(e.message, 2, useJson);
+  }
+  process.exit(0);
+}
+
 function runListNotes() {
   const folder = getOpt('folder');
   const project = getOpt('project');
@@ -196,6 +342,38 @@ async function main() {
       process.exit(0);
     }
     runGetNote();
+  }
+
+  if (subcommand === 'get-note-outline') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation get-note-outline <path>\n  Options: --json (required)');
+      process.exit(0);
+    }
+    runGetNoteOutline();
+  }
+
+  if (subcommand === 'get-document-tree') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation get-document-tree <path>\n  Options: --json (required)');
+      process.exit(0);
+    }
+    runGetDocumentTree();
+  }
+
+  if (subcommand === 'get-metadata-facets') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation get-metadata-facets <path>\n  Options: --json (required)');
+      process.exit(0);
+    }
+    runGetMetadataFacets();
+  }
+
+  if (subcommand === 'get-section-source') {
+    if (hasOpt('help') || hasOpt('h')) {
+      console.log('knowtation get-section-source <path>\n  Options: --json (required)');
+      process.exit(0);
+    }
+    runGetSectionSource();
   }
 
   if (subcommand === 'list-notes') {

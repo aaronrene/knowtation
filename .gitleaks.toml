@@ -1,0 +1,8 @@
+title = "Knowtation gitleaks configuration"
+
+[allowlist]
+description = "Non-secret security test fixture literals."
+regexes = [
+  '''token must have 3 parts: exp\.uid_b64\.sig''',
+  '''test-secret-at-least-32-characters-long-for-jwt''',
+]

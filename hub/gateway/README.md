@@ -6,6 +6,8 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 
 - **GET /health**, **GET /api/v1/health** — Health (no auth).
 - **GET /api/v1/auth/providers** — Which OAuth providers are configured (no auth).
+- **GET /scooling/note-outline/smoke?path=...** — Local/staging-only Scooling NoteOutline smoke bridge. Disabled unless **`SCOOLING_NOTE_OUTLINE_SMOKE_ENABLED=1`** and **`SCOOLING_NOTE_OUTLINE_SMOKE_ENV=local|staging`**. The gateway owns the upstream bearer token, rejects request credentials from Scooling, validates the upstream body-free `NoteOutline`, and returns only the `knowtation.note_outline/v1` JSON contract.
+- **POST /scooling/write-back/smoke** — Staging-only, metadata-only Scooling write-back target smoke check. Disabled unless **`SCOOLING_WRITE_BACK_SMOKE_ENABLED=1`** and **`SCOOLING_WRITE_BACK_SMOKE_ENV=staging`**. It checks canister metadata availability and returns dry-run capability flags only; it never accepts raw credentials or performs live writes.
 - **GET /auth/login?provider=google|github** — Redirect to OAuth (plan routes).
 - **GET /api/v1/auth/login?provider=...** — Redirects to `/auth/login` for Hub UI compatibility.
 - **GET /auth/callback/google**, **GET /auth/callback/github** — OAuth callbacks; on success redirect to `HUB_UI_ORIGIN/?token=<jwt>`.
@@ -37,6 +39,12 @@ When the gateway **re-serializes** the JSON body (e.g. provenance merge), it **r
 | **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET** | No | Google OAuth (enables "Continue with Google"). |
 | **GITHUB_CLIENT_ID**, **GITHUB_CLIENT_SECRET** | No | GitHub OAuth (enables "Continue with GitHub"). |
 | **GATEWAY_PORT** or **PORT** | No | Port (default 3340). |
+| **SCOOLING_NOTE_OUTLINE_SMOKE_ENABLED** | No | Set to `1` only for local/staging structural UX smoke validation. |
+| **SCOOLING_NOTE_OUTLINE_SMOKE_ENV** | No | Must be `local` or `staging` for `GET /scooling/note-outline/smoke` to answer; any other value returns 404. |
+| **SCOOLING_NOTE_OUTLINE_SMOKE_UPSTREAM** | No | Full HTTP(S) URL for the auth-gated upstream `GET /api/v1/note-outline` endpoint. Must not include credentials, query string, or fragment. |
+| **SCOOLING_NOTE_OUTLINE_SMOKE_BEARER_TOKEN** | No | Bearer token held only by the gateway bridge for the upstream NoteOutline request. Scooling must not receive, send, store, or log this token. |
+| **SCOOLING_WRITE_BACK_SMOKE_ENABLED** | No | Set to `1` only on staging to expose `POST /scooling/write-back/smoke` for Scooling target validation. |
+| **SCOOLING_WRITE_BACK_SMOKE_ENV** | No | Must be `staging` for the Scooling smoke endpoint to answer; any other value returns 404. |
 | **HUB_CORS_ORIGIN** | **Yes (prod)** if Hub UI is on another origin | Comma-separated origins, e.g. `https://knowtation.store,https://www.knowtation.store`. Required for credentialed CORS responses — see **`hub/gateway/cors-middleware.mjs`**. |
 | **HUB_JWT_EXPIRY** | No | JWT expiry for **issued API tokens** (gateway default in code is **`24h`** unless overridden; match `docs/AGENT-INTEGRATION.md`). |
 | **HUB_ADMIN_USER_IDS** | No | Comma-separated user IDs (e.g. `google:123,github:456`) who get role **admin** in the JWT and pass **`requireAdmin`** without a bridge call. When **BRIDGE_URL** is set, **Team admins** (bridge **`GET /api/v1/role`** → `role: admin`) also pass **`requireAdmin`** for gateway-only admin routes (e.g. **`POST /api/v1/settings/proposal-policy`**, workspace, vault-access, invites). Bootstrap operators often list at least one id here; further admins can be granted in Team without redeploying env. See **[docs/PARITY-MATRIX-HOSTED.md](../../docs/PARITY-MATRIX-HOSTED.md)** (hosted admin flows). |

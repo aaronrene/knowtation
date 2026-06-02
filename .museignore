@@ -1,0 +1,114 @@
+# .museignore — snapshot exclusion rules for this repository.
+
+[global]
+patterns = [
+    ".DS_Store",
+    "Thumbs.db",
+    "*.tmp",
+    "*.swp",
+    "*.swo",
+    "*.log",
+]
+
+[domain.code]
+# Keep snapshot exclusions aligned with .gitignore (same intent as Git for this repo).
+# Secrets (.env, *.key, *.pem, *.p12) are also blocked by the Muse engine where applicable.
+patterns = [
+    # ── Universal build / output directories ─────────────────────────
+    "dist/",
+    "build/",
+    "out/",
+    "tmp/",
+
+    # ── Dependency trees ─────────────────────────────────────────────
+    "node_modules/",      # JavaScript / Node
+    "vendor/",            # Go, PHP (Composer)
+
+    # ── Python ───────────────────────────────────────────────────────
+    "__pycache__/",
+    "*.pyc",
+    "*.pyo",
+    ".venv/",
+    "venv/",
+    ".tox/",
+    "*.egg-info/",
+
+    # ── Rust ─────────────────────────────────────────────────────────
+    # "target/",
+
+    # ── Java / Kotlin / Scala ────────────────────────────────────────
+    # "*.class",
+    # "*.jar",
+
+    # ── Ruby ─────────────────────────────────────────────────────────
+    # ".bundle/",
+
+    # ── IDE / editor state ───────────────────────────────────────────
+    ".idea/",
+    ".vscode/",
+
+    # ── Aligned with .gitignore (local / secrets / generated) ───────
+    "config/local.yaml",
+    "config/*-local.*",
+    ".env",
+    ".env.*",
+    "!.env.example",
+    "data/",
+    "*.db",
+    "*.sqlite",
+    "test/fixtures/data/",
+    "test/fixtures/hub-setup-test-data/",
+    "test/fixtures/tmp-*/",
+    "vault/.obsidian/workspace*",
+    "vault/.trash/",
+    "vault/inbox/note-*.md",
+    "Untitled",
+    "**/Untitled",
+    "config/Untitled",
+    "hub/icp/.dfx/",
+    "public/_redirects",
+
+    # ── Terraform — state contains real cloud resource IDs, public IPs, secret handles ──
+    # *.tfvars contains real values (keep *.tfvars.example tracked as a template);
+    # .terraform/ is local provider cache; .terraform.lock.hcl IS committed for reproducible builds.
+    # NOTE: muse anchors slash-suffixed patterns to repo root (unlike gitignore which matches
+    # anywhere). Use **/ globs for nested directories like deploy/**/.terraform/.
+    "*.tfstate",
+    "*.tfstate.*",
+    ".terraform/",
+    "**/.terraform/",
+    "**/.terraform/**",
+    "terraform.tfvars",
+    "**/terraform.tfvars",
+    "*.auto.tfvars",
+    "**/*.auto.tfvars",
+    "*.auto.tfvars.json",
+    "**/*.auto.tfvars.json",
+    "*.tfplan",
+    "**/*.tfplan",
+    "*.tfplan.json",
+    "**/*.tfplan.json",
+    "crash.log",
+    "crash.*.log",
+
+    # ── Muse ↔ Git bridge per-developer state (per `muse bridge --help`) ──
+    # Records last imported git SHA / last exported Muse commit ID locally.
+    ".muse/git-bridge.toml",
+
+    "development/",
+    "docs/archive/",
+    "docs/marketing-internal/",
+    ".cursor/plans/",
+    "docs/*.code-workspace",
+    "scripts/archive/",
+    ".tmp-transcribe-chunks/",
+]
+
+# [force_track]
+# Exact repo-relative paths to track even if they match a secrets pattern.
+# Use for dev infrastructure (e.g. self-signed TLS certs) that must survive
+# clean pulls.  No glob expansion — each entry must be an exact file path.
+# paths = [
+#     "deploy/local-tls/localhost.key",
+#     "deploy/local-tls/localhost.crt",
+# ]

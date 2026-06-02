@@ -79,6 +79,28 @@ describe('2.2 secret scanning — TruffleHog step in CI', () => {
     const yml = load();
     assert.ok(yml.includes('only-verified'), 'trufflehog should use --only-verified to suppress false positives');
   });
+
+  test('trufflehog scan range differs for pull requests and main pushes', () => {
+    const yml = load();
+
+    assert.ok(
+      yml.includes("github.event.pull_request.base.sha"),
+      'pull request secret scan must start from the PR base sha'
+    );
+    assert.ok(
+      yml.includes("github.event.pull_request.head.sha"),
+      'pull request secret scan must end at the PR head sha'
+    );
+    assert.ok(
+      yml.includes('github.event.before'),
+      'main push secret scan must start from the previous main sha'
+    );
+    assert.ok(yml.includes('github.sha'), 'main push secret scan must end at the pushed sha');
+    assert.ok(
+      !yml.includes('base: ${{ github.event.repository.default_branch }}'),
+      'main push secret scan must not compare the checked out main branch to HEAD'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
