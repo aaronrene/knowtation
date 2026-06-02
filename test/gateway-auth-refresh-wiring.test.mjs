@@ -73,6 +73,18 @@ describe('hosted gateway wires persistent sessions', () => {
     assert.ok(block.includes('createLogoutHandler'), 'logout must use createLogoutHandler');
   });
 
+  test('refresh-cookie issuance logs success and surfaces failures (no silent swallow)', () => {
+    const s = load();
+    const start = s.indexOf('async function issueRefreshCookieSafe');
+    assert.ok(start > 0, 'issueRefreshCookieSafe must exist');
+    const block = s.slice(start, start + 1200);
+    // Must log a real error in the catch, not swallow it with a bare noop.
+    assert.ok(/catch\s*\(\s*err\s*\)/.test(block), 'catch must bind the error');
+    assert.ok(block.includes('console.error'), 'a refresh-store write failure must be logged');
+    assert.ok(block.includes('authBlobPresent'), 'failure log must record whether the auth blob was provisioned');
+    assert.doesNotMatch(block, /catch\s*\(\s*_\s*\)\s*\{\s*\/\/[^\n]*\n\s*\}/, 'must not silently swallow the error');
+  });
+
   test('Netlify function provisions a strong-consistency auth blob and cleans it up', () => {
     const fn = fs.readFileSync(path.join(ROOT, 'netlify/functions/gateway.mjs'), 'utf8');
     assert.ok(fn.includes("name: 'gateway-auth'"), 'must provision the gateway-auth store');
