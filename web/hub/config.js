@@ -8,6 +8,11 @@
 // stateful /mcp — set this so Copy Hub URL includes KNOWTATION_MCP_URL. Same-origin self-hosted: use
 //   window.HUB_MCP_PUBLIC_URL = location.origin + '/mcp'
 if (typeof window !== 'undefined' && (window.location.hostname === 'knowtation.store' || window.location.hostname === 'www.knowtation.store')) {
-  window.HUB_API_BASE_URL = 'https://knowtation-gateway.netlify.app';
+  // First-party API: api.knowtation.store is a subdomain of knowtation.store, so the gateway's
+  // HttpOnly refresh cookie is same-site (not a blocked third-party cookie) and persistent login
+  // works in every browser. The bare knowtation-gateway.netlify.app host was a different
+  // registrable domain (eTLD+1 netlify.app) and would have had its session cookie dropped by
+  // Safari/Chrome. See hub/gateway/refresh-token-store.mjs and hub/auth-session.mjs.
+  window.HUB_API_BASE_URL = 'https://api.knowtation.store';
   window.HUB_MCP_PUBLIC_URL = 'https://mcp.knowtation.store/mcp';
 }
