@@ -325,7 +325,10 @@ function refreshCookiePolicy() {
  * @param {string|null} sub
  */
 async function issueRefreshCookieSafe(res, req, sub) {
-  if (!sub) return;
+  if (!sub) {
+    console.warn('[gateway] refresh cookie skipped: no sub resolved from req.user');
+    return;
+  }
   try {
     await issueRefreshCookie(res, {
       store: refreshStore,
@@ -333,8 +336,21 @@ async function issueRefreshCookieSafe(res, req, sub) {
       cookieOptions: refreshCookiePolicy,
       meta: { ua: String(req.headers['user-agent'] || '').slice(0, 256) },
     });
-  } catch (_) {
-    // noop — login proceeds with the access token even if the refresh store is unavailable.
+    console.info('[gateway] refresh cookie issued for sub=%s', sub);
+  } catch (err) {
+    // Login still proceeds with the access token even if the refresh store is unavailable, but
+    // the failure MUST be surfaced — swallowing it silently made a persistent-login outage
+    // undiagnosable. `authBlobPresent` distinguishes the two failure modes:
+    //   false → the strong-consistency Netlify Blob was not provisioned for this invocation, so
+    //           the store fell back to a file write that fails on the read-only function FS;
+    //   true  → the blob was provisioned but the read/write itself was rejected.
+    const authBlobPresent = Boolean(globalThis.__knowtation_gateway_auth_blob);
+    console.error(
+      '[gateway] refresh cookie FAILED for sub=%s authBlobPresent=%s: %s',
+      sub,
+      authBlobPresent,
+      err && err.stack ? err.stack : (err && err.message) || String(err),
+    );
   }
 }
 
