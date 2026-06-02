@@ -160,8 +160,10 @@ describe('gateway refresh store — blob backend', () => {
   });
 
   it('security: read-after-write — a rotation observes its own consume immediately', async () => {
-    // The blob is configured strong-consistency in prod; the stub is synchronous-by-await here,
-    // proving the store reads back the state it just wrote before the next decision.
+    // In prod the blob is eventual-consistency (strong is unavailable in Lambda-compat mode), so
+    // read-after-write within a single invocation is exercised here with a synchronous stub: it
+    // proves the store reads back the state it just wrote before the next decision. Cross-edge
+    // propagation (≤60s) is the documented residual window — see refresh-token-store.mjs.
     const first = await issueRefreshToken('google:1', { now: 1000 });
     await rotateRefreshToken(first.token, { now: 2000 });
     const persisted = await stub.get(BLOB_KEY, { type: 'json' });

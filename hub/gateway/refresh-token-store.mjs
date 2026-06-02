@@ -8,14 +8,25 @@
  * in exactly one place across every deployment surface; this module is intentionally thin and
  * only does I/O.
  *
- * ## Why a dedicated, strong-consistency blob
+ * ## Consistency model and the reuse-detection trade-off
  *
- * Refresh-token rotation depends on read-after-write: when a token is rotated we mark the old
- * one consumed, and a replay of that old token MUST be observed as already-consumed so reuse
- * detection (family revocation) fires. Under eventual consistency a replay could momentarily
- * read stale state and slip through. The billing store tolerates eventual consistency; the
- * auth store cannot. The Netlify function therefore provisions a SEPARATE store
- * (`globalThis.__knowtation_gateway_auth_blob`) created with `consistency: 'strong'`.
+ * Refresh-token rotation depends on read-after-write: when a token is rotated we mark the old one
+ * consumed, and a replay of that old token should be observed as already-consumed so reuse
+ * detection (family revocation) fires. Strong consistency would make that immediate, but it is
+ * NOT available in this deployment: the hosted gateway runs in Netlify's Lambda compatibility
+ * mode (serverless-http + connectLambda), which provisions only edge (eventual) access and omits
+ * the `uncachedEdgeURL` that strong-consistency reads require — a strong read throws
+ * BlobsConsistencyError. The function therefore provisions this store
+ * (`globalThis.__knowtation_gateway_auth_blob`) with `consistency: 'eventual'` (same as billing).
+ *
+ * Netlify propagates writes to all edges within 60s (usually sub-second), so a replayed consumed
+ * token is still detected once the write propagates; the residual exposure is a narrow window in
+ * which an ALREADY-stolen token could be rotated once before detection. The primary defenses are
+ * unchanged: the secret is a 256-bit opaque token delivered only as an HttpOnly cookie (never
+ * readable by JS), every rotation re-writes the whole record map (last-write-wins), and any
+ * detected reuse burns the entire family. If strict immediate detection is ever required, harden
+ * by moving this store to the strongly-consistent ICP canister or to Netlify's token-based API
+ * (origin) blob access.
  *
  * ## Storage shape (matches the self-hosted file store)
  *   { "tokens": { "<id>": { sub, family_id, token_hash, created_at, expires_at,
@@ -56,7 +67,7 @@ function refreshFilePath() {
 }
 
 /**
- * The strong-consistency Netlify Blob store, set per-invocation by the Netlify function
+ * The (eventual-consistency) Netlify Blob store, set per-invocation by the Netlify function
  * wrapper. Absent outside Netlify (dev/test), in which case we fall back to a JSON file.
  * @returns {{ get: Function, setJSON: Function } | undefined}
  */

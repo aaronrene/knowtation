@@ -1,7 +1,7 @@
 /**
  * Structural wiring tests — proves the hosted gateway actually mounts the persistent-session
- * machinery (refresh-token rotation + HttpOnly cookie + real logout) and provisions a
- * strong-consistency blob for the auth store. These guard the integration points; the
+ * machinery (refresh-token rotation + HttpOnly cookie + real logout) and provisions an
+ * eventual-consistency blob for the auth store. These guard the integration points; the
  * behavioral guarantees live in the refresh-token-core, gateway-refresh-token-store, and
  * auth-session suites.
  */
@@ -85,10 +85,16 @@ describe('hosted gateway wires persistent sessions', () => {
     assert.doesNotMatch(block, /catch\s*\(\s*_\s*\)\s*\{\s*\/\/[^\n]*\n\s*\}/, 'must not silently swallow the error');
   });
 
-  test('Netlify function provisions a strong-consistency auth blob and cleans it up', () => {
+  test('Netlify function provisions the gateway-auth blob (eventual consistency) and cleans it up', () => {
     const fn = fs.readFileSync(path.join(ROOT, 'netlify/functions/gateway.mjs'), 'utf8');
     assert.ok(fn.includes("name: 'gateway-auth'"), 'must provision the gateway-auth store');
-    assert.ok(/consistency:\s*'strong'/.test(fn), 'auth store must be strong-consistency');
+    // Strong consistency is unavailable in Lambda-compat mode (no uncachedEdgeURL → BlobsConsistencyError),
+    // so the auth store must use eventual consistency like billing. See refresh-token-store.mjs.
+    assert.ok(
+      /name: 'gateway-auth',\s*consistency:\s*'eventual'/.test(fn),
+      'auth store must use eventual consistency (strong is unsupported in Lambda-compat mode)',
+    );
+    assert.doesNotMatch(fn, /name: 'gateway-auth',\s*consistency:\s*'strong'/, 'must not request strong consistency');
     assert.ok(fn.includes('delete globalThis.__knowtation_gateway_auth_blob'), 'must clean up the global');
   });
 });
