@@ -1259,10 +1259,12 @@ app.get('/api/v1/billing/summary', (req, res) => handleBillingSummary(req, res, 
  * at old URL, checkout session never had user_id metadata, billing DB was empty on a new deploy).
  *
  * Auth: Bearer JWT with admin role (sub must be in HUB_ADMIN_USER_IDS env var).
- * Body: { uid?, tier, stripe_subscription_id?, stripe_customer_id? }
+ * Body: { uid?, tier, stripe_subscription_id?, stripe_customer_id?, has_active_subscription? }
  *   - uid: target Knowtation user ID (defaults to the calling admin's own uid)
  *   - tier: required — one of: free | beta | plus | growth | pro | starter | team
- *   - stripe_subscription_id: if provided, sets has_active_subscription = true for this user
+ *   - stripe_subscription_id: if provided (non-null), also sets has_active_subscription = true
+ *   - has_active_subscription: optional boolean override; when omitted, defaults to true
+ *       whenever a non-null stripe_subscription_id is supplied, and no-op otherwise
  *   - stripe_customer_id: if provided, links the user to their Stripe customer so future
  *       webhook events (subscription.updated, etc.) can find them
  *
@@ -1292,19 +1294,34 @@ app.post('/api/v1/admin/billing/repair', async (req, res) => {
     typeof body.stripe_subscription_id === 'string' ? body.stripe_subscription_id.trim() || null : undefined;
   const stripeCustomerId =
     typeof body.stripe_customer_id === 'string' ? body.stripe_customer_id.trim() || null : undefined;
+  // Explicit override: caller may pass has_active_subscription=false to deactivate.
+  // When stripe_subscription_id is provided: truthy value → true, null (cleared) → false.
+  // When stripe_subscription_id is omitted entirely: no-op (undefined).
+  const hasActiveSub =
+    typeof body.has_active_subscription === 'boolean'
+      ? body.has_active_subscription
+      : stripeSubId !== undefined
+        ? (stripeSubId !== null)
+        : undefined;
 
   let before;
   try {
     await mutateBillingDb((db) => {
       if (!db.users[targetUid]) db.users[targetUid] = defaultUserRecord(targetUid);
       const u = db.users[targetUid];
-      before = { tier: u.tier, stripe_subscription_id: u.stripe_subscription_id, stripe_customer_id: u.stripe_customer_id };
+      before = {
+        tier: u.tier,
+        has_active_subscription: u.has_active_subscription,
+        stripe_subscription_id: u.stripe_subscription_id,
+        stripe_customer_id: u.stripe_customer_id,
+      };
       u.tier = tier;
       if (MONTHLY_INCLUDED_CENTS_BY_TIER[tier] !== undefined) {
         u.monthly_included_cents = MONTHLY_INCLUDED_CENTS_BY_TIER[tier];
       }
       if (stripeSubId !== undefined) u.stripe_subscription_id = stripeSubId;
       if (stripeCustomerId !== undefined) u.stripe_customer_id = stripeCustomerId;
+      if (hasActiveSub !== undefined) u.has_active_subscription = hasActiveSub;
     });
   } catch (e) {
     console.error('[admin/billing/repair] mutateBillingDb failed:', e?.message);
@@ -1314,6 +1331,7 @@ app.post('/api/v1/admin/billing/repair', async (req, res) => {
   console.log(
     `[admin/billing/repair] caller=${callerUid} target=${targetUid}` +
     ` tier: ${before?.tier} → ${tier}` +
+    (hasActiveSub !== undefined ? ` has_active_subscription: ${before?.has_active_subscription} → ${hasActiveSub}` : '') +
     (stripeSubId !== undefined ? ` sub: ${before?.stripe_subscription_id} → ${stripeSubId}` : '') +
     (stripeCustomerId !== undefined ? ` cus: ${before?.stripe_customer_id} → ${stripeCustomerId}` : ''),
   );
@@ -1322,6 +1340,7 @@ app.post('/api/v1/admin/billing/repair', async (req, res) => {
     ok: true,
     uid: targetUid,
     tier,
+    has_active_subscription: hasActiveSub !== undefined ? hasActiveSub : '(unchanged)',
     stripe_subscription_id: stripeSubId !== undefined ? stripeSubId : '(unchanged)',
     stripe_customer_id: stripeCustomerId !== undefined ? stripeCustomerId : '(unchanged)',
     before,
