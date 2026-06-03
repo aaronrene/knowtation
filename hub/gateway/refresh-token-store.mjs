@@ -1,0 +1,225 @@
+/**
+ * Durable refresh-token store for the hosted gateway.
+ *
+ * This is the hosted analogue of the self-hosted `hub/refresh-tokens.mjs` file store. It
+ * persists refresh-token records to a Netlify Blob in production (and a local JSON file in
+ * dev/test) and delegates ALL security logic — rotation, reuse detection, hashing, expiry —
+ * to the pure, audited `hub/lib/refresh-token-core.mjs`. The dangerous logic therefore lives
+ * in exactly one place across every deployment surface; this module is intentionally thin and
+ * only does I/O.
+ *
+ * ## Consistency model and the reuse-detection trade-off
+ *
+ * Refresh-token rotation depends on read-after-write: when a token is rotated we mark the old one
+ * consumed, and a replay of that old token should be observed as already-consumed so reuse
+ * detection (family revocation) fires. Strong consistency would make that immediate, but it is
+ * NOT available in this deployment: the hosted gateway runs in Netlify's Lambda compatibility
+ * mode (serverless-http + connectLambda), which provisions only edge (eventual) access and omits
+ * the `uncachedEdgeURL` that strong-consistency reads require — a strong read throws
+ * BlobsConsistencyError. The function therefore provisions this store
+ * (`globalThis.__knowtation_gateway_auth_blob`) with `consistency: 'eventual'` (same as billing).
+ *
+ * Netlify propagates writes to all edges within 60s (usually sub-second), so a replayed consumed
+ * token is still detected once the write propagates; the residual exposure is a narrow window in
+ * which an ALREADY-stolen token could be rotated once before detection. The primary defenses are
+ * unchanged: the secret is a 256-bit opaque token delivered only as an HttpOnly cookie (never
+ * readable by JS), every rotation re-writes the whole record map (last-write-wins), and any
+ * detected reuse burns the entire family. If strict immediate detection is ever required, harden
+ * by moving this store to the strongly-consistent ICP canister or to Netlify's token-based API
+ * (origin) blob access.
+ *
+ * ## Storage shape (matches the self-hosted file store)
+ *   { "tokens": { "<id>": { sub, family_id, token_hash, created_at, expires_at,
+ *                           family_expires_at, rotated_to, used_at, revoked, meta } } }
+ * Only non-secret values are persisted; the raw token secret is returned to the caller exactly
+ * once and never stored.
+ */
+
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import {
+  issueToken,
+  rotateToken,
+  revokeToken,
+  revokeAllForSub,
+  pruneExpired,
+} from '../lib/refresh-token-core.mjs';
+
+const BLOB_KEY = 'refresh-tokens-v1';
+
+// Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined.
+let projectRoot;
+try {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  projectRoot = path.resolve(__dirname, '..', '..');
+} catch (_) {
+  projectRoot = process.cwd();
+}
+
+/**
+ * Local file fallback location (dev / self-run gateway / tests). KNOWTATION_GATEWAY_DATA_DIR
+ * lets tests point this at a temp dir without touching the repo's data/ folder.
+ */
+function refreshFilePath() {
+  const dataDir = process.env.KNOWTATION_GATEWAY_DATA_DIR || path.join(projectRoot, 'data');
+  return path.join(dataDir, 'hosted_refresh_tokens.json');
+}
+
+/**
+ * The (eventual-consistency) Netlify Blob store, set per-invocation by the Netlify function
+ * wrapper. Absent outside Netlify (dev/test), in which case we fall back to a JSON file.
+ * @returns {{ get: Function, setJSON: Function } | undefined}
+ */
+function getBlobStore() {
+  return globalThis.__knowtation_gateway_auth_blob;
+}
+
+/**
+ * Coerce arbitrary persisted JSON into a clean records map, dropping anything that is not a
+ * well-formed record. A damaged/foreign payload thus degrades to "no sessions" (fail-closed:
+ * users re-authenticate) rather than throwing on every refresh.
+ * @param {unknown} raw
+ * @returns {Record<string, object>}
+ */
+function normalizeRecords(raw) {
+  const tokens = raw && typeof raw === 'object' && raw.tokens && typeof raw.tokens === 'object' ? raw.tokens : {};
+  const out = {};
+  for (const [id, rec] of Object.entries(tokens)) {
+    if (typeof id === 'string' && rec && typeof rec === 'object' && typeof rec.token_hash === 'string') {
+      out[id] = rec;
+    }
+  }
+  return out;
+}
+
+async function readFromBlob() {
+  const store = getBlobStore();
+  const raw = await store.get(BLOB_KEY, { type: 'json' });
+  return normalizeRecords(raw);
+}
+
+async function writeToBlob(records) {
+  const store = getBlobStore();
+  await store.setJSON(BLOB_KEY, { tokens: records || {} });
+}
+
+async function readFromFile() {
+  try {
+    const raw = await fs.readFile(refreshFilePath(), 'utf8');
+    return normalizeRecords(JSON.parse(raw));
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return {};
+    // Unreadable/corrupt file: fail-closed to an empty store rather than crashing the gateway.
+    return {};
+  }
+}
+
+async function writeToFile(records) {
+  const filePath = refreshFilePath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  // Atomic write: temp file + rename, so a crash mid-write cannot strand half-written JSON.
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmpPath, JSON.stringify({ tokens: records || {} }, null, 2), { encoding: 'utf8', mode: 0o600 });
+  await fs.rename(tmpPath, filePath);
+}
+
+/**
+ * Load the current records map from the active backend (blob in prod, file otherwise).
+ * @returns {Promise<Record<string, object>>}
+ */
+export async function loadRefreshRecords() {
+  if (getBlobStore()) return readFromBlob();
+  return readFromFile();
+}
+
+/**
+ * Persist the records map to the active backend.
+ * @param {Record<string, object>} records
+ * @returns {Promise<void>}
+ */
+export async function saveRefreshRecords(records) {
+  if (getBlobStore()) {
+    await writeToBlob(records);
+    return;
+  }
+  await writeToFile(records);
+}
+
+/**
+ * Issue a new refresh token for a user at login and persist it.
+ * @param {string} sub - e.g. "google:123"
+ * @param {{ now?: number, tokenTtlMs?: number, familyTtlMs?: number, meta?: object }} [opts]
+ * @returns {Promise<{ token: string, id: string, familyId: string }>}
+ */
+export async function issueRefreshToken(sub, opts = {}) {
+  const records = await loadRefreshRecords();
+  const result = issueToken(records, { sub, ...opts });
+  await saveRefreshRecords(result.records);
+  return { token: result.token, id: result.id, familyId: result.familyId };
+}
+
+/**
+ * Validate + rotate a presented refresh token, persisting the new state. On reuse or
+ * revocation the whole family is burned and persisted before the failure is returned.
+ * @param {string} token
+ * @param {{ now?: number, tokenTtlMs?: number, meta?: object }} [opts]
+ * @returns {Promise<{ ok: true, token: string, sub: string } | { ok: false, reason: string, sub: string|null }>}
+ */
+export async function rotateRefreshToken(token, opts = {}) {
+  const records = await loadRefreshRecords();
+  const result = rotateToken(records, token, opts);
+  // Persist whenever the records changed (success rotates; reuse/revoked burns the family).
+  await saveRefreshRecords(result.records);
+  if (result.ok) return { ok: true, token: result.token, sub: result.sub };
+  return { ok: false, reason: result.reason, sub: result.sub };
+}
+
+/**
+ * Revoke a single refresh token (ordinary logout).
+ * @param {string} token
+ * @returns {Promise<{ revoked: boolean, sub: string|null }>}
+ */
+export async function revokeRefreshToken(token) {
+  const records = await loadRefreshRecords();
+  const result = revokeToken(records, token);
+  if (result.revoked) await saveRefreshRecords(result.records);
+  return { revoked: result.revoked, sub: result.sub };
+}
+
+/**
+ * Revoke every refresh token for a user ("sign out all sessions" / compromise response).
+ * @param {string} sub
+ * @returns {Promise<{ count: number }>}
+ */
+export async function revokeAllRefreshTokensForSub(sub) {
+  const records = await loadRefreshRecords();
+  const result = revokeAllForSub(records, sub);
+  if (result.count > 0) await saveRefreshRecords(result.records);
+  return { count: result.count };
+}
+
+/**
+ * Remove dead/stale records. Safe to call opportunistically (e.g. at login).
+ * @param {{ now?: number, graceMs?: number }} [opts]
+ * @returns {Promise<{ removed: number }>}
+ */
+export async function pruneRefreshTokens(opts = {}) {
+  const records = await loadRefreshRecords();
+  const result = pruneExpired(records, opts);
+  if (result.removed > 0) await saveRefreshRecords(result.records);
+  return { removed: result.removed };
+}
+
+/**
+ * Build the `{ issue, rotate, revoke }` store object the auth-session handlers expect, bound
+ * to this gateway backend. All methods are async; the handlers `await` them.
+ * @returns {{ issue: Function, rotate: Function, revoke: Function }}
+ */
+export function createGatewayRefreshStore() {
+  return {
+    issue: (sub, opts) => issueRefreshToken(sub, opts),
+    rotate: (token, opts) => rotateRefreshToken(token, opts),
+    revoke: (token) => revokeRefreshToken(token),
+  };
+}

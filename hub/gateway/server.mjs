@@ -59,6 +59,16 @@ import {
 } from '../../lib/muse-thin-bridge.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
+import {
+  issueRefreshCookie,
+  createRefreshHandler,
+  createLogoutHandler,
+  refreshCookieOptions,
+} from '../auth-session.mjs';
+import {
+  createGatewayRefreshStore,
+  pruneRefreshTokens as pruneGatewayRefreshTokens,
+} from './refresh-token-store.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -190,6 +200,54 @@ function verifyToken(token) {
   }
 }
 
+/**
+ * Verify the token and return the full decoded payload, or null if invalid/expired.
+ * Used only by the session-introspection endpoint; callers that only need `sub` use verifyToken.
+ * @param {string} token
+ * @returns {object|null}
+ */
+function decodeVerifiedToken(token) {
+  try {
+    return jwt.verify(token, SESSION_SECRET);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Derive the set of API scopes from a role string.
+ * This is the C7 → C4 bridge: Scooling can read `scopes` today; when explicit per-user
+ * scope management (C4) is wired in, this function will be replaced with a real lookup
+ * without changing the C7 response shape.
+ * @param {string} role - 'admin' | 'member'
+ * @returns {string[]}
+ */
+function scopesForRole(role) {
+  if (role === 'admin') return ['vault:read', 'vault:write', 'admin'];
+  return ['vault:read', 'vault:write'];
+}
+
+/**
+ * Re-mint a short-lived access token from a `sub` alone (used by POST /api/v1/auth/refresh,
+ * which only knows the user id carried by the refresh-token record). The `sub` is the canonical
+ * `provider:id`, so provider/id are reconstructed from it and the role is re-derived from the
+ * current admin allowlist — a refreshed token always reflects the latest role, exactly like
+ * login. Display name is omitted (cosmetic; the UI reads it from /settings).
+ * @param {string} sub
+ * @returns {string|null} signed JWT, or null when sub is missing
+ */
+function issueAccessTokenForSub(sub) {
+  if (!sub || typeof sub !== 'string') return null;
+  const idx = sub.indexOf(':');
+  const provider = idx > 0 ? sub.slice(0, idx) : '';
+  const id = idx > 0 ? sub.slice(idx + 1) : sub;
+  return jwt.sign(
+    { sub, provider, id, name: '', role: roleForSub(sub) },
+    SESSION_SECRET,
+    { expiresIn: JWT_EXPIRY }
+  );
+}
+
 const IMAGE_PROXY_TOKEN_TTL_SECONDS = 300;
 
 function signImageProxyToken(secret, uid) {
@@ -221,6 +279,9 @@ const app = express();
 // Trust the first downstream proxy so express-rate-limit (and any future IP-based middleware)
 // reads the real client IP from X-Forwarded-For instead of the CDN/load-balancer address.
 app.set('trust proxy', 1);
+
+// Remove X-Powered-By: Express — leaking server technology is unnecessary attack surface.
+app.disable('x-powered-by');
 
 // Netlify rewrites /* -> /.netlify/functions/gateway/:splat, so the function may receive
 // a path like /.netlify/functions/gateway/api/v1/notes. Express would not match /api/v1/* routes.
@@ -261,6 +322,68 @@ app.use((req, res, next) => {
   next();
 });
 
+// Persistent sessions (refresh-token rotation), hosted edition. The durable, hashed refresh
+// token is delivered as an HttpOnly cookie; the security logic lives in
+// hub/lib/refresh-token-core.mjs via the blob-backed store below (shared with self-hosted).
+const refreshStore = createGatewayRefreshStore();
+
+/**
+ * Cookie policy for the hosted refresh token.
+ *   - When the UI and gateway share an origin (HUB_CORS_ORIGIN unset), the cookie is first-party
+ *     and SameSite=Lax is correct and most robust.
+ *   - When HUB_CORS_ORIGIN is set the UI is on another origin, so the credentialed cross-site
+ *     request requires SameSite=None (which forces Secure). NOTE: a cross-site cookie is only
+ *     delivered reliably when the gateway is a subdomain of the UI's registrable domain (e.g.
+ *     UI knowtation.store + gateway api.knowtation.store); browsers increasingly block
+ *     unrelated third-party cookies. Same-origin (single origin for UI + API) is recommended.
+ * Scoped to the auth path so the cookie is only ever sent to /api/v1/auth endpoints.
+ */
+function refreshCookiePolicy() {
+  const crossOrigin = corsOrigins.length > 0;
+  return refreshCookieOptions({
+    secure: crossOrigin || BASE_URL.startsWith('https://'),
+    sameSite: crossOrigin ? 'none' : 'lax',
+    maxAgeMs: 90 * 24 * 60 * 60 * 1000,
+  });
+}
+
+/**
+ * Issue the HttpOnly refresh cookie at the end of a successful OAuth login. Best-effort: a
+ * refresh-store write failure must never block login (the access token still works).
+ * @param {import('express').Response} res
+ * @param {import('express').Request} req
+ * @param {string|null} sub
+ */
+async function issueRefreshCookieSafe(res, req, sub) {
+  if (!sub) {
+    console.warn('[gateway] refresh cookie skipped: no sub resolved from req.user');
+    return;
+  }
+  try {
+    await issueRefreshCookie(res, {
+      store: refreshStore,
+      sub,
+      cookieOptions: refreshCookiePolicy,
+      meta: { ua: String(req.headers['user-agent'] || '').slice(0, 256) },
+    });
+    console.info('[gateway] refresh cookie issued for sub=%s', sub);
+  } catch (err) {
+    // Login still proceeds with the access token even if the refresh store is unavailable, but
+    // the failure MUST be surfaced — swallowing it silently made a persistent-login outage
+    // undiagnosable. `authBlobPresent` distinguishes the two failure modes:
+    //   false → the Netlify Blob was not provisioned for this invocation, so the store fell back
+    //           to a file write that fails on the read-only function FS;
+    //   true  → the blob was provisioned but the read/write itself was rejected.
+    const authBlobPresent = Boolean(globalThis.__knowtation_gateway_auth_blob);
+    console.error(
+      '[gateway] refresh cookie FAILED for sub=%s authBlobPresent=%s: %s',
+      sub,
+      authBlobPresent,
+      err && err.stack ? err.stack : (err && err.message) || String(err),
+    );
+  }
+}
+
 // Authenticated Hub JSON must not be cached (browser 304 / CDN reuse shows stale frontmatter).
 app.use('/api/v1', (req, res, next) => {
   res.set('Cache-Control', 'private, no-store, must-revalidate');
@@ -280,6 +403,64 @@ app.get('/api/v1/auth/providers', (_req, res) => {
     github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
   });
 });
+
+// C7 Session introspection — returns the verified identity and derived scopes for the bearer.
+// Designed for Scooling (cross-origin, Bearer auth) and the Hub UI alike.
+// GET /api/v1/auth/session → { sub, provider, id, name, role, iat, exp, scopes }
+// Only reads what is already in the signed JWT — no extra DB call, no data elevation.
+app.options('/api/v1/auth/session', (_req, res) => res.status(204).end());
+app.get('/api/v1/auth/session', (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  const token = auth.slice(7);
+  const payload = decodeVerifiedToken(token);
+  if (!payload || !payload.sub) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  return res.json({
+    sub: payload.sub,
+    provider: payload.provider ?? '',
+    id: payload.id ?? '',
+    name: payload.name ?? '',
+    role: payload.role ?? 'member',
+    iat: payload.iat,
+    exp: payload.exp,
+    scopes: scopesForRole(payload.role ?? 'member'),
+  });
+});
+
+// Persistent sessions: exchange the HttpOnly refresh cookie for a fresh access token, and real
+// server-side logout (revokes the refresh token, not just the client cookie). Mounted BEFORE the
+// bridge/canister proxies so these are handled locally and never forwarded upstream.
+//
+// Rate limiting note: an in-memory express-rate-limit is ineffective on Netlify (each function
+// invocation is isolated, no shared counter) and trips ERR_ERL_* under serverless proxies. Brute
+// force is bounded instead by edge limits (see hub/gateway/README.md) and, more fundamentally, by
+// the opaque high-entropy token + rotation/reuse detection in refresh-token-core.mjs.
+app.options(['/api/v1/auth/refresh', '/api/v1/auth/logout'], (_req, res) => res.status(204).end());
+app.post(
+  '/api/v1/auth/refresh',
+  createRefreshHandler({
+    store: refreshStore,
+    issueAccessToken: issueAccessTokenForSub,
+    cookieOptions: refreshCookiePolicy,
+    meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
+  })
+);
+app.post(
+  '/api/v1/auth/logout',
+  createLogoutHandler({ store: refreshStore, cookieOptions: refreshCookiePolicy })
+);
+// On a persistent gateway (local/Docker/VPS) opportunistically prune dead refresh records at
+// startup. Skipped on Netlify, where the blob store is provisioned per-invocation and a cold-start
+// prune would add latency to the first request; rely on rotation/expiry to keep the store small.
+if (!process.env.NETLIFY) {
+  Promise.resolve()
+    .then(() => pruneGatewayRefreshTokens())
+    .catch(() => { /* best effort; never fatal */ });
+}
 
 // Auth: login redirect — plan routes GET /auth/login, GET /auth/callback/google|github. Preserve invite in state for post-login redirect.
 // Phase D3: mcp_state query param is passed through OAuth state for MCP authorization flow.
@@ -313,7 +494,7 @@ function postLoginRedirect(token, req) {
 app.get(
   '/auth/callback/google',
   passport.authenticate('google', { session: false }),
-  (req, res) => {
+  async (req, res) => {
     const state = typeof req.query.state === 'string' ? req.query.state : '';
     if (state.startsWith('mcp:') && app._mcpOAuthProvider) {
       const sub = userId(req.user);
@@ -321,13 +502,14 @@ app.get(
       return app._mcpOAuthProvider.completeMcpAuthorization(state.slice(4), sub, res);
     }
     const token = issueToken(req.user);
+    await issueRefreshCookieSafe(res, req, userId(req.user));
     res.redirect(postLoginRedirect(token, req));
   }
 );
 app.get(
   '/auth/callback/github',
   passport.authenticate('github', { session: false }),
-  (req, res) => {
+  async (req, res) => {
     const state = typeof req.query.state === 'string' ? req.query.state : '';
     if (state.startsWith('mcp:') && app._mcpOAuthProvider) {
       const sub = userId(req.user);
@@ -335,6 +517,7 @@ app.get(
       return app._mcpOAuthProvider.completeMcpAuthorization(state.slice(4), sub, res);
     }
     const token = issueToken(req.user);
+    await issueRefreshCookieSafe(res, req, userId(req.user));
     res.redirect(postLoginRedirect(token, req));
   }
 );

@@ -6,6 +6,9 @@ OAuth (Google/GitHub) + proxy for the **hosted** product. Users log in here; the
 
 - **GET /health**, **GET /api/v1/health** — Health (no auth).
 - **GET /api/v1/auth/providers** — Which OAuth providers are configured (no auth).
+- **GET /api/v1/auth/session** — **C7 Session introspection.** Bearer JWT required. Returns verified identity + API scopes: `{ sub, provider, id, name, role, iat, exp, scopes }`. Safe for cross-origin callers (Scooling, external services). Response is derived from the signed token only — no DB call. Scopes are role-derived (`admin` → `[vault:read, vault:write, admin]`; `member` → `[vault:read, vault:write]`); explicit per-user scope management is C4.
+- **POST /api/v1/auth/refresh** — Exchange the `ktn_refresh` HttpOnly cookie for a fresh `access_token` Bearer JWT. Rotates the refresh token (reuse detection + family revocation). See `hub/gateway/refresh-token-store.mjs`.
+- **POST /api/v1/auth/logout** — Revoke the `ktn_refresh` cookie server-side (burns the token family) and clear the cookie.
 - **GET /scooling/note-outline/smoke?path=...** — Local/staging-only Scooling NoteOutline smoke bridge. Disabled unless **`SCOOLING_NOTE_OUTLINE_SMOKE_ENABLED=1`** and **`SCOOLING_NOTE_OUTLINE_SMOKE_ENV=local|staging`**. The gateway owns the upstream bearer token, rejects request credentials from Scooling, validates the upstream body-free `NoteOutline`, and returns only the `knowtation.note_outline/v1` JSON contract.
 - **POST /scooling/write-back/smoke** — Staging-only, metadata-only Scooling write-back target smoke check. Disabled unless **`SCOOLING_WRITE_BACK_SMOKE_ENABLED=1`** and **`SCOOLING_WRITE_BACK_SMOKE_ENV=staging`**. It checks canister metadata availability and returns dry-run capability flags only; it never accepts raw credentials or performs live writes.
 - **GET /auth/login?provider=google|github** — Redirect to OAuth (plan routes).

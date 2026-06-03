@@ -238,6 +238,39 @@
     return h;
   }
 
+  // Persistent sessions: when the short-lived access token expires, silently exchange the
+  // HttpOnly refresh cookie for a new one instead of dropping the user to the login screen.
+  // Single-flight so a burst of 401s triggers exactly one refresh.
+  let refreshInFlight = null;
+  async function refreshAccessToken() {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(apiBase + '/api/v1/auth/refresh', {
+          method: 'POST',
+          credentials: 'include', // send the HttpOnly refresh cookie
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) return false;
+        const data = await res.json().catch(() => null);
+        if (data && typeof data.access_token === 'string' && data.access_token) {
+          token = data.access_token;
+          try { localStorage.setItem('hub_token', token); } catch (_) {}
+          return true;
+        }
+        return false;
+      } catch (_) {
+        return false;
+      }
+    })();
+    try {
+      return await refreshInFlight;
+    } finally {
+      refreshInFlight = null;
+    }
+  }
+
   async function api(path, opts = {}) {
     const method = (opts.method || 'GET').toUpperCase();
     // GET/HEAD: retry up to 2×. POST/PATCH/DELETE: retry once only on pure network failures
@@ -253,6 +286,8 @@
       : (method === 'GET' || method === 'HEAD') ? 2 : 1;
     // Strip non-fetch keys before forwarding to fetch() so they don't pollute the request init.
     const { noRetry: _noRetry, ...fetchOpts } = opts;
+    // Internal one-shot control flag for the 401 silent-refresh retry; never forward to fetch().
+    delete fetchOpts._retriedAfterRefresh;
     let res;
     let networkRetries = maxNetworkRetries;
     for (;;) {
@@ -281,6 +316,18 @@
       }
     }
     if (res.status === 401) {
+      // Try a one-time silent refresh before forcing re-login. Never recurse on the auth
+      // endpoints themselves, and only retry once per original request.
+      if (
+        path !== '/api/v1/auth/refresh' &&
+        path !== '/api/v1/auth/logout' &&
+        !opts._retriedAfterRefresh
+      ) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          return api(path, { ...opts, _retriedAfterRefresh: true });
+        }
+      }
       token = null;
       localStorage.removeItem('hub_token');
       if (app) app.classList.add('login-screen');
@@ -1247,6 +1294,16 @@
   btnLoginGithub.onclick = (e) => oauthNavigate('github', e.currentTarget);
 
   btnLogout.onclick = () => {
+    // Revoke the refresh token server-side (real logout), then clear local state regardless
+    // of whether the network call succeeds.
+    try {
+      fetch(apiBase + '/api/v1/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {});
+    } catch (_) { /* best effort */ }
     token = null;
     localStorage.removeItem('hub_token');
     if (app) app.classList.add('login-screen');

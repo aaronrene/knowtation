@@ -35,6 +35,66 @@ paths:
             application/json:
               schema: { type: object, properties: { ok: { type: boolean } }, required: [ok] }
 
+  /api/v1/auth/session:
+    get:
+      tags: [Auth]
+      summary: C7 Session introspection — current identity and scopes
+      description: |
+        Returns the verified identity and derived API scopes for the caller. Accepts only a
+        `Bearer` JWT in the `Authorization` header — no cookie required, making it safe to call
+        cross-origin from Scooling or any other consumer.
+
+        The response is derived entirely from the signed token — no database call is made.
+        Scopes are role-derived today (C4 will replace this with per-user explicit grants without
+        changing the response shape).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Verified session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sub, provider, id, name, role, iat, exp, scopes]
+                properties:
+                  sub:
+                    type: string
+                    description: Canonical user ID (`provider:id`)
+                    example: google:104164334692309763642
+                  provider:
+                    type: string
+                    enum: [google, github]
+                  id:
+                    type: string
+                    description: Provider-specific user ID
+                  name:
+                    type: string
+                    description: Display name (empty for refresh-path tokens)
+                  role:
+                    type: string
+                    enum: [admin, member]
+                  iat:
+                    type: integer
+                    description: Token issued-at (Unix seconds)
+                  exp:
+                    type: integer
+                    description: Token expires-at (Unix seconds)
+                  scopes:
+                    type: array
+                    items: { type: string }
+                    description: Derived API scopes. `admin` role → `[vault:read, vault:write, admin]`; `member` → `[vault:read, vault:write]`
+                    example: [vault:read, vault:write]
+        '401':
+          description: Missing, expired, or tampered token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [UNAUTHORIZED] }
+
   /auth/providers:
     get:
       tags: [Auth]
