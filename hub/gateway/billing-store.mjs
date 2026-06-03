@@ -81,13 +81,30 @@ export async function saveBillingDb(db) {
 }
 
 /**
+ * In-process write queue. Serializes all mutateBillingDb calls so that concurrent
+ * requests within the same process (tests, local dev, single Netlify function instance)
+ * never interleave their read-modify-write cycles.
+ *
+ * Note: across separate Netlify function instances (cold starts, concurrent invocations
+ * handled by different workers) this queue has no effect — the backing Blob store is the
+ * only coordination point there. But eliminating in-process races is sufficient to keep
+ * CI stable and to prevent data loss during high-throughput local dev.
+ */
+let _mutationQueue = Promise.resolve();
+
+/**
  * @param {(db: object) => void} fn - mutates db in place
  */
 export async function mutateBillingDb(fn) {
-  const db = await loadBillingDb();
-  fn(db);
-  trimEvents(db);
-  await saveBillingDb(db);
+  const run = _mutationQueue.then(async () => {
+    const db = await loadBillingDb();
+    fn(db);
+    trimEvents(db);
+    await saveBillingDb(db);
+  });
+  // Keep the queue alive even if this call throws; errors propagate to the caller, not the chain.
+  _mutationQueue = run.catch(() => {});
+  return run;
 }
 
 function trimEvents(db) {
