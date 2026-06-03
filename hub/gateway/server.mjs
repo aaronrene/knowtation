@@ -201,6 +201,33 @@ function verifyToken(token) {
 }
 
 /**
+ * Verify the token and return the full decoded payload, or null if invalid/expired.
+ * Used only by the session-introspection endpoint; callers that only need `sub` use verifyToken.
+ * @param {string} token
+ * @returns {object|null}
+ */
+function decodeVerifiedToken(token) {
+  try {
+    return jwt.verify(token, SESSION_SECRET);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Derive the set of API scopes from a role string.
+ * This is the C7 → C4 bridge: Scooling can read `scopes` today; when explicit per-user
+ * scope management (C4) is wired in, this function will be replaced with a real lookup
+ * without changing the C7 response shape.
+ * @param {string} role - 'admin' | 'member'
+ * @returns {string[]}
+ */
+function scopesForRole(role) {
+  if (role === 'admin') return ['vault:read', 'vault:write', 'admin'];
+  return ['vault:read', 'vault:write'];
+}
+
+/**
  * Re-mint a short-lived access token from a `sub` alone (used by POST /api/v1/auth/refresh,
  * which only knows the user id carried by the refresh-token record). The `sub` is the canonical
  * `provider:id`, so provider/id are reconstructed from it and the role is re-derived from the
@@ -252,6 +279,9 @@ const app = express();
 // Trust the first downstream proxy so express-rate-limit (and any future IP-based middleware)
 // reads the real client IP from X-Forwarded-For instead of the CDN/load-balancer address.
 app.set('trust proxy', 1);
+
+// Remove X-Powered-By: Express — leaking server technology is unnecessary attack surface.
+app.disable('x-powered-by');
 
 // Netlify rewrites /* -> /.netlify/functions/gateway/:splat, so the function may receive
 // a path like /.netlify/functions/gateway/api/v1/notes. Express would not match /api/v1/* routes.
@@ -371,6 +401,33 @@ app.get('/api/v1/auth/providers', (_req, res) => {
   res.json({
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+  });
+});
+
+// C7 Session introspection — returns the verified identity and derived scopes for the bearer.
+// Designed for Scooling (cross-origin, Bearer auth) and the Hub UI alike.
+// GET /api/v1/auth/session → { sub, provider, id, name, role, iat, exp, scopes }
+// Only reads what is already in the signed JWT — no extra DB call, no data elevation.
+app.options('/api/v1/auth/session', (_req, res) => res.status(204).end());
+app.get('/api/v1/auth/session', (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  const token = auth.slice(7);
+  const payload = decodeVerifiedToken(token);
+  if (!payload || !payload.sub) {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  return res.json({
+    sub: payload.sub,
+    provider: payload.provider ?? '',
+    id: payload.id ?? '',
+    name: payload.name ?? '',
+    role: payload.role ?? 'member',
+    iat: payload.iat,
+    exp: payload.exp,
+    scopes: scopesForRole(payload.role ?? 'member'),
   });
 });
 
