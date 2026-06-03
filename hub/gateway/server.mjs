@@ -18,7 +18,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { stripeWebhookHandler, createCheckoutSession, createPortalSession } from './billing-stripe.mjs';
 import { handleBillingSummary } from './billing-http.mjs';
-import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand, billingEnforced } from './billing-constants.mjs';
+import { isSubscriptionPriceId, isPackPriceId, priceIdFromTierShorthand, billingEnforced, MONTHLY_INCLUDED_CENTS_BY_TIER } from './billing-constants.mjs';
 import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs';
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, isNoteWriteRequest } from './apply-note-provenance.mjs';
@@ -1250,6 +1250,83 @@ const metadataBulkHandlers = createMetadataBulkHandlers({
 });
 
 app.get('/api/v1/billing/summary', (req, res) => handleBillingSummary(req, res, getUserId));
+
+/**
+ * POST /api/v1/admin/billing/repair
+ *
+ * Admin-only endpoint to directly write billing tier and Stripe linkage fields for a user.
+ * Used to recover from missed or unprocessable Stripe webhook deliveries (e.g. webhook pointed
+ * at old URL, checkout session never had user_id metadata, billing DB was empty on a new deploy).
+ *
+ * Auth: Bearer JWT with admin role (sub must be in HUB_ADMIN_USER_IDS env var).
+ * Body: { uid?, tier, stripe_subscription_id?, stripe_customer_id? }
+ *   - uid: target Knowtation user ID (defaults to the calling admin's own uid)
+ *   - tier: required — one of: free | beta | plus | growth | pro | starter | team
+ *   - stripe_subscription_id: if provided, sets has_active_subscription = true for this user
+ *   - stripe_customer_id: if provided, links the user to their Stripe customer so future
+ *       webhook events (subscription.updated, etc.) can find them
+ *
+ * All mutations are logged. This endpoint does NOT create a Stripe subscription — it only
+ * repairs the local billing DB record.
+ */
+const VALID_REPAIR_TIERS = new Set(['free', 'beta', 'plus', 'growth', 'pro', 'starter', 'team']);
+
+app.post('/api/v1/admin/billing/repair', async (req, res) => {
+  const callerUid = getUserId(req);
+  if (!callerUid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  if (roleForSub(callerUid) !== 'admin') return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const targetUid = typeof body.uid === 'string' && body.uid.trim() ? body.uid.trim() : callerUid;
+  const tier = typeof body.tier === 'string' ? body.tier.trim() : '';
+
+  if (!VALID_REPAIR_TIERS.has(tier)) {
+    return res.status(400).json({
+      error: 'Invalid or missing tier',
+      code: 'BAD_REQUEST',
+      valid_tiers: [...VALID_REPAIR_TIERS],
+    });
+  }
+
+  const stripeSubId =
+    typeof body.stripe_subscription_id === 'string' ? body.stripe_subscription_id.trim() || null : undefined;
+  const stripeCustomerId =
+    typeof body.stripe_customer_id === 'string' ? body.stripe_customer_id.trim() || null : undefined;
+
+  let before;
+  try {
+    await mutateBillingDb((db) => {
+      if (!db.users[targetUid]) db.users[targetUid] = defaultUserRecord(targetUid);
+      const u = db.users[targetUid];
+      before = { tier: u.tier, stripe_subscription_id: u.stripe_subscription_id, stripe_customer_id: u.stripe_customer_id };
+      u.tier = tier;
+      if (MONTHLY_INCLUDED_CENTS_BY_TIER[tier] !== undefined) {
+        u.monthly_included_cents = MONTHLY_INCLUDED_CENTS_BY_TIER[tier];
+      }
+      if (stripeSubId !== undefined) u.stripe_subscription_id = stripeSubId;
+      if (stripeCustomerId !== undefined) u.stripe_customer_id = stripeCustomerId;
+    });
+  } catch (e) {
+    console.error('[admin/billing/repair] mutateBillingDb failed:', e?.message);
+    return res.status(500).json({ error: 'Internal Server Error', code: 'INTERNAL' });
+  }
+
+  console.log(
+    `[admin/billing/repair] caller=${callerUid} target=${targetUid}` +
+    ` tier: ${before?.tier} → ${tier}` +
+    (stripeSubId !== undefined ? ` sub: ${before?.stripe_subscription_id} → ${stripeSubId}` : '') +
+    (stripeCustomerId !== undefined ? ` cus: ${before?.stripe_customer_id} → ${stripeCustomerId}` : ''),
+  );
+
+  return res.json({
+    ok: true,
+    uid: targetUid,
+    tier,
+    stripe_subscription_id: stripeSubId !== undefined ? stripeSubId : '(unchanged)',
+    stripe_customer_id: stripeCustomerId !== undefined ? stripeCustomerId : '(unchanged)',
+    before,
+  });
+});
 
 /**
  * POST /api/v1/billing/checkout
