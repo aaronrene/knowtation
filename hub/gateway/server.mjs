@@ -341,8 +341,8 @@ async function issueRefreshCookieSafe(res, req, sub) {
     // Login still proceeds with the access token even if the refresh store is unavailable, but
     // the failure MUST be surfaced — swallowing it silently made a persistent-login outage
     // undiagnosable. `authBlobPresent` distinguishes the two failure modes:
-    //   false → the strong-consistency Netlify Blob was not provisioned for this invocation, so
-    //           the store fell back to a file write that fails on the read-only function FS;
+    //   false → the Netlify Blob was not provisioned for this invocation, so the store fell back
+    //           to a file write that fails on the read-only function FS;
     //   true  → the blob was provisioned but the read/write itself was rejected.
     const authBlobPresent = Boolean(globalThis.__knowtation_gateway_auth_blob);
     console.error(
