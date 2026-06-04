@@ -105,7 +105,7 @@ describe('Hub UI SectionSource runtime', () => {
     assert.match(js, /sectionBtn\.textContent = 'Sections'/);
     assert.match(js, /sectionBtn\.setAttribute\('aria-expanded', 'false'\)/);
     assert.match(js, /data-section-source-panel/);
-    assert.match(html, /hub\.js\?v=20260526a/);
+    assert.match(html, /hub\.js\?v=20260603b/);
     assert.match(html, /hub\.css\?v=20260526a/);
     assert.match(css, /\.section-source-panel\b/);
     assert.match(css, /\.section-source-list\b/);
