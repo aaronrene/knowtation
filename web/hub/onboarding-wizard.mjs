@@ -23,6 +23,7 @@ export const LLM_SELF_HELP_EXPORT_PROMPT = [
   '- OpenAI / ChatGPT: account data export (ZIP or folder with conversations.json) suitable for a `chatgpt-export` style import.',
   '- Anthropic / Claude: privacy export (chats and/or memory) suitable for a `claude-export` style import.',
   '- OpenClaw: any supported export path or files that map to Knowtation `openclaw` import.',
+  '- Hermes Agent: export from `~/.hermes/memories/` or `hermes memory export`; import via `markdown` or copy MEMORY.md / USER.md.',
   '',
   'For each product I name, list the exact menu path (as of my stated app version if I add one), the file types I will get (ZIP, JSON, folder layout), and any size or rate limits I should watch for.',
   '',

@@ -84,8 +84,8 @@ The Hub Import modal can send **one** multipart `file` per `POST /api/v1/import`
 | 💰 | **Wallet CSV** | `wallet-csv` | Tx history; 11 formats |
 | 🗄️ | **Supabase** | `supabase-memory` | Memory table import |
 | 🦞 | **OpenClaw** | `openclaw` | Agent memory + chats |
-| 💻 | **Local** | `markdown` | Files from disk |
-| 👥 | **Team** | _(Hub UI)_ | Teammates contribute |
+| 🪶 | **Hermes Agent** | `markdown` (from `~/.hermes/memories/`) | Agent MEMORY.md + USER.md |
+| 📥 | **Imports** | _(Hub UI + CLI)_ | Local files & team uploads |
 
 **Live inbox capture** (Slack, Discord, Telegram, WhatsApp via automation) is not a CLI `import` type: use **`POST /api/v1/capture`** and the adapters in **§2**.
 
@@ -115,6 +115,7 @@ The Hub Import modal can send **one** multipart `file` per `POST /api/v1/import`
 | 💰 `wallet-csv`      | Path to wallet/exchange transaction history CSV (or folder containing one .csv) | Converts wallet export files into vault notes with blockchain frontmatter. One note per row; `source: wallet-csv-import`, `source_id: tx_hash`, blockchain fields (`network`, `wallet_address`, `tx_hash`, `payment_status`, `amount`, `currency`, `direction`, `confirmed_at`, `block_height`). Notes land in `inbox/wallet-import/`. Auto-detects named formats: **Coinbase**, **Coinbase Pro**, **Exodus**, **ICP Rosetta**, **Kraken**, **Binance**, **MetaMask/Etherscan**, **Phantom (Solana)**, **Ledger Live**. Falls back to generic column alias matching for any other CSV. Re-import is safe: duplicate rows (same output path) are skipped. |
 | 🗄️ `supabase-memory` | Supabase connection + table name | Import memory rows from a Supabase table. For users coming from database-centric stacks. |
 | 🦞 `openclaw`        | Path to OpenClaw data export or memory dump | Import agent conversations and memory from [OpenClaw](https://github.com/openclaw/openclaw). One note per conversation or memory entry; `source: openclaw`, `source_id`, `date`. |
+| 🪶 **Hermes Agent**  | `~/.hermes/memories/MEMORY.md`, `USER.md`, or `hermes memory export` JSON | [Hermes Agent](https://github.com/NousResearch/hermes-agent) built-in memory lives under `~/.hermes/memories/`. Import with `knowtation import markdown` on those files, or export via `hermes memory export` / `hermes backup` first. Tag notes `hermes` for filters. Wire ongoing access via Hub API + MCP (Settings → Integrations). |
 
 > **Video:** CLI and MCP still support `knowtation import video <file>` (same Whisper pipeline as audio), but video files are usually over 25 MB. Export audio first or transcribe with another service and import as Markdown.
 

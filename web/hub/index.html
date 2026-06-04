@@ -1134,27 +1134,27 @@ Your note body here.</pre>
               Capture (messages → inbox)
             </h3>
             <p class="settings-intro small"><strong>What this is:</strong> turns chats and automations into new notes in your Inbox. Most teams set up a small <strong>bridge</strong> (or Zapier/n8n) once. Walkthrough: <strong>How to use → Setup → Self-hosted setup → Step 5</strong> (same capture path on hosted; only the host URL changes).</p>
-            <div class="integ-source-grid integ-capture-grid">
-              <div class="integ-source-tile">
+            <div class="integ-source-grid integ-capture-grid" id="integ-capture-grid">
+              <button type="button" class="integ-source-tile" data-integ-id="slack" aria-label="Slack — setup details">
                 <span class="integ-source-tile-icon">💬</span>
                 <span class="integ-source-tile-name">Slack</span>
                 <span class="integ-source-tile-desc">Team chat → Inbox</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="discord" aria-label="Discord — setup details">
                 <span class="integ-source-tile-icon">🎮</span>
                 <span class="integ-source-tile-name">Discord</span>
                 <span class="integ-source-tile-desc">Server messages → Inbox</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="telegram" aria-label="Telegram — setup details">
                 <span class="integ-source-tile-icon">✈️</span>
                 <span class="integ-source-tile-name">Telegram</span>
                 <span class="integ-source-tile-desc">Bot or webhook → Inbox</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="whatsapp" aria-label="WhatsApp — setup details">
                 <span class="integ-source-tile-icon">📱</span>
                 <span class="integ-source-tile-name">WhatsApp</span>
                 <span class="integ-source-tile-desc">Automation → Inbox</span>
-              </div>
+              </button>
             </div>
             <details class="settings-json-details" style="margin-top:0.5rem;">
               <summary class="settings-json-details-summary">Technical: capture API, ports, and secrets</summary>
@@ -1170,87 +1170,87 @@ Your note body here.</pre>
               <summary class="settings-json-details-summary">CLI pattern <code>knowtation import …</code></summary>
               <p class="settings-intro small" style="margin:0.5rem 0 0.25rem;">Common options: <code>--project</code>, <code>--output-dir</code>, <code>--tags</code>. Exact source names: see the doc above.</p>
             </details>
-            <div class="integ-source-grid">
-              <div class="integ-source-tile">
+            <div class="integ-source-grid" id="integ-import-grid">
+              <button type="button" class="integ-source-tile" data-integ-id="chatgpt-export" aria-label="ChatGPT — import details">
                 <span class="integ-source-tile-icon">🤖</span>
                 <span class="integ-source-tile-name">ChatGPT</span>
                 <span class="integ-source-tile-desc">ZIP or folder export</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="claude-export" aria-label="Claude — import details">
                 <span class="integ-source-tile-icon">🧠</span>
                 <span class="integ-source-tile-name">Claude</span>
                 <span class="integ-source-tile-desc">Chat + memory export</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="mem0-export" aria-label="Mem0 — import details">
                 <span class="integ-source-tile-icon">💾</span>
                 <span class="integ-source-tile-name">Mem0</span>
                 <span class="integ-source-tile-desc">JSON memory export</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="notion" aria-label="Notion — import details">
                 <span class="integ-source-tile-icon">📝</span>
                 <span class="integ-source-tile-name">Notion</span>
                 <span class="integ-source-tile-desc">API; page IDs + key</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="jira-export" aria-label="Jira — import details">
                 <span class="integ-source-tile-icon">🎫</span>
                 <span class="integ-source-tile-name">Jira</span>
                 <span class="integ-source-tile-desc">CSV export</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="notebooklm" aria-label="NotebookLM — import details">
                 <span class="integ-source-tile-icon">📓</span>
                 <span class="integ-source-tile-name">NotebookLM</span>
                 <span class="integ-source-tile-desc">Markdown or JSON</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="gdrive" aria-label="Google Drive — import details">
                 <span class="integ-source-tile-icon">📁</span>
                 <span class="integ-source-tile-name">Google Drive</span>
                 <span class="integ-source-tile-desc">Markdown folder</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="linear-export" aria-label="Linear — import details">
                 <span class="integ-source-tile-icon">📋</span>
                 <span class="integ-source-tile-name">Linear</span>
                 <span class="integ-source-tile-desc">CSV export</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="mif" aria-label="MIF — import details">
                 <span class="integ-source-tile-icon">🔗</span>
                 <span class="integ-source-tile-name">MIF</span>
                 <span class="integ-source-tile-desc">Memory Interchange Format</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="markdown" aria-label="Markdown — import details">
                 <span class="integ-source-tile-icon">📄</span>
                 <span class="integ-source-tile-name">Markdown</span>
                 <span class="integ-source-tile-desc">File or folder</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="audio" aria-label="Audio — import details">
                 <span class="integ-source-tile-icon">🎙️</span>
                 <span class="integ-source-tile-name">Audio</span>
                 <span class="integ-source-tile-desc">Whisper transcription</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="wallet-csv" aria-label="Wallet CSV — import details">
                 <span class="integ-source-tile-icon">💰</span>
                 <span class="integ-source-tile-name">Wallet CSV</span>
                 <span class="integ-source-tile-desc">Tx history; 11 formats</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="supabase-memory" aria-label="Supabase — import details">
                 <span class="integ-source-tile-icon">🗄️</span>
                 <span class="integ-source-tile-name">Supabase</span>
                 <span class="integ-source-tile-desc">Memory table import</span>
-              </div>
-              <div class="integ-source-tile">
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="openclaw" aria-label="OpenClaw — import details">
                 <span class="integ-source-tile-icon">🦞</span>
                 <span class="integ-source-tile-name">OpenClaw</span>
                 <span class="integ-source-tile-desc">Agent memory + chats</span>
-              </div>
-              <div class="integ-source-tile">
-                <span class="integ-source-tile-icon">💻</span>
-                <span class="integ-source-tile-name">Local Imports</span>
-                <span class="integ-source-tile-desc">Files from disk</span>
-              </div>
-              <div class="integ-source-tile">
-                <span class="integ-source-tile-icon">👥</span>
-                <span class="integ-source-tile-name">Team Imports</span>
-                <span class="integ-source-tile-desc">Teammates contribute</span>
-              </div>
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="hermes" aria-label="Hermes Agent — import details">
+                <span class="integ-source-tile-icon">🪶</span>
+                <span class="integ-source-tile-name">Hermes Agent</span>
+                <span class="integ-source-tile-desc">Agent memory + profile</span>
+              </button>
+              <button type="button" class="integ-source-tile" data-integ-id="imports" aria-label="Imports — local and team upload details">
+                <span class="integ-source-tile-icon">📥</span>
+                <span class="integ-source-tile-name">Imports</span>
+                <span class="integ-source-tile-desc">Local files &amp; team uploads</span>
+              </button>
             </div>
             <hr class="settings-hr">
             <div class="settings-callout settings-integ-post-import-callout" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.75rem 0 0.65rem; background: var(--surface-elevated, rgba(255,255,255,0.03));">
@@ -2483,6 +2483,25 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
         </div>
       </div>
     </div>
+
+    <div id="modal-integ-guide" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-integ-guide-title">
+      <div class="modal-backdrop" id="modal-integ-guide-backdrop"></div>
+      <div class="modal-card modal-card-integ-guide">
+        <div class="modal-header">
+          <h2 id="modal-integ-guide-title"><span id="modal-integ-guide-icon" class="integ-guide-modal-icon" aria-hidden="true"></span> <span id="modal-integ-guide-name">Integration</span></h2>
+          <button type="button" id="modal-integ-guide-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="modal-integ-guide-body">
+          <p id="modal-integ-guide-lead" class="muted small integ-guide-lead"></p>
+          <div id="modal-integ-guide-content"></div>
+          <div class="integ-guide-actions">
+            <button type="button" id="btn-integ-guide-import" class="btn-primary hidden">Open Import</button>
+            <button type="button" id="btn-integ-guide-team" class="btn-secondary hidden">Open Team settings</button>
+          </div>
+          <p id="modal-integ-guide-msg" class="settings-msg"></p>
+        </div>
+      </div>
+    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" crossorigin="anonymous"></script>
@@ -2492,9 +2511,11 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script src="config.js?v=20260324"></script>
   <script type="module">
     import * as HubListSort from './hub-list-sort.mjs';
+    import * as HubIntegrationGuides from './hub-integration-guides.mjs';
     globalThis.HubListSort = HubListSort;
+    globalThis.HubIntegrationGuides = HubIntegrationGuides;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260526a"></script>
+  <script defer src="hub.js?v=20260603b"></script>
 </body>
 </html>

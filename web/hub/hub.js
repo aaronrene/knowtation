@@ -3910,7 +3910,7 @@
     if (block && sel) block.hidden = sel.value !== 'google-sheets';
   }
 
-  function openImportModal() {
+  function openImportModal(preselectSourceType) {
     if (!token) {
       if (typeof showToast === 'function') showToast('Sign in to import into your vault.', true);
       return;
@@ -3932,6 +3932,11 @@
     const srange = el('import-sheets-range');
     if (sid) sid.value = '';
     if (srange) srange.value = '';
+    const importSel = el('import-source-type');
+    if (importSel && preselectSourceType) {
+      const hasOption = Array.from(importSel.options).some((o) => o.value === preselectSourceType);
+      if (hasOption) importSel.value = preselectSourceType;
+    }
     syncImportSheetsBlock();
     const outDirEl = el('import-output-dir');
     if (outDirEl) outDirEl.value = '';
@@ -4860,6 +4865,7 @@
     });
     refreshIntegApiStatus();
     applyMuseBridgePanel(lastBackupSettingsPayload);
+    if (typeof scheduleIntegrationGuidesInit === 'function') scheduleIntegrationGuidesInit(0);
   }
 
   if (btnSettings) btnSettings.onclick = openSettings;
@@ -4961,6 +4967,157 @@
     dot.classList.toggle('active', hasToken);
     dot.title = hasToken ? 'Token available — signed in' : 'No token — sign in to enable';
   }
+
+  /** @type {import('./hub-integration-guides.mjs').IntegrationGuide | null} */
+  let activeIntegGuide = null;
+
+  function closeIntegGuideModal() {
+    const modal = el('modal-integ-guide');
+    if (modal) modal.classList.add('hidden');
+    activeIntegGuide = null;
+  }
+
+  function openIntegGuideModal(guide) {
+    const mod = globalThis.HubIntegrationGuides;
+    if (!mod || !guide) return;
+    const modal = el('modal-integ-guide');
+    const iconEl = el('modal-integ-guide-icon');
+    const nameEl = el('modal-integ-guide-name');
+    const leadEl = el('modal-integ-guide-lead');
+    const contentEl = el('modal-integ-guide-content');
+    const importBtn = el('btn-integ-guide-import');
+    const teamBtn = el('btn-integ-guide-team');
+    const msgEl = el('modal-integ-guide-msg');
+    if (!modal || !contentEl) return;
+    activeIntegGuide = guide;
+    if (iconEl) iconEl.textContent = guide.icon || '';
+    if (nameEl) nameEl.textContent = guide.name || 'Integration';
+    if (leadEl) {
+      leadEl.textContent =
+        guide.kind === 'capture'
+          ? 'Live capture — messages become inbox notes via POST /api/v1/capture.'
+          : guide.desc || 'Import files or exports into your vault.';
+    }
+    contentEl.innerHTML = mod.renderIntegrationGuideHtml(guide);
+    if (msgEl) msgEl.textContent = '';
+    if (importBtn) {
+      const importSel = el('import-source-type');
+      const canPreselect =
+        guide.hubImport &&
+        guide.sourceType &&
+        importSel &&
+        Array.from(importSel.options).some((o) => o.value === guide.sourceType);
+      const showImport =
+        guide.hubImport && (canPreselect || guide.id === 'imports' || guide.id === 'hermes');
+      importBtn.classList.toggle('hidden', !showImport);
+      importBtn.textContent =
+        guide.id === 'hermes'
+          ? 'Open Import (Markdown)'
+          : guide.id === 'imports'
+            ? 'Open Import'
+            : 'Open Import';
+    }
+    if (teamBtn) teamBtn.classList.toggle('hidden', guide.id !== 'imports');
+    modal.classList.remove('hidden');
+  }
+
+  let integGuideControlsBound = false;
+
+  function bindIntegrationGuideModalControlsOnce() {
+    if (integGuideControlsBound) return;
+    integGuideControlsBound = true;
+    const backdrop = el('modal-integ-guide-backdrop');
+    const closeBtn = el('modal-integ-guide-close');
+    const importBtn = el('btn-integ-guide-import');
+    const teamBtn = el('btn-integ-guide-team');
+    const contentEl = el('modal-integ-guide-content');
+    if (backdrop) backdrop.onclick = closeIntegGuideModal;
+    if (closeBtn) closeBtn.onclick = closeIntegGuideModal;
+    if (contentEl) {
+      contentEl.addEventListener('click', (ev) => {
+        const btn = ev.target instanceof Element ? ev.target.closest('.integ-guide-copy') : null;
+        if (!btn) return;
+        const text = btn.getAttribute('data-copy') || '';
+        const msgEl = el('modal-integ-guide-msg');
+        if (navigator.clipboard && navigator.clipboard.writeText && text) {
+          navigator.clipboard.writeText(text).then(() => {
+            if (msgEl) {
+              msgEl.textContent = 'Copied.';
+              msgEl.className = 'settings-msg ok';
+            }
+            setTimeout(() => {
+              if (msgEl) msgEl.textContent = '';
+            }, 2000);
+          }).catch(() => {
+            if (msgEl) {
+              msgEl.textContent = 'Copy failed';
+              msgEl.className = 'settings-msg err';
+            }
+          });
+        } else if (msgEl) {
+          msgEl.textContent = 'Clipboard not available';
+          msgEl.className = 'settings-msg err';
+        }
+      });
+    }
+    if (importBtn) {
+      importBtn.onclick = () => {
+        const guide = activeIntegGuide;
+        closeIntegGuideModal();
+        closeSettings();
+        const preselect =
+          guide && guide.id === 'hermes'
+            ? 'markdown'
+            : guide && guide.sourceType
+              ? guide.sourceType
+              : undefined;
+        openImportModal(preselect);
+      };
+    }
+    if (teamBtn) {
+      teamBtn.onclick = () => {
+        closeIntegGuideModal();
+        openSettings();
+        document.querySelectorAll('.settings-tab').forEach((t) => {
+          t.classList.toggle('active', t.dataset.settingsTab === 'team');
+          t.setAttribute('aria-selected', t.dataset.settingsTab === 'team' ? 'true' : 'false');
+        });
+        document.querySelectorAll('.settings-panel').forEach((p) => {
+          p.classList.toggle('active', p.id === 'settings-panel-team');
+        });
+      };
+    }
+    document.addEventListener('click', (ev) => {
+      const tile =
+        ev.target instanceof Element
+          ? ev.target.closest('#settings-panel-integrations [data-integ-id]')
+          : null;
+      if (!tile) return;
+      const mod = globalThis.HubIntegrationGuides;
+      if (!mod || typeof mod.getIntegrationGuide !== 'function') {
+        if (typeof showToast === 'function') {
+          showToast('Integration details still loading — try again in a moment.', true);
+        }
+        scheduleIntegrationGuidesInit(0);
+        return;
+      }
+      const id = tile.getAttribute('data-integ-id');
+      const guide = id ? mod.getIntegrationGuide(id) : null;
+      if (guide) {
+        ev.preventDefault();
+        openIntegGuideModal(guide);
+      }
+    });
+  }
+
+  function scheduleIntegrationGuidesInit(attempt) {
+    bindIntegrationGuideModalControlsOnce();
+    if (globalThis.HubIntegrationGuides) return;
+    if (attempt >= 80) return;
+    setTimeout(() => scheduleIntegrationGuidesInit(attempt + 1), 50);
+  }
+
+  scheduleIntegrationGuidesInit(0);
 
   const btnCopyMcpPrime = el('btn-copy-mcp-prime');
   if (btnCopyMcpPrime) {
@@ -9529,6 +9686,9 @@
       /* Close the topmost modal first (later in DOM stacks above onboarding when both are open). */
       } else if (el('modal-how-to-use') && !el('modal-how-to-use').classList.contains('hidden')) {
         closeHowToUse();
+        e.preventDefault();
+      } else if (el('modal-integ-guide') && !el('modal-integ-guide').classList.contains('hidden')) {
+        closeIntegGuideModal();
         e.preventDefault();
       } else if (el('modal-settings') && !el('modal-settings').classList.contains('hidden')) {
         closeSettings();
