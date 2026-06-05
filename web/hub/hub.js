@@ -4776,6 +4776,7 @@
         const ollamaRow = el('agents-ollama-row');
         if (ollamaRow) ollamaRow.style.display = ed.provider === 'ollama' ? '' : 'none';
         if (el('agents-embedding-ollama-url')) el('agents-embedding-ollama-url').textContent = ed.ollama_url || '—';
+        applyChatProviderSettings(s);
         const apiRow = el('settings-api-base-row');
         const apiDisp = el('settings-api-base-display');
         if (apiRow && apiDisp) {
@@ -9892,6 +9893,87 @@
   document.querySelectorAll('input[name="consol-mode"]').forEach((radio) => {
     radio.addEventListener('change', () => applyConsolModeVisibility(radio.value));
   });
+
+  let lastChatKeyAvailable = {};
+
+  function chatProviderKeyHintText(provider, keyAvail) {
+    const ka = keyAvail || {};
+    switch (provider) {
+      case '':
+        return 'Auto-detect uses an available managed key if present, otherwise falls back to local Ollama.';
+      case 'ollama':
+        return 'Runs on your own Ollama instance — free and private. Set OLLAMA_URL / OLLAMA_CHAT_MODEL on the server if not default.';
+      case 'openrouter':
+        return ka.openrouter
+          ? 'OPENROUTER_API_KEY is set on the server. Calls are billed to your OpenRouter account (not Knowtation packs).'
+          : 'Set OPENROUTER_API_KEY on the server to use this lane (BYO key).';
+      case 'openai':
+        return ka.openai ? 'OPENAI_API_KEY is set on the server.' : 'Set OPENAI_API_KEY on the server to use this lane.';
+      case 'anthropic':
+        return ka.anthropic ? 'ANTHROPIC_API_KEY is set on the server.' : 'Set ANTHROPIC_API_KEY on the server to use this lane.';
+      case 'deepinfra':
+        return ka.deepinfra ? 'DEEPINFRA_API_KEY is set on the server.' : 'Set DEEPINFRA_API_KEY on the server to use this lane.';
+      default:
+        return '';
+    }
+  }
+
+  function applyChatProviderSettings(s) {
+    const chat = (s && s.chat) || {};
+    const sel = el('chat-provider-select');
+    const keyHint = el('chat-provider-key-hint');
+    const envHint = el('chat-provider-env-hint');
+    const adminHint = el('chat-provider-admin-hint');
+    const saveBtn = el('btn-chat-provider-save');
+    const msg = el('chat-provider-msg');
+    if (msg) { msg.textContent = ''; msg.className = 'settings-msg'; }
+    if (!sel) return;
+    lastChatKeyAvailable = chat.key_available || {};
+    const isAdmin = String(s && s.role) === 'admin';
+    const envLocked = Boolean(chat.env_locked);
+    sel.value = envLocked ? (chat.env_provider || '') : (chat.provider || '');
+    sel.disabled = envLocked || !isAdmin;
+    if (saveBtn) saveBtn.disabled = envLocked || !isAdmin;
+    if (adminHint) adminHint.classList.toggle('hidden', isAdmin || envLocked);
+    if (envHint) {
+      if (envLocked) {
+        envHint.textContent =
+          'Locked by the KNOWTATION_CHAT_PROVIDER environment variable (operator-managed). Unset it on the server to choose from here.';
+        envHint.classList.remove('hidden');
+      } else {
+        envHint.classList.add('hidden');
+      }
+    }
+    if (keyHint) keyHint.textContent = chatProviderKeyHintText(sel.value, lastChatKeyAvailable);
+
+    if (!sel.dataset.knowtationBound) {
+      sel.dataset.knowtationBound = '1';
+      sel.addEventListener('change', () => {
+        if (keyHint) keyHint.textContent = chatProviderKeyHintText(sel.value, lastChatKeyAvailable);
+      });
+    }
+    const btn = el('btn-chat-provider-save');
+    if (btn && !btn.dataset.knowtationBound) {
+      btn.dataset.knowtationBound = '1';
+      btn.addEventListener('click', async () => {
+        const m = el('chat-provider-msg');
+        if (m) { m.textContent = 'Saving…'; m.className = 'settings-msg'; }
+        try {
+          const res = await api('/api/v1/settings/chat', {
+            method: 'POST',
+            body: JSON.stringify({ provider: sel.value }),
+          });
+          if (res && res.chat) sel.value = res.chat.provider || '';
+          if (m) { m.textContent = 'Saved.'; m.className = 'settings-msg ok'; }
+        } catch (e) {
+          if (m) {
+            m.textContent = e && e.message ? String(e.message) : 'Failed to save provider';
+            m.className = 'settings-msg err';
+          }
+        }
+      });
+    }
+  }
 
   async function loadConsolidationSettings() {
     const msg = el('consol-save-status');

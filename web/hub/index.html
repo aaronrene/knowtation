@@ -1130,6 +1130,37 @@ Your note body here.</pre>
               </details>
             </div>
             <h3 class="settings-h3 integ-section-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg></span>
+              AI model provider
+            </h3>
+            <p class="settings-intro small"><strong>What this is:</strong> the model service that powers Knowtation's AI features — note summaries and proposal review hints (the <code>completeChat</code> lane). It is separate from <strong>embeddings</strong> (Agent Configuration, below) and from <strong>Memory Consolidation</strong> (Settings → Consolidation). <strong>Local/in-browser and BYO-key lanes keep your note text private;</strong> managed providers send note text to a third party.</p>
+            <div id="settings-chat-provider" class="settings-form" style="border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0;">
+              <label for="chat-provider-select" style="font-weight: 500;">Chat model provider</label>
+              <select id="chat-provider-select" class="settings-select-inline" style="display: block; margin-top: 0.25rem; max-width: 22rem;">
+                <option value="">Auto-detect (default)</option>
+                <option value="openai">OpenAI (managed)</option>
+                <option value="anthropic">Anthropic (managed)</option>
+                <option value="deepinfra">DeepInfra (managed)</option>
+                <option value="openrouter">OpenRouter (your key, BYO)</option>
+                <option value="ollama">Ollama (local, free, private)</option>
+              </select>
+              <p id="chat-provider-key-hint" class="settings-intro small muted" style="margin: 0.35rem 0 0;"></p>
+              <p id="chat-provider-env-hint" class="settings-intro small hidden" style="margin: 0.35rem 0 0; color: var(--muted, #888);"></p>
+              <p id="chat-provider-admin-hint" class="settings-intro small hidden" style="margin: 0.35rem 0 0; color: var(--muted, #888);">Only a workspace <strong>admin</strong> can change the model provider.</p>
+              <div class="settings-form-actions" style="margin-top: 0.5rem;">
+                <button type="button" id="btn-chat-provider-save" class="btn-primary">Save provider</button>
+                <span id="chat-provider-msg" class="settings-msg"></span>
+              </div>
+            </div>
+            <div class="integ-source-grid" id="integ-model-grid" style="margin-top: 0.65rem;">
+              <button type="button" class="integ-source-tile" data-integ-id="openrouter" aria-label="OpenRouter — setup details">
+                <span class="integ-source-tile-icon">🧭</span>
+                <span class="integ-source-tile-name">OpenRouter</span>
+                <span class="integ-source-tile-desc">BYO key; many models</span>
+              </button>
+            </div>
+            <hr class="settings-hr">
+            <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
               Capture (messages → inbox)
             </h3>

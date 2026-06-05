@@ -14,8 +14,12 @@ export const TEAMS_DOC =
 export const HERMES_MEMORY_DOC =
   'https://hermes-agent.nousresearch.com/docs/user-guide/features/memory';
 
+export const MODEL_ROUTING_DOC =
+  'https://github.com/aaronrene/knowtation/blob/main/docs/COMPANION-APP-MODEL-ROUTING-AND-ENRICHMENT-ARCHITECTURE.md';
+export const OPENROUTER_DOC = 'https://openrouter.ai/docs';
+
 /**
- * @typedef {'capture' | 'import'} IntegrationKind
+ * @typedef {'capture' | 'import' | 'provider'} IntegrationKind
  * @typedef {{ type: 'text', html: string } | { type: 'code', label?: string, code: string }} IntegrationSection
  * @typedef {{
  *   id: string,
@@ -33,6 +37,40 @@ export const HERMES_MEMORY_DOC =
 
 /** @type {Record<string, IntegrationGuide>} */
 export const INTEGRATION_GUIDES = Object.freeze({
+  openrouter: {
+    id: 'openrouter',
+    icon: '🧭',
+    name: 'OpenRouter',
+    desc: 'BYO key; one API, many models',
+    kind: 'provider',
+    docUrl: OPENROUTER_DOC,
+    docLabel: 'OpenRouter docs',
+    sections: [
+      {
+        type: 'text',
+        html:
+          'OpenRouter is a <strong>bring-your-own-key</strong> model lane (OpenAI-compatible): you pay OpenRouter directly, so it is <strong>never metered against Knowtation packs</strong>. Use it to reach many models (OpenAI, Anthropic, Llama, Mistral, …) through one key. A failed OpenRouter call is <strong>not</strong> silently re-routed to a managed provider — your note text stays on the lane you chose.',
+      },
+      {
+        type: 'text',
+        html:
+          'Select <strong>OpenRouter</strong> under <strong>Settings → Integrations → AI model provider</strong> (self-hosted admins; or set <code>KNOWTATION_CHAT_PROVIDER=openrouter</code> as an operator env lock). The key and model live in server env, never in this UI.',
+      },
+      {
+        type: 'code',
+        label: 'Server env',
+        code: [
+          'KNOWTATION_CHAT_PROVIDER=openrouter',
+          'OPENROUTER_API_KEY=sk-or-...',
+          '# optional model (default openai/gpt-4o-mini):',
+          'OPENROUTER_CHAT_MODEL=anthropic/claude-3.5-haiku',
+          '# optional attribution headers:',
+          'OPENROUTER_SITE_URL=https://your-hub.example',
+          'OPENROUTER_APP_TITLE=Knowtation',
+        ].join('\n'),
+      },
+    ],
+  },
   slack: {
     id: 'slack',
     icon: '💬',

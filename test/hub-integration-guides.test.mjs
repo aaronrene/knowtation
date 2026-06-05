@@ -225,3 +225,73 @@ describe('hub-integration-guides — security', () => {
     assert.ok(g?.docUrl?.startsWith('https://'));
   });
 });
+
+describe('OpenRouter model-provider guide + chat-provider UI', () => {
+  it('unit: openrouter guide exists as a provider-kind tile with an https doc link', () => {
+    const g = getIntegrationGuide('openrouter');
+    assert.ok(g, 'openrouter guide must exist');
+    assert.equal(g.id, 'openrouter');
+    assert.equal(g.name, 'OpenRouter');
+    assert.equal(g.kind, 'provider');
+    assert.ok(g.docUrl?.startsWith('https://'));
+    assert.ok(g.sections.length > 0);
+  });
+
+  it('unit: guide documents the BYO-key env wiring and no managed fallback', () => {
+    const g = getIntegrationGuide('openrouter');
+    const code = g.sections.filter((s) => s.type === 'code').map((s) => s.code).join('\n');
+    const text = g.sections.filter((s) => s.type === 'text').map((s) => s.html).join(' ');
+    assert.match(code, /KNOWTATION_CHAT_PROVIDER=openrouter/);
+    assert.match(code, /OPENROUTER_API_KEY=/);
+    assert.match(text, /bring-your-own-key|BYO/i);
+    assert.match(text, /never (silently )?re-routed|never metered/i);
+  });
+
+  it('integration: the integrations panel renders an OpenRouter tile', () => {
+    assert.match(hubIndex, /data-integ-id="openrouter"/);
+    const tileIdx = hubIndex.indexOf('data-integ-id="openrouter"');
+    const panelIdx = hubIndex.indexOf('id="settings-panel-integrations"');
+    assert.ok(tileIdx > panelIdx, 'OpenRouter tile must live in the integrations panel');
+  });
+
+  it('integration: chat-provider selector exposes every selectable provider plus auto-detect', () => {
+    const selStart = hubIndex.indexOf('id="chat-provider-select"');
+    assert.notEqual(selStart, -1, 'chat-provider-select must exist');
+    const selBlock = hubIndex.slice(selStart, hubIndex.indexOf('</select>', selStart));
+    for (const v of ['value=""', 'value="openai"', 'value="anthropic"', 'value="deepinfra"', 'value="openrouter"', 'value="ollama"']) {
+      assert.ok(selBlock.includes(v), `chat-provider-select missing option ${v}`);
+    }
+  });
+
+  it('integration: hub.js loads, gates, and saves the chat provider via the settings API', () => {
+    assert.match(hubJs, /function applyChatProviderSettings/);
+    assert.match(hubJs, /applyChatProviderSettings\(s\)/);
+    assert.match(hubJs, /\/api\/v1\/settings\/chat/);
+    assert.match(hubJs, /method: 'POST'/);
+  });
+
+  it('security: env lock + admin gating are honoured in the UI load path', () => {
+    assert.match(hubJs, /chat\.env_locked/);
+    assert.match(hubJs, /KNOWTATION_CHAT_PROVIDER/);
+    assert.match(hubJs, /String\(s && s\.role\) === 'admin'/);
+    // disabled when env-locked or non-admin
+    assert.match(hubJs, /sel\.disabled = envLocked \|\| !isAdmin/);
+  });
+
+  it('security: guide keeps the API key in server env, not the Hub UI', () => {
+    const g = getIntegrationGuide('openrouter');
+    const text = g.sections.filter((s) => s.type === 'text').map((s) => s.html).join(' ');
+    assert.match(text, /server env/i);
+    // No real-looking key is embedded in the guide content.
+    const blob = g.sections.map((s) => (s.type === 'code' ? s.code : s.html)).join('\n');
+    assert.doesNotMatch(blob, /sk-or-v1-[A-Za-z0-9]{20,}/);
+  });
+
+  it('end-to-end: the OpenRouter tile resolves through the same modal contract', () => {
+    const html = renderIntegrationGuideHtml(getIntegrationGuide('openrouter'));
+    assert.match(html, /integ-guide-code-block/);
+    assert.match(html, /KNOWTATION_CHAT_PROVIDER=openrouter/);
+    assert.doesNotMatch(html, /<script>/i);
+    assert.match(html, /href="https:\/\/openrouter\.ai/);
+  });
+});
