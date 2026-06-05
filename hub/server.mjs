@@ -22,7 +22,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 
-import { loadConfig } from '../lib/config.mjs';
+import { loadConfig, CHAT_PROVIDERS, normalizeChatProviderInput } from '../lib/config.mjs';
 import { runListNotes, runFacets } from '../lib/list-notes.mjs';
 import {
   readNote,
@@ -1859,6 +1859,18 @@ app.get('/api/v1/settings', jwtAuth, requireRole('viewer', 'editor', 'admin', 'e
     ),
     proposal_rubric: loadProposalRubric(config.data_dir),
     muse_bridge: museBridgePublicSettings(),
+    chat: {
+      provider: config.llm?.provider || '',
+      providers: CHAT_PROVIDERS,
+      env_locked: Boolean(process.env.KNOWTATION_CHAT_PROVIDER),
+      env_provider: String(process.env.KNOWTATION_CHAT_PROVIDER || '').trim().toLowerCase() || null,
+      key_available: {
+        openai: Boolean(process.env.OPENAI_API_KEY),
+        anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+        deepinfra: Boolean(process.env.DEEPINFRA_API_KEY),
+        openrouter: Boolean(process.env.OPENROUTER_API_KEY),
+      },
+    },
     daemon: {
       enabled: Boolean(config.daemon?.enabled),
       interval_minutes: config.daemon?.interval_minutes ?? 120,
@@ -1961,6 +1973,49 @@ app.post(
       fs.writeFileSync(configPath, yaml.dump(doc), 'utf8');
       config = loadConfig(projectRoot);
       res.json({ ok: true, daemon: doc.daemon });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to save', code: 'RUNTIME_ERROR' });
+    }
+  },
+);
+
+// POST /api/v1/settings/chat — set the completeChat provider (MCP summarize + proposal LLM jobs).
+// Admin only. Persists llm.provider to config/local.yaml. The provider drives where note text is
+// sent and which account is billed, so input is strictly whitelisted. When KNOWTATION_CHAT_PROVIDER
+// is set, the operator env lock wins and the UI cannot change it (409).
+app.post(
+  '/api/v1/settings/chat',
+  jwtAuth,
+  apiLimiter,
+  requireRole('admin'),
+  express.json(),
+  async (req, res) => {
+    try {
+      if (process.env.KNOWTATION_CHAT_PROVIDER) {
+        return res.status(409).json({
+          error:
+            'Chat provider is locked by the KNOWTATION_CHAT_PROVIDER environment variable; unset it to manage the provider from the UI.',
+          code: 'ENV_LOCKED',
+        });
+      }
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const result = normalizeChatProviderInput(body.provider);
+      if (!result.ok) {
+        return res.status(400).json({ error: result.error, code: 'VALIDATION_ERROR' });
+      }
+      const yaml = (await import('js-yaml')).default;
+      const configPath = process.env.KNOWTATION_CONFIG || path.join(projectRoot, 'config', 'local.yaml');
+      let doc = {};
+      if (fs.existsSync(configPath)) {
+        doc = yaml.load(fs.readFileSync(configPath, 'utf8')) || {};
+      }
+      if (!doc.llm || typeof doc.llm !== 'object') doc.llm = {};
+      doc.llm.provider = result.provider;
+      const dir = path.dirname(configPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(configPath, yaml.dump(doc), 'utf8');
+      config = loadConfig(projectRoot);
+      res.json({ ok: true, chat: { provider: config.llm?.provider || '' } });
     } catch (e) {
       res.status(500).json({ error: e.message || 'Failed to save', code: 'RUNTIME_ERROR' });
     }
