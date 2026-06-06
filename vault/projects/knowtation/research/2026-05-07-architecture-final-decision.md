@@ -18,6 +18,13 @@ depends_on:
 
 # Architecture final decision — 2026-05-07
 
+> **⚠️ INFRA UPDATE (owner-confirmed 2026-06-06):** the **AWS EC2 Paperclip box has been
+> decommissioned**; Paperclip now runs on the **iMac**. Every statement below that the AWS box is
+> "already deployed / provisioned and running in us-east-2" (e.g. §"Plain-language summary",
+> §"Technical summary", §"Verified status as of 2026-05-07" table) reflects the **2026-05-07** state
+> and is now **historical**. The four-layer architecture decision itself stands; only the hosting
+> location of the org-chart/worker layer changed (AWS → iMac).
+
 > **Status:** locked. Per Rule #3, this decision was challenged 4+ times during a single chat session before locking. Per Rule #1, this is a permanent decision, not a temporary fix. Counter-arguments are recorded under "Alternatives considered." If this reads wrong to a future you, file a counter-note under `vault/projects/knowtation/research/` and revisit explicitly — do not improvise around this doc.
 
 ## Plain-language summary (the contract)

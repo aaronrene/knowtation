@@ -464,13 +464,19 @@ if (!process.env.NETLIFY) {
 
 // Auth: login redirect — plan routes GET /auth/login, GET /auth/callback/google|github. Preserve invite in state for post-login redirect.
 // Phase D3: mcp_state query param is passed through OAuth state for MCP authorization flow.
+// C1/C3 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native_state query param is passed
+// through OAuth state for the native client authorization flow (prefix "native:").
 app.get('/auth/login', (req, res, next) => {
   const provider = (req.query.provider || 'google').toLowerCase();
   const invite = typeof req.query.invite === 'string' ? req.query.invite.trim() : '';
   const mcpState = typeof req.query.mcp_state === 'string' ? req.query.mcp_state.trim() : '';
+  const nativeState = typeof req.query.native_state === 'string' ? req.query.native_state.trim() : '';
   let state;
   if (mcpState) {
     state = `mcp:${mcpState}`;
+  } else if (nativeState) {
+    // Prefix distinguishes native auth round-trips from MCP round-trips in the IDP callback.
+    state = `native:${nativeState}`;
   } else {
     state = invite || undefined;
   }
@@ -501,6 +507,12 @@ app.get(
       if (!sub) return res.status(401).json({ error: 'auth_failed' });
       return app._mcpOAuthProvider.completeMcpAuthorization(state.slice(4), sub, res);
     }
+    // C1/C3: native client authorization flow (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6).
+    if (state.startsWith('native:') && app._nativeOAuthProvider) {
+      const sub = userId(req.user);
+      if (!sub) return res.status(401).json({ error: 'auth_failed' });
+      return app._nativeOAuthProvider.completeNativeAuthorization(state.slice(7), sub, res);
+    }
     const token = issueToken(req.user);
     await issueRefreshCookieSafe(res, req, userId(req.user));
     res.redirect(postLoginRedirect(token, req));
@@ -515,6 +527,12 @@ app.get(
       const sub = userId(req.user);
       if (!sub) return res.status(401).json({ error: 'auth_failed' });
       return app._mcpOAuthProvider.completeMcpAuthorization(state.slice(4), sub, res);
+    }
+    // C1/C3: native client authorization flow (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6).
+    if (state.startsWith('native:') && app._nativeOAuthProvider) {
+      const sub = userId(req.user);
+      if (!sub) return res.status(401).json({ error: 'auth_failed' });
+      return app._nativeOAuthProvider.completeNativeAuthorization(state.slice(7), sub, res);
     }
     const token = issueToken(req.user);
     await issueRefreshCookieSafe(res, req, userId(req.user));
@@ -562,6 +580,35 @@ if (SESSION_SECRET && !process.env.NETLIFY) {
       revocationOptions: mcpOAuthSdkRateLimitOpts,
     }));
     console.log('[gateway] MCP OAuth 2.1 endpoints mounted');
+
+    // C1–C6 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native client OAuth 2.1 endpoints.
+    // The native path issues web-session JWTs (issueToken shape) instead of mcp_access
+    // tokens, uses refresh-token-core for durable rotation, enforces loopback-only
+    // redirect URIs, validates redirect_uri at exchange, and applies a scope ceiling.
+    // Mounted only on the persistent gateway host — same guard as the MCP router.
+    try {
+      const { createNativeOAuthRouter } = await import('./native-oauth-provider.mjs');
+      const { router: nativeRouter, completeNativeAuthorization } = createNativeOAuthRouter({
+        baseUrl: BASE_URL,
+        loginUrl: `${BASE_URL}/auth/login`,
+        issueAccessToken: issueAccessTokenForSub,
+        // C6: grantedScopes resolves the scope ceiling via roleForSub; unknown sub → member.
+        grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+        // C2/C4: reuse the same durable refresh store as the web session so rotation +
+        // reuse-detection use the same family records. Store is file-backed on this host.
+        refreshStore,
+      });
+      // Bind completeNativeAuthorization so IDP callbacks can reach it (see /auth/callback/*).
+      app._nativeOAuthProvider = { completeNativeAuthorization };
+      app.use('/api/v1/auth/native', nativeRouter);
+      console.log('[gateway] Native OAuth 2.1 endpoints mounted at /api/v1/auth/native');
+
+      // C4: opportunistically prune expired native auth codes at startup.
+      const { pruneExpiredCodes } = await import('./native-as-store.mjs');
+      pruneExpiredCodes().catch(() => { /* best effort; never fatal */ });
+    } catch (e) {
+      console.error('[gateway] Native OAuth router failed to load:', e.message || e);
+    }
   }).catch((e) => {
     console.error('[gateway] MCP OAuth router failed to load:', e.message || e);
   });
@@ -2497,6 +2544,7 @@ async function resolveHostedActorRole(req, hctx) {
       mayApproveProposals = envFallback;
     }
   } else if (BRIDGE_URL && req.headers.authorization) {
+    let bridgeResolved = false;
     try {
       const roleRes = await fetch(BRIDGE_URL + '/api/v1/role', {
         method: 'GET',
@@ -2504,7 +2552,10 @@ async function resolveHostedActorRole(req, hctx) {
       });
       if (roleRes.ok) {
         const data = await roleRes.json();
-        if (data.role) role = data.role;
+        if (data.role) {
+          role = data.role;
+          bridgeResolved = true;
+        }
         if (typeof data.may_approve_proposals === 'boolean') {
           mayApproveProposals = data.may_approve_proposals;
         } else if (role === 'evaluator') {
@@ -2512,6 +2563,19 @@ async function resolveHostedActorRole(req, hctx) {
         }
       }
     } catch (_) {}
+    // Bridge unreachable or rejected the JWT (e.g. SESSION_SECRET mismatch after a redeploy).
+    // Fall back to the JWT payload role so the gateway owner is never locked out by bridge state.
+    if (!bridgeResolved) {
+      try {
+        const auth = req.headers.authorization;
+        const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+        if (token && SESSION_SECRET) {
+          const payload = jwt.verify(token, SESSION_SECRET);
+          role = payload.role || roleForSub(payload.sub);
+          mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
+        }
+      } catch (_) {}
+    }
   } else {
     try {
       const auth = req.headers.authorization;
@@ -2522,6 +2586,14 @@ async function resolveHostedActorRole(req, hctx) {
         mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
       }
     } catch (_) {}
+  }
+  // Gateway-level admin override: HUB_ADMIN_USER_IDS is the authoritative owner list.
+  // A sub in that list is always admin — the gateway owner must never be locked out by a
+  // bridge state reset, role-store loss, or SESSION_SECRET mismatch between gateway and bridge.
+  const actorSub = getUserId(req);
+  if (actorSub && role !== 'admin' && roleForSub(actorSub) === 'admin') {
+    role = 'admin';
+    mayApproveProposals = true;
   }
   return { role, mayApproveProposals };
 }

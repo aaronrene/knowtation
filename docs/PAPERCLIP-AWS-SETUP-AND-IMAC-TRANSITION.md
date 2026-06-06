@@ -1,5 +1,11 @@
 # Paperclip — AWS setup, root-cause notes, and iMac transition plan
 
+> **⚠️ STATUS (owner-confirmed 2026-06-06): MIGRATION COMPLETE — AWS DECOMMISSIONED.**
+> The AWS `paperclip-prod` EC2 box (t3.xlarge, us-east-2) has been **deleted**; Paperclip now runs on
+> the **iMac**. Everything below describing AWS as "live/healthy/running" is **historical record**
+> retained for reference (root-cause notes, the transition checklist, and reconnect steps should AWS
+> ever be re-provisioned). Do **not** treat the AWS box as current infrastructure.
+
 **Status as of 2026-05-11 (AWS)**: Paperclip was **live and healthy** at `paperclip-prod` on AWS EC2 (Tailscale, onboarding, Gemini CLI path validated). **Status as of 2026-05-14 (handoff)**: This doc now includes a **full Mac setup checklist**, **environment prep**, and a **copy-paste next-session prompt** for Cursor on the new machine.
 
 This document exists so that:

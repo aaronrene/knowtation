@@ -9592,13 +9592,8 @@
       loadNotes();
       loadActivity();
     } catch (e) {
-      const db = el('detail-body');
-      if (db) {
-        const extra = document.createElement('p');
-        extra.className = 'muted';
-        extra.textContent = 'Approve failed: ' + (e.message || String(e));
-        db.appendChild(extra);
-      }
+      const msg = e.message || String(e);
+      showToast('Approve failed: ' + msg, true);
     }
   }
 
@@ -9611,13 +9606,8 @@
       loadProposals();
       loadActivity();
     } catch (e) {
-      const db = el('detail-body');
-      if (db) {
-        const extra = document.createElement('p');
-        extra.className = 'muted';
-        extra.textContent = 'Discard failed: ' + (e.message || String(e));
-        db.appendChild(extra);
-      }
+      const msg = e.message || String(e);
+      showToast('Discard failed: ' + msg, true);
     }
   }
 

@@ -3,6 +3,10 @@
  * Implements OAuthServerProvider from @modelcontextprotocol/sdk.
  * Reuses the Hub's existing Google/GitHub OAuth flow and wraps it with MCP-standard
  * PKCE + dynamic client registration.
+ *
+ * C3 (docs/COMPANION-APP-OAUTH-SERVERSIDE-GATE.md §6): emits `iss` = canonical issuer
+ *    identifier on the loopback redirect in completeMcpAuthorization (RFC 9207 §2).
+ * C5: validates redirect_uri at token exchange when provided (RFC 6749 §4.1.3).
  */
 
 import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
@@ -73,6 +77,10 @@ export class KnowtationOAuthProvider {
   constructor(opts) {
     this._sessionSecret = opts.sessionSecret;
     this._baseUrl = opts.baseUrl.replace(/\/$/, '');
+    // C3: canonical issuer identifier — matches the `issuer.href` the mcpAuthRouter
+    // advertises in discovery metadata (new URL(BASE_URL).href).  URL normalises
+    // bare-host URLs by appending a trailing slash, so we preserve that here.
+    this._issuerUrl = new URL(this._baseUrl).href;
     this._loginUrl = opts.loginUrl || `${this._baseUrl}/auth/login`;
     this._clientStore = new InMemoryClientsStore();
     /** @type {Map<string, { clientId: string, codeChallenge: string, redirectUri: string, state?: string, scopes: string[], userId?: string, expires: number }>} */
@@ -146,6 +154,10 @@ export class KnowtationOAuthProvider {
     const redirectUrl = new URL(mcpState.redirectUri);
     redirectUrl.searchParams.set('code', mcpState.code);
     if (mcpState.state) redirectUrl.searchParams.set('state', mcpState.state);
+    // C3 (RFC 9207 §2): emit iss = canonical issuer identifier so clients that pass
+    // expectedIssuer get constant-time mix-up defense with no client-side change.
+    // Value exactly equals the `issuer` field in the discovery metadata.
+    redirectUrl.searchParams.set('iss', this._issuerUrl);
     res.redirect(redirectUrl.toString());
   }
 
@@ -155,7 +167,7 @@ export class KnowtationOAuthProvider {
     return pending.codeChallenge;
   }
 
-  async exchangeAuthorizationCode(client, authorizationCode, _codeVerifier, _redirectUri, _resource) {
+  async exchangeAuthorizationCode(client, authorizationCode, _codeVerifier, redirectUri, _resource) {
     const pending = this._pendingCodes.get(authorizationCode);
     if (!pending) throw new Error('Unknown authorization code');
     if (pending.clientId !== client.client_id) throw new Error('Client mismatch');
@@ -164,6 +176,12 @@ export class KnowtationOAuthProvider {
       throw new Error('Authorization code expired');
     }
     if (!pending.userId) throw new Error('Authorization not completed');
+    // C5 (RFC 6749 §4.1.3): when redirect_uri is provided in the token request it MUST
+    // exactly equal the one bound at authorization. Absent when the SDK omits it for
+    // clients that did not include it in the auth request (tolerated for back-compat).
+    if (redirectUri !== undefined && redirectUri !== pending.redirectUri) {
+      throw new Error('redirect_uri mismatch');
+    }
 
     this._pendingCodes.delete(authorizationCode);
 

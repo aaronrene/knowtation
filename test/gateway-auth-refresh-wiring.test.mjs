@@ -21,6 +21,12 @@ describe('hosted gateway wires persistent sessions', () => {
     if (!src) src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
     return src;
   };
+  const routeBlock = (s, route) => {
+    const start = s.indexOf(route);
+    assert.ok(start > 0, `${route} route exists`);
+    const nextRoute = s.indexOf('\napp.', start + route.length);
+    return s.slice(start, nextRoute > 0 ? nextRoute : s.length);
+  };
 
   test('imports auth-session helpers and the gateway refresh store', () => {
     const s = load();
@@ -52,11 +58,10 @@ describe('hosted gateway wires persistent sessions', () => {
 
   test('both OAuth callbacks issue a refresh cookie before redirect', () => {
     const s = load();
-    const g = s.indexOf("'/auth/callback/google'");
-    const gh = s.indexOf("'/auth/callback/github'");
-    assert.ok(g > 0 && gh > 0);
-    assert.ok(s.slice(g, g + 600).includes('issueRefreshCookieSafe'), 'google callback issues cookie');
-    assert.ok(s.slice(gh, gh + 600).includes('issueRefreshCookieSafe'), 'github callback issues cookie');
+    const google = routeBlock(s, "'/auth/callback/google'");
+    const github = routeBlock(s, "'/auth/callback/github'");
+    assert.ok(google.includes('issueRefreshCookieSafe'), 'google callback issues cookie');
+    assert.ok(github.includes('issueRefreshCookieSafe'), 'github callback issues cookie');
   });
 
   test('cookie policy adapts SameSite to cross-origin deployments', () => {
