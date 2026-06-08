@@ -1215,7 +1215,18 @@ function sanitizedMetadataFacetsGatewayError(error) {
 }
 
 const hostedCtxCache = new Map();
-const HOSTED_CTX_TTL_MS = 5000;
+const HOSTED_CTX_TTL_MS = 60_000;
+const HOSTED_CONTEXT_FETCH_TIMEOUT_MS = (() => {
+  const n = parseInt(String(process.env.HOSTED_CONTEXT_FETCH_TIMEOUT_MS || ''), 10);
+  if (!Number.isFinite(n)) return 3000;
+  return Math.min(10_000, Math.max(250, n));
+})();
+
+function hostedContextAbortSignal() {
+  return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(HOSTED_CONTEXT_FETCH_TIMEOUT_MS)
+    : undefined;
+}
 
 /**
  * Bridge-hosted team context (vault allowlist + scope + effective canister user). Cached briefly per (sub, vaultId).
@@ -1234,6 +1245,7 @@ async function getHostedAccessContext(req) {
   const hit = hostedCtxCache.get(cacheKey);
   if (hit && hit.expires > now) return hit.data;
   try {
+    const signal = hostedContextAbortSignal();
     const r = await fetch(BRIDGE_URL + '/api/v1/hosted-context', {
       method: 'GET',
       headers: {
@@ -1241,6 +1253,7 @@ async function getHostedAccessContext(req) {
         Accept: 'application/json',
         'X-Vault-Id': vaultId,
       },
+      ...(signal ? { signal } : {}),
     });
     if (!r.ok) return null;
     const data = await r.json();
@@ -1269,6 +1282,7 @@ async function fetchHostedAccessContextForVault(authorization, vaultId) {
   const hit = hostedCtxCache.get(cacheKey);
   if (hit && hit.expires > now) return hit.data;
   try {
+    const signal = hostedContextAbortSignal();
     const r = await fetch(BRIDGE_URL + '/api/v1/hosted-context', {
       method: 'GET',
       headers: {
@@ -1276,6 +1290,7 @@ async function fetchHostedAccessContextForVault(authorization, vaultId) {
         Accept: 'application/json',
         'X-Vault-Id': vid,
       },
+      ...(signal ? { signal } : {}),
     });
     if (!r.ok) return null;
     const data = await r.json();
@@ -1516,13 +1531,14 @@ app.get('/api/v1/settings', async (req, res) => {
   let allowedFromBridge = null;
   if (BRIDGE_URL && req.headers.authorization) {
     try {
-      const hRes = await fetch(BRIDGE_URL + '/api/v1/hosted-context', {
+      const signal = hostedContextAbortSignal();
+      const hRes = await fetch(BRIDGE_URL + '/api/v1/hosted-context/settings', {
         method: 'GET',
         headers: {
           Authorization: req.headers.authorization,
           Accept: 'application/json',
-          'X-Vault-Id': 'default',
         },
+        ...(signal ? { signal } : {}),
       });
       if (hRes.ok) {
         const hc = await hRes.json();
@@ -1536,6 +1552,8 @@ app.get('/api/v1/settings', async (req, res) => {
           workspace_owner_id = String(hc.workspace_owner_id).trim();
         }
         if (hc.delegating === true) hosted_delegating = true;
+      } else if (hRes.status === 403) {
+        allowedFromBridge = [];
       }
     } catch (_) {
       /* use uid-only fallback */
@@ -1543,9 +1561,11 @@ app.get('/api/v1/settings', async (req, res) => {
   }
   if (CANISTER_URL) {
     try {
+      const signal = hostedContextAbortSignal();
       const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
         method: 'GET',
         headers: { 'X-User-Id': canisterVaultUserId, Accept: 'application/json', ...canisterAuthHeaders() },
+        ...(signal ? { signal } : {}),
       });
       if (vRes.ok) {
         const data = await vRes.json();
@@ -1555,7 +1575,7 @@ app.get('/api/v1/settings', async (req, res) => {
             id: String(v.id || 'default'),
             label: String(v.label != null && v.label !== '' ? v.label : v.id || 'default'),
           }));
-          if (allowedFromBridge && allowedFromBridge.length > 0) {
+          if (allowedFromBridge !== null) {
             allowed_vault_ids = allowedFromBridge.filter((id) => mapped.some((m) => m.id === id));
             vault_list = allowed_vault_ids.map((id) => {
               const m = mapped.find((x) => x.id === id);
