@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import express from 'express';
 import { allowedToolsForRole, isToolAllowed, filterToolsByRole } from '../hub/gateway/mcp-tool-acl.mjs';
 
 describe('mcp-tool-acl', () => {
@@ -133,6 +135,19 @@ describe('mcp-proxy-router', () => {
       assert.equal(parseMcpSessionTtlMs({ MCP_SESSION_TTL_MS: 'abc' }), 8 * 60 * 60 * 1000);
       assert.equal(parseMcpMaxSessionsPerUser({ MCP_MAX_SESSIONS_PER_USER: 'x' }), 8);
     });
+
+    it('recognizes initialize as the only session-creation JSON-RPC method', async () => {
+      const { isMcpInitializeRequest } = await import('../hub/gateway/mcp-proxy.mjs');
+      assert.equal(isMcpInitializeRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }), true);
+      assert.equal(isMcpInitializeRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }), false);
+      assert.equal(
+        isMcpInitializeRequest([
+          { jsonrpc: '2.0', id: 1, method: 'notifications/initialized' },
+          { jsonrpc: '2.0', id: 2, method: 'initialize' },
+        ]),
+        true,
+      );
+    });
   });
 
   describe('createMcpProxyRouter', () => {
@@ -199,6 +214,42 @@ describe('mcp-proxy-router', () => {
       assert.equal(router._sessions.size, 0);
       assert.equal(router._userSessions.size, 0);
       clearInterval(router._cleanup);
+    });
+
+    it('rejects sessionless tools/list without bridge hosted-context lookup', async (t) => {
+      const { createMcpProxyRouter } = await import('../hub/gateway/mcp-proxy.mjs');
+      let hostedContextCalls = 0;
+      const router = createMcpProxyRouter({
+        getUserId: () => 'user-1',
+        getHostedAccessContext: async () => {
+          hostedContextCalls += 1;
+          return { role: 'viewer', scope: {}, allowed_vault_ids: ['Business'] };
+        },
+        canisterUrl: 'http://localhost:9999',
+        bridgeUrl: 'http://localhost:9998',
+        sessionSecret: 'test-secret',
+      });
+      t.after(() => clearInterval(router._cleanup));
+
+      const app = express();
+      app.use(express.json());
+      app.use('/mcp', router);
+      const srv = http.createServer(app);
+      await new Promise((resolve, reject) => {
+        srv.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+      });
+      t.after(() => new Promise((resolve) => srv.close(() => resolve())));
+      const port = srv.address().port;
+
+      const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-token' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+      });
+      const body = await res.json();
+      assert.equal(res.status, 404);
+      assert.equal(body.error?.message, 'Session not found');
+      assert.equal(hostedContextCalls, 0);
     });
   });
 });

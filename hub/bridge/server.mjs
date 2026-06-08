@@ -81,6 +81,19 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const CANISTER_AUTH_SECRET = process.env.CANISTER_AUTH_SECRET || '';
+const HOSTED_CONTEXT_FETCH_TIMEOUT_MS = (() => {
+  const n = parseInt(String(process.env.HOSTED_CONTEXT_FETCH_TIMEOUT_MS || ''), 10);
+  if (!Number.isFinite(n)) return 3000;
+  return Math.min(10_000, Math.max(250, n));
+})();
+const HOSTED_CONTEXT_CACHE_TTL_MS = 60_000;
+const canisterVaultIdsCache = new Map();
+
+function hostedContextAbortSignal() {
+  return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(HOSTED_CONTEXT_FETCH_TIMEOUT_MS)
+    : undefined;
+}
 
 /**
  * Base headers for all bridge→canister requests.
@@ -624,19 +637,34 @@ async function removeHostedVectorBlobForVault(blobStore, effectiveUid, vaultId) 
 /** @returns {Promise<string[]>} */
 async function fetchCanisterVaultIdsForUser(canisterUserId) {
   if (!CANISTER_URL || !canisterUserId) return ['default'];
+  const cacheKey = String(canisterUserId);
+  const now = Date.now();
+  const hit = canisterVaultIdsCache.get(cacheKey);
+  if (hit && hit.expires > now) return [...hit.ids];
   try {
+    const signal = hostedContextAbortSignal();
     const vRes = await fetch(CANISTER_URL + '/api/v1/vaults', {
       method: 'GET',
       headers: canisterHeaders({ 'X-User-Id': canisterUserId }),
+      ...(signal ? { signal } : {}),
     });
     if (!vRes.ok) return ['default'];
     const data = await vRes.json();
     const vaults = Array.isArray(data.vaults) ? data.vaults : [];
     if (vaults.length === 0) return ['default'];
-    return vaults.map((v) => String(v.id || 'default')).filter(Boolean);
+    const ids = vaults.map((v) => String(v.id || 'default')).filter(Boolean);
+    canisterVaultIdsCache.set(cacheKey, { expires: now + HOSTED_CONTEXT_CACHE_TTL_MS, ids });
+    return ids;
   } catch (_) {
     return ['default'];
   }
+}
+
+function explicitVaultAccessForUser(accessMap, actorUid) {
+  const raw = accessMap && typeof accessMap === 'object' ? accessMap[actorUid] : null;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const out = raw.map((x) => String(x).trim()).filter(Boolean);
+  return out.length > 0 ? out : null;
 }
 
 /**
@@ -657,7 +685,9 @@ async function resolveHostedBridgeContext(req, actorUid) {
     storedRoles: roles,
     adminUserIdsSet,
   });
-  const canisterIds = await fetchCanisterVaultIdsForUser(effective);
+  const explicitVaultIds = explicitVaultAccessForUser(access, actorUid);
+  const canisterIds =
+    delegate && explicitVaultIds ? explicitVaultIds : await fetchCanisterVaultIdsForUser(effective);
   const allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
     delegate,
     actorUid,
@@ -687,6 +717,44 @@ async function resolveHostedBridgeContext(req, actorUid) {
     scope,
     allowedVaultIds,
     delegating: delegate,
+  };
+}
+
+/**
+ * Hosted settings need the actor's vault allowlist without first proving access
+ * to a specific vault. This keeps Business-only delegated users from being
+ * denied while the UI is still deciding which vault to select.
+ *
+ * @param {import('express').Request} req
+ * @param {string} actorUid
+ */
+async function resolveHostedBridgeSettingsContext(req, actorUid) {
+  const workspace = await loadWorkspace(req.blobStore);
+  const roles = await loadRoles(req.blobStore);
+  const access = await loadVaultAccess(req.blobStore);
+  const ownerId = workspace.owner_user_id;
+  const { effective, delegate } = resolveEffectiveCanisterUser({
+    actorSub: actorUid,
+    workspaceOwnerId: ownerId,
+    storedRoles: roles,
+    adminUserIdsSet,
+  });
+  const explicitVaultIds = explicitVaultAccessForUser(access, actorUid);
+  const canisterIds =
+    delegate && explicitVaultIds ? explicitVaultIds : await fetchCanisterVaultIdsForUser(effective);
+  const allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
+    delegate,
+    actorUid,
+    accessMap: access,
+    canisterIds,
+  });
+  return {
+    effectiveCanisterUid: effective,
+    actorUid,
+    allowedVaultIds,
+    delegating: delegate,
+    workspaceOwnerId: ownerId,
+    role: effectiveRole(actorUid, roles),
   };
 }
 
@@ -1105,6 +1173,28 @@ app.get('/api/v1/hosted-context', requireBridgeAuth, async (req, res) => {
     });
   } catch (e) {
     console.error('[bridge] GET /api/v1/hosted-context', e?.message);
+    res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
+  }
+});
+
+app.get('/api/v1/hosted-context/settings', requireBridgeAuth, async (req, res) => {
+  try {
+    const actor = req.uid;
+    const ctx = await resolveHostedBridgeSettingsContext(req, actor);
+    const mayMap = await loadEvaluatorMayApproveMap(req.blobStore);
+    const may_approve_proposals = mayApproveProposalsForUser(actor, { [actor]: ctx.role }, mayMap);
+    res.json({
+      actor_sub: actor,
+      workspace_owner_id: ctx.workspaceOwnerId,
+      effective_canister_user_id: ctx.effectiveCanisterUid,
+      delegating: ctx.delegating,
+      allowed_vault_ids: ctx.allowedVaultIds,
+      scope: null,
+      role: ctx.role,
+      may_approve_proposals,
+    });
+  } catch (e) {
+    console.error('[bridge] GET /api/v1/hosted-context/settings', e?.message);
     res.status(500).json({ error: e.message || 'Internal error', code: 'INTERNAL_ERROR' });
   }
 });

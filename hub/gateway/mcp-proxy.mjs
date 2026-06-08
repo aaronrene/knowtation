@@ -54,6 +54,19 @@ export function parseMcpMaxSessionsPerUser(env = process.env) {
 }
 
 /**
+ * Streamable HTTP session creation is only valid during JSON-RPC initialize.
+ * Sessionless follow-up calls such as tools/list must fail fast instead of
+ * triggering hosted bridge/canister context work before the SDK can reject them.
+ *
+ * @param {unknown} body
+ * @returns {boolean}
+ */
+export function isMcpInitializeRequest(body) {
+  if (Array.isArray(body)) return body.some((item) => isMcpInitializeRequest(item));
+  return Boolean(body && typeof body === 'object' && body.method === 'initialize');
+}
+
+/**
  * @typedef {{
  *   transport: StreamableHTTPServerTransport,
  *   server: import('@modelcontextprotocol/sdk/server/mcp.js').McpServer,
@@ -140,6 +153,11 @@ export function createMcpProxyRouter(deps) {
         existing.lastActive = Date.now();
         return existing;
       }
+    }
+
+    if (!isMcpInitializeRequest(req.body)) {
+      res.status(404).json({ jsonrpc: '2.0', error: { code: -32600, message: 'Session not found' } });
+      return null;
     }
 
     const uid = req.mcpUserId;
