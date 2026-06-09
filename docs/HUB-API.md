@@ -71,8 +71,8 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 - **GET /notes** — List notes. Query params: `folder`, `project`, `tag`, `since`, `until`, `chain`, `entity`, `episode`, `limit`, `offset`, `order` (`date` \| `date-asc`), `fields` (`path` \| `path+metadata` \| `full`), `count_only`, **`content_scope`** (`all` implicit \| `notes` \| `approval_logs`) — narrow to normal notes vs materialized approval logs under `approvals/` (see approve response).  
   **Response:** `{ "notes": [ ... ], "total": number }` or `{ "total": number }` if `count_only=true`. Per-note shape per SPEC §4.2 list-notes.
 
-- **GET /notes/:path** — Get one note by vault-relative path. Path must be URL-encoded.  
-  **Response:** `{ "path": "...", "frontmatter": { ... }, "body": "..." }` per SPEC §4.2 get-note.  
+- **GET /notes/:path** — Get one note by vault-relative path. Path must be URL-encoded.
+  **Response:** `{ "path": "...", "frontmatter": { ... }, "body": "..." }` per SPEC §4.2 get-note. Hosted gateway responses normalize canister wire frontmatter into a JSON object even when the canister stores it as JSON text.
   **404** if not found.
 
 - **GET /section-source?path=...** — Get body-free SectionSource metadata for one
