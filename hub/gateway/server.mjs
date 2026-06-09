@@ -2409,6 +2409,21 @@ function scopeActiveForGateway(hctx) {
   return Boolean(s && (s.projects?.length || s.folders?.length));
 }
 
+/**
+ * Normalize hosted canister note records before returning them to Hub clients.
+ * The canister wire shape may store frontmatter as object JSON text; clients
+ * should always receive the direct-read/list API contract object.
+ * @param {unknown} note
+ * @returns {unknown}
+ */
+function normalizeGatewayNoteFrontmatter(note) {
+  if (!note || typeof note !== 'object' || Array.isArray(note)) return note;
+  return {
+    ...note,
+    frontmatter: materializeListFrontmatter(note.frontmatter),
+  };
+}
+
 async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
   const raw = upstreamPathAndQuery(req);
@@ -2460,6 +2475,9 @@ async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
       res.send(text);
       return;
     }
+    if (Array.isArray(data.notes)) {
+      data = { ...data, notes: data.notes.map(normalizeGatewayNoteFrontmatter) };
+    }
     if (needsClientFilter && Array.isArray(data.notes)) {
       let filtered = data.notes;
       // Scope filter (project/folder access control)
@@ -2485,6 +2503,10 @@ async function gatewayProxyGetNotesList(req, res, uid, effective, hctx) {
       const total = filtered.length;
       const page = filtered.slice(offset, offset + limit);
       res.json({ notes: page, total });
+      return;
+    }
+    if (Array.isArray(data.notes)) {
+      res.json(data);
       return;
     }
     res.send(text);
@@ -2519,11 +2541,21 @@ async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
     res.status(upstream.status).set(Object.fromEntries(hop));
     res.set('Cache-Control', 'private, no-store, must-revalidate');
     if (!scope || upstream.status !== 200 || !body) {
+      if (upstream.status === 200 && body) {
+        try {
+          const note = JSON.parse(body);
+          res.json(normalizeGatewayNoteFrontmatter(note));
+          return;
+        } catch (_) {
+          // Preserve the upstream response when it is not valid JSON.
+        }
+      }
       res.send(body);
       return;
     }
+    let note;
     try {
-      const note = JSON.parse(body);
+      note = normalizeGatewayNoteFrontmatter(JSON.parse(body));
       const withProj = {
         path: note.path,
         project: materializeListFrontmatter(note.frontmatter).project ?? null,
@@ -2537,7 +2569,7 @@ async function gatewayProxyGetNoteOne(req, res, uid, effective, hctx) {
       res.send(body);
       return;
     }
-    res.send(body);
+    res.json(note);
   } catch (e) {
     console.error('Gateway GET note error:', e.message);
     res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });
