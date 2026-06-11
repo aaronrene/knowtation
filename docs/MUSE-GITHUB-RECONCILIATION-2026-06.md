@@ -166,6 +166,45 @@ Do not reopen this reconciliation unless a future status check proves Muse `main
       the identical tree that is deployed.
 - [x] This document merged with the code in the same PR.
 
+## Follow-up decisions resolved
+
+### OpenRouter / chat-provider lane — formally adopted (2026-06-11)
+
+**Decision: KEEP.**
+
+During the reconciliation, `origin/main` was imported as a strict superset of local Muse
+state. One side-effect was that the OpenRouter provider lane (originally on the unmerged
+branch `feat/companion-design-openrouter-lane`, mirrored to GitHub via PR #227) became
+canonical in Muse `main` without an explicit owner decision. This entry is that decision.
+
+**What was reviewed:**
+
+- `lib/llm-complete.mjs` — `openrouterChat()` function and provider-selection switch. The
+  lane is explicit-only: it activates only when `KNOWTATION_CHAT_PROVIDER=openrouter` is
+  set. The code comment at line 21 states this directly: *"adding `OPENROUTER_API_KEY` to
+  an environment cannot change the provider for an existing deployment unless
+  `KNOWTATION_CHAT_PROVIDER=openrouter` is also set."*
+- `lib/config.mjs` — `CHAT_PROVIDERS` enum includes `openrouter` as a peer of `deepinfra`,
+  `openai`, `anthropic`, and `ollama`. No special-case handling.
+- `test/llm-complete-openrouter-*.test.mjs` — full seven-tier coverage (unit, integration,
+  e2e, stress, data-integrity, performance, security). No credential-shaped test markers.
+
+**Why kept:** The lane is a genuine "bring your own key" aggregator option — the operator
+supplies `OPENROUTER_API_KEY` and Knowtation routes through OpenRouter's unified API,
+giving access to a wide range of models without any managed-key exposure on Knowtation's
+side. It is never a default and cannot be silently activated. There is no code quality,
+security, or architectural issue. Removal would discard real functionality for no gain.
+
+**Config surface (for operators):**
+
+| Env var | Required | Default |
+|---|---|---|
+| `KNOWTATION_CHAT_PROVIDER=openrouter` | yes (opt-in) | — |
+| `OPENROUTER_API_KEY` | yes | — |
+| `OPENROUTER_CHAT_MODEL` | no | `openai/gpt-4o-mini` |
+| `OPENROUTER_SITE_URL` | no | — |
+| `OPENROUTER_APP_TITLE` | no | — |
+
 ## Related documents
 
 - `docs/COMPANION-APP-OAUTH-SERVERSIDE-GATE.md` — C1–C6 OAuth hardening contract (C3/C5 shipped).
