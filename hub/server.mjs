@@ -110,6 +110,45 @@ import {
   resolveExternalRefForApprove,
   fetchMuseProxiedGet,
 } from '../lib/muse-thin-bridge.mjs';
+import {
+  buildCalendarTimeline,
+  listSourceCalendarsForClient,
+} from '../lib/calendar/timeline.mjs';
+import { importIcsIntoVault } from '../lib/calendar/event-store.mjs';
+import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../lib/calendar/source-calendar-patch.mjs';
+import { retrieveAgentCalendarContext } from '../lib/calendar/agent-retrieval.mjs';
+import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
+import {
+  handleFlowExternalGrantMintRequest,
+  handleFlowExternalGrantRevokeRequest,
+  handleFlowExternalGrantListRequest,
+  handleFlowExternalToolInvokeRequest,
+} from '../lib/flow/external-agent.mjs';
+import {
+  handleFlowProposeRequest,
+  precheckApprovedFlowProposal,
+  applyFlowProposalToIndex,
+  FLOW_PROPOSAL_SOURCE,
+} from '../lib/flow/flow-authoring.mjs';
+import {
+  handleFlowCaptureObserveRequest,
+  handleFlowCaptureListRequest,
+  handleFlowCaptureProposeRequest,
+  handleFlowCaptureDismissRequest,
+  precheckApprovedCaptureProposal,
+  applyCaptureProposal,
+  FLOW_CAPTURE_PROPOSAL_SOURCE,
+} from '../lib/flow/flow-capture.mjs';
+import {
+  handleFlowRunStartRequest,
+  handleFlowRunGetRequest,
+  handleFlowRunListRequest,
+  handleFlowRunAdvanceRequest,
+  handleFlowRunEvidenceRequest,
+  handleFlowRunExecuteAutomatableRequest,
+  handleFlowRunSubmitReviewRequest,
+  handleFlowExecutionConsentMintRequest,
+} from '../lib/flow/flow-execution.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -639,6 +678,8 @@ app.use('/api/v1/note-outline', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/document-tree', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/metadata-facets', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/calendar', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
@@ -780,6 +821,615 @@ app.get('/api/v1/section-source', (req, res) => {
     }
     return res.status(502).json({ error: 'Upstream error', code: 'UPSTREAM_ERROR' });
   }
+});
+
+// GET /api/v1/calendar/timeline?from=&to=&layers=notes,events&source_calendar_ids=
+app.get('/api/v1/calendar/timeline', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+  const to = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+  if (!from || !to) {
+    return res.status(400).json({ error: '`from` and `to` are required', code: 'BAD_REQUEST' });
+  }
+  try {
+    const payload = buildCalendarTimeline({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      vaultPath: req.vaultPath,
+      vaultConfig: config,
+      from,
+      to,
+      layers: req.query.layers,
+      sourceCalendarIds: req.query.source_calendar_ids,
+      scope: req.scope,
+    });
+    return res.json(payload);
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Invalid timeline request';
+    if (message.includes('Unsupported timeline layer') || message.includes('Invalid') || message.includes('required') || message.includes('before')) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/calendar/agent-context?from=&to=&agent_context_tier=0|1|2&source_calendar_ids=
+// Server-side tier-enforced calendar context for agents (Phase 1E). Enforces
+// enabled_for_agents + agent_context_tier_max + org policy cap; v0 ceiling tier 2.
+app.get('/api/v1/calendar/agent-context', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+  const to = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+  if (!from || !to) {
+    return res.status(400).json({ error: '`from` and `to` are required', code: 'BAD_REQUEST' });
+  }
+  try {
+    const payload = retrieveAgentCalendarContext(config.data_dir, req.vault_id ?? 'default', {
+      from,
+      to,
+      agentContextTier: req.query.agent_context_tier,
+      sourceCalendarIds: req.query.source_calendar_ids,
+    });
+    return res.json(payload);
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Invalid agent context request';
+    if (
+      message.includes('agent_context_tier')
+      || message.includes('Invalid')
+      || message.includes('required')
+      || message.includes('before')
+    ) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/calendar/source-calendars — display/agent toggles (no OAuth secrets)
+app.get('/api/v1/calendar/source-calendars', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  try {
+    res.json({
+      schema: 'knowtation.source_calendars/v0',
+      vault_id: req.vault_id ?? 'default',
+      source_calendars: listSourceCalendarsForClient(config.data_dir, req.vault_id ?? 'default'),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// PATCH /api/v1/calendar/source-calendars/:id — update display/agent toggles (self-hosted)
+app.patch('/api/v1/calendar/source-calendars/:id', requireRole('editor', 'admin'), (req, res) => {
+  const sourceCalendarId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  if (!sourceCalendarId) {
+    return res.status(400).json({ error: 'source calendar id is required', code: 'BAD_REQUEST' });
+  }
+  try {
+    const patch = parseSourceCalendarPatchBody(req.body);
+    const result = patchSourceCalendar(
+      config.data_dir,
+      req.vault_id ?? 'default',
+      sourceCalendarId,
+      patch,
+    );
+    return res.json({
+      schema: 'knowtation.source_calendar_patch/v0',
+      vault_id: req.vault_id ?? 'default',
+      policy_agent_context_tier_max_cap: result.policy_agent_context_tier_max_cap,
+      source_calendar: result.source_calendar,
+    });
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Patch failed';
+    if (e?.code === 'POLICY_CAP_EXCEEDED') {
+      return res.status(403).json({ error: message, code: 'POLICY_CAP_EXCEEDED' });
+    }
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: message, code: 'NOT_FOUND' });
+    }
+    if (
+      message.includes('must be')
+      || message.includes('required')
+      || message.includes('exceeds policy')
+    ) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/calendar/events/import — one-time ICS file import (read-only, self-hosted)
+app.post('/api/v1/calendar/events/import', requireRole('editor', 'admin'), (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const icsText = typeof body.ics_text === 'string' ? body.ics_text : '';
+  if (!icsText.trim()) {
+    return res.status(400).json({ error: 'ics_text (string) is required', code: 'BAD_REQUEST' });
+  }
+  try {
+    const result = importIcsIntoVault(config.data_dir, req.vault_id ?? 'default', {
+      icsText,
+      displayName: typeof body.display_name === 'string' ? body.display_name : undefined,
+      sourceCalendarId: typeof body.source_calendar_id === 'string' ? body.source_calendar_id : undefined,
+      connectorId: typeof body.connector_id === 'string' ? body.connector_id : undefined,
+      defaultTimezone: typeof body.default_timezone === 'string' ? body.default_timezone : undefined,
+    });
+    return res.status(200).json({
+      schema: 'knowtation.calendar_import/v0',
+      vault_id: req.vault_id ?? 'default',
+      ...result,
+    });
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Import failed';
+    if (message.includes('not found') || message.includes('required') || message.includes('exceeds') || message.includes('ICS')) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// GET /api/v1/flows — scope/tag filtered, content-minimized list (Phase 7A-10b)
+app.get('/api/v1/flows', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const limitRaw = req.query.limit;
+  let limit;
+  if (limitRaw !== undefined && limitRaw !== null && String(limitRaw).trim() !== '') {
+    limit = parseInt(String(limitRaw), 10);
+  }
+  const result = handleFlowListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+    tag: typeof req.query.tag === 'string' ? req.query.tag : undefined,
+    limit,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// GET /api/v1/flows/:id/projection — derived harness projection (Phase 7A-11b)
+app.get(
+  '/api/v1/flows/:id/projection',
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
+    const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+    const harness = typeof req.query.harness === 'string' ? req.query.harness.trim() : '';
+    const result = handleFlowProjectRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      flowId,
+      harness,
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      version: typeof req.query.version === 'string' ? req.query.version : undefined,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  },
+);
+
+// GET /api/v1/flows/:id — full definition + ordered steps (Phase 7A-10b)
+app.get('/api/v1/flows/:id', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  const result = handleFlowGetRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    flowId,
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    version: typeof req.query.version === 'string' ? req.query.version : undefined,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// Flow authoring write-back (Phase 7A-L1b) — typed facade over /proposals (SD-4).
+// Gated by FLOW_AUTHORING_WRITES (default OFF → 403 FLOW_AUTHORING_DISABLED).
+const FLOW_AUTHORING_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
+
+function runFlowPropose(req, res, kind, extra = {}) {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowProposeRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    kind,
+    flow: body.flow,
+    steps: body.steps,
+    bundle: kind === 'import' ? body.bundle ?? { flow: body.flow, steps: body.steps } : undefined,
+    intent: body.intent,
+    flowId: extra.flowId,
+    baseVersion: body.base_version,
+    baseStateId: body.base_state_id,
+    externalRef: body.external_ref,
+    sourceVaultHint: body.source_vault_hint,
+    createProposal,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  appendAudit(config.data_dir, {
+    userId: req.user?.sub ?? 'unknown',
+    action: 'flow_propose',
+    proposalId: result.payload.proposal_id,
+    detail: { kind, flow_id: result.payload.flow_id },
+  });
+  return res.status(201).json(result.payload);
+}
+
+// POST /api/v1/flows — propose a new Flow (flow_propose, new).
+app.post('/api/v1/flows', FLOW_AUTHORING_WRITE_ROLES, (req, res) => {
+  try {
+    return runFlowPropose(req, res, 'new');
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/flows/:id/proposals — propose an edit to an existing Flow.
+app.post('/api/v1/flows/:id/proposals', FLOW_AUTHORING_WRITE_ROLES, (req, res) => {
+  try {
+    const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+    return runFlowPropose(req, res, 'edit', { flowId });
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/flows/import — import a portable bundle through the same path.
+app.post('/api/v1/flows/import', FLOW_AUTHORING_WRITE_ROLES, (req, res) => {
+  try {
+    return runFlowPropose(req, res, 'import');
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Flow capture flywheel (Phase 7A-L4b) — detection + capture writes independently gated.
+const FLOW_CAPTURE_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
+
+app.post('/api/v1/flows/capture/observe', FLOW_CAPTURE_WRITE_ROLES, (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowCaptureObserveRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    sessionMeta: body,
+    includeLowConfidence: body.include_low_confidence === true,
+    harness: body.harness,
+    config,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.get('/api/v1/flows/candidates', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const limitRaw = req.query.limit != null ? parseInt(String(req.query.limit), 10) : undefined;
+  const result = handleFlowCaptureListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+    includeLowConfidence: req.query.include_low_confidence === 'true',
+    limit: Number.isFinite(limitRaw) ? limitRaw : undefined,
+    config,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/flows/candidates/:candidate_id/propose', FLOW_CAPTURE_WRITE_ROLES, (req, res) => {
+  const candidateId =
+    typeof req.params.candidate_id === 'string' ? decodeURIComponent(req.params.candidate_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowCaptureProposeRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    candidateId,
+    confirmedScope: body.confirmed_scope,
+    scopeWidenAcknowledged: body.scope_widen_acknowledged === true,
+    allowLowConfidence: body.allow_low_confidence === true,
+    forceNewFlow: body.force_new_flow === true,
+    mergeIntoFlowId: body.merge_into_flow_id,
+    intent: body.intent,
+    createProposal,
+    config,
+  });
+  if (!result.ok) {
+    const payload = { error: result.error, code: result.code };
+    if (result.merge_into_flow_id) payload.merge_into_flow_id = result.merge_into_flow_id;
+    if (result.overlap != null) payload.overlap = result.overlap;
+    return res.status(result.status).json(payload);
+  }
+  appendAudit(config.data_dir, {
+    userId: req.user?.sub ?? 'unknown',
+    action: 'flow_capture_propose',
+    proposalId: result.payload.proposal_id,
+    detail: { candidate_id: candidateId },
+  });
+  return res.status(201).json(result.payload);
+});
+
+app.post('/api/v1/flows/candidates/:candidate_id/dismiss', FLOW_CAPTURE_WRITE_ROLES, (req, res) => {
+  const candidateId =
+    typeof req.params.candidate_id === 'string' ? decodeURIComponent(req.params.candidate_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowCaptureDismissRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    candidateId,
+    intent: body.intent,
+    createProposal,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  appendAudit(config.data_dir, {
+    userId: req.user?.sub ?? 'unknown',
+    action: 'flow_capture_dismiss',
+    proposalId: result.payload.proposal_id,
+    detail: { candidate_id: candidateId },
+  });
+  return res.status(201).json(result.payload);
+});
+
+// External-agent grants (Phase 7A-L2b) — gated by FLOW_EXTERNAL_AGENT_ENABLED (default off).
+app.post(
+  '/api/v1/flows/:id/external-grants',
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
+    const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = handleFlowExternalGrantMintRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      flowId,
+      flowVersion: body.flow_version,
+      requestedTools: body.requested_tools,
+      ttlSeconds: body.ttl_seconds,
+      actorLabel: body.actor_label,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.status(201).json(result.payload);
+  },
+);
+
+app.get('/api/v1/flows/external-grants', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const flowId = typeof req.query.flow_id === 'string' ? req.query.flow_id : undefined;
+  const result = handleFlowExternalGrantListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    flowId,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.delete(
+  '/api/v1/flows/external-grants/:grant_id',
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
+    const grantId =
+      typeof req.params.grant_id === 'string' ? decodeURIComponent(req.params.grant_id).trim() : '';
+    const result = handleFlowExternalGrantRevokeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      grantId,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  },
+);
+
+app.post(
+  '/api/v1/flows/external-tools/:tool_id/invoke',
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
+    const toolId =
+      typeof req.params.tool_id === 'string' ? decodeURIComponent(req.params.tool_id).trim() : '';
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const bearer =
+      typeof req.headers['x-flow-external-bearer'] === 'string'
+        ? req.headers['x-flow-external-bearer']
+        : body.bearer;
+    const result = handleFlowExternalToolInvokeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      toolId,
+      bearer,
+      flowId: body.flow_id,
+      flowVersion: body.flow_version,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  },
+);
+
+// Flow execution gate (Phase 7A-L3b) — gated by FLOW_RUN_WRITES_ENABLED / FLOW_AUTOMATABLE_EXECUTION_ENABLED.
+const FLOW_RUN_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
+
+app.get('/api/v1/flow-runs/:run_id', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const result = handleFlowRunGetRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.get('/api/v1/flows/:id/runs', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  const result = handleFlowRunListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    flowId,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.get('/api/v1/flows/:id/runs/:run_id', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const result = handleFlowRunGetRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/flows/:id/runs', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowRunStartRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    flowId,
+    flowVersion: body.flow_version,
+    taskRef: body.task_ref,
+    externalRef: body.external_ref,
+    harness: 'hub',
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
+});
+
+app.post('/api/v1/flows/:id/runs/:run_id/advance', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowRunAdvanceRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+    stepId: body.step_id,
+    toStatus: body.to_status,
+    skipReason: body.skip_reason,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/flows/:id/runs/:run_id/evidence', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowRunEvidenceRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+    stepId: body.step_id,
+    evidenceRef: body.evidence_ref,
+    pointerKind: body.pointer_kind,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/flows/:id/runs/:run_id/execute-automatable', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowRunExecuteAutomatableRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+    stepId: body.step_id,
+    consentId: body.consent_id,
+    modelLane: body.model_lane,
+    dryRun: body.dry_run,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/flows/:id/runs/:run_id/submit-review', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowRunSubmitReviewRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+    intent: body.intent,
+    createProposal,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/flows/:id/runs/:run_id/consent', FLOW_RUN_WRITE_ROLES, (req, res) => {
+  const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleFlowExecutionConsentMintRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    runId,
+    allowedLanes: body.allowed_lanes,
+    costCapUnits: body.cost_cap_units,
+    ttlSeconds: body.ttl_seconds,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
 });
 
 /**
@@ -1652,7 +2302,13 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
       ? String(proposal.base_state_id).trim()
       : '';
   const expectedBase = fromReq || fromProposal;
-  if (expectedBase) {
+  // Flow proposals carry a flowst1_ token, not a note kn1_; the authoritative
+  // flow concurrency re-check runs below instead of the note-level check.
+  if (
+    expectedBase &&
+    proposal.source !== FLOW_PROPOSAL_SOURCE &&
+    proposal.source !== FLOW_CAPTURE_PROPOSAL_SOURCE
+  ) {
     let currentId;
     if (noteFileExistsInVault(approveVaultPath, proposal.path)) {
       try {
@@ -1674,6 +2330,24 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
       });
     }
   }
+  // Authoritative Flow concurrency + bundle re-check BEFORE the mirror write, so
+  // a conflict short-circuits with zero partial state (no index write, no mirror).
+  let flowApply = null;
+  if (proposal.source === FLOW_PROPOSAL_SOURCE) {
+    const flowPrecheck = precheckApprovedFlowProposal(config.data_dir, proposal);
+    if (!flowPrecheck.ok) {
+      return res.status(flowPrecheck.status).json({ error: flowPrecheck.error, code: flowPrecheck.code });
+    }
+    flowApply = flowPrecheck;
+  }
+  let captureApply = null;
+  if (proposal.source === FLOW_CAPTURE_PROPOSAL_SOURCE) {
+    const capturePrecheck = precheckApprovedCaptureProposal(config.data_dir, proposal);
+    if (!capturePrecheck.ok) {
+      return res.status(capturePrecheck.status).json({ error: capturePrecheck.error, code: capturePrecheck.code });
+    }
+    captureApply = capturePrecheck;
+  }
   try {
     const fm = mergeProvenanceFrontmatter(proposal.frontmatter ?? {}, {
       sub: req.user?.sub ?? null,
@@ -1685,6 +2359,14 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
       body: proposal.body,
       frontmatter: fm,
     });
+    // Reconcile the approved mirror into the Flow index (new (flow_id, version)
+    // row) — the only index write besides seed. Bundle pre-validated above.
+    if (flowApply) {
+      applyFlowProposalToIndex(config.data_dir, flowApply.vaultId, flowApply.flow, flowApply.steps);
+    }
+    if (captureApply) {
+      applyCaptureProposal(config.data_dir, captureApply);
+    }
     const approvedAtIso = new Date().toISOString();
     let approval_log_written = false;
     let approval_log_path;

@@ -1,0 +1,92 @@
+{
+  "flow": {
+    "schema": "knowtation.flow/v0",
+    "flow_id": "flow_reviewed_writeback",
+    "title": "Note \u2192 reviewed write-back",
+    "version": "0.1.0",
+    "scope": "personal",
+    "summary": "Update an existing note safely: capture the base state, then propose the edit through review with a concurrency check.",
+    "tags": ["authoring", "review", "write-back"],
+    "steps": [
+      "flow_reviewed_writeback#1",
+      "flow_reviewed_writeback#2"
+    ],
+    "inputs": [
+      { "name": "note_path", "type": "string", "required": true }
+    ],
+    "vault_mirror_path": "meta/flows/reviewed-writeback.md",
+    "updated": "2026-06-20T00:00:00Z",
+    "truncated": false
+  },
+  "steps": [
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_reviewed_writeback#1",
+      "flow_id": "flow_reviewed_writeback",
+      "ordinal": 1,
+      "owned_job": "Capture the current base state of the note being edited.",
+      "instruction": "Fetch the existing note and record its base_state_id so the later proposal can detect concurrent edits.",
+      "trigger": "Run when an update to an existing note is ready to be written.",
+      "when_not_to_run": "Skip if note_path does not resolve, or the note is out of the actor's writable scope.",
+      "requires": [
+        { "kind": "vault_scope", "id": "personal" },
+        { "kind": "tool", "id": "knowtation_cli" }
+      ],
+      "boundaries": [
+        "Read only \u2014 do not mutate the note here",
+        "Do not fabricate a base_state_id"
+      ],
+      "skill_refs": [
+        { "kind": "cli", "id": "knowtation get-note <note_path> --json" }
+      ],
+      "inputs": [
+        { "name": "note_path", "from": "flow.inputs.note_path" }
+      ],
+      "outputs": [
+        { "name": "base_state_id", "type": "string" }
+      ],
+      "output_shape": "The note's current base_state_id plus its existing body, ready for an edit proposal.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "A base_state_id for the target note is captured and recorded."
+      },
+      "automatable": "agent_assisted"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_reviewed_writeback#2",
+      "flow_id": "flow_reviewed_writeback",
+      "ordinal": 2,
+      "owned_job": "Propose the edit through review with a concurrency check.",
+      "instruction": "Submit the updated content as a Knowtation proposal pinned to the captured base_state_id for human approval.",
+      "trigger": "Run after the base state is captured and the updated content is ready.",
+      "when_not_to_run": "Skip if base_state_id is missing, or the note changed underneath since it was captured.",
+      "requires": [
+        { "kind": "vault_scope", "id": "personal" },
+        { "kind": "tool", "id": "knowtation_cli" }
+      ],
+      "boundaries": [
+        "Never write canonical knowledge directly \u2014 route through the proposal/review tray",
+        "Always pin base_state_id so concurrent edits are detected",
+        "No secrets in the proposal body or provenance"
+      ],
+      "skill_refs": [
+        { "kind": "cli", "id": "knowtation propose <note_path> --intent reviewed_writeback --base-state-id <base_state_id> --source agent" }
+      ],
+      "inputs": [
+        { "name": "base_state_id", "from": "flow_reviewed_writeback#1.outputs.base_state_id" }
+      ],
+      "outputs": [
+        { "name": "proposal_ref", "type": "string" }
+      ],
+      "output_shape": "A pending proposal id pinned to the captured base_state_id.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "Reviewer approves the edit via the review tray and the base_state_id concurrency check passes; approval id recorded."
+      },
+      "automatable": "manual"
+    }
+  ]
+}

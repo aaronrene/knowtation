@@ -172,6 +172,8 @@ export function getProposal(dataDir, id) {
  *   review_queue?: string,
  *   review_severity?: 'standard'|'elevated',
  *   auto_flag_reasons?: string[],
+ *   flow_meta?: { kind: string, base_version: string|null, base_state_id: string },
+ *   capture_meta?: { proposal_kind: string, candidate_id: string, confirmed_scope?: string, merge_into_flow_id?: string|null },
  * }} input
  */
 export function createProposal(dataDir, input) {
@@ -223,6 +225,32 @@ export function createProposal(dataDir, input) {
     ...(rq && { review_queue: rq }),
     ...(rs && { review_severity: rs }),
     ...(afr.length ? { auto_flag_reasons: afr } : {}),
+    ...(input.flow_meta && typeof input.flow_meta === 'object'
+      ? {
+          flow_meta: {
+            kind: String(input.flow_meta.kind || 'new').slice(0, 16),
+            base_version:
+              input.flow_meta.base_version != null ? String(input.flow_meta.base_version).slice(0, 32) : null,
+            base_state_id: String(input.flow_meta.base_state_id || '').slice(0, 96),
+          },
+        }
+      : {}),
+    ...(input.capture_meta && typeof input.capture_meta === 'object'
+      ? {
+          capture_meta: {
+            proposal_kind: String(input.capture_meta.proposal_kind || '').slice(0, 32),
+            candidate_id: String(input.capture_meta.candidate_id || '').slice(0, 48),
+            confirmed_scope:
+              input.capture_meta.confirmed_scope != null
+                ? String(input.capture_meta.confirmed_scope).slice(0, 16)
+                : undefined,
+            merge_into_flow_id:
+              input.capture_meta.merge_into_flow_id != null
+                ? String(input.capture_meta.merge_into_flow_id).slice(0, 80)
+                : null,
+          },
+        }
+      : {}),
     review_hints: undefined,
     review_hints_at: undefined,
     review_hints_model: undefined,

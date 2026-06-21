@@ -60,6 +60,14 @@ import {
 } from '../lib/hosted-workspace-resolve.mjs';
 import { applyScopeFilterToNotes, applyScopeFilterToProposals } from '../lib/scope-filter.mjs';
 import { actorMayApproveProposals } from '../lib/hub-evaluator-may-approve.mjs';
+import {
+  buildCalendarTimeline,
+  listSourceCalendarsForClient,
+} from '../../lib/calendar/timeline.mjs';
+import { importIcsIntoVault } from '../../lib/calendar/event-store.mjs';
+import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../../lib/calendar/source-calendar-patch.mjs';
+import { retrieveAgentCalendarContext } from '../../lib/calendar/agent-retrieval.mjs';
+import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
 const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
@@ -2987,6 +2995,206 @@ function fireBridgeCaptureEvent(type, data, uid, vaultId) {
     } catch (_) {}
   })();
 }
+
+// ——— Calendar (hosted parity — step 12): event store on bridge DATA_DIR + notes from canister ———
+
+/**
+ * Fetches canister note metadata for calendar timeline merge. Returns an empty array when
+ * the canister is unreachable so the events layer can still succeed.
+ *
+ * @param {string} canisterUid
+ * @param {string} actorUid
+ * @param {string} vaultId
+ * @returns {Promise<Array<{ path: string, frontmatter: object, date?: string|null, updated?: string|null, project?: string|null, tags?: string[] }>>}
+ */
+async function fetchCanisterNoteRecordsForTimeline(canisterUid, actorUid, vaultId) {
+  if (!CANISTER_URL) return [];
+  try {
+    const upstream = await fetch(`${CANISTER_URL}/api/v1/notes?limit=10000&offset=0`, {
+      headers: canisterHeaders({
+        'x-user-id': canisterUid,
+        'x-actor-id': actorUid,
+        'x-vault-id': vaultId,
+      }),
+    });
+    if (!upstream.ok) return [];
+    const data = await upstream.json();
+    if (!Array.isArray(data.notes)) return [];
+    return data.notes
+      .map((note) => {
+        const path = typeof note.path === 'string' ? note.path.trim() : '';
+        if (!path) return null;
+        const fm = materializeListFrontmatter(note.frontmatter ?? {});
+        return {
+          path,
+          frontmatter: note.frontmatter ?? {},
+          date: typeof fm.date === 'string' ? fm.date : null,
+          updated: typeof note.updated === 'string' ? note.updated : null,
+          project: typeof fm.project === 'string' ? fm.project : null,
+          tags: Array.isArray(note.tags) ? note.tags.map(String) : [],
+        };
+      })
+      .filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+app.get('/api/v1/calendar/timeline', requireBridgeAuth, async (req, res) => {
+  const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+  const to = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+  if (!from || !to) {
+    return res.status(400).json({ error: '`from` and `to` are required', code: 'BAD_REQUEST' });
+  }
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  try {
+    const noteRecords = await fetchCanisterNoteRecordsForTimeline(
+      hctx.effectiveCanisterUid,
+      hctx.actorUid,
+      hctx.vaultId,
+    );
+    const payload = buildCalendarTimeline({
+      dataDir: DATA_DIR,
+      vaultId: hctx.vaultId,
+      noteRecords,
+      from,
+      to,
+      layers: req.query.layers,
+      sourceCalendarIds: req.query.source_calendar_ids,
+      scope: hctx.scope,
+    });
+    return res.json(payload);
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Invalid timeline request';
+    if (
+      message.includes('Unsupported timeline layer')
+      || message.includes('Invalid')
+      || message.includes('required')
+      || message.includes('before')
+    ) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/calendar/agent-context', requireBridgeAuth, async (req, res) => {
+  const from = typeof req.query.from === 'string' ? req.query.from.trim() : '';
+  const to = typeof req.query.to === 'string' ? req.query.to.trim() : '';
+  if (!from || !to) {
+    return res.status(400).json({ error: '`from` and `to` are required', code: 'BAD_REQUEST' });
+  }
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  try {
+    const payload = retrieveAgentCalendarContext(DATA_DIR, hctx.vaultId, {
+      from,
+      to,
+      agentContextTier: req.query.agent_context_tier,
+      sourceCalendarIds: req.query.source_calendar_ids,
+    });
+    return res.json(payload);
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Invalid agent context request';
+    if (
+      message.includes('agent_context_tier')
+      || message.includes('Invalid')
+      || message.includes('required')
+      || message.includes('before')
+    ) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.get('/api/v1/calendar/source-calendars', requireBridgeAuth, async (req, res) => {
+  const hctx = await resolveHostedBridgeSettingsContext(req, req.uid);
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  if (!hctx.allowedVaultIds.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  try {
+    return res.json({
+      schema: 'knowtation.source_calendars/v0',
+      vault_id: vaultId,
+      source_calendars: listSourceCalendarsForClient(DATA_DIR, vaultId),
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.patch('/api/v1/calendar/source-calendars/:id', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const sourceCalendarId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  if (!sourceCalendarId) {
+    return res.status(400).json({ error: 'source calendar id is required', code: 'BAD_REQUEST' });
+  }
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  try {
+    const patch = parseSourceCalendarPatchBody(req.body);
+    const result = patchSourceCalendar(DATA_DIR, hctx.vaultId, sourceCalendarId, patch);
+    return res.json({
+      schema: 'knowtation.source_calendar_patch/v0',
+      vault_id: hctx.vaultId,
+      policy_agent_context_tier_max_cap: result.policy_agent_context_tier_max_cap,
+      source_calendar: result.source_calendar,
+    });
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Patch failed';
+    if (e?.code === 'POLICY_CAP_EXCEEDED') {
+      return res.status(403).json({ error: message, code: 'POLICY_CAP_EXCEEDED' });
+    }
+    if (message.includes('not found')) {
+      return res.status(404).json({ error: message, code: 'NOT_FOUND' });
+    }
+    if (
+      message.includes('must be')
+      || message.includes('required')
+      || message.includes('exceeds policy')
+    ) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/calendar/events/import', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const icsText = typeof body.ics_text === 'string' ? body.ics_text : '';
+  if (!icsText.trim()) {
+    return res.status(400).json({ error: 'ics_text (string) is required', code: 'BAD_REQUEST' });
+  }
+  try {
+    const result = importIcsIntoVault(DATA_DIR, hctx.vaultId, {
+      icsText,
+      displayName: typeof body.display_name === 'string' ? body.display_name : undefined,
+      sourceCalendarId: typeof body.source_calendar_id === 'string' ? body.source_calendar_id : undefined,
+      connectorId: typeof body.connector_id === 'string' ? body.connector_id : undefined,
+      defaultTimezone: typeof body.default_timezone === 'string' ? body.default_timezone : undefined,
+    });
+    return res.status(200).json({
+      schema: 'knowtation.calendar_import/v0',
+      vault_id: hctx.vaultId,
+      ...result,
+    });
+  } catch (e) {
+    const message = e?.message ? String(e.message) : 'Import failed';
+    if (
+      message.includes('not found')
+      || message.includes('required')
+      || message.includes('exceeds')
+      || message.includes('ICS')
+    ) {
+      return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
+    }
+    return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
 
 function bridgeMemoryAuth(req) {
   const auth = req.headers.authorization;

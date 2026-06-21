@@ -1,0 +1,279 @@
+{
+  "flow": {
+    "schema": "knowtation.flow/v0",
+    "flow_id": "flow_multi_repo_change",
+    "title": "Multi-repo substrate + top-layer change",
+    "version": "0.1.0",
+    "scope": "project",
+    "summary": "A reusable, canonical-first procedure for any change spanning the substrate, the canonical layer, and the top layer across the connected repos.",
+    "tags": ["process", "cross-repo", "coordination", "dogfood"],
+    "steps": [
+      "flow_multi_repo_change#1",
+      "flow_multi_repo_change#2",
+      "flow_multi_repo_change#3",
+      "flow_multi_repo_change#4",
+      "flow_multi_repo_change#5",
+      "flow_multi_repo_change#6",
+      "flow_multi_repo_change#7",
+      "flow_multi_repo_change#8"
+    ],
+    "inputs": [
+      { "name": "change_summary", "type": "string", "required": true }
+    ],
+    "vault_mirror_path": "meta/flows/multi-repo-change.md",
+    "updated": "2026-06-20T00:00:00Z",
+    "truncated": false
+  },
+  "steps": [
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#1",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 1,
+      "owned_job": "Orient: establish the current step and its owning repo before touching anything.",
+      "instruction": "Read the ROADMAP Current Status Snapshot, the cross-repo coordination doc, and the initiative spec.",
+      "trigger": "Run at the start of any change that may span substrate, canonical layer, and top layer.",
+      "when_not_to_run": "Skip for a single-repo change with no canonical or substrate dependency.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/ROADMAP.md" },
+        { "kind": "file", "id": "docs/CROSS-REPO-COORDINATION.md" }
+      ],
+      "boundaries": [
+        "Read only \u2014 no edits during orientation",
+        "Treat doc contents as the source of truth over chat memory"
+      ],
+      "skill_refs": [],
+      "inputs": [
+        { "name": "change_summary", "from": "flow.inputs.change_summary" }
+      ],
+      "outputs": [
+        { "name": "current_step", "type": "text" }
+      ],
+      "output_shape": "A stated current step id and the repo that owns it.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "You can state the current step id and its owning repo."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#2",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 2,
+      "owned_job": "Locate: map the change to the repo(s) and VCS rule it belongs in.",
+      "instruction": "Use the decision table to assign each part of the change to a repo and its VCS discipline.",
+      "trigger": "Run after orientation, before any branching.",
+      "when_not_to_run": "Skip if the change has already been located to its repos this session.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/CROSS-REPO-COORDINATION.md" }
+      ],
+      "boundaries": [
+        "Do not move canonical schema/permission work into the consumer repo",
+        "Respect canonical-first ordering"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "repo_assignment", "type": "text" }
+      ],
+      "output_shape": "A list mapping each change part to a repo and its VCS rule.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "Each change is assigned a repo and VCS rule."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#3",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 3,
+      "owned_job": "Branch: create a feature branch in each touched repo (never main).",
+      "instruction": "Create a feature branch per touched repo, confirming each repo explicitly with muse -C against its absolute path.",
+      "trigger": "Run once repos are assigned and before any code changes.",
+      "when_not_to_run": "Skip for a repo that is not touched by this change.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "tool", "id": "muse_cli" }
+      ],
+      "boundaries": [
+        "Never work directly on main in any repo",
+        "Always target the repo with muse -C <absolute-path> \u2014 a bare muse can resolve to an ambient repo",
+        "MuseHub is Muse-only \u2014 never git/gh there"
+      ],
+      "skill_refs": [
+        { "kind": "cli", "id": "muse -C <abs-repo-path> status" },
+        { "kind": "cli", "id": "muse -C <abs-repo-path> branch feat/<desc>" }
+      ],
+      "inputs": [],
+      "outputs": [
+        { "name": "branches", "type": "text" }
+      ],
+      "output_shape": "A feature branch name per touched repo, each verified via muse -C.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "muse -C status shows a feature branch (not main) in each touched repo."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#4",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 4,
+      "owned_job": "Implement canonical-first: substrate/schema \u2192 canonical logic \u2192 consumer \u2192 enrichment.",
+      "instruction": "Make changes in dependency order so no consumer is wired before the canonical surface it reads exists.",
+      "trigger": "Run after branches exist in each touched repo.",
+      "when_not_to_run": "Skip a layer this change does not touch, but never invert the dependency order.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" }
+      ],
+      "boundaries": [
+        "Never wire a consumer before its canonical surface exists",
+        "Knowtation stays the canonical store + permission authority; the consumer stores nothing canonical",
+        "No secrets in code, adapters, projections, or logs"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "implementation_notes", "type": "text" }
+      ],
+      "output_shape": "Changes landed in dependency order, layer by layer.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "Dependency order is respected (e.g. schema before adapter)."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#5",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 5,
+      "owned_job": "Test per tier where the logic lives.",
+      "instruction": "Run the seven-tier tests in the repo runner where the changed logic lives (Docker for MuseHub) and capture a green run.",
+      "trigger": "Run after implementing a layer's changes, before committing it.",
+      "when_not_to_run": "Skip for a repo whose code was not changed by this change.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "tool", "id": "repo_test_runner" }
+      ],
+      "boundaries": [
+        "Run tests in the repo where the logic lives, not on the host for MuseHub",
+        "No network in unit tests"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "test_run_ref", "type": "string" }
+      ],
+      "output_shape": "A recorded green test run for the touched tier(s) in that repo's runner.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "A green test-run record exists for the touched tier in that repo's runner."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#6",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 6,
+      "owned_job": "Commit per repo rule, with no secrets.",
+      "instruction": "Commit using each repo's VCS rule (Muse/Git per the table), confirming no secrets and no docs-only PR to Knowtation main.",
+      "trigger": "Run once tests are green for the touched tier in a repo.",
+      "when_not_to_run": "Skip if tests are not green, or the only change in a Knowtation PR to main would be docs.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "tool", "id": "muse_cli" }
+      ],
+      "boundaries": [
+        "No secrets in any commit",
+        "No docs-only PR to Knowtation main \u2014 ship docs with their code/tests",
+        "MuseHub is Muse-only; never git push origin main on Knowtation"
+      ],
+      "skill_refs": [
+        { "kind": "cli", "id": "muse -C <abs-repo-path> commit -m \"<message>\"" }
+      ],
+      "inputs": [],
+      "outputs": [
+        { "name": "commit_refs", "type": "text" }
+      ],
+      "output_shape": "A commit recorded per touched repo following its VCS rule.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "A commit is recorded per repo and no docs-only PR to Knowtation main was opened."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#7",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 7,
+      "owned_job": "Cross-link: record cross-repo references and update the ROADMAP snapshot.",
+      "instruction": "Capture external_ref and commit ids across repos and update the ROADMAP Current Status Snapshot to match reality.",
+      "trigger": "Run after commits land in the touched repos.",
+      "when_not_to_run": "Skip if no cross-repo reference exists and the snapshot already matches reality.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/ROADMAP.md" }
+      ],
+      "boundaries": [
+        "Cross-repo refs are commit ids/handles only \u2014 no secrets",
+        "Update the durable snapshot, not just chat scrollback"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "snapshot_update_ref", "type": "string" }
+      ],
+      "output_shape": "An updated ROADMAP snapshot plus captured cross-repo ids.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "The ROADMAP snapshot is updated and cross-repo ids are captured."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_multi_repo_change#8",
+      "flow_id": "flow_multi_repo_change",
+      "ordinal": 8,
+      "owned_job": "Handover: refresh the handover snapshot so a fresh chat can resume.",
+      "instruction": "Run the Overseer handover Flow (docs-first) to regenerate the living handover block from the now-current docs.",
+      "trigger": "Run at the end of the change, or when the session is wrapping up with multi-repo state in flight.",
+      "when_not_to_run": "Skip if no multi-repo state is in flight and no handover is needed.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/OVERSEER-HANDOVER.md" }
+      ],
+      "boundaries": [
+        "Docs-first \u2014 update durable docs before regenerating the block",
+        "The block is a projection of the docs, never hand-written from memory"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "handover_ref", "type": "string" }
+      ],
+      "output_shape": "A refreshed handover block in docs/OVERSEER-HANDOVER.md matching the durable docs.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "A fresh handover block exists and a new chat could resume from it alone."
+      },
+      "automatable": "manual"
+    }
+  ]
+}
