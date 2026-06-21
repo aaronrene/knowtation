@@ -21,9 +21,9 @@ function readRepoFile(relativePath) {
 function routeSource() {
   const src = readRepoFile('hub/server.mjs');
   const start = src.indexOf("app.get('/api/v1/section-source'");
-  const end = src.indexOf('/**\n * Fire-and-forget memory event capture', start);
+  const end = src.indexOf('// GET /api/v1/calendar/timeline', start);
   assert.notEqual(start, -1, 'self-hosted section-source route must exist');
-  assert.notEqual(end, -1, 'route must stay before memory capture helper');
+  assert.notEqual(end, -1, 'route must stay before the calendar routes');
   return src.slice(start, end);
 }
 

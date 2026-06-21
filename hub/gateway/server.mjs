@@ -817,6 +817,77 @@ if (BRIDGE_URL) {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/memory/consolidate/status', req, res);
   });
 
+  // Calendar routes (hosted parity — step 12): proxy read + toggle PATCH to bridge event store.
+  app.get('/api/v1/calendar/timeline', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/calendar/timeline' + q, req, res);
+  });
+  app.get('/api/v1/calendar/agent-context', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/calendar/agent-context' + q, req, res);
+  });
+  app.get('/api/v1/calendar/source-calendars', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/calendar/source-calendars' + q, req, res);
+  });
+  app.patch('/api/v1/calendar/source-calendars/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/calendar/source-calendars/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/calendar/events/import', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/calendar/events/import' + q, req, res);
+  });
+
+  // Flow routes (hosted parity — 7A-L2b): proxy read projections (+ grants when gate on).
+  const isFlowHostedProjectionEnabled = () => {
+    const v = process.env.FLOW_HOSTED_PROJECTION_ENABLED;
+    return v === '1' || v === 'true';
+  };
+  app.get('/api/v1/flows/:id/projection', async (req, res) => {
+    const harness = typeof req.query.harness === 'string' ? req.query.harness.trim() : '';
+    if (harness === 'agent_bundle' && !isFlowHostedProjectionEnabled()) {
+      return res.status(403).json({
+        error: 'Hosted agent_bundle projection disabled',
+        code: 'FLOW_HOSTED_PROJECTION_DISABLED',
+      });
+    }
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flows/' + encodeURIComponent(req.params.id) + '/projection' + q,
+      req,
+      res,
+    );
+  });
+  app.get('/api/v1/flows/external-grants', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/external-grants' + q, req, res);
+  });
+  app.post('/api/v1/flows/:id/external-grants', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flows/' + encodeURIComponent(req.params.id) + '/external-grants' + q,
+      req,
+      res,
+    );
+  });
+  app.delete('/api/v1/flows/external-grants/:grant_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flows/external-grants/' + encodeURIComponent(req.params.grant_id) + q,
+      req,
+      res,
+    );
+  });
+
   // Phase 18: image upload — gateway buffers the file, fetches GitHub token from bridge,
   // then commits directly to GitHub (avoids forwarding a multipart body to another Lambda).
   app.post(/^\/api\/v1\/notes\/(.+)\/upload-image$/, async (req, res) => {

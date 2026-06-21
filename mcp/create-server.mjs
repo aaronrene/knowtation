@@ -25,6 +25,7 @@ import { registerPhaseCTools } from './tools/phase-c.mjs';
 import { registerMemoryTools } from './tools/memory.mjs';
 import { registerHubProposalTools } from './tools/hub-proposals.mjs';
 import { registerEnrichTool } from './tools/enrich.mjs';
+import { registerFlowTools } from './tools/flow.mjs';
 import { rerankWithSampling } from './tools/sampling-rerank.mjs';
 import { registerResourceSubscriptionHandlers, notifyIndexMetadataResources } from './resource-subscriptions.mjs';
 import { sendMcpToolProgress, sendMcpLog } from './tool-telemetry.mjs';
@@ -531,6 +532,7 @@ export function mountKnowtationMcp(server) {
   registerMemoryTools(server);
   registerHubProposalTools(server);
   registerEnrichTool(server);
+  registerFlowTools(server);
   registerResourceSubscriptionHandlers(server);
 }
 

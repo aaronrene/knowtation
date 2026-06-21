@@ -18,6 +18,7 @@ tags:
   - name: Search
   - name: Proposals
   - name: Capture
+  - name: Flows
 
 security:
   - BearerAuth: []
@@ -299,6 +300,865 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /calendar/timeline:
+    get:
+      tags: [Calendar]
+      summary: Merged note-date and external-event timeline (self-hosted)
+      description: >
+        Returns knowtation.calendar_timeline/v0 items for an authorized vault.
+        Merges note-date buckets and stored calendar events. No OAuth tokens or connector secrets.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string }
+          description: Range start (YYYY-MM-DD or ISO8601).
+        - name: to
+          in: query
+          required: true
+          schema: { type: string }
+          description: Range end (YYYY-MM-DD or ISO8601).
+        - name: layers
+          in: query
+          required: false
+          schema: { type: string }
+          description: Comma-separated layers (`notes`, `events`). Default both.
+        - name: source_calendar_ids
+          in: query
+          required: false
+          schema: { type: string }
+          description: Comma-separated source calendar ids to include for the events layer.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarTimeline' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /calendar/agent-context:
+    get:
+      tags: [Calendar]
+      summary: Tier-enforced calendar context for agents (self-hosted)
+      description: >
+        Returns knowtation.calendar_agent_context/v0 — redacted calendar events an agent
+        may see. Enforced server-side: calendars with enabled_for_agents=false contribute
+        nothing; per-calendar agent_context_tier_max and the org policy cap clamp the tier;
+        the v0 retrieval ceiling is tier 2. Agent visibility is independent of
+        enabled_for_display. Tier 1 omits the event summary; tier 0 returns no events.
+        Calendar text is untrusted prompt content.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string }
+          description: Range start (YYYY-MM-DD or ISO8601).
+        - name: to
+          in: query
+          required: true
+          schema: { type: string }
+          description: Range end (YYYY-MM-DD or ISO8601).
+        - name: agent_context_tier
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0, maximum: 2 }
+          description: Requested agent tier (0 none, 1 busy blocks, 2 titles + label). Clamped by caps.
+        - name: source_calendar_ids
+          in: query
+          required: false
+          schema: { type: string }
+          description: Comma-separated source calendar ids to restrict the agent scope.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarAgentContext' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /calendar/source-calendars:
+    get:
+      tags: [Calendar]
+      summary: List source calendars and display/agent toggles (self-hosted)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SourceCalendarList' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /calendar/source-calendars/{id}:
+    patch:
+      tags: [Calendar]
+      summary: Update source calendar display/agent toggles (self-hosted)
+      description: >
+        Partial update for enabled_for_display, enabled_for_agents, agent_context_tier_max (0–4),
+        and optional user_group. Org policy may cap agent_context_tier_max via
+        KNOWTATION_CALENDAR_AGENT_TIER_MAX_CAP or data/hub_calendar_policy.json.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: Source calendar id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SourceCalendarPatchRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SourceCalendarPatchResult' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /calendar/events/import:
+    post:
+      tags: [Calendar]
+      summary: Import ICS text into the local event store (read-only, self-hosted)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalendarIcsImportRequest' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarIcsImportResult' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows:
+    get:
+      tags: [Flows]
+      summary: List scope-visible flows (content-minimized)
+      description: >
+        Returns knowtation.flow_list/v0 summaries for flows visible in the caller's
+        authorized workspace scope. Scope query param narrows only — never widens.
+        Step bodies are never included in list responses.
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, project, org] }
+          description: Narrow within authorized scopes only.
+        - name: tag
+          in: query
+          schema: { type: string }
+          description: Filter by single tag membership.
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+          description: Max summaries (default 200).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowListResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      tags: [Flows]
+      summary: Propose a new Flow (review-before-write)
+      description: >
+        Validates a knowtation.flow/v0 + flow_step/v0 bundle, resolves write
+        authority server-side (scope × role, deny-by-default), and creates a
+        standard proposal targeting the Flow's mirror note (SD-4). Returns a
+        knowtation.flow_proposal/v0 envelope (pointers/labels only). Gated by
+        FLOW_AUTHORING_WRITES — when off returns 403 FLOW_AUTHORING_DISABLED.
+        No Flow index write happens here; the index changes only at approve→apply.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FlowProposeRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowProposalResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/import:
+    post:
+      tags: [Flows]
+      summary: Import a portable Flow bundle as a scope-checked proposal
+      description: >
+        Routes a portable { flow, steps } bundle through the same propose path.
+        The bundle scope is validated against the actor's write tier; unwritable
+        ⇒ 403 FLOW_IMPORT_SCOPE_DENIED, malformed ⇒ 400 FLOW_IMPORT_BUNDLE_MALFORMED.
+        Lineage pointers (external_ref / source_vault_hint) are preserved. Never
+        auto-applied — creates a proposed proposal. Gated by FLOW_AUTHORING_WRITES.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FlowImportRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowProposalResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/capture/observe:
+    post:
+      tags: [Flows]
+      summary: Observe content-minimized session signals (capture detection)
+      description: >
+        Runs bounded structural detectors when FLOW_CAPTURE_DETECTION_ENABLED is on.
+        Creates/updates flow_candidate/v0 records; returns content-minimized summaries.
+        When detection is off, returns detection_authorized=false with no store mutation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id, step_sequence_refs, observed_counts]
+      responses:
+        '200':
+          description: Observe envelope
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/candidates:
+    get:
+      tags: [Flows]
+      summary: List flow capture candidates (read store)
+      description: Returns pending_review candidate summaries; read path does not require detection sub-gate.
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, project, org] }
+        - name: include_low_confidence
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        '200':
+          description: Candidate list envelope
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/candidates/{candidate_id}/propose:
+    post:
+      tags: [Flows]
+      summary: Propose candidate promotion (review-before-write)
+      description: >
+        Creates a flow_candidate_promote or flow_candidate_merge proposal.
+        Gated by FLOW_CAPTURE_WRITES_ENABLED (default off).
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed_scope, intent]
+      responses:
+        '201':
+          description: Capture proposal envelope
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/candidates/{candidate_id}/dismiss:
+    post:
+      tags: [Flows]
+      summary: Propose candidate dismissal
+      description: >
+        Creates a flow_candidate_dismiss proposal; on approve candidate status becomes rejected.
+        Gated by FLOW_CAPTURE_WRITES_ENABLED (default off).
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent]
+      responses:
+        '201':
+          description: Capture proposal envelope
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/{id}/proposals:
+    post:
+      tags: [Flows]
+      summary: Propose an edit to an existing Flow (review-before-write)
+      description: >
+        Like POST /flows but for an edit. Requires base_version + base_state_id
+        (the flowst1_ optimistic-concurrency token); a mismatch at propose or
+        approve time ⇒ 409 FLOW_LINEAGE_CONFLICT. flow.version must be strictly
+        greater than base_version. Editing a flow the actor cannot read ⇒ 404
+        unknown_flow (no existence leak). Gated by FLOW_AUTHORING_WRITES.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: Flow id (flow_<slug>); must match the bundle's flow_id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FlowProposeEditRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowProposalResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/{id}/projection:
+    get:
+      tags: [Flows]
+      summary: Derive a read-only harness projection of a canonical flow
+      description: >
+        Renders the canonical flow (latest visible, or pinned ?version) into the requested
+        harness as knowtation.flow_project/v0. Derived and read-only — generated_from_canonical
+        is always true and editable is always false. No secrets appear in rendered text.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: harness
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [cursor_rule, cursor_skill, mcp_prompt, cli_runbook, agent_bundle]
+        - name: version
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowProjectResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/{id}/external-grants:
+    post:
+      tags: [Flows]
+      summary: Mint a short-lived external-agent grant (gated; default off)
+      description: >
+        Mints knowtation.flow_external_grant/v0 for a pinned flow version and requested tools.
+        Returns a one-time bearer at mint only. Requires FLOW_EXTERNAL_AGENT_ENABLED.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FlowExternalGrantMintRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowExternalGrantMintResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/external-grants:
+    get:
+      tags: [Flows]
+      summary: List external-agent grant metadata (no bearer)
+      parameters:
+        - name: flow_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowExternalGrantListResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/external-grants/{grant_id}:
+    delete:
+      tags: [Flows]
+      summary: Revoke an external-agent grant
+      parameters:
+        - name: grant_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowExternalGrant' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/{id}:
+    get:
+      tags: [Flows]
+      summary: Get one flow definition + ordered steps
+      description: >
+        Returns knowtation.flow_get/v0 with full flow definition and steps in ascending
+        ordinal order. Missing and scope-invisible flows both return 404 unknown_flow.
+        Step text is untrusted input — returned verbatim as data.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: Flow id (flow_<slug>).
+        - name: version
+          in: query
+          schema: { type: string }
+          description: Pin semver version; default latest visible.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowGetResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flow-runs/{run_id}:
+    get:
+      tags: [Flows]
+      summary: Get one flow run by run id
+      description: >
+        Returns knowtation.flow_run/v0 for a scope-visible run. Missing and
+        scope-invisible runs both return 404 unknown_run.
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunResponse' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/{id}/runs:
+    get:
+      tags: [Flows]
+      summary: List runs for a flow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunListResponse' }
+    post:
+      tags: [Flows]
+      summary: Start a flow run
+      description: >
+        Gated by FLOW_RUN_WRITES_ENABLED (default off). Pins flow_version for the run life.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flow_version]
+              properties:
+                flow_version: { type: string }
+                task_ref: { type: string }
+                external_ref: { type: string }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunStartResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /flows/{id}/runs/{run_id}:
+    get:
+      tags: [Flows]
+      summary: Get one flow run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunResponse' }
+    post:
+      tags: [Flows]
+      summary: Advance, record evidence, execute automatable, or submit review
+      description: >
+        Use dedicated sub-paths (/advance, /evidence, /execute-automatable, /submit-review).
+        Run writes gated by FLOW_RUN_WRITES_ENABLED; automatable by FLOW_AUTOMATABLE_EXECUTION_ENABLED.
+
+  /flows/{id}/runs/{run_id}/advance:
+    post:
+      tags: [Flows]
+      summary: Advance a step manually
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step_id, to_status]
+              properties:
+                step_id: { type: string }
+                to_status: { type: string }
+                skip_reason: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunResponse' }
+
+  /flows/{id}/runs/{run_id}/evidence:
+    post:
+      tags: [Flows]
+      summary: Record evidence pointer on a step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step_id, evidence_ref, pointer_kind]
+              properties:
+                step_id: { type: string }
+                evidence_ref: { type: string }
+                pointer_kind: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunResponse' }
+
+  /flows/{id}/runs/{run_id}/execute-automatable:
+    post:
+      tags: [Flows]
+      summary: Execute an automatable step (server orchestration stub)
+      description: Requires valid knowtation.flow_execution_consent/v0. Gated by FLOW_AUTOMATABLE_EXECUTION_ENABLED.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step_id, consent_id]
+              properties:
+                step_id: { type: string }
+                consent_id: { type: string }
+                model_lane: { type: string }
+                dry_run: { type: boolean }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowExecuteAutomatableResponse' }
+
+  /flows/{id}/runs/{run_id}/submit-review:
+    post:
+      tags: [Flows]
+      summary: Submit run outcome to review tray
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent]
+              properties:
+                intent: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowRunSubmitReviewResponse' }
+
+  /flows/{id}/runs/{run_id}/consent:
+    post:
+      tags: [Flows]
+      summary: Mint execution consent for automatable steps
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [allowed_lanes, cost_cap_units]
+              properties:
+                allowed_lanes: { type: array, items: { type: string } }
+                cost_cap_units: { type: integer }
+                ttl_seconds: { type: integer }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FlowExecutionConsentMintResponse' }
 
   /metadata-facets:
     get:
@@ -1081,3 +1941,578 @@ components:
                   id: { type: string }
                   label: { type: string }
                   passed: { type: boolean }
+
+    CalendarTimeline:
+      type: object
+      required: [schema, vault_id, from, to, layers, items]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.calendar_timeline/v0]
+        vault_id: { type: string }
+        from: { type: string }
+        to: { type: string }
+        layers:
+          type: array
+          items:
+            type: string
+            enum: [notes, events]
+        items:
+          type: array
+          items:
+            oneOf:
+              - { $ref: '#/components/schemas/CalendarTimelineNoteItem' }
+              - { $ref: '#/components/schemas/CalendarTimelineEventItem' }
+
+    CalendarTimelineNoteItem:
+      type: object
+      required: [kind, date, path, title, project, tags, sort_at]
+      properties:
+        kind:
+          type: string
+          enum: [note]
+        date: { type: string }
+        path: { type: string }
+        title: { type: string, nullable: true }
+        project: { type: string, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+        sort_at: { type: string }
+
+    CalendarTimelineEventItem:
+      type: object
+      required: [kind, event_id, source_calendar_id, start, end, timezone, summary, busy, status, calendar_label, sort_at]
+      properties:
+        kind:
+          type: string
+          enum: [event]
+        event_id: { type: string }
+        source_calendar_id: { type: string }
+        start: { type: string }
+        end: { type: string }
+        timezone: { type: string }
+        summary: { type: string, nullable: true }
+        busy: { type: boolean }
+        status:
+          type: string
+          enum: [confirmed, cancelled, tentative]
+        calendar_label: { type: string, nullable: true }
+        sort_at: { type: string }
+
+    CalendarAgentContext:
+      type: object
+      required: [schema, vault_id, from, to, requested_tier, effective_tier, policy_agent_context_tier_max_cap, source_calendars, items]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.calendar_agent_context/v0]
+        vault_id: { type: string }
+        from: { type: string }
+        to: { type: string }
+        requested_tier:
+          type: integer
+          minimum: 0
+          maximum: 2
+        effective_tier:
+          type: integer
+          minimum: 0
+          maximum: 2
+          description: Requested tier after the org policy cap is applied.
+        policy_agent_context_tier_max_cap:
+          type: integer
+          minimum: 0
+          maximum: 4
+        source_calendars:
+          type: array
+          items: { $ref: '#/components/schemas/AgentContextCalendarSummary' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CalendarAgentContextEventItem' }
+
+    AgentContextCalendarSummary:
+      type: object
+      required: [source_calendar_id, display_name, user_group, enabled_for_agents, agent_context_tier_max, effective_tier, event_count]
+      properties:
+        source_calendar_id: { type: string }
+        display_name: { type: string }
+        user_group:
+          type: string
+          nullable: true
+          enum: [personal, work, school, other, null]
+        enabled_for_agents: { type: boolean }
+        agent_context_tier_max:
+          type: integer
+          minimum: 0
+          maximum: 4
+        effective_tier:
+          type: integer
+          minimum: 0
+          maximum: 2
+        event_count: { type: integer }
+
+    CalendarAgentContextEventItem:
+      type: object
+      required: [event_id, source_calendar_id, external_uid, start, end, timezone, busy, status, agent_tier]
+      description: >
+        Redacted event. `summary` and `calendar_label` are present only at tier 2;
+        tier 1 omits the event title entirely.
+      properties:
+        event_id: { type: string }
+        source_calendar_id: { type: string }
+        external_uid: { type: string }
+        start: { type: string }
+        end: { type: string }
+        timezone: { type: string }
+        busy: { type: boolean }
+        status:
+          type: string
+          enum: [confirmed, cancelled, tentative]
+        agent_tier:
+          type: integer
+          minimum: 1
+          maximum: 2
+        summary: { type: string, nullable: true }
+        calendar_label: { type: string, nullable: true }
+
+    SourceCalendarList:
+      type: object
+      required: [schema, vault_id, source_calendars]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.source_calendars/v0]
+        vault_id: { type: string }
+        source_calendars:
+          type: array
+          items: { $ref: '#/components/schemas/SourceCalendar' }
+
+    SourceCalendar:
+      type: object
+      required: [source_calendar_id, connector_id, display_name, enabled_for_sync, enabled_for_display, enabled_for_agents, agent_context_tier_max]
+      properties:
+        source_calendar_id: { type: string }
+        connector_id: { type: string }
+        display_name: { type: string }
+        color: { type: string, nullable: true }
+        user_group:
+          type: string
+          nullable: true
+          enum: [personal, work, school, other, null]
+        enabled_for_sync: { type: boolean }
+        enabled_for_display: { type: boolean }
+        enabled_for_agents: { type: boolean }
+        agent_context_tier_max:
+          type: integer
+          minimum: 0
+          maximum: 4
+        provider: { type: string }
+
+    CalendarIcsImportRequest:
+      type: object
+      required: [ics_text]
+      properties:
+        ics_text: { type: string }
+        display_name: { type: string }
+        source_calendar_id: { type: string }
+        connector_id: { type: string }
+        default_timezone: { type: string }
+
+    CalendarIcsImportResult:
+      type: object
+      required: [schema, vault_id, source_calendar_id, connector_id, imported, updated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.calendar_import/v0]
+        vault_id: { type: string }
+        source_calendar_id: { type: string }
+        connector_id: { type: string }
+        imported: { type: integer }
+        updated: { type: integer }
+
+    SourceCalendarPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        enabled_for_display: { type: boolean }
+        enabled_for_agents: { type: boolean }
+        agent_context_tier_max:
+          type: integer
+          minimum: 0
+          maximum: 4
+        user_group:
+          type: string
+          nullable: true
+          enum: [personal, work, school, other, null]
+
+    SourceCalendarPatchResult:
+      type: object
+      required: [schema, vault_id, policy_agent_context_tier_max_cap, source_calendar]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.source_calendar_patch/v0]
+        vault_id: { type: string }
+        policy_agent_context_tier_max_cap:
+          type: integer
+          minimum: 0
+          maximum: 4
+        source_calendar: { $ref: '#/components/schemas/SourceCalendar' }
+
+    FlowListResponse:
+      type: object
+      required: [schema, vault_id, effective_scope, flows, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_list/v0]
+        vault_id: { type: string }
+        effective_scope:
+          type: string
+          enum: [personal, project, org]
+        flows:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/FlowSummary' }
+        truncated: { type: boolean }
+
+    FlowSummary:
+      type: object
+      required: [schema, flow_id, title, version, scope, summary, tags, step_count, updated, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow/v0]
+        flow_id: { type: string }
+        title: { type: string }
+        version: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        summary: { type: string }
+        tags:
+          type: array
+          maxItems: 32
+          items: { type: string }
+        step_count: { type: integer, minimum: 0 }
+        updated: { type: string }
+        truncated: { type: boolean }
+
+    FlowGetResponse:
+      type: object
+      required: [schema, vault_id, flow, steps]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_get/v0]
+        vault_id: { type: string }
+        flow: { $ref: '#/components/schemas/Flow' }
+        steps:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/FlowStep' }
+
+    FlowProposeRequest:
+      type: object
+      required: [flow, steps, intent]
+      description: Propose a new Flow. intent is untrusted and recorded verbatim.
+      properties:
+        flow: { $ref: '#/components/schemas/Flow' }
+        steps:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/FlowStep' }
+        intent: { type: string, minLength: 1 }
+
+    FlowProposeEditRequest:
+      type: object
+      required: [flow, steps, intent, base_version, base_state_id]
+      description: >
+        Propose an edit. base_version + base_state_id (flowst1_ token) gate
+        optimistic concurrency; flow.version must exceed base_version.
+      properties:
+        flow: { $ref: '#/components/schemas/Flow' }
+        steps:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/FlowStep' }
+        intent: { type: string, minLength: 1 }
+        base_version: { type: string }
+        base_state_id: { type: string }
+
+    FlowImportRequest:
+      type: object
+      required: [bundle, intent]
+      description: Import a portable bundle through the same scope-checked propose path.
+      properties:
+        bundle:
+          type: object
+          required: [flow, steps]
+          properties:
+            flow: { $ref: '#/components/schemas/Flow' }
+            steps:
+              type: array
+              maxItems: 100
+              items: { $ref: '#/components/schemas/FlowStep' }
+        intent: { type: string, minLength: 1 }
+        external_ref: { type: string }
+        source_vault_hint: { type: string }
+
+    FlowProposalResponse:
+      type: object
+      required: [schema, proposal_id, flow_id, scope, auto_approvable, status, review_queue]
+      description: >
+        knowtation.flow_proposal/v0 envelope — pointers/labels only, never a
+        rendered Flow body or secret. base_version/base_state_id are null for new.
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_proposal/v0]
+        proposal_id: { type: string }
+        flow_id: { type: string }
+        base_version: { type: string, nullable: true }
+        base_state_id: { type: string, nullable: true }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        auto_approvable: { type: boolean }
+        status:
+          type: string
+          enum: [proposed]
+        review_queue: { type: string }
+
+    FlowExternalGrantMintRequest:
+      type: object
+      required: [flow_version, requested_tools]
+      properties:
+        flow_version: { type: string }
+        requested_tools:
+          type: array
+          minItems: 1
+          items: { type: string }
+        ttl_seconds: { type: integer, minimum: 1 }
+        actor_label: { type: string }
+
+    FlowExternalGrant:
+      type: object
+      required:
+        - schema
+        - grant_id
+        - vault_id
+        - scope
+        - flow_id
+        - flow_version
+        - allowed_tools
+        - allowed_harnesses
+        - expires_at
+        - issued_at
+        - revoked_at
+        - actor_hash
+        - invocation_count
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_external_grant/v0]
+        grant_id: { type: string }
+        vault_id: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        flow_id: { type: string }
+        flow_version: { type: string }
+        allowed_tools:
+          type: array
+          items: { type: string }
+        allowed_harnesses:
+          type: array
+          items: { type: string }
+        expires_at: { type: string, format: date-time }
+        issued_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        actor_hash: { type: string }
+        max_invocations: { type: integer }
+        invocation_count: { type: integer }
+
+    FlowExternalGrantMintResponse:
+      type: object
+      required: [schema, grant, bearer, expires_at]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_external_grant_mint/v0]
+        grant: { $ref: '#/components/schemas/FlowExternalGrant' }
+        bearer: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    FlowExternalGrantListResponse:
+      type: object
+      required: [schema, vault_id, grants]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_external_grant_list/v0]
+        vault_id: { type: string }
+        grants:
+          type: array
+          items: { $ref: '#/components/schemas/FlowExternalGrant' }
+
+    FlowProjectResponse:
+      type: object
+      required: [schema, vault_id, projection, staleness, generator]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_project/v0]
+        vault_id: { type: string }
+        projection: { $ref: '#/components/schemas/FlowProjection' }
+        staleness: { $ref: '#/components/schemas/FlowProjectionStaleness' }
+        generator: { $ref: '#/components/schemas/FlowProjectionGenerator' }
+
+    FlowProjection:
+      type: object
+      required: [schema, flow_id, flow_version, harness, rendered, generated_from_canonical, editable]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_projection/v0]
+        flow_id: { type: string }
+        flow_version: { type: string }
+        harness:
+          type: string
+          enum: [cursor_rule, cursor_skill, mcp_prompt, cli_runbook, agent_bundle]
+        rendered:
+          type: string
+          maxLength: 65536
+        generated_from_canonical:
+          type: boolean
+          enum: [true]
+        editable:
+          type: boolean
+          enum: [false]
+        fidelity:
+          type: object
+          required: [dropped_fields]
+          properties:
+            dropped_fields:
+              type: array
+              items: { type: string }
+            notes: { type: string }
+
+    FlowProjectionStaleness:
+      type: object
+      required: [stale, projection_version, latest_version]
+      properties:
+        stale: { type: boolean }
+        projection_version: { type: string }
+        latest_version: { type: string }
+
+    FlowProjectionGenerator:
+      type: object
+      required: [generator_version, content_hash, generated_at]
+      properties:
+        generator_version: { type: string }
+        content_hash: { type: string }
+        generated_at: { type: string }
+
+    Flow:
+      type: object
+      required: [schema, flow_id, title, version, scope, summary, steps, updated, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow/v0]
+        flow_id: { type: string }
+        title: { type: string }
+        version: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        summary: { type: string }
+        tags:
+          type: array
+          maxItems: 32
+          items: { type: string }
+        steps:
+          type: array
+          maxItems: 100
+          items: { type: string }
+        inputs:
+          type: array
+          items:
+            type: object
+            required: [name, type, required]
+            properties:
+              name: { type: string }
+              type: { type: string }
+              required: { type: boolean }
+        vault_mirror_path: { type: string, nullable: true }
+        updated: { type: string }
+        truncated: { type: boolean }
+
+    FlowStep:
+      type: object
+      required: [schema, step_id, flow_id, ordinal, owned_job, instruction, trigger, when_not_to_run, boundaries, output_shape, verification, automatable]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_step/v0]
+        step_id: { type: string }
+        flow_id: { type: string }
+        ordinal: { type: integer, minimum: 1 }
+        owned_job: { type: string }
+        instruction: { type: string }
+        trigger: { type: string }
+        when_not_to_run: { type: string }
+        requires:
+          type: array
+          items:
+            type: object
+            required: [kind, id]
+            properties:
+              kind:
+                type: string
+                enum: [vault_scope, tool, file, artifact]
+              id: { type: string }
+        boundaries:
+          type: array
+          items: { type: string }
+        skill_refs:
+          type: array
+          items:
+            type: object
+            required: [kind, id]
+            properties:
+              kind:
+                type: string
+                enum: [mcp_prompt, skill_pack, cli, external_tool]
+              id: { type: string }
+        inputs:
+          type: array
+          items:
+            type: object
+            required: [name, from]
+            properties:
+              name: { type: string }
+              from: { type: string }
+        outputs:
+          type: array
+          items:
+            type: object
+            required: [name, type]
+            properties:
+              name: { type: string }
+              type: { type: string }
+        output_shape: { type: string }
+        verification:
+          type: object
+          required: [kind, evidence_required, description]
+          properties:
+            kind:
+              type: string
+              enum: [human_review, artifact_exists, value_match, test_pass, agent_check]
+            evidence_required: { type: boolean }
+            description: { type: string }
+        automatable:
+          type: string
+          enum: [manual, agent_assisted, automatable]

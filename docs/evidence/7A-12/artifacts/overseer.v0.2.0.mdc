@@ -1,0 +1,91 @@
+---
+description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them."
+globs: "**/*process*, **/*handover*, **/*coordination*, **/*dogfood*"
+alwaysApply: false
+---
+
+<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+
+## Step 1: Snapshot truth per repo, confirmed via muse -C (not ambient).
+
+**Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.
+
+**Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.
+
+**Boundaries:**
+- Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo
+- Read only — do not commit or checkout during the snapshot
+- No secrets in captured output
+
+**Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.
+
+**Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)
+
+**Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log
+
+## Step 2: Record the current step, next action, and open gates/blockers.
+
+**Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.
+
+**Trigger:** Run after per-repo truth is captured.
+
+**Boundaries:**
+- State the next action so it needs no chat history to interpret
+
+**Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.
+
+**Verification:** human_review — The next action is unambiguous. (evidence required: yes)
+
+## Step 3: List the boundaries and the cross-repo wiring touched this session.
+
+**Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.
+
+**Trigger:** Run after the step and gates are recorded.
+
+**Boundaries:**
+- Boundaries are stated explicitly, not assumed
+
+**Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.
+
+**Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)
+
+## Step 4: Update the durable docs FIRST.
+
+**Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.
+
+**Trigger:** Run after truth, step/gates, and boundaries are captured.
+
+**Boundaries:**
+- Update durable docs before regenerating any handover block
+- Docs are the source of truth, the block is a projection of them
+
+**Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.
+
+**Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)
+
+## Step 5: Regenerate the handover block into the living file from the now-current docs.
+
+**Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.
+
+**Trigger:** Run only after the durable docs are updated.
+
+**Boundaries:**
+- The block is a projection of the docs — never hand-written ahead of them
+- No secrets in the block
+
+**Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.
+
+**Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)
+
+## Step 6: Emit the block as the first message of the next chat.
+
+**Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.
+
+**Trigger:** Run once the living file holds the current block.
+
+**Boundaries:**
+- Emit only the projected block — do not add scope beyond the durable docs
+
+**Output shape:** The handover block, emitted as the first message of the next chat.
+
+**Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)

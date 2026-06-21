@@ -234,3 +234,61 @@ describe('loadConfig', () => {
     }
   });
 });
+
+describe('loadConfig — flow.visible_scopes (local Flow identity, 7A-12)', () => {
+  /**
+   * Build a throwaway repo root with a config/local.yaml carrying the given `flow:` block,
+   * load it, and return the resolved `config.flow`. This is the local-config identity channel
+   * the CLI/MCP pass into the Flow store as `visibleScopes` (FLOW-STORE-CONTRACT-7A-10 §4).
+   *
+   * @param {string} flowYaml — YAML lines for the `flow:` block, or '' to omit it entirely
+   * @returns {object|undefined}
+   */
+  function loadFlowConfig(flowYaml) {
+    const prevVault = process.env.KNOWTATION_VAULT_PATH;
+    const prevData = process.env.KNOWTATION_DATA_DIR;
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kt-flow-scope-'));
+    const cfgDir = path.join(tmp, 'config');
+    fs.mkdirSync(cfgDir, { recursive: true });
+    const vaultAbs = path.join(fixturesDir, 'vault-fs');
+    const dataAbs = path.join(fixturesDir, 'data');
+    fs.writeFileSync(
+      path.join(cfgDir, 'local.yaml'),
+      `vault_path: ${JSON.stringify(vaultAbs)}\ndata_dir: ${JSON.stringify(dataAbs)}\n${flowYaml}`,
+      'utf8',
+    );
+    delete process.env.KNOWTATION_VAULT_PATH;
+    delete process.env.KNOWTATION_DATA_DIR;
+    try {
+      return loadConfig(tmp).flow;
+    } finally {
+      if (prevVault !== undefined) process.env.KNOWTATION_VAULT_PATH = prevVault;
+      else delete process.env.KNOWTATION_VAULT_PATH;
+      if (prevData !== undefined) process.env.KNOWTATION_DATA_DIR = prevData;
+      else delete process.env.KNOWTATION_DATA_DIR;
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+
+  it('surfaces flow.visible_scopes from config/local.yaml', () => {
+    const flow = loadFlowConfig('flow:\n  visible_scopes: [personal, project, org]\n');
+    assert.deepStrictEqual(flow, { visible_scopes: ['personal', 'project', 'org'] });
+  });
+
+  it('is undefined when the flow block is omitted (deny-by-default downstream)', () => {
+    assert.strictEqual(loadFlowConfig(''), undefined);
+  });
+
+  it('is undefined when visible_scopes is empty (no spurious grant)', () => {
+    assert.strictEqual(loadFlowConfig('flow:\n  visible_scopes: []\n'), undefined);
+  });
+
+  it('filters out non-string / empty scope entries so malformed config cannot inject a scope', () => {
+    const flow = loadFlowConfig('flow:\n  visible_scopes: ["project", 7, "", null, "org"]\n');
+    assert.deepStrictEqual(flow, { visible_scopes: ['project', 'org'] });
+  });
+
+  it('is undefined when visible_scopes is not an array', () => {
+    assert.strictEqual(loadFlowConfig('flow:\n  visible_scopes: project\n'), undefined);
+  });
+});

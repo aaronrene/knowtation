@@ -1,0 +1,89 @@
+{
+  "flow": {
+    "schema": "knowtation.flow/v0",
+    "flow_id": "flow_session_to_flow",
+    "title": "Session-to-Flow review",
+    "version": "0.1.0",
+    "scope": "personal",
+    "summary": "At the end of a substantial session, check for a recurring procedure and emit a Flow candidate proposal \u2014 never an auto-Flow.",
+    "tags": ["agent-ops", "flywheel", "capture"],
+    "steps": [
+      "flow_session_to_flow#1",
+      "flow_session_to_flow#2"
+    ],
+    "inputs": [],
+    "vault_mirror_path": "meta/flows/session-to-flow.md",
+    "updated": "2026-06-20T00:00:00Z",
+    "truncated": false
+  },
+  "steps": [
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_session_to_flow#1",
+      "flow_id": "flow_session_to_flow",
+      "ordinal": 1,
+      "owned_job": "Detect whether this session re-derived a recurring, non-obvious procedure worth saving.",
+      "instruction": "Review the session for a repeated ordered step/skill-ref sequence using bounded structural signals only, and decide if a candidate clears the quality bar.",
+      "trigger": "Run at the end of a substantial session with the user's opt-in extraction enabled.",
+      "when_not_to_run": "Skip if extraction is opted out, classroom/minor policy disables capture, the procedure recurred fewer than the threshold sessions, or confidence is low.",
+      "requires": [
+        { "kind": "vault_scope", "id": "personal" }
+      ],
+      "boundaries": [
+        "Content-minimized \u2014 observe ids, hashes, and counts only; never raw prompts, completions, or note bodies",
+        "Suppress low-confidence candidates and cap candidates per session",
+        "Do not widen the inferred scope"
+      ],
+      "skill_refs": [
+        { "kind": "mcp_prompt", "id": "resume-session" }
+      ],
+      "inputs": [],
+      "outputs": [
+        { "name": "signal_summary", "type": "text" }
+      ],
+      "output_shape": "A bounded signal summary (trigger_signal, observed_count, scope_hint, confidence) \u2014 or an explicit 'no candidate'.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "A bounded signal summary exists recording the trigger_signal, observed_count, and confidence (or an explicit no-candidate result)."
+      },
+      "automatable": "agent_assisted"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_session_to_flow#2",
+      "flow_id": "flow_session_to_flow",
+      "ordinal": 2,
+      "owned_job": "Emit a Flow candidate as a proposal for the user to approve, edit, or reject.",
+      "instruction": "Produce a knowtation.flow_candidate/v0 proposal with pointer-only evidence and route it to the review tray; never promote it to a Flow.",
+      "trigger": "Run only when step 1 produced a candidate at or above the confidence threshold.",
+      "when_not_to_run": "Skip when step 1 returned 'no candidate', or the candidate duplicates an existing Flow above the dedup overlap threshold (offer merge instead).",
+      "requires": [
+        { "kind": "vault_scope", "id": "personal" },
+        { "kind": "tool", "id": "knowtation_cli" }
+      ],
+      "boundaries": [
+        "Never auto-promote a candidate to a Flow \u2014 review-before-write is mandatory",
+        "Evidence refs are pointers only (run ids, hashes) \u2014 no raw content",
+        "Candidate title and draft steps are untrusted text",
+        "Scope is inferred then user-confirmed, never silently widened"
+      ],
+      "skill_refs": [
+        { "kind": "cli", "id": "knowtation propose <candidate_path> --intent flow_candidate --source agent" }
+      ],
+      "inputs": [
+        { "name": "signal_summary", "from": "flow_session_to_flow#1.outputs.signal_summary" }
+      ],
+      "outputs": [
+        { "name": "candidate_proposal_ref", "type": "string" }
+      ],
+      "output_shape": "A pending flow_candidate/v0 proposal in the review tray with status pending_review.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "The candidate is recorded as a proposal pending review and is never auto-promoted; the user approves, edits, or rejects it."
+      },
+      "automatable": "manual"
+    }
+  ]
+}

@@ -1,0 +1,691 @@
+=== Muse commit pilot (7A-14) ===
+repo: /Users/aaronrenecarvajal/knowtation
+store: /var/folders/1h/h0k1lcss0fdc_2rvzffnlq040000gp/T/tmp.TVOMviv3ud/data
+pilot workspace: docs/evidence/7A-14/pilot-workspace
+
+### 0a. muse status (dependency gate)
+$ muse -C /Users/aaronrenecarvajal/knowtation status
+On branch feat/flow-projection-pilot
+
+Untracked files:
+  (use "muse code add <file>" to include in what will be committed)
+
+	untracked directory: .netlify/functions-internal/
+	untracked file:      .netlify/functions/bridge-index-background.zip
+	untracked file:      .netlify/functions/bridge.zip
+	untracked file:      .netlify/functions/consolidation-scheduler.zip
+	untracked file:      .netlify/functions/gateway.zip
+	untracked file:      .netlify/functions/manifest.json
+	untracked file:      .netlify/functions/warmup.zip
+	untracked file:      .netlify/netlify.toml
+	untracked directory: .netlify/v1/
+	untracked directory: .netlify/v1/functions/
+	untracked file:      docs/evidence/7A-14/artifacts/transcript.txt
+	untracked directory: docs/evidence/7A-14/pilot-workspace/
+	untracked file:      docs/evidence/7A-14/run-pilot.sh
+	untracked file:      lib/flow/muse-commit-pilot-evidence.mjs
+	untracked file:      test/flow-muse-commit-pilot-data-integrity.test.mjs
+	untracked file:      test/flow-muse-commit-pilot-e2e.test.mjs
+	untracked file:      test/flow-muse-commit-pilot-integration.test.mjs
+	untracked file:      test/flow-muse-commit-pilot-performance.test.mjs
+	untracked file:      test/flow-muse-commit-pilot-security.test.mjs
+	untracked file:      test/flow-muse-commit-pilot-stress.test.mjs
+	untracked file:      test/flow-muse-commit-pilot-unit.test.mjs
+[exit=0]
+seed v1 {"seeded":2,"skipped":0}
+
+### 1a. generate cli_runbook @ v0.1.0 → pilot workspace
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --out docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+# Overseer handover
+
+<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.1.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+
+Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them.
+
+## Step 1
+
+- **Owned job:** Snapshot truth per repo, confirmed via muse -C (not ambient).
+- **Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.
+- **Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.
+- **When not to run:** Skip if no multi-repo state is in flight and no handover is needed.
+- **Requires:** vault_scope:project, tool:muse_cli
+- **Boundaries:**
+  - Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo
+  - Read only — do not commit or checkout during the snapshot
+  - No secrets in captured output
+- **Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log
+- **Outputs:** per_repo_state:text
+- **Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.
+- **Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)
+
+## Step 2
+
+- **Owned job:** Record the current step, next action, and open gates/blockers.
+- **Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.
+- **Trigger:** Run after per-repo truth is captured.
+- **When not to run:** Skip if the next action and gates are already recorded and unchanged.
+- **Requires:** vault_scope:project
+- **Boundaries:**
+  - State the next action so it needs no chat history to interpret
+- **Inputs:** per_repo_state (from flow_overseer_handover#1.outputs.per_repo_state)
+- **Outputs:** step_and_gates:text
+- **Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.
+- **Verification:** human_review — The next action is unambiguous. (evidence required: yes)
+
+## Step 3
+
+- **Owned job:** List the boundaries and the cross-repo wiring touched this session.
+- **Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.
+- **Trigger:** Run after the step and gates are recorded.
+- **When not to run:** Skip if no cross-repo wiring was touched and boundaries are already listed.
+- **Requires:** vault_scope:project
+- **Boundaries:**
+  - Boundaries are stated explicitly, not assumed
+- **Outputs:** boundaries_and_wiring:text
+- **Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.
+- **Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)
+
+## Step 4
+
+- **Owned job:** Update the durable docs FIRST.
+- **Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.
+- **Trigger:** Run after truth, step/gates, and boundaries are captured.
+- **When not to run:** Never skip when handing off — docs-first ordering is mandatory.
+- **Requires:** vault_scope:project, file:docs/ROADMAP.md, file:docs/PRODUCT-SURFACES-NEXT-SESSION-PLAN.md, file:docs/CROSS-REPO-COORDINATION.md
+- **Boundaries:**
+  - Update durable docs before regenerating any handover block
+  - Docs are the source of truth, the block is a projection of them
+- **Outputs:** docs_update_ref:string
+- **Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.
+- **Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)
+
+## Step 5
+
+- **Owned job:** Regenerate the handover block into the living file from the now-current docs.
+- **Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.
+- **Trigger:** Run only after the durable docs are updated.
+- **When not to run:** Skip if the docs have not yet been updated this handover.
+- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md
+- **Boundaries:**
+  - The block is a projection of the docs — never hand-written ahead of them
+  - No secrets in the block
+- **Inputs:** docs_update_ref (from flow_overseer_handover#4.outputs.docs_update_ref)
+- **Outputs:** handover_block_ref:string
+- **Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.
+- **Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)
+
+## Step 6
+
+- **Owned job:** Emit the block as the first message of the next chat.
+- **Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.
+- **Trigger:** Run once the living file holds the current block.
+- **When not to run:** Skip if no new chat is being started.
+- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md
+- **Boundaries:**
+  - Emit only the projected block — do not add scope beyond the durable docs
+- **Inputs:** handover_block_ref (from flow_overseer_handover#5.outputs.handover_block_ref)
+- **Outputs:** emitted_block:text
+- **Output shape:** The handover block, emitted as the first message of the next chat.
+- **Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)
+
+
+staleness: fresh (0.1.0 vs latest 0.1.0)
+wrote: docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+[exit=0]
+
+### 1b. generate cursor_rule @ v0.1.0 → pilot workspace
+$ node cli/index.mjs flow project flow_overseer_handover --harness cursor_rule --out docs/evidence/7A-14/pilot-workspace/overseer.cursor.mdc
+---
+description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them."
+globs: "**/*process*, **/*handover*, **/*coordination*, **/*dogfood*"
+alwaysApply: false
+---
+
+<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.1.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+
+## Step 1: Snapshot truth per repo, confirmed via muse -C (not ambient).
+
+**Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.
+
+**Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.
+
+**Boundaries:**
+- Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo
+- Read only — do not commit or checkout during the snapshot
+- No secrets in captured output
+
+**Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.
+
+**Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)
+
+**Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log
+
+## Step 2: Record the current step, next action, and open gates/blockers.
+
+**Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.
+
+**Trigger:** Run after per-repo truth is captured.
+
+**Boundaries:**
+- State the next action so it needs no chat history to interpret
+
+**Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.
+
+**Verification:** human_review — The next action is unambiguous. (evidence required: yes)
+
+## Step 3: List the boundaries and the cross-repo wiring touched this session.
+
+**Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.
+
+**Trigger:** Run after the step and gates are recorded.
+
+**Boundaries:**
+- Boundaries are stated explicitly, not assumed
+
+**Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.
+
+**Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)
+
+## Step 4: Update the durable docs FIRST.
+
+**Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.
+
+**Trigger:** Run after truth, step/gates, and boundaries are captured.
+
+**Boundaries:**
+- Update durable docs before regenerating any handover block
+- Docs are the source of truth, the block is a projection of them
+
+**Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.
+
+**Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)
+
+## Step 5: Regenerate the handover block into the living file from the now-current docs.
+
+**Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.
+
+**Trigger:** Run only after the durable docs are updated.
+
+**Boundaries:**
+- The block is a projection of the docs — never hand-written ahead of them
+- No secrets in the block
+
+**Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.
+
+**Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)
+
+## Step 6: Emit the block as the first message of the next chat.
+
+**Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.
+
+**Trigger:** Run once the living file holds the current block.
+
+**Boundaries:**
+- Emit only the projected block — do not add scope beyond the durable docs
+
+**Output shape:** The handover block, emitted as the first message of the next chat.
+
+**Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)
+
+
+staleness: fresh (0.1.0 vs latest 0.1.0)
+dropped fields: inputs, outputs, requires, when_not_to_run
+fidelity: cursor_rule has no anti-trigger slot
+wrote: docs/evidence/7A-14/pilot-workspace/overseer.cursor.mdc
+[exit=0]
+
+### 1c. --check baseline cli_runbook (expect drift=false, exit 0)
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --out docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md --check
+drift: false (clean)
+stale: false
+[exit=0]
+commit sha256:aec0c7713d0e039300bbb6190f14cc053bfdff9f77a2b545baded99ed972ee57 (HEAD -> feat/flow-projection-pilot)
+Author: aaronrene
+Date:   2026-06-20 22:17:41 UTC
+SemVer: PATCH
+
+    feat(flow): anti-drift diff demo evidence + config.flow.visible_scopes (7A-12)
+
+    Run the FLOW-PROJECTION-GENERATOR-CONTRACT-7A-11 §10 acceptance bar end-to-end on our
+    own repo guidance via the real `knowtation flow project` CLI (project-scoped
+    flow_overseer_handover). All six criteria PASS: generate; edit canonical + bump
+    0.1.0->0.2.0 -> diff carries only the canonical change + marker version; delete ->
+    regenerate byte-identical; hand-edit caught (drift:edited, exit 1); staleness
+    0.1.0<0.2.0 (exit 1); honest per-harness fidelity. No secrets in any rendered byte.
+
+    Closes a contract-specified wiring gap: lib/config.mjs now surfaces flow.visible_scopes
+    (the local-config identity channel the CLI passes as visibleScopes; deny-by-default;
+    empty/malformed -> undefined) + 5 test/config.test.mjs cases. The operator grant lives
+    in the muse/git-ignored config/local.yaml.
+
+    Evidence + reproducible driver under docs/evidence/7A-12/ (README, run-demo.sh, both
+    harness projections, clean diffs, hand-edited artifact, full transcript). Demo only:
+    shipped flows/starter, live store, real AGENTS.md, and .cursor/rules untouched.
+
+    Store finding (follow-up, not fixed here): the 7A-10b store keys step bodies by
+    step_id only (not (step_id, version)), so step-field edits cannot diverge across
+    versions in one store -> recommend a 7A-10c versioned-step-keying slice. Does not
+    block 7A-13.
+
+sha before pilot commits: sha256:aec0c7713d0e039300bbb6190f14cc053bfdff9f77a2b545baded99ed972ee57
+
+### 2a. muse code add pilot workspace + evidence driver
+$ muse -C /Users/aaronrenecarvajal/knowtation code add docs/evidence/7A-14/pilot-workspace docs/evidence/7A-14/run-pilot.sh
+Staged 3 added files.
+[exit=0]
+
+### 2b. muse commit v0.1.0 pilot baseline
+$ muse -C /Users/aaronrenecarvajal/knowtation commit -m feat(flow): 7A-14 Muse commit pilot baseline @ v0.1.0
+
+Generate repo-guidance projections (cli_runbook + cursor_rule) from canonical
+flow_overseer_handover v0.1.0 into docs/evidence/7A-14/pilot-workspace/ and
+Muse-commit them as the durable write surface. Pilot only — real AGENTS.md and
+.cursor/rules untouched; throwaway store; posture unchanged.
+[feat/flow-projection-pilot sha256:59a63f12c5f7b794857c7675601808223e15816f67fa33a3d9b2f5fbd0f2d63d] feat(flow): 7A-14 Muse commit pilot baseline @ v0.1.0
+
+Generate repo-guidance projections (cli_runbook + cursor_rule) from canonical
+flow_overseer_handover v0.1.0 into docs/evidence/7A-14/pilot-workspace/ and
+Muse-commit them as the durable write surface. Pilot only — real AGENTS.md and
+.cursor/rules untouched; throwaway store; posture unchanged.
+ 3 files changed (3 added)
+[exit=0]
+commit v0.1.0 sha: sha256:59a63f12c5f7b794857c7675601808223e15816f67fa33a3d9b2f5fbd0f2d63d
+seed v2 {"seeded":1,"skipped":1}
+
+### 3a. regenerate cli_runbook @ v0.2.0
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --out docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+# Overseer handover
+
+<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+
+Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them.
+
+## Step 1
+
+- **Owned job:** Snapshot truth per repo, confirmed via muse -C (not ambient).
+- **Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.
+- **Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.
+- **When not to run:** Skip if no multi-repo state is in flight and no handover is needed.
+- **Requires:** vault_scope:project, tool:muse_cli
+- **Boundaries:**
+  - Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo
+  - Read only — do not commit or checkout during the snapshot
+  - No secrets in captured output
+- **Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log
+- **Outputs:** per_repo_state:text
+- **Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.
+- **Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)
+
+## Step 2
+
+- **Owned job:** Record the current step, next action, and open gates/blockers.
+- **Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.
+- **Trigger:** Run after per-repo truth is captured.
+- **When not to run:** Skip if the next action and gates are already recorded and unchanged.
+- **Requires:** vault_scope:project
+- **Boundaries:**
+  - State the next action so it needs no chat history to interpret
+- **Inputs:** per_repo_state (from flow_overseer_handover#1.outputs.per_repo_state)
+- **Outputs:** step_and_gates:text
+- **Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.
+- **Verification:** human_review — The next action is unambiguous. (evidence required: yes)
+
+## Step 3
+
+- **Owned job:** List the boundaries and the cross-repo wiring touched this session.
+- **Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.
+- **Trigger:** Run after the step and gates are recorded.
+- **When not to run:** Skip if no cross-repo wiring was touched and boundaries are already listed.
+- **Requires:** vault_scope:project
+- **Boundaries:**
+  - Boundaries are stated explicitly, not assumed
+- **Outputs:** boundaries_and_wiring:text
+- **Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.
+- **Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)
+
+## Step 4
+
+- **Owned job:** Update the durable docs FIRST.
+- **Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.
+- **Trigger:** Run after truth, step/gates, and boundaries are captured.
+- **When not to run:** Never skip when handing off — docs-first ordering is mandatory.
+- **Requires:** vault_scope:project, file:docs/ROADMAP.md, file:docs/PRODUCT-SURFACES-NEXT-SESSION-PLAN.md, file:docs/CROSS-REPO-COORDINATION.md
+- **Boundaries:**
+  - Update durable docs before regenerating any handover block
+  - Docs are the source of truth, the block is a projection of them
+- **Outputs:** docs_update_ref:string
+- **Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.
+- **Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)
+
+## Step 5
+
+- **Owned job:** Regenerate the handover block into the living file from the now-current docs.
+- **Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.
+- **Trigger:** Run only after the durable docs are updated.
+- **When not to run:** Skip if the docs have not yet been updated this handover.
+- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md
+- **Boundaries:**
+  - The block is a projection of the docs — never hand-written ahead of them
+  - No secrets in the block
+- **Inputs:** docs_update_ref (from flow_overseer_handover#4.outputs.docs_update_ref)
+- **Outputs:** handover_block_ref:string
+- **Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.
+- **Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)
+
+## Step 6
+
+- **Owned job:** Emit the block as the first message of the next chat.
+- **Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.
+- **Trigger:** Run once the living file holds the current block.
+- **When not to run:** Skip if no new chat is being started.
+- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md
+- **Boundaries:**
+  - Emit only the projected block — do not add scope beyond the durable docs
+- **Inputs:** handover_block_ref (from flow_overseer_handover#5.outputs.handover_block_ref)
+- **Outputs:** emitted_block:text
+- **Output shape:** The handover block, emitted as the first message of the next chat.
+- **Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)
+
+
+staleness: fresh (0.2.0 vs latest 0.2.0)
+wrote: docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+[exit=0]
+
+### 3b. regenerate cursor_rule @ v0.2.0
+$ node cli/index.mjs flow project flow_overseer_handover --harness cursor_rule --out docs/evidence/7A-14/pilot-workspace/overseer.cursor.mdc
+---
+description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them."
+globs: "**/*process*, **/*handover*, **/*coordination*, **/*dogfood*"
+alwaysApply: false
+---
+
+<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+
+## Step 1: Snapshot truth per repo, confirmed via muse -C (not ambient).
+
+**Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.
+
+**Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.
+
+**Boundaries:**
+- Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo
+- Read only — do not commit or checkout during the snapshot
+- No secrets in captured output
+
+**Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.
+
+**Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)
+
+**Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log
+
+## Step 2: Record the current step, next action, and open gates/blockers.
+
+**Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.
+
+**Trigger:** Run after per-repo truth is captured.
+
+**Boundaries:**
+- State the next action so it needs no chat history to interpret
+
+**Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.
+
+**Verification:** human_review — The next action is unambiguous. (evidence required: yes)
+
+## Step 3: List the boundaries and the cross-repo wiring touched this session.
+
+**Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.
+
+**Trigger:** Run after the step and gates are recorded.
+
+**Boundaries:**
+- Boundaries are stated explicitly, not assumed
+
+**Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.
+
+**Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)
+
+## Step 4: Update the durable docs FIRST.
+
+**Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.
+
+**Trigger:** Run after truth, step/gates, and boundaries are captured.
+
+**Boundaries:**
+- Update durable docs before regenerating any handover block
+- Docs are the source of truth, the block is a projection of them
+
+**Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.
+
+**Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)
+
+## Step 5: Regenerate the handover block into the living file from the now-current docs.
+
+**Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.
+
+**Trigger:** Run only after the durable docs are updated.
+
+**Boundaries:**
+- The block is a projection of the docs — never hand-written ahead of them
+- No secrets in the block
+
+**Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.
+
+**Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)
+
+## Step 6: Emit the block as the first message of the next chat.
+
+**Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.
+
+**Trigger:** Run once the living file holds the current block.
+
+**Boundaries:**
+- Emit only the projected block — do not add scope beyond the durable docs
+
+**Output shape:** The handover block, emitted as the first message of the next chat.
+
+**Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)
+
+
+staleness: fresh (0.2.0 vs latest 0.2.0)
+dropped fields: inputs, outputs, requires, when_not_to_run
+fidelity: cursor_rule has no anti-trigger slot
+wrote: docs/evidence/7A-14/pilot-workspace/overseer.cursor.mdc
+[exit=0]
+
+### 3c. anti-drift diff v0.1.0 → v0.2.0 (cli_runbook)
+--- docs/evidence/7A-14/artifacts/overseer.AGENTS.v0.1.0.md	2026-06-20 16:32:20
++++ docs/evidence/7A-14/artifacts/overseer.AGENTS.v0.2.0.md	2026-06-20 16:32:20
+@@ -1,8 +1,8 @@
+ # Overseer handover
+ 
+-<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.1.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
++<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+ 
+-Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them.
++Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them.
+ 
+ ## Step 1
+ 
+[diff captured: docs/evidence/7A-14/artifacts/overseer.runbook.v1-to-v2.diff]
+
+### 3d. anti-drift diff v0.1.0 → v0.2.0 (cursor_rule)
+--- docs/evidence/7A-14/artifacts/overseer.v0.1.0.mdc	2026-06-20 16:32:20
++++ docs/evidence/7A-14/artifacts/overseer.v0.2.0.mdc	2026-06-20 16:32:20
+@@ -1,10 +1,10 @@
+ ---
+-description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them."
++description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them."
+ globs: "**/*process*, **/*handover*, **/*coordination*, **/*dogfood*"
+ alwaysApply: false
+ ---
+ 
+-<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.1.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
++<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+ 
+ ## Step 1: Snapshot truth per repo, confirmed via muse -C (not ambient).
+ 
+[diff captured: docs/evidence/7A-14/artifacts/overseer.cursor.v1-to-v2.diff]
+
+### 4a. muse code add updated pilot workspace
+$ muse -C /Users/aaronrenecarvajal/knowtation code add docs/evidence/7A-14/pilot-workspace
+Staged 2 modified.
+[exit=0]
+
+### 4b. muse commit v0.2.0 pilot update
+$ muse -C /Users/aaronrenecarvajal/knowtation commit -m feat(flow): 7A-14 Muse commit pilot update @ v0.2.0
+
+Regenerate pilot-workspace projections after canonical flow_overseer_handover
+0.1.0→0.2.0 bump. Diff carries only the canonical summary change + marker version
+(anti-drift proven in docs/evidence/7A-14/artifacts/). Pilot only.
+[feat/flow-projection-pilot sha256:b0f9cf4717324ec9debac3dd83653c974c3e7f9f2416d701d3f23edfc7f67698] feat(flow): 7A-14 Muse commit pilot update @ v0.2.0
+
+Regenerate pilot-workspace projections after canonical flow_overseer_handover
+0.1.0→0.2.0 bump. Diff carries only the canonical summary change + marker version
+(anti-drift proven in docs/evidence/7A-14/artifacts/). Pilot only.
+ 2 files changed (2 modified)
+[exit=0]
+commit v0.2.0 sha: sha256:b0f9cf4717324ec9debac3dd83653c974c3e7f9f2416d701d3f23edfc7f67698
+commit sha256:b0f9cf4717324ec9debac3dd83653c974c3e7f9f2416d701d3f23edfc7f67698 (HEAD -> feat/flow-projection-pilot)
+Author: aaronrene
+Date:   2026-06-20 23:32:21 UTC
+
+    feat(flow): 7A-14 Muse commit pilot update @ v0.2.0
+
+    Regenerate pilot-workspace projections after canonical flow_overseer_handover
+    0.1.0→0.2.0 bump. Diff carries only the canonical summary change + marker version
+    (anti-drift proven in docs/evidence/7A-14/artifacts/). Pilot only.
+
+
+### 4c. muse diff v0.1.0 commit → v0.2.0 commit (pilot workspace only)
+M  docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+   └─ section Overseer handover (implementation changed)  L1–92
+M  docs/evidence/7A-14/pilot-workspace/overseer.cursor.mdc
+
+2 modified files, 1 modified symbol
+
+### 5a. regenerate deleted cli_runbook @ v0.2.0
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --out docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+# Overseer handover
+
+<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+
+Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them.
+
+## Step 1
+
+- **Owned job:** Snapshot truth per repo, confirmed via muse -C (not ambient).
+- **Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.
+- **Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.
+- **When not to run:** Skip if no multi-repo state is in flight and no handover is needed.
+- **Requires:** vault_scope:project, tool:muse_cli
+- **Boundaries:**
+  - Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo
+  - Read only — do not commit or checkout during the snapshot
+  - No secrets in captured output
+- **Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log
+- **Outputs:** per_repo_state:text
+- **Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.
+- **Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)
+
+## Step 2
+
+- **Owned job:** Record the current step, next action, and open gates/blockers.
+- **Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.
+- **Trigger:** Run after per-repo truth is captured.
+- **When not to run:** Skip if the next action and gates are already recorded and unchanged.
+- **Requires:** vault_scope:project
+- **Boundaries:**
+  - State the next action so it needs no chat history to interpret
+- **Inputs:** per_repo_state (from flow_overseer_handover#1.outputs.per_repo_state)
+- **Outputs:** step_and_gates:text
+- **Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.
+- **Verification:** human_review — The next action is unambiguous. (evidence required: yes)
+
+## Step 3
+
+- **Owned job:** List the boundaries and the cross-repo wiring touched this session.
+- **Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.
+- **Trigger:** Run after the step and gates are recorded.
+- **When not to run:** Skip if no cross-repo wiring was touched and boundaries are already listed.
+- **Requires:** vault_scope:project
+- **Boundaries:**
+  - Boundaries are stated explicitly, not assumed
+- **Outputs:** boundaries_and_wiring:text
+- **Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.
+- **Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)
+
+## Step 4
+
+- **Owned job:** Update the durable docs FIRST.
+- **Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.
+- **Trigger:** Run after truth, step/gates, and boundaries are captured.
+- **When not to run:** Never skip when handing off — docs-first ordering is mandatory.
+- **Requires:** vault_scope:project, file:docs/ROADMAP.md, file:docs/PRODUCT-SURFACES-NEXT-SESSION-PLAN.md, file:docs/CROSS-REPO-COORDINATION.md
+- **Boundaries:**
+  - Update durable docs before regenerating any handover block
+  - Docs are the source of truth, the block is a projection of them
+- **Outputs:** docs_update_ref:string
+- **Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.
+- **Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)
+
+## Step 5
+
+- **Owned job:** Regenerate the handover block into the living file from the now-current docs.
+- **Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.
+- **Trigger:** Run only after the durable docs are updated.
+- **When not to run:** Skip if the docs have not yet been updated this handover.
+- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md
+- **Boundaries:**
+  - The block is a projection of the docs — never hand-written ahead of them
+  - No secrets in the block
+- **Inputs:** docs_update_ref (from flow_overseer_handover#4.outputs.docs_update_ref)
+- **Outputs:** handover_block_ref:string
+- **Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.
+- **Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)
+
+## Step 6
+
+- **Owned job:** Emit the block as the first message of the next chat.
+- **Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.
+- **Trigger:** Run once the living file holds the current block.
+- **When not to run:** Skip if no new chat is being started.
+- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md
+- **Boundaries:**
+  - Emit only the projected block — do not add scope beyond the durable docs
+- **Inputs:** handover_block_ref (from flow_overseer_handover#5.outputs.handover_block_ref)
+- **Outputs:** emitted_block:text
+- **Output shape:** The handover block, emitted as the first message of the next chat.
+- **Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)
+
+
+staleness: fresh (0.2.0 vs latest 0.2.0)
+wrote: docs/evidence/7A-14/pilot-workspace/overseer.AGENTS.md
+[exit=0]
+
+### 5b. byte-identical after delete+regenerate
+IDENTICAL: regenerated artifact == pre-delete artifact (lossless)
+
+### 5c. --check hand-edited cli_runbook (expect drift=true, exit 1)
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --out docs/evidence/7A-14/artifacts/overseer.AGENTS.handedited.md --check
+drift: true (edited)
+stale: false
+[exit=1]
+
+### 5d. --check pinned v0.1.0 vs latest v0.2.0 (expect stale=true, exit 1)
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --version 0.1.0 --out docs/evidence/7A-14/artifacts/overseer.AGENTS.v0.1.0.md --check
+drift: false (clean)
+stale: true
+versions: projection 0.1.0 < latest 0.2.0
+[exit=1]
+
+### 5e. cursor_rule fidelity (--json)
+$ node cli/index.mjs flow project flow_overseer_handover --harness cursor_rule --json
+{"schema":"knowtation.flow_project/v0","vault_id":"default","projection":{"schema":"knowtation.flow_projection/v0","flow_id":"flow_overseer_handover","flow_version":"0.2.0","harness":"cursor_rule","rendered":"---\ndescription: \"Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them.\"\nglobs: \"**/*process*, **/*handover*, **/*coordination*, **/*dogfood*\"\nalwaysApply: false\n---\n\n<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->\n\n## Step 1: Snapshot truth per repo, confirmed via muse -C (not ambient).\n\n**Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.\n\n**Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.\n\n**Boundaries:**\n- Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo\n- Read only — do not commit or checkout during the snapshot\n- No secrets in captured output\n\n**Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.\n\n**Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)\n\n**Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log\n\n## Step 2: Record the current step, next action, and open gates/blockers.\n\n**Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.\n\n**Trigger:** Run after per-repo truth is captured.\n\n**Boundaries:**\n- State the next action so it needs no chat history to interpret\n\n**Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.\n\n**Verification:** human_review — The next action is unambiguous. (evidence required: yes)\n\n## Step 3: List the boundaries and the cross-repo wiring touched this session.\n\n**Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.\n\n**Trigger:** Run after the step and gates are recorded.\n\n**Boundaries:**\n- Boundaries are stated explicitly, not assumed\n\n**Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.\n\n**Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)\n\n## Step 4: Update the durable docs FIRST.\n\n**Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.\n\n**Trigger:** Run after truth, step/gates, and boundaries are captured.\n\n**Boundaries:**\n- Update durable docs before regenerating any handover block\n- Docs are the source of truth, the block is a projection of them\n\n**Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.\n\n**Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)\n\n## Step 5: Regenerate the handover block into the living file from the now-current docs.\n\n**Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.\n\n**Trigger:** Run only after the durable docs are updated.\n\n**Boundaries:**\n- The block is a projection of the docs — never hand-written ahead of them\n- No secrets in the block\n\n**Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.\n\n**Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)\n\n## Step 6: Emit the block as the first message of the next chat.\n\n**Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.\n\n**Trigger:** Run once the living file holds the current block.\n\n**Boundaries:**\n- Emit only the projected block — do not add scope beyond the durable docs\n\n**Output shape:** The handover block, emitted as the first message of the next chat.\n\n**Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)\n","generated_from_canonical":true,"editable":false,"fidelity":{"dropped_fields":["inputs","outputs","requires","when_not_to_run"],"notes":"cursor_rule has no anti-trigger slot"}},"staleness":{"stale":false,"projection_version":"0.2.0","latest_version":"0.2.0"},"generator":{"generator_version":"1","content_hash":"sha256:0ec0576498384bc056a440ccb19d56468704d6da4356f60d52d229c865be03a1","generated_at":"2026-06-20T23:32:23.042Z"}}
+[exit=0]
+
+### 5f. cli_runbook fidelity (--json)
+$ node cli/index.mjs flow project flow_overseer_handover --harness cli_runbook --json
+{"schema":"knowtation.flow_project/v0","vault_id":"default","projection":{"schema":"knowtation.flow_projection/v0","flow_id":"flow_overseer_handover","flow_version":"0.2.0","harness":"cli_runbook","rendered":"# Overseer handover\n\n<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->\n\nDocs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them.\n\n## Step 1\n\n- **Owned job:** Snapshot truth per repo, confirmed via muse -C (not ambient).\n- **Instruction:** Run muse -C &lt;abs path&gt; status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.\n- **Trigger:** Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.\n- **When not to run:** Skip if no multi-repo state is in flight and no handover is needed.\n- **Requires:** vault_scope:project, tool:muse_cli\n- **Boundaries:**\n  - Always target each repo with muse -C &lt;absolute-path&gt; — a bare muse can report an ambient repo\n  - Read only — do not commit or checkout during the snapshot\n  - No secrets in captured output\n- **Skill refs:** cli:muse -C &lt;abs-repo-path&gt; status, cli:muse -C &lt;abs-repo-path&gt; log\n- **Outputs:** per_repo_state:text\n- **Output shape:** A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.\n- **Verification:** artifact_exists — Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha. (evidence required: yes)\n\n## Step 2\n\n- **Owned job:** Record the current step, next action, and open gates/blockers.\n- **Instruction:** Write down the current initiative step, the unambiguous next action, and any open gates or blockers.\n- **Trigger:** Run after per-repo truth is captured.\n- **When not to run:** Skip if the next action and gates are already recorded and unchanged.\n- **Requires:** vault_scope:project\n- **Boundaries:**\n  - State the next action so it needs no chat history to interpret\n- **Inputs:** per_repo_state (from flow_overseer_handover#1.outputs.per_repo_state)\n- **Outputs:** step_and_gates:text\n- **Output shape:** A current-step line, a next-action line, and an open-gates/blockers list.\n- **Verification:** human_review — The next action is unambiguous. (evidence required: yes)\n\n## Step 3\n\n- **Owned job:** List the boundaries and the cross-repo wiring touched this session.\n- **Instruction:** Enumerate the boundaries to honor and the cross-repo wiring touched this session.\n- **Trigger:** Run after the step and gates are recorded.\n- **When not to run:** Skip if no cross-repo wiring was touched and boundaries are already listed.\n- **Requires:** vault_scope:project\n- **Boundaries:**\n  - Boundaries are stated explicitly, not assumed\n- **Outputs:** boundaries_and_wiring:text\n- **Output shape:** An explicit boundaries list and a cross-repo wiring list for the session.\n- **Verification:** human_review — Boundaries are explicit and the cross-repo wiring touched is listed. (evidence required: yes)\n\n## Step 4\n\n- **Owned job:** Update the durable docs FIRST.\n- **Instruction:** Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.\n- **Trigger:** Run after truth, step/gates, and boundaries are captured.\n- **When not to run:** Never skip when handing off — docs-first ordering is mandatory.\n- **Requires:** vault_scope:project, file:docs/ROADMAP.md, file:docs/PRODUCT-SURFACES-NEXT-SESSION-PLAN.md, file:docs/CROSS-REPO-COORDINATION.md\n- **Boundaries:**\n  - Update durable docs before regenerating any handover block\n  - Docs are the source of truth, the block is a projection of them\n- **Outputs:** docs_update_ref:string\n- **Output shape:** Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.\n- **Verification:** artifact_exists — The durable docs are updated and match reality before any block is written. (evidence required: yes)\n\n## Step 5\n\n- **Owned job:** Regenerate the handover block into the living file from the now-current docs.\n- **Instruction:** Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.\n- **Trigger:** Run only after the durable docs are updated.\n- **When not to run:** Skip if the docs have not yet been updated this handover.\n- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md\n- **Boundaries:**\n  - The block is a projection of the docs — never hand-written ahead of them\n  - No secrets in the block\n- **Inputs:** docs_update_ref (from flow_overseer_handover#4.outputs.docs_update_ref)\n- **Outputs:** handover_block_ref:string\n- **Output shape:** An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.\n- **Verification:** artifact_exists — The living file is overwritten and its block matches the docs, not memory. (evidence required: yes)\n\n## Step 6\n\n- **Owned job:** Emit the block as the first message of the next chat.\n- **Instruction:** Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.\n- **Trigger:** Run once the living file holds the current block.\n- **When not to run:** Skip if no new chat is being started.\n- **Requires:** vault_scope:project, file:docs/OVERSEER-HANDOVER.md\n- **Boundaries:**\n  - Emit only the projected block — do not add scope beyond the durable docs\n- **Inputs:** handover_block_ref (from flow_overseer_handover#5.outputs.handover_block_ref)\n- **Outputs:** emitted_block:text\n- **Output shape:** The handover block, emitted as the first message of the next chat.\n- **Verification:** human_review — A new overseer can resume from the emitted block with no prior chat history. (evidence required: yes)\n","generated_from_canonical":true,"editable":false,"fidelity":{"dropped_fields":[]}},"staleness":{"stale":false,"projection_version":"0.2.0","latest_version":"0.2.0"},"generator":{"generator_version":"1","content_hash":"sha256:b841812d147bce0d0818e17a3e420c985656ccb83e85ef9eeadba9a992be789c","generated_at":"2026-06-20T23:32:23.122Z"}}
+[exit=0]
+
+=== pilot complete — workspace + artifacts + muse SHAs under docs/evidence/7A-14 ===

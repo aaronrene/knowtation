@@ -1,0 +1,28 @@
+commit sha256:aec0c7713d0e039300bbb6190f14cc053bfdff9f77a2b545baded99ed972ee57 (HEAD -> feat/flow-projection-pilot)
+Author: aaronrene
+Date:   2026-06-20 22:17:41 UTC
+SemVer: PATCH
+
+    feat(flow): anti-drift diff demo evidence + config.flow.visible_scopes (7A-12)
+
+    Run the FLOW-PROJECTION-GENERATOR-CONTRACT-7A-11 §10 acceptance bar end-to-end on our
+    own repo guidance via the real `knowtation flow project` CLI (project-scoped
+    flow_overseer_handover). All six criteria PASS: generate; edit canonical + bump
+    0.1.0->0.2.0 -> diff carries only the canonical change + marker version; delete ->
+    regenerate byte-identical; hand-edit caught (drift:edited, exit 1); staleness
+    0.1.0<0.2.0 (exit 1); honest per-harness fidelity. No secrets in any rendered byte.
+
+    Closes a contract-specified wiring gap: lib/config.mjs now surfaces flow.visible_scopes
+    (the local-config identity channel the CLI passes as visibleScopes; deny-by-default;
+    empty/malformed -> undefined) + 5 test/config.test.mjs cases. The operator grant lives
+    in the muse/git-ignored config/local.yaml.
+
+    Evidence + reproducible driver under docs/evidence/7A-12/ (README, run-demo.sh, both
+    harness projections, clean diffs, hand-edited artifact, full transcript). Demo only:
+    shipped flows/starter, live store, real AGENTS.md, and .cursor/rules untouched.
+
+    Store finding (follow-up, not fixed here): the 7A-10b store keys step bodies by
+    step_id only (not (step_id, version)), so step-field edits cannot diverge across
+    versions in one store -> recommend a 7A-10c versioned-step-keying slice. Does not
+    block 7A-13.
+

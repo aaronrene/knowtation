@@ -1249,6 +1249,733 @@ async function main() {
     return;
   }
 
+  if (subcommand === 'flow') {
+    const flowAction = args[1];
+    if (hasOpt('help') || hasOpt('h') || !flowAction) {
+      console.log(`knowtation flow <action>
+  Actions (v0 read surface):
+    list [--scope personal|project|org] [--tag <t>] [--limit <n>] [--json]
+    get <flow_id> [--version <semver>] [--json]
+    project <flow_id> --harness <harness> [--version <semver>] [--out <path>] [--check] [--json]
+
+  Authoring (gated by FLOW_AUTHORING_WRITES; default off):
+    propose <bundle.json> [--intent <text>] [--base-version <semver>] [--base-state-id <flowst1_…>] [--json]
+    import <bundle.json> [--intent <text>] [--external-ref <ref>] [--source-vault-hint <hint>] [--json]
+
+  External-agent grants (gated by FLOW_EXTERNAL_AGENT_ENABLED; default off):
+    grant mint <flow_id> --flow-version <semver> --tools <id>[,<id>…] [--ttl-seconds <n>] [--actor-label <label>] [--json]
+    grant revoke <grant_id> [--json]
+    grant list [--flow-id <id>] [--json]
+
+  Run execution (gated by FLOW_RUN_WRITES_ENABLED / FLOW_AUTOMATABLE_EXECUTION_ENABLED; default off):
+    run start <flow_id> --flow-version <semver> [--task-ref <id>] [--external-ref <ref>] [--json]
+    run get <run_id> [--json]
+    run list [--flow-id <id>] [--json]
+    run advance <run_id> --step-id <id> --to-status <status> [--skip-reason <enum>] [--json]
+    run evidence <run_id> --step-id <id> --evidence-ref <ref> --pointer-kind <kind> [--json]
+    run execute <run_id> --step-id <id> --consent-id <id> [--model-lane <lane>] [--dry-run] [--json]
+    run consent <run_id> --lanes <lane>[,<lane>…] --cost-cap <n> [--ttl-seconds <n>] [--json]
+    run submit-review <run_id> --intent <text> [--json]
+
+  Capture flywheel (gated by FLOW_CAPTURE_DETECTION_ENABLED / FLOW_CAPTURE_WRITES_ENABLED; default off):
+    capture observe <signals.json> [--include-low-confidence] [--json]
+    capture list [--scope personal|project|org] [--include-low-confidence] [--limit <n>] [--json]
+    capture propose <candidate_id> --confirmed-scope <scope> --intent <text> [--scope-widen-acknowledged] [--allow-low-confidence] [--force-new-flow] [--merge-into-flow-id <id>] [--json]
+    capture dismiss <candidate_id> --intent <text> [--json]
+
+  Reserved (not wired in v0): export
+
+  Options: --json (exact Hub JSON)`);
+      process.exit(0);
+    }
+
+    const gatedActions = ['export'];
+    if (gatedActions.includes(flowAction)) {
+      exitWithError(`knowtation flow ${flowAction}: not available in v0 (gated).`, 1, useJson);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+
+    const vaultId = getOpt('vault') || 'default';
+    const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
+
+    const flowExitWithError = (message, codeStr, exitCode = 1) => {
+      if (useJson) {
+        process.stderr.write(JSON.stringify({ error: message, code: codeStr }) + '\n');
+      } else {
+        console.error(message);
+      }
+      process.exit(exitCode);
+    };
+
+    if (flowAction === 'list') {
+      const limitOpt = getOpt('limit', 'number');
+      const { handleFlowListRequest } = await import('../lib/flow/flow-handlers.mjs');
+      const result = handleFlowListRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        cliScopes,
+        scope: getOpt('scope') ?? undefined,
+        tag: getOpt('tag') ?? undefined,
+        limit: limitOpt ?? undefined,
+      });
+      if (!result.ok) {
+        flowExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const rows = result.payload.flows;
+        if (rows.length === 0) {
+          console.log('(no flows)');
+        } else {
+          for (const f of rows) {
+            console.log(`${f.flow_id}  ${f.version}  [${f.scope}]  ${f.title}  (${f.step_count} steps)`);
+          }
+        }
+        if (result.payload.truncated) {
+          console.log('(truncated)');
+        }
+      }
+      process.exit(0);
+    }
+
+    if (flowAction === 'get') {
+      const flowId = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!flowId) {
+        flowExitWithError('knowtation flow get: provide a flow_id.', 'BAD_REQUEST');
+      }
+      const { handleFlowGetRequest } = await import('../lib/flow/flow-handlers.mjs');
+      const result = handleFlowGetRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        flowId,
+        cliScopes,
+        version: getOpt('version') ?? undefined,
+      });
+      if (!result.ok) {
+        flowExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const { flow, steps } = result.payload;
+        console.log(`${flow.flow_id}  ${flow.version}  [${flow.scope}]`);
+        console.log(flow.title);
+        console.log(flow.summary);
+        console.log(`Steps (${steps.length}):`);
+        for (const s of steps) {
+          console.log(`  ${s.ordinal}. ${s.owned_job}`);
+        }
+      }
+      process.exit(0);
+    }
+
+    if (flowAction === 'project') {
+      const flowId = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      const harness = getOpt('harness');
+      if (!flowId) {
+        flowExitWithError('knowtation flow project: provide a flow_id.', 'BAD_REQUEST');
+      }
+      if (!harness) {
+        flowExitWithError('knowtation flow project: --harness is required.', 'BAD_REQUEST');
+      }
+      const checkMode = hasOpt('check');
+      const outPath = getOpt('out') ?? undefined;
+      const { handleFlowProjectRequest } = await import('../lib/flow/flow-handlers.mjs');
+      const { detectDrift, defaultProjectionOutPath } = await import('../lib/flow/projection-generator.mjs');
+      const result = handleFlowProjectRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        flowId,
+        harness,
+        cliScopes,
+        version: getOpt('version') ?? undefined,
+      });
+      if (!result.ok) {
+        flowExitWithError(result.error, result.code, result.status === 403 ? 1 : 1);
+      }
+
+      const artifactPath = outPath || defaultProjectionOutPath(flowId, harness);
+      if (checkMode) {
+        if (!artifactPath) {
+          flowExitWithError('knowtation flow project --check: provide --out or use an active harness.', 'BAD_REQUEST');
+        }
+        const fs = await import('node:fs');
+        let onDisk = '';
+        try {
+          onDisk = fs.readFileSync(artifactPath, 'utf8');
+        } catch {
+          onDisk = '';
+        }
+        const drift = detectDrift(onDisk, result.payload.projection.rendered);
+        const stale = result.payload.staleness.stale === true;
+        if (useJson) {
+          console.log(
+            JSON.stringify({
+              check: true,
+              drift,
+              stale,
+              staleness: result.payload.staleness,
+              generator: result.payload.generator,
+            }),
+          );
+        } else {
+          console.log(`drift: ${drift.drift} (${drift.reason})`);
+          console.log(`stale: ${stale}`);
+          if (stale) {
+            console.log(
+              `versions: projection ${result.payload.staleness.projection_version} < latest ${result.payload.staleness.latest_version}`,
+            );
+          }
+        }
+        if (drift.drift || stale) {
+          process.exit(1);
+        }
+        process.exit(0);
+      }
+
+      if (outPath && artifactPath) {
+        const fs = await import('node:fs');
+        const pathMod = await import('node:path');
+        const dir = pathMod.dirname(artifactPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(artifactPath, result.payload.projection.rendered, 'utf8');
+      }
+
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        console.log(result.payload.projection.rendered);
+        const { staleness, projection } = result.payload;
+        console.error('');
+        console.error(`staleness: ${staleness.stale ? 'stale' : 'fresh'} (${staleness.projection_version} vs latest ${staleness.latest_version})`);
+        if (projection.fidelity?.dropped_fields?.length) {
+          console.error(`dropped fields: ${projection.fidelity.dropped_fields.join(', ')}`);
+        }
+        if (projection.fidelity?.notes) {
+          console.error(`fidelity: ${projection.fidelity.notes}`);
+        }
+        if (outPath) {
+          console.error(`wrote: ${artifactPath}`);
+        }
+      }
+      process.exit(0);
+    }
+
+    if (flowAction === 'propose' || flowAction === 'import') {
+      const bundlePath = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!bundlePath) {
+        flowExitWithError(`knowtation flow ${flowAction}: provide a bundle.json path.`, 'BAD_REQUEST');
+      }
+      const fsMod = await import('node:fs');
+      let bundle;
+      try {
+        bundle = JSON.parse(fsMod.readFileSync(bundlePath, 'utf8'));
+      } catch (e) {
+        flowExitWithError(`knowtation flow ${flowAction}: cannot read bundle (${e.message}).`, 'BAD_REQUEST');
+      }
+      const intent = getOpt('intent') || (bundle && typeof bundle === 'object' ? bundle.intent : undefined);
+      const { handleFlowProposeRequest } = await import('../lib/flow/flow-authoring.mjs');
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+
+      let result;
+      if (flowAction === 'import') {
+        result = handleFlowProposeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          kind: 'import',
+          bundle: { flow: bundle?.flow, steps: bundle?.steps },
+          intent,
+          externalRef: getOpt('external-ref') || (bundle && bundle.external_ref) || undefined,
+          sourceVaultHint: getOpt('source-vault-hint') || (bundle && bundle.source_vault_hint) || undefined,
+          createProposal,
+        });
+      } else {
+        const baseVersion = getOpt('base-version') || (bundle && bundle.base_version) || undefined;
+        const baseStateId = getOpt('base-state-id') || (bundle && bundle.base_state_id) || undefined;
+        result = handleFlowProposeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          kind: baseVersion ? 'edit' : 'new',
+          flow: bundle?.flow,
+          steps: bundle?.steps,
+          intent,
+          flowId: bundle?.flow?.flow_id,
+          baseVersion,
+          baseStateId,
+          createProposal,
+        });
+      }
+
+      if (!result.ok) {
+        flowExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const p = result.payload;
+        console.log(`proposed ${p.flow_id} → ${p.proposal_id} [${p.scope}] (status: ${p.status})`);
+        console.log(`review queue: ${p.review_queue}  auto_approvable: ${p.auto_approvable}`);
+      }
+      process.exit(0);
+    }
+
+    if (flowAction === 'run') {
+      const runSub = args[2];
+      if (!runSub || hasOpt('help') || hasOpt('h')) {
+        console.log('knowtation flow run start|get|list|advance|evidence|execute|consent|submit-review — see knowtation flow --help');
+        process.exit(0);
+      }
+
+      const {
+        handleFlowRunStartRequest,
+        handleFlowRunGetRequest,
+        handleFlowRunListRequest,
+        handleFlowRunAdvanceRequest,
+        handleFlowRunEvidenceRequest,
+        handleFlowRunExecuteAutomatableRequest,
+        handleFlowRunSubmitReviewRequest,
+        handleFlowExecutionConsentMintRequest,
+      } = await import('../lib/flow/flow-execution.mjs');
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+
+      if (runSub === 'start') {
+        const flowId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const flowVersion = getOpt('flow-version');
+        if (!flowId || !flowVersion) {
+          flowExitWithError('knowtation flow run start: provide flow_id and --flow-version.', 'BAD_REQUEST');
+        }
+        const result = handleFlowRunStartRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          flowId,
+          flowVersion,
+          taskRef: getOpt('task-ref') ?? undefined,
+          externalRef: getOpt('external-ref') ?? undefined,
+          harness: 'cli',
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`started run ${result.payload.run.run_id} for ${flowId}@${flowVersion}`);
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'get') {
+        const runId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        if (!runId) {
+          flowExitWithError('knowtation flow run get: provide run_id.', 'BAD_REQUEST');
+        }
+        const result = handleFlowRunGetRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          runId,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(JSON.stringify(result.payload.run, null, 2));
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'list') {
+        const result = handleFlowRunListRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          flowId: getOpt('flow-id') ?? undefined,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          for (const run of result.payload.runs) {
+            console.log(`${run.run_id}  ${run.flow_id}@${run.flow_version}  [${run.status}]`);
+          }
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'advance') {
+        const runId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const stepId = getOpt('step-id');
+        const toStatus = getOpt('to-status');
+        if (!runId || !stepId || !toStatus) {
+          flowExitWithError(
+            'knowtation flow run advance: provide run_id, --step-id, and --to-status.',
+            'BAD_REQUEST',
+          );
+        }
+        const result = handleFlowRunAdvanceRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          runId,
+          stepId,
+          toStatus,
+          skipReason: getOpt('skip-reason') ?? undefined,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`advanced ${stepId} → ${toStatus}`);
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'evidence') {
+        const runId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const stepId = getOpt('step-id');
+        const evidenceRef = getOpt('evidence-ref');
+        const pointerKind = getOpt('pointer-kind');
+        if (!runId || !stepId || !evidenceRef || !pointerKind) {
+          flowExitWithError(
+            'knowtation flow run evidence: provide run_id, --step-id, --evidence-ref, --pointer-kind.',
+            'BAD_REQUEST',
+          );
+        }
+        const result = handleFlowRunEvidenceRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          runId,
+          stepId,
+          evidenceRef,
+          pointerKind,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`evidence recorded on ${stepId}`);
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'execute') {
+        const runId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const stepId = getOpt('step-id');
+        const consentId = getOpt('consent-id');
+        if (!runId || !stepId || !consentId) {
+          flowExitWithError(
+            'knowtation flow run execute: provide run_id, --step-id, and --consent-id.',
+            'BAD_REQUEST',
+          );
+        }
+        const result = handleFlowRunExecuteAutomatableRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          runId,
+          stepId,
+          consentId,
+          modelLane: getOpt('model-lane') ?? undefined,
+          dryRun: hasOpt('dry-run'),
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`execution ${result.payload.execution.execution_id} → ${result.payload.execution.status}`);
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'consent') {
+        const runId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const lanesRaw = getOpt('lanes');
+        const costCap = getOpt('cost-cap', 'number');
+        if (!runId || !lanesRaw || costCap === undefined) {
+          flowExitWithError(
+            'knowtation flow run consent: provide run_id, --lanes, and --cost-cap.',
+            'BAD_REQUEST',
+          );
+        }
+        const allowedLanes = lanesRaw.split(',').map((l) => l.trim()).filter(Boolean);
+        const ttlRaw = getOpt('ttl-seconds', 'number');
+        const result = handleFlowExecutionConsentMintRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          runId,
+          allowedLanes,
+          costCapUnits: costCap,
+          ttlSeconds: ttlRaw ?? undefined,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`consent ${result.payload.consent.consent_id} expires ${result.payload.consent.expires_at}`);
+        }
+        process.exit(0);
+      }
+
+      if (runSub === 'submit-review') {
+        const runId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const intent = getOpt('intent');
+        if (!runId || !intent) {
+          flowExitWithError('knowtation flow run submit-review: provide run_id and --intent.', 'BAD_REQUEST');
+        }
+        const result = handleFlowRunSubmitReviewRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          runId,
+          intent,
+          createProposal,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`submitted ${runId} → proposal ${result.payload.proposal_id}`);
+        }
+        process.exit(0);
+      }
+
+      flowExitWithError(`knowtation flow run: unknown subcommand ${runSub}`, 'BAD_REQUEST');
+    }
+
+    if (flowAction === 'grant') {
+      const grantAction = args[2];
+      if (!grantAction || hasOpt('help') || hasOpt('h')) {
+        console.log('knowtation flow grant mint|revoke|list — see knowtation flow --help');
+        process.exit(0);
+      }
+
+      const {
+        handleFlowExternalGrantMintRequest,
+        handleFlowExternalGrantRevokeRequest,
+        handleFlowExternalGrantListRequest,
+      } = await import('../lib/flow/external-agent.mjs');
+
+      if (grantAction === 'mint') {
+        const flowId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const flowVersion = getOpt('flow-version');
+        const toolsRaw = getOpt('tools');
+        if (!flowId || !flowVersion || !toolsRaw) {
+          flowExitWithError(
+            'knowtation flow grant mint: provide flow_id, --flow-version, and --tools.',
+            'BAD_REQUEST',
+          );
+        }
+        const requestedTools = toolsRaw.split(',').map((t) => t.trim()).filter(Boolean);
+        const ttlRaw = getOpt('ttl-seconds', 'number');
+        const result = handleFlowExternalGrantMintRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          flowId,
+          flowVersion,
+          requestedTools,
+          ttlSeconds: ttlRaw ?? undefined,
+          actorLabel: getOpt('actor-label') ?? undefined,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`grant ${result.payload.grant.grant_id} expires ${result.payload.expires_at}`);
+          console.log(`bearer (one-time): ${result.payload.bearer}`);
+        }
+        process.exit(0);
+      }
+
+      if (grantAction === 'revoke') {
+        const grantId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        if (!grantId) {
+          flowExitWithError('knowtation flow grant revoke: provide grant_id.', 'BAD_REQUEST');
+        }
+        const result = handleFlowExternalGrantRevokeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          grantId,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`revoked ${grantId} at ${result.payload.revoked_at}`);
+        }
+        process.exit(0);
+      }
+
+      if (grantAction === 'list') {
+        const result = handleFlowExternalGrantListRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          flowId: getOpt('flow-id') ?? undefined,
+        });
+        if (!result.ok) {
+          flowExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          for (const g of result.payload.grants) {
+            console.log(`${g.grant_id}  ${g.flow_id}@${g.flow_version}  tools=${g.allowed_tools.join(',')}`);
+          }
+        }
+        process.exit(0);
+      }
+
+      flowExitWithError(`knowtation flow grant: unknown action "${grantAction}".`, 'BAD_REQUEST');
+    }
+
+    if (flowAction === 'capture') {
+      const captureAction = args[2];
+      if (!captureAction || hasOpt('help') || hasOpt('h')) {
+        console.log('knowtation flow capture observe|list|propose|dismiss — see knowtation flow --help');
+        process.exit(0);
+      }
+
+      const {
+        handleFlowCaptureObserveRequest,
+        handleFlowCaptureListRequest,
+        handleFlowCaptureProposeRequest,
+        handleFlowCaptureDismissRequest,
+      } = await import('../lib/flow/flow-capture.mjs');
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+
+      if (captureAction === 'observe') {
+        const signalsPath = args[3];
+        if (!signalsPath) {
+          flowExitWithError('knowtation flow capture observe: provide a signals.json path.', 'BAD_REQUEST');
+        }
+        const fsMod = await import('node:fs');
+        let sessionMeta;
+        try {
+          sessionMeta = JSON.parse(fsMod.readFileSync(signalsPath, 'utf8'));
+        } catch (e) {
+          flowExitWithError(`knowtation flow capture observe: cannot read signals (${e.message}).`, 'BAD_REQUEST');
+        }
+        const result = handleFlowCaptureObserveRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          sessionMeta,
+          includeLowConfidence: hasOpt('include-low-confidence'),
+          harness: 'cli',
+          config,
+        });
+        if (!result.ok) flowExitWithError(result.error, result.code);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(JSON.stringify(result.payload, null, 2));
+        process.exit(0);
+      }
+
+      if (captureAction === 'list') {
+        const limitOpt = getOpt('limit', 'number');
+        const result = handleFlowCaptureListRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          scope: getOpt('scope') ?? undefined,
+          includeLowConfidence: hasOpt('include-low-confidence'),
+          limit: limitOpt ?? undefined,
+          config,
+        });
+        if (!result.ok) flowExitWithError(result.error, result.code);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(JSON.stringify(result.payload, null, 2));
+        process.exit(0);
+      }
+
+      if (captureAction === 'propose') {
+        const candidateId = args[3];
+        const intent = getOpt('intent');
+        const confirmedScope = getOpt('confirmed-scope');
+        if (!candidateId || !intent || !confirmedScope) {
+          flowExitWithError(
+            'knowtation flow capture propose: provide candidate_id, --intent, and --confirmed-scope.',
+            'BAD_REQUEST',
+          );
+        }
+        const result = handleFlowCaptureProposeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          candidateId,
+          confirmedScope,
+          scopeWidenAcknowledged: hasOpt('scope-widen-acknowledged'),
+          allowLowConfidence: hasOpt('allow-low-confidence'),
+          forceNewFlow: hasOpt('force-new-flow'),
+          mergeIntoFlowId: getOpt('merge-into-flow-id') ?? undefined,
+          intent,
+          createProposal,
+          config,
+        });
+        if (!result.ok) flowExitWithError(result.error, result.code);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(JSON.stringify(result.payload, null, 2));
+        process.exit(0);
+      }
+
+      if (captureAction === 'dismiss') {
+        const candidateId = args[3];
+        const intent = getOpt('intent');
+        if (!candidateId || !intent) {
+          flowExitWithError('knowtation flow capture dismiss: provide candidate_id and --intent.', 'BAD_REQUEST');
+        }
+        const result = handleFlowCaptureDismissRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          candidateId,
+          intent,
+          createProposal,
+        });
+        if (!result.ok) flowExitWithError(result.error, result.code);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(JSON.stringify(result.payload, null, 2));
+        process.exit(0);
+      }
+
+      flowExitWithError(`knowtation flow capture: unknown action "${captureAction}".`, 'BAD_REQUEST');
+    }
+
+    exitWithError(`knowtation flow: unknown action "${flowAction}". Use list, get, project, propose, import, grant, capture, or run.`, 1, useJson);
+    return;
+  }
+
   if (subcommand === 'daemon') {
     const daemonAction = args[1];
 

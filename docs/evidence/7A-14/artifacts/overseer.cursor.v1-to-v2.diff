@@ -1,0 +1,15 @@
+--- docs/evidence/7A-14/artifacts/overseer.v0.1.0.mdc	2026-06-20 16:32:20
++++ docs/evidence/7A-14/artifacts/overseer.v0.2.0.mdc	2026-06-20 16:32:20
+@@ -1,10 +1,10 @@
+ ---
+-description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them."
++description: "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them."
+ globs: "**/*process*, **/*handover*, **/*coordination*, **/*dogfood*"
+ alwaysApply: false
+ ---
+ 
+-<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.1.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
++<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+ 
+ ## Step 1: Snapshot truth per repo, confirmed via muse -C (not ambient).
+ 

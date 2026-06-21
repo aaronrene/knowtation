@@ -1,0 +1,212 @@
+{
+  "flow": {
+    "schema": "knowtation.flow/v0",
+    "flow_id": "flow_overseer_handover",
+    "title": "Overseer handover",
+    "version": "0.1.0",
+    "scope": "project",
+    "summary": "Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them.",
+    "tags": ["process", "handover", "coordination", "dogfood"],
+    "steps": [
+      "flow_overseer_handover#1",
+      "flow_overseer_handover#2",
+      "flow_overseer_handover#3",
+      "flow_overseer_handover#4",
+      "flow_overseer_handover#5",
+      "flow_overseer_handover#6"
+    ],
+    "inputs": [],
+    "vault_mirror_path": "meta/flows/overseer-handover.md",
+    "updated": "2026-06-20T00:00:00Z",
+    "truncated": false
+  },
+  "steps": [
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_overseer_handover#1",
+      "flow_id": "flow_overseer_handover",
+      "ordinal": 1,
+      "owned_job": "Snapshot truth per repo, confirmed via muse -C (not ambient).",
+      "instruction": "Run muse -C <abs path> status and log for each repo (Scooling, Knowtation, MuseHub) and capture branch, HEAD sha, and dirty state.",
+      "trigger": "Run when a chat is getting long, a chat switch is needed, or a session ends with multi-repo state in flight.",
+      "when_not_to_run": "Skip if no multi-repo state is in flight and no handover is needed.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "tool", "id": "muse_cli" }
+      ],
+      "boundaries": [
+        "Always target each repo with muse -C <absolute-path> \u2014 a bare muse can report an ambient repo",
+        "Read only \u2014 do not commit or checkout during the snapshot",
+        "No secrets in captured output"
+      ],
+      "skill_refs": [
+        { "kind": "cli", "id": "muse -C <abs-repo-path> status" },
+        { "kind": "cli", "id": "muse -C <abs-repo-path> log" }
+      ],
+      "inputs": [],
+      "outputs": [
+        { "name": "per_repo_state", "type": "text" }
+      ],
+      "output_shape": "A per-repo line for each repo with real branch, HEAD sha, and dirty flag, each confirmed via -C.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "Each repo is confirmed via -C (not ambient) and every repo line carries a real branch and sha."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_overseer_handover#2",
+      "flow_id": "flow_overseer_handover",
+      "ordinal": 2,
+      "owned_job": "Record the current step, next action, and open gates/blockers.",
+      "instruction": "Write down the current initiative step, the unambiguous next action, and any open gates or blockers.",
+      "trigger": "Run after per-repo truth is captured.",
+      "when_not_to_run": "Skip if the next action and gates are already recorded and unchanged.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" }
+      ],
+      "boundaries": [
+        "State the next action so it needs no chat history to interpret"
+      ],
+      "skill_refs": [],
+      "inputs": [
+        { "name": "per_repo_state", "from": "flow_overseer_handover#1.outputs.per_repo_state" }
+      ],
+      "outputs": [
+        { "name": "step_and_gates", "type": "text" }
+      ],
+      "output_shape": "A current-step line, a next-action line, and an open-gates/blockers list.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "The next action is unambiguous."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_overseer_handover#3",
+      "flow_id": "flow_overseer_handover",
+      "ordinal": 3,
+      "owned_job": "List the boundaries and the cross-repo wiring touched this session.",
+      "instruction": "Enumerate the boundaries to honor and the cross-repo wiring touched this session.",
+      "trigger": "Run after the step and gates are recorded.",
+      "when_not_to_run": "Skip if no cross-repo wiring was touched and boundaries are already listed.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" }
+      ],
+      "boundaries": [
+        "Boundaries are stated explicitly, not assumed"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "boundaries_and_wiring", "type": "text" }
+      ],
+      "output_shape": "An explicit boundaries list and a cross-repo wiring list for the session.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "Boundaries are explicit and the cross-repo wiring touched is listed."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_overseer_handover#4",
+      "flow_id": "flow_overseer_handover",
+      "ordinal": 4,
+      "owned_job": "Update the durable docs FIRST.",
+      "instruction": "Update the ROADMAP snapshot, the next-session plan, and the coordination doc so they match reality before any block is written.",
+      "trigger": "Run after truth, step/gates, and boundaries are captured.",
+      "when_not_to_run": "Never skip when handing off \u2014 docs-first ordering is mandatory.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/ROADMAP.md" },
+        { "kind": "file", "id": "docs/PRODUCT-SURFACES-NEXT-SESSION-PLAN.md" },
+        { "kind": "file", "id": "docs/CROSS-REPO-COORDINATION.md" }
+      ],
+      "boundaries": [
+        "Update durable docs before regenerating any handover block",
+        "Docs are the source of truth, the block is a projection of them"
+      ],
+      "skill_refs": [],
+      "inputs": [],
+      "outputs": [
+        { "name": "docs_update_ref", "type": "string" }
+      ],
+      "output_shape": "Updated ROADMAP snapshot, next-session plan, and coordination doc reflecting reality.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "The durable docs are updated and match reality before any block is written."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_overseer_handover#5",
+      "flow_id": "flow_overseer_handover",
+      "ordinal": 5,
+      "owned_job": "Regenerate the handover block into the living file from the now-current docs.",
+      "instruction": "Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.",
+      "trigger": "Run only after the durable docs are updated.",
+      "when_not_to_run": "Skip if the docs have not yet been updated this handover.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/OVERSEER-HANDOVER.md" }
+      ],
+      "boundaries": [
+        "The block is a projection of the docs \u2014 never hand-written ahead of them",
+        "No secrets in the block"
+      ],
+      "skill_refs": [],
+      "inputs": [
+        { "name": "docs_update_ref", "from": "flow_overseer_handover#4.outputs.docs_update_ref" }
+      ],
+      "outputs": [
+        { "name": "handover_block_ref", "type": "string" }
+      ],
+      "output_shape": "An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.",
+      "verification": {
+        "kind": "artifact_exists",
+        "evidence_required": true,
+        "description": "The living file is overwritten and its block matches the docs, not memory."
+      },
+      "automatable": "manual"
+    },
+    {
+      "schema": "knowtation.flow_step/v0",
+      "step_id": "flow_overseer_handover#6",
+      "flow_id": "flow_overseer_handover",
+      "ordinal": 6,
+      "owned_job": "Emit the block as the first message of the next chat.",
+      "instruction": "Paste the regenerated handover block as the first message of the new chat so the overseer role resumes with no prior history.",
+      "trigger": "Run once the living file holds the current block.",
+      "when_not_to_run": "Skip if no new chat is being started.",
+      "requires": [
+        { "kind": "vault_scope", "id": "project" },
+        { "kind": "file", "id": "docs/OVERSEER-HANDOVER.md" }
+      ],
+      "boundaries": [
+        "Emit only the projected block \u2014 do not add scope beyond the durable docs"
+      ],
+      "skill_refs": [],
+      "inputs": [
+        { "name": "handover_block_ref", "from": "flow_overseer_handover#5.outputs.handover_block_ref" }
+      ],
+      "outputs": [
+        { "name": "emitted_block", "type": "text" }
+      ],
+      "output_shape": "The handover block, emitted as the first message of the next chat.",
+      "verification": {
+        "kind": "human_review",
+        "evidence_required": true,
+        "description": "A new overseer can resume from the emitted block with no prior chat history."
+      },
+      "automatable": "manual"
+    }
+  ]
+}

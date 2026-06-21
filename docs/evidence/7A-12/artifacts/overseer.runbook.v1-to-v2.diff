@@ -1,0 +1,13 @@
+--- docs/evidence/7A-12/artifacts/overseer.AGENTS.v0.1.0.md	2026-06-20 15:15:11
++++ docs/evidence/7A-12/artifacts/overseer.AGENTS.v0.2.0.md	2026-06-20 15:15:12
+@@ -1,8 +1,8 @@
+ # Overseer handover
+ 
+-<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.1.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
++<!-- GENERATED FROM CANONICAL FLOW flow_overseer_handover@0.2.0 (generator v1) — DO NOT EDIT; regenerate via knowtation flow project -->
+ 
+-Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update durable docs, then regenerate the living handover block as a projection of them.
++Docs-first handover of the cross-repo overseer role: snapshot truth per repo, update the durable docs (ROADMAP snapshot, next-session plan, coordination doc), then regenerate the living handover block as a projection of them.
+ 
+ ## Step 1
+ 

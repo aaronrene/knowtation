@@ -1,0 +1,14 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Knowtation//Calendar Fixtures//EN
+BEGIN:VEVENT
+UID:fold-001@knowtation.test
+DTSTART:20260619T120000Z
+DTEND:20260619T130000Z
+SUMMARY:Long title that continues on the next line per RFC 5545 folding ru
+ les for calendar properties
+STATUS:TENTATIVE
+TRANSP:TRANSPARENT
+RRULE:FREQ=WEEKLY;BYDAY=TH
+END:VEVENT
+END:VCALENDAR

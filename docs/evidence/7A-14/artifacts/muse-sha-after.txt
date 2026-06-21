@@ -1,0 +1,10 @@
+commit sha256:b0f9cf4717324ec9debac3dd83653c974c3e7f9f2416d701d3f23edfc7f67698 (HEAD -> feat/flow-projection-pilot)
+Author: aaronrene
+Date:   2026-06-20 23:32:21 UTC
+
+    feat(flow): 7A-14 Muse commit pilot update @ v0.2.0
+
+    Regenerate pilot-workspace projections after canonical flow_overseer_handover
+    0.1.0→0.2.0 bump. Diff carries only the canonical summary change + marker version
+    (anti-drift proven in docs/evidence/7A-14/artifacts/). Pilot only.
+
