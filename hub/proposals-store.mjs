@@ -251,6 +251,21 @@ export function createProposal(dataDir, input) {
           },
         }
       : {}),
+    ...(input.delegation_meta && typeof input.delegation_meta === 'object'
+      ? {
+          delegation_meta: {
+            record_kind: String(input.delegation_meta.record_kind || '').slice(0, 32),
+            agent_id:
+              input.delegation_meta.agent_id != null
+                ? String(input.delegation_meta.agent_id).slice(0, 64)
+                : undefined,
+            consent_id:
+              input.delegation_meta.consent_id != null
+                ? String(input.delegation_meta.consent_id).slice(0, 64)
+                : undefined,
+          },
+        }
+      : {}),
     review_hints: undefined,
     review_hints_at: undefined,
     review_hints_model: undefined,
