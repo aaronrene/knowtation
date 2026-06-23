@@ -28,10 +28,23 @@ describe('self-hosted Hub delegation routes', () => {
     assert.match(src, /app\.post\('\/api\/v1\/delegation\/audit'/);
   });
 
-  it('integration: proposal approve path wires delegation apply on hub', () => {
+  it('integration: self-hosted hub approve path wires delegation apply', () => {
     const src = readRepoFile('hub/server.mjs');
     assert.match(src, /precheckApprovedDelegationProposal/);
     assert.match(src, /applyDelegationProposalToIndex/);
+  });
+
+  it('integration: bridge registers canister proposal create + apply-approved routes', () => {
+    const bridgeRoutes = readRepoFile('hub/bridge/delegation-routes.mjs');
+    assert.match(bridgeRoutes, /createDelegationProposalOnCanister/);
+    assert.match(bridgeRoutes, /applyApprovedDelegationProposalFromCanister/);
+    assert.match(bridgeRoutes, /\/api\/v1\/delegation\/proposals\/:proposal_id\/apply-approved/);
+  });
+
+  it('integration: gateway wires post-approve delegation apply hook', () => {
+    const gw = readRepoFile('hub/gateway/server.mjs');
+    assert.match(gw, /maybeApplyHostedDelegationAfterApprove/);
+    assert.match(gw, /mergeDelegationApplyIntoApproveResponse/);
   });
 
   it('end-to-end: OpenAPI documents delegation endpoints', () => {

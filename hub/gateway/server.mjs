@@ -57,6 +57,10 @@ import {
   proposalIdFromApprovePath,
   fetchMuseProxiedGet,
 } from '../../lib/muse-thin-bridge.mjs';
+import {
+  maybeApplyHostedDelegationAfterApprove,
+  mergeDelegationApplyIntoApproveResponse,
+} from './delegation-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
@@ -3034,12 +3038,42 @@ async function proxyToCanister(req, res) {
         '[gateway] canister returned 404 for POST …/evaluation. If the body is {"error":"Not found","code":"NOT_FOUND"}, the hub canister on mainnet likely predates the evaluation route or HTTP upgrade for it — redeploy `hub` from this repo (`hub/icp/README.md` §ICP HTTP gateway behavior).',
       );
     }
+    let responseBody = body;
+    if (
+      BRIDGE_URL &&
+      req.method === 'POST' &&
+      PROPOSAL_APPROVE_OR_DISCARD_RE.test(pathOnlyForBody) &&
+      /\/approve\/?$/.test(pathOnlyForBody) &&
+      upstream.status >= 200 &&
+      upstream.status < 300
+    ) {
+      try {
+        const applyOutcome = await maybeApplyHostedDelegationAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergeDelegationApplyIntoApproveResponse(body, applyOutcome);
+        if (applyOutcome && !applyOutcome.applied) {
+          console.error('[gateway] delegation index apply after approve failed:', applyOutcome.error);
+        }
+      } catch (e) {
+        console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));
+      }
+    }
     const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries()).filter(
       ([k]) => !['cache-control', 'etag', 'last-modified'].includes(k.toLowerCase()),
     );
     res.status(upstream.status).set(Object.fromEntries(hop));
     res.set('Cache-Control', 'private, no-store, must-revalidate');
-    res.send(body);
+    res.send(responseBody);
   } catch (e) {
     console.error('Gateway proxy error:', e.message);
     res.status(502).json({ error: 'Bad Gateway', code: 'BAD_GATEWAY' });

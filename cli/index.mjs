@@ -2005,7 +2005,7 @@ async function main() {
         if (!kind) {
           exitWithError('knowtation agent identity register: --kind required.', 'BAD_REQUEST', useJson);
         }
-        const result = handleAgentIdentityRegisterProposeRequest({
+        const result = await handleAgentIdentityRegisterProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           userId: config.user_id ?? 'cli-user',
@@ -2086,7 +2086,7 @@ async function main() {
         }
         const taskIdsRaw = getOpt('allowed-task-ids');
         const flowIdsRaw = getOpt('allowed-flow-ids');
-        const result = handleDelegationConsentProposeRequest({
+        const result = await handleDelegationConsentProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           userId: config.user_id ?? 'cli-user',
