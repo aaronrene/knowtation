@@ -1976,6 +1976,258 @@ async function main() {
     return;
   }
 
+  if (subcommand === 'agent') {
+    const agentAction = args[1];
+    if (!agentAction || hasOpt('help') || hasOpt('h')) {
+      console.log(`knowtation agent identity register|list — gated by DELEGATION_ENABLED (default off)
+  register --kind user_owned|org_owned|delegate [--agent-id <id>] [--label <text>] [--scope-ceiling personal|project|org]
+  list [--kind <kind>] [--status active|suspended|revoked]`);
+      process.exit(0);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+    const vaultId = config.default_vault_id || 'default';
+    const {
+      handleAgentIdentityRegisterProposeRequest,
+      handleAgentIdentityListRequest,
+    } = await import('../lib/agent/delegation.mjs');
+    const { createProposal } = await import('../hub/proposals-store.mjs');
+
+    if (agentAction === 'identity') {
+      const idAction = args[2];
+      if (idAction === 'register') {
+        const kind = getOpt('kind');
+        if (!kind) {
+          exitWithError('knowtation agent identity register: --kind required.', 'BAD_REQUEST', useJson);
+        }
+        const result = handleAgentIdentityRegisterProposeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          userId: config.user_id ?? 'cli-user',
+          kind,
+          agentId: getOpt('agent-id') ?? undefined,
+          label: getOpt('label') ?? undefined,
+          scopeCeiling: getOpt('scope-ceiling') ?? undefined,
+          createProposal,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(`proposed agent ${result.payload.agent_id} → proposal ${result.payload.proposal_id}`);
+        process.exit(0);
+      }
+      if (idAction === 'list') {
+        const result = handleAgentIdentityListRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          kind: getOpt('kind') ?? undefined,
+          status: getOpt('status') ?? undefined,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else {
+          for (const i of result.payload.identities) {
+            console.log(`${i.agent_id}  ${i.kind}  ${i.status}`);
+          }
+        }
+        process.exit(0);
+      }
+      exitWithError(`knowtation agent identity: unknown action "${idAction}".`, 'BAD_REQUEST', useJson);
+    }
+    exitWithError(`knowtation agent: unknown action "${agentAction}".`, 'BAD_REQUEST', useJson);
+  }
+
+  if (subcommand === 'delegation') {
+    const delAction = args[1];
+    if (!delAction || hasOpt('help') || hasOpt('h')) {
+      console.log(`knowtation delegation consent propose|revoke — grant mint|revoke|list — audit append
+  consent propose --delegate-agent-id <id> --scope personal|project|org [--workspace-id <ws>] [--allowed-task-ids a,b]
+  consent revoke <consent_id>
+  grant mint --consent-id <id> --actor-agent-id <id> [--task-ref <id>] [--flow-id <id>] [--flow-version <semver>]
+  grant revoke <grant_id>
+  grant list [--actor-agent-id <id>]
+  audit append --grant-id <id> --actor-agent-id <id> --action advance_step|... --evidence-refs a,b`);
+      process.exit(0);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+    const vaultId = config.default_vault_id || 'default';
+    const {
+      handleDelegationConsentProposeRequest,
+      handleDelegationConsentRevokeRequest,
+      handleDelegationGrantMintRequest,
+      handleDelegationGrantRevokeRequest,
+      handleDelegationGrantListRequest,
+      handleDelegationAuditAppendRequest,
+      hashPrincipalRef,
+    } = await import('../lib/agent/delegation.mjs');
+    const { createProposal } = await import('../hub/proposals-store.mjs');
+
+    if (delAction === 'consent') {
+      const consentAction = args[2];
+      if (consentAction === 'propose') {
+        const delegateAgentId = getOpt('delegate-agent-id');
+        const scope = getOpt('scope');
+        if (!delegateAgentId || !scope) {
+          exitWithError(
+            'knowtation delegation consent propose: --delegate-agent-id and --scope required.',
+            'BAD_REQUEST',
+            useJson,
+          );
+        }
+        const taskIdsRaw = getOpt('allowed-task-ids');
+        const flowIdsRaw = getOpt('allowed-flow-ids');
+        const result = handleDelegationConsentProposeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          userId: config.user_id ?? 'cli-user',
+          delegateAgentId,
+          scope,
+          workspaceId: getOpt('workspace-id') ?? undefined,
+          allowedFlowIds: flowIdsRaw ? flowIdsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+          allowedTaskIds: taskIdsRaw ? taskIdsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+          expiresAt: getOpt('expires-at') ?? undefined,
+          createProposal,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(`proposed consent ${result.payload.consent_id} → proposal ${result.payload.proposal_id}`);
+        process.exit(0);
+      }
+      if (consentAction === 'revoke') {
+        const consentId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        if (!consentId) {
+          exitWithError('knowtation delegation consent revoke: provide consent_id.', 'BAD_REQUEST', useJson);
+        }
+        const result = handleDelegationConsentRevokeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          consentId,
+          userId: config.user_id ?? 'cli-user',
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(`revoked ${consentId} at ${result.payload.revoked_at}`);
+        process.exit(0);
+      }
+      exitWithError(`knowtation delegation consent: unknown action "${consentAction}".`, 'BAD_REQUEST', useJson);
+    }
+
+    if (delAction === 'grant') {
+      const grantAction = args[2];
+      if (grantAction === 'mint') {
+        const consentId = getOpt('consent-id');
+        const actorAgentId = getOpt('actor-agent-id');
+        if (!consentId || !actorAgentId) {
+          exitWithError(
+            'knowtation delegation grant mint: --consent-id and --actor-agent-id required.',
+            'BAD_REQUEST',
+            useJson,
+          );
+        }
+        const ttlRaw = getOpt('ttl-seconds', 'number');
+        const result = handleDelegationGrantMintRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          consentId,
+          actorAgentId,
+          taskRef: getOpt('task-ref') ?? undefined,
+          runRef: getOpt('run-ref') ?? undefined,
+          flowId: getOpt('flow-id') ?? undefined,
+          flowVersion: getOpt('flow-version') ?? undefined,
+          ttlSeconds: ttlRaw ?? undefined,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else {
+          console.log(`grant ${result.payload.grant.grant_id} expires ${result.payload.expires_at}`);
+          console.log(`bearer (one-time): ${result.payload.bearer}`);
+        }
+        process.exit(0);
+      }
+      if (grantAction === 'revoke') {
+        const grantId = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        if (!grantId) {
+          exitWithError('knowtation delegation grant revoke: provide grant_id.', 'BAD_REQUEST', useJson);
+        }
+        const result = handleDelegationGrantRevokeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          grantId,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(`revoked ${grantId} at ${result.payload.revoked_at}`);
+        process.exit(0);
+      }
+      if (grantAction === 'list') {
+        const result = handleDelegationGrantListRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          actorAgentId: getOpt('actor-agent-id') ?? undefined,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else {
+          for (const g of result.payload.grants) {
+            console.log(`${g.grant_id}  actor=${g.actor_agent_id}  scope=${g.scope}`);
+          }
+        }
+        process.exit(0);
+      }
+      exitWithError(`knowtation delegation grant: unknown action "${grantAction}".`, 'BAD_REQUEST', useJson);
+    }
+
+    if (delAction === 'audit') {
+      const auditAction = args[2];
+      if (auditAction === 'append') {
+        const grantId = getOpt('grant-id');
+        const actorAgentId = getOpt('actor-agent-id');
+        const action = getOpt('action');
+        const evidenceRaw = getOpt('evidence-refs');
+        if (!grantId || !actorAgentId || !action || !evidenceRaw) {
+          exitWithError(
+            'knowtation delegation audit append: --grant-id, --actor-agent-id, --action, --evidence-refs required.',
+            'BAD_REQUEST',
+            useJson,
+          );
+        }
+        const principalRef = hashPrincipalRef(config.user_id ?? 'cli-user');
+        const result = handleDelegationAuditAppendRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          grantId,
+          actorAgentId,
+          principalRef,
+          action,
+          evidenceRefs: evidenceRaw.split(',').map((s) => s.trim()).filter(Boolean),
+          taskRef: getOpt('task-ref') ?? undefined,
+          runRef: getOpt('run-ref') ?? undefined,
+          flowId: getOpt('flow-id') ?? undefined,
+          flowVersion: getOpt('flow-version') ?? undefined,
+          stepId: getOpt('step-id') ?? undefined,
+          executionLocation: getOpt('execution-location') ?? undefined,
+        });
+        if (!result.ok) exitWithError(result.error, result.code, useJson);
+        if (useJson) console.log(JSON.stringify(result.payload));
+        else console.log(`audit ${result.payload.audit_id} action=${result.payload.action}`);
+        process.exit(0);
+      }
+      exitWithError(`knowtation delegation audit: unknown action "${auditAction}".`, 'BAD_REQUEST', useJson);
+    }
+
+    exitWithError(`knowtation delegation: unknown action "${delAction}".`, 'BAD_REQUEST', useJson);
+  }
+
   if (subcommand === 'daemon') {
     const daemonAction = args[1];
 

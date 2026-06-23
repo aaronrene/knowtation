@@ -149,6 +149,20 @@ import {
   handleFlowRunSubmitReviewRequest,
   handleFlowExecutionConsentMintRequest,
 } from '../lib/flow/flow-execution.mjs';
+import {
+  handleAgentIdentityRegisterProposeRequest,
+  handleAgentIdentityListRequest,
+  handleDelegationConsentProposeRequest,
+  handleDelegationConsentRevokeRequest,
+  handleDelegationGrantMintRequest,
+  handleDelegationGrantRevokeRequest,
+  handleDelegationGrantListRequest,
+  handleDelegationAuditAppendRequest,
+  precheckApprovedDelegationProposal,
+  applyDelegationProposalToIndex,
+  DELEGATION_PROPOSAL_SOURCE,
+  hashPrincipalRef,
+} from '../lib/agent/delegation.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -1269,6 +1283,154 @@ app.post(
   },
 );
 
+// Agent delegation (Phase 7C-6) — gated by DELEGATION_ENABLED (default off).
+app.post('/api/v1/agents/identities', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleAgentIdentityRegisterProposeRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    kind: body.kind,
+    agentId: body.agent_id,
+    label: body.label,
+    scopeCeiling: body.scope_ceiling,
+    createProposal,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
+});
+
+app.get('/api/v1/agents/identities', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const result = handleAgentIdentityListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    kind: typeof req.query.kind === 'string' ? req.query.kind : undefined,
+    status: typeof req.query.status === 'string' ? req.query.status : undefined,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/delegation/consents', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleDelegationConsentProposeRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    delegateAgentId: body.delegate_agent_id,
+    scope: body.scope,
+    workspaceId: body.workspace_id,
+    allowedFlowIds: body.allowed_flow_ids,
+    allowedTaskKinds: body.allowed_task_kinds,
+    allowedTaskIds: body.allowed_task_ids,
+    expiresAt: body.expires_at,
+    createProposal,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
+});
+
+app.delete(
+  '/api/v1/delegation/consents/:consent_id',
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
+    const consentId =
+      typeof req.params.consent_id === 'string' ? decodeURIComponent(req.params.consent_id).trim() : '';
+    const result = handleDelegationConsentRevokeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      consentId,
+      userId: req.user?.sub ?? '',
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  },
+);
+
+app.post('/api/v1/delegation/grants', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleDelegationGrantMintRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    consentId: body.consent_id,
+    actorAgentId: body.actor_agent_id,
+    taskRef: body.task_ref,
+    runRef: body.run_ref,
+    flowId: body.flow_id,
+    flowVersion: body.flow_version,
+    ttlSeconds: body.ttl_seconds,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
+});
+
+app.get('/api/v1/delegation/grants', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const result = handleDelegationGrantListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    actorAgentId: typeof req.query.actor_agent_id === 'string' ? req.query.actor_agent_id : undefined,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.delete(
+  '/api/v1/delegation/grants/:grant_id',
+  requireRole('viewer', 'editor', 'admin', 'evaluator'),
+  (req, res) => {
+    const grantId =
+      typeof req.params.grant_id === 'string' ? decodeURIComponent(req.params.grant_id).trim() : '';
+    const result = handleDelegationGrantRevokeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      grantId,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  },
+);
+
+app.post('/api/v1/delegation/audit', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const principalRef =
+    typeof body.principal_ref === 'string' && body.principal_ref.trim()
+      ? body.principal_ref.trim()
+      : hashPrincipalRef(req.user?.sub ?? '');
+  const result = handleDelegationAuditAppendRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    grantId: body.grant_id,
+    actorAgentId: body.actor_agent_id,
+    principalRef,
+    action: body.action,
+    evidenceRefs: body.evidence_refs,
+    taskRef: body.task_ref,
+    runRef: body.run_ref,
+    flowId: body.flow_id,
+    flowVersion: body.flow_version,
+    stepId: body.step_id,
+    executionLocation: body.execution_location,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
+});
+
 // Flow execution gate (Phase 7A-L3b) — gated by FLOW_RUN_WRITES_ENABLED / FLOW_AUTOMATABLE_EXECUTION_ENABLED.
 const FLOW_RUN_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
 
@@ -2307,7 +2469,8 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
   if (
     expectedBase &&
     proposal.source !== FLOW_PROPOSAL_SOURCE &&
-    proposal.source !== FLOW_CAPTURE_PROPOSAL_SOURCE
+    proposal.source !== FLOW_CAPTURE_PROPOSAL_SOURCE &&
+    proposal.source !== DELEGATION_PROPOSAL_SOURCE
   ) {
     let currentId;
     if (noteFileExistsInVault(approveVaultPath, proposal.path)) {
@@ -2348,6 +2511,17 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     }
     captureApply = capturePrecheck;
   }
+  let delegationApply = null;
+  if (proposal.source === DELEGATION_PROPOSAL_SOURCE) {
+    const delegationPrecheck = precheckApprovedDelegationProposal(config.data_dir, proposal);
+    if (!delegationPrecheck.ok) {
+      return res.status(delegationPrecheck.status).json({
+        error: delegationPrecheck.error,
+        code: delegationPrecheck.code,
+      });
+    }
+    delegationApply = delegationPrecheck;
+  }
   try {
     const fm = mergeProvenanceFrontmatter(proposal.frontmatter ?? {}, {
       sub: req.user?.sub ?? null,
@@ -2366,6 +2540,9 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     }
     if (captureApply) {
       applyCaptureProposal(config.data_dir, captureApply);
+    }
+    if (delegationApply) {
+      applyDelegationProposalToIndex(config.data_dir, delegationApply);
     }
     const approvedAtIso = new Date().toISOString();
     let approval_log_written = false;

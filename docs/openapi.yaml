@@ -878,6 +878,173 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /agents/identities:
+    post:
+      tags: [Delegation]
+      summary: Propose agent identity registration (SD-4; gated; default off)
+      description: >
+        Creates an SD-4 proposal with intent agent_identity_register. Requires DELEGATION_ENABLED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AgentIdentityRegisterRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationProposalResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    get:
+      tags: [Delegation]
+      summary: List agent identities (gated; default off)
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [user_owned, org_owned, delegate]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, suspended, revoked]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentIdentityListResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /delegation/consents:
+    post:
+      tags: [Delegation]
+      summary: Propose delegation consent (SD-4; gated; default off)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DelegationConsentProposeRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationConsentProposeResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /delegation/consents/{consent_id}:
+    delete:
+      tags: [Delegation]
+      summary: Revoke delegation consent
+      parameters:
+        - name: consent_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationConsent' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /delegation/grants:
+    post:
+      tags: [Delegation]
+      summary: Mint short-lived delegation grant (gated; default off)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DelegationGrantMintRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationGrantMintResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    get:
+      tags: [Delegation]
+      summary: List delegation grant metadata (no bearer)
+      parameters:
+        - name: actor_agent_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationGrantListResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /delegation/grants/{grant_id}:
+    delete:
+      tags: [Delegation]
+      summary: Revoke delegation grant
+      parameters:
+        - name: grant_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationGrant' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /delegation/audit:
+    post:
+      tags: [Delegation]
+      summary: Append delegation audit entry (pointer-safe)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DelegationAuditAppendRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationAudit' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /flows/{id}:
     get:
       tags: [Flows]
@@ -2356,6 +2523,271 @@ components:
         grants:
           type: array
           items: { $ref: '#/components/schemas/FlowExternalGrant' }
+
+    AgentIdentityRegisterRequest:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [user_owned, org_owned, delegate]
+        agent_id: { type: string }
+        label: { type: string }
+        scope_ceiling:
+          type: string
+          enum: [personal, project, org]
+
+    DelegationProposalResponse:
+      type: object
+      required: [schema, proposal_id, intent]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_proposal/v0]
+        proposal_id: { type: string }
+        intent: { type: string }
+        agent_id: { type: string }
+        consent_id: { type: string }
+
+    AgentIdentity:
+      type: object
+      required:
+        - schema
+        - agent_id
+        - kind
+        - owner_ref
+        - vault_id
+        - scope_ceiling
+        - status
+        - created
+        - updated
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.agent_identity/v0]
+        agent_id: { type: string }
+        kind:
+          type: string
+          enum: [user_owned, org_owned, delegate]
+        owner_ref: { type: string }
+        vault_id: { type: string }
+        scope_ceiling:
+          type: string
+          enum: [personal, project, org]
+        label: { type: string }
+        status:
+          type: string
+          enum: [active, suspended, revoked]
+        created: { type: string, format: date-time }
+        updated: { type: string, format: date-time }
+
+    AgentIdentityListResponse:
+      type: object
+      required: [schema, vault_id, identities]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.agent_identity_list/v0]
+        vault_id: { type: string }
+        identities:
+          type: array
+          items: { $ref: '#/components/schemas/AgentIdentity' }
+
+    DelegationConsentProposeRequest:
+      type: object
+      required: [delegate_agent_id, scope]
+      properties:
+        delegate_agent_id: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        workspace_id: { type: string }
+        allowed_flow_ids:
+          type: array
+          items: { type: string }
+        allowed_task_kinds:
+          type: array
+          items: { type: string }
+        allowed_task_ids:
+          type: array
+          items: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    DelegationConsentProposeResponse:
+      type: object
+      required: [schema, proposal_id, intent, consent_id]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_proposal/v0]
+        proposal_id: { type: string }
+        intent: { type: string }
+        consent_id: { type: string }
+        consent_preview: { $ref: '#/components/schemas/DelegationConsent' }
+
+    DelegationConsent:
+      type: object
+      required:
+        - schema
+        - consent_id
+        - principal_ref
+        - delegate_agent_id
+        - scope
+        - revoked_at
+        - evidence_ref
+        - created
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_consent/v0]
+        consent_id: { type: string }
+        principal_ref: { type: string }
+        delegate_agent_id: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        workspace_id: { type: string }
+        allowed_flow_ids:
+          type: array
+          items: { type: string }
+        allowed_task_kinds:
+          type: array
+          items: { type: string }
+        allowed_task_ids:
+          type: array
+          items: { type: string }
+        expires_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        evidence_ref: { type: string }
+        created: { type: string, format: date-time }
+
+    DelegationGrantMintRequest:
+      type: object
+      required: [consent_id, actor_agent_id]
+      properties:
+        consent_id: { type: string }
+        actor_agent_id: { type: string }
+        task_ref: { type: string }
+        run_ref: { type: string }
+        flow_id: { type: string }
+        flow_version: { type: string }
+        ttl_seconds: { type: integer, minimum: 1 }
+
+    DelegationGrant:
+      type: object
+      required:
+        - schema
+        - grant_id
+        - consent_id
+        - actor_agent_id
+        - principal_ref
+        - scope
+        - expires_at
+        - revoked_at
+        - action_count
+        - issued_at
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_grant/v0]
+        grant_id: { type: string }
+        consent_id: { type: string }
+        actor_agent_id: { type: string }
+        principal_ref: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        workspace_id: { type: string }
+        task_ref: { type: string }
+        run_ref: { type: string }
+        flow_id: { type: string }
+        flow_version: { type: string }
+        expires_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        max_actions: { type: integer }
+        action_count: { type: integer }
+        issued_at: { type: string, format: date-time }
+
+    DelegationGrantMintResponse:
+      type: object
+      required: [schema, grant, bearer, expires_at]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_grant_mint/v0]
+        grant: { $ref: '#/components/schemas/DelegationGrant' }
+        bearer: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    DelegationGrantListResponse:
+      type: object
+      required: [schema, vault_id, grants]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_grant_list/v0]
+        vault_id: { type: string }
+        grants:
+          type: array
+          items: { $ref: '#/components/schemas/DelegationGrant' }
+
+    DelegationAuditAppendRequest:
+      type: object
+      required: [grant_id, actor_agent_id, action, evidence_refs]
+      properties:
+        grant_id: { type: string }
+        actor_agent_id: { type: string }
+        principal_ref: { type: string }
+        action:
+          type: string
+          enum: [advance_step, complete_task, propose_outcome, invoke_tool, mint_subgrant]
+        evidence_refs:
+          type: array
+          minItems: 1
+          items: { type: string }
+        task_ref: { type: string }
+        run_ref: { type: string }
+        flow_id: { type: string }
+        flow_version: { type: string }
+        step_id: { type: string }
+        execution_location:
+          type: string
+          enum: [local, hosted, hybrid]
+
+    DelegationAudit:
+      type: object
+      required:
+        - schema
+        - audit_id
+        - grant_id
+        - actor_agent_id
+        - principal_ref
+        - action
+        - evidence_refs
+        - occurred_at
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.delegation_audit/v0]
+        audit_id: { type: string }
+        grant_id: { type: string }
+        actor_agent_id: { type: string }
+        principal_ref: { type: string }
+        task_ref: { type: string }
+        run_ref: { type: string }
+        flow_id: { type: string }
+        flow_version: { type: string }
+        step_id: { type: string }
+        action:
+          type: string
+          enum: [advance_step, complete_task, propose_outcome, invoke_tool, mint_subgrant]
+        evidence_refs:
+          type: array
+          items: { type: string }
+        occurred_at: { type: string, format: date-time }
+        execution_location:
+          type: string
+          enum: [local, hosted, hybrid]
 
     FlowProjectResponse:
       type: object
