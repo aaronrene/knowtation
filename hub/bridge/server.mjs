@@ -3200,6 +3200,8 @@ app.post('/api/v1/calendar/events/import', requireBridgeAuth, requireBridgeEdito
 // Agent delegation (hosted parity — 7C-L1): same handler family as self-hosted hub/server.mjs.
 registerBridgeDelegationRoutes(app, {
   dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
   requireBridgeAuth,
   resolveHostedBridgeContext,
 });

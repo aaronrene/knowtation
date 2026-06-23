@@ -1,8 +1,8 @@
 /**
  * Hosted bridge REST routes for agent delegation (Phase 7C-L1 hosted parity).
  *
- * Mirrors self-hosted `hub/server.mjs` delegation handlers against bridge `DATA_DIR`
- * with JWT auth and hosted vault context resolution.
+ * L1b: identity/consent proposals POST to the canister (Hub-visible); approve apply
+ * runs via POST …/delegation/proposals/:id/apply-approved (gateway hook after approve).
  *
  * @see docs/AGENT-DELEGATION-V0-SPEC.md §4
  */
@@ -18,12 +18,14 @@ import {
   handleDelegationAuditAppendRequest,
   hashPrincipalRef,
 } from '../../lib/agent/delegation.mjs';
-import { createProposal } from '../proposals-store.mjs';
+import { createDelegationProposalOnCanister, applyApprovedDelegationProposalFromCanister } from '../../lib/agent/delegation-hosted-proposal.mjs';
 
 /**
  * @param {import('express').Express} app
  * @param {{
  *   dataDir: string,
+ *   canisterUrl: string,
+ *   canisterHeaders: (extra?: Record<string, string>) => Record<string, string>,
  *   requireBridgeAuth: import('express').RequestHandler,
  *   resolveHostedBridgeContext: (req: import('express').Request, actorUid: string) => Promise<{
  *     ok: boolean,
@@ -31,11 +33,13 @@ import { createProposal } from '../proposals-store.mjs';
  *     error?: string,
  *     code?: string,
  *     vaultId?: string,
+ *     effectiveCanisterUid?: string,
+ *     actorUid?: string,
  *   }>,
  * }} deps
  */
 export function registerBridgeDelegationRoutes(app, deps) {
-  const { dataDir, requireBridgeAuth, resolveHostedBridgeContext } = deps;
+  const { dataDir, canisterUrl, canisterHeaders, requireBridgeAuth, resolveHostedBridgeContext } = deps;
 
   /**
    * @param {import('express').Request} req
@@ -45,24 +49,65 @@ export function registerBridgeDelegationRoutes(app, deps) {
     return hctx;
   }
 
+  /**
+   * @param {{
+   *   effectiveCanisterUid: string,
+   *   actorUid: string,
+   *   vaultId: string,
+   * }} ctx
+   */
+  function hostedCreateProposal(ctx) {
+    return async function createProposal(_dataDir, input) {
+      return createDelegationProposalOnCanister({
+        canisterUrl,
+        headers: canisterHeaders({
+          'X-User-Id': ctx.effectiveCanisterUid,
+          'X-Actor-Id': ctx.actorUid,
+          'X-Vault-Id': ctx.vaultId,
+        }),
+        input,
+      });
+    };
+  }
+
+  /**
+   * @param {import('express').Response} res
+   * @param {unknown} err
+   */
+  function sendRouteError(res, err) {
+    const e = err && typeof err === 'object' ? /** @type {{ status?: number, code?: string, message?: string }} */ (err) : {};
+    const status = typeof e.status === 'number' ? e.status : 500;
+    const code = typeof e.code === 'string' ? e.code : 'RUNTIME_ERROR';
+    const message = typeof e.message === 'string' ? e.message : String(err);
+    return res.status(status).json({ error: message, code });
+  }
+
   app.post('/api/v1/agents/identities', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const result = handleAgentIdentityRegisterProposeRequest({
-      dataDir,
-      vaultId: hctx.vaultId,
-      userId: req.uid,
-      kind: body.kind,
-      agentId: body.agent_id,
-      label: body.label,
-      scopeCeiling: body.scope_ceiling,
-      createProposal,
-    });
-    if (!result.ok) {
-      return res.status(result.status).json({ error: result.error, code: result.code });
+    try {
+      const result = await handleAgentIdentityRegisterProposeRequest({
+        dataDir,
+        vaultId: hctx.vaultId,
+        userId: req.uid,
+        kind: body.kind,
+        agentId: body.agent_id,
+        label: body.label,
+        scopeCeiling: body.scope_ceiling,
+        createProposal: hostedCreateProposal({
+          effectiveCanisterUid: hctx.effectiveCanisterUid,
+          actorUid: req.uid,
+          vaultId: hctx.vaultId,
+        }),
+      });
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.error, code: result.code });
+      }
+      return res.status(201).json(result.payload);
+    } catch (err) {
+      return sendRouteError(res, err);
     }
-    return res.status(201).json(result.payload);
   });
 
   app.get('/api/v1/agents/identities', requireBridgeAuth, async (req, res) => {
@@ -84,23 +129,56 @@ export function registerBridgeDelegationRoutes(app, deps) {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const result = handleDelegationConsentProposeRequest({
+    try {
+      const result = await handleDelegationConsentProposeRequest({
+        dataDir,
+        vaultId: hctx.vaultId,
+        userId: req.uid,
+        delegateAgentId: body.delegate_agent_id,
+        scope: body.scope,
+        workspaceId: body.workspace_id,
+        allowedFlowIds: body.allowed_flow_ids,
+        allowedTaskKinds: body.allowed_task_kinds,
+        allowedTaskIds: body.allowed_task_ids,
+        expiresAt: body.expires_at,
+        createProposal: hostedCreateProposal({
+          effectiveCanisterUid: hctx.effectiveCanisterUid,
+          actorUid: req.uid,
+          vaultId: hctx.vaultId,
+        }),
+      });
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.error, code: result.code });
+      }
+      return res.status(201).json(result.payload);
+    } catch (err) {
+      return sendRouteError(res, err);
+    }
+  });
+
+  app.post('/api/v1/delegation/proposals/:proposal_id/apply-approved', requireBridgeAuth, async (req, res) => {
+    const hctx = await vaultContext(req);
+    if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+    const proposalId =
+      typeof req.params.proposal_id === 'string' ? decodeURIComponent(req.params.proposal_id).trim() : '';
+    if (!proposalId) {
+      return res.status(400).json({ error: 'proposal_id required', code: 'BAD_REQUEST' });
+    }
+    const result = await applyApprovedDelegationProposalFromCanister({
       dataDir,
-      vaultId: hctx.vaultId,
-      userId: req.uid,
-      delegateAgentId: body.delegate_agent_id,
-      scope: body.scope,
-      workspaceId: body.workspace_id,
-      allowedFlowIds: body.allowed_flow_ids,
-      allowedTaskKinds: body.allowed_task_kinds,
-      allowedTaskIds: body.allowed_task_ids,
-      expiresAt: body.expires_at,
-      createProposal,
+      canisterUrl,
+      headers: canisterHeaders({
+        'X-User-Id': hctx.effectiveCanisterUid,
+        'X-Actor-Id': req.uid,
+        'X-Vault-Id': hctx.vaultId,
+      }),
+      proposalId,
+      requireApproved: true,
     });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, code: result.code });
     }
-    return res.status(201).json(result.payload);
+    return res.json(result.payload);
   });
 
   app.delete('/api/v1/delegation/consents/:consent_id', requireBridgeAuth, async (req, res) => {

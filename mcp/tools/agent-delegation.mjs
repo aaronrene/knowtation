@@ -41,7 +41,7 @@ export function registerAgentDelegationTools(server) {
       try {
         const config = loadConfig();
         const vaultId = args.vault_id?.trim() || config.default_vault_id || 'default';
-        const result = handleAgentIdentityRegisterProposeRequest({
+        const result = await handleAgentIdentityRegisterProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           userId: config.user_id ?? 'cli-user',
@@ -107,7 +107,7 @@ export function registerAgentDelegationTools(server) {
       try {
         const config = loadConfig();
         const vaultId = args.vault_id?.trim() || config.default_vault_id || 'default';
-        const result = handleDelegationConsentProposeRequest({
+        const result = await handleDelegationConsentProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           userId: config.user_id ?? 'cli-user',

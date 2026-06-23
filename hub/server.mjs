@@ -1284,9 +1284,9 @@ app.post(
 );
 
 // Agent delegation (Phase 7C-6) — gated by DELEGATION_ENABLED (default off).
-app.post('/api/v1/agents/identities', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+app.post('/api/v1/agents/identities', requireRole('viewer', 'editor', 'admin', 'evaluator'), async (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const result = handleAgentIdentityRegisterProposeRequest({
+  const result = await handleAgentIdentityRegisterProposeRequest({
     dataDir: config.data_dir,
     vaultId: req.vault_id ?? 'default',
     userId: req.user?.sub ?? '',
@@ -1315,9 +1315,9 @@ app.get('/api/v1/agents/identities', requireRole('viewer', 'editor', 'admin', 'e
   return res.json(result.payload);
 });
 
-app.post('/api/v1/delegation/consents', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+app.post('/api/v1/delegation/consents', requireRole('viewer', 'editor', 'admin', 'evaluator'), async (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const result = handleDelegationConsentProposeRequest({
+  const result = await handleDelegationConsentProposeRequest({
     dataDir: config.data_dir,
     vaultId: req.vault_id ?? 'default',
     userId: req.user?.sub ?? '',
