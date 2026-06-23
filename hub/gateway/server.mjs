@@ -888,6 +888,50 @@ if (BRIDGE_URL) {
     );
   });
 
+  // Agent delegation (hosted parity — 7C-L1): proxy to bridge when DELEGATION_ENABLED on bridge.
+  app.post('/api/v1/agents/identities', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agents/identities' + q, req, res);
+  });
+  app.get('/api/v1/agents/identities', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agents/identities' + q, req, res);
+  });
+  app.post('/api/v1/delegation/consents', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/consents' + q, req, res);
+  });
+  app.delete('/api/v1/delegation/consents/:consent_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/delegation/consents/' + encodeURIComponent(req.params.consent_id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/delegation/grants', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants' + q, req, res);
+  });
+  app.get('/api/v1/delegation/grants', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants' + q, req, res);
+  });
+  app.delete('/api/v1/delegation/grants/:grant_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/delegation/grants/' + encodeURIComponent(req.params.grant_id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/delegation/audit', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/audit' + q, req, res);
+  });
+
   // Phase 18: image upload — gateway buffers the file, fetches GitHub token from bridge,
   // then commits directly to GitHub (avoids forwarding a multipart body to another Lambda).
   app.post(/^\/api\/v1\/notes\/(.+)\/upload-image$/, async (req, res) => {
