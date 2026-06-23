@@ -905,6 +905,19 @@ if (BRIDGE_URL) {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/consents' + q, req, res);
   });
+  app.post('/api/v1/delegation/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/delegation/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
+        q,
+      req,
+      res,
+    );
+  });
   app.delete('/api/v1/delegation/consents/:consent_id', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(
