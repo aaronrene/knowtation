@@ -68,6 +68,7 @@ import { importIcsIntoVault } from '../../lib/calendar/event-store.mjs';
 import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../../lib/calendar/source-calendar-patch.mjs';
 import { retrieveAgentCalendarContext } from '../../lib/calendar/agent-retrieval.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
+import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
 const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
@@ -3194,6 +3195,13 @@ app.post('/api/v1/calendar/events/import', requireBridgeAuth, requireBridgeEdito
     }
     return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
   }
+});
+
+// Agent delegation (hosted parity — 7C-L1): same handler family as self-hosted hub/server.mjs.
+registerBridgeDelegationRoutes(app, {
+  dataDir: DATA_DIR,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
 });
 
 function bridgeMemoryAuth(req) {
