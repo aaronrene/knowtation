@@ -1976,6 +1976,108 @@ async function main() {
     return;
   }
 
+  if (subcommand === 'task') {
+    const taskAction = args[1];
+    if (hasOpt('help') || hasOpt('h') || !taskAction) {
+      console.log(`knowtation task <action>
+  Actions (v0 read surface):
+    list  [--scope personal|project|org] [--workspace-id <id>] [--status <s>] [--kind <k>] [--limit <n>] [--json]
+    get   <task_id> [--json]
+
+  Options: --json (exact Hub JSON)`);
+      process.exit(0);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+
+    const vaultId = getOpt('vault') || 'default';
+    const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
+
+    const taskExitWithError = (message, codeStr, exitCode = 1) => {
+      if (useJson) {
+        process.stderr.write(JSON.stringify({ error: message, code: codeStr }) + '\n');
+      } else {
+        console.error(message);
+      }
+      process.exit(exitCode);
+    };
+
+    if (taskAction === 'list') {
+      const limitOpt = getOpt('limit', 'number');
+      const { handleTaskListRequest } = await import('../lib/task/task-handlers.mjs');
+      const result = handleTaskListRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        cliScopes,
+        scope: getOpt('scope') ?? undefined,
+        workspaceId: getOpt('workspace-id') ?? undefined,
+        status: getOpt('status') ?? undefined,
+        kind: getOpt('kind') ?? undefined,
+        limit: limitOpt ?? undefined,
+      });
+      if (!result.ok) {
+        taskExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const rows = result.payload.tasks;
+        if (rows.length === 0) {
+          console.log('(no tasks)');
+        } else {
+          for (const t of rows) {
+            console.log(`${t.task_id}  [${t.scope}]  ${t.status}  ${t.title}`);
+          }
+        }
+        if (result.payload.truncated) {
+          console.log('(truncated)');
+        }
+      }
+      process.exit(0);
+    }
+
+    if (taskAction === 'get') {
+      const taskId = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!taskId) {
+        taskExitWithError('knowtation task get: provide a task_id.', 'BAD_REQUEST');
+      }
+      const { handleTaskGetRequest } = await import('../lib/task/task-handlers.mjs');
+      const result = handleTaskGetRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        taskId,
+        cliScopes,
+      });
+      if (!result.ok) {
+        taskExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const { task } = result.payload;
+        console.log(`${task.task_id}  [${task.scope}]  ${task.status}`);
+        console.log(task.title);
+        console.log(`workspace: ${task.workspace_id}  due: ${task.due_at ?? '—'}`);
+        if (task.run_ref) console.log(`run_ref: ${task.run_ref}`);
+        if (task.artifact_links.length) {
+          console.log(`artifact_links (${task.artifact_links.length}):`);
+          for (const link of task.artifact_links) {
+            console.log(`  ${link.kind}: ${link.ref}`);
+          }
+        }
+      }
+      process.exit(0);
+    }
+
+    exitWithError(`knowtation task: unknown action "${taskAction}". Use list or get.`, 1, useJson);
+    return;
+  }
+
   if (subcommand === 'agent') {
     const agentAction = args[1];
     if (!agentAction || hasOpt('help') || hasOpt('h')) {

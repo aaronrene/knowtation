@@ -13,7 +13,6 @@ import {
 import {
   tryDeduct,
   defaultUserRecord,
-  effectiveMonthlyIndexJobsIncluded,
   effectiveMonthlyConsolidationPassesIncluded,
 } from './billing-logic.mjs';
 import { loadBillingDb, saveBillingDb, resetMonthlyTokensIfNeeded } from './billing-store.mjs';
@@ -66,28 +65,6 @@ function checkNoteStorageCap(u, currentNoteCount) {
     return { ok: false, code: 'STORAGE_QUOTA_EXCEEDED', cap, tier };
   }
   return { ok: true };
-}
-
-/**
- * Check reindex requests against the same monthly index-job allowance shown in
- * the Hub billing panel. Token packs provide overage headroom; actual token
- * deduction happens after the bridge reports embedding usage.
- *
- * @param {object} u - Billing user record
- * @returns {{ ok: boolean, code?: string, cap?: number, used?: number, tier?: string }}
- */
-function checkIndexJobQuota(u) {
-  const tier = String(u?.tier || 'beta');
-  const cap = effectiveMonthlyIndexJobsIncluded(u);
-  if (cap === null) return { ok: true };
-
-  const used = Math.max(0, Math.floor(Number(u?.monthly_index_jobs_used) || 0));
-  if (used < cap) return { ok: true };
-
-  const packTokens = Math.max(0, Math.floor(Number(u?.pack_indexing_tokens_balance) || 0));
-  if (packTokens > 0) return { ok: true };
-
-  return { ok: false, code: 'INDEX_JOB_QUOTA_EXHAUSTED', cap, used, tier };
 }
 
 /**
@@ -178,21 +155,6 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
       }
 
       if (billingEnforced()) {
-        if (op === 'index') {
-          const indexCheck = checkIndexJobQuota(u);
-          if (!indexCheck.ok) {
-            res.status(402).json({
-              error: 'Monthly re-index allowance exhausted. Purchase a token pack to add more.',
-              code: indexCheck.code,
-              tier: indexCheck.tier || u.tier || 'free',
-              monthly_cap: indexCheck.cap,
-              monthly_index_jobs_used: indexCheck.used,
-              pack_indexing_tokens_balance: 0,
-            });
-            return false;
-          }
-        }
-
         // Consolidation-specific cap check.
         if (op === 'consolidation') {
           const passCap = effectiveMonthlyConsolidationPassesIncluded(u);
@@ -233,17 +195,13 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
           }
         }
 
-        // Reindex is governed by the visible index-job/token-pack ledger above.
-        // Do not also charge the hidden legacy cents ledger.
-        if (op !== 'index') {
-          const result = tryDeduct(u, cost);
-          if (!result.ok) {
-            res.status(402).json({
-              error: 'Billing quota exceeded for this operation',
-              code: result.code || 'QUOTA_EXHAUSTED',
-            });
-            return false;
-          }
+        const result = tryDeduct(u, cost);
+        if (!result.ok) {
+          res.status(402).json({
+            error: 'Billing quota exceeded for this operation',
+            code: result.code || 'QUOTA_EXHAUSTED',
+          });
+          return false;
         }
       }
 

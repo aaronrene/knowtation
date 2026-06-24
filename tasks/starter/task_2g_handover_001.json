@@ -1,0 +1,20 @@
+{
+  "schema": "knowtation.task/v0",
+  "task_id": "task_2g_handover_001",
+  "kind": "assignment",
+  "scope": "project",
+  "status": "in_progress",
+  "title": "Complete overseer handover checklist",
+  "workspace_id": "ws-project",
+  "due_at": "2026-06-25T23:59:59Z",
+  "assignee_ref": "uid_hash:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "assigner_ref": null,
+  "run_ref": "run_overseer_in_progress",
+  "artifact_links": [
+    { "kind": "note", "ref": "note:handover-summary" },
+    { "kind": "review_item", "ref": "review:prop_handover_001" }
+  ],
+  "created": "2026-06-19T09:00:00Z",
+  "updated": "2026-06-19T10:30:00Z",
+  "truncated": false
+}
