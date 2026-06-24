@@ -1,0 +1,19 @@
+{
+  "schema": "knowtation.task/v0",
+  "task_id": "task_mentor_checkin_w25",
+  "kind": "mentor_checkin",
+  "scope": "project",
+  "status": "pending",
+  "title": "Weekly reflection check-in",
+  "workspace_id": "ws-project",
+  "due_at": "2026-06-21T12:00:00Z",
+  "assignee_ref": "uid_hash:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "assigner_ref": "uid_hash:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "run_ref": null,
+  "artifact_links": [
+    { "kind": "note", "ref": "note:reflection-template" }
+  ],
+  "created": "2026-06-20T07:00:00Z",
+  "updated": "2026-06-20T07:00:00Z",
+  "truncated": false
+}

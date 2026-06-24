@@ -118,6 +118,7 @@ import { importIcsIntoVault } from '../lib/calendar/event-store.mjs';
 import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../lib/calendar/source-calendar-patch.mjs';
 import { retrieveAgentCalendarContext } from '../lib/calendar/agent-retrieval.mjs';
 import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
+import { handleTaskListRequest, handleTaskGetRequest } from '../lib/task/task-handlers.mjs';
 import {
   handleFlowExternalGrantMintRequest,
   handleFlowExternalGrantRevokeRequest,
@@ -694,6 +695,7 @@ app.use('/api/v1/metadata-facets', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/calendar', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/tasks', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
@@ -1033,6 +1035,46 @@ app.get('/api/v1/flows/:id', requireRole('viewer', 'editor', 'admin', 'evaluator
     userId: req.user?.sub ?? '',
     role: effectiveRole(req),
     version: typeof req.query.version === 'string' ? req.query.version : undefined,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// GET /api/v1/tasks — scope-filtered, content-minimized list (Phase 2G-b)
+app.get('/api/v1/tasks', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const limitRaw = req.query.limit;
+  let limit;
+  if (limitRaw !== undefined && limitRaw !== null && String(limitRaw).trim() !== '') {
+    limit = parseInt(String(limitRaw), 10);
+  }
+  const result = handleTaskListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+    workspace_id: typeof req.query.workspace_id === 'string' ? req.query.workspace_id : undefined,
+    status: typeof req.query.status === 'string' ? req.query.status : undefined,
+    kind: typeof req.query.kind === 'string' ? req.query.kind : undefined,
+    limit,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// GET /api/v1/tasks/:id — one authorized task (Phase 2G-b)
+app.get('/api/v1/tasks/:id', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const taskId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  const result = handleTaskGetRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    taskId,
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
   });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error, code: result.code });

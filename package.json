@@ -41,7 +41,9 @@
     "check:gateway-cors": "node scripts/check-gateway-cors.mjs",
     "smoke:hosted-multi-vault": "node scripts/smoke-hosted-multi-vault.mjs",
     "check:mcp-hosted-schema": "node scripts/check-mcp-hosted-schema.mjs",
-    "verify:hosted-mcp-checklist": "node scripts/verify-hosted-mcp-checklist.mjs"
+    "verify:hosted-mcp-checklist": "node scripts/verify-hosted-mcp-checklist.mjs",
+    "verify:hosted-delegation-l2": "node scripts/verify-hosted-delegation-l2-smoke.mjs",
+    "verify:hosted-task-read": "node scripts/verify-hosted-task-read-smoke.mjs"
   },
   "keywords": [
     "knowledge-base",

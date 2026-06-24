@@ -1,0 +1,19 @@
+{
+  "schema": "knowtation.task/v0",
+  "task_id": "task_org_compliance_q2",
+  "kind": "org_work_job",
+  "scope": "org",
+  "status": "blocked",
+  "title": "Complete Q2 compliance training unit",
+  "workspace_id": "ws-org",
+  "due_at": "2026-06-30T23:59:59Z",
+  "assignee_ref": "uid_hash:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "assigner_ref": "org_ref:ws-org",
+  "run_ref": null,
+  "artifact_links": [
+    { "kind": "media", "ref": "media:compliance-module-intro" }
+  ],
+  "created": "2026-06-01T00:00:00Z",
+  "updated": "2026-06-15T14:00:00Z",
+  "truncated": false
+}

@@ -19,6 +19,7 @@ tags:
   - name: Proposals
   - name: Capture
   - name: Flows
+  - name: Tasks
 
 security:
   - BearerAuth: []
@@ -869,6 +870,90 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FlowExternalGrant' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /tasks:
+    get:
+      tags: [Tasks]
+      summary: List scope-visible tasks (content-minimized)
+      description: >
+        Returns knowtation.task_list/v0 summaries for tasks visible in the caller's
+        authorized workspace scope. Scope query param narrows only — never widens.
+        List responses never include assignee refs or artifact_links.
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, project, org] }
+          description: Narrow within authorized scopes only.
+        - name: workspace_id
+          in: query
+          schema: { type: string }
+          description: Filter by workspace_id equality.
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, in_progress, blocked, done, cancelled]
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [personal, assignment, mentor_checkin, org_work_job]
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
+          description: Max summaries (default 500).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskListResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /tasks/{id}:
+    get:
+      tags: [Tasks]
+      summary: Get one authorized task
+      description: >
+        Returns knowtation.task_get/v0 with the full task record when the caller
+        is authorized for the task scope. Missing or invisible tasks return 404
+        unknown_task (no existence leak).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskGetResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403':
           content:
             application/json:
@@ -2342,6 +2427,121 @@ components:
           type: array
           maxItems: 200
           items: { $ref: '#/components/schemas/FlowSummary' }
+        truncated: { type: boolean }
+
+    TaskListResponse:
+      type: object
+      required: [schema, vault_id, effective_scope, tasks, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.task_list/v0]
+        vault_id: { type: string }
+        effective_scope:
+          type: string
+          enum: [personal, project, org]
+        tasks:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/TaskSummary' }
+        truncated: { type: boolean }
+
+    TaskSummary:
+      type: object
+      required: [schema, task_id, kind, scope, status, title, workspace_id, due_at, run_ref, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.task/v0]
+        task_id: { type: string }
+        kind:
+          type: string
+          enum: [personal, assignment, mentor_checkin, org_work_job]
+        scope:
+          type: string
+          enum: [personal, project, org]
+        status:
+          type: string
+          enum: [pending, in_progress, blocked, done, cancelled]
+        title: { type: string }
+        workspace_id: { type: string }
+        due_at:
+          type: string
+          nullable: true
+        run_ref:
+          type: string
+          nullable: true
+        truncated: { type: boolean }
+
+    TaskGetResponse:
+      type: object
+      required: [schema, vault_id, effective_scope, task]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.task_get/v0]
+        vault_id: { type: string }
+        effective_scope:
+          type: string
+          enum: [personal, project, org]
+        task: { $ref: '#/components/schemas/TaskRecord' }
+
+    TaskRecord:
+      type: object
+      required:
+        - schema
+        - task_id
+        - kind
+        - scope
+        - status
+        - title
+        - workspace_id
+        - due_at
+        - artifact_links
+        - created
+        - updated
+        - truncated
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.task/v0]
+        task_id: { type: string }
+        kind:
+          type: string
+          enum: [personal, assignment, mentor_checkin, org_work_job]
+        scope:
+          type: string
+          enum: [personal, project, org]
+        status:
+          type: string
+          enum: [pending, in_progress, blocked, done, cancelled]
+        title: { type: string }
+        workspace_id: { type: string }
+        due_at:
+          type: string
+          nullable: true
+        assignee_ref:
+          type: string
+          nullable: true
+        assigner_ref:
+          type: string
+          nullable: true
+        run_ref:
+          type: string
+          nullable: true
+        artifact_links:
+          type: array
+          maxItems: 32
+          items:
+            type: object
+            required: [kind, ref]
+            properties:
+              kind:
+                type: string
+                enum: [note, media, review_item]
+              ref: { type: string }
+        created: { type: string }
+        updated: { type: string }
         truncated: { type: boolean }
 
     FlowSummary:

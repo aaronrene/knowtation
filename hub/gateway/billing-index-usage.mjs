@@ -1,8 +1,6 @@
 /**
- * After bridge accepts or completes an index, record hosted billing telemetry.
- * Sync 200 responses can include embedding_input_tokens. Background 202 responses
- * count as accepted jobs; token usage is unavailable until the bridge worker
- * finishes outside the gateway request lifecycle.
+ * After a successful bridge index, record embedding_input_tokens for hosted billing telemetry.
+ * Enforcement by token cap is documented in HOSTED-CREDITS-DESIGN.md (future: pre-flight or post-hoc policy).
  */
 import { billingShadowLogEnabled } from './billing-constants.mjs';
 import { defaultUserRecord, normalizeBillingUser, effectiveMonthlyIndexingTokensIncluded } from './billing-logic.mjs';
@@ -14,26 +12,17 @@ import { mutateBillingDb } from './billing-store.mjs';
  * @param {string} bodyText
  */
 export async function recordIndexingTokensAfterBridgeIndex(uid, statusCode, bodyText) {
-  if (!uid || (statusCode !== 200 && statusCode !== 202) || typeof bodyText !== 'string') return;
+  if (!uid || statusCode !== 200 || typeof bodyText !== 'string') return;
   let j;
   try {
     j = JSON.parse(bodyText);
   } catch {
     return;
   }
-
-  const backgroundAccepted = statusCode === 202 && j?.status === 'background';
-  const syncSucceeded = statusCode === 200;
-  if (!backgroundAccepted && !syncSucceeded) return;
-
-  let tokens = 0;
-  if (syncSucceeded) {
-    const t = j.embedding_input_tokens;
-    if (t !== undefined) {
-      if (typeof t !== 'number' || !Number.isFinite(t) || t < 0) return;
-      tokens = Math.floor(t);
-    }
-  }
+  const t = j.embedding_input_tokens;
+  if (typeof t !== 'number' || !Number.isFinite(t) || t < 0) return;
+  const tokens = Math.floor(t);
+  if (tokens === 0) return;
 
   await mutateBillingDb((db) => {
     const u = db.users[uid] || defaultUserRecord(uid);
@@ -45,8 +34,6 @@ export async function recordIndexingTokensAfterBridgeIndex(uid, statusCode, body
     // overwriting the job counter back to 0 on Netlify's eventually-consistent store.
     u.monthly_index_jobs_used =
       Math.max(0, Math.floor(Number(u.monthly_index_jobs_used) || 0)) + 1;
-
-    if (tokens === 0) return;
 
     const prevTokensUsed = Math.max(0, Math.floor(Number(u.monthly_indexing_tokens_used) || 0));
     const newTokensUsed = prevTokensUsed + tokens;
@@ -77,7 +64,7 @@ export async function recordIndexingTokensAfterBridgeIndex(uid, statusCode, body
         ts: new Date().toISOString(),
         user_id: uid,
         operation: 'index',
-        phase: backgroundAccepted ? 'background_accepted' : 'post_index',
+        phase: 'post_index',
         embedding_input_tokens: tokens,
         path: '/api/v1/index',
       }),

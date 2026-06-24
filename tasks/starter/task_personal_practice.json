@@ -1,0 +1,17 @@
+{
+  "schema": "knowtation.task/v0",
+  "task_id": "task_personal_practice",
+  "kind": "personal",
+  "scope": "personal",
+  "status": "pending",
+  "title": "Practice integrals — chapter 3",
+  "workspace_id": "ws-personal",
+  "due_at": "2026-06-24T18:00:00Z",
+  "assignee_ref": "uid_hash:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "assigner_ref": null,
+  "run_ref": null,
+  "artifact_links": [],
+  "created": "2026-06-18T08:00:00Z",
+  "updated": "2026-06-18T08:00:00Z",
+  "truncated": false
+}
