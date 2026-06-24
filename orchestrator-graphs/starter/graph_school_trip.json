@@ -1,0 +1,23 @@
+{
+  "schema": "knowtation.orchestrator_graph/v0",
+  "graph_id": "graph_school_trip",
+  "scope": "personal",
+  "workspace_id": "ws-personal",
+  "title": "School trip loop-of-loops",
+  "nodes": [
+    "loop_school_trip",
+    "loop_packing_list",
+    "loop_weather_check",
+    "loop_schedule_conflict",
+    "loop_message_draft"
+  ],
+  "edges": [
+    { "from": "loop_school_trip", "to": "loop_packing_list", "trigger": "on_pass" },
+    { "from": "loop_school_trip", "to": "loop_weather_check", "trigger": "on_pass" },
+    { "from": "loop_school_trip", "to": "loop_schedule_conflict", "trigger": "on_pass" },
+    { "from": "loop_schedule_conflict", "to": "loop_message_draft", "trigger": "on_conflict" }
+  ],
+  "composition_tier": "personal_safe",
+  "created": "2026-06-01T08:00:00Z",
+  "updated": "2026-06-20T10:00:00Z"
+}

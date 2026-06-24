@@ -1,0 +1,22 @@
+{
+  "schema": "knowtation.task_loop/v0",
+  "loop_id": "loop_school_trip",
+  "kind": "personal",
+  "scope": "personal",
+  "status": "active",
+  "title": "School trip preparation",
+  "workspace_id": "ws-personal",
+  "recurrence": { "kind": "manual" },
+  "timezone": "America/Los_Angeles",
+  "flow_id": null,
+  "boundary_policy": "observe_only",
+  "memory_links": [
+    { "kind": "note", "ref": "note:last-clothing-size" },
+    { "kind": "note", "ref": "note:trip-type-outdoor" }
+  ],
+  "handoff_refs": ["graph_school_trip"],
+  "until_at": null,
+  "created": "2026-06-01T08:00:00Z",
+  "updated": "2026-06-20T10:00:00Z",
+  "truncated": false
+}
