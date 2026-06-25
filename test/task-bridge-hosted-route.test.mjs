@@ -41,11 +41,23 @@ describe('hosted bridge task routes — unit', () => {
     assert.ok(files.length >= 1);
   });
 
-  it('deploy/bridge netlify.toml includes tasks/starter in bridge function bundle', () => {
+  it('resolveStarterTaskLoopsDir finds bundled task-loops/starter from bridge module', async () => {
+    const { resolveStarterTaskLoopsDir } = await import('../lib/task/task-loop-store.mjs');
+    const loopDir = resolveStarterTaskLoopsDir(
+      new URL('../hub/bridge/task-routes.mjs', import.meta.url).href,
+    );
+    assert.ok(fs.existsSync(loopDir), `loop starter dir missing: ${loopDir}`);
+    const files = fs.readdirSync(loopDir).filter((f) => f.startsWith('loop_') && f.endsWith('.json'));
+    assert.ok(files.length >= 1);
+  });
+
+  it('deploy/bridge netlify.toml includes task + loop starters in bridge function bundle', () => {
     const bridgeToml = readRepoFile('deploy/bridge/netlify.toml');
     const rootToml = readRepoFile('netlify.toml');
-    assert.match(bridgeToml, /included_files\s*=\s*\["tasks\/starter/);
-    assert.match(rootToml, /included_files\s*=\s*\["tasks\/starter/);
+    assert.match(bridgeToml, /included_files\s*=\s*\[/);
+    assert.match(bridgeToml, /tasks\/starter/);
+    assert.match(bridgeToml, /task-loops\/starter/);
+    assert.match(rootToml, /task-loops\/starter/);
   });
 
   it('mergeTaskFrontmatter embeds task proposal source and kind', () => {
@@ -87,6 +99,9 @@ describe('hosted bridge task routes — integration', () => {
 
     assert.match(bridge, /app\.get\('\/api\/v1\/tasks', requireBridgeAuth/);
     assert.match(bridge, /app\.get\('\/api\/v1\/tasks\/:id', requireBridgeAuth/);
+    assert.match(bridge, /app\.get\('\/api\/v1\/task-loops', requireBridgeAuth/);
+    assert.match(bridge, /app\.get\('\/api\/v1\/task-loops\/:loop_id', requireBridgeAuth/);
+    assert.match(bridge, /app\.post\('\/api\/v1\/loop-pass-audit', requireBridgeAuth/);
     assert.match(bridge, /app\.post\('\/api\/v1\/tasks\/proposals', requireBridgeAuth/);
     assert.match(bridge, /app\.post\('\/api\/v1\/task-loops\/proposals', requireBridgeAuth/);
     assert.match(bridge, /createTaskProposalOnCanister/);
@@ -95,6 +110,9 @@ describe('hosted bridge task routes — integration', () => {
 
     assert.match(gateway, /app\.get\('\/api\/v1\/tasks'/);
     assert.match(gateway, /app\.get\('\/api\/v1\/tasks\/:id'/);
+    assert.match(gateway, /app\.get\('\/api\/v1\/task-loops'/);
+    assert.match(gateway, /app\.get\('\/api\/v1\/task-loops\/:loop_id'/);
+    assert.match(gateway, /app\.post\('\/api\/v1\/loop-pass-audit'/);
     assert.match(gateway, /app\.post\('\/api\/v1\/tasks\/proposals'/);
     assert.match(gateway, /app\.post\('\/api\/v1\/task-loops\/proposals'/);
     assert.match(gateway, /maybeApplyHostedTaskAfterApprove/);
@@ -104,6 +122,9 @@ describe('hosted bridge task routes — integration', () => {
     const bridge = readRepoFile('hub/bridge/task-routes.mjs');
     assert.match(bridge, /handleTaskListRequest/);
     assert.match(bridge, /handleTaskGetRequest/);
+    assert.match(bridge, /handleTaskLoopListRequest/);
+    assert.match(bridge, /handleTaskLoopGetRequest/);
+    assert.match(bridge, /handleLoopPassAuditAppendRequest/);
     assert.match(bridge, /resolveStarterTasksDir/);
     assert.match(bridge, /BRIDGE_STARTER_TASKS_DIR/);
     assert.match(bridge, /await handleTaskProposeRequest/);
@@ -175,7 +196,7 @@ describe('hosted bridge task routes — data-integrity', () => {
 describe('hosted bridge task routes — performance', () => {
   it('bridge routes module stays under reasonable import surface', () => {
     const bridge = readRepoFile('hub/bridge/task-routes.mjs');
-    assert.ok(bridge.length < 12000, 'task-routes.mjs should remain a thin registrar');
+    assert.ok(bridge.length < 16000, 'task-routes.mjs should remain a thin registrar');
   });
 });
 

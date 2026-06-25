@@ -139,10 +139,59 @@ test('gateway proxies POST /api/v1/tasks/proposals to bridge', async (t) => {
   assert.equal(calls[0].method, 'POST');
 });
 
-test('gateway source registers task proxy routes', () => {
+test('gateway proxies GET /api/v1/task-loops to bridge', async (t) => {
+  const calls = [];
+  const mockBridge = express();
+  mockBridge.get('/api/v1/task-loops', (req, res) => {
+    calls.push({ method: req.method, vault: req.headers['x-vault-id'] });
+    res.status(200).json({
+      schema: 'knowtation.task_loop_list/v0',
+      vault_id: 'default',
+      effective_scope: 'personal',
+      loops: [{ loop_id: 'loop_school_trip', scope: 'personal', status: 'active', title: 't', truncated: false }],
+      truncated: false,
+    });
+  });
+
+  const { bridgeUrl, close } = await startMockBridge(mockBridge);
+  t.after(close);
+
+  process.env.NETLIFY = '1';
+  process.env.CANISTER_URL = 'http://canister.placeholder.test';
+  process.env.SESSION_SECRET = SECRET;
+  process.env.BRIDGE_URL = bridgeUrl;
+
+  const gwEntry = pathToFileURL(path.join(projectRoot, 'hub', 'gateway', 'server.mjs')).href;
+  const { app: gwApp } = await import(`${gwEntry}?gwloop=${Date.now()}`);
+
+  const gwSrv = http.createServer(gwApp);
+  await new Promise((resolve, reject) => {
+    gwSrv.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+  });
+  t.after(() => new Promise((r) => gwSrv.close(() => r())));
+
+  const port = gwSrv.address().port;
+  const token = signTestJwt({ sub: 'user-loop-smoke', role: 'editor' });
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/task-loops`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'x-vault-id': 'default',
+    },
+  });
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.schema, 'knowtation.task_loop_list/v0');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'GET');
+});
+
+test('gateway source registers task + loop proxy routes', () => {
   const src = fs.readFileSync(path.join(projectRoot, 'hub', 'gateway', 'server.mjs'), 'utf8');
   assert.match(src, /Task routes \(hosted parity — 2G\)/);
   assert.match(src, /\/api\/v1\/tasks/);
+  assert.match(src, /\/api\/v1\/task-loops/);
+  assert.match(src, /\/api\/v1\/loop-pass-audit/);
   assert.match(src, /\/api\/v1\/tasks\/proposals/);
   assert.match(src, /maybeApplyHostedTaskAfterApprove/);
 });

@@ -967,6 +967,23 @@ if (BRIDGE_URL) {
       res,
     );
   });
+  app.get('/api/v1/task-loops', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/task-loops' + q, req, res);
+  });
+  app.get('/api/v1/task-loops/:loop_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/task-loops/' + encodeURIComponent(req.params.loop_id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/loop-pass-audit', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/loop-pass-audit' + q, req, res);
+  });
   app.post('/api/v1/tasks/proposals', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/tasks/proposals' + q, req, res);

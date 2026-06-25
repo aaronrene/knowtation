@@ -11,10 +11,24 @@ import {
   handleTaskLoopProposeRequest,
   handleTaskInstanceMaterializeRequest,
 } from '../../lib/task/task-write.mjs';
+import {
+  handleTaskLoopListRequest,
+  handleTaskLoopGetRequest,
+} from '../../lib/task/task-loop-handlers.mjs';
+import { handleLoopPassAuditAppendRequest } from '../../lib/task/loop-pass-audit.mjs';
 import { createTaskProposalOnCanister, applyApprovedTaskProposalFromCanister } from '../../lib/task/task-hosted-proposal.mjs';
 import { resolveStarterTasksDir } from '../../lib/task/task-store.mjs';
+import {
+  resolveStarterTaskLoopsDir,
+  resolveStarterOrchestratorGraphsDir,
+  resolveStarterLoopInstancesDir,
+} from '../../lib/task/task-loop-store.mjs';
+import { withLoopPassAuditBlobSync } from './loop-pass-audit-blob-store.mjs';
 
 const BRIDGE_STARTER_TASKS_DIR = resolveStarterTasksDir(import.meta.url);
+const BRIDGE_STARTER_LOOPS_DIR = resolveStarterTaskLoopsDir(import.meta.url);
+const BRIDGE_STARTER_GRAPHS_DIR = resolveStarterOrchestratorGraphsDir(import.meta.url);
+const BRIDGE_STARTER_INSTANCES_DIR = resolveStarterLoopInstancesDir(import.meta.url);
 
 /**
  * Map bridge role to task handler role (member → editor, matching self-hosted hub/server.mjs).
@@ -158,6 +172,79 @@ export function registerBridgeTaskRoutes(app, deps) {
       return res.status(result.status).json({ error: result.error, code: result.code });
     }
     return res.json(result.payload);
+  });
+
+  app.get('/api/v1/task-loops', requireBridgeAuth, async (req, res) => {
+    const ctx = await taskHandlerContext(req);
+    if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error, code: ctx.code });
+
+    const limitRaw = req.query.limit;
+    let limit;
+    if (limitRaw !== undefined && limitRaw !== null && String(limitRaw).trim() !== '') {
+      limit = parseInt(String(limitRaw), 10);
+    }
+
+    const result = handleTaskLoopListRequest({
+      dataDir,
+      vaultId: ctx.hctx.vaultId,
+      userId: req.uid,
+      role: ctx.role,
+      starterDir: BRIDGE_STARTER_LOOPS_DIR,
+      graphsDir: BRIDGE_STARTER_GRAPHS_DIR,
+      instancesDir: BRIDGE_STARTER_INSTANCES_DIR,
+      scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+      workspace_id: typeof req.query.workspace_id === 'string' ? req.query.workspace_id : undefined,
+      status: typeof req.query.status === 'string' ? req.query.status : undefined,
+      kind: typeof req.query.kind === 'string' ? req.query.kind : undefined,
+      limit,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  });
+
+  app.get('/api/v1/task-loops/:loop_id', requireBridgeAuth, async (req, res) => {
+    const ctx = await taskHandlerContext(req);
+    if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error, code: ctx.code });
+
+    const loopId =
+      typeof req.params.loop_id === 'string' ? decodeURIComponent(req.params.loop_id).trim() : '';
+    const result = handleTaskLoopGetRequest({
+      dataDir,
+      vaultId: ctx.hctx.vaultId,
+      loopId,
+      userId: req.uid,
+      role: ctx.role,
+      starterDir: BRIDGE_STARTER_LOOPS_DIR,
+      graphsDir: BRIDGE_STARTER_GRAPHS_DIR,
+      instancesDir: BRIDGE_STARTER_INSTANCES_DIR,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.json(result.payload);
+  });
+
+  app.post('/api/v1/loop-pass-audit', requireBridgeAuth, async (req, res) => {
+    const hctx = await vaultContext(req);
+    if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await withLoopPassAuditBlobSync({
+      blobStore: req.blobStore ?? null,
+      dataDir,
+      run: () =>
+        handleLoopPassAuditAppendRequest({
+          dataDir,
+          vaultId: hctx.vaultId,
+          body,
+        }),
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    return res.status(result.idempotent ? 200 : 201).json(result.payload);
   });
 
   app.post('/api/v1/tasks/proposals', requireBridgeAuth, async (req, res) => {
