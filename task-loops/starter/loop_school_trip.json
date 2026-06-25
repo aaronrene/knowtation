@@ -15,6 +15,16 @@
     { "kind": "note", "ref": "note:trip-type-outdoor" }
   ],
   "handoff_refs": ["graph_school_trip"],
+  "trigger_bindings": [
+    {
+      "schema": "knowtation.loop_trigger_binding/v0",
+      "binding_id": "bind_trip_checklist_edit",
+      "signal_kind": "note_edit",
+      "match": { "kind": "note_path", "path": "school/trip-checklist.md" },
+      "debounce_seconds": 300,
+      "enabled": true
+    }
+  ],
   "until_at": null,
   "created": "2026-06-01T08:00:00Z",
   "updated": "2026-06-20T10:00:00Z",

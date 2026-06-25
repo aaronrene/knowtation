@@ -71,6 +71,19 @@ describe('Task loop store — recurrence validation', () => {
     assert.equal(validateRecurrence({ kind: 'rrule' }).ok, false);
     assert.equal(validateRecurrence({ kind: 'on_wake' }).ok, false);
   });
+
+  it('accepts rrule recurrence when series timezone is provided', () => {
+    const result = validateRecurrence(
+      {
+        kind: 'rrule',
+        rrule: 'FREQ=WEEKLY;BYDAY=MO',
+        dtstart: '2026-06-02T16:00:00Z',
+        anchor_tz: 'America/Los_Angeles',
+      },
+      'America/Los_Angeles',
+    );
+    assert.equal(result.ok, true);
+  });
 });
 
 describe('Task loop store — record validation', () => {

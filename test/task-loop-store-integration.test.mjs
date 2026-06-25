@@ -58,7 +58,7 @@ describe('Task loop store — handler integration', () => {
     });
 
     assert.equal(handlerResult.payload.loops.length, storeResult.loops.length);
-    assert.equal(storeResult.loops.length, 5);
+    assert.equal(storeResult.loops.length, 6);
     assert.equal(handlerResult.payload.schema, 'knowtation.task_loop_list/v0');
   });
 

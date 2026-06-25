@@ -127,7 +127,7 @@ When false: validator runs on fixtures/tests only; live store rejects `rrule` ki
 - [x] `rrule` recurrence wire shape frozen.
 - [x] v0 RRULE subset + validator rules documented.
 - [x] Occurrence projection + key policy documented.
-- [ ] 2G-f-b implements `task-loop-rrule.mjs` + store fixture + tests.
+- [x] 2G-f-b implements `task-loop-rrule.mjs` + store fixture + tests.
 
 ## Non-goals
 

@@ -42,7 +42,7 @@ describe('Task loop store — e2e school-trip graph', () => {
       instancesDir,
     });
 
-    assert.equal(loopList.loops.length, 5);
+    assert.equal(loopList.loops.length, 6);
     assert.ok(loopList.loops.some((l) => l.loop_id === 'loop_school_trip'));
 
     const taskList = listTasks(dataDir, vaultId, {
