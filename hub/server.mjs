@@ -121,6 +121,11 @@ import { retrieveAgentCalendarContext } from '../lib/calendar/agent-retrieval.mj
 import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
 import { handleTaskListRequest, handleTaskGetRequest } from '../lib/task/task-handlers.mjs';
 import {
+  handleTaskLoopListRequest,
+  handleTaskLoopGetRequest,
+} from '../lib/task/task-loop-handlers.mjs';
+import { handleLoopPassAuditAppendRequest } from '../lib/task/loop-pass-audit.mjs';
+import {
   handleTaskProposeRequest,
   handleTaskLoopProposeRequest,
   handleTaskInstanceMaterializeRequest,
@@ -705,6 +710,7 @@ app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/calendar', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/tasks', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/task-loops', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
@@ -1089,6 +1095,62 @@ app.get('/api/v1/tasks/:id', requireRole('viewer', 'editor', 'admin', 'evaluator
     return res.status(result.status).json({ error: result.error, code: result.code });
   }
   return res.json(result.payload);
+});
+
+// GET /api/v1/task-loops — scope-filtered loop list (Phase 2G-c hosted parity)
+app.get('/api/v1/task-loops', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const limitRaw = req.query.limit;
+  let limit;
+  if (limitRaw !== undefined && limitRaw !== null && String(limitRaw).trim() !== '') {
+    limit = parseInt(String(limitRaw), 10);
+  }
+  const result = handleTaskLoopListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+    workspace_id: typeof req.query.workspace_id === 'string' ? req.query.workspace_id : undefined,
+    status: typeof req.query.status === 'string' ? req.query.status : undefined,
+    kind: typeof req.query.kind === 'string' ? req.query.kind : undefined,
+    limit,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// GET /api/v1/task-loops/:loop_id — one authorized loop (Phase 2G-c hosted parity)
+app.get('/api/v1/task-loops/:loop_id', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const loopId =
+    typeof req.params.loop_id === 'string' ? decodeURIComponent(req.params.loop_id).trim() : '';
+  const result = handleTaskLoopGetRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    loopId,
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// Loop pass audit mirror — append-only, idempotent on pass_id (Phase 2G-e OD-7).
+// Gated by LOOP_PASS_AUDIT_MIRROR_ENABLED (default OFF → 403 LOOP_PASS_AUDIT_MIRROR_DISABLED).
+app.post('/api/v1/loop-pass-audit', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleLoopPassAuditAppendRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    body,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(result.idempotent ? 200 : 201).json(result.payload);
 });
 
 // Task + task-loop write proposals (Phase 2G-d) — typed facade over /proposals (SD-4).
