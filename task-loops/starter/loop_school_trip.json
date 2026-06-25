@@ -1,0 +1,32 @@
+{
+  "schema": "knowtation.task_loop/v0",
+  "loop_id": "loop_school_trip",
+  "kind": "personal",
+  "scope": "personal",
+  "status": "active",
+  "title": "School trip preparation",
+  "workspace_id": "ws-personal",
+  "recurrence": { "kind": "manual" },
+  "timezone": "America/Los_Angeles",
+  "flow_id": null,
+  "boundary_policy": "observe_only",
+  "memory_links": [
+    { "kind": "note", "ref": "note:last-clothing-size" },
+    { "kind": "note", "ref": "note:trip-type-outdoor" }
+  ],
+  "handoff_refs": ["graph_school_trip"],
+  "trigger_bindings": [
+    {
+      "schema": "knowtation.loop_trigger_binding/v0",
+      "binding_id": "bind_trip_checklist_edit",
+      "signal_kind": "note_edit",
+      "match": { "kind": "note_path", "path": "school/trip-checklist.md" },
+      "debounce_seconds": 300,
+      "enabled": true
+    }
+  ],
+  "until_at": null,
+  "created": "2026-06-01T08:00:00Z",
+  "updated": "2026-06-20T10:00:00Z",
+  "truncated": false
+}

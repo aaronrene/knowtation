@@ -1,0 +1,24 @@
+{
+  "schema": "knowtation.task_loop/v0",
+  "loop_id": "loop_weekly_checkin",
+  "kind": "personal",
+  "scope": "personal",
+  "status": "active",
+  "title": "Weekly check-in",
+  "workspace_id": "ws-personal",
+  "recurrence": {
+    "kind": "rrule",
+    "rrule": "FREQ=WEEKLY;BYDAY=MO",
+    "dtstart": "2026-06-02T16:00:00Z",
+    "anchor_tz": "America/Los_Angeles"
+  },
+  "timezone": "America/Los_Angeles",
+  "flow_id": null,
+  "boundary_policy": "observe_only",
+  "memory_links": [],
+  "handoff_refs": [],
+  "until_at": null,
+  "created": "2026-06-01T08:00:00Z",
+  "updated": "2026-06-20T10:00:00Z",
+  "truncated": false
+}

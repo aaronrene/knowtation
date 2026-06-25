@@ -1,0 +1,19 @@
+{
+  "schema": "knowtation.task_loop/v0",
+  "loop_id": "loop_schedule_conflict",
+  "kind": "personal",
+  "scope": "personal",
+  "status": "active",
+  "title": "Schedule conflict check",
+  "workspace_id": "ws-personal",
+  "recurrence": { "kind": "on_wake", "source_loop_ref": "loop_school_trip" },
+  "timezone": "America/Los_Angeles",
+  "flow_id": null,
+  "boundary_policy": "draft_only",
+  "memory_links": [],
+  "handoff_refs": ["graph_school_trip"],
+  "until_at": null,
+  "created": "2026-06-01T08:00:00Z",
+  "updated": "2026-06-20T10:00:00Z",
+  "truncated": false
+}

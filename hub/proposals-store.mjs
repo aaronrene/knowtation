@@ -174,6 +174,7 @@ export function getProposal(dataDir, id) {
  *   auto_flag_reasons?: string[],
  *   flow_meta?: { kind: string, base_version: string|null, base_state_id: string },
  *   capture_meta?: { proposal_kind: string, candidate_id: string, confirmed_scope?: string, merge_into_flow_id?: string|null },
+ *   task_meta?: { record_kind: string, proposal_kind: string, task_id?: string|null, loop_id?: string|null, occurrence_key?: string|null, cascade_task_ids?: string[] },
  * }} input
  */
 export function createProposal(dataDir, input) {
@@ -263,6 +264,29 @@ export function createProposal(dataDir, input) {
               input.delegation_meta.consent_id != null
                 ? String(input.delegation_meta.consent_id).slice(0, 64)
                 : undefined,
+          },
+        }
+      : {}),
+    ...(input.task_meta && typeof input.task_meta === 'object'
+      ? {
+          task_meta: {
+            record_kind: String(input.task_meta.record_kind || 'task').slice(0, 32),
+            proposal_kind: String(input.task_meta.proposal_kind || '').slice(0, 32),
+            task_id:
+              input.task_meta.task_id != null ? String(input.task_meta.task_id).slice(0, 64) : null,
+            loop_id:
+              input.task_meta.loop_id != null ? String(input.task_meta.loop_id).slice(0, 64) : null,
+            occurrence_key:
+              input.task_meta.occurrence_key != null
+                ? String(input.task_meta.occurrence_key).slice(0, 64)
+                : null,
+            ...(Array.isArray(input.task_meta.cascade_task_ids)
+              ? {
+                  cascade_task_ids: input.task_meta.cascade_task_ids
+                    .map((id) => String(id).slice(0, 64))
+                    .slice(0, 500),
+                }
+              : {}),
           },
         }
       : {}),
@@ -491,12 +515,6 @@ export function discardProposalsAtPaths(dataDir, opts) {
   return n;
 }
 
-/**
- * Remove all proposals for a vault id (Hub delete vault).
- * @param {string} dataDir
- * @param {string} vaultId
- * @returns {number} number removed
- */
 export function removeProposalsForVault(dataDir, vaultId) {
   const vid = String(vaultId || '').trim();
   if (!vid) return 0;
@@ -508,4 +526,29 @@ export function removeProposalsForVault(dataDir, vaultId) {
   const removed = all.length - next.length;
   if (removed > 0) saveProposals(dataDir, next);
   return removed;
+}
+
+/**
+ * Record OD-4 cascade task ids on an approved task proposal's task_meta (audit).
+ *
+ * @param {string} dataDir
+ * @param {string} proposalId
+ * @param {string[]} cascadeTaskIds
+ * @returns {object|null}
+ */
+export function patchProposalTaskMetaCascade(dataDir, proposalId, cascadeTaskIds) {
+  const all = loadProposals(dataDir);
+  const idx = all.findIndex((p) => p.proposal_id === proposalId);
+  if (idx === -1) return null;
+  const meta = all[idx].task_meta && typeof all[idx].task_meta === 'object' ? all[idx].task_meta : {};
+  all[idx] = {
+    ...all[idx],
+    task_meta: {
+      ...meta,
+      cascade_task_ids: cascadeTaskIds.map((id) => String(id).slice(0, 64)).slice(0, 500),
+    },
+    updated_at: new Date().toISOString(),
+  };
+  saveProposals(dataDir, all);
+  return all[idx];
 }

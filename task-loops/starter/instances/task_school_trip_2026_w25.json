@@ -1,0 +1,21 @@
+{
+  "schema": "knowtation.task/v0",
+  "task_id": "task_school_trip_2026_w25",
+  "kind": "personal",
+  "scope": "personal",
+  "status": "pending",
+  "title": "School trip — week 25 occurrence",
+  "workspace_id": "ws-personal",
+  "due_at": "2026-06-21T08:00:00Z",
+  "assignee_ref": "uid_hash:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "assigner_ref": null,
+  "run_ref": null,
+  "loop_ref": "loop_school_trip",
+  "occurrence_key": "2026-W25",
+  "occurrence_at": "2026-06-21T08:00:00Z",
+  "series_status_snapshot": "active",
+  "artifact_links": [],
+  "created": "2026-06-20T10:00:00Z",
+  "updated": "2026-06-20T10:00:00Z",
+  "truncated": false
+}

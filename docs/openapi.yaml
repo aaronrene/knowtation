@@ -963,6 +963,81 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /tasks/proposals:
+    post:
+      tags: [Tasks]
+      summary: Propose a one-time task write (SD-4; gated; default off)
+      description: >
+        Typed facade over /proposals for task_create, task_status_update, task_assign,
+        and task_artifact_link. Requires TASK_WRITES_ENABLED (default off).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskWriteProposalRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskProposalResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /task-loops/proposals:
+    post:
+      tags: [Tasks]
+      summary: Propose a task loop series write (SD-4; gated; default off)
+      description: >
+        task_loop_create, task_loop_pause, or task_loop_cancel proposal. Requires TASK_WRITES_ENABLED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskLoopWriteProposalRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskProposalResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /task-loops/{loop_id}/instances/proposals:
+    post:
+      tags: [Tasks]
+      summary: Propose materializing one loop occurrence task (SD-4; gated; default off)
+      parameters:
+        - name: loop_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskInstanceMaterializeRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskInstanceProposalResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /agents/identities:
     post:
       tags: [Delegation]
@@ -2543,6 +2618,88 @@ components:
         created: { type: string }
         updated: { type: string }
         truncated: { type: boolean }
+
+    TaskWriteProposalRequest:
+      type: object
+      required: [intent]
+      properties:
+        proposal_kind:
+          type: string
+          enum: [task_create, task_status_update, task_assign, task_artifact_link]
+        intent: { type: string, minLength: 1 }
+        task: { $ref: '#/components/schemas/TaskRecord' }
+        task_id: { type: string }
+        base_state_id: { type: string }
+        status:
+          type: string
+          enum: [pending, in_progress, blocked, done, cancelled]
+        assignee_ref: { type: string, nullable: true }
+        assigner_ref: { type: string, nullable: true }
+        artifact_link:
+          type: object
+          required: [kind, ref]
+          properties:
+            kind: { type: string }
+            ref: { type: string }
+
+    TaskLoopWriteProposalRequest:
+      type: object
+      required: [intent]
+      properties:
+        proposal_kind:
+          type: string
+          enum: [task_loop_create, task_loop_pause, task_loop_cancel]
+        intent: { type: string, minLength: 1 }
+        loop: { type: object }
+        loop_id: { type: string }
+        base_state_id: { type: string }
+
+    TaskInstanceMaterializeRequest:
+      type: object
+      required: [intent]
+      properties:
+        intent: { type: string, minLength: 1 }
+        occurrence_key: { type: string }
+        occurrence_at: { type: string }
+        due_at: { type: string }
+        title_override: { type: string }
+        base_state_id: { type: string }
+
+    TaskProposalResponse:
+      type: object
+      required:
+        - schema
+        - proposal_id
+        - proposal_kind
+        - auto_approvable
+        - status
+        - review_queue
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.task_proposal/v0]
+        proposal_id: { type: string }
+        proposal_kind: { type: string }
+        task_id: { type: string, nullable: true }
+        loop_id: { type: string, nullable: true }
+        base_state_id: { type: string, nullable: true }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        auto_approvable: { type: boolean }
+        status: { type: string }
+        review_queue: { type: string }
+
+    TaskInstanceProposalResponse:
+      allOf:
+        - $ref: '#/components/schemas/TaskProposalResponse'
+        - type: object
+          required: [occurrence_key]
+          properties:
+            schema:
+              type: string
+              enum: [knowtation.task_instance_proposal/v0]
+            occurrence_key: { type: string }
 
     FlowSummary:
       type: object
