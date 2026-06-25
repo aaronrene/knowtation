@@ -29,6 +29,8 @@
 # external for the bridge function only so gateway.zip does not add node_modules/exceljs.
 [functions."bridge"]
   external_node_modules = ["exceljs"]
+  # Phase 2G: bridge function lazy-seeds tasks from tasks/starter/ on first list (hosted parity).
+  included_files = ["tasks/starter/*.json"]
 
 # Netlify sync-function platform max is 60 s per docs.netlify.com/build/functions/overview.
 # Per-function timeout must be a sub-table; a scalar `timeout = N` under [functions] is
