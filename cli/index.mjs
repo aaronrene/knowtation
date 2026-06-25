@@ -2226,6 +2226,8 @@ async function main() {
     }
 
     exitWithError(`knowtation task-loop: unknown action "${loopAction}". Use propose or materialize.`, 1, useJson);
+    return;
+  }
 
   if (subcommand === 'agent') {
     const agentAction = args[1];
