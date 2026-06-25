@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { bridgeTaskHandlerRole } from '../hub/bridge/task-routes.mjs';
+import { resolveStarterTasksDir } from '../lib/task/task-store.mjs';
 import {
   mergeTaskFrontmatter,
   normalizeCanisterProposalForTaskPrecheck,
@@ -31,6 +32,13 @@ describe('hosted bridge task routes — unit', () => {
     assert.equal(bridgeTaskHandlerRole('member'), 'editor');
     assert.equal(bridgeTaskHandlerRole('admin'), 'admin');
     assert.equal(bridgeTaskHandlerRole('viewer'), 'viewer');
+  });
+
+  it('resolveStarterTasksDir finds bundled tasks/starter from bridge module', () => {
+    const starterDir = resolveStarterTasksDir(new URL('../hub/bridge/task-routes.mjs', import.meta.url).href);
+    assert.ok(fs.existsSync(starterDir), `starter dir missing: ${starterDir}`);
+    const files = fs.readdirSync(starterDir).filter((f) => f.startsWith('task_') && f.endsWith('.json'));
+    assert.ok(files.length >= 1);
   });
 
   it('mergeTaskFrontmatter embeds task proposal source and kind', () => {
@@ -89,7 +97,9 @@ describe('hosted bridge task routes — integration', () => {
     const bridge = readRepoFile('hub/bridge/task-routes.mjs');
     assert.match(bridge, /handleTaskListRequest/);
     assert.match(bridge, /handleTaskGetRequest/);
-    assert.match(bridge, /handleTaskProposeRequest/);
+    assert.match(bridge, /resolveStarterTasksDir/);
+    assert.match(bridge, /BRIDGE_STARTER_TASKS_DIR/);
+    assert.match(bridge, /await handleTaskProposeRequest/);
     assert.match(bridge, /resolveHostedBridgeContext/);
   });
 });
@@ -107,11 +117,13 @@ describe('hosted bridge task routes — e2e (handler + store)', () => {
   });
 
   it('listTasks lazy-seeds starters on empty vault', () => {
+    const starterDir = resolveStarterTasksDir(new URL('../hub/bridge/task-routes.mjs', import.meta.url).href);
     const result = handleTaskListRequest({
       dataDir,
       vaultId: 'default',
       userId: 'user-test',
       role: 'admin',
+      starterDir,
     });
     assert.equal(result.ok, true);
     assert.equal(result.payload.schema, 'knowtation.task_list/v0');
@@ -171,7 +183,9 @@ describe('hosted bridge task routes — security', () => {
 
   it('propose routes gate through TASK_WRITES_ENABLED via shared handler', () => {
     const bridge = readRepoFile('hub/bridge/task-routes.mjs');
-    assert.match(bridge, /handleTaskProposeRequest/);
+    assert.match(bridge, /resolveStarterTasksDir/);
+    assert.match(bridge, /BRIDGE_STARTER_TASKS_DIR/);
+    assert.match(bridge, /await handleTaskProposeRequest/);
     assert.doesNotMatch(bridge, /TASK_WRITES_ENABLED\s*=\s*true/);
   });
 });

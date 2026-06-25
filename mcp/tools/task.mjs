@@ -129,7 +129,7 @@ export function registerTaskTools(server) {
           ? config.flow.visible_scopes
           : undefined;
         const proposalKind = args.proposal_kind || 'task_create';
-        const result = handleTaskProposeRequest({
+        const result = await handleTaskProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
@@ -170,7 +170,7 @@ export function registerTaskTools(server) {
           ? config.flow.visible_scopes
           : undefined;
         const proposalKind = args.proposal_kind || 'task_loop_create';
-        const result = handleTaskLoopProposeRequest({
+        const result = await handleTaskLoopProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
@@ -212,7 +212,7 @@ export function registerTaskTools(server) {
         const cliScopes = Array.isArray(config.flow?.visible_scopes)
           ? config.flow.visible_scopes
           : undefined;
-        const result = handleTaskInstanceMaterializeRequest({
+        const result = await handleTaskInstanceMaterializeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,

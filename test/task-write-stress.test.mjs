@@ -44,7 +44,7 @@ describe('task write — stress', () => {
     payload.loop.loop_id = 'loop_stress_mat';
     approveTaskProposal(
       dataDir,
-      handleTaskLoopProposeRequest({
+      (await handleTaskLoopProposeRequest({
         dataDir,
         vaultId,
         visibleScopes: visibleAll,
@@ -53,7 +53,7 @@ describe('task write — stress', () => {
         intent: 'create',
         starterDir,
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     const loop = getTaskLoop(dataDir, vaultId, 'loop_stress_mat', { visibleScopes: visibleAll, starterDir });
@@ -61,22 +61,20 @@ describe('task write — stress', () => {
 
     const results = await Promise.all(
       Array.from({ length: 100 }, () =>
-        Promise.resolve(
-          handleTaskInstanceMaterializeRequest({
-            dataDir,
-            vaultId,
-            visibleScopes: visibleAll,
-            loopId: 'loop_stress_mat',
-            body: {
-              loop_id: 'loop_stress_mat',
-              occurrence_key: '2026-W99',
-              base_state_id: baseStateId,
-            },
-            intent: 'race',
-            starterDir,
-            createProposal,
-          }),
-        ),
+        handleTaskInstanceMaterializeRequest({
+          dataDir,
+          vaultId,
+          visibleScopes: visibleAll,
+          loopId: 'loop_stress_mat',
+          body: {
+            loop_id: 'loop_stress_mat',
+            occurrence_key: '2026-W99',
+            base_state_id: baseStateId,
+          },
+          intent: 'race',
+          starterDir,
+          createProposal,
+        }),
       ),
     );
 
@@ -84,12 +82,12 @@ describe('task write — stress', () => {
     assert.equal(okCount, 100, 'propose does not mutate store — all proposes succeed');
   });
 
-  it('cancel cascade handles many pending instances in one pass', () => {
+  it('cancel cascade handles many pending instances in one pass', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_stress_cancel';
     approveTaskProposal(
       dataDir,
-      handleTaskLoopProposeRequest({
+      (await handleTaskLoopProposeRequest({
         dataDir,
         vaultId,
         visibleScopes: visibleAll,
@@ -98,14 +96,14 @@ describe('task write — stress', () => {
         intent: 'create',
         starterDir,
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     let loop = getTaskLoop(dataDir, vaultId, 'loop_stress_cancel', { visibleScopes: visibleAll, starterDir });
     let baseStateId = loopStateId(taskLoopForClient(loop));
 
     for (let i = 0; i < 50; i += 1) {
-      const mat = handleTaskInstanceMaterializeRequest({
+      const mat = await handleTaskInstanceMaterializeRequest({
         dataDir,
         vaultId,
         visibleScopes: visibleAll,
@@ -127,7 +125,7 @@ describe('task write — stress', () => {
     loop = getTaskLoop(dataDir, vaultId, 'loop_stress_cancel', { visibleScopes: visibleAll, starterDir });
     baseStateId = loopStateId(taskLoopForClient(loop));
 
-    const cancelRes = handleTaskLoopProposeRequest({
+    const cancelRes = await handleTaskLoopProposeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,

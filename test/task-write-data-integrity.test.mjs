@@ -42,10 +42,10 @@ describe('task write — data integrity', () => {
     delete process.env.TASK_WRITES_ENABLED;
   });
 
-  it('approve round-trip preserves task fields byte-stable', () => {
+  it('approve round-trip preserves task fields byte-stable', async () => {
     const body = sampleTaskCreatePayload();
     body.task.task_id = 'task_di_roundtrip';
-    const proposed = handleTaskProposeRequest({
+    const proposed = await handleTaskProposeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -60,12 +60,12 @@ describe('task write — data integrity', () => {
     assert.equal(task.run_ref, null);
   });
 
-  it('materialized instance has run_ref null (SD-2)', () => {
+  it('materialized instance has run_ref null (SD-2)', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_di_sd2';
     approveTaskProposal(
       dataDir,
-      handleTaskLoopProposeRequest({
+      (await handleTaskLoopProposeRequest({
         dataDir,
         vaultId,
         visibleScopes: visibleAll,
@@ -74,10 +74,10 @@ describe('task write — data integrity', () => {
         intent: 'create',
         starterDir,
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
     const loop = getTaskLoop(dataDir, vaultId, 'loop_di_sd2', { visibleScopes: visibleAll, starterDir });
-    const mat = handleTaskInstanceMaterializeRequest({
+    const mat = await handleTaskInstanceMaterializeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -97,12 +97,12 @@ describe('task write — data integrity', () => {
     assert.equal(assertLoopOccurrenceUniqueness(dataDir, vaultId).ok, true);
   });
 
-  it('duplicate materialize occurrence_key refused at propose', () => {
+  it('duplicate materialize occurrence_key refused at propose', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_di_dup';
     approveTaskProposal(
       dataDir,
-      handleTaskLoopProposeRequest({
+      (await handleTaskLoopProposeRequest({
         dataDir,
         vaultId,
         visibleScopes: visibleAll,
@@ -111,11 +111,11 @@ describe('task write — data integrity', () => {
         intent: 'create',
         starterDir,
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
     const loop = getTaskLoop(dataDir, vaultId, 'loop_di_dup', { visibleScopes: visibleAll, starterDir });
     const baseStateId = loopStateId(taskLoopForClient(loop));
-    const mat = handleTaskInstanceMaterializeRequest({
+    const mat = await handleTaskInstanceMaterializeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -127,7 +127,7 @@ describe('task write — data integrity', () => {
     });
     approveTaskProposal(dataDir, mat.payload.proposal_id);
 
-    const dup = handleTaskInstanceMaterializeRequest({
+    const dup = await handleTaskInstanceMaterializeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,

@@ -28,13 +28,13 @@ describe('task write — performance', () => {
     delete process.env.TASK_WRITES_ENABLED;
   });
 
-  it(`propose p95 < ${PROPOSE_P95_MS}ms over ${SAMPLES} samples`, () => {
+  it(`propose p95 < ${PROPOSE_P95_MS}ms over ${SAMPLES} samples`, async () => {
     const times = [];
     for (let i = 0; i < SAMPLES; i += 1) {
       const body = sampleTaskCreatePayload();
       body.task.task_id = `task_perf_${i}`;
       const t0 = performance.now();
-      handleTaskProposeRequest({
+      await handleTaskProposeRequest({
         dataDir,
         vaultId: 'default',
         visibleScopes: visibleAll,
@@ -50,12 +50,12 @@ describe('task write — performance', () => {
     assert.ok(p95 < PROPOSE_P95_MS, `p95=${p95.toFixed(2)}ms`);
   });
 
-  it(`approve apply p95 < ${APPLY_P95_MS}ms`, () => {
+  it(`approve apply p95 < ${APPLY_P95_MS}ms`, async () => {
     const times = [];
     for (let i = 0; i < SAMPLES; i += 1) {
       const body = sampleTaskCreatePayload();
       body.task.task_id = `task_perf_apply_${i}`;
-      const proposed = handleTaskProposeRequest({
+      const proposed = await handleTaskProposeRequest({
         dataDir,
         vaultId: 'default',
         visibleScopes: visibleAll,

@@ -30,9 +30,9 @@ describe('task write — triple-surface parity', () => {
     delete process.env.TASK_WRITES_ENABLED;
   });
 
-  it('Hub, CLI, MCP produce deep-equal envelope', () => {
+  it('Hub, CLI, MCP produce deep-equal envelope', async () => {
     const body = sampleTaskCreatePayload();
-    const hub = handleTaskProposeRequest({
+    const hub = await handleTaskProposeRequest({
       dataDir: path.join(tmpRoot, 'hub'),
       vaultId: 'default',
       role: 'admin',
@@ -41,7 +41,7 @@ describe('task write — triple-surface parity', () => {
       intent: 'add it',
       createProposal,
     });
-    const cli = handleTaskProposeRequest({
+    const cli = await handleTaskProposeRequest({
       dataDir: path.join(tmpRoot, 'cli'),
       vaultId: 'default',
       cliScopes: ['personal', 'project', 'org'],
@@ -50,7 +50,7 @@ describe('task write — triple-surface parity', () => {
       intent: 'add it',
       createProposal,
     });
-    const mcp = handleTaskProposeRequest({
+    const mcp = await handleTaskProposeRequest({
       dataDir: path.join(tmpRoot, 'mcp'),
       vaultId: 'default',
       cliScopes: ['personal', 'project', 'org'],
@@ -66,10 +66,10 @@ describe('task write — triple-surface parity', () => {
     assert.deepEqual(stripVolatile(cli.payload), stripVolatile(mcp.payload));
   });
 
-  it('creates exactly one proposal with source task', () => {
+  it('creates exactly one proposal with source task', async () => {
     const dir = path.join(tmpRoot, 'one');
     fs.mkdirSync(dir, { recursive: true });
-    handleTaskProposeRequest({
+    await handleTaskProposeRequest({
       dataDir: dir,
       vaultId: 'default',
       role: 'admin',
@@ -84,12 +84,12 @@ describe('task write — triple-surface parity', () => {
     assert.equal(proposals[0].task_meta.proposal_kind, 'task_create');
   });
 
-  it('TASK_WRITES_ENABLED=off refuses all surfaces', () => {
+  it('TASK_WRITES_ENABLED=off refuses all surfaces', async () => {
     delete process.env.TASK_WRITES_ENABLED;
     const dir = path.join(tmpRoot, 'off');
     fs.mkdirSync(dir, { recursive: true });
     for (const ctx of [{ role: 'admin' }, { cliScopes: ['personal'] }]) {
-      const result = handleTaskProposeRequest({
+      const result = await handleTaskProposeRequest({
         dataDir: dir,
         vaultId: 'default',
         proposalKind: 'task_create',

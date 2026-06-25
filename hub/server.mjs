@@ -1095,14 +1095,14 @@ app.get('/api/v1/tasks/:id', requireRole('viewer', 'editor', 'admin', 'evaluator
 // Gated by TASK_WRITES_ENABLED (default OFF → 403 TASK_WRITES_DISABLED).
 const TASK_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
 
-app.post('/api/v1/tasks/proposals', TASK_WRITE_ROLES, (req, res) => {
+app.post('/api/v1/tasks/proposals', TASK_WRITE_ROLES, async (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const proposalKind =
       typeof body.proposal_kind === 'string' && body.proposal_kind.trim()
         ? body.proposal_kind.trim()
         : 'task_create';
-    const result = handleTaskProposeRequest({
+    const result = await handleTaskProposeRequest({
       dataDir: config.data_dir,
       vaultId: req.vault_id ?? 'default',
       userId: req.user?.sub ?? '',
@@ -1127,14 +1127,14 @@ app.post('/api/v1/tasks/proposals', TASK_WRITE_ROLES, (req, res) => {
   }
 });
 
-app.post('/api/v1/task-loops/proposals', TASK_WRITE_ROLES, (req, res) => {
+app.post('/api/v1/task-loops/proposals', TASK_WRITE_ROLES, async (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const proposalKind =
       typeof body.proposal_kind === 'string' && body.proposal_kind.trim()
         ? body.proposal_kind.trim()
         : 'task_loop_create';
-    const result = handleTaskLoopProposeRequest({
+    const result = await handleTaskLoopProposeRequest({
       dataDir: config.data_dir,
       vaultId: req.vault_id ?? 'default',
       userId: req.user?.sub ?? '',
@@ -1159,12 +1159,12 @@ app.post('/api/v1/task-loops/proposals', TASK_WRITE_ROLES, (req, res) => {
   }
 });
 
-app.post('/api/v1/task-loops/:loop_id/instances/proposals', TASK_WRITE_ROLES, (req, res) => {
+app.post('/api/v1/task-loops/:loop_id/instances/proposals', TASK_WRITE_ROLES, async (req, res) => {
   try {
     const loopId =
       typeof req.params.loop_id === 'string' ? decodeURIComponent(req.params.loop_id).trim() : '';
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const result = handleTaskInstanceMaterializeRequest({
+    const result = await handleTaskInstanceMaterializeRequest({
       dataDir: config.data_dir,
       vaultId: req.vault_id ?? 'default',
       userId: req.user?.sub ?? '',
