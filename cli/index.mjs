@@ -1980,9 +1980,10 @@ async function main() {
     const taskAction = args[1];
     if (hasOpt('help') || hasOpt('h') || !taskAction) {
       console.log(`knowtation task <action>
-  Actions (v0 read surface):
-    list  [--scope personal|project|org] [--workspace-id <id>] [--status <s>] [--kind <k>] [--limit <n>] [--json]
-    get   <task_id> [--json]
+  Actions:
+    list     [--scope personal|project|org] [--workspace-id <id>] [--status <s>] [--kind <k>] [--limit <n>] [--json]
+    get      <task_id> [--json]
+    propose  <payload.json> [--intent <text>] [--json]
 
   Options: --json (exact Hub JSON)`);
       process.exit(0);
@@ -2074,9 +2075,157 @@ async function main() {
       process.exit(0);
     }
 
-    exitWithError(`knowtation task: unknown action "${taskAction}". Use list or get.`, 1, useJson);
+    if (taskAction === 'propose') {
+      const payloadPath = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!payloadPath) {
+        taskExitWithError('knowtation task propose: provide a payload.json path.', 'BAD_REQUEST');
+      }
+      const fsMod = await import('node:fs');
+      let payload;
+      try {
+        payload = JSON.parse(fsMod.readFileSync(payloadPath, 'utf8'));
+      } catch (e) {
+        taskExitWithError(`knowtation task propose: cannot read payload (${e.message}).`, 'BAD_REQUEST');
+      }
+      const intent = getOpt('intent') || (payload && typeof payload === 'object' ? payload.intent : undefined);
+      const proposalKind =
+        payload && typeof payload.proposal_kind === 'string' ? payload.proposal_kind : 'task_create';
+      const { handleTaskProposeRequest } = await import('../lib/task/task-write.mjs');
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+      const result = handleTaskProposeRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        cliScopes,
+        proposalKind,
+        body: payload,
+        intent,
+        createProposal,
+      });
+      if (!result.ok) {
+        taskExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        console.log(
+          `proposed ${result.payload.proposal_kind} → ${result.payload.proposal_id} task=${result.payload.task_id ?? '—'}`,
+        );
+      }
+      process.exit(0);
+    }
+
+    exitWithError(`knowtation task: unknown action "${taskAction}". Use list, get, or propose.`, 1, useJson);
     return;
   }
+
+  if (subcommand === 'task-loop') {
+    const loopAction = args[1];
+    if (hasOpt('help') || hasOpt('h') || !loopAction) {
+      console.log(`knowtation task-loop <action>
+  Actions:
+    propose      <payload.json> [--intent <text>] [--json]
+    materialize  --loop-id <loop_id> [--occurrence-key <key>] [--occurrence-at <iso>] [--due-at <iso>] [--intent <text>] [--json]
+
+  Options: --json (exact Hub JSON)`);
+      process.exit(0);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+
+    const vaultId = getOpt('vault') || 'default';
+    const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
+
+    const loopExitWithError = (message, codeStr, exitCode = 1) => {
+      if (useJson) {
+        process.stderr.write(JSON.stringify({ error: message, code: codeStr }) + '\n');
+      } else {
+        console.error(message);
+      }
+      process.exit(exitCode);
+    };
+
+    if (loopAction === 'propose') {
+      const payloadPath = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!payloadPath) {
+        loopExitWithError('knowtation task-loop propose: provide a payload.json path.', 'BAD_REQUEST');
+      }
+      const fsMod = await import('node:fs');
+      let payload;
+      try {
+        payload = JSON.parse(fsMod.readFileSync(payloadPath, 'utf8'));
+      } catch (e) {
+        loopExitWithError(`knowtation task-loop propose: cannot read payload (${e.message}).`, 'BAD_REQUEST');
+      }
+      const intent = getOpt('intent') || (payload && typeof payload === 'object' ? payload.intent : undefined);
+      const proposalKind =
+        payload && typeof payload.proposal_kind === 'string' ? payload.proposal_kind : 'task_loop_create';
+      const { handleTaskLoopProposeRequest } = await import('../lib/task/task-write.mjs');
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+      const result = handleTaskLoopProposeRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        cliScopes,
+        proposalKind,
+        body: payload,
+        intent,
+        createProposal,
+      });
+      if (!result.ok) {
+        loopExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        console.log(
+          `proposed ${result.payload.proposal_kind} → ${result.payload.proposal_id} loop=${result.payload.loop_id ?? '—'}`,
+        );
+      }
+      process.exit(0);
+    }
+
+    if (loopAction === 'materialize') {
+      const loopId = getOpt('loop-id');
+      if (!loopId) {
+        loopExitWithError('knowtation task-loop materialize: --loop-id required.', 'BAD_REQUEST');
+      }
+      const intent = getOpt('intent') || 'materialize occurrence';
+      const { handleTaskInstanceMaterializeRequest } = await import('../lib/task/task-write.mjs');
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+      const result = handleTaskInstanceMaterializeRequest({
+        dataDir: config.data_dir,
+        vaultId,
+        cliScopes,
+        loopId,
+        body: {
+          loop_id: loopId,
+          occurrence_key: getOpt('occurrence-key') ?? undefined,
+          occurrence_at: getOpt('occurrence-at') ?? undefined,
+          due_at: getOpt('due-at') ?? undefined,
+          title_override: getOpt('title-override') ?? undefined,
+          base_state_id: getOpt('base-state-id') ?? undefined,
+        },
+        intent,
+        createProposal,
+      });
+      if (!result.ok) {
+        loopExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        console.log(
+          `materialize proposal ${result.payload.proposal_id} task=${result.payload.task_id} occurrence=${result.payload.occurrence_key}`,
+        );
+      }
+      process.exit(0);
+    }
+
+    exitWithError(`knowtation task-loop: unknown action "${loopAction}". Use propose or materialize.`, 1, useJson);
 
   if (subcommand === 'agent') {
     const agentAction = args[1];

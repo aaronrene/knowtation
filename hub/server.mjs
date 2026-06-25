@@ -57,6 +57,7 @@ import {
   submitProposalEvaluation,
   mergeEvaluationChecklist,
   evaluationAllowsApprove,
+  patchProposalTaskMetaCascade,
 } from './proposals-store.mjs';
 import { loadProposalRubric } from '../lib/hub-proposal-rubric.mjs';
 import {
@@ -119,6 +120,14 @@ import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../lib/calend
 import { retrieveAgentCalendarContext } from '../lib/calendar/agent-retrieval.mjs';
 import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
 import { handleTaskListRequest, handleTaskGetRequest } from '../lib/task/task-handlers.mjs';
+import {
+  handleTaskProposeRequest,
+  handleTaskLoopProposeRequest,
+  handleTaskInstanceMaterializeRequest,
+  precheckApprovedTaskProposal,
+  reconcileApprovedTaskProposal,
+  TASK_PROPOSAL_SOURCE,
+} from '../lib/task/task-write.mjs';
 import {
   handleFlowExternalGrantMintRequest,
   handleFlowExternalGrantRevokeRequest,
@@ -1080,6 +1089,108 @@ app.get('/api/v1/tasks/:id', requireRole('viewer', 'editor', 'admin', 'evaluator
     return res.status(result.status).json({ error: result.error, code: result.code });
   }
   return res.json(result.payload);
+});
+
+// Task + task-loop write proposals (Phase 2G-d) — typed facade over /proposals (SD-4).
+// Gated by TASK_WRITES_ENABLED (default OFF → 403 TASK_WRITES_DISABLED).
+const TASK_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
+
+app.post('/api/v1/tasks/proposals', TASK_WRITE_ROLES, (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const proposalKind =
+      typeof body.proposal_kind === 'string' && body.proposal_kind.trim()
+        ? body.proposal_kind.trim()
+        : 'task_create';
+    const result = handleTaskProposeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      proposalKind,
+      body,
+      intent: body.intent,
+      createProposal,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'task_propose',
+      proposalId: result.payload.proposal_id,
+      detail: { proposal_kind: result.payload.proposal_kind, task_id: result.payload.task_id },
+    });
+    return res.status(201).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/task-loops/proposals', TASK_WRITE_ROLES, (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const proposalKind =
+      typeof body.proposal_kind === 'string' && body.proposal_kind.trim()
+        ? body.proposal_kind.trim()
+        : 'task_loop_create';
+    const result = handleTaskLoopProposeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      proposalKind,
+      body,
+      intent: body.intent,
+      createProposal,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'task_loop_propose',
+      proposalId: result.payload.proposal_id,
+      detail: { proposal_kind: result.payload.proposal_kind, loop_id: result.payload.loop_id },
+    });
+    return res.status(201).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/task-loops/:loop_id/instances/proposals', TASK_WRITE_ROLES, (req, res) => {
+  try {
+    const loopId =
+      typeof req.params.loop_id === 'string' ? decodeURIComponent(req.params.loop_id).trim() : '';
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = handleTaskInstanceMaterializeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      loopId,
+      body: { ...body, loop_id: loopId },
+      intent: body.intent,
+      createProposal,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'task_instance_materialize',
+      proposalId: result.payload.proposal_id,
+      detail: {
+        loop_id: result.payload.loop_id,
+        task_id: result.payload.task_id,
+        occurrence_key: result.payload.occurrence_key,
+      },
+    });
+    return res.status(201).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
 });
 
 // Flow authoring write-back (Phase 7A-L1b) — typed facade over /proposals (SD-4).
@@ -2512,7 +2623,8 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     expectedBase &&
     proposal.source !== FLOW_PROPOSAL_SOURCE &&
     proposal.source !== FLOW_CAPTURE_PROPOSAL_SOURCE &&
-    proposal.source !== DELEGATION_PROPOSAL_SOURCE
+    proposal.source !== DELEGATION_PROPOSAL_SOURCE &&
+    proposal.source !== TASK_PROPOSAL_SOURCE
   ) {
     let currentId;
     if (noteFileExistsInVault(approveVaultPath, proposal.path)) {
@@ -2564,6 +2676,14 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     }
     delegationApply = delegationPrecheck;
   }
+  let taskApply = null;
+  if (proposal.source === TASK_PROPOSAL_SOURCE) {
+    const taskPrecheck = precheckApprovedTaskProposal(config.data_dir, proposal);
+    if (!taskPrecheck.ok) {
+      return res.status(taskPrecheck.status).json({ error: taskPrecheck.error, code: taskPrecheck.code });
+    }
+    taskApply = taskPrecheck;
+  }
   try {
     const fm = mergeProvenanceFrontmatter(proposal.frontmatter ?? {}, {
       sub: req.user?.sub ?? null,
@@ -2585,6 +2705,12 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     }
     if (delegationApply) {
       applyDelegationProposalToIndex(config.data_dir, delegationApply);
+    }
+    if (taskApply) {
+      const taskReconcile = reconcileApprovedTaskProposal(config.data_dir, taskApply);
+      if (taskReconcile.cascade_task_ids && Array.isArray(taskReconcile.cascade_task_ids)) {
+        patchProposalTaskMetaCascade(config.data_dir, req.params.id, taskReconcile.cascade_task_ids);
+      }
     }
     const approvedAtIso = new Date().toISOString();
     let approval_log_written = false;
