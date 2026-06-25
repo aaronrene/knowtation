@@ -39,7 +39,7 @@ Hub/CLI/MCP surfaces land with live gate (Tier 3).
 | ID | Decision | Recorded default |
 | --- | --- | --- |
 | **OD-1** | Loop orchestrator graph location | **`orchestrator_graph/v0`** in Knowtation portable store (`orchestrator_graphs[]`); Scooling orchestrator consumes by id |
-| **OD-2** | RRULE vs subset | **cron + interval + manual + on_wake v0**; full RRULE deferred to 2G-f |
+| **OD-2** | RRULE vs subset | **cron + interval + manual + on_wake v0**; full RRULE in **`TASK-LOOP-RRULE-RECURRENCE-CONTRACT-2G-f.md`** |
 | **OD-3** | Instance materialization | **Lazy** — next occurrence on demand; optional `horizon_days` deferred |
 | **OD-4** | Cancel series → pending instances | **Auto-cancel pending** with audit ref (write path in 2G-d) |
 | **OD-5** | Series end condition | **`until_at` optional** + manual cancel |
@@ -47,7 +47,7 @@ Hub/CLI/MCP surfaces land with live gate (Tier 3).
 | **OD-7** | Pass audit persistence | **Scooling operational v0**; Knowtation mirror in 2G-e |
 | **OD-8** | Composition tier gate | **Split gate** — `LOOP_ORCHESTRATOR_COMPOSITION_ENABLED` (Scooling) |
 | **OD-9** | Classroom recurrence | **Deferred** to Phase 2C authority spec |
-| **OD-10** | Trigger signal source | **task status + calendar timeline + manual v0**; note signals in 2G-f |
+| **OD-10** | Trigger signal source | **task status + calendar timeline + manual v0**; note signals in **`scooling/docs/LOOP-TRIGGER-AND-RECURRENCE-CONTRACT-2G-f.md`** |
 
 ---
 
