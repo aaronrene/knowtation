@@ -21,7 +21,7 @@ CLI/MCP wiring, **no** live gate flips. Writes deferred to 2G-d + Tier 3.
 
 Recurring jobs (school-trip packing, weekly check-ins) need a **series template** in Knowtation plus
 **dated instance tasks** that link back to the series. This contract defines that filing cabinet:
-`task_loop/v0` series, optional `orchestrator_graph/v0` for loop-of-loops handoffs, and extended
+`task_loop/v0` series, optional `orchestrator_graph/v0` for loop orchestrator handoffs, and extended
 `task/v0` rows with `loop_ref` + `occurrence_key`. Read-only list/get mirrors the 2G-b task pattern.
 
 ## Technical summary
@@ -38,7 +38,7 @@ Hub/CLI/MCP surfaces land with live gate (Tier 3).
 
 | ID | Decision | Recorded default |
 | --- | --- | --- |
-| **OD-1** | Loop-of-loops graph location | **`orchestrator_graph/v0`** in Knowtation portable store (`orchestrator_graphs[]`); Scooling orchestrator consumes by id |
+| **OD-1** | Loop orchestrator graph location | **`orchestrator_graph/v0`** in Knowtation portable store (`orchestrator_graphs[]`); Scooling orchestrator consumes by id |
 | **OD-2** | RRULE vs subset | **cron + interval + manual + on_wake v0**; full RRULE deferred to 2G-f |
 | **OD-3** | Instance materialization | **Lazy** — next occurrence on demand; optional `horizon_days` deferred |
 | **OD-4** | Cancel series → pending instances | **Auto-cancel pending** with audit ref (write path in 2G-d) |

@@ -3,7 +3,7 @@
   "graph_id": "graph_school_trip",
   "scope": "personal",
   "workspace_id": "ws-personal",
-  "title": "School trip loop-of-loops",
+  "title": "School trip loop orchestrator",
   "nodes": [
     "loop_school_trip",
     "loop_packing_list",
