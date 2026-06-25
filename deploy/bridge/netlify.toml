@@ -37,6 +37,9 @@
 [functions."bridge"]
   timeout = 60
   external_node_modules = ["exceljs"]
+  # Phase 2G hosted task lazy-seed: resolveStarterTasksDir reads tasks/starter/*.json at runtime;
+  # esbuild does not bundle fs.readdirSync paths — include starter JSON in the function artifact.
+  included_files = ["tasks/starter/*.json"]
 
 # Background function: receives kickoff from the sync `bridge` function when the
 # auto-routing preflight in `hub/bridge/server.mjs POST /api/v1/index` decides a

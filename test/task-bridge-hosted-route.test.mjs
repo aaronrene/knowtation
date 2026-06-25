@@ -41,6 +41,13 @@ describe('hosted bridge task routes — unit', () => {
     assert.ok(files.length >= 1);
   });
 
+  it('deploy/bridge netlify.toml includes tasks/starter in bridge function bundle', () => {
+    const bridgeToml = readRepoFile('deploy/bridge/netlify.toml');
+    const rootToml = readRepoFile('netlify.toml');
+    assert.match(bridgeToml, /included_files\s*=\s*\["tasks\/starter/);
+    assert.match(rootToml, /included_files\s*=\s*\["tasks\/starter/);
+  });
+
   it('mergeTaskFrontmatter embeds task proposal source and kind', () => {
     const fm = mergeTaskFrontmatter({}, {
       record_kind: 'task',
