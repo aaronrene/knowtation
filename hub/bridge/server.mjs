@@ -69,6 +69,7 @@ import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../../lib/cal
 import { retrieveAgentCalendarContext } from '../../lib/calendar/agent-retrieval.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
+import { registerBridgeTaskRoutes } from './task-routes.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
 const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
@@ -3204,6 +3205,17 @@ registerBridgeDelegationRoutes(app, {
   canisterHeaders,
   requireBridgeAuth,
   resolveHostedBridgeContext,
+});
+
+// Task read + write propose (hosted parity — 2G): same handler family as self-hosted hub/server.mjs.
+registerBridgeTaskRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
 });
 
 function bridgeMemoryAuth(req) {
