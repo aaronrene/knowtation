@@ -61,6 +61,10 @@ import {
   maybeApplyHostedDelegationAfterApprove,
   mergeDelegationApplyIntoApproveResponse,
 } from './delegation-approve-hosted.mjs';
+import {
+  maybeApplyHostedTaskAfterApprove,
+  mergeTaskApplyIntoApproveResponse,
+} from './task-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
@@ -947,6 +951,42 @@ if (BRIDGE_URL) {
   app.post('/api/v1/delegation/audit', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/audit' + q, req, res);
+  });
+
+  // Task routes (hosted parity — 2G): proxy read + write propose to bridge event/flow store.
+  app.get('/api/v1/tasks', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/tasks' + q, req, res);
+  });
+  app.get('/api/v1/tasks/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/tasks/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/tasks/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/tasks/proposals' + q, req, res);
+  });
+  app.post('/api/v1/task-loops/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/task-loops/proposals' + q, req, res);
+  });
+  app.post('/api/v1/task-loops/:loop_id/instances/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/task-loops/' +
+        encodeURIComponent(req.params.loop_id) +
+        '/instances/proposals' +
+        q,
+      req,
+      res,
+    );
   });
 
   // Phase 18: image upload — gateway buffers the file, fetches GitHub token from bridge,
@@ -3061,7 +3101,7 @@ async function proxyToCanister(req, res) {
       upstream.status < 300
     ) {
       try {
-        const applyOutcome = await maybeApplyHostedDelegationAfterApprove({
+        const delegationApplyOutcome = await maybeApplyHostedDelegationAfterApprove({
           method: req.method,
           pathOnly: pathOnlyForBody,
           upstreamStatus: upstream.status,
@@ -3073,9 +3113,25 @@ async function proxyToCanister(req, res) {
           actorUserId: uid,
           canisterAuthHeaders,
         });
-        responseBody = mergeDelegationApplyIntoApproveResponse(body, applyOutcome);
-        if (applyOutcome && !applyOutcome.applied) {
-          console.error('[gateway] delegation index apply after approve failed:', applyOutcome.error);
+        responseBody = mergeDelegationApplyIntoApproveResponse(body, delegationApplyOutcome);
+        if (delegationApplyOutcome && !delegationApplyOutcome.applied) {
+          console.error('[gateway] delegation index apply after approve failed:', delegationApplyOutcome.error);
+        }
+        const taskApplyOutcome = await maybeApplyHostedTaskAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergeTaskApplyIntoApproveResponse(responseBody, taskApplyOutcome);
+        if (taskApplyOutcome && !taskApplyOutcome.applied) {
+          console.error('[gateway] task index apply after approve failed:', taskApplyOutcome.error);
         }
       } catch (e) {
         console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));
