@@ -464,8 +464,8 @@ Scooling inert/live adapter read coherence with Knowtation store.
       checklist frozen here — **contract only**.
 - [x] Ratified against `TASK-STORE-CONTRACT-2G.md`, `TASK-LOOP-STORE-CONTRACT-2G-c.md`, SD-4, plan
       §3.3–§3.4, OD-3/OD-4 defaults.
-- [ ] 2G-d-b implements on `feat/phase-2g-d-write-proposals`.
-- [ ] Posture remains off until Tier 3 checklist §9 consumed.
+- [x] 2G-d-b implements on `feat/phase-2g-d-write-proposals`.
+- [x] Posture remains off until Tier 3 checklist §9 consumed.
 
 ## Non-goals (2G-d)
 
