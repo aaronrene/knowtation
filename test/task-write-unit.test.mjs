@@ -27,7 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tmpRoot = path.join(__dirname, 'fixtures', 'tmp-task-write-unit');
 
 describe('taskStateId / loopStateId — deterministic tokens', () => {
-  it('taskStateId is stable and prefixed', () => {
+  it('taskStateId is stable and prefixed', async () => {
     const task = {
       schema: 'knowtation.task/v0',
       task_id: 'task_x',
@@ -52,13 +52,13 @@ describe('taskStateId / loopStateId — deterministic tokens', () => {
     assert.ok(a.startsWith(TASK_STATE_ID_PREFIX));
   });
 
-  it('absent sentinels are stable', () => {
+  it('absent sentinels are stable', async () => {
     assert.equal(absentTaskStateId(), absentTaskStateId());
     assert.equal(absentLoopStateId(), absentLoopStateId());
     assert.ok(absentLoopStateId().startsWith(LOOP_STATE_ID_PREFIX));
   });
 
-  it('computeMaterializeTaskId matches school-trip fixture shape', () => {
+  it('computeMaterializeTaskId matches school-trip fixture shape', async () => {
     const r = computeMaterializeTaskId('loop_school_trip', '2026-W25');
     assert.equal(r.ok, true);
     assert.equal(r.taskId, 'task_school_trip_2026_w25');
@@ -76,12 +76,12 @@ describe('gating — TASK_WRITES_ENABLED default OFF', () => {
     delete process.env.TASK_WRITES_ENABLED;
   });
 
-  it('defaults disabled', () => {
+  it('defaults disabled', async () => {
     assert.equal(getTaskWritesEnabled(dataDir), false);
   });
 
-  it('disabled propose returns TASK_WRITES_DISABLED', () => {
-    const result = handleTaskProposeRequest({
+  it('disabled propose returns TASK_WRITES_DISABLED', async () => {
+    const result = await handleTaskProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal'],
@@ -94,9 +94,9 @@ describe('gating — TASK_WRITES_ENABLED default OFF', () => {
     assert.equal(result.code, 'TASK_WRITES_DISABLED');
   });
 
-  it('enabled via env proposes envelope shape', () => {
+  it('enabled via env proposes envelope shape', async () => {
     process.env.TASK_WRITES_ENABLED = '1';
-    const result = handleTaskProposeRequest({
+    const result = await handleTaskProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal'],
@@ -110,10 +110,29 @@ describe('gating — TASK_WRITES_ENABLED default OFF', () => {
     assert.equal(result.payload.auto_approvable, false);
     assert.equal(result.payload.review_queue, 'task-writes');
   });
+
+  it('async createProposal injector resolves proposal_id (hosted bridge parity)', async () => {
+    process.env.TASK_WRITES_ENABLED = '1';
+    const result = await handleTaskProposeRequest({
+      dataDir,
+      vaultId: 'default',
+      cliScopes: ['personal'],
+      proposalKind: 'task_create',
+      body: sampleTaskCreatePayload(),
+      intent: 'async hosted',
+      createProposal: async (_dataDir, input) => ({
+        proposal_id: 'prop_async_hosted_001',
+        path: input.path,
+        status: 'proposed',
+      }),
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.payload.proposal_id, 'prop_async_hosted_001');
+  });
 });
 
 describe('computeLazyOccurrenceKey — manual recurrence', () => {
-  it('increments manual-N keys', () => {
+  it('increments manual-N keys', async () => {
     const loop = { recurrence: { kind: 'manual' } };
     const keys = new Set(['manual-1']);
     assert.equal(computeLazyOccurrenceKey(loop, keys), 'manual-2');

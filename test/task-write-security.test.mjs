@@ -40,11 +40,11 @@ describe('task write — security', () => {
     delete process.env.TASK_WRITES_ENABLED;
   });
 
-  it('personal writer cannot create project-scoped task', () => {
+  it('personal writer cannot create project-scoped task', async () => {
     const body = sampleTaskCreatePayload();
     body.task.scope = 'project';
     body.task.workspace_id = 'ws_project';
-    const result = handleTaskProposeRequest({
+    const result = await handleTaskProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal'],
@@ -57,12 +57,12 @@ describe('task write — security', () => {
     assert.equal(result.code, 'TASK_SCOPE_DENIED');
   });
 
-  it('assignment at project scope returns TASK_CLASSROOM_AUTHORITY_REQUIRED', () => {
+  it('assignment at project scope returns TASK_CLASSROOM_AUTHORITY_REQUIRED', async () => {
     const body = sampleTaskCreatePayload();
     body.task.kind = 'assignment';
     body.task.scope = 'project';
     body.task.workspace_id = 'ws_project';
-    const result = handleTaskProposeRequest({
+    const result = await handleTaskProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal', 'project'],
@@ -75,13 +75,13 @@ describe('task write — security', () => {
     assert.equal(result.code, 'TASK_CLASSROOM_AUTHORITY_REQUIRED');
   });
 
-  it('out-of-scope task edit returns 404 unknown_task (no existence leak)', () => {
+  it('out-of-scope task edit returns 404 unknown_task (no existence leak)', async () => {
     const body = sampleTaskCreatePayload();
     body.task.task_id = 'task_sec_hidden';
     body.task.scope = 'org';
     approveTaskProposal(
       dataDir,
-      handleTaskProposeRequest({
+      (await handleTaskProposeRequest({
         dataDir,
         vaultId: 'default',
         cliScopes: ['personal', 'project', 'org'],
@@ -89,10 +89,10 @@ describe('task write — security', () => {
         body,
         intent: 'seed org task',
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
-    const result = handleTaskProposeRequest({
+    const result = await handleTaskProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal'],
@@ -111,12 +111,12 @@ describe('task write — security', () => {
     assert.equal(result.code, 'unknown_task');
   });
 
-  it('stale base_state_id on pause returns TASK_LOOP_LINEAGE_CONFLICT', () => {
+  it('stale base_state_id on pause returns TASK_LOOP_LINEAGE_CONFLICT', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_sec_stale';
     approveTaskProposal(
       dataDir,
-      handleTaskLoopProposeRequest({
+      (await handleTaskLoopProposeRequest({
         dataDir,
         vaultId: 'default',
         cliScopes: ['personal'],
@@ -125,10 +125,10 @@ describe('task write — security', () => {
         intent: 'create',
         starterDir,
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
-    const result = handleTaskLoopProposeRequest({
+    const result = await handleTaskLoopProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal'],
@@ -146,10 +146,10 @@ describe('task write — security', () => {
     assert.equal(result.code, 'TASK_LOOP_LINEAGE_CONFLICT');
   });
 
-  it('proposal JSON contains no token/oauth patterns', () => {
+  it('proposal JSON contains no token/oauth patterns', async () => {
     const body = sampleTaskCreatePayload();
     body.task.title = '<script>alert(1)</script>';
-    const result = handleTaskProposeRequest({
+    const result = await handleTaskProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal'],

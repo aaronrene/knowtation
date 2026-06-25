@@ -40,10 +40,10 @@ describe('task write — e2e lifecycle', () => {
     delete process.env.TASK_WRITES_ENABLED;
   });
 
-  it('loop create → approve → materialize → get instance with loop_ref/occurrence_key', () => {
+  it('loop create → approve → materialize → get instance with loop_ref/occurrence_key', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_e2e_trip';
-    const proposed = handleTaskLoopProposeRequest({
+    const proposed = await handleTaskLoopProposeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -60,7 +60,7 @@ describe('task write — e2e lifecycle', () => {
     assert.ok(loop);
     const baseStateId = loopStateId(taskLoopForClient(loop));
 
-    const mat = handleTaskInstanceMaterializeRequest({
+    const mat = await handleTaskInstanceMaterializeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -80,10 +80,10 @@ describe('task write — e2e lifecycle', () => {
     assert.equal(task.run_ref, null);
   });
 
-  it('pause blocks materialize propose', () => {
+  it('pause blocks materialize propose', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_e2e_pause';
-    const createRes = handleTaskLoopProposeRequest({
+    const createRes = await handleTaskLoopProposeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -98,7 +98,7 @@ describe('task write — e2e lifecycle', () => {
     const loop = getTaskLoop(dataDir, vaultId, 'loop_e2e_pause', { visibleScopes: visibleAll, starterDir });
     const baseStateId = loopStateId(taskLoopForClient(loop));
 
-    const pauseRes = handleTaskLoopProposeRequest({
+    const pauseRes = await handleTaskLoopProposeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -110,7 +110,7 @@ describe('task write — e2e lifecycle', () => {
     });
     approveTaskProposal(dataDir, pauseRes.payload.proposal_id);
 
-    const mat = handleTaskInstanceMaterializeRequest({
+    const mat = await handleTaskInstanceMaterializeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -124,12 +124,12 @@ describe('task write — e2e lifecycle', () => {
     assert.equal(mat.code, 'TASK_LOOP_NOT_ACTIVE');
   });
 
-  it('cancel cascades pending instances atomically', () => {
+  it('cancel cascades pending instances atomically', async () => {
     const payload = sampleLoopCreatePayload();
     payload.loop.loop_id = 'loop_e2e_cancel';
     approveTaskProposal(
       dataDir,
-      handleTaskLoopProposeRequest({
+      (await handleTaskLoopProposeRequest({
         dataDir,
         vaultId,
         visibleScopes: visibleAll,
@@ -138,13 +138,13 @@ describe('task write — e2e lifecycle', () => {
         intent: 'create',
         starterDir,
         createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     let loop = getTaskLoop(dataDir, vaultId, 'loop_e2e_cancel', { visibleScopes: visibleAll, starterDir });
     let baseStateId = loopStateId(taskLoopForClient(loop));
 
-    const mat = handleTaskInstanceMaterializeRequest({
+    const mat = await handleTaskInstanceMaterializeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,
@@ -159,7 +159,7 @@ describe('task write — e2e lifecycle', () => {
     loop = getTaskLoop(dataDir, vaultId, 'loop_e2e_cancel', { visibleScopes: visibleAll, starterDir });
     baseStateId = loopStateId(taskLoopForClient(loop));
 
-    const cancelRes = handleTaskLoopProposeRequest({
+    const cancelRes = await handleTaskLoopProposeRequest({
       dataDir,
       vaultId,
       visibleScopes: visibleAll,

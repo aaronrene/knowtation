@@ -2092,7 +2092,7 @@ async function main() {
         payload && typeof payload.proposal_kind === 'string' ? payload.proposal_kind : 'task_create';
       const { handleTaskProposeRequest } = await import('../lib/task/task-write.mjs');
       const { createProposal } = await import('../hub/proposals-store.mjs');
-      const result = handleTaskProposeRequest({
+      const result = await handleTaskProposeRequest({
         dataDir: config.data_dir,
         vaultId,
         cliScopes,
@@ -2166,7 +2166,7 @@ async function main() {
         payload && typeof payload.proposal_kind === 'string' ? payload.proposal_kind : 'task_loop_create';
       const { handleTaskLoopProposeRequest } = await import('../lib/task/task-write.mjs');
       const { createProposal } = await import('../hub/proposals-store.mjs');
-      const result = handleTaskLoopProposeRequest({
+      const result = await handleTaskLoopProposeRequest({
         dataDir: config.data_dir,
         vaultId,
         cliScopes,
@@ -2196,7 +2196,7 @@ async function main() {
       const intent = getOpt('intent') || 'materialize occurrence';
       const { handleTaskInstanceMaterializeRequest } = await import('../lib/task/task-write.mjs');
       const { createProposal } = await import('../hub/proposals-store.mjs');
-      const result = handleTaskInstanceMaterializeRequest({
+      const result = await handleTaskInstanceMaterializeRequest({
         dataDir: config.data_dir,
         vaultId,
         cliScopes,

@@ -12,6 +12,9 @@ import {
   handleTaskInstanceMaterializeRequest,
 } from '../../lib/task/task-write.mjs';
 import { createTaskProposalOnCanister, applyApprovedTaskProposalFromCanister } from '../../lib/task/task-hosted-proposal.mjs';
+import { resolveStarterTasksDir } from '../../lib/task/task-store.mjs';
+
+const BRIDGE_STARTER_TASKS_DIR = resolveStarterTasksDir(import.meta.url);
 
 /**
  * Map bridge role to task handler role (member → editor, matching self-hosted hub/server.mjs).
@@ -125,6 +128,7 @@ export function registerBridgeTaskRoutes(app, deps) {
       vaultId: ctx.hctx.vaultId,
       userId: req.uid,
       role: ctx.role,
+      starterDir: BRIDGE_STARTER_TASKS_DIR,
       scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
       workspace_id: typeof req.query.workspace_id === 'string' ? req.query.workspace_id : undefined,
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
@@ -148,6 +152,7 @@ export function registerBridgeTaskRoutes(app, deps) {
       taskId,
       userId: req.uid,
       role: ctx.role,
+      starterDir: BRIDGE_STARTER_TASKS_DIR,
     });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, code: result.code });
@@ -165,7 +170,7 @@ export function registerBridgeTaskRoutes(app, deps) {
         ? body.proposal_kind.trim()
         : 'task_create';
     try {
-      const result = handleTaskProposeRequest({
+      const result = await handleTaskProposeRequest({
         dataDir,
         vaultId: ctx.hctx.vaultId,
         userId: req.uid,
@@ -173,6 +178,7 @@ export function registerBridgeTaskRoutes(app, deps) {
         proposalKind,
         body,
         intent: body.intent,
+        starterDir: BRIDGE_STARTER_TASKS_DIR,
         createProposal: hostedCreateProposal({
           effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
           actorUid: req.uid,
@@ -198,7 +204,7 @@ export function registerBridgeTaskRoutes(app, deps) {
         ? body.proposal_kind.trim()
         : 'task_loop_create';
     try {
-      const result = handleTaskLoopProposeRequest({
+      const result = await handleTaskLoopProposeRequest({
         dataDir,
         vaultId: ctx.hctx.vaultId,
         userId: req.uid,
@@ -206,6 +212,7 @@ export function registerBridgeTaskRoutes(app, deps) {
         proposalKind,
         body,
         intent: body.intent,
+        starterDir: BRIDGE_STARTER_TASKS_DIR,
         createProposal: hostedCreateProposal({
           effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
           actorUid: req.uid,
@@ -229,7 +236,7 @@ export function registerBridgeTaskRoutes(app, deps) {
       typeof req.params.loop_id === 'string' ? decodeURIComponent(req.params.loop_id).trim() : '';
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     try {
-      const result = handleTaskInstanceMaterializeRequest({
+      const result = await handleTaskInstanceMaterializeRequest({
         dataDir,
         vaultId: ctx.hctx.vaultId,
         userId: req.uid,
@@ -237,6 +244,7 @@ export function registerBridgeTaskRoutes(app, deps) {
         loopId,
         body: { ...body, loop_id: loopId },
         intent: body.intent,
+        starterDir: BRIDGE_STARTER_TASKS_DIR,
         createProposal: hostedCreateProposal({
           effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
           actorUid: req.uid,
