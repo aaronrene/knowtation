@@ -15,8 +15,8 @@ const VALID_WEEKLY = {
 };
 
 describe('Task loop RRULE — posture', () => {
-  it('TASK_LOOP_RRULE_ENABLED stays false until Tier 3', () => {
-    assert.equal(TASK_LOOP_RRULE_ENABLED, false);
+  it('TASK_LOOP_RRULE_ENABLED is true after Tier 3 BUNDLED_2G_LIVE 2026-06-25', () => {
+    assert.equal(TASK_LOOP_RRULE_ENABLED, true);
   });
 });
 
