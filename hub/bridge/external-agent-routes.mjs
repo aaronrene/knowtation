@@ -3,7 +3,7 @@
  */
 
 import {
-  handleListTasks,
+  handleGetTasks,
   handleClaimTask,
   handleCompleteTask,
   handleNeedsInputTask,
@@ -38,6 +38,20 @@ const PROTOCOL_ERRORS = {
 function sendExternalProtocolError(res, code) {
   const err = PROTOCOL_ERRORS[code] || PROTOCOL_ERRORS.invalid_request;
   return res.status(err.status).json({ code, error: err.message });
+}
+
+/**
+ * @param {import('express').Response} res
+ * @param {{ ok: boolean, status?: number, code?: string, payload?: unknown } & Record<string, unknown>} result
+ * @param {number} [defaultStatus]
+ */
+function sendProtocolSuccess(res, result, defaultStatus = 200) {
+  const status = typeof result.status === 'number' ? result.status : defaultStatus;
+  if (result.payload !== undefined) {
+    return res.status(status).json(result.payload);
+  }
+  const { ok: _ok, status: _status, code: _code, error: _error, payload: _payload, ...body } = result;
+  return res.status(status).json(body);
 }
 
 /**
@@ -94,7 +108,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
       const result = await withExternalProtocolBlobSync({
         blobStore: blobStoreFromReq(req),
         dataDir,
-        run: () => handleListTasks({
+        run: () => handleGetTasks({
           dataDir,
           vaultId: hctx.vaultId,
           userId: req.uid,
@@ -106,7 +120,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
       if (!result.ok) {
         return sendExternalProtocolError(res, result.code);
       }
-      return res.status(200).json(result.payload);
+      return sendProtocolSuccess(res, result);
     } catch (err) {
       return res.status(500).json({ error: String(err), code: 'RUNTIME_ERROR' });
     }
@@ -136,7 +150,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
       if (!result.ok) {
         return sendExternalProtocolError(res, result.code);
       }
-      return res.status(200).json(result.payload);
+      return sendProtocolSuccess(res, result);
     } catch (err) {
       return res.status(500).json({ error: String(err), code: 'RUNTIME_ERROR' });
     }
@@ -166,7 +180,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
       if (!result.ok) {
         return sendExternalProtocolError(res, result.code);
       }
-      return res.status(200).json(result.payload);
+      return sendProtocolSuccess(res, result);
     } catch (err) {
       return res.status(500).json({ error: String(err), code: 'RUNTIME_ERROR' });
     }
@@ -196,7 +210,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
       if (!result.ok) {
         return sendExternalProtocolError(res, result.code);
       }
-      return res.status(200).json(result.payload);
+      return sendProtocolSuccess(res, result);
     } catch (err) {
       return res.status(500).json({ error: String(err), code: 'RUNTIME_ERROR' });
     }
@@ -226,7 +240,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
       if (!result.ok) {
         return sendExternalProtocolError(res, result.code);
       }
-      return res.status(200).json(result.payload);
+      return sendProtocolSuccess(res, result);
     } catch (err) {
       return res.status(500).json({ error: String(err), code: 'RUNTIME_ERROR' });
     }
