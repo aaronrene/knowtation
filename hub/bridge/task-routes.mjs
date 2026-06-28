@@ -24,6 +24,7 @@ import {
   resolveStarterLoopInstancesDir,
 } from '../../lib/task/task-loop-store.mjs';
 import { withLoopPassAuditBlobSync } from './loop-pass-audit-blob-store.mjs';
+import { persistExternalProtocolStoresToBlob } from './external-agent-blob-store.mjs';
 
 const BRIDGE_STARTER_TASKS_DIR = resolveStarterTasksDir(import.meta.url);
 const BRIDGE_STARTER_LOOPS_DIR = resolveStarterTaskLoopsDir(import.meta.url);
@@ -371,6 +372,7 @@ export function registerBridgeTaskRoutes(app, deps) {
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, code: result.code });
     }
+    await persistExternalProtocolStoresToBlob(req.blobStore ?? null, dataDir);
     return res.json(result.payload);
   });
 }
