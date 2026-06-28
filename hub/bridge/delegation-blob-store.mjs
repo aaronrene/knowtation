@@ -34,6 +34,67 @@ export function delegationBlobKey(filename) {
 }
 
 /**
+ * Merge local and blob grants stores without losing fresher mints or revocations.
+ * Warm bridge lambdas may mint/revoke on disk before the blob read in the next handler
+ * reflects that write; blind overwrite caused flaky E2/E5 smokes.
+ *
+ * @param {string} localRaw
+ * @param {string} blobRaw
+ * @returns {string}
+ */
+export function mergeGrantsStoreJson(localRaw, blobRaw) {
+  const parse = (raw) => {
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  };
+
+  const local = parse(localRaw);
+  const blob = parse(blobRaw);
+  if (!local && !blob) return blobRaw || localRaw || '';
+  if (!local) return blobRaw;
+  if (!blob) return localRaw;
+
+  /** @param {Record<string, unknown>} grant */
+  const grantScore = (grant) => (grant.revoked_at ? 2 : 1);
+
+  /** @param {Record<string, unknown>} a @param {Record<string, unknown>} b */
+  const pickGrant = (a, b) => {
+    const scoreA = grantScore(a);
+    const scoreB = grantScore(b);
+    if (scoreA !== scoreB) return scoreA > scoreB ? a : b;
+    const timeA = Date.parse(String(a.issued_at || '')) || 0;
+    const timeB = Date.parse(String(b.issued_at || '')) || 0;
+    return timeB >= timeA ? b : a;
+  };
+
+  if (!local.vaults) local.vaults = {};
+  for (const [vaultId, blobVault] of Object.entries(blob.vaults || {})) {
+    const localVault = local.vaults[vaultId];
+    if (!localVault || !Array.isArray(localVault.grants)) {
+      local.vaults[vaultId] = blobVault;
+      continue;
+    }
+    /** @type {Map<string, Record<string, unknown>>} */
+    const byId = new Map();
+    for (const grant of localVault.grants) {
+      if (grant && typeof grant.grant_id === 'string') byId.set(grant.grant_id, grant);
+    }
+    for (const grant of blobVault.grants || []) {
+      if (!grant || typeof grant.grant_id !== 'string') continue;
+      const existing = byId.get(grant.grant_id);
+      byId.set(grant.grant_id, existing ? pickGrant(existing, grant) : grant);
+    }
+    local.vaults[vaultId] = { grants: [...byId.values()] };
+  }
+
+  return JSON.stringify(local);
+}
+
+/**
  * Load delegation store files from Blobs into DATA_DIR (hosted cold-start hydration).
  *
  * @param {BlobStore|null|undefined} blobStore
@@ -47,7 +108,15 @@ export async function hydrateDelegationStoresFromBlob(blobStore, dataDir) {
     try {
       const raw = await blobStore.get(delegationBlobKey(filename), { type: 'text' });
       if (typeof raw === 'string' && raw.trim()) {
-        fs.writeFileSync(fp, raw, 'utf8');
+        if (filename === DELEGATION_GRANTS_FILE && fs.existsSync(fp)) {
+          const localRaw = fs.readFileSync(fp, 'utf8');
+          const merged = mergeGrantsStoreJson(localRaw, raw);
+          if (merged.trim()) {
+            fs.writeFileSync(fp, merged, 'utf8');
+          }
+        } else {
+          fs.writeFileSync(fp, raw, 'utf8');
+        }
       }
     } catch {
       /* keep existing file or empty */

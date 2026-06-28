@@ -1245,6 +1245,9 @@ async function proxyTo(baseUrl, url, req, res) {
   }
   if (req.headers.authorization) headers.authorization = req.headers.authorization;
   if (req.headers['x-vault-id']) headers['x-vault-id'] = req.headers['x-vault-id'];
+  if (req.headers['x-delegation-bearer']) {
+    headers['x-delegation-bearer'] = req.headers['x-delegation-bearer'];
+  }
   const opts = { method: req.method, headers };
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
     opts.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
