@@ -953,6 +953,28 @@ if (BRIDGE_URL) {
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/audit' + q, req, res);
   });
 
+  // External Agent Protocol routes (7D-b-b)
+  app.get('/api/v1/agent-protocol/tasks', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agent-protocol/tasks' + q, req, res);
+  });
+  app.post('/api/v1/agent-protocol/tasks/:id/claim', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agent-protocol/tasks/' + encodeURIComponent(req.params.id) + '/claim' + q, req, res);
+  });
+  app.post('/api/v1/agent-protocol/tasks/:id/complete', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agent-protocol/tasks/' + encodeURIComponent(req.params.id) + '/complete' + q, req, res);
+  });
+  app.post('/api/v1/agent-protocol/tasks/:id/needs-input', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agent-protocol/tasks/' + encodeURIComponent(req.params.id) + '/needs-input' + q, req, res);
+  });
+  app.post('/api/v1/agent-protocol/tasks/:id/heartbeat', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/agent-protocol/tasks/' + encodeURIComponent(req.params.id) + '/heartbeat' + q, req, res);
+  });
+
   // Task routes (hosted parity — 2G): proxy read + write propose to bridge event/flow store.
   app.get('/api/v1/tasks', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';

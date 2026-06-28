@@ -70,6 +70,7 @@ import { retrieveAgentCalendarContext } from '../../lib/calendar/agent-retrieval
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
+import { registerBridgeExternalAgentRoutes } from './external-agent-routes.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
 const inServerless = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
@@ -3216,6 +3217,13 @@ registerBridgeTaskRoutes(app, {
   resolveHostedBridgeContext,
   effectiveRole,
   loadRoles,
+});
+
+// External Agent Protocol (7D-b-b)
+registerBridgeExternalAgentRoutes(app, {
+  dataDir: DATA_DIR,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
 });
 
 function bridgeMemoryAuth(req) {
