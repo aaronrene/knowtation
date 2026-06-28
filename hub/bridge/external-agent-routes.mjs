@@ -46,12 +46,18 @@ function sendExternalProtocolError(res, code) {
  * @param {number} [defaultStatus]
  */
 function sendProtocolSuccess(res, result, defaultStatus = 200) {
-  const status = typeof result.status === 'number' ? result.status : defaultStatus;
+  const httpStatus = typeof result.status === 'number' ? result.status : defaultStatus;
   if (result.payload !== undefined) {
-    return res.status(status).json(result.payload);
+    return res.status(httpStatus).json(result.payload);
   }
-  const { ok: _ok, status: _status, code: _code, error: _error, payload: _payload, ...body } = result;
-  return res.status(status).json(body);
+  /** @type {Record<string, unknown>} */
+  const body = { ...result };
+  delete body.ok;
+  delete body.code;
+  delete body.error;
+  delete body.payload;
+  if (typeof body.status === 'number') delete body.status;
+  return res.status(httpStatus).json(body);
 }
 
 /**
@@ -91,10 +97,10 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
   /**
    * @param {import('express').Request} req
    */
-  function extractBearerToken(req) {
-    const auth = req.headers.authorization;
-    if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-      return auth.slice(7).trim();
+  function extractDelegationBearer(req) {
+    const header = req.headers['x-delegation-bearer'];
+    if (typeof header === 'string' && header.trim()) {
+      return header.trim();
     }
     return null;
   }
@@ -102,7 +108,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
   app.get('/api/v1/agent-protocol/tasks', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status || 403).json({ error: hctx.error, code: hctx.code });
-    const bearerToken = extractBearerToken(req);
+    const bearerToken = extractDelegationBearer(req);
 
     try {
       const result = await withExternalProtocolBlobSync({
@@ -129,7 +135,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
   app.post('/api/v1/agent-protocol/tasks/:taskId/claim', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status || 403).json({ error: hctx.error, code: hctx.code });
-    const bearerToken = extractBearerToken(req);
+    const bearerToken = extractDelegationBearer(req);
     const taskId = req.params.taskId;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
 
@@ -159,7 +165,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
   app.post('/api/v1/agent-protocol/tasks/:taskId/complete', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status || 403).json({ error: hctx.error, code: hctx.code });
-    const bearerToken = extractBearerToken(req);
+    const bearerToken = extractDelegationBearer(req);
     const taskId = req.params.taskId;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
 
@@ -189,7 +195,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
   app.post('/api/v1/agent-protocol/tasks/:taskId/needs-input', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status || 403).json({ error: hctx.error, code: hctx.code });
-    const bearerToken = extractBearerToken(req);
+    const bearerToken = extractDelegationBearer(req);
     const taskId = req.params.taskId;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
 
@@ -219,7 +225,7 @@ export function registerBridgeExternalAgentRoutes(app, deps) {
   app.post('/api/v1/agent-protocol/tasks/:taskId/heartbeat', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status || 403).json({ error: hctx.error, code: hctx.code });
-    const bearerToken = extractBearerToken(req);
+    const bearerToken = extractDelegationBearer(req);
     const taskId = req.params.taskId;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
 

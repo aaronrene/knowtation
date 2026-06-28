@@ -7,6 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { hydrateDelegationStoresFromBlob } from './delegation-blob-store.mjs';
 
 /** @typedef {{ get: (key: string, opts?: { type?: string }) => Promise<string|ArrayBuffer|null>, set: (key: string, value: string) => Promise<void> }} BlobStore */
 
@@ -86,6 +87,7 @@ export async function withExternalProtocolBlobSync(opts) {
   }
 
   await hydrateExternalProtocolStoresFromBlob(opts.blobStore, opts.dataDir);
+  await hydrateDelegationStoresFromBlob(opts.blobStore, opts.dataDir);
 
   // Snapshot before run to avoid unnecessary blob writes if unmodified
   const before = new Map();

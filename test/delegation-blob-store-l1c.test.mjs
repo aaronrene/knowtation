@@ -13,11 +13,13 @@ import {
   DELEGATION_BLOB_FILES,
   delegationBlobKey,
   hydrateDelegationStoresFromBlob,
+  mergeGrantsStoreJson,
   persistDelegationStoresToBlob,
   withDelegationBlobSync,
 } from '../hub/bridge/delegation-blob-store.mjs';
 import {
   DELEGATION_CONSENTS_FILE,
+  DELEGATION_GRANTS_FILE,
   handleDelegationGrantMintRequest,
   seedDelegationFixtures,
 } from '../lib/agent/delegation.mjs';
@@ -50,6 +52,78 @@ describe('7C-L1c delegation blob store — unit', () => {
   it('DELEGATION_BLOB_FILES includes core index files', () => {
     assert.ok(DELEGATION_BLOB_FILES.includes(DELEGATION_CONSENTS_FILE));
   });
+
+  it('mergeGrantsStoreJson keeps local mint when blob is stale', () => {
+    const local = JSON.stringify({
+      vaults: {
+        default: {
+          grants: [{
+            grant_id: 'dgrnt_new',
+            issued_at: '2026-06-28T12:00:00.000Z',
+            revoked_at: null,
+          }],
+        },
+      },
+    });
+    const blob = JSON.stringify({ vaults: { default: { grants: [] } } });
+    const merged = JSON.parse(mergeGrantsStoreJson(local, blob));
+    assert.equal(merged.vaults.default.grants.length, 1);
+    assert.equal(merged.vaults.default.grants[0].grant_id, 'dgrnt_new');
+  });
+
+  it('mergeGrantsStoreJson prefers revoked grant from blob', () => {
+    const local = JSON.stringify({
+      vaults: {
+        default: {
+          grants: [{
+            grant_id: 'dgrnt_x',
+            issued_at: '2026-06-28T12:00:00.000Z',
+            revoked_at: null,
+          }],
+        },
+      },
+    });
+    const blob = JSON.stringify({
+      vaults: {
+        default: {
+          grants: [{
+            grant_id: 'dgrnt_x',
+            issued_at: '2026-06-28T12:00:00.000Z',
+            revoked_at: '2026-06-28T12:05:00.000Z',
+          }],
+        },
+      },
+    });
+    const merged = JSON.parse(mergeGrantsStoreJson(local, blob));
+    assert.equal(merged.vaults.default.grants[0].revoked_at, '2026-06-28T12:05:00.000Z');
+  });
+
+  it('mergeGrantsStoreJson keeps local revoke when blob is stale', () => {
+    const local = JSON.stringify({
+      vaults: {
+        default: {
+          grants: [{
+            grant_id: 'dgrnt_x',
+            issued_at: '2026-06-28T12:00:00.000Z',
+            revoked_at: '2026-06-28T12:05:00.000Z',
+          }],
+        },
+      },
+    });
+    const blob = JSON.stringify({
+      vaults: {
+        default: {
+          grants: [{
+            grant_id: 'dgrnt_x',
+            issued_at: '2026-06-28T12:00:00.000Z',
+            revoked_at: null,
+          }],
+        },
+      },
+    });
+    const merged = JSON.parse(mergeGrantsStoreJson(local, blob));
+    assert.equal(merged.vaults.default.grants[0].revoked_at, '2026-06-28T12:05:00.000Z');
+  });
 });
 
 describe('7C-L1c delegation blob store — integration', () => {
@@ -65,6 +139,29 @@ describe('7C-L1c delegation blob store — integration', () => {
 
   afterEach(() => {
     delete process.env.DELEGATION_ENABLED;
+  });
+
+  it('hydrate merges grants without dropping warm-lambda mint', async () => {
+    const dataDir = path.join(tmpRoot, 'integration', 'merge-data');
+    fs.rmSync(dataDir, { recursive: true, force: true });
+    fs.mkdirSync(dataDir, { recursive: true });
+    const localGrant = JSON.stringify({
+      vaults: {
+        default: {
+          grants: [{
+            grant_id: 'dgrnt_warm',
+            issued_at: '2026-06-28T12:00:00.000Z',
+            revoked_at: null,
+          }],
+        },
+      },
+    });
+    fs.writeFileSync(path.join(dataDir, DELEGATION_GRANTS_FILE), localGrant, 'utf8');
+    const blob = makeMockBlobStore();
+    await blob.set(delegationBlobKey(DELEGATION_GRANTS_FILE), JSON.stringify({ vaults: { default: { grants: [] } } }));
+    await hydrateDelegationStoresFromBlob(blob, dataDir);
+    const merged = JSON.parse(fs.readFileSync(path.join(dataDir, DELEGATION_GRANTS_FILE), 'utf8'));
+    assert.equal(merged.vaults.default.grants[0].grant_id, 'dgrnt_warm');
   });
 
   it('persist then hydrate round-trips consent index across cold start', async () => {
