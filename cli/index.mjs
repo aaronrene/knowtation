@@ -47,6 +47,7 @@ Commands:
   import <source-type> <input>   Ingest from ChatGPT, Claude, Mem0, etc. See docs/IMPORT-SOURCES.md.
   memory <action>                Memory layer commands: query, list, store, search, clear, export, stats. Requires memory.enabled.
   hub status                    Check Hub reachability (use --hub <url>). Requires Hub API.
+  auth <subcommand>             Offline-locked auth: generate-setup-token, bootstrap-admin, token.
   doctor                        Local vault + optional Hub API checks (token discipline per docs/TOKEN-SAVINGS.md). Options: --json, --hub <url>.
   propose <path>                Create a proposal from local vault note (body/frontmatter) on the Hub. Options: --hub, --intent, --vault (X-Vault-Id), --external-ref, --labels a,b, --source agent|human|import, --base-state-id, --no-fetch-base.
   vault sync                    Commit and push vault to Git (when vault.git.enabled and remote set). See config.
@@ -1105,6 +1106,20 @@ async function main() {
         process.exit(res.ok ? 0 : 2);
       } catch (e) {
         exitWithError('Hub unreachable: ' + e.message, 2, useJson);
+      }
+    })();
+    return;
+  }
+
+  if (subcommand === 'auth') {
+    const authArgs = args.slice(1);
+    (async () => {
+      try {
+        const { runAuthCli } = await import('../hub/lib/local-auth-cli.mjs');
+        const code = await runAuthCli(authArgs);
+        process.exit(code);
+      } catch (e) {
+        exitWithError('knowtation auth: ' + (e.message || String(e)), 1, useJson);
       }
     })();
     return;
