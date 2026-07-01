@@ -13,11 +13,11 @@ milestones land.
 | --- | --- |
 | **P1b-a spec** | **DONE** — `docs/PHASE-8-P1B-OFFLINE-LOCKED-AUTH-SPEC.md` (681 lines, frozen) |
 | **P1b-b build** | **DONE** — code + seven-tier tests (29/29 green); merged to `main` (PR #254) |
-| **P1b-c flag flip** | **DONE on branch** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
-| **Branch** | `feat/phase-8-p1b-c-offline-locked-auth-flag-flip` → Tier 3 merge to `main` |
-| **Posture** | `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true` (on branch); `KNOWTATION_OFFLINE_LOCKED_AUTH` unset (env gate separate Tier 3 per install) |
-| **Next (Knowtation)** | **P1b-c merge + muse-mirror PR** (Tier 3) — operator authorized 2026-07-01 |
-| **Next (Scooling)** | **Idle** — P1b-verify CONSUMED; no Scooling changes for P1b-c |
+| **P1b-c flag flip** | **CONSUMED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
+| **Branch** | Merged to Muse `main` @ `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
+| **Posture** | `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; `KNOWTATION_OFFLINE_LOCKED_AUTH` unset (env gate separate Tier 3 per install) |
+| **Next (Knowtation)** | **Per-install env gate** — `KNOWTATION_OFFLINE_LOCKED_AUTH=enabled` (Tier 3 per deploy; not a repo session) |
+| **Next (Scooling)** | **Idle** — Phase 8 P1b cross-repo track complete |
 
 ---
 
@@ -69,6 +69,7 @@ Cursor model: Auto
 
 | Date | Event |
 | --- | --- |
-| 2026-07-01 | P1b-c flag flip — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green on `feat/phase-8-p1b-c-offline-locked-auth-flag-flip` (Tier 3 authorized) |
+| 2026-07-01 | P1b-c **MERGED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; Muse `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
+| 2026-07-01 | P1b-c flag flip — 29/29 green on `feat/phase-8-p1b-c-offline-locked-auth-flag-flip` (Tier 3 authorized) |
 | 2026-07-01 | P1b-a spec frozen on `feat/phase-8-p1b-offline-locked-auth-spec` (Muse `4aaa6f7`) |
 | 2026-07-01 | P1b-b Auto build complete — inert libs + 29 tests; bundled for Tier 3 merge |
