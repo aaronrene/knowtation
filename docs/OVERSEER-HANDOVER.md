@@ -16,8 +16,8 @@ milestones land.
 | **P1b-c flag flip** | **CONSUMED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
 | **Branch** | Merged to Muse `main` @ `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
 | **Posture** | `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; `KNOWTATION_OFFLINE_LOCKED_AUTH` unset (env gate separate Tier 3 per install) |
-| **Next (Knowtation)** | **Per-install env gate** — `KNOWTATION_OFFLINE_LOCKED_AUTH=enabled` (Tier 3 per deploy; not a repo session) |
-| **Next (Scooling)** | **Idle** — Phase 8 P1b cross-repo track complete |
+| **Next (Knowtation)** | **Airgapped install smoke** (operator) — `KNOWTATION_OFFLINE_LOCKED_AUTH=enabled` on a deploy; or wait for Scooling **P2-verify** |
+| **Next (Scooling)** | **P2-verify** — matrix `local_model_inference` → `available` (see Scooling PRIMARY) |
 
 ---
 
