@@ -1,7 +1,6 @@
 # Phase 8 P1b-a — Offline-Locked Auth Spec (Frozen Thinking Outline)
 
-Status: **Frozen design for the Auto build (P1b-b). No implementation in this step.
-No live flip. No env changes. All gates hard-`false`.**
+Status: **P1b-a frozen · P1b-b implemented (inert; gates hard-false). Bundled Tier 3 merge to `main`.**
 
 This document freezes WHAT and HOW for the offline-locked auth feature in Knowtation so the
 Auto build (P1b-b) implements mechanically against a fixed spec, per RULE #8 (Orchestrator) and

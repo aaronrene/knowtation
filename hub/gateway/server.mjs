@@ -83,6 +83,11 @@ import { buildNoteOutline } from '../../lib/note-outline.mjs';
 import { buildDocumentTree } from '../../lib/document-tree.mjs';
 import { buildSectionSource } from '../../lib/section-source.mjs';
 import { normalizeMetadataFacets } from '../../lib/vault.mjs';
+import { resolveOfflineLockedAuthPosture } from '../lib/local-auth-gate.mjs';
+import { oauthDisabledGuard, logBootstrapInstructionOnce } from '../lib/local-auth-oauth-guard.mjs';
+import { registerLocalAuthRoutes, credentialStoreHasAdmin } from '../lib/local-auth-routes.mjs';
+import { pruneExpiredBootstrapRecord } from '../lib/local-auth-bootstrap.mjs';
+import { resolveLocalAuthRole } from '../lib/local-auth-role.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -129,6 +134,14 @@ if (BRIDGE_URL) {
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
+const GATEWAY_DATA_DIR =
+  process.env.KNOWTATION_GATEWAY_DATA_DIR || path.join(projectRoot, 'data');
+
+/** Phase 8 P1b-b: offline-locked auth posture (read once at boot). */
+const offlineLockedPosture = resolveOfflineLockedAuthPosture();
+const offlineLockedActive = offlineLockedPosture.active;
+pruneExpiredBootstrapRecord(GATEWAY_DATA_DIR);
+logBootstrapInstructionOnce(offlineLockedActive, credentialStoreHasAdmin(GATEWAY_DATA_DIR));
 
 // Optional: comma-separated list of user IDs (e.g. google:123,github:456) who get role admin on hosted. Others get member.
 const HUB_ADMIN_USER_IDS = (process.env.HUB_ADMIN_USER_IDS || '')
@@ -138,6 +151,12 @@ const HUB_ADMIN_USER_IDS = (process.env.HUB_ADMIN_USER_IDS || '')
 const adminUserIdsSet = new Set(HUB_ADMIN_USER_IDS);
 
 function roleForSub(sub) {
+  if (offlineLockedActive) {
+    return resolveLocalAuthRole(GATEWAY_DATA_DIR, sub, {
+      offlineLockedActive: true,
+      adminUserIdsSet,
+    });
+  }
   return sub && adminUserIdsSet.has(sub) ? 'admin' : 'member';
 }
 
@@ -148,7 +167,7 @@ function canisterAuthHeaders() {
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (!offlineLockedActive && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
     new GoogleStrategy(
       {
@@ -162,7 +181,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     )
   );
 }
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+if (!offlineLockedActive && process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   passport.use(
     new GitHubStrategy(
       {
@@ -406,6 +425,9 @@ app.use(createScoolingWriteBackSmokeRouter());
 
 // Which OAuth providers are configured (no auth)
 app.get('/api/v1/auth/providers', (_req, res) => {
+  if (offlineLockedActive) {
+    return res.json({ google: false, github: false, local: true });
+  }
   res.json({
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
@@ -470,11 +492,22 @@ if (!process.env.NETLIFY) {
     .catch(() => { /* best effort; never fatal */ });
 }
 
+const gatewayOauthBlocked = oauthDisabledGuard(offlineLockedActive, GATEWAY_DATA_DIR);
+
+registerLocalAuthRoutes(app, {
+  dataDir: GATEWAY_DATA_DIR,
+  sessionSecret: SESSION_SECRET,
+  jwtExpiry: JWT_EXPIRY,
+  offlineLockedActive,
+  adminUserIdsSet,
+  issueRefreshCookie: async (res, req, sub) => issueRefreshCookieSafe(res, req, sub),
+});
+
 // Auth: login redirect — plan routes GET /auth/login, GET /auth/callback/google|github. Preserve invite in state for post-login redirect.
 // Phase D3: mcp_state query param is passed through OAuth state for MCP authorization flow.
 // C1/C3 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native_state query param is passed
 // through OAuth state for the native client authorization flow (prefix "native:").
-app.get('/auth/login', (req, res, next) => {
+app.get('/auth/login', gatewayOauthBlocked, (req, res, next) => {
   const provider = (req.query.provider || 'google').toLowerCase();
   const invite = typeof req.query.invite === 'string' ? req.query.invite.trim() : '';
   const mcpState = typeof req.query.mcp_state === 'string' ? req.query.mcp_state.trim() : '';
@@ -507,6 +540,7 @@ function postLoginRedirect(token, req) {
 
 app.get(
   '/auth/callback/google',
+  gatewayOauthBlocked,
   passport.authenticate('google', { session: false }),
   async (req, res) => {
     const state = typeof req.query.state === 'string' ? req.query.state : '';
@@ -528,6 +562,7 @@ app.get(
 );
 app.get(
   '/auth/callback/github',
+  gatewayOauthBlocked,
   passport.authenticate('github', { session: false }),
   async (req, res) => {
     const state = typeof req.query.state === 'string' ? req.query.state : '';
@@ -549,7 +584,7 @@ app.get(
 );
 
 // Hub UI may call login under /api/v1/auth for consistency — redirect to /auth (preserve invite for post-login consume)
-app.get('/api/v1/auth/login', (req, res) => {
+app.get('/api/v1/auth/login', gatewayOauthBlocked, (req, res) => {
   const provider = (req.query.provider || 'google').toLowerCase();
   let url = `${BASE_URL}/auth/login?provider=${encodeURIComponent(provider)}`;
   const invite = typeof req.query.invite === 'string' ? req.query.invite.trim() : '';
@@ -563,7 +598,7 @@ app.get('/api/v1/auth/login', (req, res) => {
 // On Netlify, only the OAuth discovery endpoints are mounted (lightweight, stateless).
 // The full /mcp session endpoint requires a persistent Express server (local dev, Docker, VPS,
 // or a dedicated MCP host like Railway/Fly.io). See docs/AGENT-INTEGRATION.md §2 (hosted MCP).
-if (SESSION_SECRET && !process.env.NETLIFY) {
+if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
   import('./mcp-oauth-provider.mjs').then(async ({ KnowtationOAuthProvider }) => {
     const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
     const oauthProvider = new KnowtationOAuthProvider({

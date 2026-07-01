@@ -178,6 +178,11 @@ import {
   DELEGATION_PROPOSAL_SOURCE,
   hashPrincipalRef,
 } from '../lib/agent/delegation.mjs';
+import { resolveOfflineLockedAuthPosture } from './lib/local-auth-gate.mjs';
+import { oauthDisabledGuard, logBootstrapInstructionOnce } from './lib/local-auth-oauth-guard.mjs';
+import { registerLocalAuthRoutes, credentialStoreHasAdmin } from './lib/local-auth-routes.mjs';
+import { pruneExpiredBootstrapRecord } from './lib/local-auth-bootstrap.mjs';
+import { effectiveRoleForHub } from './lib/local-auth-role.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -237,10 +242,16 @@ function museBridgePublicSettings() {
 /** Phase 13: role store (data/hub_roles.json). Reloaded when config is reloaded (e.g. after POST setup). */
 let roleMap = loadRoleMap(config.data_dir);
 
+/** Phase 8 P1b-b: offline-locked auth posture (env gate read once at boot, §2.2). */
+const offlineLockedPosture = resolveOfflineLockedAuthPosture();
+const offlineLockedActive = offlineLockedPosture.active;
+pruneExpiredBootstrapRecord(config.data_dir);
+logBootstrapInstructionOnce(offlineLockedActive, credentialStoreHasAdmin(config.data_dir));
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (!offlineLockedActive && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
     new GoogleStrategy(
       {
@@ -254,7 +265,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     )
   );
 }
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+if (!offlineLockedActive && process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   passport.use(
     new GitHubStrategy(
       {
@@ -277,9 +288,9 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
  */
 function issueToken(user) {
   const sub = `${user.provider}:${user.id}`;
-  const role = roleMap.size === 0 ? 'admin' : getRole(roleMap, sub);
+  const role = effectiveRoleForHub(roleMap, sub, offlineLockedActive);
   return jwt.sign(
-    { sub, name: user.displayName, role },
+    { sub, provider: user.provider, id: user.id, name: user.displayName, role },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -294,8 +305,11 @@ function issueToken(user) {
  * @returns {string} signed JWT
  */
 function issueAccessTokenForSub(sub) {
-  const role = roleMap.size === 0 ? 'admin' : getRole(roleMap, sub);
-  return jwt.sign({ sub, role }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  const role = effectiveRoleForHub(roleMap, sub, offlineLockedActive);
+  const idx = sub.indexOf(':');
+  const provider = idx > 0 ? sub.slice(0, idx) : '';
+  const id = idx > 0 ? sub.slice(idx + 1) : sub;
+  return jwt.sign({ sub, provider, id, role }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
 // Persistent sessions (refresh-token rotation). The refresh token is durable, hashed at
@@ -407,8 +421,10 @@ function jwtAuthFlex(req, res, next) {
  * apply without forcing users to log out and back in. JWT `role` is only set at login time.
  */
 function effectiveRole(req) {
-  if (roleMap.size === 0) return 'admin';
   const sub = req.user?.sub ?? '';
+  if (roleMap.size === 0) {
+    return offlineLockedActive ? 'member' : 'admin';
+  }
   const gr = getRole(roleMap, sub);
   return gr === 'member' || !gr ? 'editor' : gr;
 }
@@ -502,15 +518,20 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
 
 // Which OAuth providers are configured (no auth; UI uses this to show buttons vs setup help)
-app.get('/api/v1/auth/providers', (_req, res) => {
+app.get('/api/v1/auth/providers', (req, res) => {
+  if (offlineLockedActive) {
+    return res.json({ google: false, github: false, local: true });
+  }
   res.json({
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
   });
 });
 
+const oauthBlocked = oauthDisabledGuard(offlineLockedActive, config.data_dir);
+
 // Auth: login redirect (rate limited). Optional ?invite=TOKEN passed through state for Phase 13 invite.
-app.get('/api/v1/auth/login', loginLimiter, (req, res, next) => {
+app.get('/api/v1/auth/login', loginLimiter, oauthBlocked, (req, res, next) => {
   const provider = (req.query.provider || 'google').toLowerCase();
   const inviteToken = typeof req.query.invite === 'string' ? req.query.invite.trim() : null;
   const stateOpt = inviteToken ? { state: signState({ invite: inviteToken, ts: Date.now() }) } : {};
@@ -556,14 +577,31 @@ async function handleAuthCallback(req, res) {
 }
 app.get(
   '/api/v1/auth/callback/google',
+  oauthBlocked,
   passport.authenticate('google', { session: false }),
   handleAuthCallback
 );
 app.get(
   '/api/v1/auth/callback/github',
+  oauthBlocked,
   passport.authenticate('github', { session: false }),
   handleAuthCallback
 );
+
+registerLocalAuthRoutes(app, {
+  dataDir: config.data_dir,
+  sessionSecret: JWT_SECRET,
+  jwtExpiry: JWT_EXPIRY,
+  offlineLockedActive,
+  issueRefreshCookie: async (res, req, sub) => {
+    await issueRefreshCookie(res, {
+      store: refreshStore,
+      sub,
+      cookieOptions: refreshCookiePolicy,
+      meta: { ua: String(req.headers['user-agent'] || '').slice(0, 256) },
+    });
+  },
+});
 
 // Persistent sessions: exchange the HttpOnly refresh cookie for a fresh access token, and
 // real server-side logout (revokes the refresh token, not just the client cookie).
