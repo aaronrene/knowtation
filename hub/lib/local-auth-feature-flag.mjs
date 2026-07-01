@@ -4,8 +4,8 @@
  * Remains `false` until a separate Tier 3 authorization flips it after tests green.
  */
 
-/** @type {boolean} Shipped inert in P1b-b first commit. */
-export const OFFLINE_LOCKED_AUTH_CODE_SHIPPED = false;
+/** @type {boolean} Flipped true in P1b-c after seven-tier tests green (Tier 3). */
+export const OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true;
 
 /**
  * Whether offline-locked auth is fully active (env gate + compile-time flag).
