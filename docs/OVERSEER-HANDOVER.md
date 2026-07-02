@@ -7,17 +7,55 @@ milestones land.
 
 ---
 
-## Next step at a glance (2026-07-01)
+## Next step at a glance (2026-07-02)
 
 | | |
 | --- | --- |
 | **P1b-a spec** | **DONE** — `docs/PHASE-8-P1B-OFFLINE-LOCKED-AUTH-SPEC.md` (681 lines, frozen) |
 | **P1b-b build** | **DONE** — code + seven-tier tests (29/29 green); merged to `main` (PR #254) |
 | **P1b-c flag flip** | **CONSUMED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
-| **Branch** | Merged to Muse `main` @ `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
-| **Posture** | `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; `KNOWTATION_OFFLINE_LOCKED_AUTH` unset (env gate separate Tier 3 per install) |
-| **Next (Knowtation)** | **Airgapped install smoke** (operator) — `KNOWTATION_OFFLINE_LOCKED_AUTH=enabled` on a deploy; or wait for Scooling **P2-verify** |
-| **Next (Scooling)** | **P2-verify** — matrix `local_model_inference` → `available` (see Scooling PRIMARY) |
+| **2F-b-a contract** | **DONE** — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` frozen (2026-07-02) |
+| **2F-b-b build** | **DONE** — read-only attachment list/get on `feat/phase-2f-b-attachment-store`; 28/28 attachment tests green |
+| **Branch** | `feat/phase-2f-b-attachment-store` (Tier 3 merge to `main` pending operator authorization) |
+| **Posture** | Read-only attachments v0; no consent-toggle writes; no Scooling posture flips |
+| **Next (Knowtation)** | Tier 3 — merge `feat/phase-2f-b-attachment-store` → Muse `main` → muse-mirror PR (bundled code + contract) |
+| **Next (Scooling)** | **2F-b-c** — `MEDIA_LIVE_READ_AUTHORIZED` Tier 3 live wire to Knowtation attachment Hub JSON |
+
+---
+
+## Attachment gates (Scooling Phase 2F-b unblock)
+
+| | |
+| --- | --- |
+| **2F-b-a contract** | **FROZEN** (2026-07-02, Thinking) — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` |
+| **2F-b-b build** | **DONE** (2026-07-02, Auto) — `feat/phase-2f-b-attachment-store` |
+| **What landed** | Derived attachment index (`vault_file`/`mist_blob`/`embedded_url`), `hub_attachment_store.json` overlay (read-only), `listAttachments`/`getAttachment`, scope inherited from owning note, `*ForClient` projections, CLI/MCP/Hub REST parity, OpenAPI, seven-tier tests (28/28), `scripts/verify-attachment-read-smoke.mjs` |
+| **Consumer** | Scooling `src/adapters/mediaLibraryAdapter.ts` — live wire = Scooling `MEDIA_LIVE_READ_AUTHORIZED` Tier 3 (out of scope for Knowtation) |
+| **Follow-on gates** | `ATTACHMENT_POLICY_WRITES_AUTHORIZED` (consent toggles) · OCR derived-artifact gate · hosted gateway proxy |
+
+---
+
+## Verified snapshot (2F-b-b)
+
+| Deliverable | Location |
+| --- | --- |
+| Derivation walk | `lib/attachments/derive.mjs`; re-export `mcp/resources/listing.mjs` |
+| Read store | `lib/attachments/attachment-store.mjs` |
+| Policy overlay file | `lib/attachments/attachment-store-file.mjs` → `hub_attachment_store.json` |
+| Shared handlers | `lib/attachments/attachment-handlers.mjs` |
+| Hub REST (self-hosted) | `GET /api/v1/attachments`, `GET /api/v1/attachments/:id` in `hub/server.mjs` |
+| CLI | `knowtation attachment list\|get` in `cli/index.mjs` |
+| MCP | `mcp/tools/attachment.mjs` — `attachment_list`, `attachment_get`; ACL in `hub/gateway/mcp-tool-acl.mjs` |
+| OpenAPI | `docs/openapi.yaml` — Attachments tag + schemas |
+| Tests | `test/attachment-store-*.test.mjs`, `test/attachment-list-get-parity-integration.test.mjs` — **28/28 PASS** |
+| Hosted smoke | `scripts/verify-attachment-read-smoke.mjs` |
+
+**Test command:**
+
+```bash
+node --test test/attachment-store-*.test.mjs test/attachment-list-get-parity-*.test.mjs
+node scripts/verify-attachment-read-smoke.mjs   # requires local self-hosted Hub + JWT
+```
 
 ---
 
@@ -33,42 +71,15 @@ milestones land.
 | Breached-password check | `hub/lib/breached-passwords.mjs` + `hub/lib/breached-passwords-sha1.txt` (~2k hashes; loader ready for expansion) |
 | Tests | `test/{unit,integration,e2e,stress,data-integrity,performance,security}/phase8-p1b-*.test.mjs` — **29/29 PASS** (post flip) |
 
-**Test command:**
-
-```bash
-node --test test/unit/phase8-p1b-*.test.mjs \
-  test/integration/phase8-p1b-*.test.mjs \
-  test/e2e/phase8-p1b-*.test.mjs \
-  test/stress/phase8-p1b-*.test.mjs \
-  test/data-integrity/phase8-p1b-*.test.mjs \
-  test/performance/phase8-p1b-*.test.mjs \
-  test/security/phase8-p1b-*.test.mjs
-```
-
----
-
-## Next-chat prompt — P1b-c merge + mirror · Model: **Auto** (Tier 3)
-
-Paste when ready to merge P1b-c branch to Muse `main` and open `muse-mirror` PR.
-
-```text
-OVERSEER HANDOVER — P1b-c merge + mirror (Knowtation)
-
-Prerequisite: feat/phase-8-p1b-c-offline-locked-auth-flag-flip committed; 29/29 phase8-p1b green.
-
-Goal: Tier 3 merge to Muse main → muse-mirror PR to GitHub main (SD-14).
-
-Hard stops: no env gate flip · no Scooling changes · no SD-8 bundling
-
-Cursor model: Auto
-```
-
 ---
 
 ## Change log
 
 | Date | Event |
 | --- | --- |
+| 2026-07-02 | **2F-b-b attachment store build DONE** — read-only list/get + overlay + triple-surface parity + seven-tier tests (28/28) on `feat/phase-2f-b-attachment-store`; unblocks Scooling Phase 2F-b live wire (Tier 3) |
+| 2026-07-02 | **2F-b-b build prompt drafted** — self-contained PRIMARY next-chat prompt (Auto) added; no PR for the docs-only contract (SD-11) — it rides to `main` bundled with the 2F-b-b code+tests |
+| 2026-07-02 | **Attachment gates 2F-b-a contract FROZEN** — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` on `feat/attachment-store-contract-2f-b`; unblocks Scooling Phase 2F-b; contract only, no code, no posture flip |
 | 2026-07-01 | P1b-c **MERGED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; Muse `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
 | 2026-07-01 | P1b-c flag flip — 29/29 green on `feat/phase-8-p1b-c-offline-locked-auth-flag-flip` (Tier 3 authorized) |
 | 2026-07-01 | P1b-a spec frozen on `feat/phase-8-p1b-offline-locked-auth-spec` (Muse `4aaa6f7`) |

@@ -19,6 +19,8 @@ const READ_TOOLS = new Set([
   'tag_suggest',
   'summarize',
   'enrich',
+  'attachment_list',
+  'attachment_get',
 ]);
 
 const WRITE_TOOLS = new Set([

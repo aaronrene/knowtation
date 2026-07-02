@@ -86,3 +86,5 @@ export function listTemplateFiles(vaultPath) {
   md.sort();
   return { templates: md, total: md.length };
 }
+
+export { walkAllMediaFiles, ALL_MEDIA_EXTENSIONS } from '../../lib/attachments/derive.mjs';
