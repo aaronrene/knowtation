@@ -20,6 +20,7 @@ tags:
   - name: Capture
   - name: Flows
   - name: Tasks
+  - name: Attachments
 
 security:
   - BearerAuth: []
@@ -946,6 +947,99 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TaskGetResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /attachments:
+    get:
+      tags: [Attachments]
+      summary: List scope-visible attachments (content-minimized)
+      description: >
+        Returns knowtation.attachment_list/v0 summaries for attachments visible in
+        the caller's authorized workspace scope. Scope query param narrows only — never widens.
+        List responses never include linked_note_refs, byte_size, mime_type, or agent_visible.
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, project, org] }
+          description: Narrow within authorized scopes only.
+        - name: note_ref
+          in: query
+          schema: { type: string }
+          description: Filter attachments linked to a specific note (note:path).
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [vault_file, mist_blob, embedded_url]
+        - name: mime_class
+          in: query
+          schema:
+            type: string
+            enum: [image, video, audio, document, unknown]
+        - name: storage_kind
+          in: query
+          schema:
+            type: string
+            enum: [vault_blob, external_link]
+        - name: agent_visible
+          in: query
+          schema: { type: boolean }
+          description: When true, return only attachments with agent_visible consent.
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
+          description: Max summaries (default 500).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentListResponse' }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /attachments/{id}:
+    get:
+      tags: [Attachments]
+      summary: Get one authorized attachment
+      description: >
+        Returns knowtation.attachment_get/v0 with the full attachment record when
+        the caller is authorized. Missing or invisible attachments return 404
+        unknown_attachment (no existence leak).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentGetResponse' }
         '400':
           content:
             application/json:
@@ -2615,6 +2709,118 @@ components:
                 type: string
                 enum: [note, media, review_item]
               ref: { type: string }
+        created: { type: string }
+        updated: { type: string }
+        truncated: { type: boolean }
+
+    AttachmentListResponse:
+      type: object
+      required: [schema, vault_id, effective_scope, attachments, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.attachment_list/v0]
+        vault_id: { type: string }
+        effective_scope:
+          type: string
+          enum: [personal, project, org]
+        attachments:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/AttachmentSummary' }
+        truncated: { type: boolean }
+
+    AttachmentSummary:
+      type: object
+      required:
+        - schema
+        - attachment_id
+        - source
+        - storage_kind
+        - mime_class
+        - scope
+        - display_label
+        - created
+        - truncated
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.attachment/v0]
+        attachment_id: { type: string }
+        source:
+          type: string
+          enum: [vault_file, mist_blob, embedded_url]
+        storage_kind:
+          type: string
+          enum: [vault_blob, external_link]
+        mime_class:
+          type: string
+          enum: [image, video, audio, document, unknown]
+        scope:
+          type: string
+          enum: [personal, project, org]
+        display_label: { type: string }
+        created: { type: string }
+        truncated: { type: boolean }
+
+    AttachmentGetResponse:
+      type: object
+      required: [schema, vault_id, effective_scope, attachment]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.attachment_get/v0]
+        vault_id: { type: string }
+        effective_scope:
+          type: string
+          enum: [personal, project, org]
+        attachment: { $ref: '#/components/schemas/AttachmentRecord' }
+
+    AttachmentRecord:
+      type: object
+      required:
+        - schema
+        - attachment_id
+        - source
+        - storage_kind
+        - mime_class
+        - mime_type
+        - scope
+        - display_label
+        - byte_size
+        - linked_note_refs
+        - agent_visible
+        - created
+        - updated
+        - truncated
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.attachment/v0]
+        attachment_id: { type: string }
+        source:
+          type: string
+          enum: [vault_file, mist_blob, embedded_url]
+        storage_kind:
+          type: string
+          enum: [vault_blob, external_link]
+        mime_class:
+          type: string
+          enum: [image, video, audio, document, unknown]
+        mime_type:
+          type: string
+          nullable: true
+        scope:
+          type: string
+          enum: [personal, project, org]
+        display_label: { type: string }
+        byte_size:
+          type: integer
+          nullable: true
+        linked_note_refs:
+          type: array
+          items: { type: string }
+        agent_visible: { type: boolean }
         created: { type: string }
         updated: { type: string }
         truncated: { type: boolean }

@@ -121,6 +121,10 @@ import { retrieveAgentCalendarContext } from '../lib/calendar/agent-retrieval.mj
 import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
 import { handleTaskListRequest, handleTaskGetRequest } from '../lib/task/task-handlers.mjs';
 import {
+  handleAttachmentListRequest,
+  handleAttachmentGetRequest,
+} from '../lib/attachments/attachment-handlers.mjs';
+import {
   handleTaskLoopListRequest,
   handleTaskLoopGetRequest,
 } from '../lib/task/task-loop-handlers.mjs';
@@ -748,6 +752,7 @@ app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/calendar', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/tasks', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/attachments', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/task-loops', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
@@ -1128,6 +1133,58 @@ app.get('/api/v1/tasks/:id', requireRole('viewer', 'editor', 'admin', 'evaluator
     taskId,
     userId: req.user?.sub ?? '',
     role: effectiveRole(req),
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// GET /api/v1/attachments — scope-filtered, content-minimized list (Phase 2F-b-b)
+app.get('/api/v1/attachments', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const limitRaw = req.query.limit;
+  let limit;
+  if (limitRaw !== undefined && limitRaw !== null && String(limitRaw).trim() !== '') {
+    limit = parseInt(String(limitRaw), 10);
+  }
+  const agentVisibleRaw = req.query.agent_visible;
+  const agentVisible =
+    agentVisibleRaw === 'true' || agentVisibleRaw === true || agentVisibleRaw === '1';
+  const result = handleAttachmentListRequest({
+    dataDir: config.data_dir,
+    vaultPath: req.vaultPath,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+    note_ref: typeof req.query.note_ref === 'string' ? req.query.note_ref : undefined,
+    source: typeof req.query.source === 'string' ? req.query.source : undefined,
+    mime_class: typeof req.query.mime_class === 'string' ? req.query.mime_class : undefined,
+    storage_kind: typeof req.query.storage_kind === 'string' ? req.query.storage_kind : undefined,
+    agent_visible: agentVisible,
+    limit,
+    hubScope: req.scope ?? null,
+    vaultConfig: { ignore: config.ignore },
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// GET /api/v1/attachments/:id — one authorized attachment (Phase 2F-b-b)
+app.get('/api/v1/attachments/:id', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const attachmentId =
+    typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  const result = handleAttachmentGetRequest({
+    dataDir: config.data_dir,
+    vaultPath: req.vaultPath,
+    vaultId: req.vault_id ?? 'default',
+    attachmentId,
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    hubScope: req.scope ?? null,
+    vaultConfig: { ignore: config.ignore },
   });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error, code: result.code });

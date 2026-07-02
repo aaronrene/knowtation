@@ -27,6 +27,7 @@ import { registerHubProposalTools } from './tools/hub-proposals.mjs';
 import { registerEnrichTool } from './tools/enrich.mjs';
 import { registerFlowTools } from './tools/flow.mjs';
 import { registerTaskTools } from './tools/task.mjs';
+import { registerAttachmentTools } from './tools/attachment.mjs';
 import { registerAgentDelegationTools } from './tools/agent-delegation.mjs';
 import { rerankWithSampling } from './tools/sampling-rerank.mjs';
 import { registerResourceSubscriptionHandlers, notifyIndexMetadataResources } from './resource-subscriptions.mjs';
@@ -536,6 +537,7 @@ export function mountKnowtationMcp(server) {
   registerEnrichTool(server);
   registerFlowTools(server);
   registerTaskTools(server);
+  registerAttachmentTools(server);
   registerAgentDelegationTools(server);
   registerResourceSubscriptionHandlers(server);
 }

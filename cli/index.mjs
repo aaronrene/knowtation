@@ -2133,6 +2133,110 @@ async function main() {
     return;
   }
 
+  if (subcommand === 'attachment') {
+    const attachmentAction = args[1];
+    if (hasOpt('help') || hasOpt('h') || !attachmentAction) {
+      console.log(`knowtation attachment <action>
+  Actions:
+    list  [--scope personal|project|org] [--note-ref <note:path>] [--source vault_file|mist_blob|embedded_url] [--mime-class <c>] [--storage-kind <k>] [--agent-visible] [--limit <n>] [--json]
+    get   <attachment_id> [--json]
+
+  Options: --json (exact Hub JSON)`);
+      process.exit(0);
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      exitWithError(e.message, 2, useJson);
+    }
+
+    const vaultId = getOpt('vault') || 'default';
+    const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
+
+    const attachmentExitWithError = (message, codeStr, exitCode = 1) => {
+      if (useJson) {
+        process.stderr.write(JSON.stringify({ error: message, code: codeStr }) + '\n');
+      } else {
+        console.error(message);
+      }
+      process.exit(exitCode);
+    };
+
+    if (attachmentAction === 'list') {
+      const limitOpt = getOpt('limit', 'number');
+      const { handleAttachmentListRequest } = await import('../lib/attachments/attachment-handlers.mjs');
+      const result = handleAttachmentListRequest({
+        dataDir: config.data_dir,
+        vaultPath: config.vault_path,
+        vaultId,
+        cliScopes,
+        scope: getOpt('scope') ?? undefined,
+        noteRef: getOpt('note-ref') ?? undefined,
+        source: getOpt('source') ?? undefined,
+        mimeClass: getOpt('mime-class') ?? undefined,
+        storageKind: getOpt('storage-kind') ?? undefined,
+        agentVisible: hasOpt('agent-visible'),
+        limit: limitOpt ?? undefined,
+        vaultConfig: { ignore: config.ignore },
+      });
+      if (!result.ok) {
+        attachmentExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const rows = result.payload.attachments;
+        if (rows.length === 0) {
+          console.log('(no attachments)');
+        } else {
+          for (const a of rows) {
+            console.log(`${a.attachment_id}  [${a.scope}]  ${a.mime_class}  ${a.display_label}`);
+          }
+        }
+        if (result.payload.truncated) {
+          console.log('(truncated)');
+        }
+      }
+      process.exit(0);
+    }
+
+    if (attachmentAction === 'get') {
+      const attachmentId = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!attachmentId) {
+        attachmentExitWithError('knowtation attachment get: provide an attachment_id.', 'BAD_REQUEST');
+      }
+      const { handleAttachmentGetRequest } = await import('../lib/attachments/attachment-handlers.mjs');
+      const result = handleAttachmentGetRequest({
+        dataDir: config.data_dir,
+        vaultPath: config.vault_path,
+        vaultId,
+        attachmentId,
+        cliScopes,
+        vaultConfig: { ignore: config.ignore },
+      });
+      if (!result.ok) {
+        attachmentExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        const { attachment } = result.payload;
+        console.log(`${attachment.attachment_id}  [${attachment.scope}]  ${attachment.mime_class}`);
+        console.log(JSON.stringify(attachment, null, 2));
+      }
+      process.exit(0);
+    }
+
+    exitWithError(
+      `knowtation attachment: unknown action "${attachmentAction}". Use list or get.`,
+      1,
+      useJson,
+    );
+    return;
+  }
+
   if (subcommand === 'task-loop') {
     const loopAction = args[1];
     if (hasOpt('help') || hasOpt('h') || !loopAction) {
