@@ -7,21 +7,22 @@ milestones land.
 
 ---
 
-## Next step at a glance (2026-07-01)
+## Next step at a glance (2026-07-02)
 
 | | |
 | --- | --- |
 | **P1b-a spec** | **DONE** — `docs/PHASE-8-P1B-OFFLINE-LOCKED-AUTH-SPEC.md` (681 lines, frozen) |
 | **P1b-b build** | **DONE** — code + seven-tier tests (29/29 green); merged to `main` (PR #254) |
 | **P1b-c flag flip** | **CONSUMED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
+| **Airgapped smoke** | **CONSUMED** (2026-07-01) — Tester Vault; env gate + bootstrap + JWT login PASS |
 | **Branch** | Merged to Muse `main` @ `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
-| **Posture** | `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; `KNOWTATION_OFFLINE_LOCKED_AUTH` unset (env gate separate Tier 3 per install) |
-| **Next (Knowtation)** | **Airgapped install smoke** (operator) — `KNOWTATION_OFFLINE_LOCKED_AUTH=enabled` on a deploy; or wait for Scooling **P2-verify** |
-| **Next (Scooling)** | **P2-verify** — matrix `local_model_inference` → `available` (see Scooling PRIMARY) |
+| **Posture** | `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; per-install env gate is operator Tier 3 |
+| **Next (Knowtation)** | None active — Phase 8 P1b track **complete** |
+| **Next (Scooling)** | **Phase 8C-a** (Thinking) — model consolidation outline freeze (see Scooling PRIMARY) |
 
 ---
 
-## Verified snapshot (P1b-c)
+## Verified snapshot (P1b complete)
 
 | Deliverable | Location |
 | --- | --- |
@@ -32,6 +33,14 @@ milestones land.
 | CLI | `knowtation auth generate-setup-token \| bootstrap-admin \| token` |
 | Breached-password check | `hub/lib/breached-passwords.mjs` + `hub/lib/breached-passwords-sha1.txt` (~2k hashes; loader ready for expansion) |
 | Tests | `test/{unit,integration,e2e,stress,data-integrity,performance,security}/phase8-p1b-*.test.mjs` — **29/29 PASS** (post flip) |
+
+**Operator smoke evidence (2026-07-01):**
+
+- Vault: `/Users/aaronrenecarvajal/Tester Vault`
+- Data dir: `knowtation/data/offline-smoke-test` (isolated from production Hub data)
+- `KNOWTATION_OFFLINE_LOCKED_AUTH=enabled`
+- `auth bootstrap-admin --username admin` → `{"ok":true,"userId":"admin_001"}`
+- `POST /api/v1/auth/local/login` → JWT; `sub: local:admin_001`, `provider: local`, `role: admin`
 
 **Test command:**
 
@@ -47,28 +56,11 @@ node --test test/unit/phase8-p1b-*.test.mjs \
 
 ---
 
-## Next-chat prompt — P1b-c merge + mirror · Model: **Auto** (Tier 3)
-
-Paste when ready to merge P1b-c branch to Muse `main` and open `muse-mirror` PR.
-
-```text
-OVERSEER HANDOVER — P1b-c merge + mirror (Knowtation)
-
-Prerequisite: feat/phase-8-p1b-c-offline-locked-auth-flag-flip committed; 29/29 phase8-p1b green.
-
-Goal: Tier 3 merge to Muse main → muse-mirror PR to GitHub main (SD-14).
-
-Hard stops: no env gate flip · no Scooling changes · no SD-8 bundling
-
-Cursor model: Auto
-```
-
----
-
 ## Change log
 
 | Date | Event |
 | --- | --- |
+| 2026-07-02 | **Airgapped smoke CONSUMED** — Tester Vault; env gate + bootstrap + local login PASS |
 | 2026-07-01 | P1b-c **MERGED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; Muse `sha256:537d4407…`; GitHub PR #255 @ `6976eef` |
 | 2026-07-01 | P1b-c flag flip — 29/29 green on `feat/phase-8-p1b-c-offline-locked-auth-flag-flip` (Tier 3 authorized) |
 | 2026-07-01 | P1b-a spec frozen on `feat/phase-8-p1b-offline-locked-auth-spec` (Muse `4aaa6f7`) |
