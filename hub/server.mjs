@@ -125,6 +125,16 @@ import {
   handleAttachmentGetRequest,
 } from '../lib/attachments/attachment-handlers.mjs';
 import {
+  handleMediaLinkProposeRequest,
+  handleMediaAttachProposeRequest,
+  handleMediaImportConsentGrantRequest,
+  handleMediaImportConsentListRequest,
+  handleMediaImportConsentRevokeRequest,
+  precheckApprovedMediaProposal,
+  reconcileApprovedMediaProposal,
+  MEDIA_PROPOSAL_SOURCE,
+} from '../lib/attachments/attachment-write.mjs';
+import {
   handleTaskLoopListRequest,
   handleTaskLoopGetRequest,
 } from '../lib/task/task-loop-handlers.mjs';
@@ -1165,6 +1175,123 @@ app.get('/api/v1/attachments', requireRole('viewer', 'editor', 'admin', 'evaluat
     limit,
     hubScope: req.scope ?? null,
     vaultConfig: { ignore: config.ignore },
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// Media write surfaces (Phase 2F-b-d-kn-b) — typed facade over /proposals (SD-4).
+// Gated independently: MEDIA_EXTERNAL_LINK_ENABLED / MEDIA_ATTACH_ENABLED (default OFF).
+const MEDIA_WRITE_ROLES = requireRole('editor', 'admin');
+const MEDIA_CONSENT_READ_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
+
+app.post('/api/v1/attachments/link-proposals', MEDIA_WRITE_ROLES, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await handleMediaLinkProposeRequest({
+      dataDir: config.data_dir,
+      vaultPath: req.vaultPath,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      body,
+      intent: body.intent,
+      createProposal,
+      hubScope: req.scope ?? null,
+      vaultConfig: { ignore: config.ignore },
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'media_external_link_propose',
+      proposalId: result.payload.proposal_id,
+      detail: {
+        proposal_kind: result.payload.proposal_kind,
+        attachment_id: result.payload.attachment_id,
+      },
+    });
+    return res.status(201).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/attachments/attach-proposals', MEDIA_WRITE_ROLES, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await handleMediaAttachProposeRequest({
+      dataDir: config.data_dir,
+      vaultPath: req.vaultPath,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      body,
+      intent: body.intent,
+      createProposal,
+      hubScope: req.scope ?? null,
+      vaultConfig: { ignore: config.ignore },
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'media_attach_propose',
+      proposalId: result.payload.proposal_id,
+      detail: {
+        proposal_kind: result.payload.proposal_kind,
+        attachment_id: result.payload.attachment_id,
+        note_ref: result.payload.note_ref,
+      },
+    });
+    return res.status(201).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/attachments/import-consents', MEDIA_WRITE_ROLES, (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const result = handleMediaImportConsentGrantRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    body,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.status(201).json(result.payload);
+});
+
+app.get('/api/v1/attachments/import-consents', MEDIA_CONSENT_READ_ROLES, (req, res) => {
+  const result = handleMediaImportConsentListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.delete('/api/v1/attachments/import-consents/:id', MEDIA_WRITE_ROLES, (req, res) => {
+  const consentId =
+    typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  const result = handleMediaImportConsentRevokeRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    consentId,
   });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error, code: result.code });
@@ -2781,7 +2908,8 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     proposal.source !== FLOW_PROPOSAL_SOURCE &&
     proposal.source !== FLOW_CAPTURE_PROPOSAL_SOURCE &&
     proposal.source !== DELEGATION_PROPOSAL_SOURCE &&
-    proposal.source !== TASK_PROPOSAL_SOURCE
+    proposal.source !== TASK_PROPOSAL_SOURCE &&
+    proposal.source !== MEDIA_PROPOSAL_SOURCE
   ) {
     let currentId;
     if (noteFileExistsInVault(approveVaultPath, proposal.path)) {
@@ -2841,6 +2969,17 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     }
     taskApply = taskPrecheck;
   }
+  let mediaApply = null;
+  if (proposal.source === MEDIA_PROPOSAL_SOURCE) {
+    const mediaPrecheck = precheckApprovedMediaProposal(config.data_dir, proposal, {
+      vaultPath: approveVaultPath,
+      vaultConfig: { ignore: config.ignore },
+    });
+    if (!mediaPrecheck.ok) {
+      return res.status(mediaPrecheck.status).json({ error: mediaPrecheck.error, code: mediaPrecheck.code });
+    }
+    mediaApply = mediaPrecheck;
+  }
   try {
     const fm = mergeProvenanceFrontmatter(proposal.frontmatter ?? {}, {
       sub: req.user?.sub ?? null,
@@ -2868,6 +3007,9 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
       if (taskReconcile.cascade_task_ids && Array.isArray(taskReconcile.cascade_task_ids)) {
         patchProposalTaskMetaCascade(config.data_dir, req.params.id, taskReconcile.cascade_task_ids);
       }
+    }
+    if (mediaApply) {
+      reconcileApprovedMediaProposal(config.data_dir, mediaApply);
     }
     const approvedAtIso = new Date().toISOString();
     let approval_log_written = false;

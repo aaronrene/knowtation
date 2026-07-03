@@ -139,10 +139,13 @@ describe('Attachment store — security', () => {
     assert.ok(!src.includes('image-fetch'));
   });
 
-  it('SEC-A-06: no POST write route mounted for attachments', () => {
+  it('SEC-A-06: attachment write routes are proposal-only and gated (2F-b-d-kn-b)', () => {
     const src = fs.readFileSync(path.join(getRepoRoot(), 'hub/server.mjs'), 'utf8');
-    assert.ok(!/app\.post\('\/api\/v1\/attachments/.test(src));
+    assert.ok(src.includes('/api/v1/attachments/link-proposals'));
+    assert.ok(src.includes('/api/v1/attachments/attach-proposals'));
+    assert.ok(src.includes('handleMediaLinkProposeRequest'));
+    assert.ok(src.includes('handleMediaAttachProposeRequest'));
+    assert.ok(!/app\.post\('\/api\/v1\/attachments',\s/.test(src));
     assert.ok(!/app\.patch\('\/api\/v1\/attachments/.test(src));
-    assert.ok(!/app\.delete\('\/api\/v1\/attachments/.test(src));
   });
 });

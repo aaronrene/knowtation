@@ -290,6 +290,27 @@ export function createProposal(dataDir, input) {
           },
         }
       : {}),
+    ...(input.media_meta && typeof input.media_meta === 'object'
+      ? {
+          media_meta: {
+            record_kind: String(input.media_meta.record_kind || '').slice(0, 32),
+            proposal_kind: String(input.media_meta.proposal_kind || '').slice(0, 32),
+            attachment_id: String(input.media_meta.attachment_id || '').slice(0, 80),
+            connector_id:
+              input.media_meta.connector_id != null
+                ? String(input.media_meta.connector_id).slice(0, 32)
+                : null,
+            consent_id:
+              input.media_meta.consent_id != null
+                ? String(input.media_meta.consent_id).slice(0, 32)
+                : null,
+            note_ref:
+              input.media_meta.note_ref != null
+                ? String(input.media_meta.note_ref).slice(0, 280)
+                : null,
+          },
+        }
+      : {}),
     review_hints: undefined,
     review_hints_at: undefined,
     review_hints_model: undefined,

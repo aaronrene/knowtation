@@ -21,6 +21,7 @@ const READ_TOOLS = new Set([
   'enrich',
   'attachment_list',
   'attachment_get',
+  'media_import_consent_list',
 ]);
 
 const WRITE_TOOLS = new Set([
@@ -30,6 +31,8 @@ const WRITE_TOOLS = new Set([
   'capture',
   'transcribe',
   'vault_sync',
+  'media_external_link_propose',
+  'media_attach_propose',
 ]);
 
 const ADMIN_TOOLS = new Set([
