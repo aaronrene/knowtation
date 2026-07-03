@@ -15,7 +15,7 @@ milestones land.
 | **P1b-b build** | **DONE** — code + seven-tier tests (29/29 green); merged to `main` (PR #254) |
 | **P1b-c flag flip** | **CONSUMED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
 | **2F-b-a contract** | **DONE** — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` frozen (2026-07-02) |
-| **2F-b-b build** | **DONE + MERGED** — read-only attachment list/get; Muse `main` @ `sha256:a602cc7…`; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) @ `5116edf` |
+| **2F-b-b build** | **DONE + MERGED** — read-only attachment list/get; Muse `main` @ `sha256:a602cc7…` (code); handover @ `sha256:03c8fc1d…`; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) @ `5116edf` |
 | **Branch** | Merged to Muse `main` and GitHub `main` (2026-07-02) |
 | **Posture** | Read-only attachments v0; no consent-toggle writes; no Scooling posture flips |
 | **Next (Knowtation)** | Optional: `node scripts/verify-attachment-read-smoke.mjs` against local Hub |
@@ -77,6 +77,7 @@ node scripts/verify-attachment-read-smoke.mjs   # requires local self-hosted Hub
 
 | Date | Event |
 | --- | --- |
+| 2026-07-02 | **Handover sync** — Muse `main` @ `sha256:03c8fc1d…`; Scooling 2F-b-c-c MERGED; Scooling next = **2F-b-d-a** |
 | 2026-07-02 | **Scooling 2F-b-c-c MERGED** — `MEDIA_LIVE_READ_AUTHORIZED` live; GitHub [PR #132](https://github.com/aaronrene/scooling/pull/132); Scooling next = **2F-b-d-a** (external link + attach contract) |
 | 2026-07-02 | **2F-b-b MERGED** — Muse `main` @ `sha256:a602cc7…`; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) @ `5116edf`; Scooling 2F-b-c unblocked |
 | 2026-07-02 | **2F-b-b attachment store build DONE** — read-only list/get + overlay + triple-surface parity + seven-tier tests (28/28) on `feat/phase-2f-b-attachment-store`; unblocks Scooling Phase 2F-b live wire (Tier 3) |
