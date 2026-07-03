@@ -15,11 +15,11 @@ milestones land.
 | **P1b-b build** | **DONE** — code + seven-tier tests (29/29 green); merged to `main` (PR #254) |
 | **P1b-c flag flip** | **CONSUMED** — `OFFLINE_LOCKED_AUTH_CODE_SHIPPED = true`; 29/29 green |
 | **2F-b-a contract** | **DONE** — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` frozen (2026-07-02) |
-| **2F-b-b build** | **DONE** — read-only attachment list/get on `feat/phase-2f-b-attachment-store`; 28/28 attachment tests green |
-| **Branch** | `feat/phase-2f-b-attachment-store` (Tier 3 merge to `main` pending operator authorization) |
+| **2F-b-b build** | **DONE + MERGED** — read-only attachment list/get; Muse `main` @ `sha256:a602cc7…`; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) @ `5116edf` |
+| **Branch** | Merged to Muse `main` and GitHub `main` (2026-07-02) |
 | **Posture** | Read-only attachments v0; no consent-toggle writes; no Scooling posture flips |
-| **Next (Knowtation)** | Tier 3 — merge `feat/phase-2f-b-attachment-store` → Muse `main` → muse-mirror PR (bundled code + contract) |
-| **Next (Scooling)** | **2F-b-c** — `MEDIA_LIVE_READ_AUTHORIZED` Tier 3 live wire to Knowtation attachment Hub JSON |
+| **Next (Knowtation)** | Optional: `node scripts/verify-attachment-read-smoke.mjs` against local Hub |
+| **Next (Scooling)** | **2F-b-d-a** — external link + attach contract (Thinking) → see `scooling/docs/OVERSEER-HANDOVER.md` **PRIMARY — 2F-b-d-a** |
 
 ---
 
@@ -28,9 +28,9 @@ milestones land.
 | | |
 | --- | --- |
 | **2F-b-a contract** | **FROZEN** (2026-07-02, Thinking) — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` |
-| **2F-b-b build** | **DONE** (2026-07-02, Auto) — `feat/phase-2f-b-attachment-store` |
+| **2F-b-b build** | **DONE + MERGED** (2026-07-02, Auto) — Muse `main` @ `sha256:a602cc7…`; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) |
 | **What landed** | Derived attachment index (`vault_file`/`mist_blob`/`embedded_url`), `hub_attachment_store.json` overlay (read-only), `listAttachments`/`getAttachment`, scope inherited from owning note, `*ForClient` projections, CLI/MCP/Hub REST parity, OpenAPI, seven-tier tests (28/28), `scripts/verify-attachment-read-smoke.mjs` |
-| **Consumer** | Scooling `src/adapters/mediaLibraryAdapter.ts` — live wire = Scooling `MEDIA_LIVE_READ_AUTHORIZED` Tier 3 (out of scope for Knowtation) |
+| **Consumer** | Scooling `src/adapters/mediaLibraryAdapter.ts` — **`MEDIA_LIVE_READ_AUTHORIZED` live** (2F-b-c-c MERGED 2026-07-02); external link + attach gates remain hard-`false` |
 | **Follow-on gates** | `ATTACHMENT_POLICY_WRITES_AUTHORIZED` (consent toggles) · OCR derived-artifact gate · hosted gateway proxy |
 
 ---
@@ -77,6 +77,8 @@ node scripts/verify-attachment-read-smoke.mjs   # requires local self-hosted Hub
 
 | Date | Event |
 | --- | --- |
+| 2026-07-02 | **Scooling 2F-b-c-c MERGED** — `MEDIA_LIVE_READ_AUTHORIZED` live; GitHub [PR #132](https://github.com/aaronrene/scooling/pull/132); Scooling next = **2F-b-d-a** (external link + attach contract) |
+| 2026-07-02 | **2F-b-b MERGED** — Muse `main` @ `sha256:a602cc7…`; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) @ `5116edf`; Scooling 2F-b-c unblocked |
 | 2026-07-02 | **2F-b-b attachment store build DONE** — read-only list/get + overlay + triple-surface parity + seven-tier tests (28/28) on `feat/phase-2f-b-attachment-store`; unblocks Scooling Phase 2F-b live wire (Tier 3) |
 | 2026-07-02 | **2F-b-b build prompt drafted** — self-contained PRIMARY next-chat prompt (Auto) added; no PR for the docs-only contract (SD-11) — it rides to `main` bundled with the 2F-b-b code+tests |
 | 2026-07-02 | **Attachment gates 2F-b-a contract FROZEN** — `docs/ATTACHMENT-STORE-CONTRACT-2F-b.md` on `feat/attachment-store-contract-2f-b`; unblocks Scooling Phase 2F-b; contract only, no code, no posture flip |
