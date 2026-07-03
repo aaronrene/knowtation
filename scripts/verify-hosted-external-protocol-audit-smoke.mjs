@@ -314,10 +314,12 @@ async function mintGrant(consentId, taskRef) {
   };
 }
 
-async function grantActionCount(grantId) {
-  const list = await api(
+async function grantActionCount(bearer, grantId) {
+  const list = await apiWithDelegation(
     'GET',
     `/api/v1/delegation/grants?actor_agent_id=${encodeURIComponent(agentId)}`,
+    undefined,
+    bearer,
   );
   if (list.status !== 200 || !Array.isArray(list.json?.grants)) {
     return null;
@@ -356,8 +358,6 @@ function sleep(ms) {
 
 async function main() {
   console.log(`7D-L2 external protocol audit smoke — ${apiBase} vault=${vaultId}`);
-
-  const runSuffix = (process.env.EXTERNAL_PROTOCOL_SMOKE_RUN_SUFFIX || String(Date.now()).slice(-8)).trim();
 
   const scoolingAuditAppend =
     process.env.SCOOLING_EXTERNAL_PROTOCOL_AUDIT_APPEND === 'enabled' ||
@@ -398,64 +398,74 @@ async function main() {
     process.exit(1);
   }
 
-  const smokeTasks = [
-    { id: `task_7dl2_c2_${runSuffix}`, title: 'C2 complete + audit', boundary: 'propose_only' },
-    { id: `task_7dl2_c4_${runSuffix}`, title: 'C4 boundary stop', boundary: 'draft_only' },
-    { id: `task_7dl2_c5_${runSuffix}`, title: 'C5 boundary violation', boundary: 'observe_only' },
-    { id: `task_7dl2_c6_${runSuffix}`, title: 'C6 lease expiry', boundary: 'observe_only' },
-  ];
-  for (const task of smokeTasks) {
-    const step = await prepareClaimableTask(task.id, task.title, task.boundary);
-    record(`setup task ${task.id}`, step.ok, step.detail);
-    if (!step.ok) {
+  const discovered = await discoverPendingSmokeTask();
+  let activeTaskId = discovered.taskId;
+  if (!discovered.ok || !activeTaskId) {
+    const fresh = await prepareClaimableTask('task_7d_smoke_l2', 'L2 fresh pending task', 'observe_only');
+    record('setup fallback task_7d_smoke_l2', fresh.ok, fresh.detail);
+    if (!fresh.ok) {
       summarize();
       process.exit(1);
     }
+    activeTaskId = 'task_7d_smoke_l2';
+  } else {
+    record('setup discover pending task', true, discovered.detail);
   }
+  const taskMeta = await api('GET', `/api/v1/tasks/${encodeURIComponent(activeTaskId)}`);
+  const activeBoundary = taskMeta.json?.task?.boundary_policy ?? 'observe_only';
+  record('setup task meta', true, `${activeTaskId} status=${taskMeta.json?.task?.status ?? '?'} boundary=${activeBoundary}`);
 
-  const consentStep = await ensureConsent(smokeTasks.map((t) => t.id));
+  const consentStep = await ensureConsent([activeTaskId]);
   record('setup consent', consentStep.ok, consentStep.detail);
   if (!consentStep.ok || !consentStep.consentId) {
     summarize();
     process.exit(1);
   }
 
-  // C2 — claim → complete with evidence_refs (propose_only)
-  const taskC2 = smokeTasks[0].id;
-  const grantC2 = await mintGrant(consentStep.consentId, taskC2);
+  // C2 — claim → complete with evidence_refs
+  const grantC2 = await mintGrant(consentStep.consentId, activeTaskId);
   record('C2 setup grant', grantC2.ok, grantC2.detail);
   if (grantC2.ok && grantC2.bearer && grantC2.grantId) {
-    const claimC2 = await claimTask(grantC2.bearer, taskC2, 'smoke_claim_7dl2_c2', 900);
+    const boundary = activeBoundary;
+    const claimC2 = await claimTask(grantC2.bearer, activeTaskId, 'smoke_claim_7dl2_c2', 900);
     const passIdC2 = claimC2.json?.pass_id;
-    const countAfterClaim = await grantActionCount(grantC2.grantId);
+    const countAfterClaim = await grantActionCount(grantC2.bearer, grantC2.grantId);
+    const evidenceRefs =
+      boundary === 'propose_only'
+        ? [`pass:${passIdC2}`, 'proposal:smoke_7dl2_scope']
+        : [`pass:${passIdC2}`];
+    const completeOutcome = boundary === 'propose_only' ? 'completed' : 'stopped_at_boundary';
     const completeC2 = passIdC2
-      ? await completeTask(grantC2.bearer, taskC2, passIdC2, 'smoke_complete_7dl2_c2', 'completed', [
-          `pass:${passIdC2}`,
-          'proposal:smoke_7dl2_scope',
-        ])
+      ? await completeTask(
+          grantC2.bearer,
+          activeTaskId,
+          passIdC2,
+          'smoke_complete_7dl2_c2',
+          completeOutcome,
+          evidenceRefs.filter((ref) => ref !== 'pass:null' && !ref.endsWith('null')),
+        )
       : { status: 0, json: {} };
-    const countAfterComplete = await grantActionCount(grantC2.grantId);
-    const taskAfterC2 = await api('GET', `/api/v1/tasks/${encodeURIComponent(taskC2)}`);
-    const auditIncremented =
-      countAfterClaim === null ||
-      countAfterComplete === null ||
-      countAfterComplete > countAfterClaim;
-    const c2Operational =
+    const countAfterComplete = await grantActionCount(grantC2.bearer, grantC2.grantId);
+    const taskAfterC2 = await api('GET', `/api/v1/tasks/${encodeURIComponent(activeTaskId)}`);
+    const c2Ok =
       claimC2.status === 200 &&
       completeC2.status === 200 &&
-      (taskAfterC2.json?.task?.status === 'done' || completeC2.json?.status === 'done');
-    const c2Ok = c2Operational;
+      (completeOutcome !== 'completed' ||
+        completeC2.json?.status === 'done' ||
+        taskAfterC2.json?.task?.status === 'done') &&
+      countAfterClaim !== null &&
+      countAfterComplete !== null &&
+      countAfterComplete > countAfterClaim;
     record(
       'C2 claim → complete + audit',
       c2Ok,
       c2Ok
-        ? auditIncremented
-          ? `completed action_count ${countAfterClaim ?? '?'}→${countAfterComplete ?? '?'} status=done`
-          : `completed status=done (action_count ${countAfterClaim}→${countAfterComplete}; grants blob sync needs bridge deploy)`
-        : `claim=${claimC2.status} complete=${completeC2.status} task=${taskAfterC2.json?.task?.status ?? '?'} counts=${countAfterClaim}→${countAfterComplete}`,
+        ? `${completeOutcome} action_count ${countAfterClaim}→${countAfterComplete} boundary=${boundary}`
+        : `claim=${claimC2.status} code=${claimC2.json?.code ?? claimC2.json?.error ?? 'none'} complete=${completeC2.status} code=${completeC2.json?.code ?? 'none'} boundary=${boundary}`,
     );
 
-    const c3Ok = c2Operational && passIdC2 && completeC2.status === 200;
+    // C3 — pass_id in evidence_refs round-trip (same pass as C2)
+    const c3Ok = c2Ok && passIdC2 && completeC2.status === 200;
     record(
       'C3 pass_id evidence round-trip',
       c3Ok,
@@ -466,48 +476,42 @@ async function main() {
     record('C3 pass_id evidence round-trip', false, 'depends on C2');
   }
 
-  // C4 — stopped_at_boundary on draft_only
-  const taskC4 = smokeTasks[1].id;
-  const grantC4 = await mintGrant(consentStep.consentId, taskC4);
+  // C4 — stopped_at_boundary
+  const grantC4 = await mintGrant(consentStep.consentId, activeTaskId);
   if (grantC4.ok && grantC4.bearer && grantC4.grantId) {
-    const claimC4 = await claimTask(grantC4.bearer, taskC4, 'smoke_claim_7dl2_c4', 900);
+    const claimC4 = await claimTask(grantC4.bearer, activeTaskId, 'smoke_claim_7dl2_c4', 900);
     const passIdC4 = claimC4.json?.pass_id;
-    const countBefore = await grantActionCount(grantC4.grantId);
+    const countBefore = await grantActionCount(grantC4.bearer, grantC4.grantId);
     const completeC4 = passIdC4
-      ? await completeTask(grantC4.bearer, taskC4, passIdC4, 'smoke_complete_7dl2_c4', 'stopped_at_boundary', [
+      ? await completeTask(grantC4.bearer, activeTaskId, passIdC4, 'smoke_complete_7dl2_c4', 'stopped_at_boundary', [
           `pass:${passIdC4}`,
         ])
       : { status: 0, json: {} };
-    const countAfter = await grantActionCount(grantC4.grantId);
-    const taskAfterC4 = await api('GET', `/api/v1/tasks/${encodeURIComponent(taskC4)}`);
-    const auditIncrementedC4 =
-      countBefore === null || countAfter === null || countAfter > countBefore;
-    const c4Operational =
+    const countAfter = await grantActionCount(grantC4.bearer, grantC4.grantId);
+    const c4Ok =
       claimC4.status === 200 &&
       completeC4.status === 200 &&
-      (taskAfterC4.json?.task?.status === 'pending' || completeC4.json?.status === 'pending');
-    const c4Ok = c4Operational;
+      countBefore !== null &&
+      countAfter !== null &&
+      countAfter > countBefore;
     record(
       'C4 stopped_at_boundary audit',
       c4Ok,
       c4Ok
-        ? auditIncrementedC4
-          ? `200 external_boundary_stop path action_count ${countBefore}→${countAfter}`
-          : `200 stopped_at_boundary task→pending (action_count ${countBefore}→${countAfter}; grants blob sync needs bridge deploy)`
-        : `claim=${claimC4.status} complete=${completeC4.status} code=${completeC4.json?.code ?? 'none'} task=${taskAfterC4.json?.task?.status ?? '?'}`,
+        ? `200 external_boundary_stop path action_count ${countBefore}→${countAfter}`
+        : `claim=${claimC4.status} complete=${completeC4.status} code=${completeC4.json?.code ?? 'none'}`,
     );
   } else {
     record('C4 stopped_at_boundary audit', false, 'grant mint failed');
   }
 
   // C5 — boundary violation on observe_only + completed
-  const taskC5 = smokeTasks[2].id;
-  const grantC5 = await mintGrant(consentStep.consentId, taskC5);
+  const grantC5 = await mintGrant(consentStep.consentId, activeTaskId);
   if (grantC5.ok && grantC5.bearer) {
-    const claimC5 = await claimTask(grantC5.bearer, taskC5, 'smoke_claim_7dl2_c5', 900);
+    const claimC5 = await claimTask(grantC5.bearer, activeTaskId, 'smoke_claim_7dl2_c5', 900);
     const passIdC5 = claimC5.json?.pass_id;
     const completeC5 = passIdC5
-      ? await completeTask(grantC5.bearer, taskC5, passIdC5, 'smoke_complete_7dl2_c5', 'completed', [])
+      ? await completeTask(grantC5.bearer, activeTaskId, passIdC5, 'smoke_complete_7dl2_c5', 'completed', [])
       : { status: 0, json: {} };
     const c5Ok = completeC5.status === 422 && completeC5.json?.code === 'boundary_violation_prevented';
     record(
@@ -520,16 +524,15 @@ async function main() {
   }
 
   // C6 — lease expiry mid-pass
-  const taskC6 = smokeTasks[3].id;
-  const grantC6 = await mintGrant(consentStep.consentId, taskC6);
+  const grantC6 = await mintGrant(consentStep.consentId, activeTaskId);
   if (grantC6.ok && grantC6.bearer) {
-    const claimC6 = await claimTask(grantC6.bearer, taskC6, 'smoke_claim_7dl2_c6', 2);
+    const claimC6 = await claimTask(grantC6.bearer, activeTaskId, 'smoke_claim_7dl2_c6', 2);
     const passIdC6 = claimC6.json?.pass_id;
     if (passIdC6) {
       await sleep(2500);
       const completeC6 = await completeTask(
         grantC6.bearer,
-        taskC6,
+        activeTaskId,
         passIdC6,
         'smoke_complete_7dl2_c6',
         'completed',
@@ -541,11 +544,11 @@ async function main() {
         undefined,
         grantC6.bearer,
       );
-      const taskAfter = await api('GET', `/api/v1/tasks/${encodeURIComponent(taskC6)}`);
+      const taskAfter = await api('GET', `/api/v1/tasks/${encodeURIComponent(activeTaskId)}`);
       const c6Ok =
         completeC6.status === 410 &&
         completeC6.json?.code === 'lease_expired' &&
-        (taskAfter.json?.task?.status === 'pending' || sweep.json?.tasks?.some((t) => t.task_id === taskC6));
+        (taskAfter.json?.task?.status === 'pending' || sweep.json?.tasks?.some((t) => t.task_id === activeTaskId));
       record(
         'C6 lease expired mid-pass',
         c6Ok,

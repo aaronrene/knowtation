@@ -1,0 +1,14 @@
+{
+  "schema": "knowtation.media_connector_policy/v0",
+  "vaults": {
+    "default": {
+      "connectors": {
+        "gdrive": {
+          "enabled": true,
+          "display_name": "Google Drive (staging)",
+          "updated": "2026-07-02T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}

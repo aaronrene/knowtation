@@ -640,6 +640,24 @@ for the matching Scooling Tier 3 flip (2F-b-d-e / 2F-b-d-f). **Never enable both
 **Explicit authorization record (operator fills on enable day, per gate):**
 
 ```text
+MEDIA_EXTERNAL_LINK_ENABLED — authorized 2026-07-02 by operator (Tier 3 session 2F-b-d-kn-c)
+Repo: knowtation @ feat/phase-2f-b-d-kn-c-external-link-gate
+Gate flipped: MEDIA_EXTERNAL_LINK_ENABLED=1 (data/hub_media_write_policy.json + seed script)
+Other media write gate: MEDIA_ATTACH_ENABLED unchanged (never bundled)
+Verification: 22/22 media-write tests; verify-media-write-smoke.mjs --live-propose 5/5 PASS
+Downstream: unblocks Scooling 2F-b-d-e Tier 3
+```
+
+```text
+MEDIA_ATTACH_ENABLED — authorized 2026-07-03 by operator (Tier 3 session 2F-b-d-kn-d)
+Repo: knowtation @ feat/phase-2f-b-d-kn-d-attach-gate
+Gate flipped: MEDIA_ATTACH_ENABLED=1 (data/hub_media_write_policy.json + seed script)
+Other media write gate: MEDIA_EXTERNAL_LINK_ENABLED unchanged (never bundled)
+Verification: 22/22 media-write tests; verify-media-write-smoke.mjs --live-propose 7/7 PASS
+Downstream: unblocks Scooling 2F-b-d-f Tier 3
+```
+
+```text
 MEDIA_<EXTERNAL_LINK|ATTACH>_ENABLED — authorized YYYY-MM-DD by <principal>
 Repo: knowtation @ <sha>
 Gate flipped: <MEDIA_EXTERNAL_LINK_ENABLED|MEDIA_ATTACH_ENABLED>=1
