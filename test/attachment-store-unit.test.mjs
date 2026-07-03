@@ -31,7 +31,8 @@ describe('Attachment store — id regexes', () => {
     const id = deriveAttachmentId('file', 'file:media/x.png');
     assert.ok(ATTACHMENT_ID_RE.test(id));
     assert.ok(!ATTACHMENT_ID_RE.test('att_file_SHORT'));
-    assert.ok(!ATTACHMENT_ID_RE.test('att_FILE_' + 'a'.repeat(32)));
+    assert.ok(ATTACHMENT_ID_RE.test('att_link_' + 'a'.repeat(32)));
+    assert.ok(!ATTACHMENT_ID_RE.test('att_LINK_' + 'a'.repeat(32)));
     assert.ok(!ATTACHMENT_ID_RE.test('media_file_' + 'a'.repeat(32)));
   });
 

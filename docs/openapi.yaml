@@ -985,7 +985,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [vault_file, mist_blob, embedded_url]
+            enum: [vault_file, mist_blob, embedded_url, connector_ref]
         - name: mime_class
           in: query
           schema:
@@ -1018,6 +1018,145 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /attachments/link-proposals:
+    post:
+      tags: [Attachments]
+      summary: Propose an external media link (review-before-write)
+      description: >
+        Creates a media_external_link proposal. Gated by MEDIA_EXTERNAL_LINK_ENABLED (default off).
+        Requires an active import consent and allowlisted connector. Never fetches opaque_ref.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent, scope, connector_id, opaque_ref, consent_id]
+              properties:
+                intent: { type: string }
+                scope: { type: string, enum: [personal, project, org] }
+                connector_id: { type: string }
+                opaque_ref: { type: string }
+                consent_id: { type: string }
+                display_label: { type: string }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaProposalResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /attachments/attach-proposals:
+    post:
+      tags: [Attachments]
+      summary: Propose attaching media to a note (review-before-write)
+      description: >
+        Creates a media_attach proposal. Gated by MEDIA_ATTACH_ENABLED (default off).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intent, scope, attachment_id, note_ref, base_state_id]
+              properties:
+                intent: { type: string }
+                scope: { type: string, enum: [personal, project, org] }
+                attachment_id: { type: string }
+                note_ref: { type: string }
+                base_state_id: { type: string }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaProposalResponse' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /attachments/import-consents:
+    get:
+      tags: [Attachments]
+      summary: List import consents (read-only)
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, project, org] }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schema, vault_id, consents]
+                properties:
+                  schema:
+                    type: string
+                    enum: [knowtation.media_import_consent_list/v0]
+                  vault_id: { type: string }
+                  consents:
+                    type: array
+                    items:
+                      type: object
+    post:
+      tags: [Attachments]
+      summary: Grant import consent for external linking
+      description: Requires MEDIA_EXTERNAL_LINK_ENABLED. Not exposed as MCP write tool.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connector_id, scope]
+              properties:
+                connector_id: { type: string }
+                scope: { type: string, enum: [personal, project, org] }
+                expires_at: { type: [string, 'null'] }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      tags: [Attachments]
+      summary: Revoke import consent (not supported at collection path)
+      responses:
+        '405':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /attachments/import-consents/{id}:
+    delete:
+      tags: [Attachments]
+      summary: Revoke an import consent by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -2775,6 +2914,37 @@ components:
           type: string
           enum: [personal, project, org]
         attachment: { $ref: '#/components/schemas/AttachmentRecord' }
+
+    MediaProposalResponse:
+      type: object
+      required: [schema, proposal_id, proposal_kind, attachment_id, scope, auto_approvable, status]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.media_proposal/v0]
+        proposal_id: { type: string }
+        proposal_kind:
+          type: string
+          enum: [media_external_link, media_attach]
+        attachment_id:
+          type: string
+          pattern: '^att_(file|mist|url|link)_[a-f0-9]{32}$'
+        note_ref: { type: [string, 'null'] }
+        connector_id: { type: [string, 'null'] }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        base_state_id: { type: string }
+        external_ref: { type: [string, 'null'] }
+        auto_approvable:
+          type: boolean
+          enum: [false]
+        status:
+          type: string
+          enum: [proposed]
+        review_queue:
+          type: string
+          enum: [media-writes]
 
     AttachmentRecord:
       type: object

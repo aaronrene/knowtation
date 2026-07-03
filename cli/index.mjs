@@ -2138,8 +2138,11 @@ async function main() {
     if (hasOpt('help') || hasOpt('h') || !attachmentAction) {
       console.log(`knowtation attachment <action>
   Actions:
-    list  [--scope personal|project|org] [--note-ref <note:path>] [--source vault_file|mist_blob|embedded_url] [--mime-class <c>] [--storage-kind <k>] [--agent-visible] [--limit <n>] [--json]
+    list  [--scope personal|project|org] [--note-ref <note:path>] [--source vault_file|mist_blob|embedded_url|connector_ref] [--mime-class <c>] [--storage-kind <k>] [--agent-visible] [--limit <n>] [--json]
     get   <attachment_id> [--json]
+    link-propose   <payload.json> [--intent <text>] [--json]
+    attach-propose <payload.json> [--intent <text>] [--json]
+    import-consent grant|list|revoke [--json] (grant/revoke: payload.json or flags)
 
   Options: --json (exact Hub JSON)`);
       process.exit(0);
@@ -2229,8 +2232,141 @@ async function main() {
       process.exit(0);
     }
 
+    if (attachmentAction === 'link-propose' || attachmentAction === 'attach-propose') {
+      const payloadPath = args.find((a, i) => i >= 2 && !a.startsWith('--'));
+      if (!payloadPath) {
+        attachmentExitWithError(
+          `knowtation attachment ${attachmentAction}: provide a payload.json path.`,
+          'BAD_REQUEST',
+        );
+      }
+      const fsMod = await import('node:fs');
+      let payload;
+      try {
+        payload = JSON.parse(fsMod.readFileSync(payloadPath, 'utf8'));
+      } catch (e) {
+        attachmentExitWithError(`cannot read payload (${e.message}).`, 'BAD_REQUEST');
+      }
+      const intent = getOpt('intent') || (payload && typeof payload === 'object' ? payload.intent : undefined);
+      const { createProposal } = await import('../hub/proposals-store.mjs');
+      const {
+        handleMediaLinkProposeRequest,
+        handleMediaAttachProposeRequest,
+      } = await import('../lib/attachments/attachment-write.mjs');
+      const handler =
+        attachmentAction === 'link-propose'
+          ? handleMediaLinkProposeRequest
+          : handleMediaAttachProposeRequest;
+      const result = await handler({
+        dataDir: config.data_dir,
+        vaultPath: config.vault_path,
+        vaultId,
+        cliScopes,
+        body: payload,
+        intent,
+        createProposal,
+        vaultConfig: { ignore: config.ignore },
+      });
+      if (!result.ok) {
+        attachmentExitWithError(result.error, result.code);
+      }
+      if (useJson) {
+        console.log(JSON.stringify(result.payload));
+      } else {
+        console.log(
+          `proposed ${result.payload.proposal_kind} → ${result.payload.proposal_id} attachment=${result.payload.attachment_id}`,
+        );
+      }
+      process.exit(0);
+    }
+
+    if (attachmentAction === 'import-consent') {
+      const consentAction = args[2];
+      const {
+        handleMediaImportConsentGrantRequest,
+        handleMediaImportConsentListRequest,
+        handleMediaImportConsentRevokeRequest,
+      } = await import('../lib/attachments/attachment-write.mjs');
+
+      if (consentAction === 'list') {
+        const result = handleMediaImportConsentListRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          scope: getOpt('scope') ?? undefined,
+        });
+        if (!result.ok) {
+          attachmentExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          for (const c of result.payload.consents) {
+            console.log(`${c.consent_id}  ${c.connector_id}  [${c.scope}]  ${c.status}`);
+          }
+        }
+        process.exit(0);
+      }
+
+      const payloadPath = args.find((a, i) => i >= 3 && !a.startsWith('--'));
+      const fsMod = await import('node:fs');
+      let payload = {};
+      if (payloadPath) {
+        try {
+          payload = JSON.parse(fsMod.readFileSync(payloadPath, 'utf8'));
+        } catch (e) {
+          attachmentExitWithError(`cannot read payload (${e.message}).`, 'BAD_REQUEST');
+        }
+      }
+
+      if (consentAction === 'grant') {
+        const result = handleMediaImportConsentGrantRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          userId: 'cli-user',
+          cliScopes,
+          body: payload,
+        });
+        if (!result.ok) {
+          attachmentExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`granted consent ${result.payload.consent_id}`);
+        }
+        process.exit(0);
+      }
+
+      if (consentAction === 'revoke') {
+        const consentId =
+          payload.consent_id || getOpt('consent-id') || args.find((a, i) => i >= 3 && !a.startsWith('--'));
+        const result = handleMediaImportConsentRevokeRequest({
+          dataDir: config.data_dir,
+          vaultId,
+          cliScopes,
+          consentId,
+          body: payload,
+        });
+        if (!result.ok) {
+          attachmentExitWithError(result.error, result.code);
+        }
+        if (useJson) {
+          console.log(JSON.stringify(result.payload));
+        } else {
+          console.log(`revoked consent ${result.payload.consent_id}`);
+        }
+        process.exit(0);
+      }
+
+      attachmentExitWithError(
+        'knowtation attachment import-consent: use grant, list, or revoke.',
+        'BAD_REQUEST',
+      );
+    }
+
     exitWithError(
-      `knowtation attachment: unknown action "${attachmentAction}". Use list or get.`,
+      `knowtation attachment: unknown action "${attachmentAction}". Use list, get, link-propose, attach-propose, or import-consent.`,
       1,
       useJson,
     );
