@@ -66,9 +66,6 @@ export function mergeGrantsStoreJson(localRaw, blobRaw) {
     const scoreA = grantScore(a);
     const scoreB = grantScore(b);
     if (scoreA !== scoreB) return scoreA > scoreB ? a : b;
-    const countA = typeof a.action_count === 'number' ? a.action_count : 0;
-    const countB = typeof b.action_count === 'number' ? b.action_count : 0;
-    if (countA !== countB) return countB > countA ? b : a;
     const timeA = Date.parse(String(a.issued_at || '')) || 0;
     const timeB = Date.parse(String(b.issued_at || '')) || 0;
     return timeB >= timeA ? b : a;

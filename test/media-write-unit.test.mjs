@@ -65,6 +65,20 @@ describe('media write — unit', () => {
     assert.equal(getMediaAttachEnabled(dir), false);
   });
 
+  it('hub_media_write_policy.json enables both gates when env unset (2F-b-d-kn-d staging)', () => {
+    const dir = path.join(tmpRoot, 'policy-file');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'hub_media_write_policy.json'),
+      JSON.stringify({ media_external_link_enabled: true, media_attach_enabled: true }),
+      'utf8',
+    );
+    delete process.env.MEDIA_EXTERNAL_LINK_ENABLED;
+    delete process.env.MEDIA_ATTACH_ENABLED;
+    assert.equal(getMediaExternalLinkEnabled(dir), true);
+    assert.equal(getMediaAttachEnabled(dir), true);
+  });
+
   it('propose envelope stamps source media + review_queue media-writes when gate on', async () => {
     process.env.MEDIA_EXTERNAL_LINK_ENABLED = '1';
     const fx = buildMediaWriteFixture(path.join(tmpRoot, 'env'));

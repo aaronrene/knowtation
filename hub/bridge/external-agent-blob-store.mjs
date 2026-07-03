@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { FLOW_STORE_FILENAME } from '../../lib/flow/flow-store.mjs';
-import { hydrateDelegationStoresFromBlob, persistDelegationStoresToBlob } from './delegation-blob-store.mjs';
+import { hydrateDelegationStoresFromBlob } from './delegation-blob-store.mjs';
 
 /** @typedef {{ get: (key: string, opts?: { type?: string }) => Promise<string|ArrayBuffer|null>, set: (key: string, value: string) => Promise<void> }} BlobStore */
 
@@ -199,10 +199,6 @@ export async function withExternalProtocolBlobSync(opts) {
       /* non-fatal */
     }
   }
-
-  // External protocol claim/complete append delegation audit + bump grant action_count locally;
-  // persist grants (and audit) to delegation/* blob keys so grant list reflects hosted mutations.
-  await persistDelegationStoresToBlob(opts.blobStore, opts.dataDir);
 
   return result;
 }
