@@ -175,6 +175,19 @@ muse bridge git-export \
 
 verify_sentinels
 
+# `muse bridge git-export --exclude` prevents ADDING .muse/, but it does NOT prune
+# .muse/ files already tracked in the mirror branch from before the exclude existed.
+# Purge them explicitly so the audit mirror never carries Muse-internal metadata.
+# Idempotent: a no-op once the mirror is clean (Knowtation's mirror is already clean).
+MIRROR_TRACKED_MUSE=$(git -C "${MIRROR_DIR_ABS}" ls-files .muse)
+if [[ -n "$MIRROR_TRACKED_MUSE" ]]; then
+  info "Purging pre-existing tracked .muse/ metadata from ${MIRROR_BRANCH}..."
+  git -C "${MIRROR_DIR_ABS}" rm -r --quiet .muse
+  git -C "${MIRROR_DIR_ABS}" commit -q -m "chore(bridge): purge Muse-internal .muse/ metadata from mirror"
+  git -C "${MIRROR_DIR_ABS}" push origin "HEAD:${MIRROR_BRANCH}"
+  success "Mirror .muse/ metadata purged and pushed."
+fi
+
 success "Bridge complete. ${MIRROR_BRANCH} is up to date on origin."
 
 # ── Step 4: GitHub/GitLab PR ──────────────────────────────────────────────────
