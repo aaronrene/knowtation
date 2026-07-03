@@ -1,9 +1,9 @@
 ---
 date: 2026-07-03
-status: ready-to-file
-issue_number: TBD
-repo: gabriel/musehub
-url: TBD
+status: filed
+issue_number: 65
+repo: gabriel/muse
+url: https://staging.musehub.ai/gabriel/muse/issues/65
 title: "[RE-FILE] muse bridge git-export/import deletes ignored local files (.env, config/local.yaml) — still present in 0.2.0rc15"
 labels: [bug, bridge, data-loss, security]
 patch_status: proposal-drafted

@@ -14,7 +14,7 @@
     "mcp": "node mcp/server.mjs",
     "mcp:http": "MCP_TRANSPORT=http node mcp/server.mjs",
     "transcribe": "node scripts/transcribe.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs test/*/external-protocol-*.test.mjs",
     "hub": "node hub/server.mjs",
     "canister:verify-migration": "node scripts/verify-canister-migration.mjs",
     "canister:preflight": "bash scripts/canister-predeploy.sh",
@@ -100,7 +100,6 @@
     "hono": ">=4.12.21"
   },
   "devDependencies": {
-    "chai": "^6.2.2",
-    "mocha": "^11.7.6"
+    "chai": "^6.2.2"
   }
 }

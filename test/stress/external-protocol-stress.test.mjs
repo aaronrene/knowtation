@@ -1,3 +1,4 @@
+import { describe, it } from 'node:test';
 import { expect } from 'chai';
 import * as protocol from '../../lib/agent/external-agent-protocol.mjs';
 
