@@ -11,13 +11,14 @@ milestones land.
 
 | | |
 | --- | --- |
-| **Status** | **Muse bridge-safety hygiene landed on Muse `main`** (2026-07-03) + 2F-b-d-kn track MERGED + MIRRORED · **NEXT = reconcile diverged local git + file upstream Muse bridge issue** (see below) |
-| **Muse `main`** | `sha256:3a12929a…` (shared `scripts/muse-local-setup.sh` + `vault/areas/muse-ops/muse-local-hygiene.md` + rc15 bridge-issue re-file, on top of `8288517…` 2F-b-d-kn-d) |
-| **GitHub `main`** | [PR #258](https://github.com/aaronrene/knowtation/pull/258) @ `bf4aad8` — **⚠ local git diverged: on stale branch `feat/phase-2f-b-d-kn-d-attach-gate`, 14 commits ahead of `origin/main`, with unrelated uncommitted edits. Reconcile before mirroring (fetch + compare Muse `main` vs `origin/main`).** |
-| **Muse bridge safety** | `.env`/`config/local.yaml` deletion root cause = hand-run `muse bridge git-export --git-dir .` (universal Muse CLI bug, unfixed through rc15). Everyday commands + `scripts/muse-bridge-deploy.sh` are safe (verified). Run `scripts/muse-local-setup.sh` on fresh clones. **`muse hub issue` auth now works** — upstream re-file draft ready at `docs/musehub-issues/2026-07-03-bridge-deletes-ignored-files-rc15-refile.md`, not yet filed. |
-| **Branch protection** | **Queued** (not yet applied): require `test (20)` + `Secret scanning (TruffleHog)` on `main` — both verified to run on PRs. `gh api` command in Scooling handover / next-session prompt. |
-| **THE ONE NEXT STEP** | Reconcile diverged local git → then mirror Muse `main` (`scripts/muse-bridge-deploy.sh`) + enable branch protection + file the upstream issue. Then Scooling **Phase 7B-a** inert model studio. |
-| **PRIMARY prompt** | Knowtation Muse-hygiene reconcile + mirror (below); then Scooling **Phase 7B-a** |
+| **Status** | **Muse bridge-safety hygiene SHIPPED + local git reconciled** (2026-07-03) — mirror [PR #259](https://github.com/aaronrene/knowtation/pull/259) **MERGED** @ `bd73698`; local `main` reconciled (0/0 vs `origin/main`, clean); stale `feat/phase-2f-b-d-kn-d-attach-gate` deleted (tag-backed); upstream Muse bug **FILED** [gabriel/muse #65](https://staging.musehub.ai/gabriel/muse/issues/65). · **NEXT = enable `main` branch protection (optional) → next studio slice** |
+| **Muse `main`** | `sha256:44dad7ac…` (shared `scripts/muse-local-setup.sh` + `vault/areas/muse-ops/muse-local-hygiene.md` + rc15 bridge-issue re-file + handover sync, on top of `8288517…` 2F-b-d-kn-d) — **mirrored via #259** |
+| **GitHub `main`** | [PR #259](https://github.com/aaronrene/knowtation/pull/259) **MERGED** @ `bd73698` (mirror of Muse `44dad7ac`); prior [PR #258](https://github.com/aaronrene/knowtation/pull/258) @ `bf4aad8` |
+| **Local git `main`** | **ALIGNED** @ `bd73698` (0-ahead/0-behind `origin/main`, clean tree). Backup tag `backup/kn-stale-2fbd-branch-20260703` @ `a8d0fd1` (the deleted stale branch). Knowtation blanket-ignores `.muse/` so no `skip-worktree` needed (0 volatile files). |
+| **Muse bridge safety** | `.env`/`config/local.yaml` deletion root cause = hand-run `muse bridge git-export --git-dir .` (universal Muse CLI bug, unfixed through rc15). Everyday commands + `scripts/muse-bridge-deploy.sh` are safe (verified). Run `scripts/muse-local-setup.sh` on fresh clones. Upstream **FILED** at [gabriel/muse #65](https://staging.musehub.ai/gabriel/muse/issues/65) (the Muse CLI repo). |
+| **Branch protection** | **Queued** (optional, not yet applied): require `test (20)` + `Secret scanning (TruffleHog)` on `main` — both verified to run on PRs. `gh api` command in the next-session prompt. |
+| **THE ONE NEXT STEP** | Muse-hygiene closed for Knowtation. Optional: enable `main` branch protection. Then Scooling **next studio slice**. |
+| **PRIMARY prompt** | Scooling **next studio slice** (Knowtation hygiene leg complete) |
 
 | Step | Status |
 | --- | --- |

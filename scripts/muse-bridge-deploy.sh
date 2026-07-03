@@ -108,13 +108,25 @@ else
   AUDIT_FIX_OUTPUT=$(npm audit fix --audit-level=moderate 2>&1 || true)
   printf '%s\n' "$AUDIT_FIX_OUTPUT" | tail -5
 
-  # Check if high/critical vulns remain after auto-fix
-  HIGH_COUNT=$(npm audit --json 2>/dev/null \
-    | python3 -c "import json,sys; d=json.load(sys.stdin); \
-      v=d.get('metadata',{}).get('vulnerabilities',{}); \
-      print(v.get('high',0)+v.get('critical',0))" 2>/dev/null || echo "0")
+  # Check if high/critical vulns remain after auto-fix.
+  # Capture audit JSON into a variable FIRST. `npm audit --json` exits non-zero when
+  # vulnerabilities exist, and with `set -o pipefail` a `cmd | python3 || echo 0` chain
+  # would append "0" to python's output (yielding a multi-line "N\n0" that breaks the
+  # numeric `[[ -gt ]]` test). Separating capture from parse and normalizing to a single
+  # integer makes this robust regardless of audit exit code / output shape.
+  AUDIT_JSON=$(npm audit --json 2>/dev/null || true)
+  HIGH_COUNT=$(printf '%s' "$AUDIT_JSON" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    v = d.get('metadata', {}).get('vulnerabilities', {})
+    print(int(v.get('high', 0)) + int(v.get('critical', 0)))
+except Exception:
+    print(0)
+" 2>/dev/null || echo "0")
+  HIGH_COUNT=$(printf '%s\n' "$HIGH_COUNT" | tail -1 | tr -cd '0-9'); HIGH_COUNT=${HIGH_COUNT:-0}
 
-  if [[ "$HIGH_COUNT" -gt 0 ]]; then
+  if (( HIGH_COUNT > 0 )); then
     fail "npm audit found $HIGH_COUNT high/critical vulnerabilities that could not be auto-fixed.\n\
 Run 'npm audit' to review them, fix manually, then re-run this script.\n\
 DO NOT bridge with known high/critical vulnerabilities."
@@ -148,6 +160,9 @@ muse bridge git-export \
   --git-branch "${MIRROR_BRANCH}" \
   --git-remote origin \
   --force-push \
+  --strip-muse-metadata \
+  --exclude '.muse/*' \
+  --exclude '.muse/**' \
   --exclude '.env' \
   --exclude '.env.local' \
   --exclude '.env.*.local' \
