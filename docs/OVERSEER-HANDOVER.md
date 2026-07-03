@@ -12,9 +12,9 @@ milestones land.
 | | |
 | --- | --- |
 | **2F-b-d-kn-a contract** | **DONE** — `docs/MEDIA-WRITE-SURFACES-CONTRACT-2F-b-d-kn.md` frozen |
-| **2F-b-d-kn-b build** | **DONE** — canonical write surfaces implemented; **21/21** media-write tests green; Muse `sha256:db5adf05…`; Git `4cf5480` on branch (merge pending → `main`) |
+| **2F-b-d-kn-b build** | **DONE** — canonical write surfaces implemented; **21/21** media-write tests green; Muse `sha256:3690634d…`; Git `4821663`; merged Muse `main` |
 | **Posture** | Write routes **live in code** but **inert** — `MEDIA_EXTERNAL_LINK_ENABLED` / `MEDIA_ATTACH_ENABLED` default **off**; read-only attachments unchanged |
-| **Branch** | `feat/phase-2f-b-d-kn-media-write-surfaces` — ready to merge to Muse `main` + GitHub muse-mirror PR |
+| **Branch** | Muse `main` merged (2026-07-02); GitHub muse-mirror PR pending (SD-14) |
 | **Next (Knowtation)** | **2F-b-d-kn-c** — Tier 3 operator session: enable **`MEDIA_EXTERNAL_LINK_ENABLED` only** (§16.1 KE-*); **`MEDIA_ATTACH_ENABLED` unchanged** |
 | **Next (Scooling)** | **2F-b-d-e** — flip `MEDIA_EXTERNAL_LINK_AUTHORIZED` only — **blocked until** Knowtation §16.1 passes; never bundled with 2F-b-d-f |
 
@@ -83,7 +83,8 @@ node scripts/verify-media-write-smoke.mjs   # self-hosted Hub; gates off → 403
 
 | Date | Event |
 | --- | --- |
-| 2026-07-02 | **2F-b-d-kn-b DONE** — canonical media write surfaces build; 21/21 media-write tests; gates default off; Muse `sha256:db5adf05…`; Git `4cf5480`; branch `feat/phase-2f-b-d-kn-media-write-surfaces`; next = **2F-b-d-kn-c** (external link gate only, §16.1) |
+| 2026-07-02 | **2F-b-d-kn-b MERGED** — canonical media write surfaces build; 21/21 media-write tests; gates default off; Muse `sha256:3690634d…`; Git `4821663`; Muse `main` merged; GitHub muse-mirror PR pending; next = **2F-b-d-kn-c** (external link gate only, §16.1) |
+| 2026-07-02 | **2F-b-d-kn-b DONE** — build on feature branch; Muse `sha256:db5adf05…`; Git `4cf5480` |
 | 2026-07-02 | **2F-b-d-kn-a contract FROZEN** — `docs/MEDIA-WRITE-SURFACES-CONTRACT-2F-b-d-kn.md`; Muse `sha256:c4ab1e50…` |
 | 2026-07-02 | **2F-b-b MERGED** — read-only attachments; GitHub [PR #256](https://github.com/aaronrene/knowtation/pull/256) |
 | 2026-07-01 | P1b-c **MERGED** — offline locked auth shipped |
@@ -102,7 +103,7 @@ MEDIA_EXTERNAL_LINK_ENABLED ONLY. Read knowtation/docs/MEDIA-WRITE-SURFACES-CONT
 §16.1 (KE-1..KE-12) in full before acting.
 
 Verified standing (post 2F-b-d-kn-b merge):
-- Knowtation 2F-b-d-kn-b DONE — write surfaces on main; 21/21 media-write tests (gates off)
+- Knowtation 2F-b-d-kn-b DONE — write surfaces on Muse main @ sha256:3690634d…; Git 4821663; 21/21 media-write tests (gates off)
 - MEDIA_EXTERNAL_LINK_ENABLED and MEDIA_ATTACH_ENABLED default OFF in production posture
 - Scooling 2F-b-d-b DONE — consumer wire ready; MEDIA_EXTERNAL_LINK_AUTHORIZED hard-false
 
@@ -110,7 +111,7 @@ Branch: feat/phase-2f-b-d-kn-c-external-link-gate (off Muse main) OR operator de
 
 THE ONE NEXT STEP — Enable external link gate ONLY (never bundle attach):
 
-1) Merge feat/phase-2f-b-d-kn-media-write-surfaces to Muse main + GitHub muse-mirror PR if not done
+1) GitHub muse-mirror PR for 2F-b-d-kn-b merge if not done (SD-14)
 2) In dev/staging ONLY: set MEDIA_EXTERNAL_LINK_ENABLED=1 (env or hub_media_write_policy.json)
 3) Seed connector allowlist (hub_media_connector_policy.json) for test vault — admin only
 4) Re-run seven tiers with link gate ON, attach gate OFF:
