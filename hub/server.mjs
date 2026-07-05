@@ -118,6 +118,10 @@ import {
 import { importIcsIntoVault } from '../lib/calendar/event-store.mjs';
 import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../lib/calendar/source-calendar-patch.mjs';
 import { retrieveAgentCalendarContext } from '../lib/calendar/agent-retrieval.mjs';
+import {
+  handleBeginGoogleConnector,
+  handleListGoogleConnectors,
+} from '../lib/calendar/google-oauth-connector.mjs';
 import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
 import { handleTaskListRequest, handleTaskGetRequest } from '../lib/task/task-handlers.mjs';
 import {
@@ -759,6 +763,29 @@ app.use('/api/v1/note-outline', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/document-tree', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/metadata-facets', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/section-source', jwtAuth, apiLimiter, requireVaultAccess);
+
+// GET /api/v1/calendar/connectors/callback — Google OAuth redirect (state-authenticated; no JWT)
+app.get('/api/v1/calendar/connectors/callback', async (req, res) => {
+  try {
+    const mod = await import('../lib/calendar/google-oauth-connector.mjs');
+    const googleClient = mod.createProductionGoogleClient
+      ? mod.createProductionGoogleClient()
+      : mod.createFakeGoogleClient();
+    const result = await mod.handleGoogleConnectorCallback({
+      dataDir: config.data_dir,
+      query: req.query,
+      googleClient,
+      env: process.env,
+    });
+    if (result.redirect) {
+      return res.redirect(result.status, result.redirect);
+    }
+    return res.status(result.status).json({ code: result.code });
+  } catch (e) {
+    return res.status(500).json({ error: 'Callback failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
 app.use('/api/v1/calendar', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/tasks', jwtAuth, apiLimiter, requireVaultAccess);
@@ -1045,6 +1072,80 @@ app.post('/api/v1/calendar/events/import', requireRole('editor', 'admin'), (req,
       return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
     }
     return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// POST /api/v1/calendar/connectors — begin Google OAuth connect (Phase 1D, gated)
+app.post('/api/v1/calendar/connectors', requireRole('editor', 'admin'), (req, res) => {
+  const result = handleBeginGoogleConnector({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    body: req.body,
+    env: process.env,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
+  }
+  return res.status(result.status).json(result.payload);
+});
+
+// GET /api/v1/calendar/connectors — connector status (token-free, gated)
+app.get('/api/v1/calendar/connectors', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const result = handleListGoogleConnectors({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+// POST /api/v1/calendar/connectors/:id/sync — manual sync (gated, rate-limited)
+app.post('/api/v1/calendar/connectors/:id/sync', requireRole('editor', 'admin'), async (req, res) => {
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const mod = await import('../lib/calendar/google-oauth-connector.mjs');
+    const googleClient = mod.createProductionGoogleClient
+      ? mod.createProductionGoogleClient()
+      : mod.createFakeGoogleClient();
+    const result = await mod.handleSyncGoogleConnector({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      connectorId,
+      googleClient,
+      env: process.env,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// DELETE /api/v1/calendar/connectors/:id — revoke + purge (gated)
+app.delete('/api/v1/calendar/connectors/:id', requireRole('editor', 'admin'), async (req, res) => {
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const mod = await import('../lib/calendar/google-oauth-connector.mjs');
+    const googleClient = mod.createProductionGoogleClient
+      ? mod.createProductionGoogleClient()
+      : mod.createFakeGoogleClient();
+    const result = await mod.handleRevokeGoogleConnector({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      connectorId,
+      googleClient,
+      env: process.env,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });
 

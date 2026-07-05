@@ -140,6 +140,10 @@ Response: merged, sorted slices with `kind` discriminator per item. No OAuth tok
 - `POST /api/v1/calendar/connectors/:id/sync` — manual refresh (rate-limited)
 - `DELETE /api/v1/calendar/connectors/:id` — revoke + delete copied events
 
+**1D freeze (Google, read-only):** these connector endpoints are now specified for
+`provider='google'` in **`docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md`** (adds a `GET …/connectors/callback`
+route). ICS URL (1C) remains a separate freeze.
+
 MCP/CLI parity deferred to separate phase after Hub REST is proven.
 
 ---
@@ -201,7 +205,7 @@ Canonical implementation: `lib/calendar/source-calendar-defaults.mjs`.
 | **1B** | Local event store + timeline merge with note dates (self-hosted Hub) (**done**) |
 | **1B+** | `PATCH /api/v1/calendar/source-calendars/:id` — display/agent toggles (**done**) |
 | **1C** | ICS URL subscription sync (read-only) |
-| **1D** | Google read OAuth connector |
+| **1D** | Google read OAuth connector — **spec FROZEN** 2026-07-05 (`docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md`); build gated on `CALENDAR_OAUTH_GOOGLE_AUTHORIZED` |
 | **1E** | Agent tier enforcement in retrieval API |
 | **1F** | Scooling `CalendarAdapter` live read |
 
@@ -211,10 +215,13 @@ Hosted canister parity follows self-hosted proof — not blocked on MuseHub stag
 
 ## Open Decisions
 
-1. Recurring events: expand at sync vs query time.
-2. Sync horizon: recommend 90 days past / 365 days future.
-3. Unified timeline endpoint vs client merge (recommend server merge).
+1. ~~Recurring events: expand at sync vs query time.~~ — **Resolved (1D freeze):** expand at fetch via Google `singleEvents=true`; store instances (no RRULE engine in v0).
+2. ~~Sync horizon.~~ — **Resolved (1D freeze):** 90 days past / 365 days future.
+3. ~~Unified timeline endpoint vs client merge.~~ — **Resolved:** server merge (`GET /calendar/timeline`).
 4. ~~Default for new `SourceCalendar`~~ — **Resolved:** `enabled_for_display=true`, `enabled_for_agents=false`, `agent_context_tier_max=0` (see security checklist).
+
+OAuth-specific decisions (client type, scopes, token storage, attendee handling, verification
+posture) are frozen in `docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md` §"Design decisions frozen".
 
 ---
 
