@@ -9,10 +9,9 @@ Knowtation-specific history → this file's change log below. Phase truth → `s
 
 ## NEXT SESSION — same as Scooling PRIMARY
 
-Active track (2026-07-05): **Calendar step 11b** — build the read-only **Google OAuth connector
-(Phase 1D)**, gated off (`CALENDAR_OAUTH_GOOGLE_AUTHORIZED=false`). Spec **FROZEN** (11a) at
-`docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md`. SD-8 domain registration remains queued (blocked on
-MuseHub `/api/v1/domains` deploy).
+Active track (2026-07-05): **Calendar step 11b MERGED** — Google OAuth connector (Phase 1D) on
+`main`, **gated off** (`CALENDAR_OAUTH_GOOGLE_AUTHORIZED=false`). Next: **operator Tier 3 Session A**
+(loopback Google OAuth live smoke — flip gate + Google Cloud test client only).
 
 See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste block.
 
@@ -22,10 +21,10 @@ See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste bloc
 
 | | |
 | --- | --- |
-| **GitHub `main`** | `bd73698` (PR #259 merged 2026-07-03) |
+| **Phase 1D** | **MERGED** (2026-07-05) — connector routes + seven-tier tests; gate off until Tier 3 |
 | **Media write gates** | External link + attach **on** dev/staging |
-| **API** | **`api.knowtation.store` live** — hosted smokes passed |
-| **Domain plugin** | Code green (1570 tests); pushed to `aaronrene/gabriel-muse` staging; **registration blocked** on MuseHub `/api/v1/domains` deploy |
+| **API** | **`api.knowtation.store` live** |
+| **Domain plugin** | Registration on staging; MuseHub deploy gate for public `/api/v1/domains` |
 
 ---
 
@@ -33,11 +32,10 @@ See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste bloc
 
 | Date | Event |
 | --- | --- |
-| 2026-07-05 | Calendar step 11a — Google OAuth connector spec **FROZEN** (`docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md`); active track → 11b build (gated off) on `feat/calendar-oauth-1d-spec` |
-| 2026-07-05 | Active track → SD-8 (Scooling handover reprioritized; Track C parked) |
+| 2026-07-05 | Calendar step **11b MERGED** — Google OAuth connector (1D): vault, normalizer, connector module, Hub routes; 21/21 tests; gate stays `false` until Tier 3 |
+| 2026-07-05 | Calendar step 11a — spec **FROZEN** (`docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md`) |
 | 2026-07-03 | Muse bridge-safety hygiene merged PR #259 |
 | 2026-07-03 | 2F-b-d-kn merge complete — media write surfaces live on dev/staging |
-| 2026-07-01 | P1b-c offline locked auth merged |
 
 Full history: earlier entries preserved below in this file.
 
