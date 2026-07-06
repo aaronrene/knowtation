@@ -67,6 +67,10 @@ import {
 import { importIcsIntoVault } from '../../lib/calendar/event-store.mjs';
 import { patchSourceCalendar, parseSourceCalendarPatchBody } from '../../lib/calendar/source-calendar-patch.mjs';
 import { retrieveAgentCalendarContext } from '../../lib/calendar/agent-retrieval.mjs';
+import {
+  handleBeginGoogleConnector,
+  handleListGoogleConnectors,
+} from '../../lib/calendar/google-oauth-connector.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
@@ -3196,6 +3200,109 @@ app.post('/api/v1/calendar/events/import', requireBridgeAuth, requireBridgeEdito
       return res.status(400).json({ error: message, code: 'BAD_REQUEST' });
     }
     return res.status(500).json({ error: message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Calendar OAuth connectors (Phase 1D hosted parity — INF-KN-1): bridge event store + OAuth callback.
+app.get('/api/v1/calendar/connectors/callback', async (req, res) => {
+  try {
+    const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
+    const googleClient = mod.createProductionGoogleClient
+      ? mod.createProductionGoogleClient()
+      : mod.createFakeGoogleClient();
+    const result = await mod.handleGoogleConnectorCallback({
+      dataDir: DATA_DIR,
+      query: req.query,
+      googleClient,
+      env: process.env,
+    });
+    if (result.redirect) {
+      return res.redirect(result.status, result.redirect);
+    }
+    return res.status(result.status).json({ code: result.code });
+  } catch (e) {
+    return res.status(500).json({ error: 'Callback failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/calendar/connectors', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  const result = handleBeginGoogleConnector({
+    dataDir: DATA_DIR,
+    vaultId: hctx.vaultId,
+    body: req.body,
+    env: process.env,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
+  }
+  return res.status(result.status).json(result.payload);
+});
+
+app.get('/api/v1/calendar/connectors', requireBridgeAuth, async (req, res) => {
+  const hctx = await resolveHostedBridgeSettingsContext(req, req.uid);
+  const vaultId = sanitizeVaultId(req.headers['x-vault-id']);
+  if (!hctx.allowedVaultIds.includes(vaultId)) {
+    return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+  }
+  const result = handleListGoogleConnectors({
+    dataDir: DATA_DIR,
+    vaultId,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.post('/api/v1/calendar/connectors/:id/sync', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
+    const googleClient = mod.createProductionGoogleClient
+      ? mod.createProductionGoogleClient()
+      : mod.createFakeGoogleClient();
+    const result = await mod.handleSyncGoogleConnector({
+      dataDir: DATA_DIR,
+      vaultId: hctx.vaultId,
+      connectorId,
+      googleClient,
+      env: process.env,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.delete('/api/v1/calendar/connectors/:id', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
+  const hctx = await resolveHostedBridgeContext(req, req.uid);
+  if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
+    const googleClient = mod.createProductionGoogleClient
+      ? mod.createProductionGoogleClient()
+      : mod.createFakeGoogleClient();
+    const result = await mod.handleRevokeGoogleConnector({
+      dataDir: DATA_DIR,
+      vaultId: hctx.vaultId,
+      connectorId,
+      googleClient,
+      env: process.env,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
   }
 });
 
