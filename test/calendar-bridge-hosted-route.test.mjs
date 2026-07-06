@@ -24,6 +24,11 @@ describe('hosted bridge calendar routes', () => {
     assert.match(bridge, /app\.get\('\/api\/v1\/calendar\/source-calendars', requireBridgeAuth/);
     assert.match(bridge, /app\.patch\('\/api\/v1\/calendar\/source-calendars\/:id', requireBridgeAuth, requireBridgeEditorOrAdmin/);
     assert.match(bridge, /app\.post\('\/api\/v1\/calendar\/events\/import', requireBridgeAuth, requireBridgeEditorOrAdmin/);
+    assert.match(bridge, /app\.get\('\/api\/v1\/calendar\/connectors\/callback'/);
+    assert.match(bridge, /app\.post\('\/api\/v1\/calendar\/connectors', requireBridgeAuth, requireBridgeEditorOrAdmin/);
+    assert.match(bridge, /app\.get\('\/api\/v1\/calendar\/connectors', requireBridgeAuth/);
+    assert.match(bridge, /app\.post\('\/api\/v1\/calendar\/connectors\/:id\/sync', requireBridgeAuth, requireBridgeEditorOrAdmin/);
+    assert.match(bridge, /app\.delete\('\/api\/v1\/calendar\/connectors\/:id', requireBridgeAuth, requireBridgeEditorOrAdmin/);
     assert.match(bridge, /fetchCanisterNoteRecordsForTimeline/);
 
     assert.match(gateway, /app\.get\('\/api\/v1\/calendar\/timeline'/);
@@ -31,6 +36,11 @@ describe('hosted bridge calendar routes', () => {
     assert.match(gateway, /app\.get\('\/api\/v1\/calendar\/source-calendars'/);
     assert.match(gateway, /app\.patch\('\/api\/v1\/calendar\/source-calendars\/:id'/);
     assert.match(gateway, /app\.post\('\/api\/v1\/calendar\/events\/import'/);
+    assert.match(gateway, /app\.get\('\/api\/v1\/calendar\/connectors\/callback'/);
+    assert.match(gateway, /app\.post\('\/api\/v1\/calendar\/connectors'/);
+    assert.match(gateway, /app\.get\('\/api\/v1\/calendar\/connectors'/);
+    assert.match(gateway, /app\.post\('\/api\/v1\/calendar\/connectors\/:id\/sync'/);
+    assert.match(gateway, /app\.delete\('\/api\/v1\/calendar\/connectors\/:id'/);
   });
 
   it('security: bridge calendar routes require auth before hosted context resolution', () => {
@@ -39,10 +49,16 @@ describe('hosted bridge calendar routes', () => {
       bridge.indexOf("app.get('/api/v1/calendar/timeline'"),
       bridge.indexOf("app.get('/api/v1/calendar/agent-context'"),
     );
+    const connectorListBlock = bridge.slice(
+      bridge.indexOf("app.get('/api/v1/calendar/connectors', requireBridgeAuth"),
+      bridge.indexOf("app.post('/api/v1/calendar/connectors/:id/sync'"),
+    );
 
     assert.match(timelineBlock, /requireBridgeAuth/);
     assert.match(timelineBlock, /resolveHostedBridgeContext/);
     assert.doesNotMatch(timelineBlock, /oauth_ref|refresh_token/);
+    assert.match(connectorListBlock, /requireBridgeAuth/);
+    assert.doesNotMatch(connectorListBlock, /oauth_ref|refresh_token/);
   });
 
   it('integration: timeline merge can use canister note records without a local vault path', () => {
