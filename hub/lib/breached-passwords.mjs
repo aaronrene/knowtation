@@ -8,7 +8,16 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Netlify gateway bundle: import.meta.url may be missing at load time — never throw here.
+function hubLibDirname() {
+  try {
+    const u = typeof import.meta !== 'undefined' ? import.meta.url : '';
+    if (u) return path.dirname(fileURLToPath(u));
+  } catch (_) {}
+  return path.join(process.cwd(), 'hub', 'lib');
+}
+
+const __dirname = hubLibDirname();
 const HASH_FILE = path.join(__dirname, 'breached-passwords-sha1.txt');
 
 /** @type {Set<string>|null} */
