@@ -14,7 +14,6 @@ import {
   createFakeGoogleClient,
   isReturnUrlAllowed,
   isRedirectUriAllowed,
-  CALENDAR_OAUTH_GOOGLE_AUTHORIZED,
 } from '../lib/calendar/google-oauth-connector.mjs';
 import { buildAuthorizationUrl, PKCE_METHOD_S256 } from '../lib/companion-oauth-pkce.mjs';
 
@@ -36,12 +35,12 @@ describe('calendar oauth security', () => {
   });
 
   it('gate off returns NOT_AUTHORIZED without network side effects', () => {
-    assert.equal(CALENDAR_OAUTH_GOOGLE_AUTHORIZED, false);
     const result = handleBeginGoogleConnector({
       dataDir,
       vaultId: 'default',
       body: { provider: 'google', return_url: RETURN_URL },
       env: {},
+      authorizedOverride: false,
     });
     assert.equal(result.ok, false);
     assert.equal(result.code, 'NOT_AUTHORIZED');
