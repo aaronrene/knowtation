@@ -532,9 +532,37 @@ app.get('/auth/login', gatewayOauthBlocked, (req, res, next) => {
 
 function postLoginRedirect(token, req) {
   if (!token) return HUB_UI_ORIGIN + '/hub/?auth_error=1';
-  const invite = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+  const state = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+  // H-5: Scooling hosted sign-in — return JWT to allowlisted Scooling /auth/callback via fragment.
+  if (state.startsWith('scooling:')) {
+    const callbackUrl = state.slice('scooling:'.length);
+    try {
+      const parsed = new URL(callbackUrl);
+      const allowlist = String(process.env.SCOOLING_HOSTED_AUTH_ORIGIN_ALLOWLIST || '')
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      const originAllowed = allowlist.some((entry) => {
+        try {
+          return new URL(entry).origin === parsed.origin;
+        } catch {
+          return false;
+        }
+      });
+      if (
+        parsed.protocol === 'https:' &&
+        parsed.pathname === '/auth/callback' &&
+        originAllowed
+      ) {
+        return `${parsed.origin}${parsed.pathname}${parsed.search}#token=${encodeURIComponent(token)}`;
+      }
+    } catch {
+      /* fall through to auth_error */
+    }
+    return HUB_UI_ORIGIN + '/hub/?auth_error=1';
+  }
   let fragment = `token=${encodeURIComponent(token)}`;
-  if (invite && invite.length > 0) fragment += '&invite=' + encodeURIComponent(invite);
+  if (state.length > 0) fragment += '&invite=' + encodeURIComponent(state);
   return `${HUB_UI_ORIGIN}/hub/#${fragment}`;
 }
 
