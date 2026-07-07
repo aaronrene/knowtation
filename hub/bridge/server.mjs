@@ -71,6 +71,7 @@ import {
   handleBeginGoogleConnector,
   handleListGoogleConnectors,
 } from '../../lib/calendar/google-oauth-connector.mjs';
+import { withCalendarBlobSync } from './calendar-blob-store.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
@@ -3061,15 +3062,21 @@ app.get('/api/v1/calendar/timeline', requireBridgeAuth, async (req, res) => {
       hctx.actorUid,
       hctx.vaultId,
     );
-    const payload = buildCalendarTimeline({
+    const payload = await withCalendarBlobSync({
+      blobStore: req.blobStore,
       dataDir: DATA_DIR,
-      vaultId: hctx.vaultId,
-      noteRecords,
-      from,
-      to,
-      layers: req.query.layers,
-      sourceCalendarIds: req.query.source_calendar_ids,
-      scope: hctx.scope,
+      persist: false,
+      run: () =>
+        buildCalendarTimeline({
+          dataDir: DATA_DIR,
+          vaultId: hctx.vaultId,
+          noteRecords,
+          from,
+          to,
+          layers: req.query.layers,
+          sourceCalendarIds: req.query.source_calendar_ids,
+          scope: hctx.scope,
+        }),
     });
     return res.json(payload);
   } catch (e) {
@@ -3095,11 +3102,17 @@ app.get('/api/v1/calendar/agent-context', requireBridgeAuth, async (req, res) =>
   const hctx = await resolveHostedBridgeContext(req, req.uid);
   if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
   try {
-    const payload = retrieveAgentCalendarContext(DATA_DIR, hctx.vaultId, {
-      from,
-      to,
-      agentContextTier: req.query.agent_context_tier,
-      sourceCalendarIds: req.query.source_calendar_ids,
+    const payload = await withCalendarBlobSync({
+      blobStore: req.blobStore,
+      dataDir: DATA_DIR,
+      persist: false,
+      run: () =>
+        retrieveAgentCalendarContext(DATA_DIR, hctx.vaultId, {
+          from,
+          to,
+          agentContextTier: req.query.agent_context_tier,
+          sourceCalendarIds: req.query.source_calendar_ids,
+        }),
     });
     return res.json(payload);
   } catch (e) {
@@ -3123,6 +3136,12 @@ app.get('/api/v1/calendar/source-calendars', requireBridgeAuth, async (req, res)
     return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
   }
   try {
+    await withCalendarBlobSync({
+      blobStore: req.blobStore,
+      dataDir: DATA_DIR,
+      persist: false,
+      run: async () => undefined,
+    });
     return res.json({
       schema: 'knowtation.source_calendars/v0',
       vault_id: vaultId,
@@ -3142,7 +3161,11 @@ app.patch('/api/v1/calendar/source-calendars/:id', requireBridgeAuth, requireBri
   if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
   try {
     const patch = parseSourceCalendarPatchBody(req.body);
-    const result = patchSourceCalendar(DATA_DIR, hctx.vaultId, sourceCalendarId, patch);
+    const result = await withCalendarBlobSync({
+      blobStore: req.blobStore,
+      dataDir: DATA_DIR,
+      run: () => patchSourceCalendar(DATA_DIR, hctx.vaultId, sourceCalendarId, patch),
+    });
     return res.json({
       schema: 'knowtation.source_calendar_patch/v0',
       vault_id: hctx.vaultId,
@@ -3177,12 +3200,17 @@ app.post('/api/v1/calendar/events/import', requireBridgeAuth, requireBridgeEdito
     return res.status(400).json({ error: 'ics_text (string) is required', code: 'BAD_REQUEST' });
   }
   try {
-    const result = importIcsIntoVault(DATA_DIR, hctx.vaultId, {
-      icsText,
-      displayName: typeof body.display_name === 'string' ? body.display_name : undefined,
-      sourceCalendarId: typeof body.source_calendar_id === 'string' ? body.source_calendar_id : undefined,
-      connectorId: typeof body.connector_id === 'string' ? body.connector_id : undefined,
-      defaultTimezone: typeof body.default_timezone === 'string' ? body.default_timezone : undefined,
+    const result = await withCalendarBlobSync({
+      blobStore: req.blobStore,
+      dataDir: DATA_DIR,
+      run: () =>
+        importIcsIntoVault(DATA_DIR, hctx.vaultId, {
+          icsText,
+          displayName: typeof body.display_name === 'string' ? body.display_name : undefined,
+          sourceCalendarId: typeof body.source_calendar_id === 'string' ? body.source_calendar_id : undefined,
+          connectorId: typeof body.connector_id === 'string' ? body.connector_id : undefined,
+          defaultTimezone: typeof body.default_timezone === 'string' ? body.default_timezone : undefined,
+        }),
     });
     return res.status(200).json({
       schema: 'knowtation.calendar_import/v0',
@@ -3206,15 +3234,21 @@ app.post('/api/v1/calendar/events/import', requireBridgeAuth, requireBridgeEdito
 // Calendar OAuth connectors (Phase 1D hosted parity — INF-KN-1): bridge event store + OAuth callback.
 app.get('/api/v1/calendar/connectors/callback', async (req, res) => {
   try {
-    const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
-    const googleClient = mod.createProductionGoogleClient
-      ? mod.createProductionGoogleClient()
-      : mod.createFakeGoogleClient();
-    const result = await mod.handleGoogleConnectorCallback({
+    const result = await withCalendarBlobSync({
+      blobStore: req.blobStore,
       dataDir: DATA_DIR,
-      query: req.query,
-      googleClient,
-      env: process.env,
+      run: async () => {
+        const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
+        const googleClient = mod.createProductionGoogleClient
+          ? mod.createProductionGoogleClient()
+          : mod.createFakeGoogleClient();
+        return mod.handleGoogleConnectorCallback({
+          dataDir: DATA_DIR,
+          query: req.query,
+          googleClient,
+          env: process.env,
+        });
+      },
     });
     if (result.redirect) {
       return res.redirect(result.status, result.redirect);
@@ -3228,11 +3262,16 @@ app.get('/api/v1/calendar/connectors/callback', async (req, res) => {
 app.post('/api/v1/calendar/connectors', requireBridgeAuth, requireBridgeEditorOrAdmin, async (req, res) => {
   const hctx = await resolveHostedBridgeContext(req, req.uid);
   if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
-  const result = handleBeginGoogleConnector({
+  const result = await withCalendarBlobSync({
+    blobStore: req.blobStore,
     dataDir: DATA_DIR,
-    vaultId: hctx.vaultId,
-    body: req.body,
-    env: process.env,
+    run: () =>
+      handleBeginGoogleConnector({
+        dataDir: DATA_DIR,
+        vaultId: hctx.vaultId,
+        body: req.body,
+        env: process.env,
+      }),
   });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
@@ -3246,9 +3285,15 @@ app.get('/api/v1/calendar/connectors', requireBridgeAuth, async (req, res) => {
   if (!hctx.allowedVaultIds.includes(vaultId)) {
     return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
   }
-  const result = handleListGoogleConnectors({
+  const result = await withCalendarBlobSync({
+    blobStore: req.blobStore,
     dataDir: DATA_DIR,
-    vaultId,
+    persist: false,
+    run: () =>
+      handleListGoogleConnectors({
+        dataDir: DATA_DIR,
+        vaultId,
+      }),
   });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
@@ -3261,16 +3306,22 @@ app.post('/api/v1/calendar/connectors/:id/sync', requireBridgeAuth, requireBridg
   if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
   const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
   try {
-    const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
-    const googleClient = mod.createProductionGoogleClient
-      ? mod.createProductionGoogleClient()
-      : mod.createFakeGoogleClient();
-    const result = await mod.handleSyncGoogleConnector({
+    const result = await withCalendarBlobSync({
+      blobStore: req.blobStore,
       dataDir: DATA_DIR,
-      vaultId: hctx.vaultId,
-      connectorId,
-      googleClient,
-      env: process.env,
+      run: async () => {
+        const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
+        const googleClient = mod.createProductionGoogleClient
+          ? mod.createProductionGoogleClient()
+          : mod.createFakeGoogleClient();
+        return mod.handleSyncGoogleConnector({
+          dataDir: DATA_DIR,
+          vaultId: hctx.vaultId,
+          connectorId,
+          googleClient,
+          env: process.env,
+        });
+      },
     });
     if (!result.ok) {
       return res.status(result.status).json({ code: result.code });
@@ -3286,16 +3337,22 @@ app.delete('/api/v1/calendar/connectors/:id', requireBridgeAuth, requireBridgeEd
   if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
   const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
   try {
-    const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
-    const googleClient = mod.createProductionGoogleClient
-      ? mod.createProductionGoogleClient()
-      : mod.createFakeGoogleClient();
-    const result = await mod.handleRevokeGoogleConnector({
+    const result = await withCalendarBlobSync({
+      blobStore: req.blobStore,
       dataDir: DATA_DIR,
-      vaultId: hctx.vaultId,
-      connectorId,
-      googleClient,
-      env: process.env,
+      run: async () => {
+        const mod = await import('../../lib/calendar/google-oauth-connector.mjs');
+        const googleClient = mod.createProductionGoogleClient
+          ? mod.createProductionGoogleClient()
+          : mod.createFakeGoogleClient();
+        return mod.handleRevokeGoogleConnector({
+          dataDir: DATA_DIR,
+          vaultId: hctx.vaultId,
+          connectorId,
+          googleClient,
+          env: process.env,
+        });
+      },
     });
     if (!result.ok) {
       return res.status(result.status).json({ code: result.code });

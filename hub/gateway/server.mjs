@@ -1349,7 +1349,12 @@ async function proxyTo(baseUrl, url, req, res) {
     stripStaleOutboundBodyHeaders(headers);
   }
   try {
-    const upstream = await fetch(url, opts);
+    const upstream = await fetch(url, { ...opts, redirect: 'manual' });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
+      res.status(upstream.status).set(Object.fromEntries(hop));
+      return res.end();
+    }
     const body = await upstream.text();
     const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
     res.status(upstream.status).set(Object.fromEntries(hop));
