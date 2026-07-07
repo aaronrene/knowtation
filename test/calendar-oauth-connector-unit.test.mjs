@@ -32,9 +32,10 @@ const tmpRoot = path.join(__dirname, 'fixtures', 'tmp-calendar-oauth-unit');
 const TEST_SECRET = 'x'.repeat(40);
 
 describe('calendar oauth unit', () => {
-  it('compile-time gate stays false', () => {
-    assert.equal(CALENDAR_OAUTH_GOOGLE_AUTHORIZED, false);
-    assert.equal(isGoogleOAuthConnectorEnabled(), false);
+  it('compile-time gate is true (KN-INF-3a); authorizedOverride can force off in tests', () => {
+    assert.equal(CALENDAR_OAUTH_GOOGLE_AUTHORIZED, true);
+    assert.equal(isGoogleOAuthConnectorEnabled(), true);
+    assert.equal(isGoogleOAuthConnectorEnabled({ authorizedOverride: false }), false);
     assert.equal(isGoogleOAuthConnectorEnabled({ authorizedOverride: true }), true);
   });
 
