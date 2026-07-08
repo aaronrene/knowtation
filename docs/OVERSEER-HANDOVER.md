@@ -9,9 +9,9 @@ Knowtation-specific history → this file's change log below. Phase truth → `s
 
 ## NEXT SESSION — same as Scooling PRIMARY
 
-Active track (2026-07-05): **Calendar step 11b MERGED** — Google OAuth connector (Phase 1D) on
-`main`, **gated off** (`CALENDAR_OAUTH_GOOGLE_AUTHORIZED=false`). Next: **operator Tier 3 Session A**
-(loopback Google OAuth live smoke — flip gate + Google Cloud test client only).
+Active track (2026-07-08): **INF-KN-3c** — calendar OAuth blob hydrate uses **strong** consistency +
+merge so `begin → callback` does not return `state_invalid` on Netlify. Next after merge/deploy:
+**INF-3** operator hosted calendar connect smoke (runbook Step 4).
 
 See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste block.
 
@@ -21,7 +21,8 @@ See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste bloc
 
 | | |
 | --- | --- |
-| **Phase 1D** | **MERGED** (2026-07-05) — connector routes + seven-tier tests; gate off until Tier 3 |
+| **Phase 1D** | **LIVE (gate on)** — KN-INF-3a 2026-07-07; connector routes + tests |
+| **Hosted calendar blobs** | **INF-KN-3b** merged (#266); **INF-KN-3c** strong read-after-write for pending OAuth |
 | **Media write gates** | External link + attach **on** dev/staging |
 | **API** | **`api.knowtation.store` live** |
 | **Domain plugin** | Registration on staging; MuseHub deploy gate for public `/api/v1/domains` |
@@ -32,7 +33,10 @@ See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste bloc
 
 | Date | Event |
 | --- | --- |
-| 2026-07-05 | Calendar step **11b MERGED** — Google OAuth connector (1D): vault, normalizer, connector module, Hub routes; 21/21 tests; gate stays `false` until Tier 3 |
+| 2026-07-08 | **INF-KN-3c** — calendar store blob hydrate `consistency: 'strong'` + merge pending OAuth (fixes hosted `state_invalid` after Google consent) |
+| 2026-07-07 | **INF-KN-3b** — calendar store + OAuth token blobs on Netlify Blobs; gateway `proxyTo` `redirect: 'manual'` — [KN #266](https://github.com/aaronrene/knowtation/pull/266) |
+| 2026-07-07 | **KN-INF-3a** — compile-time gate flip `CALENDAR_OAUTH_GOOGLE_AUTHORIZED=true` — [KN #265](https://github.com/aaronrene/knowtation/pull/265) |
+| 2026-07-05 | Calendar step **11b MERGED** — Google OAuth connector (1D): vault, normalizer, connector module, Hub routes |
 | 2026-07-05 | Calendar step 11a — spec **FROZEN** (`docs/CALENDAR-OAUTH-CONNECTOR-1D-SPEC.md`) |
 | 2026-07-03 | Muse bridge-safety hygiene merged PR #259 |
 | 2026-07-03 | 2F-b-d-kn merge complete — media write surfaces live on dev/staging |
