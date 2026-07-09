@@ -7,19 +7,16 @@ Knowtation-specific history → this file's change log below. Phase truth → `s
 
 ---
 
-## NEXT SESSION — P-FLOW shipped on branch; mirror + Scooling consumer wire
+## NEXT SESSION — same as Scooling PRIMARY
 
-**Date:** 2026-07-09  
-**Branch:** `feat/p-flow-run-store`  
-**Deliverable:** Canonical `flow_run/v0` read store in `lib/flow/flow-store.mjs` — `listFlowRuns` /
-`getFlowRun`, portable `run_ref` (`flow_run:…`) lookup, overseer seed
-(`flow_run:fixture-overseer-001`), OpenAPI `FlowRun*` schemas, seven-tier
-`test/flow-run-store-*.test.mjs` (**33/33 green** with execution regression slice).
+**P-FLOW MERGED** [KN #268](https://github.com/aaronrene/knowtation/pull/268) @ `fba35fc` on Knowtation
+`main`. Scooling governance synced [SC #185](https://github.com/aaronrene/scooling/pull/185) @
+`1b9e12b`.
 
-**Next:** Muse commit → push → PR → SD-14 mirror to GitHub `main`. Scooling live `runRef`
-resolution remains a **separate consumer step** (no posture flip in this slice).
+**THE ONE NEXT STEP (Scooling):** **9A-P-FLOW-CONSUMER** — wire live `runRef` reads against
+`getFlowRun` / `GET /api/v1/flow-runs/{run_ref}` (read-only; no Knowtation gate flips).
 
-See **`scooling/docs/OVERSEER-HANDOVER.md`** for cross-repo track selection.
+See **`scooling/docs/OVERSEER-HANDOVER.md` → NEXT SESSION** for the paste-ready prompt.
 
 ---
 
@@ -27,9 +24,9 @@ See **`scooling/docs/OVERSEER-HANDOVER.md`** for cross-repo track selection.
 
 | | |
 | --- | --- |
+| **P-FLOW** | **MERGED** @ `fba35fc` — `listFlowRuns` / `getFlowRun` + portable `run_ref` |
 | **Phase 1D** | **LIVE (gate on)** — KN-INF-3a 2026-07-07 |
 | **Hosted calendar blobs** | **INF-KN-3b** (#266) + **INF-KN-3c** (#267) strong read-after-write |
-| **INF-3 connect** | **PASS** 2026-07-08 (`connect=ok` + source calendars) |
 | **API** | **`api.knowtation.store` live** |
 
 ---
@@ -38,16 +35,7 @@ See **`scooling/docs/OVERSEER-HANDOVER.md`** for cross-repo track selection.
 
 | Date | Event |
 | --- | --- |
+| 2026-07-09 | **P-FLOW merged** — [KN #268](https://github.com/aaronrene/knowtation/pull/268) @ `fba35fc` canonical `flow_run/v0` read store |
 | 2026-07-08 | **INF-3** operator connect smoke PASS after #267 deploy |
-| 2026-07-08 | **INF-KN-3c** — calendar store blob hydrate `consistency: 'strong'` + merge pending OAuth — [KN #267](https://github.com/aaronrene/knowtation/pull/267) |
-| 2026-07-07 | **INF-KN-3b** — calendar store + OAuth token blobs; gateway `redirect: 'manual'` — [KN #266](https://github.com/aaronrene/knowtation/pull/266) |
+| 2026-07-08 | **INF-KN-3c** — calendar store blob hydrate — [KN #267](https://github.com/aaronrene/knowtation/pull/267) |
 | 2026-07-07 | **KN-INF-3a** — `CALENDAR_OAUTH_GOOGLE_AUTHORIZED=true` — [KN #265](https://github.com/aaronrene/knowtation/pull/265) |
-| 2026-07-05 | Calendar step **11b MERGED** — Google OAuth connector (1D) |
-
----
-
-## Legacy detail (2026-07-03 snapshot — reference only)
-
-Media write surfaces (2F-b-d-kn): gates on dev/staging via `data/hub_media_write_policy.json`;
-`node --test test/media-write-*.test.mjs` — 22/22; live smoke 7/7. Scooling consumer:
-`MEDIA_*_AUTHORIZED` all live on `main`. Superseded prompts archived in git history @ `bd73698`.
