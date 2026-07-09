@@ -546,3 +546,38 @@ vault.
    `FLOW_LIVE_READ_AUTHORIZED` flip is a **separate, later Scooling step** (not part of 7A-10b).
 4. Parity gate: `test/flow-list-get-parity-integration.test.mjs` — CLI = MCP = Hub handler
    deep-equality for the same authorized request.
+
+---
+
+## 11. P-FLOW extension — `flow_run/v0` read store (7A-10c / P-FLOW)
+
+Status: **Implemented — P-FLOW Auto build.** Canonical run read ops live in
+`lib/flow/flow-store.mjs`; execution writes remain gated in `lib/flow/flow-execution.mjs`.
+
+### 11.1 Read operations (always-on; no write gate)
+
+| Function | Signature | Returns |
+| --- | --- | --- |
+| `listFlowRuns` | `(dataDir, vaultId, { visibleScopes, filterScopes, effectiveScope, flowId?, limit? })` | `{ schema: knowtation.flow_run_list/v0, vault_id, effective_scope, runs[], truncated }` |
+| `getFlowRun` | `(dataDir, vaultId, lookupKey, { visibleScopes, filterScopes })` | `{ schema: knowtation.flow_run_get/v0, vault_id, run }` or `null` |
+
+`lookupKey` accepts **either** canonical `run_id` (`run_<token>`) **or** portable `run_ref`
+(`flow_run:<token>`) for cross-repo overseer lineage (9A-3 `PHASE9A_FIXTURE_RUN_REF`).
+
+### 11.2 Portable `run_ref` pointer
+
+Every stored run carries `run_ref: flow_run:…`. New runs default to `flow_run:${run_id}` unless
+an explicit `run_ref` is supplied at start. The overseer seed row pins
+`run_ref = flow_run:fixture-overseer-001` ↔ `run_id = run_overseer_in_progress`.
+
+### 11.3 Triple-surface parity (read paths)
+
+CLI `flow run get|list`, MCP `flow_run` (`action:get|list`), and Hub
+`GET /api/v1/flow-runs/{id}` + `GET /api/v1/flows/{id}/runs` call the **same**
+`listFlowRuns` / `getFlowRun` store functions. Write paths (`start`, `advance`, …) stay behind
+`FLOW_RUN_WRITES_ENABLED` in `flow-execution.mjs`.
+
+### 11.4 Seven-tier tests
+
+`test/flow-run-store-*.test.mjs` (unit → security) prove store helpers, run_ref resolution,
+scope denial, SD-2 seed integrity, and triple-surface get/list parity.
