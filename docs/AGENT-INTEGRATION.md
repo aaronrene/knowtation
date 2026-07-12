@@ -160,9 +160,34 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Canister user parity:** Session creation uses **`effective_canister_user_id`** from that hosted-context response as **`X-User-Id`** on all MCP → canister calls (same rule as the Hub gateway’s `GET /api/v1/notes` proxy). Without this, delegated/workspace users could see many notes in the Hub but only their actor partition over MCP.
 - **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
+- **Durable MCP OAuth refresh (Phase A):** On the persistent MCP host, refresh tokens are stored via the same `createGatewayRefreshStore({ consistency: 'strong' })` / `refresh-token-core` path as native OAuth (hash-at-rest, rotation, reuse→family revoke; ~30d inactivity / ~90d family cap). Gateway restart does **not** wipe unexpired MCP refresh families. The Netlify eventual-consistency blob backend is **prohibited** for MCP refresh. See [DURABLE-AGENT-AUTH-SPEC.md](./DURABLE-AGENT-AUTH-SPEC.md) and [DURABLE-AGENT-AUTH-ROADMAP.md](./DURABLE-AGENT-AUTH-ROADMAP.md).
+- **Offline-locked mode:** Durable agent auth (MCP OAuth + native OAuth) is **unsupported** while offline-locked — discovery/token/refresh endpoints are not mounted (`docs/DURABLE-AGENT-AUTH-SPEC.md` §14).
 - **Netlify / serverless gateway:** When the gateway process has `NETLIFY` set, the repo **does not mount** the full stateful `/mcp` session router on that host—it answers `/mcp` with **503** and `MCP_NETLIFY_UNSUPPORTED` (see `hub/gateway/server.mjs`). Cursor will then show **errors** or **no tools** for a remote `url` ending in `/mcp`. **Workarounds:** use **Hub REST** with the same copied JWT (`POST /api/v1/search`, etc.), **or** point `knowtation-hosted` at a **persistent** gateway deployment where `/mcp` is actually mounted (Node on a VPS/PM2, etc.—not the Netlify-only entrypoint).
 - **EC2 / VPS deploy (clone, `git pull`, `npm ci`, PM2):** Operator runbook for the MCP gateway lives in **`hub/gateway/README.md`** (deploy + verification).
 - **Concrete example:** a Hub base URL like `https://knowtation-gateway.netlify.app` is this pattern. **Do not** point Cursor’s `knowtation-hosted` (`url` … `/mcp`) at that host—it will flap **red / green with zero tools** or log `fetch failed` / transient errors. Keep **`knowtation`** (stdio + local vault) for Cursor in the repo; use **REST + copied JWT** (or Abacus HTTP actions) for the **hosted** vault until a non-Netlify MCP gateway URL exists.
+
+### Always-on cloud agents (Hermes / VPS) — do not paste Hub JWT as durable auth
+
+**Session tokens** from Hub **Settings → Integrations → Copy Hub URL, token & vault** are short-lived **access** JWTs. They have **no refresh**. Re-copy on 401 is correct for curl and one-off scripts — **not** for always-on agents with a token in `/data/.env`.
+
+| Client | Recommended path | Public URL |
+| --- | --- | --- |
+| Cursor / Claude (desktop) | MCP **OAuth Sign-in** (PKCE); refresh survives gateway restart | `https://mcp.knowtation.store/mcp` (`KNOWTATION_MCP_URL`) |
+| Hermes / headless VPS | Prefer MCP `auth: oauth` when the Hermes build supports it; otherwise wait for Hub **Connect cloud agent** (device code — Phase B primary after Hermes Hostinger spike) | Same MCP URL — **never** Netlify `/mcp` |
+| REST-only runners (Paperclip, cron) | Scoped agent credential (Phase C) — not shipped yet; interim: re-copy session JWT or human-mediated promote | `https://api.knowtation.store` |
+
+**Hermes recipe (when OAuth is available):**
+
+```yaml
+mcp_servers:
+  knowtation:
+    url: https://mcp.knowtation.store/mcp
+    auth: oauth
+```
+
+Complete headless paste-back once (`hermes mcp login knowtation` or SSH port-forward). Tokens cache under `~/.hermes/mcp-tokens/` (see spike notes in `docs/evidence/durable-agent-auth/`). Do **not** put Copy-Hub JWTs in always-on server `.env` files.
+
+**REST note:** An `mcp_access` token minted with `vault:read` only **cannot** write over Hub REST (scope-aware `getUserId`). Prefer MCP tools for vault writes when using reduced-scope OAuth grants.
 
 ### Cursor + hosted Knowtation MCP (step-by-step)
 

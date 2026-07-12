@@ -8,73 +8,45 @@ Knowtation-specific history → this file's change log below.
 
 ---
 
-## NEXT SESSION — Durable agent auth Phase A (Build)
+## NEXT SESSION — Durable agent auth Phase B (Thinking → Auto)
 
 **Date:** 2026-07-12  
-**Branch to start from:** `main` (after Spec approval) → `feat/durable-mcp-oauth-refresh`  
-**Thinking freeze (read first):**
-- [`docs/DURABLE-AGENT-AUTH-SPEC.md`](./DURABLE-AGENT-AUTH-SPEC.md)
-- [`docs/DURABLE-AGENT-AUTH-ROADMAP.md`](./DURABLE-AGENT-AUTH-ROADMAP.md)
+**Branch to start from:** `main` (after Phase A merge) → `feat/connect-cloud-agent-device-code`  
+**Read first:**
+- [`docs/DURABLE-AGENT-AUTH-SPEC.md`](./DURABLE-AGENT-AUTH-SPEC.md) §5–6 (Rank swap)
+- [`docs/DURABLE-AGENT-AUTH-ROADMAP.md`](./DURABLE-AGENT-AUTH-ROADMAP.md) Phase B
+- Spike: [`docs/evidence/durable-agent-auth/hermes-oauth-spike-2026-07-12.md`](./evidence/durable-agent-auth/hermes-oauth-spike-2026-07-12.md)
 
-**Gate:** Do **not** start Auto Build until Aaron approves Spec §2 Verdict + §5 Recommended architecture.
+**Why B is primary:** Hermes Hostinger spike was **partial** → Rank 1↔2 swap. Device authorization (RFC 8628) is the critical path for headless Hostinger; durable MCP OAuth (Phase A) remains for Cursor / OAuth-capable clients.
 
-**Model tier (RULE #8):** Phase A is **two steps with two tiers** —
-1. **Hermes spike → Thinking model.** The spike is a decision gate (Hermes `auth: oauth` support → Rank 1↔2 swap); it involves judgement and must be run on a **thinking** model before any Build.
-2. **Build → Auto model.** Once the spike result is recorded and the frozen interfaces in Roadmap Phase A are confirmed unchanged, implement **mechanically on a cheap/auto model** against that frozen spec — no architecture decisions during Build.
-
-If the spike forces the Rank 1↔2 swap (device code becomes primary), **stop and re-freeze on a thinking model** before Auto Build; do not let an auto session redesign the approach.
-
-Per-phase tiers (mirror of Roadmap routing table):
-
-| Phase | Spike/Design tier | Build tier |
-| --- | --- | --- |
-| A Durable MCP OAuth refresh | Thinking (spike, hard gate) | **Auto** |
-| B Connect cloud agent UX | Thinking (device-code vs guided OAuth wireframes) | **Auto** |
-| C Scoped agent credentials | Thinking (token shape / `aud` split) | **Auto** |
-| D Propose-only + path prefix | Thinking (scope-guard design) | **Auto** |
-| E Marketing/docs honesty | — | **Auto** (with A/B/C code PR) |
+**Model tier (RULE #8):** Phase B Thinking (UX: device-code vs guided OAuth wireframes) on a thinking model → freeze → Auto Build.
 
 ### Shared context (prepend to phase prompt)
 
-You are building Knowtation hosted gateway durable auth for remote agents.  
-Read: Spec (incl. revised §1, §5, §8, §14) + Roadmap Phase A, `hub/gateway/mcp-oauth-provider.mjs`, `hub/gateway/refresh-token-store.mjs`, `hub/lib/refresh-token-core.mjs`, `hub/gateway/server.mjs` (MCP mount + Netlify guard + `verifyToken`), `web/hub/config.js`.  
-Guardrails: no long-lived god JWTs; no secrets in logs; prefer standards (MCP OAuth); do not teach Netlify `/mcp`; **reuse the existing `createGatewayRefreshStore()` — do NOT build a second refresh store**; update Spec/Roadmap/this handover + open PR when done; no commit/push without explicit consent.  
-Tests: unit + integration + e2e + security + data-integrity + security-stress minimum for Phase A DoD (credential surface — Aaron RULE #0).
+You are building Knowtation Hub “Connect cloud agent” for remote always-on agents.  
+Read: Spec §5–7, Roadmap Phase B, Phase A durable refresh (already on persistent MCP host), `web/hub` Integrations UI.  
+Guardrails: no long-lived god JWTs; no secrets in logs; do not teach Netlify `/mcp`; update Spec/Roadmap/this handover + open PR when done; no commit/push without explicit consent.  
+Tests: unit + integration + e2e + security minimum for Phase B DoD.
 
-### Phase A prompt (self-contained — revised after review)
+### Phase B prompt (draft)
 
 ```
-Build Phase A — Durable MCP OAuth refresh (Knowtation).
+Build Phase B — Hub Connect cloud agent (device authorization primary).
 
-Goal: Always-on MCP clients (e.g. Hermes auth: oauth → https://mcp.knowtation.store/mcp)
-survive gateway restarts and get ~30d refresh / ~90d family cap with rotation + reuse revoke.
+Goal: Non-SSH user connects a cloud agent to their vault in one Hub flow (RFC 8628
+user_code + verification URL), issuing a refreshable credential; revoke from same panel.
 
-Frozen interfaces: see docs/DURABLE-AGENT-AUTH-ROADMAP.md Phase A (revised).
-Implement: wire KnowtationOAuthProvider into the EXISTING createGatewayRefreshStore()
-(hub/gateway/refresh-token-store.mjs, refresh-token-core backing) already used by native
-OAuth at server.mjs:355,670 — do NOT build a new store. Strong-consistency (file/DB on the
-persistent MCP host) only; the eventual-consistency Netlify blob backend is prohibited for
-MCP refresh. Keep MCP OAuth 2.1 discovery/token compatible; do not break Cursor OAuth Sign-in.
-Add an agent label to the refresh record meta for multi-Hermes revoke.
+Frozen: Roadmap Phase B after Rank 1↔2 swap. Prefer device code when loopback/paste-back
+is unreliable (Hostinger). May deep-link Hermes MCP OAuth when spike follow-up confirms
+Managed Hermes OAuth.
 
-Security gates (must have tests):
-- reuse → family revoke; revoked refresh rejected; no secrets in logs.
-- confused deputy: an mcp_access token minted vault:read only MUST NOT write over REST
-  (server.mjs verifyToken currently returns sub only and ignores scopes — prove the guard).
-- offline-lock (server.mjs:629): agent-auth endpoints unmounted; document + assert.
-
-Spike (HARD GATE): Hostinger Managed Hermes auth: oauth / token cache / headless paste-back.
-If not a clean pass → Rank 1↔2 swap: Phase B device authorization (RFC 8628) becomes primary.
-Write spike notes into docs/evidence/durable-agent-auth/ — no secrets.
-
-DoD + tests: Roadmap Phase A (revised). Update ROADMAP status, this OVERSEER-HANDOVER,
-and include docs/AGENT-INTEGRATION.md always-on section in the same PR as code.
-Do not mark DONE without green tests. Do not open docs-only PR to main.
+DoD + tests: Roadmap Phase B. Update ROADMAP, this OVERSEER-HANDOVER, Hub copy +
+AGENT-INTEGRATION in the same PR as code. No docs-only PR to main.
 ```
 
 ### Interim ops (Born Free)
 
-See Spec §12 — promote via Cursor MCP OAuth / Hub propose until Phase A+B ship.
+See Spec §12 — Cursor MCP OAuth / Hub propose until Phase B ships; Phase A durable refresh is live on MCP host after merge.
 
 ---
 
@@ -87,7 +59,7 @@ See Spec §12 — promote via Cursor MCP OAuth / Hub propose until Phase A+B shi
 | **INF-3 connect** | **PASS** 2026-07-08 (`connect=ok` + source calendars) |
 | **API** | **`api.knowtation.store` live** |
 | **MCP public** | **`mcp.knowtation.store/mcp`** (`web/hub/config.js`) |
-| **Durable remote-agent auth** | **Thinking freeze 2026-07-12, revised post-review** — Spec §1/§5/§8/§14 + Roadmap Phase A updated (reuse existing store, strong-consistency, scope-elevation guard, offline-lock, spike hard-gate); Build Phase A gated on approve |
+| **Durable remote-agent auth** | **Phase A DONE** 2026-07-12 — durable MCP refresh + scope REST guard + offline-lock assert; Hermes spike **partial** → Phase B device code **primary** |
 
 ---
 
@@ -95,8 +67,9 @@ See Spec §12 — promote via Cursor MCP OAuth / Hub propose until Phase A+B shi
 
 | Date | Event |
 | --- | --- |
-| 2026-07-12 | **Durable agent auth** freeze **revised after adversarial security/identity review**: Spec §1 (reuse existing `refresh-token-store.mjs`; MCP refresh is in-memory plaintext today; REST ignores token scopes), §5 (strong-consistency, no blob), §8 (scope-elevation via confused deputy), new §14 (offline-lock); Roadmap Phase A (reuse store, spike hard-gate + Rank 1↔2 swap, data-integrity/stress tests, offline-lock assert), Phase D scope-guard dependency |
-| 2026-07-12 | **Durable agent auth** Thinking freeze — `docs/DURABLE-AGENT-AUTH-SPEC.md` + `ROADMAP.md`; branch `feat/durable-agent-mcp-auth-thinking` |
+| 2026-07-12 | **Phase A Build DONE** — `KnowtationOAuthProvider` → `createGatewayRefreshStore({ consistency: 'strong' })`; agent meta; `mcp_access` scope REST guard; offline-lock; Hermes spike partial + Rank swap; tests `durable-mcp-oauth-*.test.mjs`; docs AGENT-INTEGRATION always-on |
+| 2026-07-12 | **Durable agent auth** freeze **revised after adversarial security/identity review**: Spec §1/§5/§8/§14 + Roadmap Phase A |
+| 2026-07-12 | **Durable agent auth** Thinking freeze — Spec + ROADMAP; branch `feat/durable-agent-mcp-auth-thinking` |
 | 2026-07-08 | **INF-3** operator connect smoke PASS after #267 deploy |
 | 2026-07-08 | **INF-KN-3c** — calendar store blob hydrate `consistency: 'strong'` + merge pending OAuth — [KN #267](https://github.com/aaronrene/knowtation/pull/267) |
 | 2026-07-07 | **INF-KN-3b** — calendar store + OAuth token blobs; gateway `redirect: 'manual'` — [KN #266](https://github.com/aaronrene/knowtation/pull/266) |

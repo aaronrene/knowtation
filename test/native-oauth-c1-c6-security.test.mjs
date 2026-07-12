@@ -395,9 +395,11 @@ describe('C1–C6 Security: attack surface and invariants', () => {
   it('Regression: mcp_access token type and scopes are unaffected by native changes', async () => {
     // Verify the MCP provider still produces mcp_access tokens with read-only default
     const { KnowtationOAuthProvider } = await import('../hub/gateway/mcp-oauth-provider.mjs');
+    const { createGatewayRefreshStore } = await import('../hub/gateway/refresh-token-store.mjs');
     const provider = new KnowtationOAuthProvider({
       sessionSecret: SECRET,
       baseUrl: 'http://localhost:3340',
+      refreshStore: createGatewayRefreshStore({ consistency: 'strong' }),
     });
 
     // Simulate exchangeAuthorizationCode with no scopes (default mcp_access behavior)
@@ -426,9 +428,11 @@ describe('C1–C6 Security: attack surface and invariants', () => {
 
   it('C3 regression: MCP provider completeMcpAuthorization now emits iss', async () => {
     const { KnowtationOAuthProvider } = await import('../hub/gateway/mcp-oauth-provider.mjs');
+    const { createGatewayRefreshStore } = await import('../hub/gateway/refresh-token-store.mjs');
     const provider = new KnowtationOAuthProvider({
       sessionSecret: SECRET,
       baseUrl: 'http://localhost:3340',
+      refreshStore: createGatewayRefreshStore({ consistency: 'strong' }),
     });
 
     const fakeCode = randomUUID();
@@ -466,9 +470,11 @@ describe('C1–C6 Security: attack surface and invariants', () => {
 
   it('C5 regression: MCP provider now validates redirect_uri at exchange', async () => {
     const { KnowtationOAuthProvider } = await import('../hub/gateway/mcp-oauth-provider.mjs');
+    const { createGatewayRefreshStore } = await import('../hub/gateway/refresh-token-store.mjs');
     const provider = new KnowtationOAuthProvider({
       sessionSecret: SECRET,
       baseUrl: 'http://localhost:3340',
+      refreshStore: createGatewayRefreshStore({ consistency: 'strong' }),
     });
 
     const fakeCode = randomUUID();

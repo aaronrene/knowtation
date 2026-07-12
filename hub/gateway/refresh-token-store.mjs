@@ -10,23 +10,11 @@
  *
  * ## Consistency model and the reuse-detection trade-off
  *
- * Refresh-token rotation depends on read-after-write: when a token is rotated we mark the old one
- * consumed, and a replay of that old token should be observed as already-consumed so reuse
- * detection (family revocation) fires. Strong consistency would make that immediate, but it is
- * NOT available in this deployment: the hosted gateway runs in Netlify's Lambda compatibility
- * mode (serverless-http + connectLambda), which provisions only edge (eventual) access and omits
- * the `uncachedEdgeURL` that strong-consistency reads require — a strong read throws
- * BlobsConsistencyError. The function therefore provisions this store
- * (`globalThis.__knowtation_gateway_auth_blob`) with `consistency: 'eventual'` (same as billing).
- *
- * Netlify propagates writes to all edges within 60s (usually sub-second), so a replayed consumed
- * token is still detected once the write propagates; the residual exposure is a narrow window in
- * which an ALREADY-stolen token could be rotated once before detection. The primary defenses are
- * unchanged: the secret is a 256-bit opaque token delivered only as an HttpOnly cookie (never
- * readable by JS), every rotation re-writes the whole record map (last-write-wins), and any
- * detected reuse burns the entire family. If strict immediate detection is ever required, harden
- * by moving this store to the strongly-consistent ICP canister or to Netlify's token-based API
- * (origin) blob access.
+ * Refresh-token rotation depends on read-after-write. On Netlify (web-session cookies) the blob
+ * store is eventual only (`globalThis.__knowtation_gateway_auth_blob`); reuse detection may lag
+ * ≤60s. **MCP OAuth refresh MUST call `createGatewayRefreshStore({ consistency: 'strong' })`**
+ * so the store is file-backed on the persistent MCP host and never uses the blob path
+ * (docs/DURABLE-AGENT-AUTH-ROADMAP.md Phase A).
  *
  * ## Storage shape (matches the self-hosted file store)
  *   { "tokens": { "<id>": { sub, family_id, token_hash, created_at, expires_at,
@@ -38,12 +26,15 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'node:crypto';
 import {
   issueToken,
   rotateToken,
   revokeToken,
   revokeAllForSub,
   pruneExpired,
+  parseToken,
+  hashSecret,
 } from '../lib/refresh-token-core.mjs';
 
 const BLOB_KEY = 'refresh-tokens-v1';
@@ -212,14 +203,94 @@ export async function pruneRefreshTokens(opts = {}) {
 }
 
 /**
- * Build the `{ issue, rotate, revoke }` store object the auth-session handlers expect, bound
+ * Build the `{ issue, rotate, revoke, peek }` store object auth handlers expect, bound
  * to this gateway backend. All methods are async; the handlers `await` them.
- * @returns {{ issue: Function, rotate: Function, revoke: Function }}
+ *
+ * @param {{ consistency?: 'strong' | 'eventual' }} [opts]
+ *   - `strong` — **always** use the local JSON file backend (read-after-write). Required for
+ *     MCP OAuth refresh on the persistent MCP host. Prohibits the Netlify blob path even if
+ *     `globalThis.__knowtation_gateway_auth_blob` is set (blob is eventual; ≤60s reuse lag).
+ *   - omit / `eventual` — blob when provisioned (Netlify web refresh cookies), else file.
+ * @returns {{
+ *   issue: Function,
+ *   rotate: Function,
+ *   revoke: Function,
+ *   peek: Function,
+ *   consistency: 'strong' | 'eventual',
+ * }}
  */
-export function createGatewayRefreshStore() {
+export function createGatewayRefreshStore(opts = {}) {
+  const consistency = opts.consistency === 'strong' ? 'strong' : 'eventual';
+  const forceFile = consistency === 'strong';
+
+  async function load() {
+    if (!forceFile && getBlobStore()) return readFromBlob();
+    return readFromFile();
+  }
+
+  async function save(records) {
+    if (!forceFile && getBlobStore()) {
+      await writeToBlob(records);
+      return;
+    }
+    await writeToFile(records);
+  }
+
   return {
-    issue: (sub, opts) => issueRefreshToken(sub, opts),
-    rotate: (token, opts) => rotateRefreshToken(token, opts),
-    revoke: (token) => revokeRefreshToken(token),
+    consistency,
+    issue: async (sub, issueOpts = {}) => {
+      const records = await load();
+      const result = issueToken(records, { sub, ...issueOpts });
+      await save(result.records);
+      return { token: result.token, id: result.id, familyId: result.familyId };
+    },
+    rotate: async (token, rotateOpts = {}) => {
+      const records = await load();
+      const result = rotateToken(records, token, rotateOpts);
+      await save(result.records);
+      if (result.ok) {
+        return { ok: true, token: result.token, sub: result.sub, meta: result.meta || {} };
+      }
+      return { ok: false, reason: result.reason, sub: result.sub };
+    },
+    revoke: async (token) => {
+      const records = await load();
+      const result = revokeToken(records, token);
+      if (result.revoked) await save(result.records);
+      return { revoked: result.revoked, sub: result.sub };
+    },
+    /**
+     * Validate a presented token's secret and return identity + meta without rotating.
+     * Used by MCP OAuth to enforce client_id binding before rotate.
+     * @param {string} token
+     * @returns {Promise<null | {
+     *   sub: string,
+     *   meta: object,
+     *   revoked: boolean,
+     *   consumed: boolean,
+     *   expires_at: number,
+     *   family_expires_at: number,
+     * }>}
+     */
+    peek: async (token) => {
+      const records = await load();
+      const parsed = parseToken(token);
+      if (!parsed) return null;
+      const rec = records[parsed.id];
+      if (!rec || typeof rec.token_hash !== 'string') return null;
+      const expected = Buffer.from(rec.token_hash);
+      const actual = Buffer.from(hashSecret(parsed.secret));
+      if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+        return null;
+      }
+      return {
+        sub: rec.sub,
+        meta: rec.meta && typeof rec.meta === 'object' ? rec.meta : {},
+        revoked: Boolean(rec.revoked),
+        consumed: Boolean(rec.rotated_to),
+        expires_at: rec.expires_at,
+        family_expires_at: rec.family_expires_at,
+      };
+    },
   };
 }

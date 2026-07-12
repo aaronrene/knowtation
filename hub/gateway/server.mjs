@@ -77,6 +77,7 @@ import {
   createGatewayRefreshStore,
   pruneRefreshTokens as pruneGatewayRefreshTokens,
 } from './refresh-token-store.mjs';
+import { subFromVerifiedPayload, shouldMountDurableAgentAuth } from './access-token-authz.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -221,6 +222,8 @@ function issueToken(user) {
 function verifyToken(token) {
   try {
     const payload = jwt.verify(token, SESSION_SECRET);
+    // Identity-only: does not enforce MCP scopes. Mutating REST must go through getUserId
+    // (scope-aware for type:mcp_access — DURABLE-AGENT-AUTH-SPEC §8).
     return payload.sub ?? null;
   } catch (_) {
     return null;
@@ -228,8 +231,8 @@ function verifyToken(token) {
 }
 
 /**
- * Verify the token and return the full decoded payload, or null if invalid/expired.
- * Used only by the session-introspection endpoint; callers that only need `sub` use verifyToken.
+ * Verify token and return the decoded payload, or null if invalid/expired.
+ * Used by session introspection and scope-aware REST auth.
  * @param {string} token
  * @returns {object|null}
  */
@@ -349,10 +352,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Persistent sessions (refresh-token rotation), hosted edition. The durable, hashed refresh
-// token is delivered as an HttpOnly cookie; the security logic lives in
-// hub/lib/refresh-token-core.mjs via the blob-backed store below (shared with self-hosted).
-const refreshStore = createGatewayRefreshStore();
+// Persistent sessions (refresh-token rotation), hosted edition. On the persistent MCP host
+// (non-Netlify) use strong-consistency file backend — required for MCP OAuth refresh and shared
+// with native OAuth. Netlify web cookies keep the eventual blob path via createGatewayRefreshStore().
+const refreshStore = createGatewayRefreshStore(
+  process.env.NETLIFY ? {} : { consistency: 'strong' }
+);
 
 /**
  * Cookie policy for the hosted refresh token.
@@ -620,18 +625,26 @@ app.get('/api/v1/auth/login', gatewayOauthBlocked, (req, res) => {
   res.redirect(url);
 });
 
-// Phase D2/D3: MCP gateway + OAuth 2.1.
+// Phase D2/D3 + Phase A durable MCP OAuth: MCP gateway + OAuth 2.1.
 // MCP requires stateful sessions (SSE, session pool) that are incompatible with Netlify's
 // serverless function model (26s timeout, no shared memory between invocations).
 // On Netlify, only the OAuth discovery endpoints are mounted (lightweight, stateless).
 // The full /mcp session endpoint requires a persistent Express server (local dev, Docker, VPS,
 // or a dedicated MCP host like Railway/Fly.io). See docs/AGENT-INTEGRATION.md §2 (hosted MCP).
-if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
+// Offline-locked mode: durable agent auth is unsupported — MCP + native OAuth stay unmounted
+// (docs/DURABLE-AGENT-AUTH-SPEC.md §14).
+if (shouldMountDurableAgentAuth({
+  sessionSecret: SESSION_SECRET,
+  netlify: Boolean(process.env.NETLIFY),
+  offlineLockedActive,
+})) {
   import('./mcp-oauth-provider.mjs').then(async ({ KnowtationOAuthProvider }) => {
     const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
     const oauthProvider = new KnowtationOAuthProvider({
       sessionSecret: SESSION_SECRET,
       baseUrl: BASE_URL,
+      // Phase A: reuse the same durable refresh store as native OAuth (strong file backend).
+      refreshStore,
     });
     app._mcpOAuthProvider = oauthProvider;
     // @modelcontextprotocol/sdk OAuth routes use express-rate-limit behind Nginx. The limiter's
@@ -650,7 +663,7 @@ if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
       clientRegistrationOptions: mcpOAuthSdkRateLimitOpts,
       revocationOptions: mcpOAuthSdkRateLimitOpts,
     }));
-    console.log('[gateway] MCP OAuth 2.1 endpoints mounted');
+    console.log('[gateway] MCP OAuth 2.1 endpoints mounted (durable refresh store)');
 
     // C1–C6 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native client OAuth 2.1 endpoints.
     // The native path issues web-session JWTs (issueToken shape) instead of mcp_access
@@ -685,6 +698,8 @@ if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
   });
 } else if (SESSION_SECRET && process.env.NETLIFY) {
   console.log('[gateway] MCP OAuth/session endpoints skipped on Netlify (stateful sessions require persistent server)');
+} else if (SESSION_SECRET && offlineLockedActive) {
+  console.log('[gateway] MCP/native OAuth skipped: offline-locked mode (durable agent auth unsupported)');
 }
 
 if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
@@ -1448,7 +1463,9 @@ async function proxyImportToBridge(_baseUrl, url, req, res) {
 function getUserId(req) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  return token ? verifyToken(token) : null;
+  if (!token) return null;
+  const payload = decodeVerifiedToken(token);
+  return subFromVerifiedPayload(payload, { method: req.method });
 }
 
 /**

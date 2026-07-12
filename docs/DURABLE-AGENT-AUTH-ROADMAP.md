@@ -2,15 +2,16 @@
 
 **Spec freeze:** [`DURABLE-AGENT-AUTH-SPEC.md`](./DURABLE-AGENT-AUTH-SPEC.md) (2026-07-12)  
 **Branch (thinking):** `feat/durable-agent-mcp-auth-thinking`  
+**Branch (Phase A build):** `feat/durable-mcp-oauth-refresh`  
 **Owner approval required** before any Build phase marked Auto starts.
 
 ## Phase routing
 
 | Phase | Name | Mode | Status |
 | --- | --- | --- | --- |
-| 0 | Thinking freeze (this track) | Thinking | **DONE** (pending Aaron approve) |
-| A | Durable MCP OAuth refresh + Hermes spike | Thinking spike → **Auto** Build | TODO |
-| B | Hub “Connect cloud agent” UX (device code and/or guided MCP OAuth) | Thinking (UX freeze) → **Auto** | TODO |
+| 0 | Thinking freeze (this track) | Thinking | **DONE** |
+| A | Durable MCP OAuth refresh + Hermes spike | Thinking spike → **Auto** Build | **DONE** (tests green; Rank 1↔2 swap after spike) |
+| B | Hub “Connect cloud agent” UX (device code **primary** after spike) | Thinking (UX freeze) → **Auto** | TODO |
 | C | Scoped agent credentials (REST) + revoke | Thinking (token shape) → **Auto** | TODO |
 | D | Propose-only / path-prefix scopes for marketing agents | Thinking → **Auto** | TODO |
 | E | Marketing + docs honest positioning (with code PR) | **Auto** (with A/B/C) | TODO |
@@ -22,60 +23,58 @@ Never Outline/Plan on Auto. Never mark DONE without green required tests.
 ## Phase 0 — Thinking freeze
 
 **DoD:** Spec answers all design questions; recommendation + interim labeled; Build-ready Phase A prompt in OVERSEER handover.  
-**Status:** DONE pending Aaron approval of Spec §2 + §5.
+**Status:** DONE.
 
 ---
 
 ## Phase A — Durable MCP OAuth refresh + Hermes spike
 
-**Mode:** Spike (Thinking, short) then **Auto** Build against frozen interfaces below.
+**Mode:** Spike (Thinking, short) then **Auto** Build against frozen interfaces below.  
+**Status:** **DONE** (2026-07-12).
 
-### Spike (HARD GATE — must complete before Build claims Hermes)
+### Spike (HARD GATE — completed)
 
-- Confirm Hostinger Managed Hermes version supports `mcp_servers.*.auth: oauth`, token cache path, headless paste-back.
-- Record: works / partial / missing.
-- **Pre-frozen contingency (no re-freeze required):** if the spike is anything but a clean pass, **Rank 1 ↔ Rank 2 swap** — Phase B device authorization (RFC 8628) becomes the **primary** and critical path, and durable MCP OAuth refresh (this phase) drops to fallback. A headless VPS without reliable loopback is the canonical RFC 8628 use case.
+- Upstream Hermes: `auth: oauth`, token cache, headless paste-back — **supported** (docs + PR #5420).
+- Hostinger Managed Hermes version: **unverified** this session → spike verdict **partial**.
+- **Rank 1 ↔ Rank 2 swap applied:** Phase B device authorization is **primary** for headless Hostinger; Phase A durable MCP OAuth remains shipped for Cursor + OAuth-capable Hermes.
+- Evidence: [`docs/evidence/durable-agent-auth/hermes-oauth-spike-2026-07-12.md`](./evidence/durable-agent-auth/hermes-oauth-spike-2026-07-12.md).
 
-### Frozen interfaces (Build)
+### Frozen interfaces (Build) — implemented
 
-1. **Reuse the existing store — do NOT build a new one.** Wire `KnowtationOAuthProvider` into `createGatewayRefreshStore()` (`hub/gateway/refresh-token-store.mjs`), the same durable store already consumed by native OAuth (`server.mjs:355,670`). It already provides hash-at-rest, rotation, and reuse→family revoke via `refresh-token-core`.
-2. **Strong consistency required; Netlify blob backend prohibited for MCP refresh.** The store must be file/DB-backed on the persistent MCP host (`server.mjs:629` already restricts MCP OAuth to that host). The eventual-consistency blob path (≤60s reuse-detection lag, per `refresh-token-store.mjs`) is not acceptable for MCP.
-3. Lifetimes (freeze unless spike finds Hermes incompatibility):
-   - access: ≤ 1h (keep ~3600s or align to gateway access TTL)
-   - refresh inactivity: **30d** (`DEFAULT_TOKEN_TTL_MS`)
-   - family absolute: **90d** (`DEFAULT_FAMILY_TTL_MS`)
-4. Discovery + token endpoints remain MCP OAuth 2.1 compatible (Hermes / Cursor); do not break Cursor OAuth Sign-in.
-5. Public URL remains `HUB_MCP_PUBLIC_URL` / `https://mcp.knowtation.store/mcp`.
-6. **Record shape:** add an agent label/name field to the refresh record `meta` (today `refresh-token-core` `meta` only keeps `ua`/`ip`) so the revoke list can distinguish multiple Hermes instances per user (§A9).
-7. **Offline-lock:** durable agent auth is unmounted under `offlineLockedActive` (`server.mjs:629`). Document as unsupported-under-offline-lock; do not mount agent-auth endpoints in that mode.
+1. **Reuse existing store** — `KnowtationOAuthProvider` takes `createGatewayRefreshStore({ consistency: 'strong' })` (same instance as native OAuth on persistent host).
+2. **Strong consistency** — file backend; blob prohibited for MCP (and for non-Netlify gateway refresh store).
+3. Lifetimes: access 3600s; refresh `DEFAULT_TOKEN_TTL_MS` (30d); family `DEFAULT_FAMILY_TTL_MS` (90d).
+4. MCP OAuth 2.1 discovery/token unchanged for Cursor Sign-in.
+5. Public URL `https://mcp.knowtation.store/mcp`.
+6. Refresh `meta.agent` (+ `client_id` / `scopes`) for multi-Hermes revoke.
+7. Offline-lock: `shouldMountDurableAgentAuth` — endpoints unmounted; documented.
 
-### DoD
+### DoD checklist
 
-- Gateway restart does not invalidate unexpired MCP refresh families.
-- Unit + integration + security **+ data-integrity + security-stress** tests for rotate/reuse/revoke (this is a credential surface — Aaron RULE #0; do not defer integrity/stress to a later phase).
-- Scope-aware REST verification test: an `mcp_access` token cannot exceed its minted scope on REST (§8 confused-deputy guard).
-- Offline-lock behavior documented + asserted (agent-auth endpoints unmounted).
-- Hermes spike notes checked into `docs/evidence/durable-agent-auth/` (no secrets).
-- Docs delta for always-on MCP OAuth **in the same PR** as code.
+- [x] Gateway restart does not invalidate unexpired MCP refresh families (integration test).
+- [x] Unit + integration + e2e + security + data-integrity + security-stress tests.
+- [x] Scope-aware REST: `mcp_access` `vault:read` cannot write (`access-token-authz` + `getUserId`).
+- [x] Offline-lock documented + asserted.
+- [x] Hermes spike notes (no secrets).
+- [x] `docs/AGENT-INTEGRATION.md` always-on section in same PR as code.
 
-### Test tiers (minimum for Phase A)
+### Test tiers
 
-| Tier | Focus |
+| Tier | File(s) |
 | --- | --- |
-| unit | `refresh-token-core` integration with MCP provider; TTL math; hash-at-rest |
-| integration | authorize → token → refresh → tool call; restart → refresh still works; **offline-lock → endpoints unmounted** |
-| e2e | scripted OAuth client against local gateway fixture |
-| security | no secrets in logs; reuse revokes family; revoked refresh rejected; **`mcp_access` scope not exceeded on REST** |
-| data-integrity | concurrent refresh (no double-spend / lost rotation); corrupt store → fail-closed (`normalizeRecords`) |
-| security-stress | refresh storm / family churn does not degrade reuse detection or leak |
-
-(Broad performance benchmarking may follow in A2, but functional latency under the `validate:false` rate-limit config — `server.mjs:641` — should be sanity-checked in Phase A.)
+| unit | `test/durable-mcp-oauth-unit.test.mjs` |
+| integration | `test/durable-mcp-oauth-integration.test.mjs` |
+| e2e | `test/durable-mcp-oauth-e2e.test.mjs` |
+| security | `test/durable-mcp-oauth-security.test.mjs` |
+| data-integrity | `test/durable-mcp-oauth-data-integrity.test.mjs` |
+| security-stress | `test/durable-mcp-oauth-security-stress.test.mjs` |
 
 ---
 
 ## Phase B — Hub “Connect cloud agent”
 
-**Mode:** Thinking (wireframes + device-code vs guided OAuth) → Auto.
+**Mode:** Thinking (wireframes + device-code vs guided OAuth) → Auto.  
+**Priority:** **Primary** for headless Hostinger after Phase A spike Rank swap.
 
 ### Frozen product goal
 
@@ -119,13 +118,13 @@ unit (device code store), integration (poll → token), e2e (Hub UI happy path),
 
 - Agent may create proposals under `projects/<slug>/**` without direct `POST /notes`
 - Enforce in gateway + MCP ACL
-- **Hard dependency:** the §8 confused-deputy scope-elevation (REST ignores token `scopes`) MUST be closed first. Do not advertise or ship propose-only / path-prefix scopes while a reduced-scope token can still write over REST.
+- **Hard dependency:** §8 confused-deputy scope-elevation closed in Phase A for `mcp_access` on REST mutating methods. Do not advertise propose-only / path-prefix scopes until remaining role-elevation edges (if any) are closed in Thinking freeze for D.
 
 ---
 
 ## Phase E — Marketing honesty
 
-Ship with whichever of A/B/C lands first that changes the user-visible connect story. No docs-only PR to `main`.
+Ship with whichever of A/B/C lands first that changes the user-visible connect story. No docs-only PR to `main`. Phase A docs ship with this code PR.
 
 ---
 
@@ -133,9 +132,9 @@ Ship with whichever of A/B/C lands first that changes the user-visible connect s
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| 0 Thinking freeze | WIP → DONE on Aaron approve | Spec + this roadmap |
-| A Durable MCP OAuth | TODO | First Build |
-| B Connect agent UX | TODO | |
+| 0 Thinking freeze | DONE | Spec + this roadmap |
+| A Durable MCP OAuth | **DONE** | Strong store + scope guard + spike partial → Rank swap |
+| B Connect agent UX | TODO | **Primary** for Hostinger after swap |
 | C Agent credentials | TODO | |
-| D Propose-only scopes | TODO | |
+| D Propose-only scopes | TODO | Depends on A scope guard (landed) |
 | E Marketing/docs | TODO | With code PR |
