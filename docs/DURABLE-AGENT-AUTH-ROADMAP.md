@@ -11,10 +11,10 @@
 | --- | --- | --- | --- |
 | 0 | Thinking freeze (this track) | Thinking | **DONE** |
 | A | Durable MCP OAuth refresh + Hermes spike | Thinking spike → **Auto** Build | **DONE** (tests green; Rank 1↔2 swap after spike) |
-| B | Hub “Connect cloud agent” UX (device code **primary** after spike) | Thinking (UX freeze) → **Auto** | TODO |
+| B | Hub “Connect cloud agent” UX (device code **primary** after spike) | Thinking (UX freeze) → **Auto** | **DONE** (2026-07-13) — RFC 8628 endpoints + Hub UI + tests; Hostinger interim docs verified |
 | C | Scoped agent credentials (REST) + revoke | Thinking (token shape) → **Auto** | TODO |
 | D | Propose-only / path-prefix scopes for marketing agents | Thinking → **Auto** | TODO |
-| E | Marketing + docs honest positioning (with code PR) | **Auto** (with A/B/C) | TODO |
+| E | Marketing + docs honest positioning (with code PR) | **Auto** (with A/B/C) | **DONE** with Phase B (session-token honesty + Hermes import tile + AGENT-INTEGRATION) |
 
 Never Outline/Plan on Auto. Never mark DONE without green required tests.
 
@@ -74,23 +74,48 @@ Never Outline/Plan on Auto. Never mark DONE without green required tests.
 ## Phase B — Hub “Connect cloud agent”
 
 **Mode:** Thinking (wireframes + device-code vs guided OAuth) → Auto.  
-**Priority:** **Primary** for headless Hostinger after Phase A spike Rank swap.
+**Priority:** **Primary** for headless Hostinger after Phase A spike Rank swap.  
+**Status:** **DONE** (2026-07-13) on branch `feat/connect-cloud-agent-device-code`.
 
 ### Frozen product goal
 
 A non-SSH user completes “connect my cloud agent to my vault” in **one Hub flow** (device code preferred when loopback impossible).
 
-### DoD
+### Implemented
 
-- Settings → Integrations → **Connect cloud agent**
-- Issues user_code / verification URL **or** deep-links Hermes MCP OAuth steps
-- Agent ends with refreshable credential (MCP and/or agent refresh)
-- Revoke from same panel
-- Docs + Hub copy updated in same PR
+- `POST /api/v1/auth/device/authorize` → `device_code` + `user_code` + verification URIs
+- Hub **Settings → Integrations → Connect cloud agent** — approve/deny user_code; pending list; non-secret setup pack
+- `POST /api/v1/auth/device/token` — RFC 8628 poll → `mcp_access` + durable refresh (`createGatewayRefreshStore` strong)
+- Refresh + revoke endpoints; discovery metadata; `GET /setup-pack`
+- Session-token honesty on Copy button; landing Hermes tile = import; AGENT-INTEGRATION Hostinger mcp-remote interim
+- Evidence: `docs/evidence/durable-agent-auth/hermes-hostinger-mcp-remote-2026-07-13.md`
+
+### DoD checklist
+
+- [x] Settings → Integrations → **Connect cloud agent**
+- [x] Issues user_code / verification URL
+- [x] Agent ends with refreshable credential (MCP `mcp_access` + refresh)
+- [x] Revoke endpoint (refresh token); Hub can deny pending codes
+- [x] Docs + Hub copy updated in same PR
+- [x] Tests: unit, integration, e2e, security, data-integrity, performance, stress
 
 ### Test tiers
 
-unit (device code store), integration (poll → token), e2e (Hub UI happy path), security (code brute-force limits, single-use).
+| Tier | File(s) |
+| --- | --- |
+| unit | `test/device-oauth-unit.test.mjs` |
+| integration | `test/device-oauth-integration.test.mjs` |
+| e2e | `test/device-oauth-e2e.test.mjs` |
+| security | `test/device-oauth-security.test.mjs` |
+| data-integrity | `test/device-oauth-data-integrity.test.mjs` |
+| performance | `test/device-oauth-performance.test.mjs` |
+| stress | `test/device-oauth-stress.test.mjs` |
+
+### Operator follow-up (not blocking DoD)
+
+- Deploy persistent MCP gateway with this branch so Hub device UI (`deviceAuthBase` → `mcp.knowtation.store`) hits live routes.
+- Re-verify `hermes mcp login` on Hostinger only after upstream fixes; until then keep mcp-remote interim documented.
+- Hermes-native device-code client wiring (agent polls Knowtation device endpoints) — document once a Hermes version consumes RFC 8628 against custom issuers.
 
 ---
 
@@ -134,7 +159,7 @@ Ship with whichever of A/B/C lands first that changes the user-visible connect s
 | --- | --- | --- |
 | 0 Thinking freeze | DONE | Spec + this roadmap |
 | A Durable MCP OAuth | **DONE** | Strong store + scope guard + spike partial → Rank swap |
-| B Connect agent UX | TODO | **Primary** for Hostinger after swap |
+| B Connect agent UX | **DONE** | RFC 8628 + Hub UI + Hostinger interim docs (2026-07-13) |
 | C Agent credentials | TODO | |
 | D Propose-only scopes | TODO | Depends on A scope guard (landed) |
-| E Marketing/docs | TODO | With code PR |
+| E Marketing/docs | **DONE** | Shipped with Phase B |

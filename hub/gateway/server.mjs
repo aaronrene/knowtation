@@ -693,6 +693,25 @@ if (shouldMountDurableAgentAuth({
     } catch (e) {
       console.error('[gateway] Native OAuth router failed to load:', e.message || e);
     }
+
+    // Phase B: RFC 8628 device authorization — Hub “Connect cloud agent”.
+    try {
+      const { createDeviceOAuthRouter } = await import('./device-oauth-provider.mjs');
+      const { router: deviceRouter } = createDeviceOAuthRouter({
+        baseUrl: BASE_URL,
+        sessionSecret: SESSION_SECRET,
+        refreshStore,
+        getUserId,
+        grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+        hubVerificationPath: '/hub/#settings/integrations',
+      });
+      app.use('/api/v1/auth/device', deviceRouter);
+      console.log('[gateway] Device OAuth (RFC 8628) mounted at /api/v1/auth/device');
+      const { pruneExpiredDeviceCodes } = await import('./device-oauth-store.mjs');
+      pruneExpiredDeviceCodes().catch(() => { /* best effort; never fatal */ });
+    } catch (e) {
+      console.error('[gateway] Device OAuth router failed to load:', e.message || e);
+    }
   }).catch((e) => {
     console.error('[gateway] MCP OAuth router failed to load:', e.message || e);
   });

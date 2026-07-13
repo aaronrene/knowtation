@@ -5193,13 +5193,13 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(snippet).then(() => {
           if (msg) {
-            msg.textContent = 'Copied URL, token, and vault id.';
+            msg.textContent = 'Copied session access token (expires — not for always-on agents).';
             msg.className = 'settings-msg';
           }
           refreshIntegApiStatus();
           setTimeout(() => {
             if (msg) msg.textContent = '';
-          }, 2500);
+          }, 3500);
         }).catch(() => {
           if (msg) {
             msg.textContent = 'Copy failed';
@@ -5212,6 +5212,152 @@
       }
     };
   }
+
+  /** Settings → Integrations → Connect cloud agent (RFC 8628 device approval). */
+  /** Device auth mounts on the persistent MCP host — not Netlify api.knowtation.store. */
+  function deviceAuthBase() {
+    if (mcpPublicUrl) {
+      try {
+        const u = new URL(mcpPublicUrl);
+        return u.origin;
+      } catch (_) { /* fall through */ }
+    }
+    return String(apiBase || '').replace(/\/$/, '');
+  }
+
+  function setDeviceConnectMsg(text, isErr) {
+    const msg = el('device-connect-msg');
+    if (!msg) return;
+    msg.textContent = text || '';
+    msg.className = isErr ? 'settings-msg err' : 'settings-msg';
+  }
+
+  async function refreshDevicePendingList() {
+    const list = el('device-pending-list');
+    if (!list) return;
+    const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
+    if (!hubTok) {
+      list.innerHTML = '<li>Sign in to see pending agent codes.</li>';
+      return;
+    }
+    try {
+      const res = await fetch(deviceAuthBase() + '/api/v1/auth/device/pending', {
+        headers: { Authorization: 'Bearer ' + hubTok },
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        list.innerHTML = '<li>Pending list unavailable on this host (device auth mounts on the persistent MCP gateway).</li>';
+        return;
+      }
+      const data = await res.json();
+      const pending = Array.isArray(data.pending) ? data.pending : [];
+      if (pending.length === 0) {
+        list.innerHTML = '<li>No pending cloud-agent codes.</li>';
+        return;
+      }
+      list.innerHTML = pending
+        .map(function (p) {
+          const code = String(p.userCode || '').replace(/[<>&]/g, '');
+          const name = String(p.clientName || p.clientId || 'agent').replace(/[<>&]/g, '');
+          return '<li><strong>' + code + '</strong> — ' + name + '</li>';
+        })
+        .join('');
+    } catch (_) {
+      list.innerHTML = '<li>Could not load pending codes.</li>';
+    }
+  }
+
+  async function postDeviceApproveOrDeny(path) {
+    const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
+    const input = el('device-user-code-input');
+    const userCode = input ? String(input.value || '').trim() : '';
+    if (!hubTok) {
+      setDeviceConnectMsg('Sign in first.', true);
+      return;
+    }
+    if (!userCode) {
+      setDeviceConnectMsg('Enter the user code shown by your agent.', true);
+      return;
+    }
+    try {
+      const res = await fetch(deviceAuthBase() + path, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + hubTok,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'omit',
+        body: JSON.stringify({
+          user_code: userCode,
+          vault_id: getCurrentVaultId() || 'default',
+        }),
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        setDeviceConnectMsg(data.error || ('Request failed (' + res.status + ')'), true);
+        return;
+      }
+      setDeviceConnectMsg(path.indexOf('deny') >= 0 ? 'Denied.' : 'Approved — agent can finish polling.', false);
+      if (input) input.value = '';
+      refreshDevicePendingList();
+    } catch (_) {
+      setDeviceConnectMsg('Network error talking to device auth endpoint.', true);
+    }
+  }
+
+  const btnDeviceApprove = el('btn-device-approve');
+  if (btnDeviceApprove) {
+    btnDeviceApprove.onclick = function () {
+      postDeviceApproveOrDeny('/api/v1/auth/device/approve');
+    };
+  }
+  const btnDeviceDeny = el('btn-device-deny');
+  if (btnDeviceDeny) {
+    btnDeviceDeny.onclick = function () {
+      postDeviceApproveOrDeny('/api/v1/auth/device/deny');
+    };
+  }
+  const btnDeviceRefreshPending = el('btn-device-refresh-pending');
+  if (btnDeviceRefreshPending) {
+    btnDeviceRefreshPending.onclick = function () {
+      refreshDevicePendingList();
+    };
+  }
+  const btnCopyCloudSetupPack = el('btn-copy-cloud-setup-pack');
+  if (btnCopyCloudSetupPack) {
+    btnCopyCloudSetupPack.onclick = function () {
+      const pack =
+        '# Knowtation cloud agent setup (NO SECRETS)\n' +
+        '# MCP URL: https://mcp.knowtation.store/mcp\n' +
+        '# Prefer: Hub Settings → Integrations → Connect cloud agent (device code)\n' +
+        '# Interim (Hostinger Hermes): desktop mcp-remote OAuth → copy ~/.mcp-auth/mcp-remote-* to agent HOME\n' +
+        '#   → Hermes stdio: npx -y mcp-remote https://mcp.knowtation.store/mcp\n' +
+        '# DO NOT: paste Hub session JWT into always-on .env\n' +
+        '# DO NOT: use api.knowtation.store/mcp or Netlify /mcp\n' +
+        '# Full guide: docs/AGENT-INTEGRATION.md (Always-on cloud agents)\n';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pack).then(function () {
+          setDeviceConnectMsg('Copied non-secret setup pack.', false);
+        }).catch(function () {
+          setDeviceConnectMsg('Copy failed', true);
+        });
+      } else {
+        setDeviceConnectMsg('Clipboard not available', true);
+      }
+    };
+  }
+  try {
+    var _ucParams = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+    var _uc = _ucParams ? _ucParams.get('user_code') : null;
+    if (!_uc && typeof location !== 'undefined' && location.hash && location.hash.indexOf('user_code=') >= 0) {
+      var _hq = location.hash.split('?')[1] || '';
+      _uc = new URLSearchParams(_hq).get('user_code');
+    }
+    if (_uc && el('device-user-code-input')) {
+      el('device-user-code-input').value = String(_uc).toUpperCase();
+    }
+  } catch (_) { /* ignore */ }
+  refreshDevicePendingList();
 
   const btnSettingsMuseSave = el('btn-settings-muse-save');
   if (btnSettingsMuseSave && !btnSettingsMuseSave.dataset.knowtationMuseBound) {
@@ -5262,6 +5408,9 @@
       if (id === 'team') {
         loadTeamRolesList();
         loadInvitesList();
+      }
+      if (id === 'integrations') {
+        refreshDevicePendingList();
       }
       if (id === 'vaults') loadVaultsPanel();
       if (id === 'billing') loadBillingPanel();

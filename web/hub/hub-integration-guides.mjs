@@ -539,7 +539,7 @@ export const INTEGRATION_GUIDES = Object.freeze({
       {
         type: 'text',
         html:
-          'Wire Hermes to your vault for ongoing reads/writes: <strong>Settings → Integrations → Hub API</strong> → copy env vars into Hermes MCP config. External memory providers (Mem0, Honcho, etc.) can be mirrored the same way after export.',
+          'Wire Hermes to your vault for ongoing reads/writes: use Hub <strong>Settings → Integrations → Connect cloud agent</strong> (device code), or the verified Hostinger interim in <code>docs/AGENT-INTEGRATION.md</code> (desktop <code>mcp-remote</code> OAuth → copy token folder → Hermes stdio). Do <strong>not</strong> put the Hub session JWT in always-on <code>.env</code>. External memory providers (Mem0, Honcho, etc.) can be mirrored after export.',
       },
     ],
   },

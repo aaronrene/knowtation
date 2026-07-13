@@ -1,9 +1,9 @@
 # Durable agent / MCP auth for remote co-founders — frozen decision
 
-**Status:** Thinking freeze (2026-07-12) — **revised 2026-07-12 after adversarial security/identity review** (§4 review findings folded into §1, §5, §8, §14). **No Build code in this session.**  
-**Branch:** `feat/durable-agent-mcp-auth-thinking`  
+**Status:** Phase A **DONE** · Phase B **DONE** (2026-07-13 — RFC 8628 device connect + Hub UI + Hostinger mcp-remote interim). Phase C scoped REST credentials next.  
+**Branch (Phase B):** `feat/connect-cloud-agent-device-code`  
 **Companion plan:** [`DURABLE-AGENT-AUTH-ROADMAP.md`](./DURABLE-AGENT-AUTH-ROADMAP.md)  
-**Approval gate:** Aaron must accept §2 Verdict + §5 Recommended architecture before Phase A Build.
+**Approval gate:** Historical — Aaron accepted §2 Verdict + §5 before Phase A/B Builds.
 
 ---
 
@@ -189,15 +189,17 @@ Freeze:
 
 ---
 
-## 12. Interim Born Free runbook (≤10 lines)
+## 12. Interim Born Free runbook (≤15 lines)
 
-1. **Do not** rely on `KNOWTATION_HUB_TOKEN` from Copy Hub in Hostinger `/data/.env` for vault writes — it will 401.
+1. **Do not** rely on `KNOWTATION_HUB_TOKEN` from Copy session token in Hostinger `/data/.env` for vault writes — it will 401.
 2. Point Hermes MCP at **`https://mcp.knowtation.store/mcp`**, not the Netlify gateway `/mcp`.
-3. If Hostinger Hermes supports MCP OAuth: set `auth: oauth`, run headless paste-back once; treat as **interim** until durable MCP refresh ships (in-memory refresh today).
-4. Else: Hermes writes drafts to Sheet/local; promote into Knowtation via **Cursor hosted MCP OAuth** or Hub UI / proposals (Knowtation stays SoT).
-5. Prefer **propose** over direct write for co-founder drafts.
-6. Re-auth when MCP tools 401; do not lengthen JWT “for now” as the plan.
-7. Track end-state on `docs/DURABLE-AGENT-AUTH-ROADMAP.md` Phase A+.
+3. **Preferred product path:** Hub **Connect cloud agent** (device code) on the persistent MCP host — see AGENT-INTEGRATION § Always-on.
+4. **Verified interim (2026-07-13):** desktop `npx mcp-remote` OAuth → copy `~/.mcp-auth/mcp-remote-*` to `/data/.mcp-auth/` → Hermes stdio mcp-remote — evidence note in `docs/evidence/durable-agent-auth/hermes-hostinger-mcp-remote-2026-07-13.md`.
+5. Do **not** claim `hermes mcp login` on Hostinger works until re-verified (hang after paste observed).
+6. Prefer **propose** (`hub_create_proposal`) over direct write for co-founder drafts.
+7. Desktop Cursor: MCP OAuth Sign-in remains the best interactive path.
+8. Track end-state on `docs/DURABLE-AGENT-AUTH-ROADMAP.md` (Phase B **DONE**; Phase C scoped REST credentials next).
+9. Composio catalog packaging is **future only** — not required for vault auth.
 
 ---
 
