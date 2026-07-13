@@ -171,7 +171,7 @@ export function getStepContent(isHosted, index) {
         title: 'Integrations (MCP + API)',
         bodyHtml:
           '<p>While signed in, open <strong>Settings → Integrations → Hub API</strong>.</p>' +
-          '<p><strong>Copy Hub URL, token &amp; vault</strong> — your private “key card” for tools outside the browser (paste into env vars or MCP config).</p>' +
+          '<p><strong>Copy session access token (expires)</strong> plus Hub URL and vault — for short scripts and smoke tests, not always-on cloud agents (use <strong>Connect cloud agent</strong> below for those).</p>' +
           '<p><strong>Copy MCP</strong> — a ready-made snippet for common clients.</p>' +
           '<p><strong>Copy prime</strong> — a small <strong>non-secret</strong> JSON reminder (which Hub and vault). Not your password; use it with the key card after your tool connects.</p>' +
           '<details class="how-to-details">' +

@@ -1334,10 +1334,10 @@ Your note body here.</pre>
             <hr class="settings-hr">
             <h3 class="settings-h3 integ-section-heading">
               <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 0 10h-3"/><path d="M9 17H6a5 5 0 0 1 0-10h3"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
-              Hub API
-              <span id="integ-api-status" class="integ-status-dot" title="No token copied yet"></span>
+              Hub API — session access token (expires)
+              <span id="integ-api-status" class="integ-status-dot" title="No session token yet"></span>
             </h3>
-            <p class="settings-intro small">There is no separate “API signup.” You already signed in above — tools outside the browser (Cursor, scripts, curl, API clients) need a <strong>copy-paste block</strong> from this page. After you log in, click <strong>Copy Hub URL, token &amp; vault</strong> and treat that paste like a <strong>password</strong> (do not share it). The same token works for <strong>Hub REST</strong> and for <strong>remote MCP</strong> (with the same headers); the paste includes a <strong>link to the full guide</strong> (not a long comment block in the clipboard).</p>
+            <p class="settings-intro small">There is no separate “API signup.” You already signed in above — <strong>short interactive</strong> tools (curl, one-off scripts, desktop smoke tests) need a <strong>session access token</strong> from this page. It is a time-limited JWT with <strong>no refresh</strong> — it is <strong>not</strong> durable auth for always-on cloud agents. After you log in, click <strong>Copy session access token (expires)</strong> and treat that paste as a secret. Prefer <strong>Connect cloud agent</strong> (below) or desktop MCP OAuth for Hermes / Hostinger / VPS agents. The paste includes a <strong>link to the full guide</strong>.</p>
             <details class="how-to-details">
               <summary>Technical details — Hub URL vs MCP URL, Bearer, hosted vs self-hosted</summary>
               <div class="how-to-details-body">
@@ -1347,17 +1347,34 @@ Your note body here.</pre>
             <details class="settings-json-details settings-hub-api-troubleshoot">
               <summary class="settings-json-details-summary">Troubleshoot: API token, automations, and HTTP headers</summary>
               <div class="settings-troubleshoot-body">
-                <p class="settings-intro small" style="margin-top: 0.5rem;">The copied <strong>JWT expires on a schedule</strong> (security). <strong>Automations</strong> (cron, CI, static MCP JSON) fail with <strong>401</strong> only if they still send an <strong>old pasted token</strong> after expiry—click <strong>Copy Hub URL, token &amp; vault</strong> again and update the secret where you pasted it. Your <strong>browser session</strong> in this Hub tab is separate and usually keeps working.</p>
-                <p class="settings-intro small"><strong>Reduce surprises:</strong> Prefer <code>${env:KNOWTATION_HUB_TOKEN}</code> in MCP config (see <code>docs/AGENT-INTEGRATION.md</code>) so you rotate one env var instead of editing JSON. Long-running servers may need an occasional re-copy after policy or rotation changes.</p>
+                <p class="settings-intro small" style="margin-top: 0.5rem;">The copied <strong>session JWT expires on a schedule</strong> (security) and has <strong>no refresh</strong>. <strong>Automations</strong> (cron, CI, static MCP JSON) fail with <strong>401</strong> when they still send an <strong>old pasted token</strong>—re-copy for short scripts, or use <strong>Connect cloud agent</strong> / MCP OAuth for always-on hosts. Your <strong>browser session</strong> in this Hub tab is separate and usually keeps working (HttpOnly refresh cookie).</p>
+                <p class="settings-intro small"><strong>Do not</strong> put this session JWT in an always-on server <code>.env</code> (Hermes Hostinger <code>/data/.env</code>, etc.) and expect it to last. See <code>docs/AGENT-INTEGRATION.md</code> always-on section.</p>
                 <p class="settings-intro small">For HTTP calls, send <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code> on vault-scoped routes. JSON MCP <code>headers</code> must use the <strong>full</strong> <code>Authorization</code> value: <code>Bearer &lt;KNOWTATION_HUB_TOKEN&gt;</code>, not the token alone. Full shapes: <code>docs/AGENT-INTEGRATION.md</code>.</p>
               </div>
             </details>
             <div class="settings-actions settings-hub-api-copy-actions" style="margin-top: 0.65rem;">
-              <button type="button" id="btn-copy-hub-api-env" class="btn-primary">Copy Hub URL, token &amp; vault</button>
+              <button type="button" id="btn-copy-hub-api-env" class="btn-primary">Copy session access token (expires)</button>
               <button type="button" id="btn-copy-mcp-prime" class="btn-secondary">Copy prime</button>
               <span id="integrations-hub-api-copy-msg" class="settings-msg"></span>
             </div>
-            <p class="settings-intro small"><strong>Copy prime</strong> saves a small JSON <strong>reminder</strong> to the clipboard: which Hub you are on and which vault. It does <strong>not</strong> contain your sign-in secret — use <strong>Copy Hub URL, token &amp; vault</strong> for that.</p>
+            <p class="settings-intro small"><strong>Copy prime</strong> saves a small JSON <strong>reminder</strong> to the clipboard: which Hub you are on and which vault. It does <strong>not</strong> contain your sign-in secret — use <strong>Copy session access token (expires)</strong> for short-lived scripts only.</p>
+            <hr class="settings-hr">
+            <h3 class="settings-h3 integ-section-heading" id="connect-cloud-agent-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>
+              Connect cloud agent
+            </h3>
+            <p class="settings-intro small" id="connect-cloud-agent-intro">For <strong>Hermes / Hostinger / always-on</strong> agents: the agent starts a device login and shows a short <strong>user code</strong>. Enter that code here while signed in — the agent receives a <strong>refreshable</strong> credential. Do <strong>not</strong> paste the session JWT into server <code>.env</code>. Full Hostinger interim recipe (mcp-remote token folder copy) is in <code>docs/AGENT-INTEGRATION.md</code>.</p>
+            <div class="settings-row" style="align-items: flex-end; gap: 0.5rem; flex-wrap: wrap;">
+              <label class="settings-label" for="device-user-code-input">User code</label>
+              <input type="text" id="device-user-code-input" class="settings-input" maxlength="12" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false" aria-describedby="connect-cloud-agent-intro" style="max-width: 10rem; text-transform: uppercase; letter-spacing: 0.05em;" />
+              <button type="button" id="btn-device-approve" class="btn-primary">Approve</button>
+              <button type="button" id="btn-device-deny" class="btn-secondary">Deny</button>
+              <button type="button" id="btn-device-refresh-pending" class="btn-secondary">Refresh pending</button>
+              <button type="button" id="btn-copy-cloud-setup-pack" class="btn-secondary">Copy setup pack (no secrets)</button>
+            </div>
+            <p id="device-connect-msg" class="settings-msg" role="status" aria-live="polite"></p>
+            <ul id="device-pending-list" class="settings-intro small" style="margin-top: 0.5rem; padding-left: 1.25rem;"></ul>
+            <p class="settings-intro small">Agent endpoints (persistent MCP host): <code>POST /api/v1/auth/device/authorize</code> then poll <code>POST /api/v1/auth/device/token</code> with <code>grant_type=urn:ietf:params:oauth:grant-type:device_code</code>. Setup pack: <code>GET /api/v1/auth/device/setup-pack</code>.</p>
             <details class="how-to-details">
               <summary>Technical details — MCP <code>readResource</code> and prime URI</summary>
               <div class="how-to-details-body">
