@@ -2,7 +2,14 @@
 
 Public documentation for **Knowtation** (open source). Spec, API contracts, and contributor-facing guides live here.
 
-Internal roadmaps, deploy runbooks, and session handoffs live outside this tree (for example under a local **`development/`** or **`docs/archive/`** folder — see repo `.gitignore`).
+Internal roadmaps, thinking freezes, deploy runbooks, and session handoffs live **outside** this
+public tree under a local **`development/`** folder (gitignored + museignored). Example:
+`development/durable-agent-auth/` for agent-auth freeze notes and ops evidence.
+
+Public developer recipes for agents stay in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
+
+Cross-repo “what’s next” lives in **Scooling** `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md`
+— not in a second Knowtation roadmap.
 
 ## Start here
 
