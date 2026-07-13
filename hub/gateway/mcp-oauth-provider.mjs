@@ -4,20 +4,27 @@
  * Reuses the Hub's existing Google/GitHub OAuth flow and wraps it with MCP-standard
  * PKCE + dynamic client registration.
  *
+ * Phase A (durable agent auth): refresh tokens are persisted via the shared
+ * `createGatewayRefreshStore({ consistency: 'strong' })` / `refresh-token-core`
+ * (hash-at-rest, rotation, reuse→family revoke). Do not use an in-memory Map.
+ *
  * C3 (docs/COMPANION-APP-OAUTH-SERVERSIDE-GATE.md §6): emits `iss` = canonical issuer
  *    identifier on the loopback redirect in completeMcpAuthorization (RFC 9207 §2).
  * C5: validates redirect_uri at token exchange when provided (RFC 6749 §4.1.3).
  */
 
-import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import {
+  DEFAULT_TOKEN_TTL_MS,
+  DEFAULT_FAMILY_TTL_MS,
+  REFRESH_FAILURE,
+} from '../lib/refresh-token-core.mjs';
 
 const MCP_TOKEN_EXPIRY_SECONDS = 3600;
-const MCP_REFRESH_TOKEN_EXPIRY_SECONDS = 86400;
 const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 const MAX_CLIENTS = 500;
 const MAX_PENDING_CODES = 1000;
-const REFRESH_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
 function sha256(s) {
   return createHash('sha256').update(s).digest('base64url');
@@ -63,6 +70,38 @@ class InMemoryClientsStore {
 }
 
 /**
+ * Build agent label for refresh-record meta (multi-Hermes revoke list).
+ * Prefer explicit option, then dynamic client_name, then client_id.
+ * @param {object} client
+ * @param {string} [explicit]
+ * @returns {string}
+ */
+export function resolveMcpAgentLabel(client, explicit) {
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim().slice(0, 128);
+  const name = client && typeof client.client_name === 'string' ? client.client_name.trim() : '';
+  if (name) return name.slice(0, 128);
+  return String(client?.client_id || 'mcp-client').slice(0, 128);
+}
+
+/**
+ * Map refresh-token-core failure reasons to Error messages (no secrets).
+ * @param {string} reason
+ * @returns {Error}
+ */
+function refreshFailureError(reason) {
+  switch (reason) {
+    case REFRESH_FAILURE.REUSE:
+      return new Error('Refresh token reuse detected');
+    case REFRESH_FAILURE.REVOKED:
+      return new Error('Refresh token revoked');
+    case REFRESH_FAILURE.EXPIRED:
+      return new Error('Refresh token expired');
+    default:
+      return new Error('Unknown refresh token');
+  }
+}
+
+/**
  * Knowtation OAuth provider that bridges the Hub's existing auth
  * with the MCP SDK's OAuth 2.1 expectations.
  */
@@ -72,9 +111,19 @@ export class KnowtationOAuthProvider {
    *   sessionSecret: string,
    *   baseUrl: string,
    *   loginUrl?: string,
+   *   refreshStore: {
+   *     issue: Function,
+   *     rotate: Function,
+   *     revoke: Function,
+   *     peek?: Function,
+   *   },
+   *   agentLabel?: string,
    * }} opts
    */
   constructor(opts) {
+    if (!opts?.refreshStore?.issue || !opts?.refreshStore?.rotate || !opts?.refreshStore?.revoke) {
+      throw new Error('KnowtationOAuthProvider requires refreshStore { issue, rotate, revoke }');
+    }
     this._sessionSecret = opts.sessionSecret;
     this._baseUrl = opts.baseUrl.replace(/\/$/, '');
     // C3: canonical issuer identifier — matches the `issuer.href` the mcpAuthRouter
@@ -83,13 +132,10 @@ export class KnowtationOAuthProvider {
     this._issuerUrl = new URL(this._baseUrl).href;
     this._loginUrl = opts.loginUrl || `${this._baseUrl}/auth/login`;
     this._clientStore = new InMemoryClientsStore();
+    this._refreshStore = opts.refreshStore;
+    this._defaultAgentLabel = typeof opts.agentLabel === 'string' ? opts.agentLabel : undefined;
     /** @type {Map<string, { clientId: string, codeChallenge: string, redirectUri: string, state?: string, scopes: string[], userId?: string, expires: number }>} */
     this._pendingCodes = new Map();
-    /** @type {Map<string, { clientId: string, userId: string, scopes: string[], expires: number }>} */
-    this._refreshTokens = new Map();
-
-    this._sweepTimer = setInterval(() => this._sweepExpiredRefreshTokens(), REFRESH_SWEEP_INTERVAL_MS);
-    if (this._sweepTimer.unref) this._sweepTimer.unref();
   }
 
   get clientsStore() {
@@ -186,7 +232,6 @@ export class KnowtationOAuthProvider {
     this._pendingCodes.delete(authorizationCode);
 
     const scopes = pending.scopes.length > 0 ? pending.scopes : ['vault:read'];
-    const now = Math.floor(Date.now() / 1000);
     const accessToken = jwt.sign(
       {
         sub: pending.userId,
@@ -198,41 +243,69 @@ export class KnowtationOAuthProvider {
       { expiresIn: MCP_TOKEN_EXPIRY_SECONDS }
     );
 
-    const refreshToken = randomUUID();
-    this._refreshTokens.set(refreshToken, {
-      clientId: client.client_id,
-      userId: pending.userId,
-      scopes,
-      expires: now + MCP_REFRESH_TOKEN_EXPIRY_SECONDS,
-    });
+    const agent = resolveMcpAgentLabel(client, this._defaultAgentLabel);
+    let refreshResult;
+    try {
+      refreshResult = await this._refreshStore.issue(pending.userId, {
+        tokenTtlMs: DEFAULT_TOKEN_TTL_MS,
+        familyTtlMs: DEFAULT_FAMILY_TTL_MS,
+        meta: {
+          agent,
+          client_id: client.client_id,
+          scopes: scopes.join(' '),
+        },
+      });
+    } catch (_) {
+      throw new Error('Refresh token issuance failed');
+    }
 
     return {
       access_token: accessToken,
       token_type: 'bearer',
       expires_in: MCP_TOKEN_EXPIRY_SECONDS,
-      refresh_token: refreshToken,
+      refresh_token: refreshResult.token,
       scope: scopes.join(' '),
     };
   }
 
   async exchangeRefreshToken(client, refreshToken, scopes, _resource) {
-    const stored = this._refreshTokens.get(refreshToken);
-    if (!stored) throw new Error('Unknown refresh token');
-    if (stored.clientId !== client.client_id) throw new Error('Client mismatch');
-    if (Math.floor(Date.now() / 1000) > stored.expires) {
-      this._refreshTokens.delete(refreshToken);
-      throw new Error('Refresh token expired');
+    if (typeof this._refreshStore.peek === 'function') {
+      const peeked = await this._refreshStore.peek(refreshToken);
+      if (!peeked) throw new Error('Unknown refresh token');
+      if (peeked.meta?.client_id && peeked.meta.client_id !== client.client_id) {
+        throw new Error('Client mismatch');
+      }
+      if (peeked.revoked) throw refreshFailureError(REFRESH_FAILURE.REVOKED);
     }
 
-    this._refreshTokens.delete(refreshToken);
+    let result;
+    try {
+      result = await this._refreshStore.rotate(String(refreshToken), {});
+    } catch (_) {
+      throw new Error('Refresh token rotation failed');
+    }
+
+    if (!result.ok) {
+      throw refreshFailureError(result.reason);
+    }
+
+    const meta = result.meta || {};
+    if (meta.client_id && meta.client_id !== client.client_id) {
+      // Should be unreachable after peek; fail closed without leaking.
+      throw new Error('Client mismatch');
+    }
+
+    const storedScopes = typeof meta.scopes === 'string' && meta.scopes.trim()
+      ? meta.scopes.trim().split(/\s+/).filter(Boolean)
+      : ['vault:read'];
 
     const effectiveScopes = scopes && scopes.length > 0
-      ? scopes.filter((s) => stored.scopes.includes(s))
-      : stored.scopes;
+      ? scopes.filter((s) => storedScopes.includes(s))
+      : storedScopes;
 
     const accessToken = jwt.sign(
       {
-        sub: stored.userId,
+        sub: result.sub,
         client_id: client.client_id,
         scopes: effectiveScopes,
         type: 'mcp_access',
@@ -241,19 +314,11 @@ export class KnowtationOAuthProvider {
       { expiresIn: MCP_TOKEN_EXPIRY_SECONDS }
     );
 
-    const newRefreshToken = randomUUID();
-    this._refreshTokens.set(newRefreshToken, {
-      clientId: client.client_id,
-      userId: stored.userId,
-      scopes: effectiveScopes,
-      expires: Math.floor(Date.now() / 1000) + MCP_REFRESH_TOKEN_EXPIRY_SECONDS,
-    });
-
     return {
       access_token: accessToken,
       token_type: 'bearer',
       expires_in: MCP_TOKEN_EXPIRY_SECONDS,
-      refresh_token: newRefreshToken,
+      refresh_token: result.token,
       scope: effectiveScopes.join(' '),
     };
   }
@@ -276,11 +341,17 @@ export class KnowtationOAuthProvider {
 
   async revokeToken(client, request) {
     const token = request.token;
-    if (this._refreshTokens.has(token)) {
-      const stored = this._refreshTokens.get(token);
-      if (stored.clientId === client.client_id) {
-        this._refreshTokens.delete(token);
+    if (!token) return;
+    if (typeof this._refreshStore.peek === 'function') {
+      const peeked = await this._refreshStore.peek(token);
+      if (peeked?.meta?.client_id && peeked.meta.client_id !== client.client_id) {
+        return;
       }
+    }
+    try {
+      await this._refreshStore.revoke(String(token));
+    } catch (_) {
+      // RFC 7009: revocation is best-effort.
     }
   }
 
@@ -292,17 +363,10 @@ export class KnowtationOAuthProvider {
     }
   }
 
-  _sweepExpiredRefreshTokens() {
-    const nowSec = Math.floor(Date.now() / 1000);
-    for (const [token, stored] of this._refreshTokens) {
-      if (nowSec > stored.expires) this._refreshTokens.delete(token);
-    }
-  }
-
   destroy() {
-    if (this._sweepTimer) {
-      clearInterval(this._sweepTimer);
-      this._sweepTimer = null;
-    }
+    // No timers; durable store owns persistence.
   }
 }
+
+// Re-export for tests that assert TTL alignment.
+export { MCP_TOKEN_EXPIRY_SECONDS, DEFAULT_TOKEN_TTL_MS, DEFAULT_FAMILY_TTL_MS, sha256 };

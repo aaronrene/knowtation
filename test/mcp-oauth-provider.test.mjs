@@ -1,25 +1,34 @@
-import { describe, it, beforeEach } from 'node:test';
+/**
+ * Legacy MCP OAuth provider suite — updated for Phase A durable refreshStore requirement.
+ */
+
+import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { KnowtationOAuthProvider } from '../hub/gateway/mcp-oauth-provider.mjs';
+import {
+  createDurableMcpProvider,
+  mintMcpTokens,
+} from './helpers/durable-mcp-oauth-harness.mjs';
 
-const TEST_SECRET = 'test-secret-at-least-32-characters-long-for-jwt';
+const cleanups = [];
+afterEach(async () => {
+  while (cleanups.length) await cleanups.pop()();
+});
 
-function createProvider() {
-  return new KnowtationOAuthProvider({
-    sessionSecret: TEST_SECRET,
-    baseUrl: 'http://localhost:3340',
-  });
+async function createProvider() {
+  const ctx = await createDurableMcpProvider();
+  cleanups.push(ctx.cleanup);
+  return ctx.provider;
 }
 
 describe('KnowtationOAuthProvider', () => {
   describe('clientsStore', () => {
-    it('starts with no clients', () => {
-      const provider = createProvider();
+    it('starts with no clients', async () => {
+      const provider = await createProvider();
       assert.equal(provider.clientsStore.getClient('nonexistent'), undefined);
     });
 
-    it('registers and retrieves a client', () => {
-      const provider = createProvider();
+    it('registers and retrieves a client', async () => {
+      const provider = await createProvider();
       const registered = provider.clientsStore.registerClient({
         redirect_uris: [new URL('http://localhost:8080/callback')],
         client_name: 'Test Client',
@@ -31,8 +40,8 @@ describe('KnowtationOAuthProvider', () => {
       assert.equal(retrieved.client_name, 'Test Client');
     });
 
-    it('evicts oldest client when limit reached', () => {
-      const provider = createProvider();
+    it('evicts oldest client when limit reached', async () => {
+      const provider = await createProvider();
       const ids = [];
       for (let i = 0; i < 502; i++) {
         const c = provider.clientsStore.registerClient({
@@ -48,16 +57,12 @@ describe('KnowtationOAuthProvider', () => {
 
   describe('authorize', () => {
     it('redirects to login page with mcp_state', async () => {
-      const provider = createProvider();
+      const provider = await createProvider();
       const client = provider.clientsStore.registerClient({
         redirect_uris: [new URL('http://localhost:8080/callback')],
       });
 
       let redirectUrl = null;
-      const mockRes = {
-        redirect(url) { redirectUrl = url; },
-      };
-
       await provider.authorize(
         client,
         {
@@ -66,7 +71,7 @@ describe('KnowtationOAuthProvider', () => {
           state: 'client-state-123',
           scopes: ['vault:read'],
         },
-        mockRes
+        { redirect(url) { redirectUrl = url; } }
       );
 
       assert.ok(redirectUrl);
@@ -77,47 +82,11 @@ describe('KnowtationOAuthProvider', () => {
 
   describe('full authorization code flow', () => {
     it('exchanges code for tokens after authorization completes', async () => {
-      const provider = createProvider();
-      const client = provider.clientsStore.registerClient({
-        redirect_uris: [new URL('http://localhost:8080/callback')],
+      const provider = await createProvider();
+      const { tokens } = await mintMcpTokens(provider, {
+        scopes: ['vault:read', 'vault:write'],
+        userId: 'google:12345',
       });
-
-      let redirectUrl = null;
-      const mockRes = {
-        redirect(url) { redirectUrl = url; },
-      };
-
-      await provider.authorize(
-        client,
-        {
-          codeChallenge: 'test-challenge',
-          redirectUri: 'http://localhost:8080/callback',
-          state: 'my-state',
-          scopes: ['vault:read', 'vault:write'],
-        },
-        mockRes
-      );
-
-      const url = new URL(redirectUrl);
-      const mcpState = url.searchParams.get('mcp_state');
-      assert.ok(mcpState);
-
-      let callbackRedirect = null;
-      const callbackRes = {
-        redirect(url) { callbackRedirect = url; },
-        status() { return { json() {} }; },
-      };
-
-      provider.completeMcpAuthorization(mcpState, 'google:12345', callbackRes);
-      assert.ok(callbackRedirect);
-
-      const callbackUrl = new URL(callbackRedirect);
-      const code = callbackUrl.searchParams.get('code');
-      const state = callbackUrl.searchParams.get('state');
-      assert.ok(code);
-      assert.equal(state, 'my-state');
-
-      const tokens = await provider.exchangeAuthorizationCode(client, code);
       assert.ok(tokens.access_token);
       assert.equal(tokens.token_type, 'bearer');
       assert.ok(tokens.expires_in > 0);
@@ -128,7 +97,7 @@ describe('KnowtationOAuthProvider', () => {
 
   describe('challengeForAuthorizationCode', () => {
     it('returns the stored code challenge', async () => {
-      const provider = createProvider();
+      const provider = await createProvider();
       const client = provider.clientsStore.registerClient({
         redirect_uris: [new URL('http://localhost:8080/callback')],
       });
@@ -155,32 +124,11 @@ describe('KnowtationOAuthProvider', () => {
 
   describe('verifyAccessToken', () => {
     it('verifies a valid MCP access token', async () => {
-      const provider = createProvider();
-      const client = provider.clientsStore.registerClient({
-        redirect_uris: [new URL('http://localhost:8080/callback')],
+      const provider = await createProvider();
+      const { client, tokens } = await mintMcpTokens(provider, {
+        scopes: ['vault:read'],
+        userId: 'github:99',
       });
-
-      let redirectUrl = null;
-      await provider.authorize(
-        client,
-        {
-          codeChallenge: 'challenge',
-          redirectUri: 'http://localhost:8080/callback',
-          scopes: ['vault:read'],
-        },
-        { redirect(url) { redirectUrl = url; } }
-      );
-
-      const mcpState = new URL(redirectUrl).searchParams.get('mcp_state');
-      let callbackRedirect = null;
-      provider.completeMcpAuthorization(mcpState, 'github:99', {
-        redirect(url) { callbackRedirect = url; },
-        status() { return { json() {} }; },
-      });
-
-      const code = new URL(callbackRedirect).searchParams.get('code');
-      const tokens = await provider.exchangeAuthorizationCode(client, code);
-
       const authInfo = await provider.verifyAccessToken(tokens.access_token);
       assert.equal(authInfo.clientId, client.client_id);
       assert.ok(authInfo.scopes.includes('vault:read'));
@@ -189,7 +137,7 @@ describe('KnowtationOAuthProvider', () => {
     });
 
     it('rejects invalid token', async () => {
-      const provider = createProvider();
+      const provider = await createProvider();
       await assert.rejects(
         () => provider.verifyAccessToken('invalid-token'),
         /Invalid access token/
@@ -199,75 +147,35 @@ describe('KnowtationOAuthProvider', () => {
 
   describe('exchangeRefreshToken', () => {
     it('issues new tokens from refresh token', async () => {
-      const provider = createProvider();
-      const client = provider.clientsStore.registerClient({
-        redirect_uris: [new URL('http://localhost:8080/callback')],
+      const provider = await createProvider();
+      const { client, tokens } = await mintMcpTokens(provider, {
+        scopes: ['vault:read'],
+        userId: 'google:1',
       });
-
-      let redirectUrl = null;
-      await provider.authorize(
-        client,
-        { codeChallenge: 'c', redirectUri: 'http://localhost:8080/callback', scopes: ['vault:read'] },
-        { redirect(url) { redirectUrl = url; } }
-      );
-
-      const mcpState = new URL(redirectUrl).searchParams.get('mcp_state');
-      let callbackRedirect = null;
-      provider.completeMcpAuthorization(mcpState, 'google:1', {
-        redirect(url) { callbackRedirect = url; },
-        status() { return { json() {} }; },
-      });
-
-      const code = new URL(callbackRedirect).searchParams.get('code');
-      const tokens = await provider.exchangeRefreshToken(
-        client,
-        (await provider.exchangeAuthorizationCode(client, code)).refresh_token
-      );
-
-      assert.ok(tokens.access_token);
-      assert.ok(tokens.refresh_token);
+      const next = await provider.exchangeRefreshToken(client, tokens.refresh_token);
+      assert.ok(next.access_token);
+      assert.ok(next.refresh_token);
     });
   });
 
   describe('revokeToken', () => {
     it('revokes a refresh token', async () => {
-      const provider = createProvider();
-      const client = provider.clientsStore.registerClient({
-        redirect_uris: [new URL('http://localhost:8080/callback')],
-      });
-
-      let redirectUrl = null;
-      await provider.authorize(
-        client,
-        { codeChallenge: 'c', redirectUri: 'http://localhost:8080/callback' },
-        { redirect(url) { redirectUrl = url; } }
-      );
-
-      const mcpState = new URL(redirectUrl).searchParams.get('mcp_state');
-      let callbackRedirect = null;
-      provider.completeMcpAuthorization(mcpState, 'google:1', {
-        redirect(url) { callbackRedirect = url; },
-        status() { return { json() {} }; },
-      });
-
-      const code = new URL(callbackRedirect).searchParams.get('code');
-      const tokens = await provider.exchangeAuthorizationCode(client, code);
-
+      const provider = await createProvider();
+      const { client, tokens } = await mintMcpTokens(provider, { userId: 'google:1' });
       await provider.revokeToken(client, { token: tokens.refresh_token });
       await assert.rejects(
         () => provider.exchangeRefreshToken(client, tokens.refresh_token),
-        /Unknown refresh token/
+        /Unknown refresh token|revoked/i
       );
     });
   });
 
   describe('completeMcpAuthorization', () => {
-    it('rejects invalid mcp_state', () => {
-      const provider = createProvider();
+    it('rejects invalid mcp_state', async () => {
+      const provider = await createProvider();
       let statusCode = null;
-      let body = null;
       provider.completeMcpAuthorization('not-valid-base64!', 'user:1', {
-        status(code) { statusCode = code; return { json(d) { body = d; } }; },
+        status(code) { statusCode = code; return { json() {} }; },
         redirect() {},
       });
       assert.equal(statusCode, 400);

@@ -171,13 +171,37 @@ describe('gateway refresh store — blob backend', () => {
     assert.ok(persisted.tokens[id].rotated_to, 'old record carries a rotated_to tombstone');
   });
 
-  it('createGatewayRefreshStore exposes a working async { issue, rotate, revoke } adapter', async () => {
+  it('createGatewayRefreshStore exposes a working async { issue, rotate, revoke, peek } adapter', async () => {
     const store = createGatewayRefreshStore();
     const { token } = await store.issue('google:1', { now: 1000 });
     const r = await store.rotate(token, { now: 2000 });
     assert.equal(r.ok, true);
+    assert.ok(r.meta !== undefined);
     const out = await store.revoke(r.token);
     assert.equal(out.revoked, true);
+  });
+
+  it('strong consistency ignores blob even when blob global is set', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-gw-strong-'));
+    const savedEnv = process.env.KNOWTATION_GATEWAY_DATA_DIR;
+    process.env.KNOWTATION_GATEWAY_DATA_DIR = dir;
+    let blobWrites = 0;
+    globalThis[AUTH_BLOB_GLOBAL] = {
+      async get() { return null; },
+      async setJSON() { blobWrites += 1; },
+    };
+    try {
+      const store = createGatewayRefreshStore({ consistency: 'strong' });
+      assert.equal(store.consistency, 'strong');
+      await store.issue('google:strong', { now: 1000 });
+      assert.equal(blobWrites, 0);
+      assert.ok(fs.existsSync(path.join(dir, 'hosted_refresh_tokens.json')));
+    } finally {
+      delete globalThis[AUTH_BLOB_GLOBAL];
+      if (savedEnv === undefined) delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
+      else process.env.KNOWTATION_GATEWAY_DATA_DIR = savedEnv;
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) { /* noop */ }
+    }
   });
 });
 

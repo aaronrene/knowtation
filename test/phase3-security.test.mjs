@@ -5,7 +5,7 @@
  *   3.1 — JWT token-in-URL: OAuth redirect uses URL fragment (#token=); gateway JWT expiry shortened from 7d
  *   3.2 — Image proxy: short-lived HMAC-signed token replaces full JWT in ?token= query param
  *   3.3 — Bridge write routes: requireBridgeEditorOrAdmin guards all mutation endpoints
- *   3.4 — MCP in-memory refresh token store: periodic sweep for expired entries
+ *   3.4 — MCP refresh tokens: durable createGatewayRefreshStore (not in-memory Map)
  *   3.5 — CORS on canister: corsHeaders() locks origin when gateway_auth_secret is set (Motoko structural)
  *   3.6 — path-to-regexp ReDoS CVE resolved (npm audit passes)
  */
@@ -260,51 +260,38 @@ describe('3.3 Bridge write routes guarded by requireBridgeEditorOrAdmin', () => 
 });
 
 // ---------------------------------------------------------------------------
-// 3.4  MCP in-memory refresh token store: periodic sweep
+// 3.4  MCP durable refresh store (Phase A) — no in-memory plaintext Map
 // ---------------------------------------------------------------------------
-describe('3.4 MCP refresh token store — periodic expired-token sweep', () => {
+describe('3.4 MCP refresh token store — durable gateway store', () => {
   let mcpSrc;
   const load = () => {
     if (!mcpSrc) mcpSrc = fs.readFileSync(path.join(ROOT, 'hub/gateway/mcp-oauth-provider.mjs'), 'utf8');
     return mcpSrc;
   };
 
-  test('KnowtationOAuthProvider has _sweepExpiredRefreshTokens method', () => {
+  test('KnowtationOAuthProvider requires refreshStore (no in-memory _refreshTokens Map)', () => {
     const src = load();
-    assert.ok(src.includes('_sweepExpiredRefreshTokens'), 'must have sweep method');
+    assert.ok(src.includes('requires refreshStore'), 'constructor must require refreshStore');
+    assert.ok(!src.includes('this._refreshTokens = new Map'), 'must not use in-memory refresh Map');
+    assert.ok(src.includes('DEFAULT_TOKEN_TTL_MS'), 'must align refresh TTL with refresh-token-core');
+    assert.ok(src.includes('DEFAULT_FAMILY_TTL_MS'), 'must align family TTL with refresh-token-core');
   });
 
-  test('constructor sets up periodic sweep timer', () => {
+  test('exchangeAuthorizationCode issues via refreshStore', () => {
     const src = load();
-    assert.ok(src.includes('setInterval'), 'constructor must create setInterval for sweep');
-    assert.ok(src.includes('REFRESH_SWEEP_INTERVAL_MS'), 'must use configured interval constant');
+    assert.ok(src.includes('this._refreshStore.issue'), 'must issue durable refresh tokens');
+    assert.ok(src.includes("meta:"), 'must attach agent/client meta');
   });
 
-  test('sweep timer is unref()d to not block Node process exit', () => {
+  test('exchangeRefreshToken rotates via refreshStore', () => {
     const src = load();
-    assert.ok(src.includes('.unref'), 'sweep timer must call unref() to not block exit');
+    assert.ok(src.includes('this._refreshStore.rotate'), 'must rotate via durable store');
   });
 
-  test('sweep method deletes expired refresh tokens', () => {
-    const src = load();
-    const sweepBlock = src.slice(src.indexOf('_sweepExpiredRefreshTokens'));
-    assert.ok(sweepBlock.includes('_refreshTokens.delete'), 'sweep must delete expired tokens');
-    assert.ok(sweepBlock.includes('expires'), 'sweep must check expiry');
-  });
-
-  test('destroy() method clears the sweep timer', () => {
-    const src = load();
-    assert.ok(src.includes('destroy()'), 'must have destroy method');
-    assert.ok(src.includes('clearInterval'), 'destroy must clear the interval');
-  });
-
-  test('sweep interval is reasonable (5–30 minutes)', () => {
-    const src = load();
-    const match = src.match(/REFRESH_SWEEP_INTERVAL_MS\s*=\s*([^;]+)/);
-    assert.ok(match, 'REFRESH_SWEEP_INTERVAL_MS must be defined');
-    const ms = Function(`return ${match[1].trim()}`)();
-    assert.ok(ms >= 5 * 60 * 1000 && ms <= 30 * 60 * 1000,
-      `sweep interval must be 5–30 min, got ${ms / 60000} min`);
+  test('server wires MCP provider with shared refreshStore', () => {
+    const serverSrc = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
+    assert.ok(serverSrc.includes('refreshStore,'), 'must pass refreshStore into KnowtationOAuthProvider');
+    assert.ok(serverSrc.includes("consistency: 'strong'"), 'persistent host must use strong consistency');
   });
 });
 

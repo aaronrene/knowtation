@@ -1,25 +1,52 @@
 # Overseer Handover — Knowtation
 
 **Cross-repo note:** Scooling is the orchestration layer. **Primary handover lives in
-`scooling/docs/OVERSEER-HANDOVER.md`** — copy the NEXT SESSION block from there.
+`scooling/docs/OVERSEER-HANDOVER.md`** — copy the NEXT SESSION block from there for
+Scooling-tracked phases.
 
-Knowtation-specific history → this file's change log below. Phase truth → `scooling/docs/ROADMAP.md`.
+Knowtation-specific history → this file's change log below.
 
 ---
 
-## NEXT SESSION — P-FLOW shipped on branch; mirror + Scooling consumer wire
+## NEXT SESSION — Durable agent auth Phase B (Thinking → Auto)
 
-**Date:** 2026-07-09  
-**Branch:** `feat/p-flow-run-store`  
-**Deliverable:** Canonical `flow_run/v0` read store in `lib/flow/flow-store.mjs` — `listFlowRuns` /
-`getFlowRun`, portable `run_ref` (`flow_run:…`) lookup, overseer seed
-(`flow_run:fixture-overseer-001`), OpenAPI `FlowRun*` schemas, seven-tier
-`test/flow-run-store-*.test.mjs` (**33/33 green** with execution regression slice).
+**Date:** 2026-07-12  
+**Branch to start from:** `main` (after Phase A merge) → `feat/connect-cloud-agent-device-code`  
+**Read first:**
+- [`docs/DURABLE-AGENT-AUTH-SPEC.md`](./DURABLE-AGENT-AUTH-SPEC.md) §5–6 (Rank swap)
+- [`docs/DURABLE-AGENT-AUTH-ROADMAP.md`](./DURABLE-AGENT-AUTH-ROADMAP.md) Phase B
+- Spike: [`docs/evidence/durable-agent-auth/hermes-oauth-spike-2026-07-12.md`](./evidence/durable-agent-auth/hermes-oauth-spike-2026-07-12.md)
 
-**Next:** Muse commit → push → PR → SD-14 mirror to GitHub `main`. Scooling live `runRef`
-resolution remains a **separate consumer step** (no posture flip in this slice).
+**Why B is primary:** Hermes Hostinger spike was **partial** → Rank 1↔2 swap. Device authorization (RFC 8628) is the critical path for headless Hostinger; durable MCP OAuth (Phase A) remains for Cursor / OAuth-capable clients.
 
-See **`scooling/docs/OVERSEER-HANDOVER.md`** for cross-repo track selection.
+**Model tier (RULE #8):** Phase B Thinking (UX: device-code vs guided OAuth wireframes) on a thinking model → freeze → Auto Build.
+
+### Shared context (prepend to phase prompt)
+
+You are building Knowtation Hub “Connect cloud agent” for remote always-on agents.  
+Read: Spec §5–7, Roadmap Phase B, Phase A durable refresh (already on persistent MCP host), `web/hub` Integrations UI.  
+Guardrails: no long-lived god JWTs; no secrets in logs; do not teach Netlify `/mcp`; update Spec/Roadmap/this handover + open PR when done; no commit/push without explicit consent.  
+Tests: unit + integration + e2e + security minimum for Phase B DoD.
+
+### Phase B prompt (draft)
+
+```
+Build Phase B — Hub Connect cloud agent (device authorization primary).
+
+Goal: Non-SSH user connects a cloud agent to their vault in one Hub flow (RFC 8628
+user_code + verification URL), issuing a refreshable credential; revoke from same panel.
+
+Frozen: Roadmap Phase B after Rank 1↔2 swap. Prefer device code when loopback/paste-back
+is unreliable (Hostinger). May deep-link Hermes MCP OAuth when spike follow-up confirms
+Managed Hermes OAuth.
+
+DoD + tests: Roadmap Phase B. Update ROADMAP, this OVERSEER-HANDOVER, Hub copy +
+AGENT-INTEGRATION in the same PR as code. No docs-only PR to main.
+```
+
+### Interim ops (Born Free)
+
+See Spec §12 — Cursor MCP OAuth / Hub propose until Phase B ships; Phase A durable refresh is live on MCP host after merge.
 
 ---
 
@@ -31,6 +58,8 @@ See **`scooling/docs/OVERSEER-HANDOVER.md`** for cross-repo track selection.
 | **Hosted calendar blobs** | **INF-KN-3b** (#266) + **INF-KN-3c** (#267) strong read-after-write |
 | **INF-3 connect** | **PASS** 2026-07-08 (`connect=ok` + source calendars) |
 | **API** | **`api.knowtation.store` live** |
+| **MCP public** | **`mcp.knowtation.store/mcp`** (`web/hub/config.js`) |
+| **Durable remote-agent auth** | **Phase A DONE** 2026-07-12 — durable MCP refresh + scope REST guard + offline-lock assert; Hermes spike **partial** → Phase B device code **primary** |
 
 ---
 
@@ -38,6 +67,9 @@ See **`scooling/docs/OVERSEER-HANDOVER.md`** for cross-repo track selection.
 
 | Date | Event |
 | --- | --- |
+| 2026-07-12 | **Phase A Build DONE** — `KnowtationOAuthProvider` → `createGatewayRefreshStore({ consistency: 'strong' })`; agent meta; `mcp_access` scope REST guard; offline-lock; Hermes spike partial + Rank swap; tests `durable-mcp-oauth-*.test.mjs`; docs AGENT-INTEGRATION always-on |
+| 2026-07-12 | **Durable agent auth** freeze **revised after adversarial security/identity review**: Spec §1/§5/§8/§14 + Roadmap Phase A |
+| 2026-07-12 | **Durable agent auth** Thinking freeze — Spec + ROADMAP; branch `feat/durable-agent-mcp-auth-thinking` |
 | 2026-07-08 | **INF-3** operator connect smoke PASS after #267 deploy |
 | 2026-07-08 | **INF-KN-3c** — calendar store blob hydrate `consistency: 'strong'` + merge pending OAuth — [KN #267](https://github.com/aaronrene/knowtation/pull/267) |
 | 2026-07-07 | **INF-KN-3b** — calendar store + OAuth token blobs; gateway `redirect: 'manual'` — [KN #266](https://github.com/aaronrene/knowtation/pull/266) |
