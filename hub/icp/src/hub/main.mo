@@ -1337,7 +1337,10 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let base_state_id = Option.get(extractJsonString(bodyText, "base_state_id"), "");
     let external_ref = Option.get(extractJsonString(bodyText, "external_ref"), "");
     let evalIn = Option.get(extractJsonString(bodyText, "evaluation_status"), "");
-    let evalInit = if (evalIn == "pending") { "pending" } else { "" };
+    // pending = gate on; passed = HOSTED-WRITE-EVAL E1 personal self-apply (existing fields only).
+    let evalInit = if (evalIn == "pending") { "pending" } else if (evalIn == "passed") { "passed" } else { "" };
+    let evaluatedByIn = Option.get(extractJsonString(bodyText, "evaluated_by"), "");
+    let evaluatedAtIn = Option.get(extractJsonString(bodyText, "evaluated_at"), "");
     let rq = Option.get(extractJsonString(bodyText, "review_queue"), "");
     let rs = Option.get(extractJsonString(bodyText, "review_severity"), "");
     let afr = Option.get(extractJsonString(bodyText, "auto_flag_reasons_json"), "");
@@ -1360,8 +1363,10 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
       evaluation_grade = "";
       evaluation_checklist = "";
       evaluation_comment = "";
-      evaluated_by = "";
-      evaluated_at = "";
+      evaluated_by = if (evalInit == "passed") { evaluatedByIn } else { "" };
+      evaluated_at = if (evalInit == "passed") {
+        if (Text.size(evaluatedAtIn) > 0) { evaluatedAtIn } else { now }
+      } else { "" };
       evaluation_waiver_json = "";
       review_queue = rq;
       review_severity = rs;

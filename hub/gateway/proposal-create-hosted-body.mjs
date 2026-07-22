@@ -9,7 +9,7 @@ import { augmentProposalCreateRequestBody } from '../../lib/hub-proposal-create-
  * @param {string} pathOnly
  * @param {unknown} body
  * @param {string} dataDir
- * @param {{ evaluationRequired?: boolean }} [policyOptions]
+ * @param {{ evaluationRequired?: boolean, evaluatedBy?: string, evaluatedAt?: string }} [policyOptions]
  * @returns {unknown}
  */
 export function augmentProposalCreateForHosted(method, pathOnly, body, dataDir, policyOptions = {}) {

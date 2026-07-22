@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 
 import { notePathMatchesPrefix, normalizePathPrefix } from '../lib/write.mjs';
 import { normalizeExternalRef } from '../lib/muse-thin-bridge.mjs';
+import { applyPersonalSelfApplyEvaluationE1 } from '../lib/hub-proposal-personal-self-apply.mjs';
 
 const FILENAME = 'hub_proposals.json';
 
@@ -318,9 +319,23 @@ export function createProposal(dataDir, input) {
     created_at: now,
     updated_at: now,
   };
-  all.push(proposal);
+  // HOSTED-WRITE-EVAL E1 — after severity/auto-flag fields are set (post-trigger).
+  const withE1 = applyPersonalSelfApplyEvaluationE1(proposal, {
+    evaluatedBy: proposedBy,
+    evaluatedAt: now,
+  });
+  const finalProposal =
+    withE1.evaluation_status === 'passed'
+      ? {
+          ...proposal,
+          evaluation_status: 'passed',
+          evaluated_by: withE1.evaluated_by,
+          evaluated_at: withE1.evaluated_at,
+        }
+      : proposal;
+  all.push(finalProposal);
   saveProposals(dataDir, all);
-  return proposal;
+  return finalProposal;
 }
 
 /**

@@ -41,6 +41,8 @@ import {
 } from './proposal-llm-store.mjs';
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
+import { personalSelfApplyAllowsApprove } from '../../lib/hub-proposal-personal-self-apply.mjs';
+import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { proposalDataForHostedReviewHintsFromCreate } from './proposal-hints-create-context.mjs';
 import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
@@ -3001,7 +3003,39 @@ async function resolveHostedActorRole(req, hctx) {
 }
 
 /**
+ * Fetch one proposal from the actor's canister partition (IDOR-safe: wrong partition → not found).
+ * @param {string} proposalId
+ * @param {string} effectiveUserId
+ * @param {string} actorUserId
+ * @param {string} vaultId
+ * @returns {Promise<Record<string, unknown>|null>}
+ */
+async function fetchHostedProposalForSelfApply(proposalId, effectiveUserId, actorUserId, vaultId) {
+  if (!CANISTER_URL || !proposalId) return null;
+  try {
+    const url = `${CANISTER_URL.replace(/\/$/, '')}/api/v1/proposals/${encodeURIComponent(proposalId)}`;
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effectiveUserId,
+        'x-actor-id': actorUserId,
+        'x-vault-id': vaultId || 'default',
+        ...canisterAuthHeaders(),
+      },
+    });
+    if (!upstream.ok) return null;
+    const text = await upstream.text();
+    const parsed = parseCanisterProposalGetBody(proposalId, text, {});
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Approve/discard: enforce actor role on gateway (canister only sees effective X-User-Id).
+ * HOSTED-WRITE-EVAL: members may approve when personal self-apply predicate holds; discard stays admin-only.
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {string} pathNoQuery
@@ -3028,15 +3062,36 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   }
 
   const canApprove = role === 'admin' || (role === 'evaluator' && mayApproveProposals);
-  if (!canApprove) {
-    res.status(403).json({
-      error:
-        'Approve requires admin, or an evaluator with approve permission (per-user in Team, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user value).',
-      code: 'FORBIDDEN',
-    });
-    return false;
+  if (canApprove) return true;
+
+  // Personal self-apply (Scooling review-tray fingerprint) — scoped member approve only.
+  const approveId = proposalIdFromApprovePath(pathNoQuery);
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  const proposal = approveId
+    ? await fetchHostedProposalForSelfApply(approveId, effective, uid, vaultId)
+    : null;
+  const hasVaultWrite = scopesForRole(role).includes('vault:write');
+  if (
+    personalSelfApplyAllowsApprove({
+      proposal,
+      hasVaultWrite,
+      partitionOwned: Boolean(proposal),
+      role,
+    })
+  ) {
+    return true;
   }
-  return true;
+
+  res.status(403).json({
+    error:
+      'Approve requires admin, or an evaluator with approve permission (per-user in Team, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user value).',
+    code: 'FORBIDDEN',
+  });
+  return false;
 }
 
 /**
@@ -3195,8 +3250,11 @@ async function proxyToCanister(req, res) {
     bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);
     const policyOpts =
       hostedLlmPrefs != null
-        ? { evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir) }
-        : {};
+        ? {
+            evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir),
+            evaluatedBy: uid,
+          }
+        : { evaluatedBy: uid };
     bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
     if (req.method === 'POST') {
       const approveId = proposalIdFromApprovePath(pathOnlyForBody);
