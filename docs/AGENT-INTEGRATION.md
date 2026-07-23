@@ -160,9 +160,82 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **Vault isolation:** Each session is scoped to the user's allowed vaults via `getHostedAccessContext()`.
 - **Canister user parity:** Session creation uses **`effective_canister_user_id`** from that hosted-context response as **`X-User-Id`** on all MCP → canister calls (same rule as the Hub gateway’s `GET /api/v1/notes` proxy). Without this, delegated/workspace users could see many notes in the Hub but only their actor partition over MCP.
 - **Files:** `hub/gateway/mcp-proxy.mjs`, `hub/gateway/mcp-hosted-server.mjs`, `hub/gateway/mcp-tool-acl.mjs`, `hub/gateway/mcp-oauth-provider.mjs`.
+- **Durable MCP OAuth refresh:** On the persistent MCP host, refresh tokens use `createGatewayRefreshStore({ consistency: 'strong' })` / `refresh-token-core` (hash-at-rest, rotation, reuse→family revoke; ~30d inactivity / ~90d family cap). Gateway restart does **not** wipe unexpired MCP refresh families. The Netlify eventual-consistency blob backend is **prohibited** for MCP refresh.
+- **Offline-locked mode:** Durable agent auth (MCP OAuth + native OAuth + device authorization) is **unsupported** while offline-locked — discovery/token/refresh endpoints are not mounted.
 - **Netlify / serverless gateway:** When the gateway process has `NETLIFY` set, the repo **does not mount** the full stateful `/mcp` session router on that host—it answers `/mcp` with **503** and `MCP_NETLIFY_UNSUPPORTED` (see `hub/gateway/server.mjs`). Cursor will then show **errors** or **no tools** for a remote `url` ending in `/mcp`. **Workarounds:** use **Hub REST** with the same copied JWT (`POST /api/v1/search`, etc.), **or** point `knowtation-hosted` at a **persistent** gateway deployment where `/mcp` is actually mounted (Node on a VPS/PM2, etc.—not the Netlify-only entrypoint).
 - **EC2 / VPS deploy (clone, `git pull`, `npm ci`, PM2):** Operator runbook for the MCP gateway lives in **`hub/gateway/README.md`** (deploy + verification).
 - **Concrete example:** a Hub base URL like `https://knowtation-gateway.netlify.app` is this pattern. **Do not** point Cursor’s `knowtation-hosted` (`url` … `/mcp`) at that host—it will flap **red / green with zero tools** or log `fetch failed` / transient errors. Keep **`knowtation`** (stdio + local vault) for Cursor in the repo; use **REST + copied JWT** (or Abacus HTTP actions) for the **hosted** vault until a non-Netlify MCP gateway URL exists.
+
+### Always-on cloud agents (Hermes / VPS) — do not paste Hub JWT as durable auth
+
+**Session tokens** from Hub **Settings → Integrations → Copy session access token (expires)** are short-lived **access** JWTs. They have **no refresh**. Re-copy on 401 is correct for curl and one-off scripts — **not** for always-on agents with a token in `/data/.env`.
+
+| Client | Recommended path | Public URL |
+| --- | --- | --- |
+| Cursor / Claude (desktop) | MCP **OAuth Sign-in** (PKCE); refresh survives gateway restart | `https://mcp.knowtation.store/mcp` (`KNOWTATION_MCP_URL`) |
+| Hermes / headless VPS | **Primary:** Hub **Connect cloud agent** (RFC 8628 device code). **Interim:** desktop `mcp-remote` OAuth → copy `~/.mcp-auth/mcp-remote-*` to agent `HOME` → Hermes stdio `npx mcp-remote`. Do **not** rely on `hermes mcp login` on Hostinger until re-verified. | Same MCP URL — **never** Netlify `/mcp` |
+| REST-only runners (Paperclip, cron) | Scoped agent credential (Phase C) — not shipped yet; interim: re-copy session JWT or human-mediated promote | `https://api.knowtation.store` |
+
+#### A. Desktop MCP (Cursor) — already good
+
+OAuth Sign-in → `https://mcp.knowtation.store/mcp`. Prefer this over pasting a session JWT into MCP JSON.
+
+#### B. Hub Connect cloud agent (preferred product path)
+
+1. Agent (or operator script) `POST https://mcp.knowtation.store/api/v1/auth/device/authorize` with optional `client_name` / `scope`.
+2. Agent shows `user_code` + `verification_uri` (Hub Settings → Integrations → Connect cloud agent).
+3. User signs in to Hub, enters the user code, **Approve**.
+4. Agent polls `POST …/api/v1/auth/device/token` with `grant_type=urn:ietf:params:oauth:grant-type:device_code` until it receives `access_token` + `refresh_token` (`mcp_access`).
+5. Non-secret setup pack: `GET …/api/v1/auth/device/setup-pack` or Hub **Copy setup pack (no secrets)**.
+
+#### C. Hostinger Managed Hermes — interim (mcp-remote)
+
+Use this when device authorization is not yet available on the agent, or until the persistent MCP gateway is deployed with device routes.
+
+1. `hermes --version` — need **≥ 0.18.2** (`pip install --upgrade hermes-agent`).
+2. On a **laptop** (loopback works): `npx -y mcp-remote https://mcp.knowtation.store/mcp` — complete browser OAuth.
+3. Pack: `tar czf mcp-auth-knowtation.tgz -C ~ .mcp-auth/mcp-remote-<version>` (version folder may differ; use the directory that contains `*_tokens.json`).
+4. Upload tarball to the agent host (e.g. `/data`); extract to `/data/.mcp-auth/`. List filenames only — **never** print token JSON into chat.
+5. Hermes `config.yaml` knowtation block:
+
+```yaml
+mcp_servers:
+  knowtation:
+    command: npx
+    args:
+      - -y
+      - mcp-remote
+      - https://mcp.knowtation.store/mcp
+    timeout: 120
+    connect_timeout: 60
+    enabled: true
+```
+
+Remove `url`, `auth: oauth`, and Bearer headers for knowtation.
+
+6. Dashboard → **Restart** Hermes.
+7. List Knowtation tools after restart. Prefer `hub_create_proposal` for drafts that need human review.
+
+**Loopback note:** “Authorization successful” on `localhost` is from the **browser machine’s** listener. Hostinger may still be waiting if that flow was started on the VPS. After Mac mcp-remote writes tokens, Ctrl+C is fine — the proxy need not keep running for the copy-folder approach.
+
+#### D. Forbidden guidance
+
+- Do **not** put Copy-Hub / session JWT in always-on server `.env`.
+- Do **not** point MCP at `api.knowtation.store/mcp` or Netlify `/mcp`.
+- Do **not** “just lengthen `HUB_JWT_EXPIRY`” as the product fix.
+- Do **not** claim `hermes mcp login` works on Hostinger until re-verified after fixes.
+
+#### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Vault/MCP **401** after JWT paste | Session access JWT expired; no refresh on paste path | Use Connect cloud agent or mcp-remote interim — not re-copy forever |
+| Tools missing / wrong host | `api.…/mcp` or Netlify `/mcp` | Use `https://mcp.knowtation.store/mcp` |
+| `hermes mcp login` hangs after paste | Hostinger completing-flow hang | Use mcp-remote interim or Hub Connect cloud agent |
+| Dual CLI error | Two Hermes CLI sessions | Close one tab |
+| No tokens after Mac OAuth | Looking on Hostinger while OAuth ran on Mac | Copy `~/.mcp-auth/mcp-remote-*` tarball to agent `HOME` |
+
+**REST note:** An `mcp_access` token minted with `vault:read` only **cannot** write over Hub REST (scope-aware `getUserId`). Prefer MCP tools for vault writes when using reduced-scope OAuth grants.
 
 ### Cursor + hosted Knowtation MCP (step-by-step)
 

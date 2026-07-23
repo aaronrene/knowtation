@@ -140,8 +140,13 @@ describe('C1–C6 Data Integrity', () => {
 
   it('DI-7: MCP provider _issuerUrl byte-stable vs SDK discovery issuer.href', async () => {
     const { KnowtationOAuthProvider } = await import('../hub/gateway/mcp-oauth-provider.mjs');
+    const { createGatewayRefreshStore } = await import('../hub/gateway/refresh-token-store.mjs');
     const baseUrl = 'https://gateway.knowtation.ai';
-    const provider = new KnowtationOAuthProvider({ sessionSecret: 's', baseUrl });
+    const provider = new KnowtationOAuthProvider({
+      sessionSecret: 's',
+      baseUrl,
+      refreshStore: createGatewayRefreshStore({ consistency: 'strong' }),
+    });
     // SDK uses: issuer.href where issuer = new URL(BASE_URL)
     const sdkIssuer = new URL(baseUrl).href;
     assert.equal(provider._issuerUrl, sdkIssuer, '_issuerUrl must match SDK discovery issuer');

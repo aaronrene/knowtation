@@ -10,9 +10,10 @@ import { app } from '../../hub/bridge/server.mjs';
 
 export const handler = async (event, context) => {
   connectLambda(event);
-  // Default `eventual` (fast). Set NETLIFY_BLOBS_CONSISTENCY=strong on the **bridge** site for
-  // read-after-write on vector blobs (index → search); see Netlify Blobs docs. If strong mode errors
-  // at runtime (e.g. missing edge URL), unset the env or revert to eventual.
+  // Default `eventual` (fast) for the store handle. Calendar OAuth hydrate still passes
+  // `consistency: 'strong'` per get (see hub/bridge/calendar-blob-store.mjs) so begin→callback
+  // read-after-write does not return state_invalid. Set NETLIFY_BLOBS_CONSISTENCY=strong on the
+  // **bridge** site to also force strong for index/vector reads; see Netlify Blobs docs.
   const consistency =
     String(process.env.NETLIFY_BLOBS_CONSISTENCY || '')
       .trim()

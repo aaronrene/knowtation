@@ -45,7 +45,7 @@ describe('landing Band B (Phase 2 easy start)', () => {
     );
     assert.match(indexHtml, /class="band-b-step-head"/);
     assert.match(indexHtml, /class="band-b-step-title">Note \/ import</);
-    assert.match(indexHtml, /class="band-b-step-title">Add agents</);
+    assert.match(indexHtml, /class="band-b-step-title">Add agents \(desktop MCP\)</);
     assert.match(indexHtml, /class="band-b-step-title">Ask your AI</);
     assert.match(indexHtml, /\.band-b-step-marker\s*\{[^}]*font-size:\s*clamp\(/s);
   });

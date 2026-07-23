@@ -251,13 +251,36 @@ describe('5. data-integrity — purity and no secret leakage', () => {
     const issued = issueToken({}, {
       sub: SUB,
       now: T0,
-      meta: { ua: 'x'.repeat(1000), ip: 'y'.repeat(200), evil: { nested: true }, fn: () => {} },
+      meta: {
+        ua: 'x'.repeat(1000),
+        ip: 'y'.repeat(200),
+        agent: 'z'.repeat(200),
+        client_id: 'cid',
+        scopes: 'vault:read',
+        evil: { nested: true },
+        fn: () => {},
+      },
     });
     const rec = issued.records[issued.id];
     assert.equal(rec.meta.ua.length, 256);
     assert.equal(rec.meta.ip.length, 64);
+    assert.equal(rec.meta.agent.length, 128);
+    assert.equal(rec.meta.client_id, 'cid');
+    assert.equal(rec.meta.scopes, 'vault:read');
     assert.equal(rec.meta.evil, undefined);
     assert.equal(rec.meta.fn, undefined);
+  });
+
+  it('rotation preserves agent meta when opts.meta is omitted', () => {
+    const issued = issueToken({}, {
+      sub: SUB,
+      now: T0,
+      meta: { agent: 'Hermes-1', client_id: 'c1', scopes: 'vault:read' },
+    });
+    const r = rotateToken(issued.records, issued.token, { now: T0 + 1 });
+    assert.equal(r.ok, true);
+    assert.equal(r.meta.agent, 'Hermes-1');
+    assert.equal(r.meta.client_id, 'c1');
   });
 });
 

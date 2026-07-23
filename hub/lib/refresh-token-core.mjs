@@ -169,18 +169,37 @@ export function issueToken(records, opts) {
 }
 
 /**
- * Keep only small, known string fields from caller-supplied metadata (e.g. user agent,
- * IP) so we never persist arbitrary/unbounded data into the token store.
+ * Keep only small, known string fields from caller-supplied metadata so we never persist
+ * arbitrary/unbounded data into the token store.
+ * Allowed keys: `ua`, `ip` (browser/session), `agent` (MCP client label for multi-Hermes
+ * revoke), `client_id` + `scopes` (MCP OAuth refresh binding).
  * @param {object|undefined} meta
- * @returns {{ ua?: string, ip?: string }}
+ * @returns {{ ua?: string, ip?: string, agent?: string, client_id?: string, scopes?: string }}
  */
-function sanitizeMeta(meta) {
+export function sanitizeMeta(meta) {
   const out = {};
   if (meta && typeof meta === 'object') {
     if (typeof meta.ua === 'string') out.ua = meta.ua.slice(0, 256);
     if (typeof meta.ip === 'string') out.ip = meta.ip.slice(0, 64);
+    if (typeof meta.agent === 'string') out.agent = meta.agent.slice(0, 128);
+    if (typeof meta.client_id === 'string') out.client_id = meta.client_id.slice(0, 128);
+    if (typeof meta.scopes === 'string') out.scopes = meta.scopes.slice(0, 512);
   }
   return out;
+}
+
+/**
+ * Merge sanitized incoming meta onto previous meta. Empty incoming leaves previous intact
+ * (rotation must not wipe agent/client_id/scopes when the caller omits meta).
+ * @param {object|undefined} previous
+ * @param {object|undefined} incoming
+ * @returns {{ ua?: string, ip?: string, agent?: string, client_id?: string, scopes?: string }}
+ */
+export function mergeMeta(previous, incoming) {
+  const prev = previous && typeof previous === 'object' ? sanitizeMeta(previous) : {};
+  const next = sanitizeMeta(incoming);
+  if (Object.keys(next).length === 0) return prev;
+  return { ...prev, ...next };
 }
 
 /**
@@ -297,6 +316,7 @@ export function rotateToken(records, token, opts = {}) {
 
   // Success: mint a successor in the same family, capped by the same absolute ceiling.
   const fresh = generateRefreshToken();
+  const mergedMeta = mergeMeta(rec.meta, opts.meta);
   next[fresh.id] = {
     sub: rec.sub,
     family_id: rec.family_id,
@@ -307,7 +327,7 @@ export function rotateToken(records, token, opts = {}) {
     rotated_to: null,
     used_at: null,
     revoked: false,
-    meta: sanitizeMeta(opts.meta) || rec.meta,
+    meta: mergedMeta,
   };
 
   // Consume the old token: keep a tombstone (marked used + pointing at successor) so a
@@ -315,7 +335,15 @@ export function rotateToken(records, token, opts = {}) {
   rec.used_at = now;
   rec.rotated_to = fresh.id;
 
-  return { ok: true, records: next, token: fresh.token, id: fresh.id, sub: rec.sub, familyId: rec.family_id };
+  return {
+    ok: true,
+    records: next,
+    token: fresh.token,
+    id: fresh.id,
+    sub: rec.sub,
+    familyId: rec.family_id,
+    meta: mergedMeta,
+  };
 }
 
 /**

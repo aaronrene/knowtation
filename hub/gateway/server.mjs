@@ -41,6 +41,8 @@ import {
 } from './proposal-llm-store.mjs';
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
+import { personalSelfApplyAllowsApprove } from '../../lib/hub-proposal-personal-self-apply.mjs';
+import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { proposalDataForHostedReviewHintsFromCreate } from './proposal-hints-create-context.mjs';
 import { runHostedProposalEnrichAndPost } from './proposal-enrich-hosted.mjs';
@@ -77,6 +79,7 @@ import {
   createGatewayRefreshStore,
   pruneRefreshTokens as pruneGatewayRefreshTokens,
 } from './refresh-token-store.mjs';
+import { subFromVerifiedPayload, shouldMountDurableAgentAuth } from './access-token-authz.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -221,6 +224,8 @@ function issueToken(user) {
 function verifyToken(token) {
   try {
     const payload = jwt.verify(token, SESSION_SECRET);
+    // Identity-only: does not enforce MCP scopes. Mutating REST must go through getUserId
+    // (scope-aware for type:mcp_access — DURABLE-AGENT-AUTH-SPEC §8).
     return payload.sub ?? null;
   } catch (_) {
     return null;
@@ -228,8 +233,8 @@ function verifyToken(token) {
 }
 
 /**
- * Verify the token and return the full decoded payload, or null if invalid/expired.
- * Used only by the session-introspection endpoint; callers that only need `sub` use verifyToken.
+ * Verify token and return the decoded payload, or null if invalid/expired.
+ * Used by session introspection and scope-aware REST auth.
  * @param {string} token
  * @returns {object|null}
  */
@@ -349,10 +354,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Persistent sessions (refresh-token rotation), hosted edition. The durable, hashed refresh
-// token is delivered as an HttpOnly cookie; the security logic lives in
-// hub/lib/refresh-token-core.mjs via the blob-backed store below (shared with self-hosted).
-const refreshStore = createGatewayRefreshStore();
+// Persistent sessions (refresh-token rotation), hosted edition. On the persistent MCP host
+// (non-Netlify) use strong-consistency file backend — required for MCP OAuth refresh and shared
+// with native OAuth. Netlify web cookies keep the eventual blob path via createGatewayRefreshStore().
+const refreshStore = createGatewayRefreshStore(
+  process.env.NETLIFY ? {} : { consistency: 'strong' }
+);
 
 /**
  * Cookie policy for the hosted refresh token.
@@ -620,18 +627,26 @@ app.get('/api/v1/auth/login', gatewayOauthBlocked, (req, res) => {
   res.redirect(url);
 });
 
-// Phase D2/D3: MCP gateway + OAuth 2.1.
+// Phase D2/D3 + Phase A durable MCP OAuth: MCP gateway + OAuth 2.1.
 // MCP requires stateful sessions (SSE, session pool) that are incompatible with Netlify's
 // serverless function model (26s timeout, no shared memory between invocations).
 // On Netlify, only the OAuth discovery endpoints are mounted (lightweight, stateless).
 // The full /mcp session endpoint requires a persistent Express server (local dev, Docker, VPS,
 // or a dedicated MCP host like Railway/Fly.io). See docs/AGENT-INTEGRATION.md §2 (hosted MCP).
-if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
+// Offline-locked mode: durable agent auth is unsupported — MCP + native OAuth stay unmounted
+// (docs/DURABLE-AGENT-AUTH-SPEC.md §14).
+if (shouldMountDurableAgentAuth({
+  sessionSecret: SESSION_SECRET,
+  netlify: Boolean(process.env.NETLIFY),
+  offlineLockedActive,
+})) {
   import('./mcp-oauth-provider.mjs').then(async ({ KnowtationOAuthProvider }) => {
     const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
     const oauthProvider = new KnowtationOAuthProvider({
       sessionSecret: SESSION_SECRET,
       baseUrl: BASE_URL,
+      // Phase A: reuse the same durable refresh store as native OAuth (strong file backend).
+      refreshStore,
     });
     app._mcpOAuthProvider = oauthProvider;
     // @modelcontextprotocol/sdk OAuth routes use express-rate-limit behind Nginx. The limiter's
@@ -650,7 +665,7 @@ if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
       clientRegistrationOptions: mcpOAuthSdkRateLimitOpts,
       revocationOptions: mcpOAuthSdkRateLimitOpts,
     }));
-    console.log('[gateway] MCP OAuth 2.1 endpoints mounted');
+    console.log('[gateway] MCP OAuth 2.1 endpoints mounted (durable refresh store)');
 
     // C1–C6 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native client OAuth 2.1 endpoints.
     // The native path issues web-session JWTs (issueToken shape) instead of mcp_access
@@ -680,11 +695,32 @@ if (SESSION_SECRET && !process.env.NETLIFY && !offlineLockedActive) {
     } catch (e) {
       console.error('[gateway] Native OAuth router failed to load:', e.message || e);
     }
+
+    // Phase B: RFC 8628 device authorization — Hub “Connect cloud agent”.
+    try {
+      const { createDeviceOAuthRouter } = await import('./device-oauth-provider.mjs');
+      const { router: deviceRouter } = createDeviceOAuthRouter({
+        baseUrl: BASE_URL,
+        sessionSecret: SESSION_SECRET,
+        refreshStore,
+        getUserId,
+        grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+        hubVerificationPath: '/hub/#settings/integrations',
+      });
+      app.use('/api/v1/auth/device', deviceRouter);
+      console.log('[gateway] Device OAuth (RFC 8628) mounted at /api/v1/auth/device');
+      const { pruneExpiredDeviceCodes } = await import('./device-oauth-store.mjs');
+      pruneExpiredDeviceCodes().catch(() => { /* best effort; never fatal */ });
+    } catch (e) {
+      console.error('[gateway] Device OAuth router failed to load:', e.message || e);
+    }
   }).catch((e) => {
     console.error('[gateway] MCP OAuth router failed to load:', e.message || e);
   });
 } else if (SESSION_SECRET && process.env.NETLIFY) {
   console.log('[gateway] MCP OAuth/session endpoints skipped on Netlify (stateful sessions require persistent server)');
+} else if (SESSION_SECRET && offlineLockedActive) {
+  console.log('[gateway] MCP/native OAuth skipped: offline-locked mode (durable agent auth unsupported)');
 }
 
 if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
@@ -1349,7 +1385,12 @@ async function proxyTo(baseUrl, url, req, res) {
     stripStaleOutboundBodyHeaders(headers);
   }
   try {
-    const upstream = await fetch(url, opts);
+    const upstream = await fetch(url, { ...opts, redirect: 'manual' });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
+      res.status(upstream.status).set(Object.fromEntries(hop));
+      return res.end();
+    }
     const body = await upstream.text();
     const hop = filterUpstreamResponseHeadersForDecodedBody(upstream.headers.entries());
     res.status(upstream.status).set(Object.fromEntries(hop));
@@ -1443,7 +1484,9 @@ async function proxyImportToBridge(_baseUrl, url, req, res) {
 function getUserId(req) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  return token ? verifyToken(token) : null;
+  if (!token) return null;
+  const payload = decodeVerifiedToken(token);
+  return subFromVerifiedPayload(payload, { method: req.method });
 }
 
 /**
@@ -2960,7 +3003,39 @@ async function resolveHostedActorRole(req, hctx) {
 }
 
 /**
+ * Fetch one proposal from the actor's canister partition (IDOR-safe: wrong partition → not found).
+ * @param {string} proposalId
+ * @param {string} effectiveUserId
+ * @param {string} actorUserId
+ * @param {string} vaultId
+ * @returns {Promise<Record<string, unknown>|null>}
+ */
+async function fetchHostedProposalForSelfApply(proposalId, effectiveUserId, actorUserId, vaultId) {
+  if (!CANISTER_URL || !proposalId) return null;
+  try {
+    const url = `${CANISTER_URL.replace(/\/$/, '')}/api/v1/proposals/${encodeURIComponent(proposalId)}`;
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-user-id': effectiveUserId,
+        'x-actor-id': actorUserId,
+        'x-vault-id': vaultId || 'default',
+        ...canisterAuthHeaders(),
+      },
+    });
+    if (!upstream.ok) return null;
+    const text = await upstream.text();
+    const parsed = parseCanisterProposalGetBody(proposalId, text, {});
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Approve/discard: enforce actor role on gateway (canister only sees effective X-User-Id).
+ * HOSTED-WRITE-EVAL: members may approve when personal self-apply predicate holds; discard stays admin-only.
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {string} pathNoQuery
@@ -2987,15 +3062,36 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   }
 
   const canApprove = role === 'admin' || (role === 'evaluator' && mayApproveProposals);
-  if (!canApprove) {
-    res.status(403).json({
-      error:
-        'Approve requires admin, or an evaluator with approve permission (per-user in Team, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user value).',
-      code: 'FORBIDDEN',
-    });
-    return false;
+  if (canApprove) return true;
+
+  // Personal self-apply (Scooling review-tray fingerprint) — scoped member approve only.
+  const approveId = proposalIdFromApprovePath(pathNoQuery);
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  const proposal = approveId
+    ? await fetchHostedProposalForSelfApply(approveId, effective, uid, vaultId)
+    : null;
+  const hasVaultWrite = scopesForRole(role).includes('vault:write');
+  if (
+    personalSelfApplyAllowsApprove({
+      proposal,
+      hasVaultWrite,
+      partitionOwned: Boolean(proposal),
+      role,
+    })
+  ) {
+    return true;
   }
-  return true;
+
+  res.status(403).json({
+    error:
+      'Approve requires admin, or an evaluator with approve permission (per-user in Team, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user value).',
+    code: 'FORBIDDEN',
+  });
+  return false;
 }
 
 /**
@@ -3154,8 +3250,11 @@ async function proxyToCanister(req, res) {
     bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);
     const policyOpts =
       hostedLlmPrefs != null
-        ? { evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir) }
-        : {};
+        ? {
+            evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir),
+            evaluatedBy: uid,
+          }
+        : { evaluatedBy: uid };
     bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
     if (req.method === 'POST') {
       const approveId = proposalIdFromApprovePath(pathOnlyForBody);

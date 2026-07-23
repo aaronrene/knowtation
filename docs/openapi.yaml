@@ -1481,9 +1481,10 @@ paths:
   /flow-runs/{run_id}:
     get:
       tags: [Flows]
-      summary: Get one flow run by run id
+      summary: Get one flow run by run id or portable run_ref
       description: >
-        Returns knowtation.flow_run/v0 for a scope-visible run. Missing and
+        Returns knowtation.flow_run/v0 for a scope-visible run. Accepts canonical
+        run_id (run_…) or portable run_ref (flow_run:…). Missing and
         scope-invisible runs both return 404 unknown_run.
       parameters:
         - name: run_id
@@ -3112,6 +3113,100 @@ components:
           type: array
           maxItems: 100
           items: { $ref: '#/components/schemas/FlowStep' }
+
+    FlowRun:
+      type: object
+      required:
+        [schema, run_id, run_ref, flow_id, flow_version, scope, status, step_states, started, provenance]
+      description: knowtation.flow_run/v0 — canonical run state (pointer-only).
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_run/v0]
+        run_id: { type: string }
+        run_ref:
+          type: string
+          description: Portable cross-system pointer (flow_run:…); resolves get/list lookups.
+        flow_id: { type: string }
+        flow_version: { type: string }
+        scope:
+          type: string
+          enum: [personal, project, org]
+        status:
+          type: string
+          enum: [pending, in_progress, blocked, done, abandoned]
+        step_states:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [step_id, status, verified]
+            properties:
+              step_id: { type: string }
+              status:
+                type: string
+                enum: [pending, in_progress, blocked, done, skipped]
+              evidence_ref: { type: string, nullable: true }
+              verified: { type: boolean }
+        started: { type: string, format: date-time }
+        provenance:
+          type: object
+          required: [actor, harness]
+          properties:
+            actor: { type: string, description: Hashed actor id only }
+            harness: { type: string }
+        task_ref: { type: string, nullable: true }
+        external_ref: { type: string, nullable: true }
+
+    FlowRunGetResponse:
+      type: object
+      required: [schema, vault_id, run]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_run_get/v0]
+        vault_id: { type: string }
+        run: { $ref: '#/components/schemas/FlowRun' }
+
+    FlowRunResponse:
+      allOf:
+        - $ref: '#/components/schemas/FlowRunGetResponse'
+
+    FlowRunListResponse:
+      type: object
+      required: [schema, vault_id, effective_scope, runs, truncated]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_run_list/v0]
+        vault_id: { type: string }
+        effective_scope:
+          type: string
+          enum: [personal, project, org]
+        runs:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/FlowRun' }
+        truncated: { type: boolean }
+
+    FlowRunStartResponse:
+      type: object
+      required: [schema, run]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_run_start/v0]
+        run: { $ref: '#/components/schemas/FlowRun' }
+
+    FlowRunSubmitReviewResponse:
+      type: object
+      required: [schema, run, proposal_id]
+      properties:
+        schema:
+          type: string
+          enum: [knowtation.flow_run_submit_review/v0]
+        run: { $ref: '#/components/schemas/FlowRun' }
+        proposal_id: { type: string }
 
     FlowProposeRequest:
       type: object
