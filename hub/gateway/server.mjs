@@ -3299,6 +3299,8 @@ async function proxyToCanister(req, res) {
       } catch (_) {}
     }
     try {
+      // Inline budget capped (see HOSTED_PROPOSAL_REVIEW_HINTS_INLINE_BUDGET_MS). Scooling
+      // personal self-apply creates skip via createBody intent — one-click must not wait on LLM.
       await maybeScheduleHostedProposalReviewHints({
         method: req.method,
         pathOnly: pathOnlyForBody,
@@ -3310,6 +3312,7 @@ async function proxyToCanister(req, res) {
         vaultId,
         hintsEnabled: hostedLlmPrefs ? effectiveHostedReviewHints(hostedLlmPrefs) : false,
         proposalData: parsedProposalData,
+        createBody: bodyOut,
       });
     } catch (e) {
       // Never let a hints failure affect the primary proxy response.

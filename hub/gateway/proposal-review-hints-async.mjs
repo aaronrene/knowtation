@@ -1,10 +1,37 @@
 /**
  * After successful hosted proposal create, optionally run LLM and POST review-hints to canister.
  * Env: KNOWTATION_HUB_PROPOSAL_REVIEW_HINTS=1. Model output is untrusted; not a merge gate.
+ *
+ * HOSTED-WRITE-EVAL (2026-07-23): inline wait on create must leave headroom for Scooling's
+ * propose+approve abort (`HOSTED_REVIEW_WRITE_BACK_DEFAULT_TIMEOUT_MS` = 15_000). The previous
+ * 18_000 ms default caused production `/try` Approve timeouts. Personal self-apply (Scooling
+ * review-tray fingerprint) skips inline hints entirely — one-click approve follows create
+ * immediately, so Hub reviewer hints are not on that path.
  */
 
 import { completeChat } from '../../lib/llm-complete.mjs';
+import { SCOOLING_REVIEW_TRAY_INTENT } from '../../lib/hub-proposal-personal-self-apply.mjs';
 import { canisterAuthHeaders } from './canister-auth-headers.mjs';
+
+/**
+ * Max ms the gateway may hold `POST /api/v1/proposals` waiting for review hints before returning.
+ * Kept well under Scooling's 15s shared Hub abort so create + approve can both finish.
+ */
+export const HOSTED_PROPOSAL_REVIEW_HINTS_INLINE_BUDGET_MS = 2000;
+
+/**
+ * Whether create-path inline hints should be skipped for this proposal class.
+ * Scooling personal self-apply creates are approved in the same client round trip — hints
+ * would race approve and are not the learner path (SD-18).
+ *
+ * @param {unknown} createBody - outgoing create JSON (after augment), if known
+ * @returns {boolean}
+ */
+export function shouldSkipInlineReviewHintsOnCreate(createBody) {
+  if (!createBody || typeof createBody !== 'object' || Buffer.isBuffer(createBody)) return false;
+  const intent = String(/** @type {Record<string, unknown>} */ (createBody).intent ?? '').trim();
+  return intent === SCOOLING_REVIEW_TRAY_INTENT;
+}
 
 /**
  * Run LLM review hints inline (before response is sent), bounded by a deadline.
@@ -21,15 +48,22 @@ import { canisterAuthHeaders } from './canister-auth-headers.mjs';
  *   vaultId: string,
  *   hintsEnabled: boolean,
  *   proposalData?: { path: string, body: string } | null,
+ *   createBody?: unknown,
  * }} opts
- * @param {number} [budgetMs=18000] Maximum ms to wait before giving up and letting the response proceed.
+ * @param {number} [budgetMs=HOSTED_PROPOSAL_REVIEW_HINTS_INLINE_BUDGET_MS] Maximum ms to wait
+ *   before giving up and letting the response proceed.
  * @returns {Promise<void>}
  */
-export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 18000) {
+export async function maybeScheduleHostedProposalReviewHints(
+  opts,
+  budgetMs = HOSTED_PROPOSAL_REVIEW_HINTS_INLINE_BUDGET_MS,
+) {
   if (!opts.hintsEnabled) return;
   const { method, pathOnly, upstreamStatus, responseText, canisterUrl, effectiveUserId, actorUserId, vaultId } = opts;
   if (method !== 'POST' || (pathOnly !== '/api/v1/proposals' && pathOnly !== '/api/v1/proposals/')) return;
   if (upstreamStatus < 200 || upstreamStatus >= 300) return;
+  if (shouldSkipInlineReviewHintsOnCreate(opts.createBody)) return;
+
   let proposalId;
   try {
     const j = JSON.parse(responseText);
@@ -39,9 +73,14 @@ export async function maybeScheduleHostedProposalReviewHints(opts, budgetMs = 18
   }
   if (!proposalId) return;
 
+  const capped =
+    typeof budgetMs === 'number' && Number.isFinite(budgetMs) && budgetMs > 0
+      ? Math.min(Math.floor(budgetMs), HOSTED_PROPOSAL_REVIEW_HINTS_INLINE_BUDGET_MS)
+      : HOSTED_PROPOSAL_REVIEW_HINTS_INLINE_BUDGET_MS;
+
   let timeoutHandle;
   const deadline = new Promise((resolve) => {
-    timeoutHandle = setTimeout(() => resolve({ ok: false, code: 'TIMEOUT' }), budgetMs);
+    timeoutHandle = setTimeout(() => resolve({ ok: false, code: 'TIMEOUT' }), capped);
   });
   const job = runHostedProposalReviewHintsJob({
     canisterUrl,
