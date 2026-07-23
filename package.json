@@ -60,7 +60,7 @@
     "@mozilla/readability": "^0.6.0",
     "@netlify/blobs": "^10.7.0",
     "@qdrant/js-client-rest": "^1.17.0",
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.0",
     "argon2": "^0.44.0",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^4.0.3",

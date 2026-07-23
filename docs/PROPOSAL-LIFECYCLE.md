@@ -12,7 +12,7 @@ This document defines **states**, **roles**, and **identifiers** for Knowtation 
 
 Allowed transitions:
 
-- `proposed` → `approved` (admin: **Approve**; may require human evaluation first — see **Evaluation** below)
+- `proposed` → `approved` (admin / permitted evaluator **Approve**; or **personal self-apply** for the Scooling review-tray class — see below; may require human evaluation first — see **Evaluation**)
 - `proposed` → `discarded` (admin: **Discard**, or bulk housekeeping)
 
 There is **no** `draft` status in the store today; agents create `proposed` rows via `POST /api/v1/proposals`.
@@ -22,11 +22,35 @@ There is **no** `draft` status in the store today; agents create `proposed` rows
 | Role | List / view proposals | Create proposal | Submit evaluation | Approve / discard |
 |------|------------------------|-----------------|-------------------|-------------------|
 | `viewer` | Yes | No | No | No |
-| `editor` | Yes | Yes | No | No |
+| `editor` | Yes | Yes | No | Yes **only** via personal self-apply class (below); otherwise No |
+| `member` (hosted) | Yes | Yes | No | Yes **only** via personal self-apply class (below); otherwise No |
 | `evaluator` | Yes | No | Yes | Only if `HUB_EVALUATOR_MAY_APPROVE=1` (approve only; discard stays admin on Node Hub) |
 | `admin` | Yes | Yes | Yes | Yes |
 
+**Discard** remains **admin-only** on hosted gateway and Node Hub (personal self-apply never grants discard).
+
 Optional **Tier-2 enrichment** (`POST /api/v1/proposals/:id/enrich` when `KNOWTATION_HUB_PROPOSAL_ENRICH=1`): `editor` or `admin`.
+
+## Personal self-apply (Scooling review tray — HOSTED-WRITE-EVAL)
+
+For the **Scooling personal self-apply class**, the learner’s Scooling review-tray Approve **is** the human review. Knowtation does **not** require a separate Hub `POST …/evaluation` hop for that class, and hosted `member` (Node: `editor`) may `POST …/approve` when **all** of the following hold server-side:
+
+| Check | Rule |
+| --- | --- |
+| Actor | JWT resolves; actor has `vault:write` (hosted `member`/`admin`, or Node `editor`/`admin`) |
+| Partition | Proposal is in the actor’s effective vault partition (hosted: canister user partition; no cross-partition apply) |
+| Intent | `intent === "scooling.review_tray.approve"` (exact) |
+| External ref | `external_ref` matches `^scooling\.review:[A-Za-z0-9._:-]{1,200}$` |
+| Path | `path` matches `^reviewed/[A-Za-z0-9._:-]{1,128}\.md$` |
+| Not elevated | `review_severity !== "elevated"` and `auto_flag_reasons` / `auto_flag_reasons_json` empty or absent |
+| Status | `status === "proposed"` |
+| No learner waiver | Approve must not rely on `waiver_reason` for this class (Scooling omits it) |
+
+**Evaluation satisfaction (E1, preferred):** On `POST /api/v1/proposals` create, **after** policy + review-trigger augmentation, when the fingerprint still matches and the proposal is not elevated/auto-flagged, the gateway / Node Hub sets `evaluation_status` to `passed` and records `evaluated_by` / `evaluated_at` from the creating actor. Elevated or auto-flagged proposals are **not** self-passed.
+
+This is **not** a global “members may approve any proposal” grant. Non-matching intents, elevated content, org/classroom flows, and IDOR cross-partition attempts keep existing Hub RBAC / evaluation gates. Do **not** turn off `HUB_PROPOSAL_EVALUATION_REQUIRED` globally for this path.
+
+Implementation: [lib/hub-proposal-personal-self-apply.mjs](../lib/hub-proposal-personal-self-apply.mjs); hosted gate in [hub/gateway/server.mjs](../hub/gateway/server.mjs) `assertHostedProposalApproveDiscard`.
 
 ## Optimistic concurrency: `base_state_id`
 
@@ -117,10 +141,11 @@ When the gate is **on**, new proposals are created with `evaluation_status: "pen
 - `evaluation_status === "passed"`, or
 - the approve request includes a non-empty **`waiver_reason`** (trimmed length ≥ 3), which records **`evaluation_waiver`** and an audit entry (`approve_waiver`).
 
+**Exception — personal self-apply (E1):** matching Scooling review-tray proposals are created with `evaluation_status: "passed"` after triggers (see **Personal self-apply** above), so approve does not need a separate evaluation POST or learner waiver.
+
 When the gate is **off** at create, new proposals use `evaluation_status: "none"` unless **review triggers** force pending; admins may approve without submitting evaluation, but may still submit evaluation for audit.
 
-**Hosted canister:** The **gateway** injects `evaluation_status: "pending"` on create when policy is on (same resolution using repo **`data/`** beside the gateway). Approve rules on the canister are unchanged. Canister stores **`review_queue`**, **`review_severity`**, **`auto_flag_reasons_json`**, and optional **`review_hints`** (V3 `ProposalRecord`); upgrade migrates existing rows.
-
+**Hosted canister:** The **gateway** injects `evaluation_status: "pending"` on create when policy is on (same resolution using repo **`data/`** beside the gateway), then applies E1 for the personal self-apply class (`passed` + `evaluated_by` / `evaluated_at`). Approve rules on the canister allow `passed` / empty / `none`. Canister stores **`review_queue`**, **`review_severity`**, **`auto_flag_reasons_json`**, and optional **`review_hints`** (V3 `ProposalRecord`); upgrade migrates existing rows.
 ### Rubric
 
 Default checklist items ship in-repo (`hub/proposal-rubric-default.json`). Override with **`data/hub_proposal_rubric.json`** (same `{ "items": [{ "id", "label" }] }` shape). See [PROPOSAL-EVALUATION-RUBRIC-DEFAULT.md](./PROPOSAL-EVALUATION-RUBRIC-DEFAULT.md).

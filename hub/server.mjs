@@ -106,6 +106,7 @@ import {
   writeEvaluatorMayApprove,
   actorMayApproveProposals,
 } from './lib/hub-evaluator-may-approve.mjs';
+import { personalSelfApplyAllowsApprove } from '../lib/hub-proposal-personal-self-apply.mjs';
 import {
   parseMuseConfigFromEnv,
   resolveExternalRefForApprove,
@@ -461,12 +462,27 @@ function hubEnvEvaluatorMayApprove() {
   return process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
 }
 
-/** Approve: admin always; evaluator per data/hub_evaluator_may_approve.json + env fallback. */
+/** Approve: admin always; evaluator per data/hub_evaluator_may_approve.json + env fallback;
+ * HOSTED-WRITE-EVAL: editor/member personal self-apply when Scooling fingerprint matches. */
 function requireApproveRole(req, res, next) {
   const role = effectiveRole(req);
   const sub = req.user?.sub ?? '';
   const mayMap = readEvaluatorMayApprove(config.data_dir);
   if (actorMayApproveProposals(sub, role, mayMap, hubEnvEvaluatorMayApprove())) return next();
+
+  const proposal = getProposal(config.data_dir, req.params.id);
+  const hasVaultWrite = role === 'editor' || role === 'admin' || role === 'member';
+  if (
+    personalSelfApplyAllowsApprove({
+      proposal,
+      hasVaultWrite,
+      partitionOwned: Boolean(proposal),
+      role,
+    })
+  ) {
+    return next();
+  }
+
   return res.status(403).json({
     error:
       'Approve requires admin, or an evaluator with approve permission (Team tab / data/hub_evaluator_may_approve.json, or HUB_EVALUATOR_MAY_APPROVE=1 when no per-user entry).',
