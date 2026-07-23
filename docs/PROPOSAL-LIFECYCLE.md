@@ -92,7 +92,7 @@ Org-configurable rules in **`data/hub_proposal_review_triggers.json`** (override
 - **`path_prefixes`** — vault-relative path prefix match.
 - **`label_any`** — intersection with proposal `labels`.
 
-**Hosted:** The gateway merges the same logic into **`POST /api/v1/proposals`** before the canister (see [lib/hub-proposal-create-augment.mjs](../lib/hub-proposal-create-augment.mjs)).
+**Hosted:** The gateway merges the same logic into **`POST /api/v1/proposals`** before the canister (see [lib/hub-proposal-create-augment.mjs](../lib/hub-proposal-create-augment.mjs)). Inline LLM **review hints** after create are **skipped** for this class (see [hub/gateway/proposal-review-hints-async.mjs](../hub/gateway/proposal-review-hints-async.mjs)) so one-click approve is not held behind the hints deadline.
 
 ## Human evaluation (Phase: proposal evaluation)
 
