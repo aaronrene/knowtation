@@ -17,45 +17,40 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-## NEXT SESSION — SEC-KN-1 fail-closed gateway auth (PRIMARY)
+## NEXT SESSION — SEC-KN-2 server-only evaluation fields (PRIMARY)
 
 **Date:** 2026-07-26
 **Model:** **Auto**
 
-**SEC-KN-0 DONE (2026-07-26):** Live probe proved `gateway_auth_secret` **is set** on hub
-canister `rsovz-byaaa-aaaaa-qgira-cai` — `GET …/vaults` without `X-Gateway-Auth` returns
-`403 GATEWAY_AUTH_REQUIRED`. `operator_status` does **not** exist on the canister (handover
-command was wrong). Knowtation Netlify `knowtation-gateway`: `CANISTER_AUTH_SECRET`,
-`SESSION_SECRET`, `HUB_ADMIN_USER_IDS` present; `HUB_EVALUATOR_MAY_APPROVE` absent (fail-safe).
-MCP host / gateway `SESSION_SECRET` sharing remains **UNVERIFIED**.
-
-**Why SEC-KN-1 next:** even though the secret is set today, `hub/icp/src/hub/main.mo:930-939`
-still returns `true` when `gateway_auth_secret` is empty. A future deploy/migration that clears
-the secret would silently reopen the bypass. Fail closed permanently.
+**SEC-KN-1 DONE (2026-07-26):** `gatewayAuthorized` fails **closed** when `gateway_auth_secret` is
+empty (`return false`). Health remains public 200 with loud `gateway_auth_configured`. Seven-tier
+tests green; build verification **pass**. Code on `feat/sec-kn-1-gateway-auth-fail-closed`.
+**Live canister upgrade not performed** (Tier 3). Production secret remains SET (SEC-KN-0).
 
 ```text
-SEC-KN-1 — fail-closed when gateway_auth_secret is empty.
+SEC-KN-2 — evaluation state is server-only (Pass 2 P2).
 
 Model: Auto.
 
 Read first:
 - docs/ROADMAP.md (this repo — SEC build queue)
 - docs/OVERSEER-HANDOVER.md (this file)
-- hub/icp/src/hub/main.mo (gatewayAuthorized ~930-939)
-- ~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md (finding P1)
+- lib/hub-proposal-create-augment.mjs (~39-42)
+- hub/icp/src/hub/main.mo (evalStatusAllowsApprove ~1362-1369)
+- ~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md (finding P2)
 
 Do:
-1) Change gatewayAuthorized so an empty secret DENIES (fail closed), not allows.
-2) Keep health / OPTIONS behavior as specified in existing code (do not break public health).
-3) Add a security-tier regression test that fails against the pre-fix fail-open behavior.
-4) Seven-tier coverage for the change as appropriate for Motoko/canister + any gateway callers.
+1) Strip evaluation_status / evaluated_by / evaluated_at from ALL client proposal-create bodies
+   at the gateway (lib/hub-proposal-create-augment.mjs).
+2) Ensure only server-side evaluation can set those fields.
+3) Add a security-tier regression test that fails against the pre-fix client-forgeable behavior.
+4) Seven-tier coverage for the change.
 5) Update ROADMAP + this handover; Muse commit on feature branch. Do NOT merge to main.
 
-Do NOT: rotate secrets, flip postures, merge to main, or claim live canister redeploy without
-operator Tier 3 authorization for the canister upgrade.
+Do NOT: flip postures, merge to main, or claim live deploy without Tier 3 authorization.
 
 Governance gates (§KH1.9 — mandatory; silence is not pass):
-- [ ] Freeze review — N/A if implementing against Pass 2 P1 citation as the frozen requirement;
+- [ ] Freeze review — N/A if implementing against Pass 2 P2 citation as the frozen requirement;
       if you introduce a new PHASE artifact, run /freeze-review-loop until pass first.
 - [ ] Build verification — BEFORE ROADMAP row goes DONE: /build-verification-review (thinking-high).
 - [ ] Governance sync — ROADMAP + this file in the closing Muse commit (SD-17).
@@ -66,7 +61,7 @@ Governance gates (§KH1.9 — mandatory; silence is not pass):
 
 | ID | Sev | Finding | Primary citation |
 | --- | --- | --- | --- |
-| **P1** | **CRITICAL**-conditional | `gatewayAuthorized` fails **open** on empty secret; identity from raw `X-User-Id` | `hub/icp/src/hub/main.mo:930-939`, `:153-158`, `:1017`, `:1149` |
+| **P1** | **CRITICAL**-conditional | `gatewayAuthorized` fails **open** on empty secret; identity from raw `X-User-Id` | `hub/icp/src/hub/main.mo:930-939`, `:153-158`, `:1017`, `:1149` — **fixed in tree (SEC-KN-1); canister upgrade pending Tier 3** |
 | **P2** | **MAJOR** | Client-supplied `evaluation_status: "passed"` / `evaluated_by` persisted verbatim outside the fingerprint class | `lib/hub-proposal-create-augment.mjs:39-42`; `main.mo:1339-1341,1362-1369` |
 | **P4** | **MAJOR** | Delegation apply trusts `proposal.body.principal_ref`; no `created_by` on the record → approval mints a grant for an attacker-named principal | `lib/agent/delegation.mjs:837-878`, `:1013`; `main.mo:1332-1346` |
 | **P6** | **MAJOR** | `mcp_access` tokens get admin-allowlist role lookup, contradicting `access-token-authz.mjs`; agent tokens also satisfy the self-apply human-review predicate | `hub/gateway/server.mjs:2976-3001` vs `hub/gateway/access-token-authz.mjs:4-7,45-52`; `lib/hub-proposal-personal-self-apply.mjs:75-78` |
@@ -86,8 +81,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 - [x] **Overseer Kit installed** — 2026-07-26, `initialized: true`, `kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced`
 - [x] **SEC-KN-0** — canister gateway auth secret verified **SET** (2026-07-26 live probe) — **DONE**
-- [ ] **SEC-KN-1** — P1 fail-closed + security-tier regression test (**Auto**) — **NEXT**
-- [ ] **SEC-KN-2** — P2 server-only evaluation fields (**Auto**)
+- [x] **SEC-KN-1** — P1 fail-closed + security-tier regression test (**Auto**) — **DONE** (code; canister upgrade pending Tier 3)
+- [ ] **SEC-KN-2** — P2 server-only evaluation fields (**Auto**) — **NEXT**
 - [ ] **SEC-KN-3** — P6 `mcp_access` role cap + no self-apply for agent tokens (**Auto**)
 - [ ] **SEC-KN-4** — P4 re-derive `principal_ref` at apply + proposal authorship (**Thinking → Auto**)
 - [ ] **SEC-KN-5** — P12 clamp policy TTL + P13 `viewer` cannot mint (**Auto**)
@@ -114,6 +109,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | **Overseer Kit** | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced`, `substrate: healthy` — verified 2026-07-26 via `ok -C ~/knowtation status --json` |
 | **Footprint deviation (intentional)** | `ok status --check-footprint` → `footprint_integrity: mismatch`. Cause: `MUSE-BRIDGE-WORKFLOW.md` and `scripts/muse-bridge-deploy.sh` were restored to Knowtation's live versions (sha256 `ef8a50b5…` and `fcc17c36…`) after `init --force` overwrote them with kit templates. Knowtation's bridge script is 10,004 bytes and is the live deploy path; the kit template is 3,842 bytes and is **not** a substitute. **Do not "repair" these two files.** Recorded in `.overseer/config.yaml` → `kit.notes`. |
 | **Canister gateway auth secret** | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister. |
+| **SEC-KN-1 fail-closed (source)** | **Landed on feature branch** — empty secret DENIES in Motoko; health exposes `gateway_auth_configured`. **Not live on canister until Tier 3 upgrade.** |
 | **Knowtation Netlify env** | Site `knowtation-gateway` (`api.knowtation.store`, id `3123cc84-…`): `CANISTER_AUTH_SECRET` present, `SESSION_SECRET` present, `HUB_ADMIN_USER_IDS` present, `HUB_EVALUATOR_MAY_APPROVE` **absent** (fail-safe). |
 | **MCP host / gateway `SESSION_SECRET` sharing** | **UNVERIFIED** — determines P6 exploitability today |
 
@@ -129,6 +125,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-07-26 | **SEC-KN-1 DONE (code)** — `gatewayAuthorized` fail-closed; health `gateway_auth_configured`; seven-tier + security regression vs fail-open; BV **pass**. Branch `feat/sec-kn-1-gateway-auth-fail-closed`. Canister upgrade **not** deployed (Tier 3). NEXT = **SEC-KN-2**. |
 | 2026-07-26 | **SEC-KN-0 DONE** — canister gateway auth secret verified SET via live HTTP probe (hub `rsovz-byaaa-aaaaa-qgira-cai` → `403 GATEWAY_AUTH_REQUIRED`). Knowtation gateway env keys confirmed present. MCP/`SESSION_SECRET` share still UNVERIFIED. NEXT = **SEC-KN-1** (fail-closed). Cross-board: Scooling L-ENV (P7/P8/P9) also closed same day. |
 | 2026-07-26 | **Overseer Kit installed** (`init --regime muse+git-mirror --migrate --force`, option A) on `feat/overseer-kit-install`. Existing `docs/OVERSEER-HANDOVER.md` preserved; `docs/ROADMAP.md` + `docs/CROSS-REPO-COORDINATION.md` seeded; live bridge assets restored over kit templates (known footprint deviation). Verified `initialized: true`. |
 | 2026-07-26 | **SEC queue opened** from independent Pass 2 audit (`~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md`, verdict `findings`) — Knowtation owns P1, P2, P4, P6, P12, P13, P14 and shares P3. Scooling's `FINISH-COMPLETE-APPLY-KN-b` is NO-GO until SEC-KN-0 is verified and SEC-KN-2 ships. |

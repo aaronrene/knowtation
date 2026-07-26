@@ -927,9 +927,11 @@ func operatorExportAuthorized(req : HttpRequest) : Bool {
   };
 };
 
+/// Fail-closed gateway auth (SEC-KN-1 / Pass 2 P1): empty `gateway_auth_secret` DENIES.
+/// Health and OPTIONS are handled before this check in `http_request` / never reach update.
 func gatewayAuthorized(req : HttpRequest) : Bool {
   let expected = storage.gateway_auth_secret;
-  if (Text.size(expected) == 0) { return true };
+  if (Text.size(expected) == 0) { return false };
   switch (getHeader(req, "X-Gateway-Auth")) {
     case null { false };
     case (?got) {
@@ -1001,10 +1003,17 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   let (pathKind, pathArg) = parsePath(req.url);
 
   if (pathKind == "health") {
+    // Public health stays 200; `gateway_auth_configured` is loud when secret is unset (SEC-KN-1).
+    let authConfigured = Text.size(storage.gateway_auth_secret) > 0;
+    let healthJson = if (authConfigured) {
+      "{\"ok\":true,\"gateway_auth_configured\":true}"
+    } else {
+      "{\"ok\":true,\"gateway_auth_configured\":false}"
+    };
     return {
       status_code = 200;
       headers = corsHeaders();
-      body = jsonBody("{\"ok\":true}");
+      body = jsonBody(healthJson);
       streaming_strategy = null;
       upgrade = null;
     };
@@ -1738,8 +1747,8 @@ public shared ({ caller }) func admin_set_operator_export_secret(secret : Text) 
   };
 };
 
-/// Controllers only. Sets `X-Gateway-Auth` value checked on every non-health HTTP request.
-/// When empty (default after migration), auth is bypassed for backward compat until explicitly set.
+/// Controllers only. Sets `X-Gateway-Auth` value checked on every non-health / non-OPTIONS HTTP request.
+/// Empty secret fails closed (SEC-KN-1): all protected routes return GATEWAY_AUTH_REQUIRED.
 public shared ({ caller }) func admin_set_gateway_auth_secret(secret : Text) : async () {
   if (not Principal.isController(caller)) {
     Debug.trap("FORBIDDEN");
