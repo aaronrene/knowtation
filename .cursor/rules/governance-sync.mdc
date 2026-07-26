@@ -1,0 +1,46 @@
+---
+description: Mandatory governance sync before session end (SD-17)
+alwaysApply: true
+---
+
+# Governance sync — hard prerequisite (SD-17)
+
+Before closing any work session in **{{repo.name}}**, update both governance docs together:
+
+1. `{{docs.roadmap_path}}` — phase/build status reflects reality
+2. `{{docs.handover_path}}` — NEXT SESSION block regenerated from those docs (docs-first; never from memory)
+
+## Closing commit rule
+
+The session-ending commit on the current feature branch **must bundle**:
+
+- code and/or tests touched this session
+- `{{docs.roadmap_path}}`
+- `{{docs.handover_path}}`
+
+A commit that omits either governance doc is **incomplete**.
+
+## Tier 1 — do without asking
+
+| Action | Authority |
+| --- | --- |
+| Muse or Git commit on feature branch | SD-1, SD-17 |
+| `git push` to feature branch | SD-17 |
+| Open PR from feature branch | SD-17 |
+| Run test suite | always |
+| Regenerate handover from updated roadmap | SD-17 |
+
+## Tier 3 — always stop
+
+- Merge to `{{vcs.git.main_branch}}` (Muse or GitHub)
+- `muse push {{vcs.muse.staging_remote}}` (when regime includes Muse staging)
+- Live capability / posture gate flips
+- Real payments, secrets, data deletion
+
+## Model label
+
+Every NEXT block and paste-ready prompt **must** include **`Model:`** per `policy/model-labels.yaml`.
+
+## VCS regime
+
+This repo: **`{{vcs.regime}}`** (canonical: **`{{vcs.canonical}}`**). See `policy/tiers.yaml` for regime-specific mirror rules.

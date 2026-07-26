@@ -1,0 +1,50 @@
+overseer_config_version: 1
+repo:
+  name: knowtation
+  root_relative_docs: docs
+thresholds:
+  realign_max_commits: 50
+  drift_warn_only: true
+freeze_contract:
+  enabled: true
+  reviewer:
+    mode: agent
+    model: thinking-high
+    provider: local
+    fallback: human
+  human_escalation:
+  - security
+  - irreversible
+  - real_money
+  - gates_tier3
+vcs:
+  regime: muse+git-mirror
+  canonical: muse
+  git:
+    remote: origin
+    main_branch: main
+    mirror_branch: muse-mirror
+    feature_branch_pattern: feat/{slug}
+  muse:
+    staging_remote: staging
+    main_branch: main
+docs:
+  handover: OVERSEER-HANDOVER.md
+  roadmap: ROADMAP.md
+  coordination: CROSS-REPO-COORDINATION.md
+  standing_decisions: CROSS-REPO-COORDINATION.md
+kit:
+  source_path: ../OVERSEER_KIT/overseer-kit
+  pinned_version: "0.1.0"
+  install_status: live_k6
+  notes: >
+    Installed 2026-07-26 via `init --regime muse+git-mirror --migrate --force`.
+    Never dogfood ~/overseer-kit (K1 stub); the real kit is ~/OVERSEER_KIT/overseer-kit.
+    KNOWN FOOTPRINT DEVIATION (intentional, operator-authorized option A):
+    MUSE-BRIDGE-WORKFLOW.md and scripts/muse-bridge-deploy.sh were restored to
+    Knowtation's pre-existing versions after --force overwrote them with kit
+    templates. Knowtation's bridge script is the live deploy path (10,004 bytes)
+    and the kit template (3,842 bytes) is not a substitute. Therefore
+    `ok status --check-footprint` reports footprint_integrity: mismatch by design;
+    `footprint_self_integrity` remains `ok`. Do not "repair" by re-syncing those
+    two files. Resolve properly by adding --preserve-shared-assets to the kit.

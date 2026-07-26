@@ -1,0 +1,96 @@
+# Model labels for roadmap steps and handover NEXT blocks (K3)
+# Sources: scooling/docs/ROADMAP.md Phase Model Key; docs/ROADMAP.md (overseer-kit);
+#          MUSE_HUB/docs/MUSEHUB-ROADMAP.md; SD-3 model-split protocol
+
+version: 1
+
+labels:
+  - id: thinking
+    display: Thinking
+    meaning: >
+      Design, contract freeze, security/privacy, adapter boundaries, test matrix —
+      no mechanical implementation beyond types/contracts.
+    cursor_model_hint: extended thinking / Opus-class
+
+  - id: auto
+    display: Auto
+    meaning: >
+      Mechanical implementation against a frozen spec; run tests; feature-branch commit.
+    cursor_model_hint: default / Composer / Sonnet-class
+
+  - id: thinking_to_auto
+    display: "Thinking → Auto"
+    meaning: >
+      Split into two paste-ready prompts: {step}a (Thinking) then {step}b (Auto).
+    cursor_model_hint: split per SD-3
+    handover_split: true
+    parts:
+      - suffix: a
+        model: Thinking
+        delivers: contract, fail-closed rules, seven-tier test matrix
+        must_not: implementation beyond contracts
+      - suffix: b
+        model: Auto
+        delivers: mechanical impl to frozen contract; run suite; commit
+        must_not: redesign contract; widen scope; enable live effects
+
+  - id: operator_plus_auto
+    display: "Operator + Auto"
+    meaning: >
+      Tier 3 operator authorization for staging push, deploy, or live gate;
+      Auto for implementation and governance doc updates when green.
+    cursor_model_hint: human runs Tier 3 commands; agent implements and syncs docs
+
+rule: >
+  Every roadmap step, next-step table, and handover NEXT/paste block MUST include
+  "Model:" with exactly one label from this file. Never strip Model on regeneration.
+
+handover_regeneration:
+  split_step_incomplete: emit step_a_only
+  split_step_a_done: emit step_b_only
+  single_model: emit one prompt
+
+standing_decisions:
+  - SD-3
+
+reviewer_models:
+  - id: thinking-high
+    display: Thinking (high)
+    meaning: >
+      Extended reasoning for freeze-contract review — interfaces, fail-closed rules,
+      security, escalation edges, test-matrix completeness.
+    cursor_model_hint: extended thinking / Opus-class / gpt-5.3-codex-class
+  - id: auto-default
+    display: Auto (default)
+    meaning: >
+      Faster mechanical review pass against an already-structured freeze checklist.
+    cursor_model_hint: default / Composer / Sonnet-class
+
+model_tiers:
+  - id: deep-reasoning
+    display: Deep reasoning
+    meaning: >
+      Extended-thinking / frontier-class reasoning for contract freezes, disputes,
+      overseer rulings, and security-sensitive review.
+    cursor_model_hint: extended thinking / Opus-class
+    cost_class: high
+  - id: standard
+    display: Standard
+    meaning: >
+      Balanced capability for mechanical builds against a frozen spec and routine
+      verification steps.
+    cursor_model_hint: default / Composer / Sonnet-class
+    cost_class: moderate
+  - id: fast
+    display: Fast
+    meaning: >
+      Low-latency, low-cost tier for trivial or high-volume low-stakes steps.
+    cursor_model_hint: fast / mini-class
+    cost_class: low
+  - id: local-offline
+    display: Local (offline)
+    meaning: >
+      Locally hosted model for offline or privacy-first runtimes; preserves the
+      kit's offline promise. The kit still performs no call — the runtime does.
+    cursor_model_hint: local / on-device
+    cost_class: free

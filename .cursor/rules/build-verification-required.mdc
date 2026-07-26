@@ -1,0 +1,27 @@
+---
+description: Mandatory build verification before marking Auto phases DONE (SD-3 honesty gate)
+alwaysApply: true
+---
+
+# Build verification — mandatory before DONE
+
+After any **Auto** build phase (`{step}b`, or any roadmap row with **Model: Auto**), **before** setting
+the phase to **DONE** in `{{docs.roadmap_path}}`:
+
+1. Run **`/build-verification-review`** (skill: `.cursor/skills/build-verification-review/SKILL.md`)
+2. Use **`thinking-high`** model — independent verifier posture; not the build session model
+3. Compare the **frozen spec** (`frozen: true`) to the **actual diff**, tests, and claims in
+   `{{docs.handover_path}}`
+4. **Do not mark DONE** until verdict is **`pass`**
+5. On **`findings`**: fix only cited path:line items; re-run verification (max 5 rounds per skill)
+6. On **`blocked`** or escalation (`security`, `irreversible`, `real_money`, `gates_tier3`): stop for human
+
+Before any **Auto** phase **starts**, the frozen spec must have **`pass`** freeze review
+(`/freeze-review-loop` when needed).
+
+Tests green alone is **not** sufficient for DONE.
+
+**Sibling (shipped / live-health claims only):** when the session claims a live deploy, production
+health, or "shipped" outside the local repo, also run **`/deploy-verification-review`**
+(`.cursor/skills/deploy-verification-review/SKILL.md`). Do **not** run it for ordinary kit-only
+Auto builds — that would false-close non-ship phases. Build verification is never waived.
