@@ -159,7 +159,7 @@ describe('HOSTED-WRITE-EVAL-KN-b security', () => {
       '../hub/gateway/server.mjs',
     );
     const src = fs.readFileSync(serverPath, 'utf8');
-    assert.ok(src.includes('personalSelfApplyAllowsApprove'));
+    assert.ok(src.includes('personalSelfApplyRefusalReason'));
     assert.ok(src.includes('fetchHostedProposalForSelfApply'));
     assert.ok(src.includes('Discard requires admin'));
   });

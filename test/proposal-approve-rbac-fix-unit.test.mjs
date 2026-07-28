@@ -166,15 +166,15 @@ describe('resolveHostedActorRole — logic invariants (structural)', () => {
 
   test('function returns role, mayApproveProposals, and isMcpAccess', () => {
     const s = load();
-    const fnStart = s.indexOf('async function resolveHostedActorRole');
-    const fn = s.slice(fnStart, s.indexOf('\n}\n', fnStart) + 3);
     // SEC-KN-3: isMcpAccess is required so callers can bar agent tokens from self-apply.
+    // SEC-SEAM-1: payload accompanies both returns for sessionBound classification.
     assert.ok(
-      fn.includes('return { role, mayApproveProposals, isMcpAccess: true }') ||
-        fn.includes('return { role, mayApproveProposals, isMcpAccess: false }'),
-      'mcp_access early-return and final return both include isMcpAccess',
+      s.includes('return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload }'),
+      'mcp_access early-return includes isMcpAccess: true',
     );
-    assert.ok(fn.includes('isMcpAccess: true'), 'mcp_access path returns isMcpAccess: true');
-    assert.ok(fn.includes('isMcpAccess: false'), 'non-agent path returns isMcpAccess: false');
+    assert.ok(
+      s.includes('return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload }'),
+      'non-agent path returns isMcpAccess: false',
+    );
   });
 });

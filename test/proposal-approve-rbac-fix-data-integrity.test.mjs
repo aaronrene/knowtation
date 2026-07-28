@@ -162,18 +162,19 @@ describe('Data integrity: source-code consistency', () => {
 
   test('resolveHostedActorRole return shape includes isMcpAccess (SEC-KN-3)', () => {
     const src = load();
-    const fnStart = src.indexOf('async function resolveHostedActorRole');
-    const fn = src.slice(fnStart, src.indexOf('\n}\n', fnStart) + 3);
-    // SEC-KN-3 extended the return with isMcpAccess so approve/self-apply can refuse agent tokens.
+    // SEC-KN-3 extended the return with isMcpAccess; SEC-SEAM-1 also returns payload for sessionBound.
     assert.ok(
-      fn.includes('return { role, mayApproveProposals, isMcpAccess: false }'),
+      src.includes('return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload }'),
       'Final return includes isMcpAccess: false',
     );
     assert.ok(
-      fn.includes('return { role, mayApproveProposals, isMcpAccess: true }'),
+      src.includes('return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload }'),
       'mcp_access early-return includes isMcpAccess: true',
     );
-    const returnLine = fn.slice(fn.lastIndexOf('return {'), fn.lastIndexOf('return {') + 60);
+    const fnStart = src.indexOf('async function resolveHostedActorRole');
+    const fnEnd = src.indexOf('\nasync function assertHostedProposalApproveDiscard', fnStart);
+    const fn = src.slice(fnStart, fnEnd > fnStart ? fnEnd : undefined);
+    const returnLine = fn.slice(fn.lastIndexOf('return {'), fn.lastIndexOf('return {') + 90);
     assert.ok(!returnLine.includes('bridgeResolved'), 'bridgeResolved not leaked in return');
     assert.ok(!returnLine.includes('actorSub'), 'actorSub not leaked in return');
   });
