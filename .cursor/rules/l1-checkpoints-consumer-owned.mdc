@@ -1,0 +1,15 @@
+---
+description: Domain-neutral L1 checkpoint reminder — consumer owns verify scripts and policy steps
+globs:
+alwaysApply: false
+---
+
+# L1 checkpoints (consumer-owned)
+
+When `checkpoints.enabled` is true in `.overseer/config.yaml`:
+
+1. Define steps in consumer `policy/checkpoints.yaml` (not in the kit).
+2. Run `overseer verify-step` before advancing work — do not hand-edit `verified: true`.
+3. Keep verify scripts repo-relative, executable, and exit `0` only with proof.
+
+The kit orchestrates; your domain pack decides what “pass” means.

@@ -1,0 +1,100 @@
+# Decision authority tiers — machine-readable policy (K3)
+# Sources: scooling/docs/CROSS-REPO-COORDINATION.md; scooling/AGENTS.md; knowtation/AGENTS.md;
+#          MUSE_HUB/docs/MUSEHUB-OVERSEER-HANDOVER.md; SD-1, SD-14, SD-17
+
+version: 1
+
+tiers:
+  - id: 1
+    name: Standing defaults
+    alias: tier_1
+    covers:
+      - feature branch commits (docs or code)
+      - git push to feature branch
+      - open PR from feature branch
+      - run test suite
+      - update .gitignore and .museignore
+      - non-destructive refactors
+      - choosing recommended option among equivalents
+      - governance sync doc updates bundled in closing feature-branch commit
+    behavior: just_do_it
+    requires_authorization: false
+    never_on:
+      - main branch
+      - canonical main
+      - staging push
+      - merge to main
+    standing_decisions:
+      - SD-1
+      - SD-17
+
+  - id: 2
+    name: Recommend-and-confirm
+    alias: tier_2
+    covers:
+      - persistence and storage shape
+      - adapter contract shape
+      - schema-version choices
+      - projection target selection
+      - cross-repo coordination policy changes
+    behavior: propose_recommend_confirm_once
+    requires_authorization: true
+    record_in: standing_decisions_log
+    standing_decisions:
+      - SD-2
+      - SD-4
+      - SD-5
+
+  - id: 3
+    name: Hard gates
+    alias: tier_3
+    covers:
+      - merge to main (Muse or GitHub)
+      - muse push staging
+      - live capability and posture gate flips
+      - real payments and billing provider swaps
+      - data deletion
+      - secrets and credential changes
+      - cross-repo merges
+      - mirror push without Muse main alignment
+      - authorized wait-for-green PR land (ok pr-land / consumer pr_land_after_checks)
+    behavior: stop_for_operator_authorization
+    requires_authorization: true
+    # Operator may delegate a single land by requiring --authorized "<reason>".
+    # Agents must poll checks locally and merge only when green; they must not
+    # blind-merge via gh --auto when the base branch has no required checks.
+    # On check failure (exit 2): stop, fix in-scope CI, re-run — do not waive gates.
+    delegated_merge_when_green:
+      command: ok pr-land
+      requires_flag: --authorized
+      refuse_blind_auto_merge: true
+      on_check_failure: babysit_fix_then_retry
+    standing_decisions:
+      - SD-14
+      - SD-16
+
+commit_rule:
+  feature_branch_commit: tier_1
+  push_staging: tier_3
+  merge_main: tier_3
+  dirty_tree_at_session_end: failure
+
+governance_sync:
+  mandatory: true
+  docs:
+    - roadmap
+    - handover
+  standing_decision: SD-17
+  incomplete_without_both_docs: true
+
+vcs_regime_notes:
+  muse+git-mirror:
+    - Muse main before GitHub main (SD-14)
+    - mirror via muse-mirror PR only
+    - never git push origin main
+  muse-only:
+    - git and gh forbidden
+    - muse release for publish
+  git-only:
+    - canonical is origin/main
+    - realign and mirror are no-ops

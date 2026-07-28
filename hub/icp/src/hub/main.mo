@@ -157,6 +157,17 @@ func userId(req : HttpRequest) : Text {
   };
 };
 
+/// SEC-KN-4: server-recorded proposal author from gateway `X-Actor-Id` only — no fallback.
+func createdByFromRequest(req : HttpRequest) : Text {
+  switch (getHeader(req, "X-Actor-Id")) {
+    case (?raw) {
+      let t = Text.trim(raw, #predicate isAsciiSpace);
+      if (t.size() == 0 or t.size() > 128) { "" } else { t };
+    };
+    case null { "" };
+  };
+};
+
 func isAsciiSpace(c : Char) : Bool {
   c == ' ' or c == '\t' or c == '\n' or c == '\r';
 };
@@ -916,25 +927,42 @@ func natFromTextDec(t0 : Text) : ?Nat {
   ?out;
 };
 
+/// Constant-time Text equality for secrets (SEC-KN-6 / Pass 2 P14).
+/// Length mismatch returns false immediately (same length gate as before). When lengths
+/// match, every character is scanned and pairwise XOR diffs are OR-accumulated — no
+/// early exit on the first mismatch (unlike `Text.equal` / `==`).
+func constantTimeTextEqual(a : Text, b : Text) : Bool {
+  let aSize = Text.size(a);
+  if (aSize != Text.size(b)) { return false };
+  let aa = Text.toArray(a);
+  let bb = Text.toArray(b);
+  var acc : Nat32 = 0;
+  var i : Nat = 0;
+  while (i < aSize) {
+    acc := acc | (Char.toNat32(aa[i]) ^ Char.toNat32(bb[i]));
+    i += 1;
+  };
+  acc == 0
+};
+
 func operatorExportAuthorized(req : HttpRequest) : Bool {
   let expected = storage.operator_export_secret;
   if (Text.size(expected) == 0) { return false };
   switch (getHeader(req, "X-Operator-Export-Key")) {
     case null { false };
-    case (?got) {
-      if (Text.size(got) != Text.size(expected)) { false } else { got == expected };
-    };
+    case (?got) { constantTimeTextEqual(got, expected) };
   };
 };
 
+/// Fail-closed gateway auth (SEC-KN-1 / Pass 2 P1): empty `gateway_auth_secret` DENIES.
+/// Health and OPTIONS are handled before this check in `http_request` / never reach update.
+/// Secret compare is constant-time (SEC-KN-6 / Pass 2 P14).
 func gatewayAuthorized(req : HttpRequest) : Bool {
   let expected = storage.gateway_auth_secret;
-  if (Text.size(expected) == 0) { return true };
+  if (Text.size(expected) == 0) { return false };
   switch (getHeader(req, "X-Gateway-Auth")) {
     case null { false };
-    case (?got) {
-      if (Text.size(got) != Text.size(expected)) { false } else { got == expected };
-    };
+    case (?got) { constantTimeTextEqual(got, expected) };
   };
 };
 
@@ -1001,10 +1029,17 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
   let (pathKind, pathArg) = parsePath(req.url);
 
   if (pathKind == "health") {
+    // Public health stays 200; `gateway_auth_configured` is loud when secret is unset (SEC-KN-1).
+    let authConfigured = Text.size(storage.gateway_auth_secret) > 0;
+    let healthJson = if (authConfigured) {
+      "{\"ok\":true,\"gateway_auth_configured\":true}"
+    } else {
+      "{\"ok\":true,\"gateway_auth_configured\":false}"
+    };
     return {
       status_code = 200;
       headers = corsHeaders();
-      body = jsonBody("{\"ok\":true}");
+      body = jsonBody(healthJson);
       streaming_strategy = null;
       upgrade = null;
     };
@@ -1099,7 +1134,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
     for (p in Array.vals(list)) {
       if (items != "") { items := items # "," };
       let afrList = if (Text.size(p.auto_flag_reasons_json) > 0) { p.auto_flag_reasons_json } else { "[]" };
-      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # escapeJson(afrList) # "\"}";
+      items := items # "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"created_by\":\"" # escapeJson(p.created_by) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # escapeJson(afrList) # "\"}";
     };
     let json = "{\"proposals\":[" # items # "],\"total\":" # Nat.toText(list.size()) # "}";
     return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
@@ -1118,7 +1153,7 @@ public query func http_request(req : HttpRequest) : async HttpResponse {
         };
         let sugJson = JsonValidate.normalizeJsonArrayFragment(p.suggested_labels_json);
         let fmJson = JsonValidate.normalizeJsonObjectFragment(p.assistant_suggested_frontmatter_json);
-        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\",\"assistant_notes\":\"" # escapeJson(p.assistant_notes) # "\",\"assistant_model\":\"" # escapeJson(p.assistant_model) # "\",\"assistant_at\":\"" # escapeJson(p.assistant_at) # "\",\"suggested_labels\":" # sugJson # ",\"assistant_suggested_frontmatter\":" # fmJson # "}";
+        let json = "{\"proposal_id\":\"" # escapeJson(p.proposal_id) # "\",\"path\":\"" # escapeJson(p.path) # "\",\"status\":\"" # escapeJson(p.status) # "\",\"intent\":\"" # escapeJson(p.intent) # "\",\"base_state_id\":\"" # escapeJson(p.base_state_id) # "\",\"external_ref\":\"" # escapeJson(p.external_ref) # "\",\"vault_id\":\"" # escapeJson(effectiveVaultId(p.vault_id)) # "\",\"body\":\"" # escapeJson(p.body) # "\",\"frontmatter\":\"" # escapeJson(p.frontmatter) # "\",\"created_at\":\"" # escapeJson(p.created_at) # "\",\"updated_at\":\"" # escapeJson(p.updated_at) # "\",\"created_by\":\"" # escapeJson(p.created_by) # "\",\"evaluation_status\":\"" # escapeJson(p.evaluation_status) # "\",\"evaluation_grade\":\"" # escapeJson(p.evaluation_grade) # "\",\"evaluation_checklist\":\"" # clEnc # "\",\"evaluation_comment\":\"" # escapeJson(p.evaluation_comment) # "\",\"evaluated_by\":\"" # escapeJson(p.evaluated_by) # "\",\"evaluated_at\":\"" # escapeJson(p.evaluated_at) # "\"," # waiPart # ",\"review_queue\":\"" # escapeJson(p.review_queue) # "\",\"review_severity\":\"" # escapeJson(p.review_severity) # "\",\"auto_flag_reasons_json\":\"" # afrEnc # "\",\"review_hints\":\"" # escapeJson(p.review_hints) # "\",\"review_hints_at\":\"" # escapeJson(p.review_hints_at) # "\",\"review_hints_model\":\"" # escapeJson(p.review_hints_model) # "\",\"assistant_notes\":\"" # escapeJson(p.assistant_notes) # "\",\"assistant_model\":\"" # escapeJson(p.assistant_model) # "\",\"assistant_at\":\"" # escapeJson(p.assistant_at) # "\",\"suggested_labels\":" # sugJson # ",\"assistant_suggested_frontmatter\":" # fmJson # "}";
         return { status_code = 200; headers = corsHeaders(); body = jsonBody(json); streaming_strategy = null; upgrade = null };
       };
       case null {
@@ -1330,7 +1365,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
   };
 
   if (pathKind == "proposals" and req.method == "POST") {
-    let path = Option.get(extractJsonString(bodyText, "path"), "inbox/proposal-" # Int.toText(Time.now()) # ".md");
+    let pathIn = Option.get(extractJsonString(bodyText, "path"), "inbox/proposal-" # Int.toText(Time.now()) # ".md");
     let body = Option.get(extractJsonString(bodyText, "body"), "");
     let intent = Option.get(extractJsonString(bodyText, "intent"), "");
     let frontmatter = extractFrontmatterFromPostBody(bodyText);
@@ -1345,7 +1380,14 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
     let rs = Option.get(extractJsonString(bodyText, "review_severity"), "");
     let afr = Option.get(extractJsonString(bodyText, "auto_flag_reasons_json"), "");
     let proposal_id = "prop-" # Int.toText(Time.now());
+    // FINISH-COMPLETE-APPLY-KN-b: rewrite pending mirror paths to proposal_id before store.
+    let path = if (pathIn == "meta/tasks/proposals/pending.json") {
+      "meta/tasks/proposals/" # proposal_id # ".json"
+    } else if (pathIn == "meta/media/proposals/pending.json") {
+      "meta/media/proposals/" # proposal_id # ".json"
+    } else { pathIn };
     let now = nowIsoUtc();
+    let createdBy = createdByFromRequest(req);
     var list = getProposalsList(uid);
     let newP : ProposalRecord = {
       proposal_id;
@@ -1379,6 +1421,7 @@ public func http_request_update(req : HttpRequest) : async HttpResponse {
       assistant_at = "";
       suggested_labels_json = "[]";
       assistant_suggested_frontmatter_json = "{}";
+      created_by = createdBy;
     };
     list := Array.append(list, [newP]);
     setProposalsList(uid, list);
@@ -1738,8 +1781,8 @@ public shared ({ caller }) func admin_set_operator_export_secret(secret : Text) 
   };
 };
 
-/// Controllers only. Sets `X-Gateway-Auth` value checked on every non-health HTTP request.
-/// When empty (default after migration), auth is bypassed for backward compat until explicitly set.
+/// Controllers only. Sets `X-Gateway-Auth` value checked on every non-health / non-OPTIONS HTTP request.
+/// Empty secret fails closed (SEC-KN-1): all protected routes return GATEWAY_AUTH_REQUIRED.
 public shared ({ caller }) func admin_set_gateway_auth_secret(secret : Text) : async () {
   if (not Principal.isController(caller)) {
     Debug.trap("FORBIDDEN");

@@ -106,7 +106,12 @@ import {
   writeEvaluatorMayApprove,
   actorMayApproveProposals,
 } from './lib/hub-evaluator-may-approve.mjs';
-import { personalSelfApplyAllowsApprove } from '../lib/hub-proposal-personal-self-apply.mjs';
+import {
+  personalSelfApplyRefusalReason,
+  isHttpVisibleSelfApplySeamCode,
+  SELF_APPLY_SEAM_ERROR_MESSAGES,
+} from '../lib/hub-proposal-personal-self-apply.mjs';
+import { isSessionBoundActor } from './gateway/access-token-authz.mjs';
 import {
   parseMuseConfigFromEnv,
   resolveExternalRefForApprove,
@@ -309,7 +314,7 @@ function issueToken(user) {
   const sub = `${user.provider}:${user.id}`;
   const role = effectiveRoleForHub(roleMap, sub, offlineLockedActive);
   return jwt.sign(
-    { sub, provider: user.provider, id: user.id, name: user.displayName, role },
+    { sub, provider: user.provider, id: user.id, name: user.displayName, role, type: 'session' },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -328,7 +333,11 @@ function issueAccessTokenForSub(sub) {
   const idx = sub.indexOf(':');
   const provider = idx > 0 ? sub.slice(0, idx) : '';
   const id = idx > 0 ? sub.slice(idx + 1) : sub;
-  return jwt.sign({ sub, provider, id, role }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  return jwt.sign(
+    { sub, provider, id, role, type: 'session' },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRY }
+  );
 }
 
 // Persistent sessions (refresh-token rotation). The refresh token is durable, hashed at
@@ -463,7 +472,8 @@ function hubEnvEvaluatorMayApprove() {
 }
 
 /** Approve: admin always; evaluator per data/hub_evaluator_may_approve.json + env fallback;
- * HOSTED-WRITE-EVAL: editor/member personal self-apply when Scooling fingerprint matches. */
+ * HOSTED-WRITE-EVAL: editor/member personal self-apply when Scooling fingerprint matches.
+ * SEC-SEAM-1 / S2.1 + S6.2: author/session inputs + named seam refusal codes. */
 function requireApproveRole(req, res, next) {
   const role = effectiveRole(req);
   const sub = req.user?.sub ?? '';
@@ -472,15 +482,26 @@ function requireApproveRole(req, res, next) {
 
   const proposal = getProposal(config.data_dir, req.params.id);
   const hasVaultWrite = role === 'editor' || role === 'admin' || role === 'member';
-  if (
-    personalSelfApplyAllowsApprove({
-      proposal,
-      hasVaultWrite,
-      partitionOwned: Boolean(proposal),
-      role,
-    })
-  ) {
+  const authorActorId =
+    proposal && typeof proposal.proposed_by === 'string' ? proposal.proposed_by : '';
+  const reason = personalSelfApplyRefusalReason({
+    proposal,
+    hasVaultWrite,
+    partitionOwned: Boolean(proposal),
+    role,
+    authorActorId,
+    approverActorId: sub,
+    sessionBound: isSessionBoundActor(req.user),
+  });
+  if (reason === null) {
     return next();
+  }
+
+  if (isHttpVisibleSelfApplySeamCode(reason)) {
+    return res.status(403).json({
+      error: SELF_APPLY_SEAM_ERROR_MESSAGES[reason] || reason,
+      code: reason,
+    });
   }
 
   return res.status(403).json({
@@ -1315,7 +1336,8 @@ app.post('/api/v1/attachments/link-proposals', MEDIA_WRITE_ROLES, async (req, re
       role: effectiveRole(req),
       body,
       intent: body.intent,
-      createProposal,
+      sessionBound: isSessionBoundActor(req.user),
+      createProposal: createProposalWithSession(req),
       hubScope: req.scope ?? null,
       vaultConfig: { ignore: config.ignore },
     });
@@ -1348,7 +1370,8 @@ app.post('/api/v1/attachments/attach-proposals', MEDIA_WRITE_ROLES, async (req, 
       role: effectiveRole(req),
       body,
       intent: body.intent,
-      createProposal,
+      sessionBound: isSessionBoundActor(req.user),
+      createProposal: createProposalWithSession(req),
       hubScope: req.scope ?? null,
       vaultConfig: { ignore: config.ignore },
     });
@@ -1496,6 +1519,15 @@ app.post('/api/v1/loop-pass-audit', requireRole('viewer', 'editor', 'admin', 'ev
 // Gated by TASK_WRITES_ENABLED (default OFF → 403 TASK_WRITES_DISABLED).
 const TASK_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
 
+function createProposalWithSession(req) {
+  return (dataDir, input) =>
+    createProposal(dataDir, {
+      ...input,
+      session_bound: isSessionBoundActor(req.user),
+    });
+}
+
+
 app.post('/api/v1/tasks/proposals', TASK_WRITE_ROLES, async (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -1511,7 +1543,8 @@ app.post('/api/v1/tasks/proposals', TASK_WRITE_ROLES, async (req, res) => {
       proposalKind,
       body,
       intent: body.intent,
-      createProposal,
+      sessionBound: isSessionBoundActor(req.user),
+      createProposal: createProposalWithSession(req),
     });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, code: result.code });
@@ -1543,7 +1576,8 @@ app.post('/api/v1/task-loops/proposals', TASK_WRITE_ROLES, async (req, res) => {
       proposalKind,
       body,
       intent: body.intent,
-      createProposal,
+      sessionBound: isSessionBoundActor(req.user),
+      createProposal: createProposalWithSession(req),
     });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, code: result.code });
@@ -1573,7 +1607,8 @@ app.post('/api/v1/task-loops/:loop_id/instances/proposals', TASK_WRITE_ROLES, as
       loopId,
       body: { ...body, loop_id: loopId },
       intent: body.intent,
-      createProposal,
+      sessionBound: isSessionBoundActor(req.user),
+      createProposal: createProposalWithSession(req),
     });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error, code: result.code });
@@ -1909,7 +1944,8 @@ app.delete(
   },
 );
 
-app.post('/api/v1/delegation/grants', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+// SEC-KN-5 / P13: mint issues runtime bearer authority — admin only (not viewer/editor/evaluator).
+app.post('/api/v1/delegation/grants', requireRole('admin'), (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const result = handleDelegationGrantMintRequest({
     dataDir: config.data_dir,
@@ -3069,7 +3105,9 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
   }
   let delegationApply = null;
   if (proposal.source === DELEGATION_PROPOSAL_SOURCE) {
-    const delegationPrecheck = precheckApprovedDelegationProposal(config.data_dir, proposal);
+    const delegationPrecheck = precheckApprovedDelegationProposal(config.data_dir, proposal, {
+      author: typeof proposal.proposed_by === 'string' ? proposal.proposed_by : '',
+    });
     if (!delegationPrecheck.ok) {
       return res.status(delegationPrecheck.status).json({
         error: delegationPrecheck.error,

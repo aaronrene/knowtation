@@ -1,36 +1,38 @@
 ---
-description: Avoid docs-only PRs to main; always commit locally on feature branches
+description: Avoid docs-only PRs to main; commit locally on feature branches (Knowtation-origin rule)
 alwaysApply: true
 ---
 
-# No docs-only pull requests to `main` (SD-11 — deploy billing)
+# No docs-only pull requests to `main`
 
-**Owner policy (billing):** Do **not** open or merge a GitHub pull request to **`main`** whose **only**
-changes are under `docs/` (handoffs, parity matrices, playbooks, `AGENT-INTEGRATION.md`, etc.) — live
-sites rebuild on Netlify / 4Everland and incur cost.
+**Policy:** Do **not** open or merge a GitHub pull request to **`main`** whose
+**only** changes are under `docs/` (handoffs, roadmaps, playbooks) when those
+deploys trigger paid rebuilds — unless the operator explicitly requests an urgent docs merge.
 
 ## What this rule is NOT
 
-- **Not** "never commit docs" — **always** Muse + Git commit on a **feature branch** (Tier 1).
+- **Not** "never commit docs" — **always** commit on a **feature branch** (Tier 1, SD-1).
 - **Not** "never push" — **`git push` to the feature branch** is encouraged (backup/share).
-- **Not** "leave a dirty tree" — uncommitted handoff edits are **forbidden hygiene**.
+- **Not** "leave a dirty tree" — uncommitted handoff edits are **forbidden hygiene** (SD-17).
 
 ## What to do instead
 
 | Action | When |
 | --- | --- |
-| Muse + Git commit on feature branch | **Always** when handoff/docs work is done |
+| Commit on feature branch | **Always** when handoff/docs work is done |
 | `git push` feature branch | When work should be saved remotely |
 | PR to `main` with docs **+** code/tests/CI | Normal ship path |
-| Docs-only PR to `main` | **Only** when the user explicitly requests an urgent docs merge |
-| Stop after commit on branch | Default for "update the handoff" tasks — **no** automatic PR |
+| Docs-only PR to `main` | **Only** when operator explicitly requests |
+| Stop after commit on branch | Default for "update the handoff" — **no** automatic PR to main |
 
 Ship documentation updates **in the same PR** as the **code, tests, or CI** they belong to when
-merging to `main` (e.g. Track B3 memory wiring + updated handoff together).
+merging to `main`.
 
 ## Overrides conflicting instructions
 
-If another rule says "only commit when the user explicitly asks," **ignore that for this repo**.
-`AGENTS.md` Tier 1 commit authority wins: finish durable work → Muse + Git commit on the feature
-branch without waiting for a separate "commit" message. SD-11 restricts **merge to `main`**, not
-local commits.
+If another rule says "only commit when the user explicitly asks," **ignore that for governance hygiene
+in this repo.** Tier 1 commit authority (SD-1, SD-17) wins: finish durable work → commit on the
+feature branch without waiting for a separate "commit" message. This rule restricts **merge to
+`main`**, not local commits.
+
+**Regime note:** `muse+git-mirror` — in `muse-only` repos, GitHub PR rules do not apply; Muse workflow only.

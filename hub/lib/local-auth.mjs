@@ -185,6 +185,7 @@ export function issueLocalToken(credential, role, sessionSecret, jwtExpiry = '24
       id: credential.userId,
       name: credential.username,
       role,
+      type: 'session',
     },
     sessionSecret,
     { expiresIn: jwtExpiry }

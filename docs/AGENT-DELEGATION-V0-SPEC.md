@@ -200,7 +200,7 @@ illustrative fixtures.
 | Delegation consent | `dcons_<token>` — `token` is `[a-z0-9_]{8,48}` | `dcons_class_fall` |
 | Delegation grant | `dgrnt_<token>` — `token` is `[a-z0-9_]{8,48}` | `dgrnt_session_x` |
 | Delegation audit | `daud_<token>` — `token` is `[a-z0-9_]{8,48}` | `daud_20260621_01` |
-| Owner/principal ref | `uid_hash:<64-hex>` or `org_ref:<workspace_id>` | `uid_hash:abc…` |
+| Owner/principal ref | `uid_hash:<64-hex>` only in v0 delegation paths; `org_ref:<workspace_id>` is **reserved, not accepted in v0** | `uid_hash:abc…` |
 | Workspace | `ws_<slug>` | `ws_class_101` |
 
 **Ref fields** (`task_ref`, `run_ref`, `flow_id`) reuse formats from FLOW-V0-SPEC §1.2 and Phase 2G
@@ -213,7 +213,7 @@ task ids (`task_<token>`).
 | `schema` | const `knowtation.agent_identity/v0` | yes | Discriminator |
 | `agent_id` | string (`agent_<token>`) | yes | Stable id |
 | `kind` | `AgentKind` | yes | |
-| `owner_ref` | string (`uid_hash:…` or `org_ref:…`) | yes | Hashed user id or org workspace ref — **never** raw PII |
+| `owner_ref` | string (`uid_hash:…` only in v0) | yes | Hashed user id — **never** raw PII; `org_ref:` is reserved, not accepted in v0 |
 | `vault_id` | string | yes | Binding vault |
 | `scope_ceiling` | `Scope` | yes | Max scope this agent may operate in |
 | `label` | string | no | Untrusted display; **never** used for auth |
@@ -242,7 +242,7 @@ task ids (`task_<token>`).
 | **Durable changes** | Create/update/revoke identity routes through **SD-4 proposals** (`intent: agent_identity_register` / `agent_identity_update`) |
 | **Label untrusted** | `label` is display-only; principal/owner resolution ignores it |
 | **Cross-scope deny** | An agent's effective scope = `scope_ceiling` ∩ caller visible tier ∩ grant scope |
-| **No client principal** | Handlers reject client-supplied `principal_ref` not derivable from verified session |
+| **No client principal** | Handlers reject client-supplied `principal_ref` not derivable from verified session; `org_ref:` is **reserved, not accepted in v0** |
 
 ### 3.4 `knowtation.delegation_consent/v0` — principal explicitly permits delegation
 

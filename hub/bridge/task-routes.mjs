@@ -25,6 +25,8 @@ import {
 } from '../../lib/task/task-loop-store.mjs';
 import { withLoopPassAuditBlobSync } from './loop-pass-audit-blob-store.mjs';
 import { persistExternalProtocolStoresToBlob } from './external-agent-blob-store.mjs';
+import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
+import jwt from 'jsonwebtoken';
 
 const BRIDGE_STARTER_TASKS_DIR = resolveStarterTasksDir(import.meta.url);
 const BRIDGE_STARTER_LOOPS_DIR = resolveStarterTaskLoopsDir(import.meta.url);
@@ -92,16 +94,35 @@ export function registerBridgeTaskRoutes(app, deps) {
   }
 
   /**
+   * @param {import('express').Request} req
+   * @returns {boolean}
+   */
+  function sessionBoundFromReq(req) {
+    try {
+      const auth = req.headers.authorization;
+      const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const secret = process.env.SESSION_SECRET;
+      if (!token || !secret) return false;
+      const payload = jwt.verify(token, secret);
+      return isSessionBoundActor(payload);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * @param {{
    *   effectiveCanisterUid: string,
    *   actorUid: string,
    *   vaultId: string,
+   *   sessionBound?: boolean,
    * }} ctx
    */
   function hostedCreateProposal(ctx) {
     return async function createProposal(_dataDir, input) {
       return createTaskProposalOnCanister({
         canisterUrl,
+        sessionBound: ctx.sessionBound === true,
         headers: canisterHeaders({
           'X-User-Id': ctx.effectiveCanisterUid,
           'X-Actor-Id': ctx.actorUid,
@@ -271,6 +292,7 @@ export function registerBridgeTaskRoutes(app, deps) {
           effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
           actorUid: req.uid,
           vaultId: ctx.hctx.vaultId,
+          sessionBound: sessionBoundFromReq(req),
         }),
       });
       if (!result.ok) {
@@ -305,6 +327,7 @@ export function registerBridgeTaskRoutes(app, deps) {
           effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
           actorUid: req.uid,
           vaultId: ctx.hctx.vaultId,
+          sessionBound: sessionBoundFromReq(req),
         }),
       });
       if (!result.ok) {
@@ -337,6 +360,7 @@ export function registerBridgeTaskRoutes(app, deps) {
           effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
           actorUid: req.uid,
           vaultId: ctx.hctx.vaultId,
+          sessionBound: sessionBoundFromReq(req),
         }),
       });
       if (!result.ok) {

@@ -56,10 +56,11 @@ describe('Agent delegation — e2e', () => {
       intent: 'delegation_consent_create',
       source: DELEGATION_PROPOSAL_SOURCE,
       vault_id: vaultId,
+      proposed_by: TEST_USER_ID,
       delegation_meta: { record_kind: 'delegation_consent', consent_id: consentBody.consent_id },
     });
     seedDelegationFixtures(dataDir, vaultId, identity);
-    const precheck = precheckApprovedDelegationProposal(dataDir, proposal);
+    const precheck = precheckApprovedDelegationProposal(dataDir, proposal, { author: TEST_USER_ID });
     assert.equal(precheck.ok, true);
     applyDelegationProposalToIndex(dataDir, precheck);
 

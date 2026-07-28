@@ -41,7 +41,11 @@ import {
 } from './proposal-llm-store.mjs';
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
-import { personalSelfApplyAllowsApprove } from '../../lib/hub-proposal-personal-self-apply.mjs';
+import {
+  personalSelfApplyRefusalReason,
+  isHttpVisibleSelfApplySeamCode,
+  SELF_APPLY_SEAM_ERROR_MESSAGES,
+} from '../../lib/hub-proposal-personal-self-apply.mjs';
 import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { proposalDataForHostedReviewHintsFromCreate } from './proposal-hints-create-context.mjs';
@@ -79,7 +83,14 @@ import {
   createGatewayRefreshStore,
   pruneRefreshTokens as pruneGatewayRefreshTokens,
 } from './refresh-token-store.mjs';
-import { subFromVerifiedPayload, shouldMountDurableAgentAuth } from './access-token-authz.mjs';
+import {
+  subFromVerifiedPayload,
+  shouldMountDurableAgentAuth,
+  roleFromVerifiedAccessPayload,
+  mayApplyAdminAllowlistOverride,
+  isMcpAccessPayload,
+  isSessionBoundActor,
+} from './access-token-authz.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -215,6 +226,7 @@ function issueToken(user) {
       id: user.id,
       name: user.displayName ?? '',
       role,
+      type: 'session',
     },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
@@ -274,7 +286,7 @@ function issueAccessTokenForSub(sub) {
   const provider = idx > 0 ? sub.slice(0, idx) : '';
   const id = idx > 0 ? sub.slice(idx + 1) : sub;
   return jwt.sign(
-    { sub, provider, id, name: '', role: roleForSub(sub) },
+    { sub, provider, id, name: '', role: roleForSub(sub), type: 'session' },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -2932,14 +2944,37 @@ const PROPOSAL_APPROVE_OR_DISCARD_RE = /^\/api\/v1\/proposals\/[^/]+\/(approve|d
 
 /**
  * Bridge / JWT actor role for proposal RBAC (canister only sees effective X-User-Id).
+ *
+ * SEC-KN-3 / Pass 2 P6: when the bearer is `type: mcp_access`, role is capped by the
+ * token's own scopes and the HUB_ADMIN_USER_IDS allowlist override is never applied.
+ *
  * @param {import('express').Request} req
  * @param {Record<string, unknown>|null} hctx
- * @returns {Promise<{ role: string, mayApproveProposals: boolean }>}
+ * @returns {Promise<{ role: string, mayApproveProposals: boolean, isMcpAccess: boolean, payload: object|null }>}
  */
 async function resolveHostedActorRole(req, hctx) {
   const envFallback = process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
   let role = 'member';
   let mayApproveProposals = false;
+  let bearerPayload = null;
+  try {
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (token && SESSION_SECRET) {
+      bearerPayload = jwt.verify(token, SESSION_SECRET);
+    }
+  } catch (_) {
+    bearerPayload = null;
+  }
+
+  // Agent tokens: scope-capped only — skip bridge/hctx elevation and allowlist override.
+  if (isMcpAccessPayload(bearerPayload)) {
+    const capped = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+    role = capped.role;
+    mayApproveProposals = role === 'admin';
+    return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload };
+  }
+
   if (hctx && typeof hctx.role === 'string') {
     role = hctx.role;
     if (typeof hctx.may_approve_proposals === 'boolean') {
@@ -2969,37 +3004,31 @@ async function resolveHostedActorRole(req, hctx) {
     } catch (_) {}
     // Bridge unreachable or rejected the JWT (e.g. SESSION_SECRET mismatch after a redeploy).
     // Fall back to the JWT payload role so the gateway owner is never locked out by bridge state.
-    if (!bridgeResolved) {
-      try {
-        const auth = req.headers.authorization;
-        const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-        if (token && SESSION_SECRET) {
-          const payload = jwt.verify(token, SESSION_SECRET);
-          role = payload.role || roleForSub(payload.sub);
-          mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
-        }
-      } catch (_) {}
+    if (!bridgeResolved && bearerPayload) {
+      const resolved = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+      role = resolved.role;
+      mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
     }
-  } else {
-    try {
-      const auth = req.headers.authorization;
-      const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-      if (token && SESSION_SECRET) {
-        const payload = jwt.verify(token, SESSION_SECRET);
-        role = payload.role || roleForSub(payload.sub);
-        mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
-      }
-    } catch (_) {}
+  } else if (bearerPayload) {
+    const resolved = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+    role = resolved.role;
+    mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
   }
   // Gateway-level admin override: HUB_ADMIN_USER_IDS is the authoritative owner list.
   // A sub in that list is always admin — the gateway owner must never be locked out by a
   // bridge state reset, role-store loss, or SESSION_SECRET mismatch between gateway and bridge.
+  // Never applied to mcp_access (handled above / mayApplyAdminAllowlistOverride).
   const actorSub = getUserId(req);
-  if (actorSub && role !== 'admin' && roleForSub(actorSub) === 'admin') {
+  if (
+    mayApplyAdminAllowlistOverride(bearerPayload) &&
+    actorSub &&
+    role !== 'admin' &&
+    roleForSub(actorSub) === 'admin'
+  ) {
     role = 'admin';
     mayApproveProposals = true;
   }
-  return { role, mayApproveProposals };
+  return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload };
 }
 
 /**
@@ -3051,7 +3080,7 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
     return false;
   }
 
-  const { role, mayApproveProposals } = await resolveHostedActorRole(req, hctx);
+  const { role, mayApproveProposals, isMcpAccess, payload } = await resolveHostedActorRole(req, hctx);
 
   if (/\/discard\/?$/.test(pathNoQuery)) {
     if (role !== 'admin') {
@@ -3065,6 +3094,8 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   if (canApprove) return true;
 
   // Personal self-apply (Scooling review-tray fingerprint) — scoped member approve only.
+  // SEC-KN-3: agent tokens are never human-review eligible.
+  // SEC-SEAM-1 / S2.1 + S6.2: author/session inputs + named seam refusal codes.
   const approveId = proposalIdFromApprovePath(pathNoQuery);
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
   const effective =
@@ -3075,15 +3106,30 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
     ? await fetchHostedProposalForSelfApply(approveId, effective, uid, vaultId)
     : null;
   const hasVaultWrite = scopesForRole(role).includes('vault:write');
-  if (
-    personalSelfApplyAllowsApprove({
-      proposal,
-      hasVaultWrite,
-      partitionOwned: Boolean(proposal),
-      role,
-    })
-  ) {
+  const authorActorId =
+    proposal && typeof proposal.created_by === 'string' ? proposal.created_by : '';
+  const reason = personalSelfApplyRefusalReason({
+    proposal,
+    hasVaultWrite,
+    partitionOwned: Boolean(proposal),
+    role,
+    humanActor: !isMcpAccess,
+    tokenType: isMcpAccess ? 'mcp_access' : null,
+    actorKind: isMcpAccess ? 'agent' : 'human',
+    authorActorId,
+    approverActorId: uid,
+    sessionBound: isSessionBoundActor(payload),
+  });
+  if (reason === null) {
     return true;
+  }
+
+  if (isHttpVisibleSelfApplySeamCode(reason)) {
+    res.status(403).json({
+      error: SELF_APPLY_SEAM_ERROR_MESSAGES[reason] || reason,
+      code: reason,
+    });
+    return false;
   }
 
   res.status(403).json({
@@ -3248,13 +3294,22 @@ async function proxyToCanister(req, res) {
   }
   if (bodyOut !== undefined && typeof bodyOut === 'object' && !Buffer.isBuffer(bodyOut)) {
     bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);
+    const authHdr = req.headers.authorization;
+    const bearerTok = authHdr && authHdr.startsWith('Bearer ') ? authHdr.slice(7) : null;
+    const createPayload = bearerTok ? decodeVerifiedToken(bearerTok) : null;
     const policyOpts =
       hostedLlmPrefs != null
         ? {
             evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir),
             evaluatedBy: uid,
+            sessionBound: isSessionBoundActor(createPayload),
+            authorActorId: uid,
           }
-        : { evaluatedBy: uid };
+        : {
+            evaluatedBy: uid,
+            sessionBound: isSessionBoundActor(createPayload),
+            authorActorId: uid,
+          };
     bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
     if (req.method === 'POST') {
       const approveId = proposalIdFromApprovePath(pathOnlyForBody);

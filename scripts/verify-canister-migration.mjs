@@ -80,6 +80,30 @@ const migrationChecks = [
       s.includes('assistant_suggested_frontmatter_json : Text;'),
   },
   {
+    name: 'ProposalRecord includes created_by (SEC-KN-4)',
+    ok: (s) => s.includes('created_by : Text;'),
+  },
+  {
+    name: 'StableStorageV5/V6/V7 pin proposal rows to ProposalRecordV7',
+    ok: (s) =>
+      s.includes('proposalEntries : [(Text, [ProposalRecordV7])];') &&
+      s.includes('public type StableStorageV5') &&
+      s.includes('public type StableStorageV6') &&
+      s.includes('public type StableStorageV7'),
+  },
+  {
+    name: 'Historical row maps return ProposalRecordV7',
+    ok: (s) =>
+      s.includes('func _proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecordV7') &&
+      s.includes('func _proposalV4ToV5(p : ProposalRecordV4) : ProposalRecordV7'),
+  },
+  {
+    name: 'SEC-KN-4 migration hook maps V7 rows via _proposalV7ToCurrent',
+    ok: (s) =>
+      s.includes('func _proposalV7ToCurrent(p : ProposalRecordV7) : ProposalRecord') &&
+      s.includes('TODO(SEC-KN-4c)'),
+  },
+  {
     name: 'V0 → V1 maps notes into vault "default"',
     ok: (s) => s.includes('(entry.0, "default", entry.1)'),
   },

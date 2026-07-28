@@ -1,0 +1,30 @@
+version: 1
+# Declarative model-routing POLICY. The Overseer Kit is the rule-holder; the
+# runtime (Cursor / OpenRouter / Scooling 9A) is the executor. The kit performs
+# no model call, holds no key, and dispatches nothing.
+
+defaults:                      # MANDATORY terminal — guarantees total resolution
+  model_tier: standard
+  fallback: [standard, human]
+
+routes:                        # ordered; first match wins
+  - id: freeze-thinking
+    when: { gate: freeze_review, phase_tier: thinking }
+    model_tier: deep-reasoning
+    fallback: [deep-reasoning, human]
+  - id: overseer-ruling
+    when: { position: overseer }
+    model_tier: deep-reasoning
+    fallback: [deep-reasoning, human]
+  - id: build-verification
+    when: { gate: build_verification }
+    model_tier: standard
+    fallback: [standard, deep-reasoning, human]
+  - id: auto-build
+    when: { phase_tier: auto }
+    model_tier: standard
+    fallback: [standard, human]
+  - id: offline-worker
+    when: { position: worker, gate: default }
+    model_tier: local-offline
+    fallback: [local-offline, standard, human]

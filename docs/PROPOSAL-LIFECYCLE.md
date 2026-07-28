@@ -52,6 +52,30 @@ This is **not** a global “members may approve any proposal” grant. Non-match
 
 Implementation: [lib/hub-proposal-personal-self-apply.mjs](../lib/hub-proposal-personal-self-apply.mjs); hosted gate in [hub/gateway/server.mjs](../hub/gateway/server.mjs) `assertHostedProposalApproveDiscard`.
 
+### Session-bound learner identity (SEC-SEAM-1)
+
+**Consumer contract:** Consumers must present a per-learner, session-bound Knowtation credential on task, media, and delegation proposal-create surfaces. A shared service credential is a contract violation. Knowtation cannot detect it; its only server-side consequence is permanent ineligibility for personal self-apply.
+
+Seam surfaces (task / media / delegation / flow / flow_capture) that can trigger an approve-time apply are classified by reusing the apply path’s own predicates. Self-apply on those surfaces requires a mint-stamped `type: 'session'` credential and `authorActorId === approverActorId`.
+
+### Tasks / Media admission (FINISH-COMPLETE-APPLY-KN-b / T5)
+
+Gate **T5** admits **personal-scope Tasks and Media** into the self-apply class under positive fingerprints (not a global member approve). Frozen contract: `~/scooling/docs/FINISH-COMPLETE-APPLY-CONTRACT.md` §FCA.4.
+
+| Surface | Fingerprint (approve-time) |
+| --- | --- |
+| **Tasks** | `source`/seam task classification; `proposal_kind` ∈ closed allowlist; path `meta/tasks/proposals/{proposal_id}.json` (never `pending`); `external_ref` `^scooling\.task:[A-Za-z0-9._:-]{1,200}$`; body scope `personal`; `task_assign` only when `assignee_ref` equals session author |
+| **Media** | `source === media`; kind ∈ {`media_external_link`,`media_attach`}; path `meta/media/proposals/{proposal_id}.json`; `external_ref` `^scooling\.media:[A-Za-z0-9._:-]{1,200}$`; body `scope === personal` |
+| **Delegation** | **Never** — `SELF_APPLY_DELEGATION_REFUSED` (P4) |
+| **Flow / flow_capture** | Seam-classified but **not admitted** this phase (`SELF_APPLY_NOT_ADMITTED`) |
+
+Propose paths persist a validated optional `external_ref` (malformed → 400; absent → propose ok, not admitted). E1 create-time evaluation satisfaction widens to admitted Task/Media fingerprints when `sessionBound` + author gates hold (pending mirror path allowed at create; Motoko/Node rewrite to `{proposal_id}` before approve). Client-supplied `evaluation_status` / `evaluated_by` / `evaluated_at` remain stripped (P2).
+
+Honest notes review-tray proposals remain eligible under the fingerprint rules above.
+
+### Media proposals — self-hosted only today (SEC-SEAM-1 / S7)
+
+Media proposals are **self-hosted-only** today. There is no hosted media proposal route on the gateway; Scooling’s hosted media transport targets `api/v1/attachments/*`, which falls through to the canister and returns `404 NOT_FOUND`. Self-hosted media (`source: 'media'`) is still a seam surface when it reaches apply. A future hosted media proposal surface must ship with a `maybeApplyHostedMediaAfterApprove` hook and a matching seam classification condition in the same change.
 ## Optimistic concurrency: `base_state_id`
 
 When a proposal targets an **existing** note path, the client may send **`base_state_id`**: a fingerprint of the vault note **as the client last saw it** (e.g. from `GET /api/v1/notes/:path`). On **Approve**, the Hub (self-hosted Node) recomputes the current fingerprint for that path and returns **409 `CONFLICT`** if it does not match **either** the request body’s `base_state_id` (if provided) **or** the value stored on the proposal.

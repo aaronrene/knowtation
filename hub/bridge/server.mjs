@@ -869,7 +869,7 @@ app.use((req, _res, next) => {
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id');
   res.set('Access-Control-Allow-Credentials', 'true');
   next();
 });

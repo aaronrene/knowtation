@@ -5,12 +5,18 @@
  *
  * The endpoint writes directly to the billing DB to repair missed Stripe webhook events.
  * Auth: admin JWT (sub must be in HUB_ADMIN_USER_IDS env var). Non-admins get 403.
+ *
+ * SEC-KN-3a decision: do **not** skip/gate on a canister replica. This suite already sets
+ * CANISTER_URL='' and never calls the canister. The plain-`npm test` hang was a corrupt
+ * shared `data/hosted_billing.json` plus leftover HTTP handles — fixed by isolating the
+ * billing DB via KNOWTATION_BILLING_DB_PATH (see createGateway).
  */
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -56,8 +62,13 @@ function startServer(app) {
   });
 }
 
-/** Each call gets a fresh module instance (cache-busting query string). */
+/**
+ * Each call gets a fresh module instance (cache-busting query string) and an
+ * isolated billing DB file so concurrent / prior suite runs cannot share a
+ * corrupt repo-local data/hosted_billing.json.
+ */
 async function createGateway() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-billing-repair-'));
   process.env.SESSION_SECRET = SECRET;
   process.env.HUB_ADMIN_USER_IDS = ADMIN_SUB;
   process.env.BILLING_ENFORCE = 'false';
@@ -65,9 +76,19 @@ async function createGateway() {
   process.env.CANISTER_URL = '';
   process.env.BRIDGE_URL = '';
   process.env.STRIPE_SECRET_KEY = '';            // not needed for repair endpoint
+  process.env.KNOWTATION_BILLING_DB_PATH = path.join(tmpDir, 'hosted_billing.json');
+  // Ensure file-backed store (billing-store prefers blob when this global is set).
+  delete globalThis.__knowtation_gateway_blob;
   const entry = pathToFileURL(path.join(ROOT, 'hub', 'gateway', 'server.mjs')).href;
   const { app } = await import(`${entry}?repair-test=${Date.now()}-${Math.random()}`);
-  return startServer(app);
+  const srv = await startServer(app);
+  return {
+    ...srv,
+    close: async () => {
+      await srv.close();
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+    },
+  };
 }
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────

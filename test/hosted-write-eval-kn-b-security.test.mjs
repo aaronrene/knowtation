@@ -54,7 +54,7 @@ describe('HOSTED-WRITE-EVAL-KN-b security', () => {
   });
 
   it('forged client evaluation_status=passed is overwritten by triggers+E1 rules', () => {
-    // Non-class: client forges passed — augment still sets pending when gate on.
+    // SEC-KN-2: Non-class client forge is stripped; gate assigns pending.
     const forged = augmentProposalCreateRequestBody(
       {
         path: 'inbox/x.md',
@@ -62,12 +62,14 @@ describe('HOSTED-WRITE-EVAL-KN-b security', () => {
         intent: 'other',
         external_ref: 'scooling.review:x',
         evaluation_status: 'passed',
+        evaluated_by: 'attacker',
         labels: [],
       },
       dataDir,
       { evaluationRequired: true, evaluatedBy: 'attacker' },
     );
-    // Gate only fills pending when empty; forged passed must not become self-apply class.
+    assert.equal(forged.evaluation_status, 'pending');
+    assert.equal(Object.hasOwn(forged, 'evaluated_by'), false);
     assert.equal(
       personalSelfApplyAllowsApprove({
         proposal: { ...forged, status: 'proposed' },

@@ -62,14 +62,19 @@ describe('Security: JWT forgery resistance', () => {
     assert.ok(catchBlock.includes('e.message'), 'toast includes API error message for user');
   });
 
-  test('S4: bridge fallback uses jwt.verify (not JSON.parse on raw header)', () => {
+  test('S4: bridge fallback uses once-verified bearerPayload (not JSON.parse on raw header)', () => {
     const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
     const fnStart = src.indexOf('async function resolveHostedActorRole');
     const fn = src.slice(fnStart, src.indexOf('\n}\n', fnStart) + 3);
-    // The fallback must verify the JWT, not just parse it
+    // SEC-KN-3: verify once at entry; fallback must consume bearerPayload, never raw-parse.
+    assert.ok(fn.includes('jwt.verify(token, SESSION_SECRET)'), 'Entry path verifies JWT with SESSION_SECRET');
     const fallbackBlock = fn.slice(fn.indexOf('!bridgeResolved'));
-    assert.ok(fallbackBlock.includes('jwt.verify'), 'Bridge fallback uses jwt.verify (not raw parse)');
+    assert.ok(
+      fallbackBlock.includes('roleFromVerifiedAccessPayload(bearerPayload'),
+      'Bridge fallback uses verified bearerPayload (not a second unverified parse)',
+    );
     assert.ok(!fallbackBlock.includes('JSON.parse'), 'Bridge fallback does not JSON.parse the raw header');
+    assert.ok(!fallbackBlock.includes('jwt.verify'), 'Fallback does not re-verify; it reuses bearerPayload');
   });
 
   test('S5: gateway admin override uses getUserId (verified sub), not query params', () => {
