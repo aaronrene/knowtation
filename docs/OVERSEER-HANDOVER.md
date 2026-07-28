@@ -17,42 +17,52 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-## NEXT SESSION — DELEGATION-WRITE-UI-a (PRIMARY relay → Scooling board)
+## NEXT SESSION — §FCA.2 P1 WASM + T1 (PRIMARY relay → Scooling board)
 
-**Date:** 2026-07-27
-**Model:** **Thinking**
+**Date:** 2026-07-28
+**Model:** **Operator**
 
-**Branch:** Knowtation Muse `feat/finish-complete-apply-kn-b` is **DONE** (BV pass). Scooling
-**FINISH-COMPLETE-APPLY-SC-b** is **DONE** (BV `pass` round 1). Product next is Scooling
-**DELEGATION-WRITE-UI-a**.
+**Branch:** Knowtation Muse/`main` includes FINISH-COMPLETE-APPLY-KN-b + SEC-KN +
+SEC-SEAM-1 (GitHub [KN #275](https://github.com/aaronrene/knowtation/pull/275)).
+Scooling finish stack landed [SC #219](https://github.com/aaronrene/scooling/pull/219).
+Honesty smokes PASS; full one-click SMOKE **NO-GO** until §FCA.2.
 
-**Why this is next:** KN-b + SC-b feature-branch Auto complete. Live Tasks/Media one-click still
-**NO-GO** until §FCA.2 (P1 WASM + T1 + Tier 3 env + SMOKE). Next ordered slice:
-Delegation grant/revoke UI — propose-only (B) + Hub-complete (C); **no self-apply (P4)**.
-Paste from `~/scooling/docs/OVERSEER-HANDOVER.md`.
+**Why this is next:** Code is on Muse/`main`. Live Tasks/Media one-click still blocked on
+**P1 WASM fail-closed deploy** + **T1 `created_by`**. Paste from
+`~/scooling/docs/OVERSEER-HANDOVER.md`.
 
-### THE ONE NEXT STEP — **Model: Thinking** (Scooling board)
+### THE ONE NEXT STEP — **Model: Operator** (Scooling board owns product order)
 
 ```text
-DELEGATION-WRITE-UI-a — Thinking freeze (grant/revoke UI honesty)
+§FCA.2 live gates — P1 WASM fail-closed + T1 created_by (then Tier 3 env + SMOKE)
 
-Model: Thinking.
-Read ~/scooling/docs/OVERSEER-HANDOVER.md paste-ready DELEGATION-WRITE-UI-a block +
-~/scooling/docs/FINISH-COMPLETE-APPLY-CONTRACT.md §FCA.4.3 / §FCA.6 Delegation.
-Freeze ONLY: option B propose-only + option C Hub-complete; self-apply forbidden (P4).
-Hard stops: no Delegation self-apply; no prod env flips; no Muse/main merge.
-Exit: freeze artifact + /freeze-review-loop → pass before any Auto.
+Model: Operator.
+Knowtation: deploy SEC-KN-1 Motoko fail-closed WASM to hub canister
+rsovz-byaaa-aaaaa-qgira-cai; land T1 created_by authorship so seam admission
+is not empty-author fail-closed forever.
+After both verified live: separate Tier 3 session for Tasks/Media write env ON
++ FINISH-COMPLETE-APPLY-SMOKE (one-click). Delegation write env stays off /
+propose-only (P4 — no self-apply).
+Hard stops: no Tasks/Media/Delegation write env flips until P1 WASM + T1
+verified; no Delegation self-apply; no GitHub feature→main (SD-14).
 ```
+
+### Prior session — FINISH land + honesty SMOKE (2026-07-28)
+
+Operator verified Muse/`main` land + muse-mirror PRs SC #219 / KN #275. Honesty
+smokes PASS on `scooling.netlify.app` (status chips; Tasks env-off; Delegation
+propose-only). Canister gateway auth still SET. Full one-click SMOKE withheld
+per §FCA.2. No write env flips.
 
 ### Prior session — FINISH-COMPLETE-APPLY-SC-b BV pass (Scooling)
 
 Scooling thinking-high BV round 1 = **`pass`** (23/23). SC-b marked DONE on product board.
-Not merged; not live.
+Later landed via SC #219.
 
 ### Prior session — FINISH-COMPLETE-APPLY-KN-b BV round 3 = pass
 
 Independent thinking-high re-verify vs frozen §FCA.4 / T5. **Verdict: pass.** No findings.
-Confirms round-2 DONE. No merge. No prod env flips.
+Confirms round-2 DONE. Later landed via KN #275. Live still NO-GO until P1 WASM + T1.
 
 ### Prior session — FINISH-COMPLETE-APPLY-KN-b BV pass (round 2)
 
