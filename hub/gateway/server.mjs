@@ -89,8 +89,11 @@ import {
   roleFromVerifiedAccessPayload,
   mayApplyAdminAllowlistOverride,
   isMcpAccessPayload,
+  isAgentAccessPayload,
   isSessionBoundActor,
+  assertAgentVaultAllowed,
 } from './access-token-authz.mjs';
+import { createAgentCredentialRouter } from './agent-credential-routes.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -436,6 +439,18 @@ app.use('/api/v1', (req, res, next) => {
   next();
 });
 
+// Phase C — vault binding for agent_access JWTs (freeze §7.4).
+app.use('/api/v1', (req, res, next) => {
+  const payload = getBearerPayload(req);
+  if (isAgentAccessPayload(payload)) {
+    const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    if (!assertAgentVaultAllowed(payload, vaultId)) {
+      return res.status(403).json({ error: 'vault forbidden for agent credential', code: 'AGENT_VAULT_FORBIDDEN' });
+    }
+  }
+  return next();
+});
+
 // Health (no auth) — returns { ok: true }. If a CDN or host wrapper returns usage_exceeded, that is outside this app (check Netlify site / account limits and which commit is deployed).
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
@@ -733,6 +748,23 @@ if (shouldMountDurableAgentAuth({
   console.log('[gateway] MCP OAuth/session endpoints skipped on Netlify (stateful sessions require persistent server)');
 } else if (SESSION_SECRET && offlineLockedActive) {
   console.log('[gateway] MCP/native OAuth skipped: offline-locked mode (durable agent auth unsupported)');
+}
+
+// Phase C — scoped REST agent credentials. Mounted on Netlify REST (unlike MCP OAuth).
+if (SESSION_SECRET) {
+  try {
+    const { router: agentCredRouter } = createAgentCredentialRouter({
+      sessionSecret: SESSION_SECRET,
+      getSessionSub: getUserId,
+      getSessionPayload: getBearerPayload,
+      grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+      offlineLockedActive,
+    });
+    app.use('/api/v1/auth/agent', agentCredRouter);
+    console.log('[gateway] Phase C agent credentials mounted at /api/v1/auth/agent');
+  } catch (e) {
+    console.error('[gateway] Agent credential router failed to load:', e.message || e);
+  }
 }
 
 if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
@@ -1498,7 +1530,20 @@ function getUserId(req) {
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
   const payload = decodeVerifiedToken(token);
-  return subFromVerifiedPayload(payload, { method: req.method });
+  const pathOnly = String(req.path || req.url || '').split('?')[0];
+  return subFromVerifiedPayload(payload, { method: req.method, path: pathOnly });
+}
+
+/**
+ * Verified JWT payload for the request Bearer, or null.
+ * @param {import('express').Request} req
+ * @returns {object|null}
+ */
+function getBearerPayload(req) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return null;
+  return decodeVerifiedToken(token);
 }
 
 /**
@@ -1604,6 +1649,11 @@ async function getHostedAccessContext(req) {
   const sub = getUserId(req);
   if (!sub) return null;
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  // Phase C freeze §7.4 — vault choke point before bridge/canister forwarding.
+  const agentPayload = getBearerPayload(req);
+  if (isAgentAccessPayload(agentPayload) && !assertAgentVaultAllowed(agentPayload, vaultId)) {
+    return null;
+  }
   const cacheKey = `${sub}\0${vaultId}`;
   const now = Date.now();
   const hit = hostedCtxCache.get(cacheKey);
@@ -2968,11 +3018,19 @@ async function resolveHostedActorRole(req, hctx) {
   }
 
   // Agent tokens: scope-capped only — skip bridge/hctx elevation and allowlist override.
+  // mcp_access and agent_access are separate returns so SEC-KN-3 / SEC-SEAM source-scan
+  // shapes stay exact (isMcpAccess: true|false + payload) while Phase C adds agent_access.
   if (isMcpAccessPayload(bearerPayload)) {
     const capped = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
     role = capped.role;
     mayApproveProposals = role === 'admin';
     return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload };
+  }
+  if (isAgentAccessPayload(bearerPayload)) {
+    const capped = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+    role = capped.role;
+    mayApproveProposals = role === 'admin';
+    return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload };
   }
 
   if (hctx && typeof hctx.role === 'string') {
@@ -3081,6 +3139,7 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   }
 
   const { role, mayApproveProposals, isMcpAccess, payload } = await resolveHostedActorRole(req, hctx);
+  const isAgentAccess = isAgentAccessPayload(payload);
 
   if (/\/discard\/?$/.test(pathNoQuery)) {
     if (role !== 'admin') {
@@ -3096,6 +3155,7 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   // Personal self-apply (Scooling review-tray fingerprint) — scoped member approve only.
   // SEC-KN-3: agent tokens are never human-review eligible.
   // SEC-SEAM-1 / S2.1 + S6.2: author/session inputs + named seam refusal codes.
+  // Phase C: agent_access is also non-human (same bar as mcp_access).
   const approveId = proposalIdFromApprovePath(pathNoQuery);
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
   const effective =
@@ -3113,9 +3173,10 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
     hasVaultWrite,
     partitionOwned: Boolean(proposal),
     role,
-    humanActor: !isMcpAccess,
-    tokenType: isMcpAccess ? 'mcp_access' : null,
-    actorKind: isMcpAccess ? 'agent' : 'human',
+    humanActor: !isMcpAccess && !isAgentAccess,
+    // Keep mcp ternary form for SEC-KN-3 source-scan; agent_access is the third arm.
+    tokenType: isMcpAccess ? 'mcp_access' : isAgentAccess ? 'agent_access' : null,
+    actorKind: isMcpAccess || isAgentAccess ? 'agent' : 'human',
     authorActorId,
     approverActorId: uid,
     sessionBound: isSessionBoundActor(payload),

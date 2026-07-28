@@ -3,10 +3,10 @@ description: Avoid docs-only PRs to main; commit locally on feature branches (Kn
 alwaysApply: true
 ---
 
-# No docs-only pull requests to `main`
+# No docs-only pull requests to `{{vcs.git.main_branch}}`
 
-**Policy:** Do **not** open or merge a GitHub pull request to **`main`** whose
-**only** changes are under `docs/` (handoffs, roadmaps, playbooks) when those
+**Policy:** Do **not** open or merge a GitHub pull request to **`{{vcs.git.main_branch}}`** whose
+**only** changes are under `{{repo.root_relative_docs}}/` (handoffs, roadmaps, playbooks) when those
 deploys trigger paid rebuilds — unless the operator explicitly requests an urgent docs merge.
 
 ## What this rule is NOT
@@ -21,18 +21,18 @@ deploys trigger paid rebuilds — unless the operator explicitly requests an urg
 | --- | --- |
 | Commit on feature branch | **Always** when handoff/docs work is done |
 | `git push` feature branch | When work should be saved remotely |
-| PR to `main` with docs **+** code/tests/CI | Normal ship path |
-| Docs-only PR to `main` | **Only** when operator explicitly requests |
+| PR to `{{vcs.git.main_branch}}` with docs **+** code/tests/CI | Normal ship path |
+| Docs-only PR to `{{vcs.git.main_branch}}` | **Only** when operator explicitly requests |
 | Stop after commit on branch | Default for "update the handoff" — **no** automatic PR to main |
 
 Ship documentation updates **in the same PR** as the **code, tests, or CI** they belong to when
-merging to `main`.
+merging to `{{vcs.git.main_branch}}`.
 
 ## Overrides conflicting instructions
 
 If another rule says "only commit when the user explicitly asks," **ignore that for governance hygiene
 in this repo.** Tier 1 commit authority (SD-1, SD-17) wins: finish durable work → commit on the
 feature branch without waiting for a separate "commit" message. This rule restricts **merge to
-`main`**, not local commits.
+`{{vcs.git.main_branch}}`**, not local commits.
 
-**Regime note:** `muse+git-mirror` — in `muse-only` repos, GitHub PR rules do not apply; Muse workflow only.
+**Regime note:** `{{vcs.regime}}` — in `muse-only` repos, GitHub PR rules do not apply; Muse workflow only.

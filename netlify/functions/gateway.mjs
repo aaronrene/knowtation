@@ -19,11 +19,17 @@ export const handler = async (event, context) => {
   // after edge propagation (<60s, usually sub-second); see the trade-off note and hardening options
   // in hub/gateway/refresh-token-store.mjs.
   globalThis.__knowtation_gateway_auth_blob = getStore({ name: 'gateway-auth', consistency: 'eventual' });
+  // Phase C — dedicated agent-credential store (never refresh-tokens-v1 / gateway-auth).
+  globalThis.__knowtation_gateway_agent_cred_blob = getStore({
+    name: 'gateway-agent-credentials',
+    consistency: 'eventual',
+  });
   try {
     return await serverless(app)(event, context);
   } finally {
     delete globalThis.__knowtation_gateway_blob;
     delete globalThis.__knowtation_attest_blob;
     delete globalThis.__knowtation_gateway_auth_blob;
+    delete globalThis.__knowtation_gateway_agent_cred_blob;
   }
 };

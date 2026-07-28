@@ -10,7 +10,7 @@ This document defines the **Hub REST API contract** and **auth model** for Phase
 
 ### 1.1 Model
 
-- **Login required.** There is no API-key-only path; all Hub API calls require a **JWT** obtained after login.
+- **Login required for interactive use.** There is **no unscoped long-lived API key**. All Hub API calls require a **JWT**: either a session JWT after login, an MCP/`mcp_access` token, or a Phase C **scoped agent credential** exchange (`kt_agent_…` → short-lived `type: agent_access` JWT). Machine/Paperclip/cron path: Settings → Integrations → **Agent credentials (REST)** — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and `docs/DURABLE-AGENT-AUTH-PHASE-C-FREEZE.md`.
 - **Self-hosted (Docker):** Login via **OAuth 2.0** (Google and/or GitHub). After successful OAuth callback, the server issues a **JWT** (access token). Optional: refresh token for long-lived sessions.
 - **Hosted (ICP):** Login via **Internet Identity** (or, if fronted by a gateway that performs OAuth, a JWT trusted by the canister). The canister validates the JWT or II delegation.
 

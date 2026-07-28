@@ -1375,6 +1375,27 @@ Your note body here.</pre>
             <p id="device-connect-msg" class="settings-msg" role="status" aria-live="polite"></p>
             <ul id="device-pending-list" class="settings-intro small" style="margin-top: 0.5rem; padding-left: 1.25rem;"></ul>
             <p class="settings-intro small">Agent endpoints (persistent MCP host): <code>POST /api/v1/auth/device/authorize</code> then poll <code>POST /api/v1/auth/device/token</code> with <code>grant_type=urn:ietf:params:oauth:grant-type:device_code</code>. Setup pack: <code>GET /api/v1/auth/device/setup-pack</code>.</p>
+            <hr class="settings-hr">
+            <h3 class="settings-h3 integ-section-heading" id="agent-credentials-heading">
+              <span class="integ-section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span>
+              Agent credentials (REST / Paperclip / cron)
+            </h3>
+            <p class="settings-intro small">Mint a <strong>scoped robot credential</strong> for REST automations (Paperclip, launchd, cron). Not a browser session. Revoke blocks new token exchange immediately; in-flight access JWTs end within 15 minutes. Do <strong>not</strong> paste Hub refresh cookies into Paperclip.</p>
+            <div class="settings-row" style="flex-wrap: wrap; gap: 0.5rem; align-items: flex-end;">
+              <label class="settings-label" for="agent-cred-name-input">Name</label>
+              <input type="text" id="agent-cred-name-input" class="settings-input" maxlength="128" placeholder="videofactory-trend-agent" autocomplete="off" style="max-width: 16rem;" />
+              <label class="settings-label" for="agent-cred-vault-select">Vaults</label>
+              <select id="agent-cred-vault-select" class="settings-input" multiple size="3" aria-label="Vaults for agent credential" style="min-width: 12rem; max-width: 18rem;"></select>
+              <label class="settings-label"><input type="checkbox" id="agent-cred-scope-propose" checked /> propose</label>
+              <label class="settings-label"><input type="checkbox" id="agent-cred-scope-read" checked /> vault:read</label>
+              <label class="settings-label"><input type="checkbox" id="agent-cred-scope-write" /> vault:write</label>
+              <button type="button" id="btn-agent-cred-mint" class="btn-primary">Mint credential</button>
+              <button type="button" id="btn-agent-cred-refresh" class="btn-secondary">Refresh list</button>
+            </div>
+            <p id="agent-cred-write-warn" class="settings-intro small" style="display:none; color: var(--danger, #b45309);" role="status">Warning: <code>vault:write</code> allows direct mutating REST (including note write). Prefer <code>propose</code> + <code>vault:read</code> for Paperclip/cron.</p>
+            <p id="agent-cred-msg" class="settings-msg" role="status" aria-live="polite"></p>
+            <pre id="agent-cred-once" class="settings-intro small" style="display:none; white-space: pre-wrap; word-break: break-all; margin-top: 0.5rem;"></pre>
+            <ul id="agent-cred-list" class="settings-intro small" style="margin-top: 0.5rem; padding-left: 1.25rem;"></ul>
             <details class="how-to-details">
               <summary>Technical details — MCP <code>readResource</code> and prime URI</summary>
               <div class="how-to-details-body">

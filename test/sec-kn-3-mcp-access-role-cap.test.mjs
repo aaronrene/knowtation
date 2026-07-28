@@ -152,7 +152,12 @@ describe('SEC-KN-3 integration — gateway wiring + self-apply class', () => {
     assert.ok(src.includes('roleFromVerifiedAccessPayload'));
     assert.ok(src.includes('mayApplyAdminAllowlistOverride'));
     assert.ok(src.includes('isMcpAccessPayload'));
-    assert.ok(src.includes("tokenType: isMcpAccess ? 'mcp_access' : null"));
+    // Phase C extends the ternary with agent_access; mcp_access arm must remain first.
+    assert.ok(
+      src.includes("tokenType: isMcpAccess ? 'mcp_access' : isAgentAccess ? 'agent_access' : null") ||
+        src.includes("tokenType: isMcpAccess ? 'mcp_access' : null"),
+      'tokenType classifies mcp_access (and agent_access when Phase C is present)',
+    );
     assert.ok(src.includes('humanActor: !isMcpAccess'));
   });
 

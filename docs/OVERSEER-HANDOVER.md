@@ -17,35 +17,46 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-## NEXT SESSION — §FCA.2 P1 WASM + T1 (PRIMARY relay → Scooling board)
+## NEXT SESSION — Trend Agent: use Phase C REST credentials (PRIMARY for this track)
 
 **Date:** 2026-07-28
-**Model:** **Operator**
+**Model:** **Operator + Auto** (Trend Agent consumer)
 
-**Branch:** Knowtation Muse/`main` includes FINISH-COMPLETE-APPLY-KN-b + SEC-KN +
-SEC-SEAM-1 (GitHub [KN #275](https://github.com/aaronrene/knowtation/pull/275)).
-Scooling finish stack landed [SC #219](https://github.com/aaronrene/scooling/pull/219).
-Honesty smokes PASS; full one-click SMOKE **NO-GO** until §FCA.2.
+**Branch:** Knowtation Muse/`main` includes **DURABLE-AGENT-AUTH-C** (scoped REST agent
+credentials: `kt_agent_` + `agent_access` exchange). Landed this session from
+`feat/durable-agent-auth-phase-c` → Muse `main` → bridge → GitHub `muse-mirror` → `main`.
+Hub docs: Settings → Integrations → **Agent credentials (REST)**; see
+`docs/AGENT-INTEGRATION.md` (REST-only runners row).
 
-**Why this is next:** Code is on Muse/`main`. Live Tasks/Media one-click still blocked on
-**P1 WASM fail-closed deploy** + **T1 `created_by`**. Paste from
-`~/scooling/docs/OVERSEER-HANDOVER.md`.
+**Why this is next:** Hub Phase C is on `main` and must be **live** on
+`api.knowtation.store` before Trend Agent can mint/use `KNOWTATION_HUB_AGENT_CREDENTIAL`.
+No session-JWT workaround.
 
-### THE ONE NEXT STEP — **Model: Operator** (Scooling board owns product order)
+### THE ONE NEXT STEP — **Model: Operator + Auto** (Trend Agent)
 
 ```text
-§FCA.2 live gates — P1 WASM fail-closed + T1 created_by (then Tier 3 env + SMOKE)
+Trend Agent — consume Knowtation Phase C REST agent credentials
 
-Model: Operator.
-Knowtation: deploy SEC-KN-1 Motoko fail-closed WASM to hub canister
-rsovz-byaaa-aaaaa-qgira-cai; land T1 created_by authorship so seam admission
-is not empty-author fail-closed forever.
-After both verified live: separate Tier 3 session for Tasks/Media write env ON
-+ FINISH-COMPLETE-APPLY-SMOKE (one-click). Delegation write env stays off /
-propose-only (P4 — no self-apply).
-Hard stops: no Tasks/Media/Delegation write env flips until P1 WASM + T1
-verified; no Delegation self-apply; no GitHub feature→main (SD-14).
+Model: Operator + Auto.
+Confirm Knowtation Hub/API deploy is live (Agent credentials UI +
+POST /api/v1/auth/agent/token). On VideoFactory-trend-agent / Paperclip host:
+mint kt_agent_ credential in Hub Settings → Integrations → Agent credentials (REST);
+set KNOWTATION_HUB_AGENT_CREDENTIAL; exchange for agent_access JWT per
+docs/AGENT-INTEGRATION.md and docs/DURABLE-AGENT-AUTH-PHASE-C-FREEZE.md §9.
+Pull latest Knowtation main only after GitHub muse-mirror → main merge + Netlify deploy.
+Hard stops: do not paste browser session JWT / ktn_refresh as durable agent auth;
+no GitHub feature→main (SD-14).
 ```
+
+### Prior session — DURABLE-AGENT-AUTH-C land to Muse main (2026-07-28)
+
+Operator authorized Tier 3 land. Merged `feat/durable-agent-auth-phase-c` onto
+`feat/land-phase-c-rest-agent-creds` (conflicts only in ROADMAP/HANDOVER — kept main
+structure; marked Phase C DONE/landed), then Muse `main`. BV already `pass` (22/22) on
+feature branch. Bridge + GitHub `muse-mirror` → `main` required for production.
+
+Product board §FCA.2 (P1 WASM + T1) remains the Scooling-owned Tasks/Media SMOKE gate —
+orthogonal to Phase C REST credentials.
 
 ### Prior session — FINISH land + honesty SMOKE (2026-07-28)
 
