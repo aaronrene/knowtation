@@ -57,7 +57,7 @@ export function applyGatewayCors(res, requestOrigin, corsOrigins) {
   }
   res.set('Access-Control-Allow-Origin', allow);
   res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id');
   if (corsOrigins.length > 0 && allow !== '*') {
     res.set('Access-Control-Allow-Credentials', 'true');
   }

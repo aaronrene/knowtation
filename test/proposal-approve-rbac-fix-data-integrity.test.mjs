@@ -145,21 +145,36 @@ describe('Data integrity: role typing and values', () => {
     // Override condition is `role !== 'admin'` so it's a no-op when already admin
     // Verify the condition structure
     const src = fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
-    const overrideSection = src.slice(src.indexOf('Gateway-level admin override'), src.indexOf('return { role, mayApproveProposals }'));
+    const overrideSection = src.slice(
+      src.indexOf('Gateway-level admin override'),
+      src.indexOf('return { role, mayApproveProposals, isMcpAccess: false }'),
+    );
     assert.ok(overrideSection.includes("role !== 'admin'"), 'Override is guarded by role !== admin (no downgrade possible)');
+    assert.ok(
+      overrideSection.includes('mayApplyAdminAllowlistOverride(bearerPayload)'),
+      'Override is gated so mcp_access never inherits HUB_ADMIN_USER_IDS (SEC-KN-3)',
+    );
   });
 });
 
 describe('Data integrity: source-code consistency', () => {
   const load = () => fs.readFileSync(path.join(ROOT, 'hub/gateway/server.mjs'), 'utf8');
 
-  test('resolveHostedActorRole return shape is unchanged: { role, mayApproveProposals }', () => {
+  test('resolveHostedActorRole return shape includes isMcpAccess (SEC-KN-3)', () => {
     const src = load();
+    // SEC-KN-3 extended the return with isMcpAccess; SEC-SEAM-1 also returns payload for sessionBound.
+    assert.ok(
+      src.includes('return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload }'),
+      'Final return includes isMcpAccess: false',
+    );
+    assert.ok(
+      src.includes('return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload }'),
+      'mcp_access early-return includes isMcpAccess: true',
+    );
     const fnStart = src.indexOf('async function resolveHostedActorRole');
-    const fn = src.slice(fnStart, src.indexOf('\n}\n', fnStart) + 3);
-    assert.ok(fn.includes('return { role, mayApproveProposals }'), 'Return shape preserved');
-    // No extra fields added
-    const returnLine = fn.slice(fn.lastIndexOf('return {'), fn.lastIndexOf('return {') + 50);
+    const fnEnd = src.indexOf('\nasync function assertHostedProposalApproveDiscard', fnStart);
+    const fn = src.slice(fnStart, fnEnd > fnStart ? fnEnd : undefined);
+    const returnLine = fn.slice(fn.lastIndexOf('return {'), fn.lastIndexOf('return {') + 90);
     assert.ok(!returnLine.includes('bridgeResolved'), 'bridgeResolved not leaked in return');
     assert.ok(!returnLine.includes('actorSub'), 'actorSub not leaked in return');
   });

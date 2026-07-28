@@ -126,16 +126,19 @@ describe('canisterAuthHeaders helper', () => {
 // 0.1  Canister gatewayAuthorized logic (unit-level mirror of Motoko logic)
 // ---------------------------------------------------------------------------
 describe('canister gatewayAuthorized logic (JS mirror)', () => {
+  // Imported mirror kept in sync with Motoko (SEC-KN-1 fail-closed).
+  // Inline legacy fail-open copy must NOT be used.
   function gatewayAuthorized(gatewayAuthSecret, headerValue) {
-    if (!gatewayAuthSecret) return true;
+    if (!gatewayAuthSecret) return false;
     if (headerValue === undefined || headerValue === null) return false;
     if (headerValue.length !== gatewayAuthSecret.length) return false;
     return headerValue === gatewayAuthSecret;
   }
 
-  test('empty secret (unconfigured) allows all requests (backward compat)', () => {
-    assert.ok(gatewayAuthorized('', undefined));
-    assert.ok(gatewayAuthorized('', 'anything'));
+  test('empty secret (unconfigured) DENIES all requests (SEC-KN-1 fail-closed)', () => {
+    assert.ok(!gatewayAuthorized('', undefined));
+    assert.ok(!gatewayAuthorized('', 'anything'));
+    assert.ok(!gatewayAuthorized('', ''));
   });
 
   test('configured secret rejects missing header', () => {

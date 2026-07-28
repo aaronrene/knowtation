@@ -151,7 +151,8 @@ module Migration {
     suggested_labels_json : Text;
   };
 
-  public type ProposalRecord = {
+  /// Proposals as persisted before SEC-KN-4 `created_by` (on-chain V7 layout).
+  public type ProposalRecordV7 = {
     proposal_id : Text;
     path : Text;
     status : Text;
@@ -183,6 +184,39 @@ module Migration {
     assistant_suggested_frontmatter_json : Text;
   };
 
+  public type ProposalRecord = {
+    proposal_id : Text;
+    path : Text;
+    status : Text;
+    body : Text;
+    frontmatter : Text;
+    intent : Text;
+    base_state_id : Text;
+    external_ref : Text;
+    vault_id : Text;
+    created_at : Text;
+    updated_at : Text;
+    evaluation_status : Text;
+    evaluation_grade : Text;
+    evaluation_checklist : Text;
+    evaluation_comment : Text;
+    evaluated_by : Text;
+    evaluated_at : Text;
+    evaluation_waiver_json : Text;
+    review_queue : Text;
+    review_severity : Text;
+    auto_flag_reasons_json : Text;
+    review_hints : Text;
+    review_hints_at : Text;
+    review_hints_model : Text;
+    assistant_notes : Text;
+    assistant_model : Text;
+    assistant_at : Text;
+    suggested_labels_json : Text;
+    assistant_suggested_frontmatter_json : Text;
+    created_by : Text;
+  };
+
   public type StableStorageBeforeEnrich = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
     proposalEntries : [(Text, [ProposalRecordBeforeEnrich])];
@@ -198,14 +232,14 @@ module Migration {
   /// Stable layout on mainnet **before** `operator_export_secret` (V5 on-chain).
   public type StableStorageV5 = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
-    proposalEntries : [(Text, [ProposalRecord])];
+    proposalEntries : [(Text, [ProposalRecordV7])];
     billingByUser : [(Text, BillingRecord)];
   };
 
   /// Stable layout on mainnet **before** `gateway_auth_secret` (V6 on-chain).
   public type StableStorageV6 = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
-    proposalEntries : [(Text, [ProposalRecord])];
+    proposalEntries : [(Text, [ProposalRecordV7])];
     billingByUser : [(Text, BillingRecord)];
     operator_export_secret : Text;
   };
@@ -214,7 +248,7 @@ module Migration {
   /// Must match serialized mainnet state before upgrades that only change `StableStorage` / `ProposalRecord`.
   public type StableStorageV7 = {
     vaultEntries : [(Text, Text, [(Text, (Text, Text))])];
-    proposalEntries : [(Text, [ProposalRecord])];
+    proposalEntries : [(Text, [ProposalRecordV7])];
     billingByUser : [(Text, BillingRecord)];
     operator_export_secret : Text;
     gateway_auth_secret : Text;
@@ -230,7 +264,7 @@ module Migration {
     cors_allowed_origin : Text;
   };
 
-  func _proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecord {
+  func _proposalBeforeEnrichToCurrent(p : ProposalRecordBeforeEnrich) : ProposalRecordV7 {
     {
       proposal_id = p.proposal_id;
       path = p.path;
@@ -265,7 +299,7 @@ module Migration {
   };
 
   /// Historical V4→V5 row map; kept for docs and one-off tooling. Actor hook uses identity on `StableStorage` once V5 is live.
-  func _proposalV4ToV5(p : ProposalRecordV4) : ProposalRecord {
+  func _proposalV4ToV5(p : ProposalRecordV4) : ProposalRecordV7 {
     {
       proposal_id = p.proposal_id;
       path = p.path;
@@ -376,13 +410,54 @@ module Migration {
     };
   };
 
+  func _proposalV7ToCurrent(p : ProposalRecordV7) : ProposalRecord {
+    {
+      proposal_id = p.proposal_id;
+      path = p.path;
+      status = p.status;
+      body = p.body;
+      frontmatter = p.frontmatter;
+      intent = p.intent;
+      base_state_id = p.base_state_id;
+      external_ref = p.external_ref;
+      vault_id = p.vault_id;
+      created_at = p.created_at;
+      updated_at = p.updated_at;
+      evaluation_status = p.evaluation_status;
+      evaluation_grade = p.evaluation_grade;
+      evaluation_checklist = p.evaluation_checklist;
+      evaluation_comment = p.evaluation_comment;
+      evaluated_by = p.evaluated_by;
+      evaluated_at = p.evaluated_at;
+      evaluation_waiver_json = p.evaluation_waiver_json;
+      review_queue = p.review_queue;
+      review_severity = p.review_severity;
+      auto_flag_reasons_json = p.auto_flag_reasons_json;
+      review_hints = p.review_hints;
+      review_hints_at = p.review_hints_at;
+      review_hints_model = p.review_hints_model;
+      assistant_notes = p.assistant_notes;
+      assistant_model = p.assistant_model;
+      assistant_at = p.assistant_at;
+      suggested_labels_json = p.suggested_labels_json;
+      assistant_suggested_frontmatter_json = p.assistant_suggested_frontmatter_json;
+      created_by = "";
+    };
+  };
+
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
   /// V7 is the post–CORS-lock layout; `StableStorage` may gain fields later — map explicitly here.
+  /// TODO(SEC-KN-4c): restore identity on `StableStorage` in the release immediately after T1.
   public func migration(old : { var storage : StableStorageV7 }) : { var storage : StableStorage } {
     {
       var storage = {
         vaultEntries = old.storage.vaultEntries;
-        proposalEntries = old.storage.proposalEntries;
+        proposalEntries = Array.map<(Text, [ProposalRecordV7]), (Text, [ProposalRecord])>(
+          old.storage.proposalEntries,
+          func(e : (Text, [ProposalRecordV7])) : (Text, [ProposalRecord]) {
+            (e.0, Array.map<ProposalRecordV7, ProposalRecord>(e.1, _proposalV7ToCurrent));
+          },
+        );
         billingByUser = old.storage.billingByUser;
         operator_export_secret = old.storage.operator_export_secret;
         gateway_auth_secret = old.storage.gateway_auth_secret;

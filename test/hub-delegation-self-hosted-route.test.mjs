@@ -28,9 +28,10 @@ describe('self-hosted Hub delegation routes', () => {
     assert.match(src, /app\.post\('\/api\/v1\/delegation\/audit'/);
   });
 
-  it('integration: self-hosted hub approve path wires delegation apply', () => {
+  it('integration: self-hosted hub approve path wires delegation apply with author', () => {
     const src = readRepoFile('hub/server.mjs');
-    assert.match(src, /precheckApprovedDelegationProposal/);
+    assert.match(src, /precheckApprovedDelegationProposal\(config\.data_dir, proposal, \{\s*author:/);
+    assert.match(src, /proposal\.proposed_by/);
     assert.match(src, /applyDelegationProposalToIndex/);
   });
 
@@ -63,5 +64,17 @@ describe('self-hosted Hub delegation routes', () => {
       /app\.post\('\/api\/v1\/delegation\/audit', requireRole\('viewer', 'editor', 'admin', 'evaluator'\)/,
     );
     assert.match(src, /hashPrincipalRef\(req\.user\?\.sub/);
+  });
+
+  it('security: SEC-KN-5 grant mint is admin-only (viewer cannot mint bearer authority)', () => {
+    const src = readRepoFile('hub/server.mjs');
+    assert.match(
+      src,
+      /app\.post\('\/api\/v1\/delegation\/grants', requireRole\('admin'\)/,
+    );
+    assert.doesNotMatch(
+      src,
+      /app\.post\('\/api\/v1\/delegation\/grants', requireRole\('viewer'/,
+    );
   });
 });

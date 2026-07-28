@@ -27,7 +27,7 @@ import {
   getConsent,
   seedDelegationFixtures,
 } from '../lib/agent/delegation.mjs';
-import { writeDelegationPolicy, makeAgentIdentity, makeDelegationConsent } from './fixtures/agent/delegation-helpers.mjs';
+import { writeDelegationPolicy, makeAgentIdentity, makeDelegationConsent, TEST_USER_ID } from './fixtures/agent/delegation-helpers.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tmpRoot = path.join(__dirname, 'fixtures', 'tmp-delegation-l1b');
@@ -132,6 +132,7 @@ describe('7C-L1b delegation hosted proposal — integration', () => {
           status: 'approved',
           vault_id: vaultId,
           intent: 'agent_identity_register',
+          created_by: TEST_USER_ID,
           body,
           frontmatter: JSON.stringify(fm),
         }),
@@ -182,6 +183,7 @@ describe('7C-L1b delegation hosted proposal — e2e', () => {
       status: 'approved',
       vault_id: vaultId,
       intent: 'agent_identity_register',
+      created_by: TEST_USER_ID,
       body: JSON.stringify(identity),
       frontmatter: JSON.stringify(
         mergeDelegationFrontmatter({}, { record_kind: 'agent_identity', agent_id: identity.agent_id }),
@@ -193,6 +195,7 @@ describe('7C-L1b delegation hosted proposal — e2e', () => {
       status: 'approved',
       vault_id: vaultId,
       intent: 'delegation_consent_create',
+      created_by: TEST_USER_ID,
       body: JSON.stringify(consentBody),
       frontmatter: JSON.stringify(
         mergeDelegationFrontmatter({}, { record_kind: 'delegation_consent', consent_id: consentBody.consent_id }),
@@ -278,13 +281,14 @@ describe('7C-L1b delegation hosted proposal — data-integrity', () => {
       status: 'approved',
       vault_id: vaultId,
       intent: 'delegation_consent_create',
+      created_by: TEST_USER_ID,
       body: JSON.stringify(consentBody),
       frontmatter: JSON.stringify(
         mergeDelegationFrontmatter({}, { record_kind: 'delegation_consent', consent_id: consentBody.consent_id }),
       ),
     });
     assert.ok(proposal);
-    const pre = precheckApprovedDelegationProposal(dataDir, proposal);
+    const pre = precheckApprovedDelegationProposal(dataDir, proposal, { author: TEST_USER_ID });
     assert.equal(pre.ok, true);
     applyDelegationProposalToIndex(dataDir, pre);
     const stored = getConsent(dataDir, vaultId, consentBody.consent_id);

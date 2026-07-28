@@ -1,0 +1,62 @@
+# RULE #0 — seven-tier test contract (K3)
+# Sources: Aaron Development Standards RULE #0; docs/OVERSEER-KIT-SPEC.md §10;
+#          scooling/AGENTS.md; cross-repo coordination seven-tier matrix
+
+version: 1
+
+rule: >
+  Every Build phase that adds code ships all seven tiers locally before marking DONE.
+  Dry-run / inert-first is the safe default for agent tools and live gates.
+
+tiers:
+  - id: unit
+    order: 1
+    proves: >
+      Each function, module, adapter method, config parse, template token substitution,
+      and CLI arg-parse behaves per contract including every fail-closed branch.
+
+  - id: integration
+    order: 2
+    proves: >
+      CLI + adapter + config compose correctly; components interact through frozen interfaces.
+
+  - id: e2e
+    order: 3
+    proves: >
+      Full workflow on a fixture repo — e.g. governance-sync dry-run produces correct
+      handover/roadmap patch on a feature branch without main merge or push.
+
+  - id: stress
+    order: 4
+    proves: >
+      Large roadmaps/handovers, many phases, realign at realign_max_commits boundary,
+      many freeze-contract edges — no unbounded scans or OOM.
+
+  - id: data-integrity
+    order: 5
+    proves: >
+      Idempotency (run-twice = same result); version.lock digest correctness;
+      no partial writes on induced mid-operation failure.
+
+  - id: performance
+    order: 6
+    proves: >
+      status/drift check and governance-sync complete within bounded time on realistic
+      repo sizes; no unbounded VCS log scans.
+
+  - id: security
+    order: 7
+    proves: >
+      No secret or identity leakage in outputs/logs; injection-safe templating;
+      regime least-privilege enforced; fail-closed on every simulated read failure.
+
+inert_defaults:
+  - governance-sync --dry-run
+  - review --freeze --dry-run
+  - posture gates hard-false until Tier 3 authorization
+
+definition_of_done:
+  all_required_tiers_green: true
+  no_secrets_committed: true
+  governance_docs_updated: true
+  standing_decision: SD-17

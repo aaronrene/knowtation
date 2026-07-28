@@ -173,6 +173,7 @@ export function getProposal(dataDir, id) {
  *   review_queue?: string,
  *   review_severity?: 'standard'|'elevated',
  *   auto_flag_reasons?: string[],
+ *   session_bound?: boolean,
  *   flow_meta?: { kind: string, base_version: string|null, base_state_id: string },
  *   capture_meta?: { proposal_kind: string, candidate_id: string, confirmed_scope?: string, merge_into_flow_id?: string|null },
  *   task_meta?: { record_kind: string, proposal_kind: string, task_id?: string|null, loop_id?: string|null, occurrence_key?: string|null, cascade_task_ids?: string[] },
@@ -320,9 +321,12 @@ export function createProposal(dataDir, input) {
     updated_at: now,
   };
   // HOSTED-WRITE-EVAL E1 — after severity/auto-flag fields are set (post-trigger).
+  // FINISH-COMPLETE-APPLY T5: Tasks/Media also self-pass when session_bound + fingerprint hold.
   const withE1 = applyPersonalSelfApplyEvaluationE1(proposal, {
     evaluatedBy: proposedBy,
     evaluatedAt: now,
+    sessionBound: input.session_bound === true,
+    authorActorId: proposedBy,
   });
   const finalProposal =
     withE1.evaluation_status === 'passed'

@@ -27,6 +27,7 @@ import {
   writeDelegationPolicy,
   makeAgentIdentity,
   makeDelegationConsent,
+  TEST_USER_ID,
 } from './fixtures/agent/delegation-helpers.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -75,9 +76,10 @@ describe('Agent delegation — live gate (7C-L1)', () => {
       intent: 'delegation_consent_create',
       source: DELEGATION_PROPOSAL_SOURCE,
       vault_id: vaultId,
+      proposed_by: TEST_USER_ID,
       delegation_meta: { record_kind: 'delegation_consent', consent_id: consentBody.consent_id },
     });
-    const precheck = precheckApprovedDelegationProposal(dataDir, proposal);
+    const precheck = precheckApprovedDelegationProposal(dataDir, proposal, { author: TEST_USER_ID });
     assert.equal(precheck.ok, true);
     applyDelegationProposalToIndex(dataDir, precheck);
 

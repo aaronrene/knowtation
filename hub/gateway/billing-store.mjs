@@ -14,9 +14,22 @@ try {
   projectRoot = process.cwd();
 }
 
-const BILLING_FILE = path.join(projectRoot, 'data', 'hosted_billing.json');
 const BLOB_KEY = 'billing-db-v1';
 const MAX_EVENTS = 8000;
+
+/**
+ * Resolve the local billing DB path at call time so tests can isolate via
+ * KNOWTATION_BILLING_DB_PATH or KNOWTATION_GATEWAY_DATA_DIR without sharing
+ * (or hanging on) a corrupt repo-local data/hosted_billing.json.
+ * @returns {string}
+ */
+function billingFilePath() {
+  if (process.env.KNOWTATION_BILLING_DB_PATH) {
+    return path.resolve(process.env.KNOWTATION_BILLING_DB_PATH);
+  }
+  const dataDir = process.env.KNOWTATION_GATEWAY_DATA_DIR || path.join(projectRoot, 'data');
+  return path.join(dataDir, 'hosted_billing.json');
+}
 
 function emptyDb() {
   return { users: {}, processed_events: [] };
@@ -41,8 +54,9 @@ async function writeToBlob(db) {
 }
 
 async function readFromFile() {
+  const billingFile = billingFilePath();
   try {
-    const raw = await fs.readFile(BILLING_FILE, 'utf8');
+    const raw = await fs.readFile(billingFile, 'utf8');
     return normalizeDb(JSON.parse(raw));
   } catch (e) {
     if (e.code === 'ENOENT') return emptyDb();
@@ -51,8 +65,9 @@ async function readFromFile() {
 }
 
 async function writeToFile(db) {
-  await fs.mkdir(path.dirname(BILLING_FILE), { recursive: true });
-  await fs.writeFile(BILLING_FILE, JSON.stringify(db, null, 2), 'utf8');
+  const billingFile = billingFilePath();
+  await fs.mkdir(path.dirname(billingFile), { recursive: true });
+  await fs.writeFile(billingFile, JSON.stringify(db, null, 2), 'utf8');
 }
 
 function normalizeDb(raw) {

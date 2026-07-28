@@ -1,0 +1,40 @@
+---
+description: Thinking sessions get the same freeze + build-verification honesty gates as roadmap loops (Check OK)
+alwaysApply: true
+---
+
+# Check OK — Thinking session honesty gates
+
+When a session is **Thinking** (Model label Thinking / thinking-high / Thinking → Auto),
+the same twin gates used on ROADMAP phases apply — even if the work is **not** a roadmap
+row (side research, spike, consumer experiment).
+
+## Beginning gate (spec)
+
+Before Auto build depends on the Thinking output, or before treating a side-check doc as
+ground truth:
+
+1. Ensure a freeze artifact exists (`frozen: true`) — roadmap PHASE doc **or**
+   `docs/reviews/<date>-<slug>.md` via **`/check-ok`** / `ok check-ok --scaffold-only`
+2. Run **`/freeze-review`** or **`/freeze-review-loop`** (thinking-high)
+3. Mechanical gate: `ok check-ok --path <artifact>` (same engine as `ok review --freeze`)
+4. Do **not** start Auto until verdict is **`pass`** (or human clears `blocked`)
+
+## End gate (implementation)
+
+After code/tests claim the work is done:
+
+1. Run **`/build-verification-review`** (thinking-high; independent posture)
+2. Do **not** mark DONE / “shipped” / “OK” until verdict is **`pass`**
+
+## Operator shortcut
+
+Anyone may type **Check OK** or **`/check-ok`** in Cursor or Claude Code. Copilot and
+other assistants: paste `docs/CHECK-OK.md` or run `ok check-ok` in the terminal.
+No new `docs.lanes` entry for one-offs.
+
+## Same code everywhere
+
+Consumers get Cursor + Claude Code skill copies via **`ok sync`**
+(`.cursor/skills/**` and `.claude/skills/**`). The review engine is kit CLI
+(`tools/freeze_reviewer/`) — not a per-repo fork.

@@ -41,12 +41,18 @@ describe('resolveHostedActorRole — unit wiring', () => {
     assert.ok(fn.includes('!bridgeResolved'), 'fallback check on bridgeResolved');
   });
 
-  test('bridge fallback path: JWT verify used when bridge does not resolve', () => {
+  test('bridge fallback path: uses once-verified bearerPayload (not raw header parse)', () => {
     const s = load();
     const fn = s.slice(s.indexOf('async function resolveHostedActorRole'), s.indexOf('\n}\n', s.indexOf('async function resolveHostedActorRole')) + 3);
-    // Confirm there are TWO jwt.verify calls: one in the existing else, one in the new fallback
+    // SEC-KN-3: jwt.verify runs once at the top into bearerPayload; fallback reuses it.
     const verifyCount = (fn.match(/jwt\.verify/g) || []).length;
-    assert.ok(verifyCount >= 2, `jwt.verify called at least twice in resolveHostedActorRole (got ${verifyCount})`);
+    assert.equal(verifyCount, 1, `jwt.verify called exactly once at entry (got ${verifyCount})`);
+    const fallbackBlock = fn.slice(fn.indexOf('!bridgeResolved'));
+    assert.ok(
+      fallbackBlock.includes('roleFromVerifiedAccessPayload(bearerPayload'),
+      'bridge fallback resolves role from verified bearerPayload',
+    );
+    assert.ok(!fallbackBlock.includes('JSON.parse'), 'bridge fallback does not JSON.parse the raw header');
   });
 
   test('gateway admin override: roleForSub check present after bridge/else branches', () => {
@@ -158,10 +164,17 @@ describe('resolveHostedActorRole — logic invariants (structural)', () => {
     assert.ok(fn.includes("let role = 'member'"), "role defaults to 'member'");
   });
 
-  test('function returns role and mayApproveProposals', () => {
+  test('function returns role, mayApproveProposals, and isMcpAccess', () => {
     const s = load();
-    const fnStart = s.indexOf('async function resolveHostedActorRole');
-    const fn = s.slice(fnStart, s.indexOf('\n}\n', fnStart) + 3);
-    assert.ok(fn.includes('return { role, mayApproveProposals }'), 'return shape preserved');
+    // SEC-KN-3: isMcpAccess is required so callers can bar agent tokens from self-apply.
+    // SEC-SEAM-1: payload accompanies both returns for sessionBound classification.
+    assert.ok(
+      s.includes('return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload }'),
+      'mcp_access early-return includes isMcpAccess: true',
+    );
+    assert.ok(
+      s.includes('return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload }'),
+      'non-agent path returns isMcpAccess: false',
+    );
   });
 });
