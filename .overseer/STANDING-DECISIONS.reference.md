@@ -35,8 +35,8 @@ Full table: `policy/tiers.yaml` and `docs/CROSS-REPO-COORDINATION.md` (when pres
 | ID | Date | Decision | Rationale | Scope of effect |
 | --- | --- | --- | --- | --- |
 | **SD-1** | <YYYY-MM-DD> | **Feature-branch commits (docs or code) are pre-authorized (Tier 1).** Push-to-staging and merge-to-`main` remain Tier 3. | Commits on a branch are reversible and make work durable; uncommitted dirty trees are the riskier state. | knowtation; all feature-branch work |
-| **SD-3** | <YYYY-MM-DD> | **Model-split handover prompts:** steps marked **Thinking → Auto** emit **`{step}a` (Thinking)** then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Single-model steps stay one prompt. | Opus on boilerplate wastes cost; Auto on security boundaries risks mistakes. | `docs/OVERSEER-HANDOVER.md`; `docs/ROADMAP.md` |
-| **SD-17** | <YYYY-MM-DD> | **Governance sync is a hard prerequisite for session complete.** Closing commit bundles code/tests + `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md`. Routine VCS hygiene (feature-branch commit/push/PR-open) is Tier 1. | Prevents stale handover/roadmap drift and over-cautious "ask before commit" friction. | knowtation; see `policy/tiers.yaml` |
+| **SD-3** | <YYYY-MM-DD> | **Model-split handover prompts:** steps marked **Thinking → Auto** emit **`{step}a` (Thinking)** then **`{step}b` (Auto)** in `docs/KNOWTATION-OVERSEER-HANDOVER.md`. Single-model steps stay one prompt. | Opus on boilerplate wastes cost; Auto on security boundaries risks mistakes. | `docs/KNOWTATION-OVERSEER-HANDOVER.md`; `docs/KNOWTATION-ROADMAP.md` |
+| **SD-17** | <YYYY-MM-DD> | **Governance sync is a hard prerequisite for session complete.** Closing commit bundles code/tests + `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md`. Routine VCS hygiene (feature-branch commit/push/PR-open) is Tier 1. | Prevents stale handover/roadmap drift and over-cautious "ask before commit" friction. | knowtation; see `policy/tiers.yaml` |
 
 <!-- Append new SD-N rows above this line. Kit ships format only — contents are repo-specific. -->
 

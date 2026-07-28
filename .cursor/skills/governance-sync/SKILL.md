@@ -41,3 +41,17 @@ Feature branch only. Message pattern: `governance: sync handover + roadmap (<dat
 - No merge to `{{vcs.git.main_branch}}` without Tier 3
 - No staging push without Tier 3
 - No live posture flips
+- No peer-repo writes from this command — workspace relay check is read-only (§MR.8)
+
+## Multi-repo (when `workspace:` configured)
+
+After advancing product_order PRIMARY, refresh each `relay: true` tip
+(`role=relay` or `## PRODUCT RELAY —`) and run:
+
+```bash
+ok workspace check-next
+```
+
+`governance-sync` footer / JSON key `workspace_relay` reports
+`not_configured|ok|stale_relay|ambiguous_primary|missing_member|error`. Multi-repo SD-17
+is incomplete until `check-next` exits `0`. Single-repo docs↔VCS sync remains required.

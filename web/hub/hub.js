@@ -875,6 +875,7 @@
       setCurrentVaultId(allowed[0] || 'default');
     }
     updateVaultSwitcher(s.vault_list || [], s.allowed_vault_ids || []);
+    if (typeof refreshAgentCredVaultSelect === 'function') refreshAgentCredVaultSelect();
     applyHostedUiFromSettings(s);
     window.__hubProposalEnrich = Boolean(s.proposal_enrich_enabled);
     window.__hubProposalEvaluationRequired = Boolean(s.proposal_evaluation_required);
@@ -5356,6 +5357,267 @@
     if (_uc && el('device-user-code-input')) {
       el('device-user-code-input').value = String(_uc).toUpperCase();
     }
+  } catch (_) { /* ignore */ }
+
+  /** Settings → Integrations → Agent credentials (REST / Paperclip / cron) — Phase C. */
+  function setAgentCredMsg(text, isErr) {
+    const msg = el('agent-cred-msg');
+    if (!msg) return;
+    msg.textContent = text || '';
+    msg.className = isErr ? 'settings-msg err' : 'settings-msg';
+  }
+
+  function agentCredAuthHeaders() {
+    const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
+    return {
+      Authorization: 'Bearer ' + hubTok,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+  }
+
+  function formatAgentCredTs(ms) {
+    if (ms == null || !Number.isFinite(Number(ms))) return '—';
+    try {
+      return new Date(Number(ms)).toISOString().slice(0, 19) + 'Z';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  /** Populate vault multi-select (freeze §8); default current vault selected. */
+  function refreshAgentCredVaultSelect() {
+    const sel = el('agent-cred-vault-select');
+    if (!sel) return;
+    const current = String(getCurrentVaultId() || 'default');
+    const s = lastBackupSettingsPayload;
+    let allowed = [];
+    if (s && Array.isArray(s.allowed_vault_ids) && s.allowed_vault_ids.length) {
+      allowed = s.allowed_vault_ids.map(String).filter(Boolean);
+    } else if (s && Array.isArray(s.vault_list)) {
+      allowed = s.vault_list
+        .map(function (v) {
+          return v && v.id != null ? String(v.id) : '';
+        })
+        .filter(Boolean);
+    }
+    if (allowed.length === 0) allowed = [current];
+    if (allowed.indexOf(current) < 0) allowed = [current].concat(allowed);
+    const prev = Array.prototype.slice
+      .call(sel.selectedOptions || [])
+      .map(function (o) {
+        return o.value;
+      });
+    sel.innerHTML = '';
+    allowed.forEach(function (vid) {
+      const opt = document.createElement('option');
+      opt.value = vid;
+      opt.textContent = vid;
+      opt.selected = prev.length ? prev.indexOf(vid) >= 0 : vid === current;
+      sel.appendChild(opt);
+    });
+    if (!sel.selectedOptions || sel.selectedOptions.length === 0) {
+      const fallback =
+        Array.prototype.find.call(sel.options, function (o) {
+          return o.value === current;
+        }) || sel.options[0];
+      if (fallback) fallback.selected = true;
+    }
+  }
+
+  function selectedAgentCredVaultIds() {
+    const sel = el('agent-cred-vault-select');
+    if (!sel) return [getCurrentVaultId() || 'default'];
+    const picked = Array.prototype.slice.call(sel.selectedOptions || []).map(function (o) { return String(o.value || '').trim(); }).filter(Boolean);
+    if (picked.length) return picked.slice(0, 32);
+    return [getCurrentVaultId() || 'default'];
+  }
+
+  function syncAgentCredWriteWarn() {
+    const warn = el('agent-cred-write-warn');
+    const box = el('agent-cred-scope-write');
+    if (!warn || !box) return;
+    warn.style.display = box.checked ? 'block' : 'none';
+  }
+
+  async function refreshAgentCredList() {
+    const list = el('agent-cred-list');
+    if (!list) return;
+    const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
+    if (!hubTok) {
+      list.innerHTML = '<li>Sign in to manage agent credentials.</li>';
+      return;
+    }
+    try {
+      const res = await fetch(String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials', {
+        headers: agentCredAuthHeaders(),
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        list.innerHTML = '<li>Agent credentials unavailable on this host (' + res.status + ').</li>';
+        return;
+      }
+      const data = await res.json();
+      const creds = Array.isArray(data.credentials) ? data.credentials : [];
+      if (creds.length === 0) {
+        list.innerHTML = '<li>No agent credentials yet.</li>';
+        return;
+      }
+      list.innerHTML = creds
+        .map(function (c) {
+          const id = String(c.id || '').replace(/[<>&"]/g, '');
+          const name = String(c.name || '').replace(/[<>&"]/g, '');
+          const scopes = (Array.isArray(c.scopes) ? c.scopes : []).join(' ').replace(/[<>&"]/g, '');
+          const vaults = (Array.isArray(c.vault_ids) ? c.vault_ids : []).join(', ').replace(/[<>&"]/g, '') || '—';
+          const created = formatAgentCredTs(c.created_at);
+          const expires = formatAgentCredTs(c.expires_at);
+          const lastUsed = formatAgentCredTs(c.last_used_at);
+          const revoked = c.revoked ? ' (revoked)' : '';
+          return (
+            '<li><strong>' +
+            name +
+            '</strong> — vaults: ' +
+            vaults +
+            '; scopes: ' +
+            scopes +
+            '; created: ' +
+            created +
+            '; expires: ' +
+            expires +
+            '; last used: ' +
+            lastUsed +
+            revoked +
+            ' <button type="button" class="btn-secondary btn-agent-cred-revoke" data-id="' +
+            id +
+            '">Revoke</button> <button type="button" class="btn-secondary btn-agent-cred-rotate" data-id="' +
+            id +
+            '">Rotate</button></li>'
+          );
+        })
+        .join('');
+      list.querySelectorAll('.btn-agent-cred-revoke').forEach(function (btn) {
+        btn.onclick = async function () {
+          const id = btn.getAttribute('data-id');
+          const res = await fetch(
+            String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials/' + encodeURIComponent(id),
+            { method: 'DELETE', headers: agentCredAuthHeaders(), credentials: 'omit' }
+          );
+          setAgentCredMsg(res.ok ? 'Revoked.' : 'Revoke failed', !res.ok);
+          refreshAgentCredList();
+        };
+      });
+      list.querySelectorAll('.btn-agent-cred-rotate').forEach(function (btn) {
+        btn.onclick = async function () {
+          const id = btn.getAttribute('data-id');
+          const res = await fetch(
+            String(apiBase || '').replace(/\/$/, '') +
+              '/api/v1/auth/agent/credentials/' +
+              encodeURIComponent(id) +
+              '/rotate',
+            { method: 'POST', headers: agentCredAuthHeaders(), credentials: 'omit' }
+          );
+          const data = await res.json().catch(function () { return {}; });
+          if (!res.ok) {
+            setAgentCredMsg(data.error || 'Rotate failed', true);
+            return;
+          }
+          const once = el('agent-cred-once');
+          const pack =
+            'KNOWTATION_HUB_URL=' +
+            String(apiBase || '').replace(/\/$/, '') +
+            '\nKNOWTATION_HUB_VAULT_ID=' +
+            (getCurrentVaultId() || 'default') +
+            '\nKNOWTATION_HUB_AGENT_CREDENTIAL=' +
+            String(data.credential || '') +
+            '\n';
+          if (once) {
+            once.style.display = 'block';
+            once.textContent = pack + '\n# Shown once — copy now.';
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pack).catch(function () {});
+          }
+          setAgentCredMsg('Rotated — new secret copied (shown once).', false);
+          refreshAgentCredList();
+        };
+      });
+    } catch (_) {
+      list.innerHTML = '<li>Could not load agent credentials.</li>';
+    }
+  }
+
+  const btnAgentCredMint = el('btn-agent-cred-mint');
+  if (btnAgentCredMint) {
+    btnAgentCredMint.onclick = async function () {
+      const nameEl = el('agent-cred-name-input');
+      const name = nameEl ? String(nameEl.value || '').trim() : '';
+      if (!name) {
+        setAgentCredMsg('Enter a name.', true);
+        return;
+      }
+      const scopes = [];
+      if (el('agent-cred-scope-propose') && el('agent-cred-scope-propose').checked) scopes.push('propose');
+      if (el('agent-cred-scope-read') && el('agent-cred-scope-read').checked) scopes.push('vault:read');
+      if (el('agent-cred-scope-write') && el('agent-cred-scope-write').checked) scopes.push('vault:write');
+      try {
+        const res = await fetch(String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials', {
+          method: 'POST',
+          headers: agentCredAuthHeaders(),
+          credentials: 'omit',
+          body: JSON.stringify({
+            name: name,
+            vault_ids: selectedAgentCredVaultIds(),
+            scopes: scopes.length ? scopes : ['propose', 'vault:read'],
+          }),
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+          setAgentCredMsg(data.error || data.code || 'Mint failed', true);
+          return;
+        }
+        const packVault =
+          (Array.isArray(data.vault_ids) && data.vault_ids[0]) ||
+          selectedAgentCredVaultIds()[0] ||
+          getCurrentVaultId() ||
+          'default';
+        const pack =
+          'KNOWTATION_HUB_URL=' +
+          String(apiBase || '').replace(/\/$/, '') +
+          '\nKNOWTATION_HUB_VAULT_ID=' +
+          packVault +
+          '\nKNOWTATION_HUB_AGENT_CREDENTIAL=' +
+          String(data.credential || '') +
+          '\n';
+        const once = el('agent-cred-once');
+        if (once) {
+          once.style.display = 'block';
+          once.textContent = pack + '\n# Shown once — copy now. Store in Paperclip secrets.';
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(pack);
+        }
+        setAgentCredMsg('Minted — env block copied (secret shown once).', false);
+        refreshAgentCredList();
+      } catch (_) {
+        setAgentCredMsg('Network error minting credential.', true);
+      }
+    };
+  }
+  const btnAgentCredRefresh = el('btn-agent-cred-refresh');
+  if (btnAgentCredRefresh) {
+    btnAgentCredRefresh.onclick = function () {
+      refreshAgentCredVaultSelect();
+      refreshAgentCredList();
+    };
+  }
+  const agentCredWriteBox = el('agent-cred-scope-write');
+  if (agentCredWriteBox) {
+    agentCredWriteBox.onchange = syncAgentCredWriteWarn;
+    syncAgentCredWriteWarn();
+  }
+  try {
+    refreshAgentCredVaultSelect();
+    refreshAgentCredList();
   } catch (_) { /* ignore */ }
   refreshDevicePendingList();
 

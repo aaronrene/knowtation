@@ -174,7 +174,7 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 | --- | --- | --- |
 | Cursor / Claude (desktop) | MCP **OAuth Sign-in** (PKCE); refresh survives gateway restart | `https://mcp.knowtation.store/mcp` (`KNOWTATION_MCP_URL`) |
 | Hermes / headless VPS | **Primary:** Hub **Connect cloud agent** (RFC 8628 device code). **Interim:** desktop `mcp-remote` OAuth → copy `~/.mcp-auth/mcp-remote-*` to agent `HOME` → Hermes stdio `npx mcp-remote`. Do **not** rely on `hermes mcp login` on Hostinger until re-verified. | Same MCP URL — **never** Netlify `/mcp` |
-| REST-only runners (Paperclip, cron) | Scoped agent credential (Phase C) — not shipped yet; interim: re-copy session JWT or human-mediated promote | `https://api.knowtation.store` |
+| REST-only runners (Paperclip, cron) | **Phase C scoped agent credential** — Hub **Settings → Integrations → Agent credentials (REST)**: mint `KNOWTATION_HUB_AGENT_CREDENTIAL` (`kt_agent_…`), exchange at `POST …/api/v1/auth/agent/token` for a 15m `agent_access` JWT. Do **not** paste browser `ktn_refresh` / session refresh cookies. | `https://api.knowtation.store` |
 
 #### A. Desktop MCP (Cursor) — already good
 

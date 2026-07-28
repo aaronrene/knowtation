@@ -29,8 +29,10 @@ vcs:
     staging_remote: staging
     main_branch: main
 docs:
-  handover: OVERSEER-HANDOVER.md
-  roadmap: ROADMAP.md
+  handover: KNOWTATION-OVERSEER-HANDOVER.md
+  roadmap: KNOWTATION-ROADMAP.md
+  handover_title: Knowtation Overseer Handover
+  roadmap_title: Knowtation Roadmap
   coordination: CROSS-REPO-COORDINATION.md
   standing_decisions: CROSS-REPO-COORDINATION.md
 kit:
@@ -48,3 +50,7 @@ kit:
     `ok status --check-footprint` reports footprint_integrity: mismatch by design;
     `footprint_self_integrity` remains `ok`. Do not "repair" by re-syncing those
     two files. Resolve properly by adding --preserve-shared-assets to the kit.
+
+workspace:
+  constellation_id: scooling-stack
+  product_order_root: ~/scooling

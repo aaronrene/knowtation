@@ -2,8 +2,8 @@ lock_version: 1
 kit_version: 0.1.0
 config_version: 1
 installed_at: '2026-07-26T12:46:56Z'
-synced_at: '2026-07-26T12:46:56Z'
-footprint_digest: sha256:fde976bfeb4aa3fc9ef0136b273cbf5413b8066fe3c1dca95af6f1c07b9f1803
+synced_at: '2026-07-27T17:53:45Z'
+footprint_digest: sha256:1d6980c8abfd587eb11e9e50839458a7b2052bff88b0c728d7735b22e815ad1f
 footprint:
 - path: .claude/skills/build-verification-review/SKILL.md
   source: cursor/skills/build-verification-review/SKILL.md
@@ -31,7 +31,11 @@ footprint:
   origin: kit
 - path: .claude/skills/governance-sync/SKILL.md
   source: cursor/skills/governance-sync/SKILL.md
-  sha256: a20c621cf22581747ace8b45d930b10d95efe1a44f46fd123df3f67adf088d2d
+  sha256: a59a2e3a305cb2e274b8ab4d72a5f63e7154317eb78d170821c668c4d9e238dc
+  origin: kit
+- path: .claude/skills/workspace-status/SKILL.md
+  source: cursor/skills/workspace-status/SKILL.md
+  sha256: 11a6b0586d84997a1394a8f168a4115dcde735c3ff72cd533086dfc484d0d779
   origin: kit
 - path: .cursor/rules/build-verification-required.mdc
   source: cursor/rules/build-verification-required.mdc
@@ -51,11 +55,19 @@ footprint:
   origin: kit
 - path: .cursor/rules/no-docs-only-pr-to-main.mdc
   source: cursor/rules/no-docs-only-pr-to-main.mdc
-  sha256: 8639bf84e3e5b3439d8b6aa92c78743a595e3d85f565c697c936c47296ef645e
+  sha256: 90b87da8ec1f6dfac079bab72ba5621161410f45999e0510d47bfe26ec0a09da
+  origin: kit
+- path: .cursor/rules/orchestrator.mdc
+  source: cursor/rules/orchestrator.mdc
+  sha256: f8acc83945e7a196d97b565c219a012fc06504b5255593411d4c14ed3c7c6e9e
   origin: kit
 - path: .cursor/rules/tier-authority.mdc
   source: cursor/rules/tier-authority.mdc
   sha256: 2877429b54c36593f1dcd835375e2c7c21d38673fca4430f9e63d3bebca3b08e
+  origin: kit
+- path: .cursor/rules/workspace-authority.mdc
+  source: cursor/rules/workspace-authority.mdc
+  sha256: 083f5163e957b1e00956c5370b06d078590627b4bd9b00a27c7378434b344ff5
   origin: kit
 - path: .cursor/skills/build-verification-review/SKILL.md
   source: cursor/skills/build-verification-review/SKILL.md
@@ -83,11 +95,15 @@ footprint:
   origin: kit
 - path: .cursor/skills/governance-sync/SKILL.md
   source: cursor/skills/governance-sync/SKILL.md
-  sha256: a20c621cf22581747ace8b45d930b10d95efe1a44f46fd123df3f67adf088d2d
+  sha256: a59a2e3a305cb2e274b8ab4d72a5f63e7154317eb78d170821c668c4d9e238dc
+  origin: kit
+- path: .cursor/skills/workspace-status/SKILL.md
+  source: cursor/skills/workspace-status/SKILL.md
+  sha256: 11a6b0586d84997a1394a8f168a4115dcde735c3ff72cd533086dfc484d0d779
   origin: kit
 - path: .overseer/STANDING-DECISIONS.reference.md
   source: templates/STANDING-DECISIONS.template.md
-  sha256: ff577e3a75667162fe6019f6f2f669044c2e7af4d641219e552f202b5c7d4988
+  sha256: e3ccbfdf9181cc8ecedc434a6dea2cff298245307e8625d10728a4cf0c8f5cba
   origin: kit
 - path: .overseer/policy/model-labels.yaml
   source: policy/model-labels.yaml
@@ -108,20 +124,20 @@ footprint:
 - path: MUSE-BRIDGE-WORKFLOW.md
   source: templates/MUSE-BRIDGE-WORKFLOW.template.md
   sha256: ae1b4f26038042dbfbc5c6051bb40af71d6f6c5347c0b0b9b0ea664788e62cff
-  origin: kit
+  origin: preserved
 - path: docs/CROSS-REPO-COORDINATION.md
   source: templates/CROSS-REPO-COORDINATION.template.md
   sha256: a35c822caa79e4237b5ef2f44ec4c40afbd09bc7c853be4dcdaadcdfec03cb72
   origin: preserved
-- path: docs/OVERSEER-HANDOVER.md
+- path: docs/KNOWTATION-OVERSEER-HANDOVER.md
   source: templates/OVERSEER-HANDOVER.template.md
-  sha256: ebc38da391b5414f33199ccacc0f2994f8663bea754453acb41dc82f7ab2ca9c
+  sha256: 3b53f53053c56cf25aeff93a1324129a8a0c513318ceeba41d7fee205ab7d108
   origin: preserved
-- path: docs/ROADMAP.md
+- path: docs/KNOWTATION-ROADMAP.md
   source: templates/ROADMAP.template.md
-  sha256: 79122692d35155014267a3e1dae85a63580fbd039a43020680ff78690afe9170
+  sha256: fe4b413a2a281ad9db16b0611ed9f8d7cc2eec6e36081399b8495951fff7a322
   origin: preserved
 - path: scripts/muse-bridge-deploy.sh
   source: templates/scripts/muse-bridge-deploy.sh.template
   sha256: 7b1cda63aff0903d914459c84326efe6bef614b774e1a13fe8b29d5d474a6c97
-  origin: kit
+  origin: preserved

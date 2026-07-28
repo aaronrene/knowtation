@@ -38,6 +38,63 @@ paths:
             application/json:
               schema: { type: object, properties: { ok: { type: boolean } }, required: [ok] }
 
+  /auth/agent/credentials:
+    post:
+      tags: [Auth]
+      summary: Phase C — mint scoped REST agent credential (secret once)
+      description: |
+        Requires a human session JWT. Returns opaque `kt_agent_<id>.<secret>` once.
+        Default scopes: propose + vault:read. No admin scopes.
+      responses:
+        '201':
+          description: Credential minted
+        '401':
+          description: Unauthorized
+        '409':
+          description: Credential limit
+    get:
+      tags: [Auth]
+      summary: Phase C — list agent credentials (metadata only)
+      responses:
+        '200':
+          description: Credential list without secrets
+  /auth/agent/credentials/{id}:
+    delete:
+      tags: [Auth]
+      summary: Phase C — revoke agent credential
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Revoked (idempotent)
+  /auth/agent/credentials/{id}/rotate:
+    post:
+      tags: [Auth]
+      summary: Phase C — rotate agent credential secret (shown once)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: New secret issued
+  /auth/agent/token:
+    post:
+      tags: [Auth]
+      summary: Phase C — exchange kt_agent_ credential for agent_access JWT
+      security: []
+      responses:
+        '200':
+          description: Access token issued
+        '401':
+          description: Invalid credential
+        '503':
+          description: Store unavailable
+
   /api/v1/auth/session:
     get:
       tags: [Auth]
