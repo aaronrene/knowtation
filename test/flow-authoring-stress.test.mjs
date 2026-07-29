@@ -83,9 +83,9 @@ describe('Flow authoring — stress', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('accepts a MAX_STEPS_PER_FLOW-step draft and reconciles it', () => {
+  it('accepts a MAX_STEPS_PER_FLOW-step draft and reconciles it', async () => {
     const bundle = bigFlow('flow_big', '1.0.0', MAX_STEPS_PER_FLOW);
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'big', createProposal,
     });
@@ -98,9 +98,9 @@ describe('Flow authoring — stress', () => {
     assert.equal(got.steps.length, MAX_STEPS_PER_FLOW);
   });
 
-  it('many concurrent edits on one flow_id: exactly one approves, the rest conflict', () => {
+  it('many concurrent edits on one flow_id: exactly one approves, the rest conflict', async () => {
     const seed = bigFlow('flow_race', '1.0.0', 3);
-    const seedProposed = handleFlowProposeRequest({
+    const seedProposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'new',
       flow: seed.flow, steps: seed.steps, intent: 'seed', createProposal,
     });
@@ -118,7 +118,7 @@ describe('Flow authoring — stress', () => {
       const edited = structuredClone(canonical);
       edited.flow.version = '1.0.1';
       edited.flow.summary = `racer ${i}`;
-      const r = handleFlowProposeRequest({
+      const r = await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'edit',
         flow: edited.flow, steps: edited.steps, intent: `race ${i}`, flowId: 'flow_race',
         baseVersion: '1.0.0', baseStateId, createProposal,

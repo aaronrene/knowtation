@@ -17,43 +17,49 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:5a4edd3a290f7f22cc66175dcc80aa4575d50323a79b0c253390359422758428 -->
-## NEXT SESSION — FLOW-WRITE-LIVE-SMOKE §FWL.9 (RELAY → scooling FLOW-WRITE-LIVE-SMOKE Operator)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:39a2ca654308b058c389087e1ca5e915a6bea777c1f98a832ff00cbe9d778fa5 -->
+## NEXT SESSION — FLOW-WRITE-LIVE-SMOKE retry (RELAY → scooling product_order Operator)
 
 **Date:** 2026-07-29  
-**Model:** **Operator** (product order — paste on **Scooling**, not here)
+**Model:** **Operator**
 
-**Branch (Knowtation):** Muse/`main` @ KN #278 land — admission ready. Prod
-`FLOW_AUTHORING_WRITES` still **unset** until SMOKE needs Hub side (Operator).
+**Why this is next:** FLOW-WRITE-LIVE-GATEWAY-PROXY **DONE** (BV `pass`, seven-tier
+**12/12**). Gateway now proxies Flow authoring POSTs to the bridge. Operator retries
+§FWL.9 signed-in draft→saved. Confirm prod bridge `FLOW_AUTHORING_WRITES` is on
+before expecting apply — **do not flip casually**. Capture/run/Delegation stay off.
 
-**Why this is a RELAY (not product PRIMARY):** Product sequencing is owned by Scooling.
-FLOW-WRITE-LIVE-HOSTED / form-guard / draft-500 are **DONE + landed** (SC #224–#226).
-Knowtation’s previous PRIMARY paste (HOSTED Thinking→Auto) was **stale** — do not re-run it.
-K13 workspace was dogfood-only and never on Muse/`main`; Scooling restored
-`.overseer/workspace.yaml` so `ok workspace check-next` can catch this class of drift.
-
-### THE ONE NEXT STEP — **Model: Operator** (RELAY → Scooling product_order)
-
-Open **`~/scooling/docs/OVERSEER-HANDOVER.md`** and paste **that** PRIMARY fence
-(§FWL.9 signed-in SMOKE). Do **not** start FLOW-WRITE-LIVE-HOSTED again.
+### THE ONE NEXT STEP — **FLOW-WRITE-LIVE-SMOKE** — **Model: Operator**
 
 ```text
-FLOW-WRITE-LIVE-SMOKE §FWL.9 — Operator
+FLOW-WRITE-LIVE-SMOKE — Operator retry after GATEWAY-PROXY land
 
-Model: Operator + Auto
-Repo: ~/scooling
-Step: FLOW-WRITE-LIVE-SMOKE
-Authority: relay
+Model: Operator
+Repos: ~/scooling (smoke) + ~/knowtation (confirm bridge env only)
+Step: §FWL.9 signed-in draft→hosted_flow_saved
+Authority: product_order from scooling
 
-Wait for Netlify production publish of SC #226 if needed, then:
-https://scooling.netlify.app/flows — sign in, personal scope, policy checked,
-intent+title → draft→hosted_flow_saved. Confirm KN proposal source:flow +
-scooling.flow: external_ref.
-Env already SET (SCOOLING_FLOW_AUTHORING_WRITE + SCOOLING_FLOW_HOSTED_LIVE).
-Do NOT flip capture/run/automatable/projection/Delegation.
-Do NOT add KNOWTATION_HUB_TOKEN / SCOOLING_FLOW_HUB_TOKEN.
-Hard stops: no feature→GitHub-main; no Delegation write env.
+1. Confirm Knowtation GATEWAY-PROXY landed (Muse main + muse-mirror → GitHub main).
+2. Confirm prod bridge FLOW_AUTHORING_WRITES (on for smoke; do not flip casually —
+   if unset, set only with explicit Operator authorization).
+3. Signed-in personal draft on /flows → expect hosted_flow_saved honesty
+   (not unknown_flow). Capture/run/Delegation write stay off.
+Hard stops: no Delegation write env; no feature→GitHub-main.
 ```
+
+### Prior session — FLOW-WRITE-LIVE-GATEWAY-PROXY DONE (2026-07-29)
+
+**Model:** Auto · Branch `feat/fwl9-smoke-fail-gateway-gap`
+
+Gateway proxies `POST /api/v1/flows`, `…/:id/proposals`, `…/import` → BRIDGE_URL;
+bridge `registerBridgeFlowRoutes` + `createFlowProposalOnCanister`; seven-tier
+**12/12**; BV round 1 = **`pass`**
+(`docs/reviews/2026-07-29-flow-write-live-gateway-proxy-bv-round1-pass.md`).
+No capture/run/Delegation flip; no `FLOW_AUTHORING_WRITES` flip this session.
+
+### Prior session — §FWL.9 SMOKE FAIL recorded on Scooling (2026-07-29)
+
+Operator smoke: prod `/flows` signed-in draft → `unknown_flow`. Gateway gap in
+`hub/gateway/server.mjs`. No Knowtation env flip that turn.
 
 ### Prior session — Knowtation PRODUCT RELAY refresh (2026-07-29)
 
@@ -407,6 +413,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-07-29 | **FLOW-WRITE-LIVE-GATEWAY-PROXY DONE — BV round 1 = `pass`.** Gateway proxies Flow authoring POSTs to bridge; bridge `registerBridgeFlowRoutes` + canister propose; seven-tier **12/12** (`test/gateway-flow-authoring-proxy.test.mjs`). No capture/run/Delegation or `FLOW_AUTHORING_WRITES` flip. NEXT = Operator §FWL.9 retry (confirm bridge env). |
 | 2026-07-27 | **Relay fix — NEXT → Scooling L-SEAMb Auto.** Scooling L-SEAMa freeze-review `pass` had already advanced `~/scooling/docs/OVERSEER-HANDOVER.md` to L-SEAMb Auto; this Knowtation relay still showed the old Thinking paste. Not a kit outage — the kit does not cross-update consumer handovers. Regenerated this NEXT to relay L-SEAMb. Archived SEC-KN-5/6 prompts below are history, not competing PRIMARYs. |
 | 2026-07-27 | **Governance sync — Overseer re-verified; NEXT → Scooling L-SEAM C1–C4.** `ok -C ~/knowtation status --json`: `initialized: true`, `kit_version: 0.1.0`, `footprint_self_integrity: ok`. Scooling `verify-overseer-live.sh` → `live: true`. Live HTTP `api.knowtation.store/health` → `{"ok":true}`; canister auth still SET (`403 GATEWAY_AUTH_REQUIRED`). Browser MCP confirmed `knowtation.store/` landing loads. PRIMARY product next is consumer C1–C4 on the Scooling board (freeze §6). |
 | 2026-07-27 | **SEC-SEAM-1 DONE — BV round 1 = `pass`.** S1–S10 on `feat/sec-seam-1-session-bound-writes`: five mint stamps (`type:'session'`), `resolveActorTokenClass` / `isSessionBoundActor`, seam classify via apply-path predicates (S3.0; seven conditions incl. flow/flow_capture), `personalSelfApplyRefusalReason` + S6.2 HTTP seam codes on both approve gates, S10 empty parser (`lib/hub-self-apply-ineligible.mjs`), CORS `X-User-Id` advertisement removed, PROPOSAL-LIFECYCLE S7/S8. Seven-tier **33/33** (`test/sec-seam-1-session-bound-identity.test.mjs`, sha256 `bd57bfe8868175096589c4dac823586ddd6ce683066ccef92fdef65cfaedd361`). T1–T5 unexecuted. No merge. NEXT = Scooling `L-SEAM` / `SEC-SEAM-MEDIA` Thinking / Operator Tier-3 merge (pick one). |

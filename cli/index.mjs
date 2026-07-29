@@ -1503,7 +1503,7 @@ async function main() {
 
       let result;
       if (flowAction === 'import') {
-        result = handleFlowProposeRequest({
+        result = await handleFlowProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
@@ -1517,7 +1517,7 @@ async function main() {
       } else {
         const baseVersion = getOpt('base-version') || (bundle && bundle.base_version) || undefined;
         const baseStateId = getOpt('base-state-id') || (bundle && bundle.base_state_id) || undefined;
-        result = handleFlowProposeRequest({
+        result = await handleFlowProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,

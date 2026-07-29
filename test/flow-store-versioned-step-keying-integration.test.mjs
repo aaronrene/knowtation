@@ -42,14 +42,14 @@ describe('Flow store — versioned step keying (integration)', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('propose-edit with reworded step preserves v1 step text when pinned', () => {
+  it('propose-edit with reworded step preserves v1 step text when pinned', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_10c_int', version: '1.0.0', steps: 2 });
     approve(
       dataDir,
-      handleFlowProposeRequest({
+      (await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'new',
         flow: bundle.flow, steps: bundle.steps, intent: 'add', createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     const store = loadFlowStore(dataDir);
@@ -61,12 +61,12 @@ describe('Flow store — versioned step keying (integration)', () => {
 
     approve(
       dataDir,
-      handleFlowProposeRequest({
+      (await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'edit',
         flow: edited.flow, steps: edited.steps, intent: 'reword',
         flowId: 'flow_10c_int', baseVersion: '1.0.0',
         baseStateId: flowStateId(canonical.flow, canonical.steps), createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     const v1 = getFlow(dataDir, vaultId, 'flow_10c_int', {

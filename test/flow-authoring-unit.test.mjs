@@ -47,7 +47,7 @@ describe('flowStateId — deterministic optimistic-concurrency token', () => {
   };
   const steps = [{ schema: 'knowtation.flow_step/v0', step_id: 'flow_x#1', flow_id: 'flow_x', ordinal: 1 }];
 
-  it('is stable across key order in both flow and steps', () => {
+  it('is stable across key order in both flow and steps', async () => {
     const a = flowStateId(flow, steps);
     const reordered = {
       truncated: false,
@@ -69,13 +69,13 @@ describe('flowStateId — deterministic optimistic-concurrency token', () => {
     assert.equal(a.length, FLOW_STATE_ID_PREFIX.length + 16);
   });
 
-  it('changes when content changes', () => {
+  it('changes when content changes', async () => {
     const a = flowStateId(flow, steps);
     const b = flowStateId({ ...flow, summary: 'different' }, steps);
     assert.notEqual(a, b);
   });
 
-  it('orders steps by ordinal regardless of input order', () => {
+  it('orders steps by ordinal regardless of input order', async () => {
     const s2 = [
       { step_id: 'flow_x#2', flow_id: 'flow_x', ordinal: 2 },
       { step_id: 'flow_x#1', flow_id: 'flow_x', ordinal: 1 },
@@ -84,14 +84,14 @@ describe('flowStateId — deterministic optimistic-concurrency token', () => {
     assert.equal(flowStateId(flow, s2), flowStateId(flow, s2rev));
   });
 
-  it('absent sentinel is stable and prefixed', () => {
+  it('absent sentinel is stable and prefixed', async () => {
     assert.equal(absentFlowStateId(), absentFlowStateId());
     assert.ok(absentFlowStateId().startsWith(FLOW_STATE_ID_PREFIX));
   });
 });
 
 describe('deriveAutoApprovable — server-derived, human_review ⇒ false', () => {
-  it('false when any step requires human_review', () => {
+  it('false when any step requires human_review', async () => {
     const steps = [
       { verification: { kind: 'artifact_exists' } },
       { verification: { kind: 'human_review' } },
@@ -99,7 +99,7 @@ describe('deriveAutoApprovable — server-derived, human_review ⇒ false', () =
     assert.equal(deriveAutoApprovable(steps), false);
   });
 
-  it('true only when no human_review step exists', () => {
+  it('true only when no human_review step exists', async () => {
     const steps = [
       { verification: { kind: 'artifact_exists' } },
       { verification: { kind: 'test_pass' } },
@@ -107,7 +107,7 @@ describe('deriveAutoApprovable — server-derived, human_review ⇒ false', () =
     assert.equal(deriveAutoApprovable(steps), true);
   });
 
-  it('false for empty step list', () => {
+  it('false for empty step list', async () => {
     assert.equal(deriveAutoApprovable([]), false);
   });
 });
@@ -126,12 +126,12 @@ describe('gating — FLOW_AUTHORING_WRITES default OFF (tri-state)', () => {
     delete process.env.FLOW_AUTHORING_FORBIDDEN;
   });
 
-  it('defaults to disabled with no env and no policy file', () => {
+  it('defaults to disabled with no env and no policy file', async () => {
     assert.equal(getFlowAuthoringWritesEnabled(dataDir), false);
     assert.equal(getFlowAuthoringForbidden(dataDir), false);
   });
 
-  it('env 1/true enables; 0/false disables; precedence over file', () => {
+  it('env 1/true enables; 0/false disables; precedence over file', async () => {
     fs.writeFileSync(
       path.join(dataDir, 'hub_flow_authoring_policy.json'),
       JSON.stringify({ flow_authoring_writes_enabled: true }),
@@ -144,8 +144,8 @@ describe('gating — FLOW_AUTHORING_WRITES default OFF (tri-state)', () => {
     assert.equal(getFlowAuthoringWritesEnabled(dataDir), true);
   });
 
-  it('disabled propose returns FLOW_AUTHORING_DISABLED', () => {
-    const result = handleFlowProposeRequest({
+  it('disabled propose returns FLOW_AUTHORING_DISABLED', async () => {
+    const result = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       visibleScopes: new Set(['personal']),
@@ -174,10 +174,10 @@ describe('handler validation + envelope (writes enabled)', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('rejects an anatomy-incomplete draft with FLOW_DRAFT_INVALID', () => {
+  it('rejects an anatomy-incomplete draft with FLOW_DRAFT_INVALID', async () => {
     const bundle = loadStarter('flow_capture_to_note.json');
     bundle.steps[0].trigger = '';
-    const result = handleFlowProposeRequest({
+    const result = await handleFlowProposeRequest({
       dataDir, vaultId: 'default', visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'x', createProposal,
     });
@@ -185,9 +185,9 @@ describe('handler validation + envelope (writes enabled)', () => {
     assert.equal(result.code, 'FLOW_DRAFT_INVALID');
   });
 
-  it('requires a non-empty intent', () => {
+  it('requires a non-empty intent', async () => {
     const bundle = loadStarter('flow_capture_to_note.json');
-    const result = handleFlowProposeRequest({
+    const result = await handleFlowProposeRequest({
       dataDir, vaultId: 'default', visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: '   ', createProposal,
     });
@@ -195,9 +195,9 @@ describe('handler validation + envelope (writes enabled)', () => {
     assert.equal(result.code, 'FLOW_DRAFT_INVALID');
   });
 
-  it('stamps knowtation.flow_proposal/v0 with pointers only (no body, no secret)', () => {
+  it('stamps knowtation.flow_proposal/v0 with pointers only (no body, no secret)', async () => {
     const bundle = loadStarter('flow_capture_to_note.json');
-    const result = handleFlowProposeRequest({
+    const result = await handleFlowProposeRequest({
       dataDir, vaultId: 'default', visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'add it', createProposal,
     });

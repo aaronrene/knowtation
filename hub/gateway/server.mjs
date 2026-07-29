@@ -1071,6 +1071,31 @@ if (BRIDGE_URL) {
     );
   });
 
+  // Flow authoring write-back (hosted parity — FLOW-WRITE-LIVE-GATEWAY-PROXY).
+  // Must register BEFORE the /api/v1 canister catch-all. Capture/run stay unproxied.
+  // Static /import before /:id/proposals so "import" is never treated as a flow id.
+  app.post('/api/v1/flows/import', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/import' + q, req, res);
+  });
+  app.post('/api/v1/flows', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows' + q, req, res);
+  });
+  app.post('/api/v1/flows/:id/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/proposals' +
+        q,
+      req,
+      res,
+    );
+  });
+
   // Agent delegation (hosted parity — 7C-L1): proxy to bridge when DELEGATION_ENABLED on bridge.
   app.post('/api/v1/agents/identities', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';

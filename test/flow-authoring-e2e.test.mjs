@@ -54,9 +54,9 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('propose-new → approve → flow get shows the new flow at its version', () => {
+  it('propose-new → approve → flow get shows the new flow at its version', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_e2e_new', version: '1.0.0', steps: 3 });
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'add new flow', createProposal,
     });
@@ -71,14 +71,14 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     assert.equal(got.steps.length, 3);
   });
 
-  it('propose-edit with correct base → approve → version bumped, old still pinnable', () => {
+  it('propose-edit with correct base → approve → version bumped, old still pinnable', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_e2e_edit', version: '1.0.0', steps: 2 });
     approveFlowProposal(
       dataDir,
-      handleFlowProposeRequest({
+      (await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'new',
         flow: bundle.flow, steps: bundle.steps, intent: 'add', createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     const store = loadFlowStore(dataDir);
@@ -90,7 +90,7 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     edited.flow.version = '1.1.0';
     edited.flow.summary = 'edited summary';
 
-    const editProposed = handleFlowProposeRequest({
+    const editProposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'edit',
       flow: edited.flow, steps: edited.steps, intent: 'edit it', flowId: 'flow_e2e_edit',
       baseVersion: '1.0.0', baseStateId, createProposal,
@@ -107,9 +107,9 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     assert.equal(old.flow.version, '1.0.0');
   });
 
-  it('discard leaves the index unchanged', () => {
+  it('discard leaves the index unchanged', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_e2e_discard', steps: 2 });
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'add', createProposal,
     });
@@ -118,9 +118,9 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     assert.equal(getFlow(dataDir, vaultId, 'flow_e2e_discard', { filterScopes: visible, starterDir }), null);
   });
 
-  it('import bundle routes through the same propose path with scooling.flow external_ref', () => {
+  it('import bundle routes through the same propose path with scooling.flow external_ref', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_e2e_import', steps: 2 });
-    const imported = handleFlowProposeRequest({
+    const imported = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'import',
       bundle: { flow: bundle.flow, steps: bundle.steps }, intent: 'import it',
       externalRef: 'scooling.flow:import-e2e-1', sourceVaultHint: 'partner-vault', createProposal,
@@ -134,9 +134,9 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     assert.ok(getFlow(dataDir, vaultId, 'flow_e2e_import', { filterScopes: visible, starterDir }));
   });
 
-  it('import with non-scooling.flow external_ref is refused (EXTERNAL_REF_INVALID)', () => {
+  it('import with non-scooling.flow external_ref is refused (EXTERNAL_REF_INVALID)', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_e2e_badref', steps: 2 });
-    const bad = handleFlowProposeRequest({
+    const bad = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'import',
       bundle: { flow: bundle.flow, steps: bundle.steps }, intent: 'import it',
       externalRef: 'muse:ref-123', createProposal,

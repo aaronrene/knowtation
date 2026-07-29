@@ -73,7 +73,7 @@ describe('Flow authoring — performance', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('flowStateId on a MAX_STEPS_PER_FLOW flow stays under a p95 budget', () => {
+  it('flowStateId on a MAX_STEPS_PER_FLOW flow stays under a p95 budget', async () => {
     const big = bigFlow('flow_perf', '1.0.0', MAX_STEPS_PER_FLOW);
     const def = flowDefinitionForClient(big.flow, big.steps);
     const samples = [];
@@ -85,12 +85,12 @@ describe('Flow authoring — performance', () => {
     assert.ok(p95(samples) < 25, `flowStateId p95 ${p95(samples).toFixed(2)}ms`);
   });
 
-  it('propose validation on the large fixture stays under a p95 budget', () => {
+  it('propose validation on the large fixture stays under a p95 budget', async () => {
     const samples = [];
     for (let i = 0; i < 50; i += 1) {
       const big = bigFlow(`flow_perf_${i}`, '1.0.0', MAX_STEPS_PER_FLOW);
       const t = process.hrtime.bigint();
-      const r = handleFlowProposeRequest({
+      const r = await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'new',
         flow: big.flow, steps: big.steps, intent: 'perf', createProposal,
       });
@@ -100,9 +100,9 @@ describe('Flow authoring — performance', () => {
     assert.ok(p95(samples) < 150, `propose p95 ${p95(samples).toFixed(2)}ms`);
   });
 
-  it('approve→apply reconcile is bounded for a large flow', () => {
+  it('approve→apply reconcile is bounded for a large flow', async () => {
     const big = bigFlow('flow_perf_apply', '1.0.0', MAX_STEPS_PER_FLOW);
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'new',
       flow: big.flow, steps: big.steps, intent: 'perf', createProposal,
     });

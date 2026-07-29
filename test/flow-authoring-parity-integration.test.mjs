@@ -53,20 +53,20 @@ describe('Flow authoring — triple-surface parity', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('Hub, CLI, and MCP produce a deep-equal envelope for the same authorized request', () => {
+  it('Hub, CLI, and MCP produce a deep-equal envelope for the same authorized request', async () => {
     const hubDir = freshDataDir('hub');
     const cliDir = freshDataDir('cli');
     const mcpDir = freshDataDir('mcp');
 
-    const hub = handleFlowProposeRequest({
+    const hub = await handleFlowProposeRequest({
       dataDir: hubDir, vaultId: 'default', userId: 'u-hub', role: 'admin',
       kind: 'new', flow: bundle.flow, steps: bundle.steps, intent: 'add it', createProposal,
     });
-    const cli = handleFlowProposeRequest({
+    const cli = await handleFlowProposeRequest({
       dataDir: cliDir, vaultId: 'default', cliScopes: ['personal', 'project', 'org'],
       kind: 'new', flow: bundle.flow, steps: bundle.steps, intent: 'add it', createProposal,
     });
-    const mcp = handleFlowProposeRequest({
+    const mcp = await handleFlowProposeRequest({
       dataDir: mcpDir, vaultId: 'default', cliScopes: ['personal', 'project', 'org'],
       kind: 'new', flow: bundle.flow, steps: bundle.steps, intent: 'add it', createProposal,
     });
@@ -78,9 +78,9 @@ describe('Flow authoring — triple-surface parity', () => {
     assert.deepEqual(stripVolatile(cli.payload), stripVolatile(mcp.payload));
   });
 
-  it('each surface creates exactly one /proposals record (source flow)', () => {
+  it('each surface creates exactly one /proposals record (source flow)', async () => {
     const dir = freshDataDir('one-record');
-    handleFlowProposeRequest({
+    await handleFlowProposeRequest({
       dataDir: dir, vaultId: 'default', role: 'admin', kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'add it', createProposal,
     });
@@ -91,7 +91,7 @@ describe('Flow authoring — triple-surface parity', () => {
     assert.equal(proposals[0].flow_meta.kind, 'new');
   });
 
-  it('FLOW_AUTHORING_WRITES=off ⇒ all three return FLOW_AUTHORING_DISABLED', () => {
+  it('FLOW_AUTHORING_WRITES=off ⇒ all three return FLOW_AUTHORING_DISABLED', async () => {
     delete process.env.FLOW_AUTHORING_WRITES;
     const dir = freshDataDir('off');
     for (const ctx of [
@@ -99,7 +99,7 @@ describe('Flow authoring — triple-surface parity', () => {
       { cliScopes: ['personal', 'project', 'org'] },
       { cliScopes: ['personal', 'project', 'org'] },
     ]) {
-      const r = handleFlowProposeRequest({
+      const r = await handleFlowProposeRequest({
         dataDir: dir, vaultId: 'default', ...ctx, kind: 'new',
         flow: bundle.flow, steps: bundle.steps, intent: 'add it', createProposal,
       });
@@ -111,7 +111,7 @@ describe('Flow authoring — triple-surface parity', () => {
 });
 
 describe('Flow authoring — Hub route wiring contract (source match)', () => {
-  it('registers the three POST routes gated by FLOW_AUTHORING_WRITE_ROLES', () => {
+  it('registers the three POST routes gated by FLOW_AUTHORING_WRITE_ROLES', async () => {
     const src = fs.readFileSync(path.join(getRepoRoot(), 'hub/server.mjs'), 'utf8');
     assert.match(src, /app\.post\('\/api\/v1\/flows', FLOW_AUTHORING_WRITE_ROLES/);
     assert.match(src, /app\.post\('\/api\/v1\/flows\/:id\/proposals', FLOW_AUTHORING_WRITE_ROLES/);
@@ -119,7 +119,7 @@ describe('Flow authoring — Hub route wiring contract (source match)', () => {
     assert.match(src, /handleFlowProposeRequest/);
   });
 
-  it('approve handler skips the note check for flow proposals and reconciles the index', () => {
+  it('approve handler skips the note check for flow proposals and reconciles the index', async () => {
     const src = fs.readFileSync(path.join(getRepoRoot(), 'hub/server.mjs'), 'utf8');
     assert.match(src, /proposal\.source !== FLOW_PROPOSAL_SOURCE/);
     assert.match(src, /precheckApprovedFlowProposal\(config\.data_dir, proposal\)/);

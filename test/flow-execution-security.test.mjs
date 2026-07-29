@@ -33,7 +33,7 @@ describe('Flow execution — security', () => {
     delete process.env.FLOW_AUTOMATABLE_EXECUTION_ENABLED;
   });
 
-  it('unknown_run for scope-invisible run (no existence leak)', () => {
+  it('unknown_run for scope-invisible run (no existence leak)', async () => {
     const dataDir = path.join(tmpRoot, 'scope');
     fs.mkdirSync(dataDir);
     writeExecutionPolicy(dataDir, { runWrites: true });
@@ -49,7 +49,7 @@ describe('Flow execution — security', () => {
     assert.equal(start.code, 'unknown_run');
   });
 
-  it('consent record contains no secrets', () => {
+  it('consent record contains no secrets', async () => {
     const client = consentForClient({
       schema: 'knowtation.flow_execution_consent/v0',
       consent_id: 'fcons_x',
@@ -70,13 +70,13 @@ describe('Flow execution — security', () => {
     assert.equal(json.includes('api_key'), false);
   });
 
-  it('import with forbidden automatable denied when policy forbids', () => {
+  it('import with forbidden automatable denied when policy forbids', async () => {
     const dataDir = path.join(tmpRoot, 'import');
     fs.mkdirSync(dataDir);
     writeExecutionPolicy(dataDir, { automatableForbidden: true });
     process.env.FLOW_AUTHORING_WRITES = '1';
     const bundle = seedAutomatableFlow(dataDir, 'default');
-    const result = handleFlowProposeRequest({
+    const result = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       cliScopes: ['personal', 'project', 'org'],
@@ -90,7 +90,7 @@ describe('Flow execution — security', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('gates off ⇒ execute unreachable', () => {
+  it('gates off ⇒ execute unreachable', async () => {
     const dataDir = path.join(tmpRoot, 'off');
     fs.mkdirSync(dataDir);
     const result = handleFlowRunExecuteAutomatableRequest({
