@@ -265,6 +265,10 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   border-radius: 0 2px 2px 0;
   background: var(--accent);
 }
+/* Mobile bottom nav — desktop hidden; shown in ≤768px media query */
+.hub-bottom-nav { display: none; }
+.hub-more-sheet,
+.hub-more-sheet.hidden { display: none; }
 .hub-rail-badge {
   display: inline-flex;
   align-items: center;
@@ -2788,30 +2792,116 @@ input[readonly]#full-project {
 @media (max-width: 768px) {
   .hub-header { padding: 0.75rem 1rem; gap: 0.5rem; }
   .hub-header h1 { font-size: 1.1rem; }
-  .hub-shell { flex-direction: column; min-height: 0; }
-  .hub-rail {
-    flex: 0 0 auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 0.5rem 0.75rem;
-  }
-  .hub-rail-primary,
-  .hub-rail-secondary {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .hub-rail-item { width: auto; min-height: 44px; }
-  .hub-rail-item.active::before {
-    top: auto;
+  .hub-shell { flex-direction: column; min-height: 0; padding-bottom: 4.25rem; }
+  .hub-rail { display: none; }
+  .hub-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
+    z-index: 40;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 0.15rem;
+    min-height: 3.5rem;
+    padding: 0.35rem 0.4rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 -4px 18px color-mix(in srgb, var(--text) 8%, transparent);
+  }
+  .hub-bottom-nav-item {
+    position: relative;
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 44px;
+    padding: 0.4rem 0.35rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .hub-bottom-nav-item:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .hub-bottom-nav-item.active {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .hub-bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
     left: 0.55rem;
     right: 0.55rem;
-    width: auto;
     height: 3px;
-    border-radius: 2px 2px 0 0;
+    border-radius: 0 0 2px 2px;
+    background: var(--accent);
+  }
+  .hub-bottom-review-badge {
+    position: static;
+    margin-left: 0.15rem;
+  }
+  .hub-more-sheet:not(.hidden) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+  .hub-more-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--text) 35%, transparent);
+  }
+  .hub-more-sheet-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: min(70vh, 28rem);
+    padding: 0.75rem 0.85rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border-radius: 14px 14px 0 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 28px color-mix(in srgb, var(--text) 12%, transparent);
+  }
+  .hub-more-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .hub-more-sheet-title {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .hub-more-sheet-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .hub-more-sheet-action {
+    display: block;
+    width: 100%;
+    text-align: left;
+    min-height: 44px;
+    padding: 0.7rem 0.85rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .hub-more-sheet-action:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
   .hub-needs-you-banner { margin: 0.5rem 1rem 0; }
   .hub-workspace-toolbar { padding: 0.5rem 1rem; }

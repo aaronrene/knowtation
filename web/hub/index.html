@@ -110,6 +110,28 @@
           <button type="button" id="hub-rail-help" class="hub-rail-item hub-rail-action" data-hub-rail-action="help" title="How to use">Help</button>
         </div>
       </nav>
+      <nav id="hub-bottom-nav" class="hub-bottom-nav" aria-label="Hub mobile navigation">
+        <button type="button" id="hub-bottom-vault" class="hub-bottom-nav-item tab active" data-tab="notes" title="Vault">Vault</button>
+        <button type="button" id="hub-bottom-review" class="hub-bottom-nav-item tab" data-tab="suggested" title="Review proposals">Review<span id="hub-bottom-review-badge" class="hub-rail-badge hub-bottom-review-badge hidden" aria-live="polite"></span></button>
+        <button type="button" id="hub-bottom-history" class="hub-bottom-nav-item" data-hub-mode="history" aria-controls="history-segments" title="Activity and discarded proposals">History</button>
+        <button type="button" id="hub-bottom-more" class="hub-bottom-nav-item" aria-haspopup="dialog" aria-expanded="false" aria-controls="hub-more-sheet" title="More">More</button>
+      </nav>
+      <div id="hub-more-sheet" class="hub-more-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="hub-more-sheet-title">
+        <div class="hub-more-sheet-backdrop" data-hub-more-close tabindex="-1"></div>
+        <div class="hub-more-sheet-panel">
+          <div class="hub-more-sheet-header">
+            <h2 id="hub-more-sheet-title" class="hub-more-sheet-title">More</h2>
+            <button type="button" class="modal-close" data-hub-more-close aria-label="Close">×</button>
+          </div>
+          <div class="hub-more-sheet-actions" role="menu">
+            <button type="button" class="hub-more-sheet-action" role="menuitem" data-hub-more-action="insights">Insights</button>
+            <button type="button" class="hub-more-sheet-action" role="menuitem" data-hub-more-action="import">Import</button>
+            <button type="button" class="hub-more-sheet-action" role="menuitem" data-hub-more-action="connect">Connect</button>
+            <button type="button" class="hub-more-sheet-action" role="menuitem" data-hub-more-action="settings">Settings</button>
+            <button type="button" class="hub-more-sheet-action" role="menuitem" data-hub-more-action="help">Help</button>
+          </div>
+        </div>
+      </div>
       <div class="hub-workspace">
       <div id="hub-needs-you-banner" class="hub-needs-you-banner hidden" role="status" aria-live="polite">
         <p id="hub-needs-you-text" class="hub-needs-you-text"></p>
@@ -1880,7 +1902,7 @@ Your note body here.</pre>
             <h3 class="how-to-two-paths-title">Hosted Hub — start here</h3>
             <p class="how-to-note small" style="margin-top:0;">If <strong>Settings → Backup → Mode</strong> shows <strong>Hosted (beta)</strong>, you do <em>not</em> install a server or pick a folder on your laptop. Your vault lives in the cloud; we handle search indexing.</p>
             <ol class="how-to-steps-list" style="margin: 0.5rem 0 0;">
-              <li><strong>Notes</strong> — Import or write notes; use the header <strong>Vault</strong> menu if you have more than one notebook.</li>
+              <li><strong>Vault</strong> — Import or write notes; use the header <strong>Vault</strong> menu if you have more than one notebook. On small screens, primary nav is the bottom bar: <strong>Vault</strong> · <strong>Review</strong> · <strong>History</strong> · <strong>More</strong>.</li>
               <li><strong>Optional backup</strong> — Create an <em>empty</em> GitHub repo, connect your account under Backup, enter <code>owner/repo</code>, then <strong>Back up now</strong>.</li>
               <li><strong>Connect an AI assistant</strong> — <strong>Settings → Integrations → Hub API</strong> has copy buttons. Read <strong>Knowledge &amp; agents</strong> for a plain-English explanation of the two copy types.</li>
               <li><strong>Edits from tools</strong> — Appear under <strong>Review</strong> until you approve (nothing applies to your vault until you approve).</li>
@@ -2161,9 +2183,9 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Review</strong> queue actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
             <ul>
               <li><strong>Create a proposal:</strong> In the Hub: <strong>Review → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
-              <li><strong>Review queue:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
-              <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
-              <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
+              <li><strong>Review queue:</strong> Lists proposals waiting for your decision under <strong>Review</strong>. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
+              <li><strong>History → Discarded:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
+              <li><strong>History → Activity:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
             </ul>
             <p class="how-to-note">Nothing is written to the vault until you <strong>Approve</strong> (or an admin does). Human-created proposals use the same queue as CLI and agent proposals.</p>
             <h4 class="how-to-sub">Reviewing proposals (evaluation, triggers, roles)</h4>
@@ -2178,7 +2200,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <ul>
               <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then <strong>Apply filters</strong>. <strong>Quick</strong> chips (e.g. <code>project:launch</code>) load a <em>filtered list</em> from the server — not the same as green <strong>Search</strong> (semantic / meaning). Quick chips clear the semantic search field so the two modes don’t fight. Save a view with Save view as and click a preset pill later.</li>
               <li><strong>Semantic search:</strong> Type a phrase, then green <strong>Search</strong> or <kbd>Enter</kbd>. It searches the <strong>indexed</strong> <strong>current vault</strong> by <em>meaning</em> (embeddings), not keyword match — you can get results that don’t contain your word. The project/tag/folder/date <strong>dropdowns</strong> narrow semantic search when set. <strong>Clear</strong> empties the box and returns to the list. Requires indexing (Step 4) on self-hosted.</li>
-              <li><strong>List / Calendar / Overview:</strong> List = filtered rows; Calendar = month grid (click a day for that day's notes); Overview = dashboard and charts.</li>
+              <li><strong>Vault browse + Insights:</strong> Under <strong>Vault</strong>, <strong>List</strong> = filtered rows and <strong>Calendar</strong> = month grid (click a day for that day's notes). Charts and consolidation live under <strong>Insights</strong> (left rail, or <strong>More</strong> on mobile) — not a separate “Overview” tab.</li>
               <li><strong>+ New note:</strong> Quick capture (inbox) or full form (path, title, body, project, tags). Use "Copy path" in the detail panel to copy the note path for CLI/API use.</li>
               <li><strong>Re-index:</strong> After importing notes or changing many files, click Re-index so semantic search reflects the latest vault (same as Step 4 / <code>npm run index</code>).</li>
               <li><strong>Keyboard shortcuts:</strong> <kbd>/</kbd> focus search; <kbd>Enter</kbd> runs semantic search when the search field has text (otherwise <kbd>Enter</kbd> opens the selected note in the list); <kbd>j</kbd> / <kbd>k</kbd> move in the notes list; <kbd>Esc</kbd> close panel or modal.</li>

@@ -215,7 +215,7 @@ export function getStepContent(isHosted, index) {
         title: 'Proposals and the Review queue',
         bodyHtml:
           '<p><strong>Agents suggest; humans approve.</strong> Proposed edits stay out of the canonical vault until someone approves them — same speed as direct writes, with a paper trail and roles.</p>' +
-          '<p>In the Hub, open <strong>Review</strong> in the left rail to triage proposals. <strong>History</strong> holds <strong>Activity</strong> (timeline) and <strong>Discarded</strong> (rejected items). You can also start a proposal from a note (<strong>Propose change</strong>) or <strong>New proposal</strong>.</p>' +
+          '<p>In the Hub, open <strong>Review</strong> in the left rail (or the mobile bottom nav) to triage proposals. <strong>History</strong> holds <strong>Activity</strong> (timeline) and <strong>Discarded</strong> (rejected items). You can also start a proposal from a note (<strong>Propose change</strong>) or <strong>New proposal</strong>.</p>' +
           '<p class="onboarding-tip">Contract and API details: <a href="' +
           AGENT_INTEGRATION_ANCHOR_PROPOSALS +
           '" target="_blank" rel="noopener">Agent integration — §4 Proposals</a>.</p>',

@@ -1,7 +1,7 @@
 /**
- * Hub signed-in shell IA helpers (HUB-DASH-IA-b + HUB-DASH-IA-c).
+ * Hub signed-in shell IA helpers (HUB-DASH-IA-b + c + d).
  * Pure functions for Review labels, History segments, Needs-you, badge count,
- * Review inbox polish, Vault search disclosure, and Insights chrome.
+ * Review inbox polish, Vault search disclosure, Insights chrome, and mobile nav.
  */
 
 export const HUB_HISTORY_SEGMENT_KEY = 'hub_history_segment';
@@ -128,6 +128,23 @@ export function shouldPulseReviewBadge(prevCount, nextCount) {
  */
 export function hubPrimaryRailOrder() {
   return ['Vault', 'Review', 'History'];
+}
+
+/**
+ * Mobile bottom nav primary slots (expert item 20).
+ * @returns {string[]}
+ */
+export function hubMobileBottomNavOrder() {
+  return ['Vault', 'Review', 'History', 'More'];
+}
+
+/**
+ * Mobile More sheet actions (expert item 20). Insights is relocated from the
+ * secondary rail so the entry point survives when the left rail is hidden.
+ * @returns {string[]}
+ */
+export function hubMobileMoreActions() {
+  return ['Insights', 'Import', 'Connect', 'Settings', 'Help'];
 }
 
 /**

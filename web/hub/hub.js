@@ -219,6 +219,8 @@
     const historyMode = name === 'activity' || name === 'problem';
     const histBtn = el('hub-rail-history');
     if (histBtn) histBtn.classList.toggle('active', historyMode);
+    const bottomHist = el('hub-bottom-history');
+    if (bottomHist) bottomHist.classList.toggle('active', historyMode);
     const segments = el('history-segments');
     if (segments) segments.classList.toggle('hidden', !historyMode);
     document.querySelectorAll('.history-segment').forEach((btn) => {
@@ -237,6 +239,52 @@
     }
   }
 
+  function setHubMoreSheetOpen(open) {
+    const sheet = el('hub-more-sheet');
+    const moreBtn = el('hub-bottom-more');
+    if (!sheet) return;
+    const show = Boolean(open);
+    sheet.classList.toggle('hidden', !show);
+    if (moreBtn) {
+      moreBtn.classList.toggle('active', show);
+      moreBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
+    }
+  }
+
+  function closeHubMoreSheet() {
+    setHubMoreSheetOpen(false);
+  }
+
+  function openHubMoreSheet() {
+    setHubMoreSheetOpen(true);
+  }
+
+  function runHubSecondaryAction(action) {
+    const key = String(action || '');
+    if (key === 'insights') {
+      switchHubMainTab('notes');
+      switchNotesView('graph');
+      return;
+    }
+    if (key === 'import') {
+      if (typeof openImportModal === 'function') openImportModal();
+      else if (btnImport) btnImport.click();
+      return;
+    }
+    if (key === 'connect') {
+      openSettingsIntegrationsTab();
+      return;
+    }
+    if (key === 'settings') {
+      openSettings();
+      return;
+    }
+    if (key === 'help') {
+      if (typeof openHowToUse === 'function') openHowToUse();
+      else if (btnHowToUse) btnHowToUse.click();
+    }
+  }
+
   function applyReviewBadgeCount(rawCount) {
     const SI = hubShellIa();
     const next = SI && typeof SI.clampProposedBadgeCount === 'function'
@@ -252,7 +300,7 @@
       SI && typeof SI.shouldPulseReviewBadge === 'function'
         ? SI.shouldPulseReviewBadge(hubReviewBadgePrevCount, next)
         : next > hubReviewBadgePrevCount;
-    ['hub-review-badge', 'hub-header-review-badge'].forEach((id) => {
+    ['hub-review-badge', 'hub-header-review-badge', 'hub-bottom-review-badge'].forEach((id) => {
       const badge = el(id);
       if (!badge) return;
       if (!text) {
@@ -3112,10 +3160,11 @@
   }
 
   function switchHubMainTab(name) {
-    document.querySelectorAll('[data-tab].tab').forEach((t) => t.classList.remove('active'));
+    closeHubMoreSheet();
+    document.querySelectorAll('[data-tab].tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    const tab = document.querySelector('[data-tab="' + name + '"]');
-    if (tab) tab.classList.add('active');
     syncHubListSortUI(name);
     refreshNewProposalTabVisibility();
     const panel = el(
@@ -3634,10 +3683,10 @@
       showToast(useKeyword ? 'Keyword results are shown under Vault.' : 'Semantic results are shown under Vault.');
     }
     switchNotesView('list');
-    document.querySelectorAll('[data-tab].tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('[data-tab].tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === 'notes');
+    });
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    const notesTabBtn = document.querySelector('[data-tab="notes"]');
-    if (notesTabBtn) notesTabBtn.classList.add('active');
     const tabNotes = el('tab-notes');
     if (tabNotes) tabNotes.classList.remove('hidden');
     setProposalFiltersBarVisible(false);
@@ -10528,34 +10577,58 @@
   if (hubRailHistory) {
     hubRailHistory.addEventListener('click', () => openHistoryMode());
   }
+  const hubBottomHistory = el('hub-bottom-history');
+  if (hubBottomHistory) {
+    hubBottomHistory.addEventListener('click', () => {
+      closeHubMoreSheet();
+      openHistoryMode();
+    });
+  }
+  const hubBottomMore = el('hub-bottom-more');
+  if (hubBottomMore) {
+    hubBottomMore.addEventListener('click', () => {
+      const sheet = el('hub-more-sheet');
+      const open = sheet && !sheet.classList.contains('hidden');
+      setHubMoreSheetOpen(!open);
+    });
+  }
+  document.querySelectorAll('[data-hub-more-close]').forEach((node) => {
+    node.addEventListener('click', () => closeHubMoreSheet());
+  });
+  document.querySelectorAll('[data-hub-more-action]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-hub-more-action');
+      closeHubMoreSheet();
+      runHubSecondaryAction(action);
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const sheet = el('hub-more-sheet');
+    if (sheet && !sheet.classList.contains('hidden')) {
+      closeHubMoreSheet();
+      e.preventDefault();
+    }
+  });
   const hubRailInsights = el('hub-rail-insights');
   if (hubRailInsights) {
-    hubRailInsights.addEventListener('click', () => {
-      switchHubMainTab('notes');
-      switchNotesView('graph');
-    });
+    hubRailInsights.addEventListener('click', () => runHubSecondaryAction('insights'));
   }
   const hubRailImport = el('hub-rail-import');
   if (hubRailImport) {
-    hubRailImport.addEventListener('click', () => {
-      if (typeof openImportModal === 'function') openImportModal();
-      else if (btnImport) btnImport.click();
-    });
+    hubRailImport.addEventListener('click', () => runHubSecondaryAction('import'));
   }
   const hubRailConnect = el('hub-rail-connect');
   if (hubRailConnect) {
-    hubRailConnect.addEventListener('click', () => openSettingsIntegrationsTab());
+    hubRailConnect.addEventListener('click', () => runHubSecondaryAction('connect'));
   }
   const hubRailSettings = el('hub-rail-settings');
   if (hubRailSettings) {
-    hubRailSettings.addEventListener('click', () => openSettings());
+    hubRailSettings.addEventListener('click', () => runHubSecondaryAction('settings'));
   }
   const hubRailHelp = el('hub-rail-help');
   if (hubRailHelp) {
-    hubRailHelp.addEventListener('click', () => {
-      if (typeof openHowToUse === 'function') openHowToUse();
-      else if (btnHowToUse) btnHowToUse.click();
-    });
+    hubRailHelp.addEventListener('click', () => runHubSecondaryAction('help'));
   }
   const needsYouOpen = el('hub-needs-you-open');
   if (needsYouOpen) {

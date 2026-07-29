@@ -78,7 +78,11 @@ describe('HUB-DASH-IA-c integration (source wiring)', () => {
   it('syncModeToolbars hides search on Review and wires Insights → graph + consolidation', () => {
     assert.match(hubJs, /function\s+syncModeToolbars\s*\(/);
     assert.match(hubJs, /hubChromeVisibility\s*\(/);
-    assert.match(hubJs, /hub-rail-insights[\s\S]{0,300}switchNotesView\(\s*['"]graph['"]\s*\)/);
+    assert.match(hubJs, /function\s+runHubSecondaryAction\s*\(/);
+    assert.match(
+      hubJs,
+      /key\s*===\s*['"]insights['"][\s\S]{0,200}switchNotesView\(\s*['"]graph['"]\s*\)/,
+    );
     assert.match(hubJs, /view\s*===\s*['"]graph['"][\s\S]{0,120}refreshConsolidationCard/);
     assert.match(hubHtml, /id="consolidation-card"/);
     assert.match(hubHtml, /id="notes-view-graph"/);

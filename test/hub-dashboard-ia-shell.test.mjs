@@ -89,9 +89,10 @@ describe('HUB-DASH-IA-b integration (source wiring)', () => {
 
   it('Connect rail calls openSettingsIntegrationsTab()', () => {
     assert.match(hubHtml, /id="hub-rail-connect"/);
+    assert.match(hubJs, /function\s+runHubSecondaryAction\s*\(/);
     assert.match(
       hubJs,
-      /hub-rail-connect[\s\S]{0,400}openSettingsIntegrationsTab\s*\(/,
+      /key\s*===\s*['"]connect['"][\s\S]{0,200}openSettingsIntegrationsTab\s*\(/,
     );
   });
 });
@@ -190,7 +191,11 @@ describe('HUB-DASH-IA-b performance (Vault browse disclosure)', () => {
     assert.ok(visibleViews.includes('calendar'));
     assert.ok(!visibleViews.includes('graph'), 'graph must not be a visible browse segment');
     assert.match(hubHtml, /id="hub-rail-insights"/);
-    assert.match(hubJs, /hub-rail-insights[\s\S]{0,300}switchNotesView\(\s*['"]graph['"]\s*\)/);
+    assert.match(hubJs, /function\s+runHubSecondaryAction\s*\(/);
+    assert.match(
+      hubJs,
+      /key\s*===\s*['"]insights['"][\s\S]{0,200}switchNotesView\(\s*['"]graph['"]\s*\)/,
+    );
   });
 });
 
