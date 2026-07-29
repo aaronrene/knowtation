@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260729a">
+  <link rel="stylesheet" href="hub.css?v=20260729c">
 </head>
 <body>
   <div id="app">
@@ -118,7 +118,7 @@
           <button type="button" id="hub-needs-you-dismiss" class="btn-link btn-link-small">Dismiss</button>
         </div>
       </div>
-      <section class="search-section">
+      <section class="search-section" id="hub-search-section">
         <div id="hub-index-stale-banner" class="hub-index-stale-banner hidden" role="status" aria-live="polite">
           <span class="hub-index-stale-banner-text">Notes changed since the last <strong>Re-index</strong>. <strong>Meaning</strong> search may be out of date until you run it again.</span>
           <div class="hub-index-stale-banner-actions">
@@ -126,49 +126,54 @@
             <button type="button" id="hub-index-stale-dismiss" class="btn-link btn-link-small">Dismiss</button>
           </div>
         </div>
-        <div class="search-row search-row-filters" role="group" aria-label="Search query and filters">
+        <div class="search-row search-row-primary" role="group" aria-label="Vault search">
           <input type="text" id="search-query" placeholder="Search…" autocomplete="off" aria-label="Search query">
           <select id="search-mode" class="search-mode-select" title="Meaning = similar ideas (indexed). Keyword = text in path, body, and key frontmatter fields." aria-label="Search mode">
             <option value="semantic">Meaning</option>
             <option value="keyword">Keyword</option>
           </select>
-          <div class="filter-project-wrap">
-            <select id="filter-project">
-              <option value="">All projects</option>
-            </select>
-            <button type="button" id="btn-projects-help" class="btn-inline-field-help hidden" title="How projects work on hosted" aria-label="How projects work on hosted">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </button>
-          </div>
-          <select id="filter-tag">
-            <option value="">All tags</option>
-          </select>
-          <select id="filter-folder">
-            <option value="">All folders</option>
-          </select>
-          <select id="filter-content-scope" title="Applies to the Notes list and to Search. Search results always open under Notes—not Activity." aria-label="Content type: all notes, exclude approval logs, or approval logs only">
-            <option value="">All content</option>
-            <option value="notes">Notes only</option>
-            <option value="approval_logs">Approval logs only</option>
-          </select>
-          <select id="filter-network" class="filter-blockchain hidden" title="Filter by blockchain network (e.g. icp, ethereum). Only shown when vault has notes with network frontmatter." aria-label="Filter by blockchain network">
-            <option value="">All networks</option>
-          </select>
-          <select id="filter-wallet" class="filter-blockchain hidden" title="Filter by wallet address. Only shown when vault has notes with wallet_address frontmatter." aria-label="Filter by wallet address">
-            <option value="">All wallets</option>
-          </select>
-        </div>
-        <div class="search-row search-row-dates-actions" role="group" aria-label="Date range and search actions">
-          <label for="filter-since" class="filter-date-label">Since</label>
-          <input type="date" id="filter-since" aria-label="Filter notes from this date">
-          <label for="filter-until" class="filter-date-label">Until</label>
-          <input type="date" id="filter-until" aria-label="Filter notes until this date">
           <button id="btn-search" type="button" class="btn-primary" title="Run search (mode from dropdown: Meaning or Keyword). Results appear under the Notes tab. Respects filters. Enter also runs search." aria-label="Search vault">Search</button>
           <button id="btn-clear-search" type="button" class="btn-secondary" title="Clear search, list filters (project/tag/folder/etc.), and content scope — show the full note list" aria-label="Clear search and list filters">Clear</button>
-          <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
-          <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
           <span id="hub-index-status" class="hub-index-status" aria-live="polite" aria-atomic="true"></span>
         </div>
+        <details id="hub-search-advanced" class="hub-search-advanced">
+          <summary class="hub-search-advanced-summary">Advanced filters</summary>
+          <div class="search-row search-row-filters" role="group" aria-label="Search filters">
+            <div class="filter-project-wrap">
+              <select id="filter-project">
+                <option value="">All projects</option>
+              </select>
+              <button type="button" id="btn-projects-help" class="btn-inline-field-help hidden" title="How projects work on hosted" aria-label="How projects work on hosted">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </button>
+            </div>
+            <select id="filter-tag">
+              <option value="">All tags</option>
+            </select>
+            <select id="filter-folder">
+              <option value="">All folders</option>
+            </select>
+            <select id="filter-content-scope" title="Applies to the Notes list and to Search. Search results always open under Notes—not Activity." aria-label="Content type: all notes, exclude approval logs, or approval logs only">
+              <option value="">All content</option>
+              <option value="notes">Notes only</option>
+              <option value="approval_logs">Approval logs only</option>
+            </select>
+            <select id="filter-network" class="filter-blockchain hidden" title="Filter by blockchain network (e.g. icp, ethereum). Only shown when vault has notes with network frontmatter." aria-label="Filter by blockchain network">
+              <option value="">All networks</option>
+            </select>
+            <select id="filter-wallet" class="filter-blockchain hidden" title="Filter by wallet address. Only shown when vault has notes with wallet_address frontmatter." aria-label="Filter by wallet address">
+              <option value="">All wallets</option>
+            </select>
+          </div>
+          <div class="search-row search-row-dates-actions" role="group" aria-label="Date range and filter actions">
+            <label for="filter-since" class="filter-date-label">Since</label>
+            <input type="date" id="filter-since" aria-label="Filter notes from this date">
+            <label for="filter-until" class="filter-date-label">Until</label>
+            <input type="date" id="filter-until" aria-label="Filter notes until this date">
+            <button id="btn-apply-filters" type="button" class="btn-secondary">Apply filters</button>
+            <button id="btn-reindex" type="button" class="btn-secondary" title="Re-run indexer so search reflects new or changed notes">Re-index</button>
+          </div>
+        </details>
       </section>
 
       <section class="browse-toolbar hidden" id="browse-toolbar">
@@ -267,6 +272,10 @@
         </div>
       </section>
       <div id="proposal-filters-bar" class="proposal-filters-bar hidden" role="region" aria-label="Proposal filters">
+        <div class="proposal-filters-toolbar">
+          <button type="button" id="proposal-pending-eval-chip" class="proposal-pending-eval-chip hidden" aria-pressed="false" title="Show only proposals pending evaluation">Pending evaluation</button>
+          <span id="review-list-position" class="review-list-position muted small hidden" aria-live="polite"></span>
+        </div>
         <div class="proposal-list-filters" id="proposal-list-filters">
           <label class="proposal-filter-label">Label <input type="text" id="proposal-filter-label" placeholder="e.g. review" autocomplete="off" /></label>
           <label class="proposal-filter-label">Source <input type="text" id="proposal-filter-source" placeholder="e.g. agent" autocomplete="off" /></label>
@@ -351,7 +360,10 @@
 
       <aside id="detail-panel" class="detail-panel hidden" aria-labelledby="detail-title">
         <div class="detail-header">
-          <h2 id="detail-title"></h2>
+          <div class="detail-header-main">
+            <h2 id="detail-title"></h2>
+            <p id="detail-split-position" class="detail-split-position muted small hidden" aria-live="polite"></p>
+          </div>
           <div class="detail-header-actions">
             <button
               type="button"
@@ -365,6 +377,7 @@
             <button type="button" id="detail-close">Close</button>
           </div>
         </div>
+        <div id="detail-actions" class="detail-actions"></div>
         <div class="detail-body-wrap">
           <button
             type="button"
@@ -376,7 +389,6 @@
           </button>
           <div id="detail-body"></div>
         </div>
-        <div id="detail-actions" class="detail-actions"></div>
         <div class="detail-footer">
           <div class="detail-footer-row">
             <button type="button" class="btn-secondary detail-close-bottom" data-hub-detail-close aria-label="Close panel">Close</button>
@@ -2608,6 +2620,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     globalThis.HubShellIa = HubShellIa;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260729a"></script>
+  <script defer src="hub.js?v=20260729c"></script>
 </body>
 </html>

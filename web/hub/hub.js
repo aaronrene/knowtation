@@ -84,6 +84,10 @@
   /** @type {number} last unfiltered proposed count for badge pulse */
   let hubReviewBadgePrevCount = 0;
   let hubNeedsYouDismissed = false;
+  /** Keyboard selection index for Review / History proposal lists */
+  let proposalListSelectedIndex = 0;
+  /** @type {string[]} proposal ids in the active Review/History list for N-of-M */
+  let proposalListIds = [];
   try {
     hubNeedsYouDismissed = sessionStorage.getItem('hub_needs_you_dismissed') === '1';
   } catch (_) {
@@ -97,6 +101,117 @@
   function getActiveHubMainTab() {
     const t = document.querySelector('[data-tab].tab.active');
     return (t && t.dataset.tab) || 'notes';
+  }
+
+  function getActiveNotesView() {
+    const graph = el('notes-view-graph');
+    if (graph && !graph.classList.contains('hidden')) return 'graph';
+    const cal = el('notes-view-calendar');
+    if (cal && !cal.classList.contains('hidden')) return 'calendar';
+    return 'list';
+  }
+
+  function syncVaultAdvancedFiltersOpen() {
+    const details = el('hub-search-advanced');
+    if (!details) return;
+    const SI = hubShellIa();
+    const active = typeof hasActiveNoteListFilters === 'function' ? hasActiveNoteListFilters() : false;
+    const expand =
+      SI && typeof SI.shouldExpandVaultAdvancedFilters === 'function'
+        ? SI.shouldExpandVaultAdvancedFilters(active, details.open)
+        : active || details.open;
+    if (expand) details.open = true;
+  }
+
+  function syncPendingEvalQuickChip() {
+    const chip = el('proposal-pending-eval-chip');
+    if (!chip) return;
+    const SI = hubShellIa();
+    const show =
+      SI && typeof SI.shouldShowPendingEvalQuickChip === 'function'
+        ? SI.shouldShowPendingEvalQuickChip(window.__hubProposalEvaluationRequired)
+        : Boolean(window.__hubProposalEvaluationRequired);
+    const onSuggested = getActiveHubMainTab() === 'suggested';
+    chip.classList.toggle('hidden', !(show && onSuggested));
+    const pe = el('proposal-filter-pending-eval');
+    const pressed = Boolean(pe && pe.checked);
+    chip.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  }
+
+  function syncModeToolbars(activeTab) {
+    const name = activeTab || getActiveHubMainTab();
+    const view = getActiveNotesView();
+    const SI = hubShellIa();
+    const chrome =
+      SI && typeof SI.hubChromeVisibility === 'function'
+        ? SI.hubChromeVisibility(name, view)
+        : {
+            noteSearch: name === 'notes' && view !== 'graph',
+            browseToolbar: name === 'notes' && view !== 'graph',
+            proposalFilters: name === 'suggested' || name === 'activity' || name === 'problem',
+            insights: name === 'notes' && view === 'graph',
+          };
+    const searchSec = el('hub-search-section') || document.querySelector('.search-section');
+    if (searchSec) searchSec.classList.toggle('hidden', !chrome.noteSearch);
+    if (browseToolbar) browseToolbar.classList.toggle('hidden', !chrome.browseToolbar);
+    setProposalFiltersBarVisible(chrome.proposalFilters);
+    if (chrome.noteSearch) syncVaultAdvancedFiltersOpen();
+    syncPendingEvalQuickChip();
+  }
+
+  function setReviewSplitPosition(index1Based, total) {
+    const posEl = el('detail-split-position');
+    const listPos = el('review-list-position');
+    const SI = hubShellIa();
+    const text =
+      SI && typeof SI.formatReviewSplitPosition === 'function'
+        ? SI.formatReviewSplitPosition(index1Based, total)
+        : index1Based > 0 && total > 0
+          ? index1Based + ' of ' + total
+          : '';
+    [posEl, listPos].forEach((node) => {
+      if (!node) return;
+      if (!text) {
+        node.textContent = '';
+        node.classList.add('hidden');
+      } else {
+        node.textContent = text;
+        node.classList.remove('hidden');
+      }
+    });
+  }
+
+  function clearReviewSplitPosition() {
+    setReviewSplitPosition(0, 0);
+  }
+
+  function updateProposalListSelection(container) {
+    if (!container) return;
+    const items = container.querySelectorAll('.list-item[data-id]');
+    if (items.length === 0) {
+      proposalListSelectedIndex = 0;
+      return;
+    }
+    const SI = hubShellIa();
+    proposalListSelectedIndex =
+      SI && typeof SI.clampListKeyboardIndex === 'function'
+        ? SI.clampListKeyboardIndex(proposalListSelectedIndex, items.length)
+        : Math.max(0, Math.min(proposalListSelectedIndex, items.length - 1));
+    items.forEach((item, i) => {
+      item.classList.toggle('selected', i === proposalListSelectedIndex);
+      if (i === proposalListSelectedIndex) item.setAttribute('tabindex', '0');
+      else item.removeAttribute('tabindex');
+    });
+    const sel = items[proposalListSelectedIndex];
+    if (sel) sel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function getActiveProposalListContainer() {
+    const tab = getActiveHubMainTab();
+    if (tab === 'suggested') return el('proposals-suggested');
+    if (tab === 'problem') return el('proposals-problem');
+    if (tab === 'activity') return el('proposals-activity');
+    return null;
   }
 
   function syncHubRailChrome(activeTab) {
@@ -257,6 +372,7 @@
       dp.classList.add('hidden');
       dp.classList.remove('detail-panel-proposal-wide');
     }
+    clearReviewSplitPosition();
   }
 
   /** User dismisses the drawer (Escape, Close): clear open-note state. */
@@ -1002,6 +1118,7 @@
     window.__hubProposalReviewHints = Boolean(s.proposal_review_hints_enabled);
     window.__hubEvaluatorMayApprove = Boolean(s.hub_evaluator_may_approve);
     window.__hubProposalRubricItems = Array.isArray(s.proposal_rubric?.items) ? s.proposal_rubric.items : [];
+    syncPendingEvalQuickChip();
     const metaSelf = el('settings-bulk-metadata-self-only');
     if (metaSelf) metaSelf.classList.remove('hidden');
     applyMuseBridgePanel(s);
@@ -1351,7 +1468,7 @@
     main.classList.remove('hidden');
     btnHowToUse.classList.remove('hidden');
     if (btnSettings) btnSettings.classList.remove('hidden');
-    browseToolbar.classList.remove('hidden');
+    syncModeToolbars(getActiveHubMainTab());
     if (token) {
       btnLoginGoogle.classList.add('hidden');
       btnLoginGithub.classList.add('hidden');
@@ -1551,7 +1668,7 @@
         applySettingsPayloadToHubChrome(settingsPayload);
       } catch (_) {}
       syncHubListSortUI('notes');
-      setProposalFiltersBarVisible(false);
+      syncModeToolbars('notes');
       refreshNewProposalTabVisibility();
       loadFacets();
       loadNotes();
@@ -3000,9 +3117,6 @@
     const tab = document.querySelector('[data-tab="' + name + '"]');
     if (tab) tab.classList.add('active');
     syncHubListSortUI(name);
-    setProposalFiltersBarVisible(
-      name === 'activity' || name === 'suggested' || name === 'problem',
-    );
     refreshNewProposalTabVisibility();
     const panel = el(
       'tab-' +
@@ -3021,11 +3135,13 @@
         switchNotesView('list');
       } else {
         syncHubRailChrome(name);
+        syncModeToolbars(name);
       }
       loadNotes();
       updateNeedsYouBanner(hubReviewBadgePrevCount);
     } else {
       syncHubRailChrome(name);
+      syncModeToolbars(name);
       if (name === 'activity') loadActivity();
       if (name === 'suggested' || name === 'problem') loadProposals();
       updateEmptyVaultStripVisibility();
@@ -3047,6 +3163,7 @@
     switchNotesView('list');
     loadNotes();
     renderFilterChips(null);
+    syncVaultAdvancedFiltersOpen();
   };
 
   if (filterContentScope) {
@@ -3088,6 +3205,8 @@
       switchNotesView('list');
       switchHubMainTab('notes');
       renderFilterChips(null);
+      const adv = el('hub-search-advanced');
+      if (adv && !hasActiveNoteListFilters()) adv.open = false;
     };
   }
 
@@ -3109,6 +3228,7 @@
     proposalFilterApply.onclick = () => {
       loadProposals();
       loadActivity();
+      syncPendingEvalQuickChip();
     };
   }
   const proposalFilterClear = el('proposal-filter-clear');
@@ -3126,6 +3246,18 @@
       if (pe) pe.checked = false;
       if (rq) rq.value = '';
       if (rs) rs.value = '';
+      loadProposals();
+      loadActivity();
+      syncPendingEvalQuickChip();
+    };
+  }
+  const pendingEvalChip = el('proposal-pending-eval-chip');
+  if (pendingEvalChip) {
+    pendingEvalChip.onclick = () => {
+      const pe = el('proposal-filter-pending-eval');
+      if (!pe) return;
+      pe.checked = !pe.checked;
+      syncPendingEvalQuickChip();
       loadProposals();
       loadActivity();
     };
@@ -3307,11 +3439,30 @@
 
   async function loadProposals() {
     void refreshReviewBadge();
+    syncPendingEvalQuickChip();
+    const SI = hubShellIa();
+    const primaryCta =
+      SI && typeof SI.emptyReviewPrimaryCtaLabel === 'function'
+        ? SI.emptyReviewPrimaryCtaLabel()
+        : 'New proposal';
+    const secondaryCta =
+      SI && typeof SI.emptyReviewSecondaryCtaLabel === 'function'
+        ? SI.emptyReviewSecondaryCtaLabel()
+        : 'How Review works';
+    const canCreate = hubUserCanWriteNotes();
     const emptySuggested =
       '<div class="empty-state empty-state-suggested">' +
       '<p><strong>No proposals waiting for review.</strong> Agents and the CLI queue edits here; nothing applies to your live vault until you approve.</p>' +
-      '<p>Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</p>' +
-      '<p class="empty-state-suggested-actions"><button type="button" class="btn-secondary" id="empty-suggested-how-to">How proposals work</button></p>' +
+      '<p class="empty-state-suggested-actions">' +
+      (canCreate
+        ? '<button type="button" class="btn-primary" id="empty-suggested-new">' +
+          escapeHtml(primaryCta) +
+          '</button>'
+        : '') +
+      '<button type="button" class="btn-secondary" id="empty-suggested-how-to">' +
+      escapeHtml(secondaryCta) +
+      '</button>' +
+      '</p>' +
       '</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
@@ -3329,50 +3480,74 @@
           if (list.length === 0) {
             container.innerHTML = emptyHtml;
             if (kind === 'suggested') {
+              proposalListIds = [];
+              clearReviewSplitPosition();
               const how = container.querySelector('#empty-suggested-how-to');
               if (how) how.onclick = () => openHowToUse('knowledge-agents');
+              const neu = container.querySelector('#empty-suggested-new');
+              if (neu) neu.onclick = () => openCreateProposalModal({});
+              const peChip = el('proposal-pending-eval-chip');
+              if (peChip && !peChip.classList.contains('hidden')) {
+                // chip remains available above empty state when policy requires eval
+              }
             }
             return;
           }
           const canDiscard = kind === 'suggested' && hubUserCanWriteNotes();
+          if (kind === 'suggested') {
+            proposalListIds = list.map((p) => String(p.proposal_id));
+            proposalListSelectedIndex = 0;
+          }
           container.innerHTML = list
             .map((p) => {
-              const labelChips = (Array.isArray(p.labels) ? p.labels : [])
-                .slice(0, 4)
-                .map((x) => '<span class="proposal-chip">' + escapeHtml(String(x)) + '</span>')
-                .join('');
               const srcChip = p.source
                 ? '<span class="proposal-chip">' + escapeHtml(String(p.source)) + '</span>'
                 : '';
-              const qChip = p.review_queue
-                ? '<span class="proposal-chip">queue:' + escapeHtml(String(p.review_queue)) + '</span>'
+              const pendingChip =
+                SI && typeof SI.reviewRowNeedsPendingEvalChip === 'function'
+                  ? SI.reviewRowNeedsPendingEvalChip(p.evaluation_status)
+                  : String(p.evaluation_status || '').toLowerCase() === 'pending';
+              const pendingHtml = pendingChip
+                ? '<span class="proposal-chip proposal-chip-pending-eval">Pending eval</span>'
                 : '';
-              const sevChip =
-                p.review_severity === 'elevated'
-                  ? '<span class="proposal-chip">elevated</span>'
-                  : p.review_severity === 'standard'
-                    ? '<span class="proposal-chip">standard</span>'
-                    : '';
-              const extraChips = [labelChips, srcChip, qChip, sevChip].filter(Boolean).join('');
+              const rel =
+                SI && typeof SI.formatRelativeTime === 'function'
+                  ? SI.formatRelativeTime(p.updated_at || p.created_at)
+                  : '';
+              const timeHtml = rel
+                ? '<span class="row-time">' + escapeHtml(rel) + '</span>'
+                : p.updated_at
+                  ? '<span class="row-time">' +
+                    escapeHtml(calendarDisplayDayKey(p.updated_at) || p.updated_at.slice(0, 10)) +
+                    '</span>'
+                  : '';
               const discardBtn = canDiscard
                 ? '<button class="list-item-delete" title="Discard proposal" aria-label="Discard proposal">✕</button>'
                 : '';
               return (
-                '<div class="list-item" data-id="' +
+                '<div class="list-item review-row" data-id="' +
                 escapeHtml(p.proposal_id) +
                 '"><span class="row-title">' +
                 escapeHtml(p.path) +
-                '</span><div class="status">' +
-                escapeHtml(p.status) +
-                (p.updated_at ? ' · ' + (calendarDisplayDayKey(p.updated_at) || p.updated_at.slice(0, 10)) : '') +
-                (p.evaluation_status ? ' · eval:' + escapeHtml(String(p.evaluation_status)) : '') +
-                (extraChips ? ' · ' + extraChips : '') +
-                '</div>' + discardBtn + '</div>'
+                '</span><div class="row-meta">' +
+                srcChip +
+                pendingHtml +
+                timeHtml +
+                '</div>' +
+                discardBtn +
+                '</div>'
               );
             })
             .join('');
-          container.querySelectorAll('.list-item').forEach((item) => {
-            item.onclick = () => openProposal(item.dataset.id);
+          container.querySelectorAll('.list-item').forEach((item, idx) => {
+            item.onclick = () => {
+              proposalListSelectedIndex = idx;
+              updateProposalListSelection(container);
+              if (kind === 'suggested') {
+                setReviewSplitPosition(idx + 1, list.length);
+              }
+              openProposal(item.dataset.id);
+            };
             const db = item.querySelector('.list-item-delete');
             if (db) {
               db.onclick = (e) => {
@@ -3381,6 +3556,7 @@
               };
             }
           });
+          if (kind === 'suggested') updateProposalListSelection(container);
         })
         .catch(() => (container.innerHTML = '<p class="muted">Failed to load</p>'));
     });
@@ -3467,6 +3643,7 @@
     setProposalFiltersBarVisible(false);
     refreshNewProposalTabVisibility();
     syncHubRailChrome('notes');
+    syncModeToolbars('notes');
     syncHubListSortUI('notes');
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
@@ -3556,6 +3733,7 @@
     if (view === 'calendar') renderCalendar();
     if (view === 'graph') { renderDashboard(); refreshConsolidationCard(); }
     syncHubRailChrome(getActiveHubMainTab());
+    syncModeToolbars(getActiveHubMainTab());
   }
 
   document.querySelectorAll('.view-tab').forEach((t) => {
@@ -4032,7 +4210,7 @@
           if (suggestedTab) suggestedTab.classList.add('active');
           if (suggestedPanel) suggestedPanel.classList.remove('hidden');
           syncHubListSortUI('suggested');
-          setProposalFiltersBarVisible(true);
+          syncModeToolbars('suggested');
           refreshNewProposalTabVisibility();
           loadProposals();
         } catch (e) {
@@ -9560,6 +9738,7 @@
     resetDetailSectionSourceState();
     teardownDetailEditBodyLayout();
     closeCreateModal();
+    clearReviewSplitPosition();
     currentNotePathForCopy = path;
     currentOpenNote = null;
     const panel = el('detail-panel');
@@ -9961,6 +10140,10 @@
         const openVaultNoteLine = note
           ? '<p class="small proposal-open-note-wrap"><button type="button" class="btn-link btn-link-small" id="proposal-open-note-btn">Open vault note to edit</button> <span class="muted">— tags, episode, entity, causal chain (frontmatter); use Activity again to return to this proposal.</span></p>'
           : '<p class="small muted">No note file at this path yet — approving creates or overwrites the file from the proposal body; then you can edit frontmatter.</p>';
+        const primaryEvalBlock =
+          evalHtml || waiverHtml
+            ? '<div class="proposal-primary-eval">' + evalHtml + waiverHtml + '</div>'
+            : '';
         body.innerHTML =
           (chips.length ? '<div class="proposal-meta-chips">' + chips.join('') + '</div>' : '') +
           autoFlagHtml +
@@ -9973,6 +10156,7 @@
           (p.review_severity ? ' · severity: ' + escapeHtml(String(p.review_severity)) : '') +
           '</p>' +
           openVaultNoteLine +
+          primaryEvalBlock +
           '<div class="proposal-diff-grid">' +
           '<div><h4>Current vault</h4><pre class="proposal-pre">' +
           escapeHtml(currentBlock) +
@@ -9986,12 +10170,21 @@
           mdHtml +
           '</div>' +
           evalRecordHtml +
-          evalHtml +
-          waiverHtml +
           assistantHtml +
           suggestedFmHtml +
           hintsHtml;
         actions.innerHTML = '';
+        {
+          const idx = proposalListIds.indexOf(String(id));
+          if (idx >= 0 && proposalListIds.length > 0) {
+            proposalListSelectedIndex = idx;
+            setReviewSplitPosition(idx + 1, proposalListIds.length);
+            const c = getActiveProposalListContainer();
+            if (c) updateProposalListSelection(c);
+          } else {
+            clearReviewSplitPosition();
+          }
+        }
         const openNoteBtn = body.querySelector('#proposal-open-note-btn');
         if (openNoteBtn && note && p.path) {
           openNoteBtn.onclick = () => openNote(String(p.path));
@@ -10260,14 +10453,16 @@
       return;
     }
     if (inInput && e.key !== 'Escape') return;
-    if (e.key === '/') {
+    const searchSec = el('hub-search-section') || document.querySelector('.search-section');
+    const noteSearchVisible = searchSec && !searchSec.classList.contains('hidden');
+    if (e.key === '/' && noteSearchVisible) {
       searchQuery.focus();
       e.preventDefault();
       return;
     }
     // Enter: if the search box has text but focus is elsewhere (e.g. after clicking the list),
     // run semantic search instead of opening the selected row (avoids "second search does nothing").
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && noteSearchVisible) {
       const q = (searchQuery.value || '').trim();
       if (q) {
         e.preventDefault();
@@ -10279,11 +10474,11 @@
     const listViewVisible = !el('notes-view-list').classList.contains('hidden');
     const items = notesList.querySelectorAll('.list-item');
     if (notesTabActive && listViewVisible && items.length > 0) {
-      if (e.key === 'j' || e.key === 'J') {
+      if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
         listSelectedIndex = Math.min(listSelectedIndex + 1, items.length - 1);
         updateListSelection();
         e.preventDefault();
-      } else if (e.key === 'k' || e.key === 'K') {
+      } else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowUp') {
         listSelectedIndex = Math.max(listSelectedIndex - 1, 0);
         updateListSelection();
         e.preventDefault();
@@ -10292,6 +10487,27 @@
         if (node.dataset.path) openNote(node.dataset.path);
         else if (node.dataset.id) openProposal(node.dataset.id);
         e.preventDefault();
+      }
+      return;
+    }
+    const propContainer = getActiveProposalListContainer();
+    if (propContainer) {
+      const propItems = propContainer.querySelectorAll('.list-item[data-id]');
+      if (propItems.length > 0) {
+        if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
+          proposalListSelectedIndex = Math.min(proposalListSelectedIndex + 1, propItems.length - 1);
+          updateProposalListSelection(propContainer);
+          e.preventDefault();
+        } else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowUp') {
+          proposalListSelectedIndex = Math.max(proposalListSelectedIndex - 1, 0);
+          updateProposalListSelection(propContainer);
+          e.preventDefault();
+        } else if (e.key === 'Enter' && propItems[proposalListSelectedIndex]) {
+          const node = propItems[proposalListSelectedIndex];
+          setReviewSplitPosition(proposalListSelectedIndex + 1, propItems.length);
+          openProposal(node.dataset.id);
+          e.preventDefault();
+        }
       }
     }
   });
