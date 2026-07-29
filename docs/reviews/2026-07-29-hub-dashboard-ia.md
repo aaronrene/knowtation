@@ -1,8 +1,10 @@
 # Side check — Hub dashboard IA (signed-in UX)
 
 **Date:** 2026-07-29  
-**Kind:** ad-hoc Check OK (not a roadmap lane)  
+**Kind:** Hub UI lane freeze (Check OK honesty path)  
 **Branch:** `feat/hub-dashboard-ia`  
+**Lane docs (use these, not product Overseer):**  
+[`docs/HUB-UI-ROADMAP.md`](../HUB-UI-ROADMAP.md) · [`docs/HUB-UI-HANDOVER.md`](../HUB-UI-HANDOVER.md)  
 **Honesty:** same Freeze-Contract + build-verification path as roadmap phases  
 **Model for freeze review:** Thinking / thinking-high  
 **Model for build:** Auto (only after freeze `pass`)
@@ -130,7 +132,7 @@ These are **in scope as recommended defaults** for Auto unless the operator stri
 
 ## Ground-truth edge
 
-Downstream Auto may treat this document as ground truth for Hub shell IA without re-deriving operator decisions. Promote to a ROADMAP lane only if the work becomes a durable multi-phase program.
+Downstream Auto may treat this document as ground truth for Hub shell IA without re-deriving operator decisions. Session control for this work is **`HUB-UI-ROADMAP.md` + `HUB-UI-HANDOVER.md`**, not the product `OVERSEER-HANDOVER.md` / Scooling baton.
 
 ## Test matrix (seven tiers)
 

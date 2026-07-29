@@ -22,14 +22,11 @@ roadmap, no freeze review, and no build-verification gate.
 **Date:** 2026-07-29
 **Model:** **Auto** (Scooling board owns the build; this board is the Knowtation relay)
 
-**Branch (Knowtation product):** `feat/flow-write-live-kn-b` — KN-b **DONE** (BV round 1 =
+**Branch (Knowtation):** `feat/flow-write-live-kn-b` — KN-b **DONE** (BV round 1 =
 `pass`); Muse/`main` land still Tier 3.
 
-**Side branch (Hub UX — not product NEXT):** `feat/hub-dashboard-ia` — signed-in Hub IA
-freeze at `docs/reviews/2026-07-29-hub-dashboard-ia.md` (`frozen: true`, review pending).
-Operator ratified: name **Review**, Discarded under **History**, **Needs you** banner,
-clean branch from `main`. Next on that track: **Model: Thinking** `/freeze-review-loop`
-→ `pass`, then Auto shell build. Do not merge without Tier 3.
+> Hub dashboard UI redesign is **not** this baton. Use
+> [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md).
 
 **Why this is next (product order — Scooling board wins):** FLOW-WRITE-LIVE-KN-b admitted
 §FWL.4 Flow fingerprints. SC-b must emit `scooling.flow:` + propose→approve honesty while
