@@ -975,12 +975,16 @@
     select.value = getCurrentVaultId();
     if (!allowed.includes(select.value)) select.value = allowed[0] || 'default';
     setCurrentVaultId(select.value);
-    wrap.classList.toggle('hidden', options.length <= 1);
+    // Always surface the current vault once settings load (even with a single
+    // vault) so the control is discoverable under the left-rail Vault area.
+    wrap.classList.toggle('hidden', options.length < 1);
     if (allowed.length >= 2 && options.length === 1) {
       select.title =
         'This Hub has more vaults. To use them, copy your User ID from Settings → Backup into Vault access on Settings → Vaults, then save and refresh.';
+    } else if (options.length === 1) {
+      select.title = 'Current vault. Add more under Settings → Vaults when your role allows.';
     } else {
-      select.title = '';
+      select.title = 'Switch the active vault for notes, search, and proposals.';
     }
     select.onchange = () => {
       setCurrentVaultId(select.value);
@@ -1491,23 +1495,16 @@
     if (btnNext) setTimeout(() => btnNext.focus(), 50);
   }
 
-  async function scheduleMaybeShowOnboardingWizard(s) {
-    if (!token) return;
-    if (params.get('open') === 'billing') return;
-    try {
-      const mod = await loadOnboardingModule();
-      const userKey = getOnboardingUserKey();
-      const isHosted = wizardHostedFromContext(s);
-      const hostingPath = isHosted ? 'hosted' : 'selfhosted';
-      let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
-      if (st && st.userKey !== userKey) st = null;
-      if (st && st.hostingPath !== hostingPath) st = null;
-      if (!mod.shouldAutoOpenWizard(st, userKey, hostingPath)) return;
-      const delayMs = pageLoadHadInviteQuery ? 2200 : 0;
-      setTimeout(() => {
-        void openOnboardingWizard({ restart: false });
-      }, delayMs);
-    } catch (_) {}
+  async function scheduleMaybeShowOnboardingWizard(_s) {
+    // Auto-popup removed: open only from How to use → Open setup walkthrough / Setup guide.
+    return;
+  }
+
+  function syncHubHeaderOffset() {
+    const header = document.querySelector('.hub-header');
+    if (!header) return;
+    const h = Math.max(48, Math.round(header.getBoundingClientRect().height));
+    document.documentElement.style.setProperty('--hub-header-offset', h + 'px');
   }
 
   function showMain() {
@@ -1516,6 +1513,7 @@
     main.classList.remove('hidden');
     btnHowToUse.classList.remove('hidden');
     if (btnSettings) btnSettings.classList.remove('hidden');
+    syncHubHeaderOffset();
     syncModeToolbars(getActiveHubMainTab());
     if (token) {
       btnLoginGoogle.classList.add('hidden');
@@ -2805,17 +2803,22 @@
 
     const label = document.createElement('span');
     label.className = 'toolbar-label';
-    label.textContent = 'Quick';
+    label.textContent = 'Quick tags';
+    label.title = 'Quick tags: project, tag, folder, and network filter chips (not the key glossary)';
 
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'filter-chips-toggle';
     toggle.setAttribute('aria-expanded', filterChipsExpanded ? 'true' : 'false');
     toggle.setAttribute('aria-controls', 'filter-chips-panel');
-    toggle.title = filterChipsExpanded ? 'Hide quick filter chips' : 'Show quick filter chips';
+    toggle.title = filterChipsExpanded
+      ? 'Hide Quick tags filter chips'
+      : 'Show Quick tags filter chips';
     toggle.setAttribute(
       'aria-label',
-      filterChipsExpanded ? 'Collapse quick filter chips' : 'Expand quick filter chips',
+      filterChipsExpanded
+        ? 'Collapse Quick tags filter chips'
+        : 'Expand Quick tags filter chips',
     );
     toggle.innerHTML =
       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -2826,10 +2829,14 @@
       } catch (_) {}
       filterChipsEl.classList.toggle('is-expanded', filterChipsExpanded);
       toggle.setAttribute('aria-expanded', filterChipsExpanded ? 'true' : 'false');
-      toggle.title = filterChipsExpanded ? 'Hide quick filter chips' : 'Show quick filter chips';
+      toggle.title = filterChipsExpanded
+        ? 'Hide Quick tags filter chips'
+        : 'Show Quick tags filter chips';
       toggle.setAttribute(
         'aria-label',
-        filterChipsExpanded ? 'Collapse quick filter chips' : 'Expand quick filter chips',
+        filterChipsExpanded
+          ? 'Collapse Quick tags filter chips'
+          : 'Expand Quick tags filter chips',
       );
     };
 
@@ -2841,7 +2848,7 @@
     panel.id = 'filter-chips-panel';
     panel.className = 'filter-chips-panel';
     panel.setAttribute('role', 'region');
-    panel.setAttribute('aria-label', 'Quick filter chips');
+    panel.setAttribute('aria-label', 'Quick tags filter chips');
     filterChipsEl.appendChild(panel);
 
     const allBtn = document.createElement('button');
@@ -7016,7 +7023,7 @@
           const fresh = await api('/api/v1/settings');
           const allowed = fresh.allowed_vault_ids || [];
           if (Array.isArray(allowed) && allowed.includes(id)) {
-            setCreateVaultMsg('That vault id already exists. Use the Vault dropdown in the header to switch to it.', true);
+            setCreateVaultMsg('That vault id already exists. Use the Vault dropdown in the left rail to switch to it.', true);
             return;
           }
           const path = 'inbox/.knowtation-vault-bootstrap-' + id + '-' + Date.now() + '.md';
@@ -7046,7 +7053,7 @@
           loadProposals();
           await loadVaultsPanel();
           if (inp) inp.value = '';
-          setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the header to switch.', false);
+          setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the left rail to switch.', false);
         } catch (e) {
           setCreateVaultMsg(e.message || 'Could not create vault', true);
         }
@@ -9792,6 +9799,8 @@
     currentOpenNote = null;
     const panel = el('detail-panel');
     panel.classList.remove('detail-panel-proposal-wide');
+    // Reset any prior resize so notes open at the CSS half-page default.
+    panel.style.width = '';
     const title = el('detail-title');
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
@@ -10411,6 +10420,18 @@
     const panel = el('detail-panel');
     const footBtn = panel && panel.querySelector('button[data-hub-detail-close]');
     if (footBtn) footBtn.addEventListener('click', () => closeDetailPanel());
+  })();
+
+  (function initHubHeaderOffsetSync() {
+    syncHubHeaderOffset();
+    window.addEventListener('resize', () => syncHubHeaderOffset());
+    if (typeof ResizeObserver !== 'undefined') {
+      const header = document.querySelector('.hub-header');
+      if (header) {
+        const ro = new ResizeObserver(() => syncHubHeaderOffset());
+        ro.observe(header);
+      }
+    }
   })();
 
   // Resizable detail panel — drag the left edge to widen/narrow.

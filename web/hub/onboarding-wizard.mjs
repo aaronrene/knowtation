@@ -108,13 +108,9 @@ export function getStepCount(isHosted) {
  * @param {HostingPath} currentHostingPath
  * @returns {boolean}
  */
-export function shouldAutoOpenWizard(state, currentUserKey, currentHostingPath) {
-  if (!currentUserKey) return false;
-  if (!state) return true;
-  if (state.userKey !== currentUserKey) return true;
-  if (state.hostingPath !== currentHostingPath) return true;
-  if (state.status === 'dismissed' || state.status === 'completed') return false;
-  return state.status === 'in_progress';
+export function shouldAutoOpenWizard(_state, _currentUserKey, _currentHostingPath) {
+  // Never auto-popup. Wizard is opened only from How to use / Setup guide.
+  return false;
 }
 
 /**

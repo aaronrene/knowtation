@@ -6,17 +6,13 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260729c">
+  <link rel="stylesheet" href="hub.css?v=20260729g">
 </head>
 <body>
   <div id="app">
     <header class="hub-header">
-      <h1>Knowtation Hub</h1>
+      <h1 class="hub-brand"><span class="hub-brand-name">Knowtation</span> <span class="hub-brand-hub">HUB</span></h1>
       <div class="hub-auth" id="hub-auth-buttons">
-        <label for="vault-switcher" class="vault-switcher-label hidden" id="vault-switcher-wrap">
-          <span class="vault-switcher-text">Vault</span>
-          <select id="vault-switcher" class="vault-switcher-select" aria-label="Current vault"></select>
-        </label>
         <button type="button" id="btn-how-to-use" class="hidden btn-secondary">How to use</button>
         <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
         <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
@@ -97,10 +93,16 @@
     <main id="main" class="hidden">
       <div class="hub-shell">
       <nav id="hub-rail" class="hub-rail" aria-label="Hub navigation">
-        <div class="hub-rail-primary" role="presentation">
-          <button type="button" data-tab="notes" class="hub-rail-item tab active" title="Vault markdown + approval log files; Search shows results here">Vault</button>
-          <button type="button" data-tab="suggested" class="hub-rail-item tab" title="Proposals waiting for review">Review<span id="hub-review-badge" class="hub-rail-badge hidden" aria-live="polite"></span></button>
-          <button type="button" id="hub-rail-history" class="hub-rail-item" data-hub-mode="history" aria-controls="history-segments" title="Activity and discarded proposals">History</button>
+        <div class="hub-rail-top" role="presentation">
+          <label for="vault-switcher" class="vault-switcher-label hub-rail-vault-switcher hidden" id="vault-switcher-wrap">
+            <span class="vault-switcher-text">Active vault</span>
+            <select id="vault-switcher" class="vault-switcher-select" aria-label="Current vault"></select>
+          </label>
+          <div class="hub-rail-primary" role="presentation">
+            <button type="button" data-tab="notes" class="hub-rail-item tab active" title="Vault markdown + approval log files; Search shows results here">Vault</button>
+            <button type="button" data-tab="suggested" class="hub-rail-item tab" title="Proposals waiting for review">Review<span id="hub-review-badge" class="hub-rail-badge hidden" aria-live="polite"></span></button>
+            <button type="button" id="hub-rail-history" class="hub-rail-item" data-hub-mode="history" aria-controls="history-segments" title="Activity and discarded proposals">History</button>
+          </div>
         </div>
         <div class="hub-rail-secondary" role="presentation">
           <button type="button" id="hub-rail-insights" class="hub-rail-item hub-rail-action" data-hub-rail-action="insights" title="Overview charts and consolidation">Insights</button>
@@ -223,8 +225,8 @@
                     <ul class="search-key-list">
                       <li><strong class="search-key-term">Vault</strong> — Markdown files in your vault (List / Calendar). Search results land under <strong class="search-key-term">Vault</strong>. Overview charts live under <strong class="search-key-term">Insights</strong>.</li>
                       <li><strong class="search-key-term">Import</strong> — Brings chats, exports, and files in as normal notes (same search and filters afterward).</li>
-                      <li><strong class="search-key-term">Quick</strong> — Next to the browse key; click the <strong class="search-key-term">arrow</strong> to show or hide chips (projects, tags, folders, nets). Row filters and <strong class="search-key-term">content</strong> scope apply either way.</li>
-                      <li><strong class="search-key-term">All</strong> / <strong class="search-key-term">Clear</strong> — Reset Quick and filters to see the full list again.</li>
+                      <li><strong class="search-key-term">Quick tags</strong> — Next to the key glossary; click the <strong class="search-key-term">arrow</strong> to show or hide filter chips (projects, tags, folders, nets). Not the same as this glossary. Row filters and <strong class="search-key-term">content</strong> scope apply either way.</li>
+                      <li><strong class="search-key-term">All</strong> / <strong class="search-key-term">Clear</strong> — Reset Quick tags and filters to see the full list again.</li>
                       <li><strong class="search-key-term">Meaning</strong> — Semantic search over the index; <strong class="search-key-term">Keyword</strong> scans note text on the server.</li>
                       <li><strong class="search-key-term">Images &amp; video</strong> — Use links or uploads per your setup; media files live with the vault and can be included when you <strong class="search-key-term">back up to GitHub</strong> (paths stay consistent in the repo).</li>
                     </ul>
@@ -259,7 +261,7 @@
               </div>
             </details>
           </div>
-          <div id="filter-chips" class="filter-chips" aria-label="Quick filters"></div>
+          <div id="filter-chips" class="filter-chips" aria-label="Quick tags filters"></div>
         </div>
         <div class="presets-row">
           <input type="text" id="preset-name" placeholder="Save view as…" maxlength="40">
@@ -825,7 +827,7 @@ Your note body here.</pre>
               <button type="button" id="btn-settings-sync" class="btn-primary" disabled title="Self-hosted: vault folder must be a Git repo (git init). Connect GitHub stores a push token only.">Back up now</button>
               <button type="button" id="btn-vault-git-init" class="btn-secondary hidden" title="Run git init in the current vault folder (self-hosted only)">Initialize Git in this vault</button>
               <span id="settings-sync-msg" class="settings-msg"></span>
-              <p class="settings-intro small" style="margin-top: 0.5rem;">Back up now backs up the <strong>currently selected vault</strong> (use the Vault dropdown in the header to switch). Each vault can have its own Git remote.</p>
+              <p class="settings-intro small" style="margin-top: 0.5rem;">Back up now backs up the <strong>currently selected vault</strong> (use the <strong>Vault</strong> dropdown at the top of the left rail to switch). Each vault can have its own Git remote.</p>
               <p class="settings-intro small"><strong>Self-hosted:</strong> <em>Connect GitHub</em> saves a token so pushes can authenticate — it does <em>not</em> run <code>git init</code> in your vault. If backup says the folder is not a Git repo, click <strong>Initialize Git in this vault</strong> (appears after a failed backup) or run <code>git init</code> manually in that folder.</p>
             </div>
             <div id="settings-danger-zone-panel" class="hidden" style="margin-top: 1.25rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--err, #c44) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--err, #c44) 8%, transparent);">
@@ -2198,7 +2200,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
 
             <h4 class="how-to-sub">Hub UI: filters and views</h4>
             <ul>
-              <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then <strong>Apply filters</strong>. <strong>Quick</strong> chips (e.g. <code>project:launch</code>) load a <em>filtered list</em> from the server — not the same as green <strong>Search</strong> (semantic / meaning). Quick chips clear the semantic search field so the two modes don’t fight. Save a view with Save view as and click a preset pill later.</li>
+              <li><strong>Projects, tags, folders:</strong> Notes can have <code>project: slug</code> and <code>tags: [a, b]</code> in frontmatter, or live under <code>projects/slug/</code>. Use the project, tag, and folder dropdowns, then <strong>Apply filters</strong>. <strong>Quick tags</strong> chips (e.g. <code>project:launch</code>) load a <em>filtered list</em> from the server — not the same as green <strong>Search</strong> (semantic / meaning), and not the key glossary. Quick tags chips clear the semantic search field so the two modes don’t fight. Save a view with Save view as and click a preset pill later.</li>
               <li><strong>Semantic search:</strong> Type a phrase, then green <strong>Search</strong> or <kbd>Enter</kbd>. It searches the <strong>indexed</strong> <strong>current vault</strong> by <em>meaning</em> (embeddings), not keyword match — you can get results that don’t contain your word. The project/tag/folder/date <strong>dropdowns</strong> narrow semantic search when set. <strong>Clear</strong> empties the box and returns to the list. Requires indexing (Step 4) on self-hosted.</li>
               <li><strong>Vault browse + Insights:</strong> Under <strong>Vault</strong>, <strong>List</strong> = filtered rows and <strong>Calendar</strong> = month grid (click a day for that day's notes). Charts and consolidation live under <strong>Insights</strong> (left rail, or <strong>More</strong> on mobile) — not a separate “Overview” tab.</li>
               <li><strong>+ New note:</strong> Quick capture (inbox) or full form (path, title, body, project, tags). Use "Copy path" in the detail panel to copy the note path for CLI/API use.</li>
@@ -2642,6 +2644,6 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
     globalThis.HubShellIa = HubShellIa;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260729c"></script>
+  <script defer src="hub.js?v=20260729g"></script>
 </body>
 </html>

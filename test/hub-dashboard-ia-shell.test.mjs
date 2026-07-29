@@ -170,11 +170,59 @@ describe('HUB-DASH-IA-b data-integrity', () => {
       'notes-view-graph',
       'consolidation-card',
       'detail-panel',
+      'vault-switcher',
+      'vault-switcher-wrap',
     ];
     for (const id of ids) {
       assert.match(hubHtml, new RegExp('id="' + id + '"'));
     }
     assert.match(hubJs, /function\s+openSettingsIntegrationsTab\s*\(/);
+  });
+
+  it('vault switcher lives in left rail and stays visible with a single vault', () => {
+    const rail = hubHtml.match(/id="hub-rail"[\s\S]*?id="hub-bottom-nav"/);
+    assert.ok(rail, 'rail markup present');
+    assert.match(rail[0], /id="vault-switcher-wrap"/);
+    assert.match(rail[0], /id="vault-switcher"/);
+    assert.match(rail[0], /hub-rail-top/);
+    assert.match(rail[0], /hub-rail-primary/);
+    assert.match(rail[0], /hub-rail-secondary/);
+    assert.match(rail[0], />Vault</);
+    assert.match(rail[0], />Review/);
+    assert.match(rail[0], />History</);
+    assert.match(rail[0], />Insights</);
+    assert.match(rail[0], />Import</);
+    assert.match(rail[0], />Connect</);
+    assert.match(rail[0], />Settings</);
+    assert.match(rail[0], />Help</);
+    assert.doesNotMatch(hubHtml, /id="hub-auth-buttons"[\s\S]{0,400}id="vault-switcher"/);
+    assert.match(hubJs, /wrap\.classList\.toggle\(\s*['"]hidden['"]\s*,\s*options\.length\s*<\s*1\s*\)/);
+  });
+
+  it('rail clusters primary near top; secondary linked with divider (no tall space-between gap)', () => {
+    const railBlock = hubCss.match(/\.hub-rail\s*\{[^}]+\}/);
+    assert.ok(railBlock, 'hub-rail rule present');
+    assert.match(railBlock[0], /justify-content:\s*flex-start/);
+    assert.doesNotMatch(railBlock[0], /justify-content:\s*space-between/);
+    assert.match(hubCss, /\.hub-rail-secondary\s*\{[\s\S]*?border-top:/);
+    assert.match(hubJs, /scheduleMaybeShowOnboardingWizard[\s\S]{0,200}return;/);
+  });
+
+  it('detail panel sits below sticky header; brand uses small gray HUB', () => {
+    assert.match(hubCss, /\.hub-header\s*\{[\s\S]*?z-index:\s*40/);
+    assert.match(hubCss, /\.detail-panel\s*\{[\s\S]*?top:\s*var\(--hub-header-offset/);
+    assert.match(hubJs, /function\s+syncHubHeaderOffset\s*\(/);
+    assert.match(hubHtml, /class="hub-brand"/);
+    assert.match(hubHtml, /class="hub-brand-hub">HUB</);
+    assert.match(hubCss, /\.hub-brand-hub\s*\{/);
+  });
+
+  it('Quick tags label is distinct from key glossary; notes default half-page', () => {
+    assert.match(hubJs, /label\.textContent\s*=\s*['"]Quick tags['"]/);
+    assert.match(hubHtml, /search-key-term">Quick tags</);
+    assert.doesNotMatch(hubJs, /label\.textContent\s*=\s*['"]Quick['"]\s*;/);
+    assert.match(hubCss, /\.detail-panel\s*\{[\s\S]*?width:\s*50vw/);
+    assert.match(hubJs, /panel\.style\.width\s*=\s*['"]['"]/);
   });
 });
 

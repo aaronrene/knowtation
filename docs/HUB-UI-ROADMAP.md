@@ -29,7 +29,9 @@ Use this file + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) for any session tha
 | **HUB-DASH-IA-b** | **Auto** | **DONE 2026-07-29** — shell + seven-tier green; BV covered under **d** | Shell: left rail, History segments, Needs-you, Review rename, badge, Connect/Import/Help/Settings/Insights rail entries, rail accent + badge pulse. Branch: `feat/hub-dashboard-ia`. Expert items 1, 7, 9–12, 14–16, 18–19. Tests: `test/hub-dashboard-ia-shell.test.mjs`. |
 | **HUB-DASH-IA-c** | **Auto** | **DONE 2026-07-29** — inbox + search + Insights; seven-tier green; BV covered under **d** | Review inbox toolbar + row/detail polish; Vault search progressive disclosure; Insights (= Overview + consolidation). Expert items 2–6, 8, 13, 17. Tests: `test/hub-dashboard-ia-inbox.test.mjs`. |
 | **HUB-DASH-IA-d** | **Auto** | **DONE 2026-07-29** — mobile bottom nav + copy polish; seven-tier green; **`/build-verification-review` → pass** (covers b+c+d) | Mobile bottom nav Vault \| Review(N) \| History \| More (Import/Connect/Settings/Help; Insights relocated into More on mobile); onboarding/How-to glossary sync. Expert item 20. Tests: `test/hub-dashboard-ia-mobile.test.mjs` (+ reaffirm shell/inbox). |
+| **HUB-DASH-IA-polish** | **Operator + Auto** | **DONE 2026-07-29** — post-BV operator review fixes | Active-vault switcher in rail (always visible); header above detail panel; notes default half-page; **Quick tags** label; search row condensed; rail clustered (no tall gap); onboarding auto-popup off (How to use only); brand `Knowtation` + small gray **HUB**. |
 | **HUB-DASH-IA-merge** | **Operator + Auto** | **TODO** | Tier 3 only — merge to Muse/`main` when operator authorizes. |
+| **HUB-HELP-UX** (optional follow-on) | **Thinking → Auto** | **TODO** — not blocking merge | School/Scooling-friendly How to use + Integrations presentation (audience tabs, plain verbs, Hub API first). Separate freeze if operator green-lights. |
 
 ## Definition of Done (this lane)
 

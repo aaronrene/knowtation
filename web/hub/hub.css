@@ -199,13 +199,28 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   flex-wrap: wrap;
   gap: 0.75rem;
   background: var(--surface);
+  /* Stay above the fixed detail panel so Settings / New note / Import stay usable */
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 @supports (color: color-mix(in srgb, white 50%, black 50%)) {
   .hub-header {
     border-bottom-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
   }
 }
-.hub-header h1 { margin: 0; font-size: 1.25rem; }
+.hub-header h1,
+.hub-brand { margin: 0; font-size: 1.25rem; font-weight: 600; line-height: 1.2; }
+.hub-brand-name { color: var(--text); }
+.hub-brand-hub {
+  display: inline-block;
+  margin-left: 0.2em;
+  font-size: 0.58em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  vertical-align: 0.15em;
+}
 .hub-auth { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 
 /* HUB-DASH-IA-b: signed-in left rail shell */
@@ -218,17 +233,33 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   flex: 0 0 11.5rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 1rem;
+  /* Keep primary + secondary clustered near the top (no viewport-tall gap) */
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0.65rem;
   padding: 0.85rem 0.55rem;
   border-right: 1px solid var(--border);
+  position: relative;
+  z-index: 5;
   background: var(--surface);
+}
+.hub-rail-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 .hub-rail-primary,
 .hub-rail-secondary {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+}
+.hub-rail-secondary {
+  margin-top: 0.15rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  /* Soft connector: short accent stub on the divider so top/bottom feel linked */
+  box-shadow: inset 0 2px 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .hub-rail-item {
   position: relative;
@@ -562,13 +593,29 @@ button.btn-new-note.btn-busy::after {
 .search-section.hidden {
   display: none;
 }
+/* Keep Meaning / Search / Clear beside the field (not shoved to the far right) */
+.search-row-primary {
+  max-width: 42rem;
+  justify-content: flex-start;
+}
 .search-row-primary #search-query {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  max-width: 18rem;
+  width: 16rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
+}
+.search-row-primary .search-mode-select,
+.search-row-primary #btn-search,
+.search-row-primary #btn-clear-search {
+  flex: 0 0 auto;
+}
+.search-row-primary .hub-index-status {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .hub-search-advanced {
   border: 1px solid var(--border);
@@ -1385,11 +1432,15 @@ input[readonly]#full-project {
 
 .detail-panel {
   position: fixed;
-  top: 0;
+  /* Sit below the sticky hub header so top-right chrome stays visible */
+  top: var(--hub-header-offset, 4.75rem);
   right: 0;
-  width: min(420px, 100vw);
-  height: 100vh;
-  max-height: 100dvh;
+  /* Documents default to half the viewport; drag handle still resizes */
+  width: 50vw;
+  min-width: 280px;
+  max-width: 100vw;
+  height: calc(100vh - var(--hub-header-offset, 4.75rem));
+  max-height: calc(100dvh - var(--hub-header-offset, 4.75rem));
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow: hidden;
@@ -2516,6 +2567,29 @@ input[readonly]#full-project {
 .vault-switcher-label { display: inline-flex; align-items: center; gap: 0.5rem; }
 .vault-switcher-text { font-size: 0.9rem; color: var(--muted); }
 .vault-switcher-select { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; cursor: pointer; }
+.hub-rail-vault-switcher {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0 0.35rem 0.55rem;
+  margin: 0 0 0.15rem;
+  border-bottom: 1px solid var(--border);
+}
+.hub-rail-vault-switcher.hidden { display: none; }
+.hub-rail-vault-switcher .vault-switcher-text {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hub-rail-vault-switcher .vault-switcher-select {
+  width: 100%;
+  max-width: 100%;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.45rem;
+}
 .hub-header .vault-switcher-select {
   border-width: 0.7px;
 }

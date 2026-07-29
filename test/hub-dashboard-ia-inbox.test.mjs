@@ -113,6 +113,8 @@ describe('HUB-DASH-IA-c e2e static contract', () => {
     assert.match(hubHtml, /id="hub-search-section"/);
     assert.match(hubHtml, /id="hub-search-advanced"/);
     assert.match(hubHtml, /class="search-row search-row-primary"/);
+    assert.match(hubCss, /\.search-row-primary\s*\{[\s\S]*?max-width:\s*42rem/);
+    assert.match(hubCss, /\.search-row-primary #search-query\s*\{[\s\S]*?max-width:\s*18rem/);
     const adv = hubHtml.match(/id="hub-search-advanced"[\s\S]*?<\/details>/);
     assert.ok(adv);
     assert.match(adv[0], /id="filter-project"/);

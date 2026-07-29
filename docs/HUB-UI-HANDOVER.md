@@ -18,7 +18,7 @@
 
 `docs/reviews/2026-07-29-hub-dashboard-ia.md`
 
-`frozen: true` · `review_stamp.verdict: pass` (freeze-review-loop round 3). Build verification for b+c+d: **pass** (2026-07-29).
+`frozen: true` · `review_stamp.verdict: pass` (freeze-review-loop round 3). Build verification for b+c+d: **pass** (2026-07-29). Operator polish after BV: **HUB-DASH-IA-polish DONE**.
 
 ### THE ONE NEXT STEP — **Model: Operator + Auto**
 
@@ -29,7 +29,8 @@ Model: Operator + Auto.
 Branch: feat/hub-dashboard-ia.
 Read ONLY this lane: docs/HUB-UI-HANDOVER.md + docs/HUB-UI-ROADMAP.md.
 Ground truth: docs/reviews/2026-07-29-hub-dashboard-ia.md (frozen: true, review_stamp.verdict: pass).
-Build verification for HUB-DASH-IA-b+c+d already pass — do NOT redesign.
+Shell IA (b+c+d) + operator polish shipped — do NOT redesign the signed-in shell.
+Optional follow-on HUB-HELP-UX (How to use / Integrations for school audiences) is NOT required for merge.
 Operator must explicitly authorize Muse/main merge (and muse-mirror → GitHub main per SD-14).
 Until then: no merge; feature branch may stay open for PR review only if operator asks.
 Do NOT edit product docs/OVERSEER-HANDOVER.md NEXT for Scooling.
@@ -46,6 +47,7 @@ Hard stops: no main merge without Tier 3; no secrets; no proposal RBAC changes.
 | Branch | `feat/hub-dashboard-ia` from `main` |
 | Freeze | **pass** 2026-07-29 |
 | Build verification (b+c+d) | **pass** 2026-07-29 |
+| Post-BV polish | **DONE** 2026-07-29 |
 
 ### Verified snapshot
 
@@ -53,9 +55,9 @@ Hard stops: no main merge without Tier 3; no secrets; no proposal RBAC changes.
 | --- | --- |
 | Lane docs | `docs/HUB-UI-ROADMAP.md`, `docs/HUB-UI-HANDOVER.md` |
 | Freeze | `docs/reviews/2026-07-29-hub-dashboard-ia.md` — `review_stamp.verdict: pass` |
-| HUB-DASH-IA-b | Shell shipped — left rail Vault/Review(N)/History; History Activity\|Discarded; Needs-you; Review rename; unfiltered badge + pulse; Connect→`openSettingsIntegrationsTab()`; Import/Help/Settings/Insights rail; Vault List\|Calendar only. Tests: `test/hub-dashboard-ia-shell.test.mjs`. |
-| HUB-DASH-IA-c | Review inbox + Vault search + Insights shipped — Review toolbar hides note search; row density + ↑↓ Enter; split N-of-M + focus ring; primary actions/eval above diffs; pending-eval chip; search-first + advanced filters collapsed; Insights = graph + `#consolidation-card`; empty Review New proposal + How Review works. Tests: `test/hub-dashboard-ia-inbox.test.mjs`. |
-| HUB-DASH-IA-d | Mobile bottom nav Vault\|Review(N)\|History\|More (Import/Connect/Settings/Help; Insights in More on mobile); onboarding/How-to copy sync; BV **pass** covering b+c+d. Tests: `test/hub-dashboard-ia-mobile.test.mjs` (36/36 green with shell+inbox). |
+| HUB-DASH-IA-b/c/d | Shell + inbox + mobile shipped; BV **pass** |
+| HUB-DASH-IA-polish | Rail vault switcher (“Active vault”); sticky header above detail; notes `50vw`; Quick tags; condensed search row; clustered rail; no onboarding auto-popup; Knowtation + gray **HUB** |
+| Optional next (not merge-blocking) | **HUB-HELP-UX** — How to use / Integrations school-friendly copy & layout (Thinking → Auto if authorized) |
 | Product board (ignore for UI sessions) | `docs/OVERSEER-HANDOVER.md` / `docs/ROADMAP.md` |
 | Kit config primary docs | `.overseer/config.yaml` → product handover/roadmap (**unchanged**) |
 
@@ -68,3 +70,4 @@ Hard stops: no main merge without Tier 3; no secrets; no proposal RBAC changes.
 | 2026-07-29 | **HUB-DASH-IA-b DONE** — shell IA on `feat/hub-dashboard-ia`; seven-tier shell tests green; BV left for **d**. NEXT = **HUB-DASH-IA-c** (Auto). |
 | 2026-07-29 | **HUB-DASH-IA-c DONE** — Review inbox + Vault progressive disclosure + Insights; seven-tier inbox tests green; BV left for **d**. NEXT = **HUB-DASH-IA-d** (Auto). |
 | 2026-07-29 | **HUB-DASH-IA-d DONE** — mobile bottom nav + How-to/onboarding polish; seven-tier mobile + reaffirm b/c; `/build-verification-review` → **pass** (b+c+d). NEXT = **HUB-DASH-IA-merge** (Operator + Auto, Tier 3). |
+| 2026-07-29 | **HUB-DASH-IA-polish DONE** — operator review fixes (vault switcher, header/detail, Quick tags, search row, rail cluster, wizard auto-off, brand). NEXT remains **HUB-DASH-IA-merge**. Optional **HUB-HELP-UX** logged for school How-to/Integrations. |
