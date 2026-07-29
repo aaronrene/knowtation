@@ -13,8 +13,13 @@ Machine-readable source: `policy/tiers.yaml`. Standing Decisions: `{{docs.standi
 - `git push` to feature branch, open feature-branch PR — SD-17
 - Run tests; update `.gitignore` / `.museignore`
 - Governance sync doc updates in the closing commit — SD-17
+- **Finish-mode land hygiene after BV `pass` (SD-21):** Muse merge/cherry-pick →
+  `{{vcs.git.main_branch}}` → `muse-bridge-deploy` → merge **green**
+  `{{vcs.git.mirror_branch}}` → GitHub `{{vcs.git.main_branch}}` when the diff has
+  **no** live posture/env flip, secrets, real money, or Delegation write env
 
-**Never** Tier 1 on `{{vcs.git.main_branch}}`, staging push, or merge.
+**Never** Tier 1: staging push, live posture flips, secrets/money/data deletion,
+feature→GitHub-`{{vcs.git.main_branch}}`, or `git push {{vcs.git.remote}} {{vcs.git.main_branch}}`.
 
 ## Tier 2 — recommend, confirm once, record
 
@@ -23,7 +28,7 @@ Machine-readable source: `policy/tiers.yaml`. Standing Decisions: `{{docs.standi
 
 ## Tier 3 — stop for operator authorization
 
-- Merge to `{{vcs.git.main_branch}}` (Muse or GitHub)
+- Merge to `{{vcs.git.main_branch}}` **outside** SD-21 land hygiene
 - `muse push {{vcs.muse.staging_remote}}` when applicable
 - Live capability / posture gate flips
 - Real payments, secrets, data deletion, cross-repo merges
@@ -32,8 +37,8 @@ Machine-readable source: `policy/tiers.yaml`. Standing Decisions: `{{docs.standi
 
 | Regime | Extra hard stop |
 | --- | --- |
-| `muse+git-mirror` | Muse `{{vcs.git.main_branch}}` before GitHub; mirror via `{{vcs.git.mirror_branch}}` only (SD-14) |
+| `muse+git-mirror` | Muse `{{vcs.git.main_branch}}` before GitHub; mirror via `{{vcs.git.mirror_branch}}` only (SD-14). SD-21 still uses that path. |
 | `muse-only` | Never run `git` / `gh` in this repo |
-| `git-only` | Never `git push {{vcs.git.remote}} {{vcs.git.main_branch}}` without Tier 3 |
+| `git-only` | Never `git push {{vcs.git.remote}} {{vcs.git.main_branch}}` without Tier 3 (unless SD-21 criteria met for that regime’s land path) |
 
 A **dirty tree at session end is a failure**, not a safe default.

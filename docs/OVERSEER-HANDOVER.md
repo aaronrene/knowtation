@@ -17,126 +17,48 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-## NEXT SESSION — FLOW-WRITE-LIVE-SC-b Auto (product PRIMARY — paste on Scooling)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:5a4edd3a290f7f22cc66175dcc80aa4575d50323a79b0c253390359422758428 -->
+## NEXT SESSION — FLOW-WRITE-LIVE-SMOKE §FWL.9 (RELAY → scooling FLOW-WRITE-LIVE-SMOKE Operator)
 
-**Date:** 2026-07-28
-**Model:** **Auto** (Scooling board owns the build; this board is the Knowtation relay)
+**Date:** 2026-07-29  
+**Model:** **Operator** (product order — paste on **Scooling**, not here)
 
-**Branch (Knowtation):** `feat/flow-write-live-kn-b` — KN-b **DONE** (BV round 1 =
-`pass`); Muse/`main` land still Tier 3.
+**Branch (Knowtation):** Muse/`main` @ KN #278 land — admission ready. Prod
+`FLOW_AUTHORING_WRITES` still **unset** until SMOKE needs Hub side (Operator).
 
-**Why this is next (product order — Scooling board wins):** FLOW-WRITE-LIVE-KN-b admitted
-§FWL.4 Flow fingerprints. SC-b must emit `scooling.flow:` + propose→approve honesty while
-authoring posture stays hard-`false`.
+**Why this is a RELAY (not product PRIMARY):** Product sequencing is owned by Scooling.
+FLOW-WRITE-LIVE-HOSTED / form-guard / draft-500 are **DONE + landed** (SC #224–#226).
+Knowtation’s previous PRIMARY paste (HOSTED Thinking→Auto) was **stale** — do not re-run it.
+K13 workspace was dogfood-only and never on Muse/`main`; Scooling restored
+`.overseer/workspace.yaml` so `ok workspace check-next` can catch this class of drift.
 
-### THE ONE NEXT STEP — **Model: Auto** (product PRIMARY — paste on Scooling)
+### THE ONE NEXT STEP — **Model: Operator** (RELAY → Scooling product_order)
 
-```text
-FLOW-WRITE-LIVE-SC-b — Scooling Auto: emit scooling.flow: + propose→approve honesty
-
-Model: Auto.
-Repo: ~/scooling (feature branch). Consume as ground truth (do not redesign):
-~/scooling/docs/FLOW-WRITE-LIVE-FREEZE.md (§FWL.4 / §FWL.5 / §FWL.7 SC matrix;
-frozen:true; review_stamp.verdict pass; SD-20). Prerequisite: FLOW-WRITE-LIVE-KN-b
-DONE (Knowtation feat/flow-write-live-kn-b; BV pass).
-Implement: (1) emit external_ref ^scooling\.flow:[A-Za-z0-9._:-]{1,128}$ on authoring
-propose for wire kinds new|edit|import; (2) propose→approve orchestration honesty per
-§FWL.5 (hosted_flow_saved vs proposal_created_pending_apply); (3) compile-time
-FLOW_AUTHORING_WRITES_AUTHORIZED stays false; (4) seven-tier vs fake Hub per §FWL.7 SC;
-(5) governance sync; Muse commit on feature branch.
-Hard stops: no posture flip; no prod SCOOLING_FLOW_* / FLOW_AUTHORING_WRITES; no
-Delegation self-apply; no GitHub feature→main (SD-14). After BV pass, NEXT =
-FLOW-WRITE-LIVE-SC-flip (Operator + Auto, Tier 3).
-```
-
-### Prior session — FLOW-WRITE-LIVE-KN-b Auto + BV pass (2026-07-28)
-
-**Date:** 2026-07-28 · **Model:** Auto
-
-Implemented on `feat/flow-write-live-kn-b`: validated `scooling.flow:` persist on flow
-propose (`new`/`edit`/`import`); T5 `matchesScoolingFlowFingerprint` (§FWL.4.1 exact
-kind, no default-to-`new`); capture/Delegation/project/org/wrong-ref refuse; Hub
-`sessionBound` wired for Flow E1; PROPOSAL-LIFECYCLE updated; seven-tier **11/11**
-(`test/flow-write-live-kn-b.test.mjs`). BV round 1 = **`pass`**
-(`docs/reviews/2026-07-28-flow-write-live-kn-b-bv-round1-pass.md`). No prod
-`FLOW_AUTHORING_WRITES` flip. No merge.
-
-### Prior session — DURABLE-AGENT-AUTH-C land + live (2026-07-28)
-
-Operator authorized Tier 3 land. Merged `feat/durable-agent-auth-phase-c` onto
-`feat/land-phase-c-rest-agent-creds` (conflicts only in ROADMAP/HANDOVER — kept main
-structure; marked Phase C DONE/landed), then Muse `main`
-(`sha256:42919023ffff…`). Bridge + GitHub [KN #277](https://github.com/aaronrene/knowtation/pull/277)
-`muse-mirror` → `main` **MERGED** (`1ba7f2f`). Live verified this session:
-
-- `https://knowtation.store/hub/` shows **Agent credentials (REST / Paperclip / cron)** UI
-- `https://knowtation.store/hub/hub.js` serves mint/list/revoke/rotate handlers
-- Production GitHub deployment recorded for `1ba7f2f`
-- CI on that commit: test (20) + TruffleHog **success**
-
-Trend Agent may now mint `KNOWTATION_HUB_AGENT_CREDENTIAL` in Hub Settings (no session JWT).
-
-Product board §FCA.2 (P1 WASM + T1) remains the Scooling-owned Tasks/Media SMOKE gate —
-orthogonal to Phase C REST credentials.
-
-### Prior session — FINISH land + honesty SMOKE (2026-07-28)
-
-Operator verified Muse/`main` land + muse-mirror PRs SC #219 / KN #275. Honesty
-smokes PASS on `scooling.netlify.app` (status chips; Tasks env-off; Delegation
-propose-only). Canister gateway auth still SET. Full one-click SMOKE withheld
-per §FCA.2. No write env flips.
-
-### Prior session — FINISH-COMPLETE-APPLY-SC-b BV pass (Scooling)
-
-Scooling thinking-high BV round 1 = **`pass`** (23/23). SC-b marked DONE on product board.
-Later landed via SC #219.
-
-### Prior session — FINISH-COMPLETE-APPLY-KN-b BV round 3 = pass
-
-Independent thinking-high re-verify vs frozen §FCA.4 / T5. **Verdict: pass.** No findings.
-Confirms round-2 DONE. Later landed via KN #275. Live still NO-GO until P1 WASM + T1.
-
-### Prior session — FINISH-COMPLETE-APPLY-KN-b BV pass (round 2)
-
-thinking-high `/build-verification-review` against
-`~/scooling/docs/FINISH-COMPLETE-APPLY-CONTRACT.md`. Round 1 = findings; round 2 = **pass**.
-KN-b marked **DONE**. No merge. No prod env flips.
-
-### Prior session — FINISH-COMPLETE-APPLY-KN-b Auto implement
-
-**Date:** 2026-07-27 · **Model:** Auto
-
-Implemented T5: validated `external_ref` on task/media propose; §FCA.4 Tasks/Media admission;
-Delegation stays `SELF_APPLY_DELEGATION_REFUSED`; Flow not admitted; E1 widened with
-sessionBound/author gates (P2 strip retained); Motoko pending→`{proposal_id}` path rewrite;
-`docs/PROPOSAL-LIFECYCLE.md` T5 section; seven-tier (expanded to 16/16 after BV fixes).
-
-### Prior session — Scooling L-SEAMb Auto (PRIMARY relay)
-
-**Date:** 2026-07-27
-**Model:** **Auto** (Scooling board owns the build; this board is the Knowtation relay)
-
-**Overseer Kit (verified this session):** `ok -C ~/knowtation status --json` →
-`initialized: true`, `lock.kit_version: "0.1.0"`, `footprint_self_integrity.state: "ok"`.
-Kit is installed. It does **not** auto-rewrite this file when Scooling’s board advances —
-cross-repo product NEXT is regenerated by the closing Scooling session **and** must be
-mirrored here when this board is used as a relay.
-
-**SEC-SEAM-1 (Knowtation S1–S10) is DONE** — BV round 1 = `pass` on
-`feat/sec-seam-1-session-bound-writes`. **Scooling L-SEAMa freeze is also DONE**
-(`~/scooling/docs/L-SEAM-SESSION-BOUND-CONSUMER-TOKENS-FREEZE.md`, freeze-review `pass`).
-The remaining half of P3 is **consumer C1–C4 implementation** — **Scooling `L-SEAMb` Auto**.
-
-**THE ONE NEXT STEP (superseded):** was L-SEAMb Auto on Scooling — see current PRIMARY above.
+Open **`~/scooling/docs/OVERSEER-HANDOVER.md`** and paste **that** PRIMARY fence
+(§FWL.9 signed-in SMOKE). Do **not** start FLOW-WRITE-LIVE-HOSTED again.
 
 ```text
-Model: Auto.
-Work in ~/scooling on branch feat/l-seam-session-bound-tokens.
-Read ~/scooling/docs/OVERSEER-HANDOVER.md NEXT (L-SEAMb PRIMARY) and
-~/scooling/docs/L-SEAM-SESSION-BOUND-CONSUMER-TOKENS-FREEZE.md (frozen: true, review pass).
-Implement exactly C1–C6 + §LS.7 seven-tier tests. No redesign. No T1–T5.
-No production env flips. No merge without Tier 3. Run /build-verification-review before DONE.
+FLOW-WRITE-LIVE-SMOKE §FWL.9 — Operator
+
+Model: Operator + Auto
+Repo: ~/scooling
+Step: FLOW-WRITE-LIVE-SMOKE
+Authority: relay
+
+Wait for Netlify production publish of SC #226 if needed, then:
+https://scooling.netlify.app/flows — sign in, personal scope, policy checked,
+intent+title → draft→hosted_flow_saved. Confirm KN proposal source:flow +
+scooling.flow: external_ref.
+Env already SET (SCOOLING_FLOW_AUTHORING_WRITE + SCOOLING_FLOW_HOSTED_LIVE).
+Do NOT flip capture/run/automatable/projection/Delegation.
+Do NOT add KNOWTATION_HUB_TOKEN / SCOOLING_FLOW_HUB_TOKEN.
+Hard stops: no feature→GitHub-main; no Delegation write env.
 ```
+
+### Prior session — Knowtation PRODUCT RELAY refresh (2026-07-29)
+
+Synced to Scooling PRIMARY tip_hash `sha256:38c2305e…` after draft-500 land SC #226.
+SD-21 land-hygiene + scooling-stack workspace restore recorded on Scooling board.
 
 ### Prior session — Scooling L-SEAMa freeze pass; Knowtation relay was stale
 
@@ -221,7 +143,8 @@ verified; SEC-KN-1 still **19/19**. T1–T4 not executed.
 
 ---
 
-## NEXT SESSION — archived SEC-KN-6 build prompt
+<!-- overseer:next role=archived status=archived -->
+## ARCHIVED SESSION — SEC-KN-6 build prompt
 
 **Date:** 2026-07-26
 **Model:** **Auto**
@@ -253,7 +176,8 @@ T1–T4 not executed.
 
 ---
 
-## NEXT SESSION — archived SEC-KN-5 build prompt
+<!-- overseer:next role=archived status=archived -->
+## ARCHIVED SESSION — SEC-KN-5 build prompt
 
 **Date:** 2026-07-26
 **Model:** **Auto**
@@ -285,7 +209,8 @@ T1–T4 not executed.
 
 ---
 
-## NEXT SESSION — archived SEC-KN-3a build prompt
+<!-- overseer:next role=archived status=archived -->
+## ARCHIVED SESSION — SEC-KN-3a build prompt
 
 **Date:** 2026-07-26
 **Model:** **Auto**
@@ -323,7 +248,8 @@ One new MINOR (R5 docs `:245`) fixed in-session. SEC-KN-4b marked DONE. T1–T4 
 
 ---
 
-## NEXT SESSION — archived SEC-KN-4b build prompt
+<!-- overseer:next role=archived status=archived -->
+## ARCHIVED SESSION — SEC-KN-4b build prompt
 
 **Date:** 2026-07-26
 **Model:** **Auto**
@@ -437,8 +363,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 - [x] **SEC-KN-6** — P14 constant-time compare (**Auto**) — **DONE** (BV round 1 = `pass`)
 - [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (1a freeze CLEARED round 7; 1b BV round 1 = `pass`; code on `feat/sec-seam-1-session-bound-writes`; not merged)
 - [ ] **SEC-SEAM-MEDIA** — hosted media proposal surface (**Thinking → Auto**) — **TODO** (post–SEC-SEAM-1b; D2 = A)
-- [x] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **DONE 2026-07-27** (BV `pass` round 2 on `feat/finish-complete-apply-kn-b`; live still needs T1 + P1 WASM + Tier 3 env)
-- [x] **FLOW-WRITE-LIVE-KN-b** — Admit §FWL.4 Flow fingerprints — **DONE 2026-07-28** (BV round 1 = `pass` on `feat/flow-write-live-kn-b`; not merged; no prod `FLOW_AUTHORING_WRITES` flip)
+- [ ] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **BLOCKED** on SEC-SEAM-1 consumer C1–C4 + T1 + the Scooling freeze
 
 ---
 
@@ -467,7 +392,6 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | **SEC-KN-5 (P12 TTL clamp + P13 admin mint)** | **DONE on feature branch** (BV round 1 = `pass`). `readVaultDelegationPolicy` clamps to `MAX_TTL_SECONDS`; self-hosted grant mint is `requireRole('admin')` only. Seven-tier `test/sec-kn-5-delegation-ttl-viewer-mint.test.mjs` + route assertion **26/26**; related delegation **64/64**. **Not merged to main.** |
 | **SEC-KN-6 (P14 constant-time compare)** | **DONE on feature branch** (BV round 1 = `pass`). `constantTimeTextEqual` (OR-of-XOR full scan) replaces `got == expected` in `gatewayAuthorized` and `operatorExportAuthorized`. JS mirror updated. Seven-tier **18/18**; SEC-KN-1 still **19/19**; Motoko compile **VERIFIED**. **Not live on canister until Tier 3 upgrade.** **Not merged to main.** |
 | **SEC-SEAM-1 (P3 session-bound identity)** | **DONE on feature branch** (BV round 1 = `pass`). Five mint stamps; seam classify via apply-path predicates (incl. flow/flow_capture); named refusal codes; S10 empty; CORS advertisement removed. Seven-tier **33/33**. **Not merged to main.** T1–T5 unexecuted. Consumer **L-SEAMa freeze `pass`** on Scooling; remaining load is **Scooling L-SEAMb Auto** (C1–C4 impl). |
-| **FLOW-WRITE-LIVE-KN-b** | **DONE on feature branch** (BV round 1 = `pass`). Admit §FWL.4 Flow fingerprints; `scooling.flow:` persist; seven-tier **11/11**. Branch `feat/flow-write-live-kn-b`. **Not merged to main.** No prod `FLOW_AUTHORING_WRITES` flip. |
 | **Knowtation Netlify env** | Site `knowtation-gateway` (`api.knowtation.store`, id `3123cc84-…`): `CANISTER_AUTH_SECRET` present, `SESSION_SECRET` present, `HUB_ADMIN_USER_IDS` present, `HUB_EVALUATOR_MAY_APPROVE` **absent** (fail-safe). |
 | **MCP host / gateway `SESSION_SECRET` sharing** | **UNVERIFIED** — determines P6 exploitability today |
 
@@ -483,12 +407,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-07-27 | **Cross-board:** Scooling **FINISH-COMPLETE-APPLY-SC-b DONE** (BV `pass` round 1, 23/23). NEXT = **DELEGATION-WRITE-UI-a** (Thinking). KN-b remains DONE/not live. No merge. |
-| 2026-07-28 | **FLOW-WRITE-LIVE-KN-b DONE** — BV round 1 = **`pass`**. Admit §FWL.4 Flow fingerprints on `feat/flow-write-live-kn-b`: validated `scooling.flow:` on propose for `new`/`edit`/`import`; T5 `matchesScoolingFlowFingerprint` (exact kind, no default-to-`new`); capture/Delegation/project/org/wrong-ref refuse; Hub `sessionBound` for Flow E1; PROPOSAL-LIFECYCLE; seven-tier **11/11** (test_output sha256 `b64ed99c…`). No prod `FLOW_AUTHORING_WRITES` flip. No merge. NEXT = Scooling **FLOW-WRITE-LIVE-SC-b Auto** (posture still false). |
-| 2026-07-27 | **FINISH-COMPLETE-APPLY-KN-b DONE** — BV round 1 `findings` (BV1 media integ, BV2 media e2e, BV3 IDOR `partitionOwned`); fixed in `test/finish-complete-apply-kn-b.test.mjs`; round 2 **`pass`** (**16/16**, sha256 `aaf3ef055623997455e4b21284da7b8e8f4f1ce4964c9546d16843ee914d3622`). ROADMAP DONE. NEXT was Scooling **FINISH-COMPLETE-APPLY-SC-b Auto**. No merge. |
 | 2026-07-27 | **Relay fix — NEXT → Scooling L-SEAMb Auto.** Scooling L-SEAMa freeze-review `pass` had already advanced `~/scooling/docs/OVERSEER-HANDOVER.md` to L-SEAMb Auto; this Knowtation relay still showed the old Thinking paste. Not a kit outage — the kit does not cross-update consumer handovers. Regenerated this NEXT to relay L-SEAMb. Archived SEC-KN-5/6 prompts below are history, not competing PRIMARYs. |
 | 2026-07-27 | **Governance sync — Overseer re-verified; NEXT → Scooling L-SEAM C1–C4.** `ok -C ~/knowtation status --json`: `initialized: true`, `kit_version: 0.1.0`, `footprint_self_integrity: ok`. Scooling `verify-overseer-live.sh` → `live: true`. Live HTTP `api.knowtation.store/health` → `{"ok":true}`; canister auth still SET (`403 GATEWAY_AUTH_REQUIRED`). Browser MCP confirmed `knowtation.store/` landing loads. PRIMARY product next is consumer C1–C4 on the Scooling board (freeze §6). |
-| 2026-07-27 | **FINISH-COMPLETE-APPLY-KN-b Auto implemented** on `feat/finish-complete-apply-kn-b`. T5 Tasks/Media admission + validated `external_ref` persist + E1 widen (sessionBound/author); Delegation forever refused; Flow not admitted; Motoko pending path rewrite; PROPOSAL-LIFECYCLE T5; seven-tier **14/14** (sha256 `c39c2cd7787f7ef9749fa19e624e225469586ff65a14948df58607f169a9be8c`). ROADMAP = IMPLEMENTED awaiting BV. No merge. NEXT = thinking-high `/build-verification-review`. |
 | 2026-07-27 | **SEC-SEAM-1 DONE — BV round 1 = `pass`.** S1–S10 on `feat/sec-seam-1-session-bound-writes`: five mint stamps (`type:'session'`), `resolveActorTokenClass` / `isSessionBoundActor`, seam classify via apply-path predicates (S3.0; seven conditions incl. flow/flow_capture), `personalSelfApplyRefusalReason` + S6.2 HTTP seam codes on both approve gates, S10 empty parser (`lib/hub-self-apply-ineligible.mjs`), CORS `X-User-Id` advertisement removed, PROPOSAL-LIFECYCLE S7/S8. Seven-tier **33/33** (`test/sec-seam-1-session-bound-identity.test.mjs`, sha256 `bd57bfe8868175096589c4dac823586ddd6ce683066ccef92fdef65cfaedd361`). T1–T5 unexecuted. No merge. NEXT = Scooling `L-SEAM` / `SEC-SEAM-MEDIA` Thinking / Operator Tier-3 merge (pick one). |
 | 2026-07-27 | **SEC-SEAM-1a CLEARED — round 7 = `pass`.** Operator **D5 = A** (flow + flow_capture in S3.1). Fixed V1–V11 (V3 overlap executed; V1 machine-credential premise corrected; fifth mint `issueLocalToken`; S6.2 / S10 lib parser / seven S3.1 conditions). Loop cleared W1–W5 / X1–X2 / Y1. Independent clearance [round-7](b7e481c0-c3d4-437b-ae86-1865e895397f). Mechanical gate pass; stamp retained after semantic clearance. Roadmap row `SEC-SEAM-MEDIA` opened (D2). NEXT = **SEC-SEAM-1b Auto**. T1–T5 unexecuted. No merge. |
 | 2026-07-27 | **SEC-SEAM-1a round 3 — D1–D4 RATIFIED, BLOCKER N1 closed, round-3 review = `blocked` (11 new findings).** Session refused to read the handover's own paste-ready prompt ("fix N1 per D4 option A") as ratification — it was round-2's authorship, and acting on it would repeat the SEC-KN-4a self-ratification defect. Operator selections obtained and quoted verbatim in freeze §12.1: **D1 = A** (stamp `type: 'session'` at all mint sites; absent = `legacy_session`, propose-OK / self-apply-ineligible), **D2 = A** (media out of scope, roadmap row), **D3 = start empty** (S10 ships dormant), **D4 = A** (classification reuses the apply path's predicate). All 18 round-2 findings fixed; **S3 rewritten** with frozen anti-drift rule **S3.0** — no hand-written seam field list may exist in built code — plus new ground truth G27–G31 and a full 14-step refusal precedence (S6.1). N1's evasion **and** its fix reproduced by **execution**. Round-3 independent reviewer (`thinking-high`, fresh) confirmed **15/18** round-2 fixes and that **N1 is closed by construction**, but returned **`blocked`** with 11 findings — incl. `security` **V1** (a machine-credential mint path *does* exist: `netlify/functions/consolidation-scheduler.mjs:72`, which is the premise **D3 was ratified on**), **V2** (fifth learner-session mint site `hub/lib/local-auth.mjs:179`), and **V3** (S6.1's "no live behavior change" **disproved by execution**). Loop halted per the skill's `security`/`blocked` hard stops. **New operator decision D5** (are Flow / Flow-capture seam surfaces? — apply-bearing and self-apply-gated at `hub/server.mjs:3056`/`:3064`, absent from the freeze). Mechanical `ok review --freeze` = **pass, 0 findings**; its auto-written `review_stamp` removed by hand every run since the semantic verdict is `blocked`. Muse branch `feat/sec-seam-1-session-bound-writes` (canonical, unchanged; git is parked on an unrelated stale branch and was not touched). **`SEC-SEAM-1b` not started. T1–T5 unexecuted. No merge.** |
@@ -531,3 +451,4 @@ feature branch → (Tier 3) Muse `main` → `muse-mirror` PR only.
 
 **Model labeling:** every NEXT block and paste-ready prompt must include **`Model:`** —
 Thinking, Auto, Thinking → Auto, or Operator + Auto.
+

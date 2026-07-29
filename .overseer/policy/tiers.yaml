@@ -1,6 +1,6 @@
 # Decision authority tiers — machine-readable policy (K3)
 # Sources: scooling/docs/CROSS-REPO-COORDINATION.md; scooling/AGENTS.md; knowtation/AGENTS.md;
-#          MUSE_HUB/docs/MUSEHUB-OVERSEER-HANDOVER.md; SD-1, SD-14, SD-17
+#          MUSE_HUB/docs/MUSEHUB-OVERSEER-HANDOVER.md; SD-1, SD-14, SD-17, SD-21
 
 version: 1
 
@@ -17,16 +17,39 @@ tiers:
       - non-destructive refactors
       - choosing recommended option among equivalents
       - governance sync doc updates bundled in closing feature-branch commit
+      # SD-21 — finish-mode land hygiene (after BV pass); still SD-14 path only
+      - finish_mode_land_hygiene_after_bv_pass
     behavior: just_do_it
     requires_authorization: false
     never_on:
-      - main branch
-      - canonical main
       - staging push
-      - merge to main
+      - live posture / capability gate flips
+      - secrets and credential changes
+      - real payments and billing provider swaps
+      - data deletion
+      - cross-repo merges
+      # Direct work on main without land-hygiene criteria remains forbidden
+      - ad_hoc_main_branch_commits
     standing_decisions:
       - SD-1
       - SD-17
+      - SD-21
+    finish_mode_land_hygiene:
+      # Pre-authorized when ALL of these hold (SD-21):
+      required_all:
+        - build_verification_verdict_pass
+        - feature_branch_complete
+        - no_live_posture_or_env_flip_in_diff
+        - no_secrets_money_delegation_write_env_in_diff
+      allowed_actions:
+        - muse_merge_or_cherry_pick_to_main
+        - muse_bridge_deploy_to_muse_mirror
+        - merge_green_muse_mirror_pr_to_github_main
+      still_forbidden:
+        - git_push_origin_main
+        - feature_branch_pr_to_github_main
+        - muse_push_staging
+        - blind_gh_pr_merge_auto_without_green_checks
 
   - id: 2
     name: Recommend-and-confirm
@@ -49,7 +72,8 @@ tiers:
     name: Hard gates
     alias: tier_3
     covers:
-      - merge to main (Muse or GitHub)
+      # Default: merge to main is Tier 3. Carve-out: finish_mode_land_hygiene (SD-21) → Tier 1.
+      - merge to main (Muse or GitHub) outside finish_mode_land_hygiene
       - muse push staging
       - live capability and posture gate flips
       - real payments and billing provider swaps
@@ -57,7 +81,7 @@ tiers:
       - secrets and credential changes
       - cross-repo merges
       - mirror push without Muse main alignment
-      - authorized wait-for-green PR land (ok pr-land / consumer pr_land_after_checks)
+      - authorized wait-for-green PR land (ok pr-land / consumer pr_land_after_checks) when not SD-21 hygiene
     behavior: stop_for_operator_authorization
     requires_authorization: true
     # Operator may delegate a single land by requiring --authorized "<reason>".
@@ -72,11 +96,14 @@ tiers:
     standing_decisions:
       - SD-14
       - SD-16
+      - SD-21
 
 commit_rule:
   feature_branch_commit: tier_1
   push_staging: tier_3
+  # Default merge_main stays Tier 3; SD-21 finish_mode_land_hygiene is Tier 1 when criteria met.
   merge_main: tier_3
+  finish_mode_land_hygiene: tier_1
   dirty_tree_at_session_end: failure
 
 governance_sync:
@@ -92,6 +119,7 @@ vcs_regime_notes:
     - Muse main before GitHub main (SD-14)
     - mirror via muse-mirror PR only
     - never git push origin main
+    - SD-21 land hygiene still uses muse-mirror only (never feature→GitHub main)
   muse-only:
     - git and gh forbidden
     - muse release for publish

@@ -2,8 +2,8 @@ lock_version: 1
 kit_version: 0.1.0
 config_version: 1
 installed_at: '2026-07-26T12:46:56Z'
-synced_at: '2026-07-27T17:53:45Z'
-footprint_digest: sha256:1d6980c8abfd587eb11e9e50839458a7b2052bff88b0c728d7735b22e815ad1f
+synced_at: '2026-07-29T18:14:00Z'
+footprint_digest: sha256:66cceb2a7111e9ccc471acfeb9c4f1bc46bec3a211813643210a0da9d9c08b0b
 footprint:
 - path: .claude/skills/build-verification-review/SKILL.md
   source: cursor/skills/build-verification-review/SKILL.md
@@ -31,7 +31,7 @@ footprint:
   origin: kit
 - path: .claude/skills/governance-sync/SKILL.md
   source: cursor/skills/governance-sync/SKILL.md
-  sha256: a59a2e3a305cb2e274b8ab4d72a5f63e7154317eb78d170821c668c4d9e238dc
+  sha256: 1f7b8308627ffbb59f5535a58dbe3d321ccb5d6c38269064e4f3832fb5e6d4e3
   origin: kit
 - path: .claude/skills/workspace-status/SKILL.md
   source: cursor/skills/workspace-status/SKILL.md
@@ -63,7 +63,7 @@ footprint:
   origin: kit
 - path: .cursor/rules/tier-authority.mdc
   source: cursor/rules/tier-authority.mdc
-  sha256: 2877429b54c36593f1dcd835375e2c7c21d38673fca4430f9e63d3bebca3b08e
+  sha256: 48e00205585703c4f5a50389155d337855db67ea0fefeaa370cac85f05664c18
   origin: kit
 - path: .cursor/rules/workspace-authority.mdc
   source: cursor/rules/workspace-authority.mdc
@@ -95,7 +95,7 @@ footprint:
   origin: kit
 - path: .cursor/skills/governance-sync/SKILL.md
   source: cursor/skills/governance-sync/SKILL.md
-  sha256: a59a2e3a305cb2e274b8ab4d72a5f63e7154317eb78d170821c668c4d9e238dc
+  sha256: 1f7b8308627ffbb59f5535a58dbe3d321ccb5d6c38269064e4f3832fb5e6d4e3
   origin: kit
 - path: .cursor/skills/workspace-status/SKILL.md
   source: cursor/skills/workspace-status/SKILL.md
@@ -103,7 +103,7 @@ footprint:
   origin: kit
 - path: .overseer/STANDING-DECISIONS.reference.md
   source: templates/STANDING-DECISIONS.template.md
-  sha256: e3ccbfdf9181cc8ecedc434a6dea2cff298245307e8625d10728a4cf0c8f5cba
+  sha256: d5bb61de732fb3f16acf1ada25177f64470b54239fe5471457f1e347de669453
   origin: kit
 - path: .overseer/policy/model-labels.yaml
   source: policy/model-labels.yaml
@@ -119,7 +119,7 @@ footprint:
   origin: kit
 - path: .overseer/policy/tiers.yaml
   source: policy/tiers.yaml
-  sha256: 2d539d340ad65c13b064935b5f2e12f7686acd6afbd3e48411948c916fa29050
+  sha256: 92920331f4e35bad9191a101b8b5d211ef31f069b2ba1cf4446ceb3796894776
   origin: kit
 - path: MUSE-BRIDGE-WORKFLOW.md
   source: templates/MUSE-BRIDGE-WORKFLOW.template.md
@@ -129,14 +129,14 @@ footprint:
   source: templates/CROSS-REPO-COORDINATION.template.md
   sha256: a35c822caa79e4237b5ef2f44ec4c40afbd09bc7c853be4dcdaadcdfec03cb72
   origin: preserved
-- path: docs/KNOWTATION-OVERSEER-HANDOVER.md
+- path: docs/OVERSEER-HANDOVER.md
   source: templates/OVERSEER-HANDOVER.template.md
-  sha256: 3b53f53053c56cf25aeff93a1324129a8a0c513318ceeba41d7fee205ab7d108
-  origin: preserved
-- path: docs/KNOWTATION-ROADMAP.md
+  sha256: a8057d7d07df73c603d67e241a73192cc3c87d54539355fd8621c44378253290
+  origin: kit
+- path: docs/ROADMAP.md
   source: templates/ROADMAP.template.md
-  sha256: fe4b413a2a281ad9db16b0611ed9f8d7cc2eec6e36081399b8495951fff7a322
-  origin: preserved
+  sha256: 80e319c7c5213683bb159004f3d94cff4d6eafc56ffbb35901630e51b98fe0b5
+  origin: kit
 - path: scripts/muse-bridge-deploy.sh
   source: templates/scripts/muse-bridge-deploy.sh.template
   sha256: 7b1cda63aff0903d914459c84326efe6bef614b774e1a13fe8b29d5d474a6c97
