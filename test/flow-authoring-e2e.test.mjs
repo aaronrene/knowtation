@@ -118,19 +118,31 @@ describe('Flow authoring — propose/approve lifecycle', () => {
     assert.equal(getFlow(dataDir, vaultId, 'flow_e2e_discard', { filterScopes: visible, starterDir }), null);
   });
 
-  it('import bundle routes through the same propose path with lineage preserved', () => {
+  it('import bundle routes through the same propose path with scooling.flow external_ref', () => {
     const bundle = makeFlowBundle({ flowId: 'flow_e2e_import', steps: 2 });
     const imported = handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'import',
       bundle: { flow: bundle.flow, steps: bundle.steps }, intent: 'import it',
-      externalRef: 'muse:ref-123', sourceVaultHint: 'partner-vault', createProposal,
+      externalRef: 'scooling.flow:import-e2e-1', sourceVaultHint: 'partner-vault', createProposal,
     });
     assert.equal(imported.ok, true);
     const stored = getProposal(dataDir, imported.payload.proposal_id);
     assert.equal(stored.source, 'flow');
     assert.equal(stored.flow_meta.kind, 'import');
-    assert.match(stored.external_ref, /muse:ref-123/);
+    assert.equal(stored.external_ref, 'scooling.flow:import-e2e-1');
     approveFlowProposal(dataDir, imported.payload.proposal_id);
     assert.ok(getFlow(dataDir, vaultId, 'flow_e2e_import', { filterScopes: visible, starterDir }));
+  });
+
+  it('import with non-scooling.flow external_ref is refused (EXTERNAL_REF_INVALID)', () => {
+    const bundle = makeFlowBundle({ flowId: 'flow_e2e_badref', steps: 2 });
+    const bad = handleFlowProposeRequest({
+      dataDir, vaultId, visibleScopes: visible, kind: 'import',
+      bundle: { flow: bundle.flow, steps: bundle.steps }, intent: 'import it',
+      externalRef: 'muse:ref-123', createProposal,
+    });
+    assert.equal(bad.ok, false);
+    assert.equal(bad.status, 400);
+    assert.equal(bad.code, 'EXTERNAL_REF_INVALID');
   });
 });
