@@ -45,7 +45,7 @@ describe('Flow external-agent — e2e', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('mint grant → fetch agent_bundle → invoke → revoke', () => {
+  it('mint grant → fetch agent_bundle → invoke → revoke', async () => {
     const mint = handleFlowExternalGrantMintRequest({
       dataDir,
       vaultId,
@@ -92,9 +92,9 @@ describe('Flow external-agent — e2e', () => {
     assert.equal(denied.code, 'FLOW_EXTERNAL_GRANT_REVOKED');
   });
 
-  it('import with unknown external_tool refused before proposal', () => {
+  it('import with unknown external_tool refused before proposal', async () => {
     const bad = makeExternalToolFlowBundle({ toolId: 'unknown_tool_xyz' });
-    const result = handleFlowProposeRequest({
+    const result = await handleFlowProposeRequest({
       dataDir,
       vaultId,
       kind: 'import',

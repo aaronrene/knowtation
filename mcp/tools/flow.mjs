@@ -162,7 +162,7 @@ export function registerFlowTools(server) {
         const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
         const isEdit =
           typeof args.base_version === 'string' && args.base_version.trim().length > 0;
-        const result = handleFlowProposeRequest({
+        const result = await handleFlowProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
@@ -206,7 +206,7 @@ export function registerFlowTools(server) {
         const config = loadConfig();
         const vaultId = args.vault_id?.trim() || config.default_vault_id || 'default';
         const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
-        const result = handleFlowProposeRequest({
+        const result = await handleFlowProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,

@@ -51,9 +51,9 @@ describe('Flow authoring — data integrity', () => {
     delete process.env.FLOW_AUTHORING_WRITES;
   });
 
-  it('reconcile preserves steps/skill-refs/verification/scope/version/lineage byte-for-byte', () => {
+  it('reconcile preserves steps/skill-refs/verification/scope/version/lineage byte-for-byte', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_di_preserve', version: '1.2.0', steps: 4 });
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'new',
       flow: bundle.flow, steps: bundle.steps, intent: 'add', createProposal,
     });
@@ -70,14 +70,14 @@ describe('Flow authoring — data integrity', () => {
     }
   });
 
-  it('an edit creates a NEW (flow_id, version) row (carry-forward; never mutates the version row in place)', () => {
+  it('an edit creates a NEW (flow_id, version) row (carry-forward; never mutates the version row in place)', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_di_carry', version: '1.0.0', steps: 2 });
     approve(
       dataDir,
-      handleFlowProposeRequest({
+      (await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'new',
         flow: bundle.flow, steps: bundle.steps, intent: 'add', createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     const store = loadFlowStore(dataDir);
@@ -87,7 +87,7 @@ describe('Flow authoring — data integrity', () => {
     const edited = structuredClone(canonical);
     edited.flow.version = '2.0.0';
 
-    const editProposed = handleFlowProposeRequest({
+    const editProposed = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'edit',
       flow: edited.flow, steps: edited.steps, intent: 'edit', flowId: 'flow_di_carry',
       baseVersion: '1.0.0', baseStateId, createProposal,
@@ -101,14 +101,14 @@ describe('Flow authoring — data integrity', () => {
     assert.ok(rows.find((r) => r.version === '2.0.0'), '2.0.0 row added');
   });
 
-  it('a conflicting approve leaves zero partial index state', () => {
+  it('a conflicting approve leaves zero partial index state', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_di_conflict', version: '1.0.0', steps: 2 });
     approve(
       dataDir,
-      handleFlowProposeRequest({
+      (await handleFlowProposeRequest({
         dataDir, vaultId, visibleScopes: visible, kind: 'new',
         flow: bundle.flow, steps: bundle.steps, intent: 'add', createProposal,
-      }).payload.proposal_id,
+      })).payload.proposal_id,
     );
 
     const store = loadFlowStore(dataDir);
@@ -116,12 +116,12 @@ describe('Flow authoring — data integrity', () => {
     const canonical = flowDefinitionForClient(cur.flow, cur.steps);
     const baseStateId = flowStateId(canonical.flow, canonical.steps);
 
-    const a = handleFlowProposeRequest({
+    const a = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'edit',
       flow: { ...canonical.flow, version: '2.0.0', summary: 'A' }, steps: canonical.steps,
       intent: 'A', flowId: 'flow_di_conflict', baseVersion: '1.0.0', baseStateId, createProposal,
     });
-    const b = handleFlowProposeRequest({
+    const b = await handleFlowProposeRequest({
       dataDir, vaultId, visibleScopes: visible, kind: 'edit',
       flow: { ...canonical.flow, version: '2.0.0', summary: 'B' }, steps: canonical.steps,
       intent: 'B', flowId: 'flow_di_conflict', baseVersion: '1.0.0', baseStateId, createProposal,

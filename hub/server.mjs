@@ -1635,7 +1635,7 @@ const FLOW_AUTHORING_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'eva
 
 function runFlowPropose(req, res, kind, extra = {}) {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const result = handleFlowProposeRequest({
+  return handleFlowProposeRequest({
     dataDir: config.data_dir,
     vaultId: req.vault_id ?? 'default',
     userId: req.user?.sub ?? '',
@@ -1652,45 +1652,40 @@ function runFlowPropose(req, res, kind, extra = {}) {
     sourceVaultHint: body.source_vault_hint,
     sessionBound: isSessionBoundActor(req.user),
     createProposal,
+  }).then((result) => {
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'flow_propose',
+      proposalId: result.payload.proposal_id,
+      detail: { kind, flow_id: result.payload.flow_id },
+    });
+    return res.status(201).json(result.payload);
   });
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error, code: result.code });
-  }
-  appendAudit(config.data_dir, {
-    userId: req.user?.sub ?? 'unknown',
-    action: 'flow_propose',
-    proposalId: result.payload.proposal_id,
-    detail: { kind, flow_id: result.payload.flow_id },
-  });
-  return res.status(201).json(result.payload);
 }
 
 // POST /api/v1/flows — propose a new Flow (flow_propose, new).
 app.post('/api/v1/flows', FLOW_AUTHORING_WRITE_ROLES, (req, res) => {
-  try {
-    return runFlowPropose(req, res, 'new');
-  } catch (e) {
-    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
-  }
+  runFlowPropose(req, res, 'new').catch((e) => {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  });
 });
 
 // POST /api/v1/flows/:id/proposals — propose an edit to an existing Flow.
 app.post('/api/v1/flows/:id/proposals', FLOW_AUTHORING_WRITE_ROLES, (req, res) => {
-  try {
-    const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
-    return runFlowPropose(req, res, 'edit', { flowId });
-  } catch (e) {
-    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
-  }
+  const flowId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  runFlowPropose(req, res, 'edit', { flowId }).catch((e) => {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  });
 });
 
 // POST /api/v1/flows/import — import a portable bundle through the same path.
 app.post('/api/v1/flows/import', FLOW_AUTHORING_WRITE_ROLES, (req, res) => {
-  try {
-    return runFlowPropose(req, res, 'import');
-  } catch (e) {
-    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
-  }
+  runFlowPropose(req, res, 'import').catch((e) => {
+    res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  });
 });
 
 // Flow capture flywheel (Phase 7A-L4b) — detection + capture writes independently gated.

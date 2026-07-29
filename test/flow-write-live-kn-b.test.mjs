@@ -125,7 +125,7 @@ function eligible(proposal, extra = {}) {
 }
 
 describe('FLOW-WRITE-LIVE-KN-b unit — §FWL.4.1 Flow fingerprint', () => {
-  it('admits new/edit/import + scooling.flow: + personal meta/flows', () => {
+  it('admits new/edit/import + scooling.flow: + personal meta/flows', async () => {
     for (const kind of ADMITTED_FLOW_PROPOSAL_KINDS) {
       const p = flowProposal({ kind, external_ref: `scooling.flow:${kind}-ok` });
       assert.equal(matchesScoolingFlowFingerprint(p), true, kind);
@@ -135,7 +135,7 @@ describe('FLOW-WRITE-LIVE-KN-b unit — §FWL.4.1 Flow fingerprint', () => {
     assert.equal(SCOOLING_FLOW_EXTERNAL_REF_RE.test('scooling.flow:ok'), true);
   });
 
-  it('refuses capture / delegation / wrong ref / empty author / project scope / missing kind', () => {
+  it('refuses capture / delegation / wrong ref / empty author / project scope / missing kind', async () => {
     assert.equal(
       personalSelfApplyRefusalReason(
         eligible({ status: 'proposed', source: FLOW_CAPTURE_PROPOSAL_SOURCE }),
@@ -186,7 +186,7 @@ describe('FLOW-WRITE-LIVE-KN-b unit — §FWL.4.1 Flow fingerprint', () => {
     );
   });
 
-  it('external_ref helpers validate Flow regex; malformed refuse', () => {
+  it('external_ref helpers validate Flow regex; malformed refuse', async () => {
     const bad = resolveOptionalScoolingExternalRef('muse:ref', SCOOLING_FLOW_EXTERNAL_REF_RE);
     assert.equal(bad.ok, false);
     assert.equal(bad.status, 400);
@@ -214,9 +214,9 @@ describe('FLOW-WRITE-LIVE-KN-b integration — propose persist + approve class',
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 
-  it('persists scooling.flow: on new propose; session-bound class holds', () => {
+  it('persists scooling.flow: on new propose; session-bound class holds', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_fwl_persist' });
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       userId: ACTOR,
@@ -238,9 +238,9 @@ describe('FLOW-WRITE-LIVE-KN-b integration — propose persist + approve class',
     assert.equal(personalSelfApplyRefusalReason(eligible(row, { role: 'editor' })), null);
   });
 
-  it('absent external_ref proposes ok but not admitted; malformed → 400', () => {
+  it('absent external_ref proposes ok but not admitted; malformed → 400', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_fwl_noref' });
-    const noRef = handleFlowProposeRequest({
+    const noRef = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       userId: ACTOR,
@@ -257,7 +257,7 @@ describe('FLOW-WRITE-LIVE-KN-b integration — propose persist + approve class',
     assert.equal(personalSelfApplyRefusalReason(eligible(row)), 'SELF_APPLY_NOT_ADMITTED');
 
     const badBundle = makeFlowBundle({ flowId: 'flow_fwl_badref' });
-    const badNew = handleFlowProposeRequest({
+    const badNew = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       userId: ACTOR,
@@ -274,9 +274,9 @@ describe('FLOW-WRITE-LIVE-KN-b integration — propose persist + approve class',
     assert.equal(badNew.code, 'EXTERNAL_REF_INVALID');
   });
 
-  it('import kind persists scooling.flow:; lineage muse ref refused', () => {
+  it('import kind persists scooling.flow:; lineage muse ref refused', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_fwl_import' });
-    const imported = handleFlowProposeRequest({
+    const imported = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       userId: ACTOR,
@@ -296,7 +296,7 @@ describe('FLOW-WRITE-LIVE-KN-b integration — propose persist + approve class',
     assert.equal(isAdmittedSeamSelfApplyFingerprint(row, ACTOR), true);
 
     const lineageBundle = makeFlowBundle({ flowId: 'flow_fwl_import_lineage' });
-    const lineageOnly = handleFlowProposeRequest({
+    const lineageOnly = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       userId: ACTOR,
@@ -325,9 +325,9 @@ describe('FLOW-WRITE-LIVE-KN-b e2e — personal draft without Hub eval hop', () 
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 
-  it('create+E1+class holds for session-bound personal Flow new', () => {
+  it('create+E1+class holds for session-bound personal Flow new', async () => {
     const bundle = makeFlowBundle({ flowId: 'flow_fwl_e2e' });
-    const proposed = handleFlowProposeRequest({
+    const proposed = await handleFlowProposeRequest({
       dataDir,
       vaultId: 'default',
       userId: ACTOR,
@@ -349,7 +349,7 @@ describe('FLOW-WRITE-LIVE-KN-b e2e — personal draft without Hub eval hop', () 
 });
 
 describe('FLOW-WRITE-LIVE-KN-b stress — N cycles no cross-user leakage', () => {
-  it('distinct users never share Flow admission', () => {
+  it('distinct users never share Flow admission', async () => {
     for (let i = 0; i < 100; i++) {
       const a = flowProposal({
         proposal_id: `prop-a-${i}`,
@@ -374,7 +374,7 @@ describe('FLOW-WRITE-LIVE-KN-b stress — N cycles no cross-user leakage', () =>
 });
 
 describe('FLOW-WRITE-LIVE-KN-b data-integrity — index fields + server audit', () => {
-  it('client evaluation_status stripped; E1 sets server audit on Flow fingerprint', () => {
+  it('client evaluation_status stripped; E1 sets server audit on Flow fingerprint', async () => {
     const stripped = stripClientEvaluationFields({
       evaluation_status: 'passed',
       evaluated_by: 'forged',
@@ -405,7 +405,7 @@ describe('FLOW-WRITE-LIVE-KN-b data-integrity — index fields + server audit', 
 });
 
 describe('FLOW-WRITE-LIVE-KN-b performance — Flow admission bounded like Tasks class', () => {
-  it('1000 Flow fingerprint + E1 stamps stay under budget', () => {
+  it('1000 Flow fingerprint + E1 stamps stay under budget', async () => {
     const body = {
       path: 'meta/flows/perf.md',
       source: FLOW_PROPOSAL_SOURCE,
@@ -432,7 +432,7 @@ describe('FLOW-WRITE-LIVE-KN-b performance — Flow admission bounded like Tasks
 });
 
 describe('FLOW-WRITE-LIVE-KN-b security — scope / injection / P4 / secrets', () => {
-  it('scope widen refuse; injection inert; P4 delegation refused; no secrets in fingerprint', () => {
+  it('scope widen refuse; injection inert; P4 delegation refused; no secrets in fingerprint', async () => {
     assert.equal(
       personalSelfApplyRefusalReason(eligible(flowProposal(), { partitionOwned: false })),
       'NOT_PARTITION_OWNED',

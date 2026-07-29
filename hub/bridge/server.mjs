@@ -75,6 +75,7 @@ import { withCalendarBlobSync } from './calendar-blob-store.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
+import { registerBridgeFlowRoutes } from './flow-routes.mjs';
 import { registerBridgeExternalAgentRoutes } from './external-agent-routes.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
@@ -3374,6 +3375,17 @@ registerBridgeDelegationRoutes(app, {
 
 // Task read + write propose (hosted parity — 2G): same handler family as self-hosted hub/server.mjs.
 registerBridgeTaskRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Flow authoring write propose (hosted parity — FLOW-WRITE-LIVE-GATEWAY-PROXY).
+registerBridgeFlowRoutes(app, {
   dataDir: DATA_DIR,
   canisterUrl: CANISTER_URL,
   canisterHeaders,
