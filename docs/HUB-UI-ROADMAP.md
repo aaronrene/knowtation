@@ -26,9 +26,9 @@ Use this file + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) for any session tha
 | Phase | Model | Status | Deliverable |
 | --- | --- | --- | --- |
 | **HUB-DASH-IA-a** | **Thinking** | **DONE 2026-07-29** — freeze-review-loop round 3 = **pass** | Ratify IA: Vault / Review(N) / History; Discarded under History; Needs-you banner; retire user-facing “Suggested”. Artifact: `docs/reviews/2026-07-29-hub-dashboard-ia.md`. |
-| **HUB-DASH-IA-b** | **Auto** | **TODO** (unblocked — freeze pass) | Shell: left rail, History segments, Needs-you, Review rename, badge, Connect/Import/Help/Settings rail entries, rail accent. Branch: `feat/hub-dashboard-ia`. Expert items 1, 7, 9–12, 14–16, 18–19. |
-| **HUB-DASH-IA-c** | **Auto** | **TODO** | Review inbox toolbar + row/detail polish; Vault search progressive disclosure; Insights (= Overview + consolidation). Expert items 2–6, 8, 13, 17. |
-| **HUB-DASH-IA-d** | **Auto** | **TODO** | Mobile bottom nav; onboarding/How-to copy sync; seven-tier + `/build-verification-review` → pass. Expert item 20. |
+| **HUB-DASH-IA-b** | **Auto** | **DONE 2026-07-29** — shell + seven-tier green; **BV deferred to d** | Shell: left rail, History segments, Needs-you, Review rename, badge, Connect/Import/Help/Settings/Insights rail entries, rail accent + badge pulse. Branch: `feat/hub-dashboard-ia`. Expert items 1, 7, 9–12, 14–16, 18–19. Tests: `test/hub-dashboard-ia-shell.test.mjs`. |
+| **HUB-DASH-IA-c** | **Auto** | **TODO** (unblocked) | Review inbox toolbar + row/detail polish; Vault search progressive disclosure; Insights (= Overview + consolidation). Expert items 2–6, 8, 13, 17. |
+| **HUB-DASH-IA-d** | **Auto** | **TODO** | Mobile bottom nav; onboarding/How-to copy sync polish; seven-tier + `/build-verification-review` → pass (covers b+c+d). Expert item 20. |
 | **HUB-DASH-IA-merge** | **Operator + Auto** | **TODO** | Tier 3 only — merge to Muse/`main` when operator authorizes. |
 
 ## Definition of Done (this lane)

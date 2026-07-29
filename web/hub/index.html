@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505">
   <link rel="icon" href="/assets/favicon.png" type="image/png" sizes="32x32">
   <title>Knowtation Hub</title>
-  <link rel="stylesheet" href="hub.css?v=20260526a">
+  <link rel="stylesheet" href="hub.css?v=20260729a">
 </head>
 <body>
   <div id="app">
@@ -21,7 +21,7 @@
         <button type="button" id="btn-settings" class="hidden btn-secondary">Settings</button>
         <button type="button" id="btn-new-note" class="hidden btn-new-note">+ New note</button>
         <button type="button" id="btn-import" class="hidden btn-secondary">Import</button>
-        <button type="button" id="btn-header-suggested" class="hidden btn-primary" title="Review proposals waiting for approval">Suggested</button>
+        <button type="button" id="btn-header-suggested" class="hidden btn-primary" title="Review proposals waiting for approval">Review<span id="hub-header-review-badge" class="hub-rail-badge hub-header-review-badge hidden" aria-live="polite"></span></button>
         <span id="user-name" class="muted"></span>
         <span id="login-buttons-wrap" class="login-buttons-wrap hidden"></span>
         <button id="btn-login-google" type="button" class="hidden btn-provider">Continue with Google</button>
@@ -95,6 +95,29 @@
     </div>
 
     <main id="main" class="hidden">
+      <div class="hub-shell">
+      <nav id="hub-rail" class="hub-rail" aria-label="Hub navigation">
+        <div class="hub-rail-primary" role="presentation">
+          <button type="button" data-tab="notes" class="hub-rail-item tab active" title="Vault markdown + approval log files; Search shows results here">Vault</button>
+          <button type="button" data-tab="suggested" class="hub-rail-item tab" title="Proposals waiting for review">Review<span id="hub-review-badge" class="hub-rail-badge hidden" aria-live="polite"></span></button>
+          <button type="button" id="hub-rail-history" class="hub-rail-item" data-hub-mode="history" aria-controls="history-segments" title="Activity and discarded proposals">History</button>
+        </div>
+        <div class="hub-rail-secondary" role="presentation">
+          <button type="button" id="hub-rail-insights" class="hub-rail-item hub-rail-action" data-hub-rail-action="insights" title="Overview charts and consolidation">Insights</button>
+          <button type="button" id="hub-rail-import" class="hub-rail-item hub-rail-action" data-hub-rail-action="import">Import</button>
+          <button type="button" id="hub-rail-connect" class="hub-rail-item hub-rail-action" data-hub-rail-action="connect" title="Agents, MCP, credentials">Connect</button>
+          <button type="button" id="hub-rail-settings" class="hub-rail-item hub-rail-action" data-hub-rail-action="settings">Settings</button>
+          <button type="button" id="hub-rail-help" class="hub-rail-item hub-rail-action" data-hub-rail-action="help" title="How to use">Help</button>
+        </div>
+      </nav>
+      <div class="hub-workspace">
+      <div id="hub-needs-you-banner" class="hub-needs-you-banner hidden" role="status" aria-live="polite">
+        <p id="hub-needs-you-text" class="hub-needs-you-text"></p>
+        <div class="hub-needs-you-actions">
+          <button type="button" id="hub-needs-you-open" class="btn-primary btn-small">Open Review</button>
+          <button type="button" id="hub-needs-you-dismiss" class="btn-link btn-link-small">Dismiss</button>
+        </div>
+      </div>
       <section class="search-section">
         <div id="hub-index-stale-banner" class="hub-index-stale-banner hidden" role="status" aria-live="polite">
           <span class="hub-index-stale-banner-text">Notes changed since the last <strong>Re-index</strong>. <strong>Meaning</strong> search may be out of date until you run it again.</span>
@@ -153,7 +176,7 @@
           <span class="toolbar-label">Browse</span>
           <button type="button" class="view-tab active" data-view="list">List</button>
           <button type="button" class="view-tab" data-view="calendar">Calendar</button>
-          <button type="button" class="view-tab" data-view="graph">Overview</button>
+          <button type="button" class="view-tab hidden" data-view="graph" id="hub-view-graph" aria-hidden="true" tabindex="-1">Overview</button>
           <div class="browse-key-wrap">
             <details id="search-key-help" class="browse-toolbar-key-details">
               <summary class="search-key-summary" aria-label="At-a-glance key: connection helpers, notes, proposals, agents, memory, and search. Click again to close." title="At-a-glance: connection helpers, notes &amp; import, proposals &amp; agents, memory, attestation">
@@ -171,7 +194,7 @@
                   <div class="search-key-col">
                     <p class="search-key-col-title">Notes &amp; import</p>
                     <ul class="search-key-list">
-                      <li><strong class="search-key-term">Notes</strong> — Markdown files in your vault (List / Calendar / Overview). Search results land under <strong class="search-key-term">Notes</strong>.</li>
+                      <li><strong class="search-key-term">Vault</strong> — Markdown files in your vault (List / Calendar). Search results land under <strong class="search-key-term">Vault</strong>. Overview charts live under <strong class="search-key-term">Insights</strong>.</li>
                       <li><strong class="search-key-term">Import</strong> — Brings chats, exports, and files in as normal notes (same search and filters afterward).</li>
                       <li><strong class="search-key-term">Quick</strong> — Next to the browse key; click the <strong class="search-key-term">arrow</strong> to show or hide chips (projects, tags, folders, nets). Row filters and <strong class="search-key-term">content</strong> scope apply either way.</li>
                       <li><strong class="search-key-term">All</strong> / <strong class="search-key-term">Clear</strong> — Reset Quick and filters to see the full list again.</li>
@@ -182,10 +205,10 @@
                   <div class="search-key-col">
                     <p class="search-key-col-title">Proposals &amp; agents</p>
                     <ul class="search-key-list">
-                      <li><strong class="search-key-term">Suggested</strong> — Proposals waiting for review (from you, CLI, or agents). Open one to <strong class="search-key-term">Evaluate</strong> (pass / fail / needs changes), then <strong class="search-key-term">Approve</strong> (writes the vault) or <strong class="search-key-term">Discard</strong>.</li>
-                      <li><strong class="search-key-term">Activity</strong> — Timeline of proposal events (created, approved, discarded). The Notes search bar does <em>not</em> filter this tab.</li>
-                      <li><strong class="search-key-term">Discarded</strong> — Rejected proposals for reference; not applied to the vault.</li>
-                      <li><strong class="search-key-term">Evaluations</strong> — Policy and optional <strong class="search-key-term">review hints</strong> / enrich (LLM) tie to the same Suggested queue; admins may require evaluation before approve (see Settings → Proposal policy).</li>
+                      <li><strong class="search-key-term">Review</strong> — Proposals waiting for review (from you, CLI, or agents). Open one to <strong class="search-key-term">Evaluate</strong> (pass / fail / needs changes), then <strong class="search-key-term">Approve</strong> (writes the vault) or <strong class="search-key-term">Discard</strong>.</li>
+                      <li><strong class="search-key-term">Activity</strong> — Timeline of proposal events (created, approved, discarded) under <strong class="search-key-term">History</strong>. The Vault search bar does <em>not</em> filter this view.</li>
+                      <li><strong class="search-key-term">Discarded</strong> — Rejected proposals for reference under <strong class="search-key-term">History</strong>; not applied to the vault.</li>
+                      <li><strong class="search-key-term">Evaluations</strong> — Policy and optional <strong class="search-key-term">review hints</strong> / enrich (LLM) tie to the same Review queue; admins may require evaluation before approve (see Settings → Proposal policy).</li>
                       <li><strong class="search-key-term">Agents</strong> — Use the same APIs as humans: search, read notes, create proposals. Nothing merges to canonical notes until approval when you use the proposal flow.</li>
                     </ul>
                   </div>
@@ -233,18 +256,14 @@
         </div>
       </section>
 
-      <section class="tabs" aria-label="Main sections">
-        <div class="tabs-inner">
-          <div class="tabs-buttons">
-            <button type="button" data-tab="notes" class="tab active" title="Vault markdown + approval log files; Search shows results here">Notes</button>
-            <button type="button" data-tab="activity" class="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
-            <button type="button" data-tab="suggested" class="tab" title="Proposals waiting for review">Suggested</button>
-            <button type="button" data-tab="problem" class="tab" title="Discarded proposals">Discarded</button>
-          </div>
-          <div class="tabs-list-controls">
-            <label class="hub-sort-label" for="hub-list-sort">Sort</label>
-            <select id="hub-list-sort" aria-label="Sort list"></select>
-          </div>
+      <section class="hub-workspace-toolbar" aria-label="List controls">
+        <div id="history-segments" class="history-segments hidden" role="tablist" aria-label="History">
+          <button type="button" data-tab="activity" data-history-segment="activity" class="tab history-segment" role="tab" title="Proposals: proposed → approved/discarded (not the same as vault approval log search)">Activity</button>
+          <button type="button" data-tab="problem" data-history-segment="problem" class="tab history-segment" role="tab" title="Discarded proposals">Discarded</button>
+        </div>
+        <div class="tabs-list-controls">
+          <label class="hub-sort-label" for="hub-list-sort">Sort</label>
+          <select id="hub-list-sort" aria-label="Sort list"></select>
         </div>
       </section>
       <div id="proposal-filters-bar" class="proposal-filters-bar hidden" role="region" aria-label="Proposal filters">
@@ -316,8 +335,8 @@
         </div>
       </section>
       <section id="tab-activity" class="tab-panel hidden">
-        <p class="muted"><strong>Activity</strong> lists proposal records (same data as Approve/Discard)—not semantic search hits. Vault <code>approvals/*.md</code> logs: open <strong>Notes</strong>, set content to <strong>Approval logs only</strong>, Apply filters or Search.</p>
-        <p class="muted">Use the <strong>proposal filters</strong> row (shown above when this tab, Suggested, or Discarded is active) to narrow by label, source, path, evaluation, queue, or severity. <strong>Sort</strong> (top right) applies here too.</p>
+        <p class="muted"><strong>Activity</strong> lists proposal records (same data as Approve/Discard)—not semantic search hits. Vault <code>approvals/*.md</code> logs: open <strong>Vault</strong>, set content to <strong>Approval logs only</strong>, Apply filters or Search.</p>
+        <p class="muted">Use the <strong>proposal filters</strong> row (shown above when this view, Review, or Discarded is active) to narrow by label, source, path, evaluation, queue, or severity. <strong>Sort</strong> (top right) applies here too.</p>
         <p class="muted">Sources: Hub (<strong>New proposal</strong> / <strong>Propose change</strong>), CLI, API.</p>
         <div id="proposals-activity" class="list activity-timeline"></div>
       </section>
@@ -365,6 +384,8 @@
           </div>
         </div>
       </aside>
+      </div><!-- .hub-workspace -->
+      </div><!-- .hub-shell -->
     </main>
 
     <div id="modal-create" class="modal hidden" aria-modal="true" role="dialog" aria-labelledby="modal-create-title">
@@ -743,7 +764,7 @@ Your note body here.</pre>
               </div>
             </div>
             <div id="settings-proposal-eval-explainer" class="settings-proposal-eval-explainer-block">
-            <p class="settings-intro small"><strong>Proposal review:</strong> Suggested edits from people or tools wait in the <strong>Suggested</strong> tab. When the <strong>evaluation gate</strong> is on, a reviewer records pass / fail / needs work before (most) approves. <strong>Review hints</strong> and <strong>Enrich</strong> are optional assistive text — never merge gates, and on some hosts proposal text is sent to a model. <strong>Evaluator may approve</strong> is set in <strong>Team</strong> and shown in Status. More context: <strong>How to use</strong> → <strong>Knowledge &amp; agents</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
+            <p class="settings-intro small"><strong>Proposal review:</strong> Edits from people or tools wait in the <strong>Review</strong> queue. When the <strong>evaluation gate</strong> is on, a reviewer records pass / fail / needs work before (most) approves. <strong>Review hints</strong> and <strong>Enrich</strong> are optional assistive text — never merge gates, and on some hosts proposal text is sent to a model. <strong>Evaluator may approve</strong> is set in <strong>Team</strong> and shown in Status. More context: <strong>How to use</strong> → <strong>Knowledge &amp; agents</strong> and <code>docs/TEAMS-AND-COLLABORATION.md</code>.</p>
             <details class="settings-json-details">
               <summary class="settings-json-details-summary">Technical details — env and file locations</summary>
               <p class="settings-intro small" style="margin:0.5rem 0 0;"><strong>Grade</strong> is for your records only. <strong>Evaluator fallback:</strong> server may use <code>HUB_EVALUATOR_MAY_APPROVE=1</code> if no per-user flag exists. <strong>Self-hosted files:</strong> <code>data/hub_evaluator_may_approve.json</code>, <code>data/hub_proposal_policy.json</code>. Greyed checkboxes in policy usually mean the host set <code>HUB_PROPOSAL_*</code> or <code>KNOWTATION_HUB_PROPOSAL_*</code> environment variables.</p>
@@ -1836,7 +1857,7 @@ Your note body here.</pre>
         </nav>
         <div id="how-to-panel-getting-started" class="how-to-panel" role="tabpanel">
           <div class="how-to-use-body">
-            <p class="how-to-intro">Open the in-app walkthrough to create your first notes, see optional GitHub backup, and learn where AI-suggested edits appear (<strong>Suggested</strong>). Best for <strong>hosted</strong> users; self-hosted operators can use it too, then read <strong>Setup → Self-hosted setup</strong> for machine install details.</p>
+            <p class="how-to-intro">Open the in-app walkthrough to create your first notes, see optional GitHub backup, and learn where AI-suggested edits appear (<strong>Review</strong>). Best for <strong>hosted</strong> users; self-hosted operators can use it too, then read <strong>Setup → Self-hosted setup</strong> for machine install details.</p>
             <p><button type="button" id="btn-how-to-open-onboarding" class="btn-primary">Open setup walkthrough</button></p>
             <p class="how-to-note small" style="margin-bottom:0;">Start over from step 1: <strong>Settings → Backup → Setup guide</strong>.</p>
           </div>
@@ -1850,7 +1871,7 @@ Your note body here.</pre>
               <li><strong>Notes</strong> — Import or write notes; use the header <strong>Vault</strong> menu if you have more than one notebook.</li>
               <li><strong>Optional backup</strong> — Create an <em>empty</em> GitHub repo, connect your account under Backup, enter <code>owner/repo</code>, then <strong>Back up now</strong>.</li>
               <li><strong>Connect an AI assistant</strong> — <strong>Settings → Integrations → Hub API</strong> has copy buttons. Read <strong>Knowledge &amp; agents</strong> for a plain-English explanation of the two copy types.</li>
-              <li><strong>Edits from tools</strong> — Appear under <strong>Suggested</strong> until you approve (nothing applies to your vault until you approve).</li>
+              <li><strong>Edits from tools</strong> — Appear under <strong>Review</strong> until you approve (nothing applies to your vault until you approve).</li>
             </ol>
             <p class="how-to-note small" style="margin:0.75rem 0 0;">Running the Hub on your own machine instead? Open <strong>Self-hosted setup</strong> below.</p>
           </div>
@@ -2121,14 +2142,14 @@ Knowtation Hub listening on http://localhost:3333</pre>
                 <path d="M 416 24 L 432 24" stroke="var(--accent)" stroke-width="2" fill="none"/>
                 <rect x="434" y="8" width="92" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
                 <text x="480" y="28" class="diagram-text" text-anchor="middle">You</text>
-                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Suggested / Discarded)</text>
+                <text x="265" y="58" class="diagram-text-small" text-anchor="middle">Approve or discard in Hub (Review / Discarded)</text>
               </svg>
             </div>
             <h4 class="how-to-sub">Proposals: where they come from and where to see them</h4>
-            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Suggested</strong> tab actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
+            <p>You <strong>review</strong> proposals in the Hub. They can come from the <strong>Review</strong> queue actions (<strong>New proposal</strong>, or <strong>Propose change</strong> on an open note), from the CLI, or from an agent calling <code>POST /api/v1/proposals</code>.</p>
             <ul>
-              <li><strong>Create a proposal:</strong> In the Hub: <strong>Suggested → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
-              <li><strong>Suggested tab:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
+              <li><strong>Create a proposal:</strong> In the Hub: <strong>Review → New proposal</strong>, or open a note and click <strong>Propose change</strong>. From a terminal: <code>knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."</code> with <code>KNOWTATION_HUB_TOKEN</code> set (copy from <strong>Settings → Integrations → Hub API</strong>). Agents use the same API with <code>Authorization: Bearer …</code> and <code>X-Vault-Id</code>.</li>
+              <li><strong>Review queue:</strong> Lists proposals waiting for your decision. Click one to open it. Use <strong>Evaluation</strong> to record a pass, fail, or needs-changes outcome (checklist + optional grade + comment). Then <strong>Approve</strong> writes the content to the vault, or <strong>Discard</strong> rejects it. If your Hub requires evaluation before approve, you must pass or enter an <strong>approve waiver reason</strong>. Filter with <em>Pending evaluation only</em> when triaging.</li>
               <li><strong>Discarded tab:</strong> Lists proposals you (or someone) discarded. You can open them to read; they are not applied to the vault.</li>
               <li><strong>Activity tab:</strong> Timeline of all proposals (proposed, approved, discarded) so you can see what changed and when.</li>
             </ul>
@@ -2136,7 +2157,7 @@ Knowtation Hub listening on http://localhost:3333</pre>
             <h4 class="how-to-sub">Reviewing proposals (evaluation, triggers, roles)</h4>
             <ul>
               <li><strong>Outcome vs grade:</strong> Saving evaluation uses an <em>outcome</em> (pass / fail / needs changes) plus checklist; optional <em>grade</em> is for culture or reporting and does not replace outcome.</li>
-              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Suggested tab.</li>
+              <li><strong>Pending:</strong> New proposals may start as pending when your Hub requires evaluation for every proposal, or when <strong>review triggers</strong> match (phrases, path prefixes, labels). Filter with <em>Pending evaluation</em>, <em>Review queue</em>, or <em>Severity</em> on the Review queue.</li>
               <li><strong>Who does what:</strong> <code>evaluator</code> users record evaluation; <code>admin</code> always approves and discards. Evaluators may approve only when an admin grants it per user in <strong>Team</strong> (or the host sets <code>HUB_EVALUATOR_MAY_APPROVE=1</code> as a fallback when no per-user entry exists). Waivers on approve remain admin-side when evaluation has not passed.</li>
               <li><strong>LLM review hints:</strong> If enabled on the Hub, short async hints may appear on a proposal. They are not a merge gate; treat them as untrusted.</li>
             </ul>
@@ -2162,7 +2183,7 @@ KNOWTATION_HUB_VAULT_ID=default
             </div>
             <div class="integration-card">
               <h5>Abacus</h5>
-              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Suggested tab and approve or discard.</p>
+              <p>Abacus agents can use the Knowtation CLI or Hub API. Point Abacus at the Hub URL and token so it can search and read notes; use <code>knowtation propose --hub &lt;url&gt;</code> (or the API) to create proposals. You review in the Hub's Review queue and approve or discard.</p>
               <div class="example-block"><span class="example-label">Example</span><pre># In your Abacus tool config, add Knowtation Hub:
 # - Hub URL + KNOWTATION_HUB_TOKEN for API calls
 # - Or shell tool: knowtation search "query" --json</pre></div>
@@ -2365,7 +2386,7 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
 
             <section class="how-to-step">
               <h3>Proposals and GitHub</h3>
-              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Suggested / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
+              <p>Agents do <strong>not</strong> push to GitHub. They read and write the <strong>vault</strong>. For writes, they can create <strong>proposals</strong> (CLI <code>knowtation propose --hub &lt;url&gt;</code> or API <code>POST /api/v1/proposals</code>). You approve or discard in the Hub (Review / Discarded). You control backup: Settings → Back up now or auto-sync to your one GitHub repo.</p>
             </section>
 
             <section class="how-to-step">
@@ -2581,10 +2602,12 @@ knowtation propose --hub http://localhost:3333 --path inbox/idea.md --body "..."
   <script type="module">
     import * as HubListSort from './hub-list-sort.mjs';
     import * as HubIntegrationGuides from './hub-integration-guides.mjs';
+    import * as HubShellIa from './hub-shell-ia.mjs';
     globalThis.HubListSort = HubListSort;
     globalThis.HubIntegrationGuides = HubIntegrationGuides;
+    globalThis.HubShellIa = HubShellIa;
   </script>
   <script type="module" src="hub-import-zip-shim.mjs?v=1"></script>
-  <script defer src="hub.js?v=20260603b"></script>
+  <script defer src="hub.js?v=20260729a"></script>
 </body>
 </html>

@@ -81,6 +81,126 @@
   const btnHowToUse = el('btn-how-to-use');
   const btnSettings = el('btn-settings');
   const browseToolbar = el('browse-toolbar');
+  /** @type {number} last unfiltered proposed count for badge pulse */
+  let hubReviewBadgePrevCount = 0;
+  let hubNeedsYouDismissed = false;
+  try {
+    hubNeedsYouDismissed = sessionStorage.getItem('hub_needs_you_dismissed') === '1';
+  } catch (_) {
+    hubNeedsYouDismissed = false;
+  }
+
+  function hubShellIa() {
+    return globalThis.HubShellIa || null;
+  }
+
+  function getActiveHubMainTab() {
+    const t = document.querySelector('[data-tab].tab.active');
+    return (t && t.dataset.tab) || 'notes';
+  }
+
+  function syncHubRailChrome(activeTab) {
+    const name = activeTab || getActiveHubMainTab();
+    const historyMode = name === 'activity' || name === 'problem';
+    const histBtn = el('hub-rail-history');
+    if (histBtn) histBtn.classList.toggle('active', historyMode);
+    const segments = el('history-segments');
+    if (segments) segments.classList.toggle('hidden', !historyMode);
+    document.querySelectorAll('.history-segment').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.tab === name);
+      btn.setAttribute('aria-selected', btn.dataset.tab === name ? 'true' : 'false');
+    });
+    const insights = el('hub-rail-insights');
+    if (insights) {
+      const graphOn =
+        name === 'notes' && !el('notes-view-graph')?.classList.contains('hidden');
+      insights.classList.toggle('active', Boolean(graphOn));
+    }
+    const SI = hubShellIa();
+    if (historyMode && SI && typeof SI.writeHistorySegment === 'function') {
+      SI.writeHistorySegment(name === 'problem' ? 'problem' : 'activity', localStorage);
+    }
+  }
+
+  function applyReviewBadgeCount(rawCount) {
+    const SI = hubShellIa();
+    const next = SI && typeof SI.clampProposedBadgeCount === 'function'
+      ? SI.clampProposedBadgeCount(rawCount)
+      : Math.max(0, Math.min(100, Math.floor(Number(rawCount) || 0)));
+    const text =
+      SI && typeof SI.formatProposedBadgeText === 'function'
+        ? SI.formatProposedBadgeText(next)
+        : next > 0
+          ? String(next)
+          : '';
+    const pulse =
+      SI && typeof SI.shouldPulseReviewBadge === 'function'
+        ? SI.shouldPulseReviewBadge(hubReviewBadgePrevCount, next)
+        : next > hubReviewBadgePrevCount;
+    ['hub-review-badge', 'hub-header-review-badge'].forEach((id) => {
+      const badge = el(id);
+      if (!badge) return;
+      if (!text) {
+        badge.textContent = '';
+        badge.classList.add('hidden');
+        badge.classList.remove('hub-rail-badge-pulse');
+        return;
+      }
+      badge.textContent = text;
+      badge.classList.remove('hidden');
+      if (pulse) {
+        badge.classList.remove('hub-rail-badge-pulse');
+        void badge.offsetWidth;
+        badge.classList.add('hub-rail-badge-pulse');
+      }
+    });
+    hubReviewBadgePrevCount = next;
+    updateNeedsYouBanner(next);
+  }
+
+  function updateNeedsYouBanner(proposedCount) {
+    const banner = el('hub-needs-you-banner');
+    const textEl = el('hub-needs-you-text');
+    if (!banner) return;
+    const SI = hubShellIa();
+    const show =
+      SI && typeof SI.shouldShowNeedsYouBanner === 'function'
+        ? SI.shouldShowNeedsYouBanner(proposedCount, hubNeedsYouDismissed)
+        : proposedCount > 0 && !hubNeedsYouDismissed;
+    const onVault = getActiveHubMainTab() === 'notes';
+    banner.classList.toggle('hidden', !(show && onVault));
+    if (textEl && SI && typeof SI.needsYouBannerCopy === 'function') {
+      textEl.textContent = SI.needsYouBannerCopy(proposedCount);
+    } else if (textEl) {
+      textEl.textContent =
+        proposedCount +
+        (proposedCount === 1 ? ' proposal' : ' proposals') +
+        ' waiting in Review';
+    }
+  }
+
+  async function refreshReviewBadge() {
+    if (!token) {
+      applyReviewBadgeCount(0);
+      return;
+    }
+    try {
+      const out = await api('/api/v1/proposals?status=proposed&limit=100');
+      applyReviewBadgeCount((out && out.proposals ? out.proposals.length : 0) || 0);
+    } catch (_) {
+      /* keep last badge; fail closed without wiping */
+    }
+  }
+
+  function openHistoryMode(preferredSegment) {
+    const SI = hubShellIa();
+    const seg =
+      preferredSegment ||
+      (SI && typeof SI.readHistorySegment === 'function'
+        ? SI.readHistorySegment(localStorage)
+        : 'activity');
+    switchHubMainTab(seg === 'problem' ? 'problem' : 'activity');
+  }
   const userName = el('user-name');
   const oauthNotConfigured = el('oauth-not-configured');
   const loginIntro = el('login-intro');
@@ -1244,20 +1364,29 @@
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
         if (btnImport) btnImport.classList.toggle('hidden', isViewer);
+        const railImport = el('hub-rail-import');
+        if (railImport) railImport.classList.toggle('hidden', isViewer);
         if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
+        void refreshReviewBadge();
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
         if (btnImport) btnImport.classList.remove('hidden');
+        const railImport = el('hub-rail-import');
+        if (railImport) railImport.classList.remove('hidden');
         if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
+        void refreshReviewBadge();
       }
     } else {
       if (btnNewNote) btnNewNote.classList.add('hidden');
       if (btnImport) btnImport.classList.add('hidden');
+      const railImport = el('hub-rail-import');
+      if (railImport) railImport.classList.add('hidden');
       if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
+      applyReviewBadgeCount(0);
     }
     hubRefreshIndexStaleBanner();
   }
@@ -1641,13 +1770,13 @@
   function refreshNewProposalTabVisibility() {
     const btn = el('btn-new-proposal');
     if (!btn) return;
-    const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const tab = getActiveHubMainTab();
     const show = tab === 'suggested' && hubUserCanWriteNotes();
     btn.classList.toggle('hidden', !show);
   }
 
   function applySortedNotesClient(notes) {
-    const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const tab = getActiveHubMainTab();
     if (tab !== 'notes') return notes;
     const S = globalThis.HubListSort;
     const sel = hubListSortGetSelect();
@@ -2795,7 +2924,7 @@
     const strip = el('hub-empty-vault-strip');
     if (!strip) return;
     const mainVisible = main && !main.classList.contains('hidden');
-    const notesTab = document.querySelector('.tabs .tab.active')?.dataset?.tab === 'notes';
+    const notesTab = getActiveHubMainTab() === 'notes';
     const q = searchQuery && String(searchQuery.value).trim();
     const show =
       Boolean(mainVisible && token) &&
@@ -2866,7 +2995,7 @@
   }
 
   function switchHubMainTab(name) {
-    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('[data-tab].tab').forEach((t) => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
     const tab = document.querySelector('[data-tab="' + name + '"]');
     if (tab) tab.classList.add('active');
@@ -2887,11 +3016,20 @@
     );
     if (panel) panel.classList.remove('hidden');
     if (name === 'notes') {
+      const graphPanel = el('notes-view-graph');
+      if (graphPanel && !graphPanel.classList.contains('hidden')) {
+        switchNotesView('list');
+      } else {
+        syncHubRailChrome(name);
+      }
       loadNotes();
+      updateNeedsYouBanner(hubReviewBadgePrevCount);
     } else {
+      syncHubRailChrome(name);
       if (name === 'activity') loadActivity();
       if (name === 'suggested' || name === 'problem') loadProposals();
       updateEmptyVaultStripVisibility();
+      updateNeedsYouBanner(hubReviewBadgePrevCount);
     }
   }
 
@@ -2948,13 +3086,7 @@
       searchQuery.value = '';
       clearListFacetFilters();
       switchNotesView('list');
-      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-      const notesTab = document.querySelector('[data-tab="notes"]');
-      if (notesTab) notesTab.classList.add('active');
-      const tabNotes = el('tab-notes');
-      if (tabNotes) tabNotes.classList.remove('hidden');
-      loadNotes();
+      switchHubMainTab('notes');
       renderFilterChips(null);
     };
   }
@@ -3002,7 +3134,7 @@
   const hubListSortEl = hubListSortGetSelect();
   if (hubListSortEl) {
     hubListSortEl.addEventListener('change', () => {
-      const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+      const tab = getActiveHubMainTab();
       try {
         if (tab === 'notes') localStorage.setItem(HUB_SORT_STORAGE_NOTES, hubListSortEl.value);
         else if (tab === 'activity' || tab === 'suggested' || tab === 'problem') {
@@ -3174,6 +3306,7 @@
   }
 
   async function loadProposals() {
+    void refreshReviewBadge();
     const emptySuggested =
       '<div class="empty-state empty-state-suggested">' +
       '<p><strong>No proposals waiting for review.</strong> Agents and the CLI queue edits here; nothing applies to your live vault until you approve.</p>' +
@@ -3266,8 +3399,8 @@
         container.innerHTML =
           '<div class="empty-state empty-state-activity">' +
           '<p>No proposal activity yet.</p>' +
-          '<p class="muted small">Pending reviews from agents or the CLI appear under the <strong>Suggested</strong> tab first; this tab is the timeline once things move.</p>' +
-          '<p class="empty-state-activity-actions"><button type="button" class="btn-secondary" id="empty-activity-goto-suggested">Open Suggested tab</button></p>' +
+          '<p class="muted small">Pending reviews from agents or the CLI appear under <strong>Review</strong> first; this view is the timeline once things move.</p>' +
+          '<p class="empty-state-activity-actions"><button type="button" class="btn-secondary" id="empty-activity-goto-suggested">Open Review</button></p>' +
           '</div>';
         const go = container.querySelector('#empty-activity-goto-suggested');
         if (go) go.onclick = () => switchHubMainTab('suggested');
@@ -3319,16 +3452,22 @@
     if (!query) return;
     hubBrowseListEmptyUnfiltered = false;
     updateEmptyVaultStripVisibility();
-    const activeMainTab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const activeMainTab = getActiveHubMainTab();
     const useKeyword = searchMode && searchMode.value === 'keyword';
     if (activeMainTab && activeMainTab !== 'notes') {
-      showToast(useKeyword ? 'Keyword results are shown under the Notes tab.' : 'Semantic results are shown under the Notes tab.');
+      showToast(useKeyword ? 'Keyword results are shown under Vault.' : 'Semantic results are shown under Vault.');
     }
     switchNotesView('list');
-    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('[data-tab].tab').forEach((t) => t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    document.querySelector('[data-tab="notes"]').classList.add('active');
-    el('tab-notes').classList.remove('hidden');
+    const notesTabBtn = document.querySelector('[data-tab="notes"]');
+    if (notesTabBtn) notesTabBtn.classList.add('active');
+    const tabNotes = el('tab-notes');
+    if (tabNotes) tabNotes.classList.remove('hidden');
+    setProposalFiltersBarVisible(false);
+    refreshNewProposalTabVisibility();
+    syncHubRailChrome('notes');
+    syncHubListSortUI('notes');
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
     const scopeSummary = formatSearchScopeSummary();
@@ -3416,6 +3555,7 @@
     el('notes-view-graph').classList.toggle('hidden', view !== 'graph');
     if (view === 'calendar') renderCalendar();
     if (view === 'graph') { renderDashboard(); refreshConsolidationCard(); }
+    syncHubRailChrome(getActiveHubMainTab());
   }
 
   document.querySelectorAll('.view-tab').forEach((t) => {
@@ -3831,7 +3971,7 @@
       pathInput.value = (opts && opts.path) || '';
       if (hint)
         hint.textContent =
-          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Suggested tab.';
+          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in Review.';
     }
     bodyEl.value = (opts && opts.body) || '';
     intentEl.value = (opts && opts.intent) || '';
@@ -9964,7 +10104,7 @@
       // is visible instead of the browser staying at whatever scroll position it was at.
       const scrollHost = el('detail-body');
       if (scrollHost) requestAnimationFrame(() => scrollHost.scrollTo({ top: 0, behavior: 'smooth' }));
-      // Also highlight the matching row in the Suggested/Activity list so the user can see which
+      // Also highlight the matching row in the Review/Activity list so the user can see which
       // proposal was enriched.
       requestAnimationFrame(() => {
         const row = document.querySelector('[data-id="' + CSS.escape(id) + '"]');
@@ -10163,11 +10303,58 @@
     keyHelp.open = false;
   });
 
-  document.querySelectorAll('.tab').forEach((tab) => {
+  document.querySelectorAll('[data-tab].tab').forEach((tab) => {
     tab.onclick = () => {
       switchHubMainTab(tab.dataset.tab);
     };
   });
+  const hubRailHistory = el('hub-rail-history');
+  if (hubRailHistory) {
+    hubRailHistory.addEventListener('click', () => openHistoryMode());
+  }
+  const hubRailInsights = el('hub-rail-insights');
+  if (hubRailInsights) {
+    hubRailInsights.addEventListener('click', () => {
+      switchHubMainTab('notes');
+      switchNotesView('graph');
+    });
+  }
+  const hubRailImport = el('hub-rail-import');
+  if (hubRailImport) {
+    hubRailImport.addEventListener('click', () => {
+      if (typeof openImportModal === 'function') openImportModal();
+      else if (btnImport) btnImport.click();
+    });
+  }
+  const hubRailConnect = el('hub-rail-connect');
+  if (hubRailConnect) {
+    hubRailConnect.addEventListener('click', () => openSettingsIntegrationsTab());
+  }
+  const hubRailSettings = el('hub-rail-settings');
+  if (hubRailSettings) {
+    hubRailSettings.addEventListener('click', () => openSettings());
+  }
+  const hubRailHelp = el('hub-rail-help');
+  if (hubRailHelp) {
+    hubRailHelp.addEventListener('click', () => {
+      if (typeof openHowToUse === 'function') openHowToUse();
+      else if (btnHowToUse) btnHowToUse.click();
+    });
+  }
+  const needsYouOpen = el('hub-needs-you-open');
+  if (needsYouOpen) {
+    needsYouOpen.addEventListener('click', () => switchHubMainTab('suggested'));
+  }
+  const needsYouDismiss = el('hub-needs-you-dismiss');
+  if (needsYouDismiss) {
+    needsYouDismiss.addEventListener('click', () => {
+      hubNeedsYouDismissed = true;
+      try {
+        sessionStorage.setItem('hub_needs_you_dismissed', '1');
+      } catch (_) {}
+      updateNeedsYouBanner(hubReviewBadgePrevCount);
+    });
+  }
   if (btnHeaderSuggested) {
     btnHeaderSuggested.addEventListener('click', () => switchHubMainTab('suggested'));
   }

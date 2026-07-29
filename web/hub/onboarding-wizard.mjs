@@ -164,7 +164,7 @@ export function getStepContent(isHosted, index) {
           '/TWO-PATHS-HOSTED-AND-SELF-HOSTED.md#quick-start-self-hosted" target="_blank" rel="noopener">Quick start (self-hosted)</a>.</p>' +
           '</div>' +
           '</details>' +
-          '<p class="onboarding-tip">Next: <strong>Integrations</strong>, imports by platform, then <strong>Suggested</strong> (where edits wait for approval).</p>',
+          '<p class="onboarding-tip">Next: <strong>Integrations</strong>, imports by platform, then <strong>Review</strong> (where edits wait for approval).</p>',
       },
       {
         id: 'h2',
@@ -212,10 +212,10 @@ export function getStepContent(isHosted, index) {
       },
       {
         id: 'h4',
-        title: 'Proposals and the Suggested queue',
+        title: 'Proposals and the Review queue',
         bodyHtml:
           '<p><strong>Agents suggest; humans approve.</strong> Proposed edits stay out of the canonical vault until someone approves them — same speed as direct writes, with a paper trail and roles.</p>' +
-          '<p>In the Hub, open the <strong>Suggested</strong> tab (next to Notes and Activity) to review proposals. <strong>Activity</strong> is the timeline; <strong>Discarded</strong> keeps rejected items for reference. You can also start a proposal from a note (<strong>Propose change</strong>) or <strong>New proposal</strong>.</p>' +
+          '<p>In the Hub, open <strong>Review</strong> in the left rail to triage proposals. <strong>History</strong> holds <strong>Activity</strong> (timeline) and <strong>Discarded</strong> (rejected items). You can also start a proposal from a note (<strong>Propose change</strong>) or <strong>New proposal</strong>.</p>' +
           '<p class="onboarding-tip">Contract and API details: <a href="' +
           AGENT_INTEGRATION_ANCHOR_PROPOSALS +
           '" target="_blank" rel="noopener">Agent integration — §4 Proposals</a>.</p>',
@@ -246,7 +246,7 @@ export function getStepContent(isHosted, index) {
         id: 'h8',
         title: 'Power tools for agents',
         bodyHtml:
-          '<p>On hosted Knowtation, MCP exposes vault operations your role allows — search and read notes, propose changes (with humans approving in <strong>Suggested</strong>), imports, indexing, memory tools where enabled, and more.</p>' +
+          '<p>On hosted Knowtation, MCP exposes vault operations your role allows — search and read notes, propose changes (with humans approving in <strong>Review</strong>), imports, indexing, memory tools where enabled, and more.</p>' +
           '<p><strong>MCP prompts</strong> are composition templates registered for your session. After you connect, your client can list them (e.g. via <code>prompts/list</code>) — that list is authoritative for this deployment.</p>' +
           '<details class="how-to-details">' +
           '<summary>Technical inventory (prompt names &amp; prime)</summary>' +
@@ -308,7 +308,7 @@ export function getStepContent(isHosted, index) {
       title: 'Import, agents, and backup',
       bodyHtml:
         '<p><strong>Import</strong> brings files from other tools. <strong>Settings → Integrations</strong> shows how to connect agents (MCP). <strong>Settings → Backup</strong> walks through GitHub backup when you want version history off-machine.</p>' +
-        '<p><strong>Proposals:</strong> agents use the same APIs as humans; review queued changes under the Hub <strong>Suggested</strong> tab before they merge into the vault. See <a href="' +
+        '<p><strong>Proposals:</strong> agents use the same APIs as humans; review queued changes under Hub <strong>Review</strong> before they merge into the vault. See <a href="' +
         AGENT_INTEGRATION_ANCHOR_PROPOSALS +
         '" target="_blank" rel="noopener">Agent integration — §4 Proposals</a>.</p>' +
         '<p class="onboarding-tip">The seven steps under <strong>How to use → Setup</strong> stay the full reference — this wizard is the short path.</p>',
@@ -337,7 +337,7 @@ export function getStepSecondaryActions(isHosted, index) {
     if (index === 1) return [{ id: 'openImportModal', label: 'Open Import' }, { id: 'openSettingsIntegrations', label: 'Settings → Integrations' }];
     if (index === 2) return [{ id: 'openSettingsIntegrations', label: 'Open Settings → Integrations' }];
     if (index === 3) return [{ id: 'openImportModal', label: 'Open Import' }, { id: 'openImportSourcesDoc', label: 'Import sources (docs)' }];
-    if (index === 4) return [{ id: 'focusSuggestedTab', label: 'Open Suggested tab' }, { id: 'openAgentDocProposals', label: 'Read §4 Proposals (docs)' }];
+    if (index === 4) return [{ id: 'focusSuggestedTab', label: 'Open Review' }, { id: 'openAgentDocProposals', label: 'Read §4 Proposals (docs)' }];
     if (index === 5) return [{ id: 'projectsHelp', label: 'How projects work' }];
     if (index === 6) return [{ id: 'howToKnowledge', label: 'How to use: Knowledge & agents' }];
     if (index === 7) return [{ id: 'openSettingsBackup', label: 'Open Settings → Backup' }];
