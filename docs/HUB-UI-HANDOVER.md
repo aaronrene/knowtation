@@ -10,7 +10,7 @@
 
 **Date:** 2026-07-29  
 **Model:** **Operator + Auto**  
-**Branch:** `feat/hub-dashboard-ia` @ `6919c7b` (pushed to `origin`)
+**Branch:** `feat/hub-dashboard-ia` @ `f75f07c` (pushed to `origin`)
 
 ### Where is the frozen spec?
 
@@ -25,7 +25,7 @@
 | Item | State |
 | --- | --- |
 | Build (a→d + polish) | **DONE** — nothing left to implement here for HUB-DASH-IA |
-| Feature branch on GitHub | **Pushed** — `origin/feat/hub-dashboard-ia` = `6919c7b` |
+| Feature branch on GitHub | **Pushed** — `origin/feat/hub-dashboard-ia` = `f75f07c` |
 | Muse / MuseHub locally | **Unavailable** (Hub protocol refactor; `.muse` missing) |
 | Muse/`main` + muse-mirror | **Deferred** — run on a Muse-capable computer |
 | Optional HUB-HELP-UX | **Not** merge-blocking; start only if operator green-lights |
@@ -38,7 +38,7 @@ This env may continue **other** lanes (product/Scooling via `OVERSEER-HANDOVER.m
 HUB-DASH-IA-merge — Tier 3 Muse/main + muse-mirror (Muse-capable machine)
 
 Model: Operator + Auto.
-Branch: feat/hub-dashboard-ia (fetch latest from origin — HEAD should be 6919c7b polish or newer).
+Branch: feat/hub-dashboard-ia (fetch latest from origin — HEAD should be f75f07c lane-doc deferral or newer).
 Read ONLY: docs/HUB-UI-HANDOVER.md + docs/HUB-UI-ROADMAP.md.
 Ground truth: docs/reviews/2026-07-29-hub-dashboard-ia.md (frozen: true, review_stamp.verdict: pass).
 Shell IA (b+c+d) + HUB-DASH-IA-polish already shipped on the feature branch — do NOT redesign.
@@ -67,7 +67,7 @@ Hard stops: no secrets; no proposal RBAC changes; no direct push to GitHub main.
 | Build verification (b+c+d) | **pass** 2026-07-29 |
 | Post-BV polish | **DONE** 2026-07-29 |
 | Merge authorization | **Given** 2026-07-29 — land on Muse-capable machine |
-| GitHub feature backup | **Pushed** 2026-07-29 (`6919c7b`) |
+| GitHub feature backup | **Pushed** 2026-07-29 (`f75f07c`; polish code @ `6919c7b`) |
 
 ### Verified snapshot
 
@@ -77,7 +77,7 @@ Hard stops: no secrets; no proposal RBAC changes; no direct push to GitHub main.
 | Freeze | `docs/reviews/2026-07-29-hub-dashboard-ia.md` — `review_stamp.verdict: pass` |
 | HUB-DASH-IA-b/c/d | Shell + inbox + mobile shipped; BV **pass** |
 | HUB-DASH-IA-polish | Rail vault switcher (“Active vault”); sticky header above detail; notes `50vw`; Quick tags; condensed search row; clustered rail; no onboarding auto-popup; Knowtation + gray **HUB** |
-| Git remote | `origin/feat/hub-dashboard-ia` @ `6919c7b` |
+| Git remote | `origin/feat/hub-dashboard-ia` @ `f75f07c` |
 | Optional next (not merge-blocking) | **HUB-HELP-UX** — How to use / Integrations school-friendly copy & layout (Thinking → Auto if authorized) |
 | Product board (ignore for UI sessions) | `docs/OVERSEER-HANDOVER.md` / `docs/ROADMAP.md` |
 | Kit config primary docs | `.overseer/config.yaml` → product handover/roadmap (**unchanged**) |
