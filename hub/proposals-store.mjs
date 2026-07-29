@@ -321,7 +321,7 @@ export function createProposal(dataDir, input) {
     updated_at: now,
   };
   // HOSTED-WRITE-EVAL E1 — after severity/auto-flag fields are set (post-trigger).
-  // FINISH-COMPLETE-APPLY T5: Tasks/Media also self-pass when session_bound + fingerprint hold.
+  // T5: Tasks/Media/Flow self-pass when session_bound + fingerprint hold.
   const withE1 = applyPersonalSelfApplyEvaluationE1(proposal, {
     evaluatedBy: proposedBy,
     evaluatedAt: now,

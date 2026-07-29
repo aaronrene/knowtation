@@ -17,43 +17,64 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-## NEXT SESSION — Trend Agent: use Phase C REST credentials (PRIMARY for this track)
+## NEXT SESSION — FLOW-WRITE-LIVE-SC-b Auto (product PRIMARY — paste on Scooling)
 
 **Date:** 2026-07-28
-**Model:** **Operator + Auto** (Trend Agent consumer)
+**Model:** **Auto** (Scooling board owns the build; this board is the Knowtation relay)
 
-**Branch:** Knowtation Muse/`main` includes **DURABLE-AGENT-AUTH-C** (scoped REST agent
-credentials: `kt_agent_` + `agent_access` exchange). Landed this session from
-`feat/durable-agent-auth-phase-c` → Muse `main` → bridge → GitHub `muse-mirror` → `main`.
-Hub docs: Settings → Integrations → **Agent credentials (REST)**; see
-`docs/AGENT-INTEGRATION.md` (REST-only runners row).
+**Branch (Knowtation):** `feat/flow-write-live-kn-b` — KN-b **DONE** (BV round 1 =
+`pass`); Muse/`main` land still Tier 3.
 
-**Why this is next:** Hub Phase C is on `main` and must be **live** on
-`api.knowtation.store` before Trend Agent can mint/use `KNOWTATION_HUB_AGENT_CREDENTIAL`.
-No session-JWT workaround.
+**Why this is next (product order — Scooling board wins):** FLOW-WRITE-LIVE-KN-b admitted
+§FWL.4 Flow fingerprints. SC-b must emit `scooling.flow:` + propose→approve honesty while
+authoring posture stays hard-`false`.
 
-### THE ONE NEXT STEP — **Model: Operator + Auto** (Trend Agent)
+### THE ONE NEXT STEP — **Model: Auto** (product PRIMARY — paste on Scooling)
 
 ```text
-Trend Agent — consume Knowtation Phase C REST agent credentials
+FLOW-WRITE-LIVE-SC-b — Scooling Auto: emit scooling.flow: + propose→approve honesty
 
-Model: Operator + Auto.
-Confirm Knowtation Hub/API deploy is live (Agent credentials UI +
-POST /api/v1/auth/agent/token). On VideoFactory-trend-agent / Paperclip host:
-mint kt_agent_ credential in Hub Settings → Integrations → Agent credentials (REST);
-set KNOWTATION_HUB_AGENT_CREDENTIAL; exchange for agent_access JWT per
-docs/AGENT-INTEGRATION.md and docs/DURABLE-AGENT-AUTH-PHASE-C-FREEZE.md §9.
-Pull latest Knowtation main only after GitHub muse-mirror → main merge + Netlify deploy.
-Hard stops: do not paste browser session JWT / ktn_refresh as durable agent auth;
-no GitHub feature→main (SD-14).
+Model: Auto.
+Repo: ~/scooling (feature branch). Consume as ground truth (do not redesign):
+~/scooling/docs/FLOW-WRITE-LIVE-FREEZE.md (§FWL.4 / §FWL.5 / §FWL.7 SC matrix;
+frozen:true; review_stamp.verdict pass; SD-20). Prerequisite: FLOW-WRITE-LIVE-KN-b
+DONE (Knowtation feat/flow-write-live-kn-b; BV pass).
+Implement: (1) emit external_ref ^scooling\.flow:[A-Za-z0-9._:-]{1,128}$ on authoring
+propose for wire kinds new|edit|import; (2) propose→approve orchestration honesty per
+§FWL.5 (hosted_flow_saved vs proposal_created_pending_apply); (3) compile-time
+FLOW_AUTHORING_WRITES_AUTHORIZED stays false; (4) seven-tier vs fake Hub per §FWL.7 SC;
+(5) governance sync; Muse commit on feature branch.
+Hard stops: no posture flip; no prod SCOOLING_FLOW_* / FLOW_AUTHORING_WRITES; no
+Delegation self-apply; no GitHub feature→main (SD-14). After BV pass, NEXT =
+FLOW-WRITE-LIVE-SC-flip (Operator + Auto, Tier 3).
 ```
 
-### Prior session — DURABLE-AGENT-AUTH-C land to Muse main (2026-07-28)
+### Prior session — FLOW-WRITE-LIVE-KN-b Auto + BV pass (2026-07-28)
+
+**Date:** 2026-07-28 · **Model:** Auto
+
+Implemented on `feat/flow-write-live-kn-b`: validated `scooling.flow:` persist on flow
+propose (`new`/`edit`/`import`); T5 `matchesScoolingFlowFingerprint` (§FWL.4.1 exact
+kind, no default-to-`new`); capture/Delegation/project/org/wrong-ref refuse; Hub
+`sessionBound` wired for Flow E1; PROPOSAL-LIFECYCLE updated; seven-tier **11/11**
+(`test/flow-write-live-kn-b.test.mjs`). BV round 1 = **`pass`**
+(`docs/reviews/2026-07-28-flow-write-live-kn-b-bv-round1-pass.md`). No prod
+`FLOW_AUTHORING_WRITES` flip. No merge.
+
+### Prior session — DURABLE-AGENT-AUTH-C land + live (2026-07-28)
 
 Operator authorized Tier 3 land. Merged `feat/durable-agent-auth-phase-c` onto
 `feat/land-phase-c-rest-agent-creds` (conflicts only in ROADMAP/HANDOVER — kept main
-structure; marked Phase C DONE/landed), then Muse `main`. BV already `pass` (22/22) on
-feature branch. Bridge + GitHub `muse-mirror` → `main` required for production.
+structure; marked Phase C DONE/landed), then Muse `main`
+(`sha256:42919023ffff…`). Bridge + GitHub [KN #277](https://github.com/aaronrene/knowtation/pull/277)
+`muse-mirror` → `main` **MERGED** (`1ba7f2f`). Live verified this session:
+
+- `https://knowtation.store/hub/` shows **Agent credentials (REST / Paperclip / cron)** UI
+- `https://knowtation.store/hub/hub.js` serves mint/list/revoke/rotate handlers
+- Production GitHub deployment recorded for `1ba7f2f`
+- CI on that commit: test (20) + TruffleHog **success**
+
+Trend Agent may now mint `KNOWTATION_HUB_AGENT_CREDENTIAL` in Hub Settings (no session JWT).
 
 Product board §FCA.2 (P1 WASM + T1) remains the Scooling-owned Tasks/Media SMOKE gate —
 orthogonal to Phase C REST credentials.
@@ -417,6 +438,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 - [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (1a freeze CLEARED round 7; 1b BV round 1 = `pass`; code on `feat/sec-seam-1-session-bound-writes`; not merged)
 - [ ] **SEC-SEAM-MEDIA** — hosted media proposal surface (**Thinking → Auto**) — **TODO** (post–SEC-SEAM-1b; D2 = A)
 - [x] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **DONE 2026-07-27** (BV `pass` round 2 on `feat/finish-complete-apply-kn-b`; live still needs T1 + P1 WASM + Tier 3 env)
+- [x] **FLOW-WRITE-LIVE-KN-b** — Admit §FWL.4 Flow fingerprints — **DONE 2026-07-28** (BV round 1 = `pass` on `feat/flow-write-live-kn-b`; not merged; no prod `FLOW_AUTHORING_WRITES` flip)
 
 ---
 
@@ -445,6 +467,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | **SEC-KN-5 (P12 TTL clamp + P13 admin mint)** | **DONE on feature branch** (BV round 1 = `pass`). `readVaultDelegationPolicy` clamps to `MAX_TTL_SECONDS`; self-hosted grant mint is `requireRole('admin')` only. Seven-tier `test/sec-kn-5-delegation-ttl-viewer-mint.test.mjs` + route assertion **26/26**; related delegation **64/64**. **Not merged to main.** |
 | **SEC-KN-6 (P14 constant-time compare)** | **DONE on feature branch** (BV round 1 = `pass`). `constantTimeTextEqual` (OR-of-XOR full scan) replaces `got == expected` in `gatewayAuthorized` and `operatorExportAuthorized`. JS mirror updated. Seven-tier **18/18**; SEC-KN-1 still **19/19**; Motoko compile **VERIFIED**. **Not live on canister until Tier 3 upgrade.** **Not merged to main.** |
 | **SEC-SEAM-1 (P3 session-bound identity)** | **DONE on feature branch** (BV round 1 = `pass`). Five mint stamps; seam classify via apply-path predicates (incl. flow/flow_capture); named refusal codes; S10 empty; CORS advertisement removed. Seven-tier **33/33**. **Not merged to main.** T1–T5 unexecuted. Consumer **L-SEAMa freeze `pass`** on Scooling; remaining load is **Scooling L-SEAMb Auto** (C1–C4 impl). |
+| **FLOW-WRITE-LIVE-KN-b** | **DONE on feature branch** (BV round 1 = `pass`). Admit §FWL.4 Flow fingerprints; `scooling.flow:` persist; seven-tier **11/11**. Branch `feat/flow-write-live-kn-b`. **Not merged to main.** No prod `FLOW_AUTHORING_WRITES` flip. |
 | **Knowtation Netlify env** | Site `knowtation-gateway` (`api.knowtation.store`, id `3123cc84-…`): `CANISTER_AUTH_SECRET` present, `SESSION_SECRET` present, `HUB_ADMIN_USER_IDS` present, `HUB_EVALUATOR_MAY_APPROVE` **absent** (fail-safe). |
 | **MCP host / gateway `SESSION_SECRET` sharing** | **UNVERIFIED** — determines P6 exploitability today |
 
@@ -461,6 +484,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | Date | Event |
 | --- | --- |
 | 2026-07-27 | **Cross-board:** Scooling **FINISH-COMPLETE-APPLY-SC-b DONE** (BV `pass` round 1, 23/23). NEXT = **DELEGATION-WRITE-UI-a** (Thinking). KN-b remains DONE/not live. No merge. |
+| 2026-07-28 | **FLOW-WRITE-LIVE-KN-b DONE** — BV round 1 = **`pass`**. Admit §FWL.4 Flow fingerprints on `feat/flow-write-live-kn-b`: validated `scooling.flow:` on propose for `new`/`edit`/`import`; T5 `matchesScoolingFlowFingerprint` (exact kind, no default-to-`new`); capture/Delegation/project/org/wrong-ref refuse; Hub `sessionBound` for Flow E1; PROPOSAL-LIFECYCLE; seven-tier **11/11** (test_output sha256 `b64ed99c…`). No prod `FLOW_AUTHORING_WRITES` flip. No merge. NEXT = Scooling **FLOW-WRITE-LIVE-SC-b Auto** (posture still false). |
 | 2026-07-27 | **FINISH-COMPLETE-APPLY-KN-b DONE** — BV round 1 `findings` (BV1 media integ, BV2 media e2e, BV3 IDOR `partitionOwned`); fixed in `test/finish-complete-apply-kn-b.test.mjs`; round 2 **`pass`** (**16/16**, sha256 `aaf3ef055623997455e4b21284da7b8e8f4f1ce4964c9546d16843ee914d3622`). ROADMAP DONE. NEXT was Scooling **FINISH-COMPLETE-APPLY-SC-b Auto**. No merge. |
 | 2026-07-27 | **Relay fix — NEXT → Scooling L-SEAMb Auto.** Scooling L-SEAMa freeze-review `pass` had already advanced `~/scooling/docs/OVERSEER-HANDOVER.md` to L-SEAMb Auto; this Knowtation relay still showed the old Thinking paste. Not a kit outage — the kit does not cross-update consumer handovers. Regenerated this NEXT to relay L-SEAMb. Archived SEC-KN-5/6 prompts below are history, not competing PRIMARYs. |
 | 2026-07-27 | **Governance sync — Overseer re-verified; NEXT → Scooling L-SEAM C1–C4.** `ok -C ~/knowtation status --json`: `initialized: true`, `kit_version: 0.1.0`, `footprint_self_integrity: ok`. Scooling `verify-overseer-live.sh` → `live: true`. Live HTTP `api.knowtation.store/health` → `{"ok":true}`; canister auth still SET (`403 GATEWAY_AUTH_REQUIRED`). Browser MCP confirmed `knowtation.store/` landing loads. PRIMARY product next is consumer C1–C4 on the Scooling board (freeze §6). |

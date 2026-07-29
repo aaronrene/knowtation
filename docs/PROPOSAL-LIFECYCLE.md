@@ -58,18 +58,19 @@ Implementation: [lib/hub-proposal-personal-self-apply.mjs](../lib/hub-proposal-p
 
 Seam surfaces (task / media / delegation / flow / flow_capture) that can trigger an approve-time apply are classified by reusing the apply path’s own predicates. Self-apply on those surfaces requires a mint-stamped `type: 'session'` credential and `authorActorId === approverActorId`.
 
-### Tasks / Media admission (FINISH-COMPLETE-APPLY-KN-b / T5)
+### Tasks / Media / Flow admission (T5 + FLOW-WRITE-LIVE-KN-b)
 
-Gate **T5** admits **personal-scope Tasks and Media** into the self-apply class under positive fingerprints (not a global member approve). Frozen contract: `~/scooling/docs/FINISH-COMPLETE-APPLY-CONTRACT.md` §FCA.4.
+Gate **T5** admits **personal-scope Tasks, Media, and Wave 1 Flow authoring** into the self-apply class under positive fingerprints (not a global member approve). Frozen contracts: `~/scooling/docs/FINISH-COMPLETE-APPLY-CONTRACT.md` §FCA.4 (Tasks/Media) and `~/scooling/docs/FLOW-WRITE-LIVE-FREEZE.md` §FWL.4 (Flow).
 
 | Surface | Fingerprint (approve-time) |
 | --- | --- |
 | **Tasks** | `source`/seam task classification; `proposal_kind` ∈ closed allowlist; path `meta/tasks/proposals/{proposal_id}.json` (never `pending`); `external_ref` `^scooling\.task:[A-Za-z0-9._:-]{1,200}$`; body scope `personal`; `task_assign` only when `assignee_ref` equals session author |
 | **Media** | `source === media`; kind ∈ {`media_external_link`,`media_attach`}; path `meta/media/proposals/{proposal_id}.json`; `external_ref` `^scooling\.media:[A-Za-z0-9._:-]{1,200}$`; body `scope === personal` |
+| **Flow authoring** | `source === flow`; `flow_meta` present as object **and** `flow_meta.kind` exactly ∈ {`new`,`edit`,`import`} (missing/empty kind ⇒ not admitted — do **not** default to `new`); path `^meta/flows/[A-Za-z0-9._:-]{1,128}\.md$`; `external_ref` `^scooling\.flow:[A-Za-z0-9._:-]{1,128}$`; scope `personal` (frontmatter.scope → body.flow.scope) |
 | **Delegation** | **Never** — `SELF_APPLY_DELEGATION_REFUSED` (P4) |
-| **Flow / flow_capture** | Seam-classified but **not admitted** this phase (`SELF_APPLY_NOT_ADMITTED`) |
+| **flow_capture** | Seam-classified but **not admitted** in Wave 1 (`SELF_APPLY_NOT_ADMITTED`; SD-7 never-auto) |
 
-Propose paths persist a validated optional `external_ref` (malformed → 400; absent → propose ok, not admitted). E1 create-time evaluation satisfaction widens to admitted Task/Media fingerprints when `sessionBound` + author gates hold (pending mirror path allowed at create; Motoko/Node rewrite to `{proposal_id}` before approve). Client-supplied `evaluation_status` / `evaluated_by` / `evaluated_at` remain stripped (P2).
+Propose paths persist a validated optional `external_ref` (malformed → 400; absent → propose ok, not admitted). Flow propose accepts `scooling.flow:…` for **all** Wave 1 kinds; import lineage hints must not substitute for the admission ref. E1 create-time evaluation satisfaction widens to admitted Task/Media/Flow fingerprints when `sessionBound` + author gates hold. Client-supplied `evaluation_status` / `evaluated_by` / `evaluated_at` remain stripped (P2).
 
 Honest notes review-tray proposals remain eligible under the fingerprint rules above.
 

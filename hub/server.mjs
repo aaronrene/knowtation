@@ -1650,6 +1650,7 @@ function runFlowPropose(req, res, kind, extra = {}) {
     baseStateId: body.base_state_id,
     externalRef: body.external_ref,
     sourceVaultHint: body.source_vault_hint,
+    sessionBound: isSessionBoundActor(req.user),
     createProposal,
   });
   if (!result.ok) {
