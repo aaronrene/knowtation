@@ -30,7 +30,9 @@ truth. This automates the SD-17 obligation — it does not invent new policy.
 /path/to/overseer-kit/cli/ok governance-sync
 ```
 
-**Default: dry-run.** Writes only on explicit non-dry-run; never on `{{vcs.git.main_branch}}`.
+**Default: dry-run.** Writes nothing except the local `.overseer/last_governance_sync`
+marker when D1/D2 are aligned (GFG carve-out). Governance-doc patches, commits, and
+realign apply only on explicit non-dry-run; never on `{{vcs.git.main_branch}}`.
 
 ## Closing commit
 

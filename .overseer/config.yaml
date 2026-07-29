@@ -29,8 +29,10 @@ vcs:
     staging_remote: staging
     main_branch: main
 docs:
-  handover: KNOWTATION-OVERSEER-HANDOVER.md
-  roadmap: KNOWTATION-ROADMAP.md
+  # Living boards stay at OVERSEER-HANDOVER.md / ROADMAP.md until a dedicated
+  # §MR.6.5 rename land (K13 dogfood SCOOLING-/KNOWTATION- prefixes never reached main).
+  handover: OVERSEER-HANDOVER.md
+  roadmap: ROADMAP.md
   handover_title: Knowtation Overseer Handover
   roadmap_title: Knowtation Roadmap
   coordination: CROSS-REPO-COORDINATION.md
@@ -50,6 +52,7 @@ kit:
     `ok status --check-footprint` reports footprint_integrity: mismatch by design;
     `footprint_self_integrity` remains `ok`. Do not "repair" by re-syncing those
     two files. Resolve properly by adding --preserve-shared-assets to the kit.
+    SD-21: finish-mode land hygiene after BV pass is Tier 1 (muse-mirror path).
 
 workspace:
   constellation_id: scooling-stack

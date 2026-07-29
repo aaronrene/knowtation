@@ -1,0 +1,20 @@
+# Workspace authority — multi-root tab is not PRIMARY
+
+In a multi-root Cursor / IDE workspace, **never** treat a non-`product_order` handover as
+product sequencing PRIMARY without running:
+
+```bash
+ok workspace status
+# or
+ok workspace check-next
+```
+
+The focused editor tab is **not** authority. Prefer basenames
+`{REPO_SLUG}-OVERSEER-HANDOVER.md` / `{REPO_SLUG}-ROADMAP.md` so tabs are distinguishable
+(§MR.6.5). Bare `OVERSEER-HANDOVER.md` across members is a `board_name_violation` under
+`strict_board_names` (doctor warning; check-next still keys on tip freshness only).
+
+When `workspace:` is configured and this session advanced product_order PRIMARY, multi-repo
+SD-17 close-out requires refreshing each `relay: true` member’s product tip
+(`role=relay` or `role=product_relay`) until `ok workspace check-next` exits `0`.
+Single-repo `ok governance-sync` remains required and does **not** write peer repos.

@@ -1,0 +1,80 @@
+---
+description: RULE #8 — Orchestrator via Overseer Kit (roadmap + handover day-to-day)
+alwaysApply: true
+---
+
+# RULE #8 — Orchestrator (Overseer Kit)
+
+**Source of truth:** [🆗 Overseer Kit](https://github.com/aaronrene/overseer-kit).
+When this repo has `.overseer/config.yaml`, run phased work **through the kit** — do not invent a
+parallel hand-rolled ROADMAP / HANDOVER protocol.
+
+## Install and refresh
+
+| Situation | Command |
+| --- | --- |
+| Greenfield (no kit yet) | `ok init --regime <git-only\|muse+git-mirror\|muse-only>` (or `init --migrate` if living docs already exist) |
+| Pull kit updates | `ok sync` |
+| Health / drift | `ok status` (use `--exit-code` when gates matter) |
+| Docs vs VCS hygiene | `ok governance-sync --dry-run` then apply when correct |
+| Freeze gate | `ok review --freeze <artifact>` |
+| Ad-hoc honesty | `ok check-ok` / `/check-ok` |
+
+Resolve the `ok` shim from the kit checkout (`./cli/ok` or a path to it). Prefer `ok` over the
+deprecated `overseer` compat shim.
+
+**Doc paths are config-driven** — read `docs.roadmap` / `docs.handover` from `.overseer/config.yaml`
+(here: `{{docs.roadmap_path}}`, `{{docs.handover_path}}`). Do not assume root `ROADMAP.md` /
+`OVERSEER_HANDOVER.md` unless config says so.
+
+## Two durable docs (always together)
+
+| Doc | Role |
+| --- | --- |
+| `{{docs.roadmap_path}}` | Phase control: Phase Model Key, build queue (phase → **Model** → Status → deliverable), Definition of Done |
+| `{{docs.handover_path}}` | Session relay: **NEXT SESSION**, paste-ready prompt, verified snapshot, VCS table, change log (KH1 shape) |
+
+Trust the handover **verified snapshot** over chat history. Update both docs in the same closing
+commit (SD-17). `/governance-sync` automates the hygiene check — it does not invent policy.
+
+## Model labels (`policy/model-labels.yaml`)
+
+Every roadmap row and handover NEXT / paste block **must** include **`Model:`** with exactly one of:
+
+| Label | Meaning |
+| --- | --- |
+| **Thinking** | Design + freeze spec (interfaces, fail-closed rules, test matrix) — no mechanical build |
+| **Auto** | Build exactly against a frozen spec — no redesign |
+| **Thinking → Auto** | Split into `{step}a` (Thinking) then `{step}b` (Auto) — never one combined prompt |
+| **Operator + Auto** | Human for Tier-3 live/merge gates; Auto for implementation + doc sync |
+
+Never Outline/Plan on **Auto**. Never start **Auto** until the consumed freeze has review verdict
+**`pass`**. Never mark **DONE** on green tests alone.
+
+## Starting a phase
+
+1. Fresh chat with the **Model** tier named in the handover
+2. Read `{{docs.roadmap_path}}` (target phase) and `{{docs.handover_path}}` (NEXT + verified snapshot)
+3. Paste the **Paste-ready prompt** fence (self-contained; no prior chat required)
+4. **Thinking:** freeze WHAT/HOW in a `frozen: true` artifact; run `/freeze-review-loop` → `pass`
+5. **Auto:** implement mechanically; run seven-tier tests (`policy/test-tiers.yaml`); run
+   `/build-verification-review` → `pass` before ROADMAP → **DONE**
+6. Close: update roadmap status + regenerate handover NEXT together; feature-branch commit; PR per
+   `{{vcs.regime}}` — **no** merge to `{{vcs.git.main_branch}}` without Tier 3
+
+## Definition of Done (every phase)
+
+- Deliverables match the frozen spec
+- Freeze review **`pass`** before Auto that consumes the freeze
+- Required seven-tier tests green locally
+- Build verification **`pass`** after Auto before status → **DONE**
+- No secrets committed
+- Both governance docs updated together
+- Feature-branch hygiene complete; merge remains Tier 3
+
+## Agent behavior
+
+- Prefer kit rules/skills (`.cursor/rules/*`, `.cursor/skills/*`, `.claude/skills/*`) over folklore
+- One **THE ONE NEXT STEP** at a time in the handover
+- Dirty tree at session end is a failure — commit on the feature branch (Tier 1)
+- Hard stops: secrets, live posture flips, real money, merge to `{{vcs.git.main_branch}}` without operator authorization
