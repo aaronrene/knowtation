@@ -17,7 +17,7 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:6499d7906b1579beeae9ac45385d8b42fc4a57d2ab87b0e323f1dd864605bbdf -->
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:1851b93066b558f6d7e1b5dd56410f0a5a10ecda58845e702aafa9e365bc457a -->
 ## NEXT SESSION — FLOW-CAPTURE-LIVE-HOSTEDb (RELAY → scooling)
 
 **Date:** 2026-07-30  
