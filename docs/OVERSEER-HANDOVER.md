@@ -17,56 +17,68 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:914dcf4419e8d5920cfc7001187b35d8254f1ab688c58bf010c54a35fc4d5f9a -->
-## NEXT SESSION — FLOW-CAPTURE-LIVEa (RELAY → scooling) — F7 AWS parked
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:dd4e701447aeac21d9d03ff0aa411fe79ee6e404a2ffb74a4d5656326140071d -->
+## NEXT SESSION — FLOW-CAPTURE-LIVE-KN-b (RELAY → scooling)
 
 **Date:** 2026-07-30  
-**Model:** **Thinking**
+**Model:** **Auto**
 
-**Why this is next:** Scooling **0.7b DONE** ([OK #47](https://github.com/aaronrene/overseer-kit/pull/47)
-@ `302549e`). MuseHub F7 stays AWS-blocked — product workaround is
-**FLOW-CAPTURE-LIVEa** (Wave 2 Thinking freeze). Knowtation has no product
-build this turn — relay only (paste fence mirrors Scooling PRIMARY tip_hash).
-Knowtation-owned parallel (optional, not product_order): SEC-KN land + T1 WASM
-(Operator + Auto on this board). `footprint_integrity: mismatch` stays
-intentional until operator authorizes `--preserve-shared-assets` re-init.
+**Why this is next:** Scooling **FLOW-CAPTURE-LIVEa DONE** (freeze-review `pass`,
+`sha256:f0ca2edd…`, **SD-23**). Board NEXT = **FLOW-CAPTURE-LIVE-KN-b** (this
+repo). Paste fence mirrors Scooling PRIMARY tip_hash. Knowtation-owned parallel
+(optional, not product_order): SEC-KN land + T1 WASM. `footprint_integrity:
+mismatch` stays intentional until operator authorizes `--preserve-shared-assets`
+re-init.
 
-### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVEa** — **Model: Thinking** (Scooling PRIMARY)
+### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVE-KN-b** — **Model: Auto** (Scooling PRIMARY)
 
 ```text
-FLOW-CAPTURE-LIVEa — freeze Wave 2 Flow capture (propose-only; never auto-promote).
+FLOW-CAPTURE-LIVE-KN-b — Wave 2 capture: T5 non-admission + gateway capture proxies.
 
-Model: Thinking
-Repo: ~/scooling
+Model: Auto
+Step: FLOW-CAPTURE-LIVE-KN-b
+Repo: ~/knowtation
 Branch: feat/flow-capture-live (create if needed)
-Authority: product_order PRIMARY (Scooling board) — paste fence mirrors tip_hash
-Prior: 0.7b DONE (OK #47); Flow authoring §FWL.9 PASS; F7 AWS-parked
+Authority: product_order PRIMARY (Scooling board) — freeze docs/FLOW-CAPTURE-LIVE-FREEZE.md
+Prior: FLOW-CAPTURE-LIVEa DONE (freeze-review pass sha256:f0ca2edd…; SD-23); F7 AWS-parked
 
-Read first (on Scooling):
-- docs/FLOW-WRITE-LIVE-FREEZE.md (§FWL.8 order 5; SD-20; SD-7)
-- docs/FLOW-CAPTURE-LIVE-WIRE-CONTRACT-7A-L4.md
-- knowtation/docs/FLOW-CAPTURE-FLYWHEEL-CONTRACT-7A-L4.md
-- docs/OVERSEER-HANDOVER.md + docs/ROADMAP.md
+Read first:
+- ~/scooling/docs/FLOW-CAPTURE-LIVE-FREEZE.md (§FCL.3 KN-b; FCL-C3 refuse-all; FCL-C10)
+- docs/FLOW-CAPTURE-FLYWHEEL-CONTRACT-7A-L4.md
+- lib/hub-proposal-personal-self-apply.mjs (flow_capture stays SELF_APPLY_NOT_ADMITTED)
+- lib/flow/flow-capture.mjs
+- hub/gateway/server.mjs (authoring proxies exist; capture proxies absent)
+- ~/scooling/docs/OVERSEER-HANDOVER.md + ~/scooling/docs/ROADMAP.md
 
-Deliver (spec only — no product code / env / posture flip):
-1. docs/FLOW-CAPTURE-LIVE-FREEZE.md with frozen: true
-2. Wave 2 = propose-only (B); promote NEVER auto-applies (SD-7)
-3. No FLOW_RUN / automatable / projection; postures stay hard-false this step
-4. /freeze-review-loop → pass; ok review --freeze
+Deliver (mechanical — no redesign; no posture/env flip):
+1. Regression: personalSelfApplyRefusalReason → SELF_APPLY_NOT_ADMITTED for
+   flow_candidate_promote | flow_candidate_merge | flow_candidate_dismiss even when
+   session-bound author==approver; do NOT add a positive capture fingerprint
+2. Gateway→bridge proxies for capture observe, list candidates, propose, dismiss
+3. PROPOSAL-LIFECYCLE note: Wave 2 seam + not admitted (B)
+4. Seven-tier per freeze §FCL.7 KN-b; /build-verification-review → pass
+5. FLOW_CAPTURE_DETECTION_ENABLED / FLOW_CAPTURE_WRITES_ENABLED stay default off
 
-Hard stops: no Auto; no posture/env flip; no feature→GitHub-main; no AWS required.
-Knowtation: do not start capture KN-b until freeze pass + Scooling board advances.
+Hard stops: no Scooling product code; no capture env ON; no T5 admit for flow_capture;
+no feature→GitHub-main; no AWS required. After BV pass: land per SD-21 if criteria met;
+board advances to FLOW-CAPTURE-LIVEb (Scooling Auto).
 ```
 
 ### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
 
 When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
 branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
-**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVEa on the Scooling board.
+**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVE-KN-b on the Scooling board.
+
+### Prior session — FLOW-CAPTURE-LIVEa freeze pass on Scooling (2026-07-30)
+
+Scooling Muse `sha256:29a8720da…`; paste tip_hash `sha256:dd4e70144…`; freeze
+`pass` (`sha256:f0ca2edd…`); SD-23; NEXT → FLOW-CAPTURE-LIVE-KN-b. This relay
+refreshed.
 
 ### Prior session — Scooling NEXT reassessed (2026-07-30)
 
-Scooling tip `sha256:914dcf44…`: 0.7b confirmed DONE; NEXT → FLOW-CAPTURE-LIVEa;
+Scooling tip `sha256:056b11031…`: 0.7b confirmed DONE; NEXT → FLOW-CAPTURE-LIVEa;
 F7 AWS parked. This relay refreshed.
 
 ### Prior session — KIT-PRESERVE land DONE (2026-07-30)
@@ -481,7 +493,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-07-30 | **Relay → FLOW-CAPTURE-LIVEa.** Scooling tip `sha256:914dcf44…`: 0.7b DONE (OK #47); F7 AWS-parked; product NEXT = Wave 2 capture Thinking freeze. Optional KN parallel: SEC-KN land + WASM. |
+| 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-KN-b.** Scooling tip `sha256:29a8720da…`: FLOW-CAPTURE-LIVEa freeze `pass` (`sha256:f0ca2edd…`); SD-23; product NEXT = KN-b Auto (this repo). Optional KN parallel: SEC-KN land + WASM. |
+| 2026-07-30 | **Relay → FLOW-CAPTURE-LIVEa.** Scooling tip `sha256:056b11031…`: 0.7b DONE (OK #47); F7 AWS-parked; product NEXT = Wave 2 capture Thinking freeze. Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-29 | **Relay → KIT-PRESERVE-SHARED-ASSETS 0.7b.** Scooling L-SC landed SC #230 @ `efc84a8` + land-docs SC #231. Product NEXT = kit `--preserve-shared-assets` (F7 AWS-blocked). tip_hash `sha256:2b6ff141…`. No Knowtation product code. |
 | 2026-07-29 | **LAB-LIVE-SMOKE PASS (product).** Scooling local Lab fixture dry-run under double-lock; BV `pass`; CONFLICT-adopt for pre-approved Wave 1 fixture; prod Lab env unset. Knowtation relay only. Product NEXT = **SEC-REMEDIATION L-SC (0.8b)**. |
 | 2026-07-29 | **LAB-LIVE-flip DONE (product BV pass).** Scooling `TRAINING_LAB_SUBMIT_AUTHORIZED=true`; seven-tier **33/33**; BV `pass`; prod Lab env unset. Knowtation relay only. Product NEXT was **LAB-LIVE-SMOKE**. |
