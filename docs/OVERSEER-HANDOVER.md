@@ -17,64 +17,83 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:dd4e701447aeac21d9d03ff0aa411fe79ee6e404a2ffb74a4d5656326140071d -->
-## NEXT SESSION — FLOW-CAPTURE-LIVE-KN-b (RELAY → scooling)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:6499d7906b1579beeae9ac45385d8b42fc4a57d2ab87b0e323f1dd864605bbdf -->
+## NEXT SESSION — FLOW-CAPTURE-LIVE-HOSTEDb (RELAY → scooling)
 
 **Date:** 2026-07-30  
 **Model:** **Auto**
 
-**Why this is next:** Scooling **FLOW-CAPTURE-LIVEa DONE** (freeze-review `pass`,
-`sha256:f0ca2edd…`, **SD-23**). Board NEXT = **FLOW-CAPTURE-LIVE-KN-b** (this
-repo). Paste fence mirrors Scooling PRIMARY tip_hash. Knowtation-owned parallel
-(optional, not product_order): SEC-KN land + T1 WASM. `footprint_integrity:
-mismatch` stays intentional until operator authorizes `--preserve-shared-assets`
-re-init.
+**Why this is next:** **FLOW-CAPTURE-LIVE-HOSTEDa DONE** on Scooling (freeze-review
+`pass`, `docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md` `sha256:f01e9c5b…`). L-SEAM
+hosted capture wire frozen (FCH-C1–C8). Capture postures still compile-time
+`false`. Board advances to **FLOW-CAPTURE-LIVE-HOSTEDb**. MuseHub **F7** stays
+**AWS-parked**.
 
-### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVE-KN-b** — **Model: Auto** (Scooling PRIMARY)
+### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVE-HOSTEDb** — **Model: Auto** (Scooling PRIMARY)
 
 ```text
-FLOW-CAPTURE-LIVE-KN-b — Wave 2 capture: T5 non-admission + gateway capture proxies.
+FLOW-CAPTURE-LIVE-HOSTEDb — Implement L-SEAM hosted Flow capture session wire (postures false).
 
 Model: Auto
-Step: FLOW-CAPTURE-LIVE-KN-b
-Repo: ~/knowtation
-Branch: feat/flow-capture-live (create if needed)
-Authority: product_order PRIMARY (Scooling board) — freeze docs/FLOW-CAPTURE-LIVE-FREEZE.md
-Prior: FLOW-CAPTURE-LIVEa DONE (freeze-review pass sha256:f0ca2edd…; SD-23); F7 AWS-parked
+Step: FLOW-CAPTURE-LIVE-HOSTEDb
+Repo: ~/scooling
+Branch: feat/flow-capture-live (or feat/flow-capture-live-hosted)
+Authority: product_order PRIMARY (Scooling board) — build docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md exactly
+Prior: FLOW-CAPTURE-LIVE-HOSTEDa DONE (freeze-review pass sha256:f01e9c5b…); LIVEb DONE; KN-b DONE; F7 AWS-parked
+Frozen: docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md (frozen:true; review_stamp pass) — FCH-C1–C8 / §FCH.3–§FCH.7
+Parent: docs/FLOW-CAPTURE-LIVE-FREEZE.md (SD-23; FCL-C1–C11)
 
 Read first:
-- ~/scooling/docs/FLOW-CAPTURE-LIVE-FREEZE.md (§FCL.3 KN-b; FCL-C3 refuse-all; FCL-C10)
-- docs/FLOW-CAPTURE-FLYWHEEL-CONTRACT-7A-L4.md
-- lib/hub-proposal-personal-self-apply.mjs (flow_capture stays SELF_APPLY_NOT_ADMITTED)
-- lib/flow/flow-capture.mjs
-- hub/gateway/server.mjs (authoring proxies exist; capture proxies absent)
-- ~/scooling/docs/OVERSEER-HANDOVER.md + ~/scooling/docs/ROADMAP.md
+- docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md (entire; §FCH.3 HOW + §FCH.7 seven-tier)
+- docs/FLOW-WRITE-LIVE-HOSTED-FREEZE.md + src/flow/flowAuthoringWriteSurface.ts (parity pattern)
+- src/adapters/flowHubTransport.ts (capture readers; authoring ForSession / resolve…ForLearner)
+- src/adapters/flowProjectionAdapter.ts (createLiveFlowCaptureAdapter; captureWireHarness; postures false)
+- app/routes/flows.tsx + src/flow/flowSurface.ts
+- docs/OVERSEER-HANDOVER.md + docs/ROADMAP.md
 
-Deliver (mechanical — no redesign; no posture/env flip):
-1. Regression: personalSelfApplyRefusalReason → SELF_APPLY_NOT_ADMITTED for
-   flow_candidate_promote | flow_candidate_merge | flow_candidate_dismiss even when
-   session-bound author==approver; do NOT add a positive capture fingerprint
-2. Gateway→bridge proxies for capture observe, list candidates, propose, dismiss
-3. PROPOSAL-LIFECYCLE note: Wave 2 seam + not admitted (B)
-4. Seven-tier per freeze §FCL.7 KN-b; /build-verification-review → pass
-5. FLOW_CAPTURE_DETECTION_ENABLED / FLOW_CAPTURE_WRITES_ENABLED stay default off
+Deliver (Auto — implement freeze exactly; no redesign):
+1. ForSession / resolveFlowCaptureWireConfigForLearner; widen capture env helpers; safeParse fail-closed loopback readers
+2. Factory captureConfig + captureTarget injection; never env-credential hosted from default path; live adapter target honesty
+3. runFlowCaptureAction + mapFlowCaptureCaughtError; form intents observe_capture_signals / propose_capture_candidate / dismiss_capture_candidate; Wave 2 observe defaults
+4. Gates non-regression; ADAPTER-CONTRACTS hosted capture note (C6 allowlist)
+5. Seven-tier §FCH.7 green (harness / forced wires; postures stay false)
+6. /build-verification-review → pass before ROADMAP DONE
+7. ROADMAP + HANDOVER → FLOW-CAPTURE-LIVE-flip (Operator + Auto)
 
-Hard stops: no Scooling product code; no capture env ON; no T5 admit for flow_capture;
-no feature→GitHub-main; no AWS required. After BV pass: land per SD-21 if criteria met;
-board advances to FLOW-CAPTURE-LIVEb (Scooling Auto).
+Hard stops: no FLOW_CAPTURE_*_AUTHORIZED flip; no SCOOLING_FLOW_CAPTURE_* / KN FLOW_CAPTURE_*_ENABLED
+ON; no T5 admit; no run/automatable/projection flip; no feature→GitHub-main; no AWS required.
 ```
 
 ### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
 
 When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
 branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
-**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVE-KN-b on the Scooling board.
+**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVE-HOSTEDb on the Scooling board.
+
+### Prior session — FLOW-CAPTURE-LIVE-HOSTEDa freeze pass on Scooling (2026-07-30)
+
+Scooling tip `sha256:6499d790…`: `docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md`
+freeze-review `pass` (`sha256:f01e9c5b…`); FCH-C1–C8; no posture/env flip.
+Knowtation relay only. Product NEXT = **FLOW-CAPTURE-LIVE-HOSTEDb**.
+
+### Prior session — FLOW-CAPTURE-LIVEb DONE on Scooling (2026-07-30)
+
+Scooling tip `sha256:3eedc438…`: factory select live capture + FCL-C9 honesty +
+`/flows` gates; postures false; BV `pass`. Knowtation relay only. Product NEXT was
+**FLOW-CAPTURE-LIVE-HOSTEDa** (now DONE).
+
+### Prior session — FLOW-CAPTURE-LIVE-KN-b DONE (2026-07-30)
+
+Knowtation Auto on `feat/flow-capture-live`: T5 non-admission regression for
+promote/merge/dismiss; gateway→bridge capture proxies; bridge
+`registerBridgeFlowCaptureRoutes` + `createCaptureProposalOnCanister`;
+PROPOSAL-LIFECYCLE Wave 2 note; seven-tier **13/13**; BV round 1 = `pass`.
+No capture env ON; no T5 admit. NEXT = **FLOW-CAPTURE-LIVEb** (Scooling Auto).
 
 ### Prior session — FLOW-CAPTURE-LIVEa freeze pass on Scooling (2026-07-30)
 
-Scooling Muse `sha256:29a8720da…`; paste tip_hash `sha256:dd4e70144…`; freeze
-`pass` (`sha256:f0ca2edd…`); SD-23; NEXT → FLOW-CAPTURE-LIVE-KN-b. This relay
-refreshed.
+Scooling Muse `sha256:29a8720da…`; freeze `pass` (`sha256:f0ca2edd…`); SD-23;
+NEXT was FLOW-CAPTURE-LIVE-KN-b (now DONE).
 
 ### Prior session — Scooling NEXT reassessed (2026-07-30)
 
@@ -493,6 +512,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-HOSTEDb.** Scooling tip `sha256:6499d790…`: HOSTEDa freeze `pass` (`sha256:f01e9c5b…`); product NEXT = HOSTEDb Auto (Scooling). Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-KN-b.** Scooling tip `sha256:29a8720da…`: FLOW-CAPTURE-LIVEa freeze `pass` (`sha256:f0ca2edd…`); SD-23; product NEXT = KN-b Auto (this repo). Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVEa.** Scooling tip `sha256:056b11031…`: 0.7b DONE (OK #47); F7 AWS-parked; product NEXT = Wave 2 capture Thinking freeze. Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-29 | **Relay → KIT-PRESERVE-SHARED-ASSETS 0.7b.** Scooling L-SC landed SC #230 @ `efc84a8` + land-docs SC #231. Product NEXT = kit `--preserve-shared-assets` (F7 AWS-blocked). tip_hash `sha256:2b6ff141…`. No Knowtation product code. |
