@@ -53,7 +53,7 @@ describe('Flow capture — full lifecycle', () => {
     delete process.env.FLOW_CAPTURE_WRITES_ENABLED;
   });
 
-  it('observe → list → propose → approve → flow get shows new Flow', () => {
+  it('observe → list → propose → approve → flow get shows new Flow', async () => {
     const observed = handleFlowCaptureObserveRequest({
       dataDir, vaultId, visibleScopes: visible, sessionMeta: validSessionMeta(), harness: 'test',
     });
@@ -64,7 +64,7 @@ describe('Flow capture — full lifecycle', () => {
     const listed = handleFlowCaptureListRequest({ dataDir, vaultId, visibleScopes: visible });
     assert.ok(listed.payload.candidates.some((c) => c.candidate_id === candidateId));
 
-    const proposed = handleFlowCaptureProposeRequest({
+    const proposed = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId, confirmedScope: 'personal', intent: 'promote it', createProposal, starterDir,
     });
     assert.equal(proposed.ok, true);
@@ -77,9 +77,9 @@ describe('Flow capture — full lifecycle', () => {
     assert.equal(getCandidate(dataDir, vaultId, candidateId, visible)?.status, 'promoted');
   });
 
-  it('dismiss path → rejected terminal', () => {
+  it('dismiss path → rejected terminal', async () => {
     upsertCandidate(dataDir, vaultId, makeCandidateRecord({ candidate_id: 'cand_e2edismiss' }));
-    const proposed = handleFlowCaptureDismissRequest({
+    const proposed = await handleFlowCaptureDismissRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_e2edismiss', intent: 'not recurring', createProposal,
     });
     assert.equal(proposed.ok, true);
@@ -87,7 +87,7 @@ describe('Flow capture — full lifecycle', () => {
     assert.equal(getCandidate(dataDir, vaultId, 'cand_e2edismiss', visible)?.status, 'rejected');
   });
 
-  it('dedup overlap → merge proposal path', () => {
+  it('dedup overlap → merge proposal path', async () => {
     const existing = makeFlowBundle({
       flowId: 'flow_existing_dedup',
       steps: 2,
@@ -112,13 +112,13 @@ describe('Flow capture — full lifecycle', () => {
       }),
     );
 
-    const blocked = handleFlowCaptureProposeRequest({
+    const blocked = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_e2emerge01', confirmedScope: 'personal', intent: 'promote', createProposal, starterDir,
     });
     assert.equal(blocked.ok, false);
     assert.equal(blocked.code, 'FLOW_CAPTURE_DEDUP_MERGE_REQUIRED');
 
-    const merge = handleFlowCaptureProposeRequest({
+    const merge = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_e2emerge01', confirmedScope: 'personal', intent: 'merge it', mergeIntoFlowId: 'flow_existing_dedup', createProposal, starterDir,
     });
     assert.equal(merge.ok, true);
@@ -127,18 +127,18 @@ describe('Flow capture — full lifecycle', () => {
     assert.equal(getCandidate(dataDir, vaultId, 'cand_e2emerge01', visible)?.status, 'merged_into:flow_existing_dedup');
   });
 
-  it('low confidence suppressed unless flag set', () => {
+  it('low confidence suppressed unless flag set', async () => {
     upsertCandidate(
       dataDir,
       vaultId,
       makeCandidateRecord({ candidate_id: 'cand_lowconf01', confidence: 'low' }),
     );
-    const blocked = handleFlowCaptureProposeRequest({
+    const blocked = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_lowconf01', confirmedScope: 'personal', intent: 'x', createProposal, starterDir,
     });
     assert.equal(blocked.code, 'FLOW_CAPTURE_LOW_CONFIDENCE_SUPPRESSED');
 
-    const allowed = handleFlowCaptureProposeRequest({
+    const allowed = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_lowconf01', confirmedScope: 'personal', intent: 'x', allowLowConfidence: true, createProposal, starterDir,
     });
     assert.equal(allowed.ok, true);

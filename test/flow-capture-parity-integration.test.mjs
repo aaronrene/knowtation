@@ -50,7 +50,7 @@ describe('Flow capture — triple-surface parity', () => {
     delete process.env.FLOW_CAPTURE_WRITES_ENABLED;
   });
 
-  it('observe/list/propose/dismiss produce deep-equal envelopes across surfaces', () => {
+  it('observe/list/propose/dismiss produce deep-equal envelopes across surfaces', async () => {
     const hubDir = path.join(tmpRoot, 'hub');
     const cliDir = path.join(tmpRoot, 'cli');
     const mcpDir = path.join(tmpRoot, 'mcp');
@@ -75,10 +75,10 @@ describe('Flow capture — triple-surface parity', () => {
     const cliRow = cliList.payload.candidates.find((c) => c.candidate_id === 'cand_parity1234');
     assert.deepEqual(hubRow, cliRow);
 
-    const hubProp = handleFlowCaptureProposeRequest({
+    const hubProp = await handleFlowCaptureProposeRequest({
       dataDir: hubDir, vaultId: 'default', candidateId: 'cand_parity1234', confirmedScope: 'personal', intent: 'x', createProposal,
     });
-    const cliProp = handleFlowCaptureProposeRequest({
+    const cliProp = await handleFlowCaptureProposeRequest({
       dataDir: cliDir, vaultId: 'default', cliScopes: ['personal'], candidateId: 'cand_parity1234', confirmedScope: 'personal', intent: 'x', createProposal,
     });
     assert.deepEqual(stripVolatile(hubProp.payload), stripVolatile(cliProp.payload));
@@ -89,10 +89,10 @@ describe('Flow capture — triple-surface parity', () => {
       fs.mkdirSync(d, { recursive: true });
       upsertCandidate(d, 'default', makeCandidateRecord({ candidate_id: 'cand_dismiss12' }));
     }
-    const hubDis = handleFlowCaptureDismissRequest({
+    const hubDis = await handleFlowCaptureDismissRequest({
       dataDir: dismissHubDir, vaultId: 'default', candidateId: 'cand_dismiss12', intent: 'no', createProposal,
     });
-    const cliDis = handleFlowCaptureDismissRequest({
+    const cliDis = await handleFlowCaptureDismissRequest({
       dataDir: dismissCliDir, vaultId: 'default', cliScopes: ['personal'], candidateId: 'cand_dismiss12', intent: 'no', createProposal,
     });
     assert.equal(hubDis.ok, true);
@@ -100,7 +100,7 @@ describe('Flow capture — triple-surface parity', () => {
     assert.deepEqual(stripVolatile(hubDis.payload), stripVolatile(cliDis.payload));
   });
 
-  it('sub-gates off ⇒ all surfaces return disabled/refusal', () => {
+  it('sub-gates off ⇒ all surfaces return disabled/refusal', async () => {
     delete process.env.FLOW_CAPTURE_DETECTION_ENABLED;
     delete process.env.FLOW_CAPTURE_WRITES_ENABLED;
     const dir = path.join(tmpRoot, 'off');
@@ -109,12 +109,12 @@ describe('Flow capture — triple-surface parity', () => {
     const obs = handleFlowCaptureObserveRequest({ dataDir: dir, vaultId: 'default', sessionMeta: validSessionMeta() });
     assert.equal(obs.payload.detection_authorized, false);
 
-    const prop = handleFlowCaptureProposeRequest({
+    const prop = await handleFlowCaptureProposeRequest({
       dataDir: dir, vaultId: 'default', candidateId: 'cand_x1234', confirmedScope: 'personal', intent: 'x', createProposal,
     });
     assert.equal(prop.code, 'FLOW_CAPTURE_WRITES_DISABLED');
 
-    const dis = handleFlowCaptureDismissRequest({
+    const dis = await handleFlowCaptureDismissRequest({
       dataDir: dir, vaultId: 'default', candidateId: 'cand_x1234', intent: 'x', createProposal,
     });
     assert.equal(dis.code, 'FLOW_CAPTURE_WRITES_DISABLED');
@@ -123,7 +123,7 @@ describe('Flow capture — triple-surface parity', () => {
 });
 
 describe('Flow capture — Hub route wiring contract', () => {
-  it('registers capture routes and approve reconcile', () => {
+  it('registers capture routes and approve reconcile', async () => {
     const src = fs.readFileSync(path.join(getRepoRoot(), 'hub/server.mjs'), 'utf8');
     assert.match(src, /\/api\/v1\/flows\/capture\/observe/);
     assert.match(src, /\/api\/v1\/flows\/candidates/);

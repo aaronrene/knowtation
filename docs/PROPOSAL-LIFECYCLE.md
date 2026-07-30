@@ -68,7 +68,18 @@ Gate **T5** admits **personal-scope Tasks, Media, and Wave 1 Flow authoring** in
 | **Media** | `source === media`; kind ∈ {`media_external_link`,`media_attach`}; path `meta/media/proposals/{proposal_id}.json`; `external_ref` `^scooling\.media:[A-Za-z0-9._:-]{1,200}$`; body `scope === personal` |
 | **Flow authoring** | `source === flow`; `flow_meta` present as object **and** `flow_meta.kind` exactly ∈ {`new`,`edit`,`import`} (missing/empty kind ⇒ not admitted — do **not** default to `new`); path `^meta/flows/[A-Za-z0-9._:-]{1,128}\.md$`; `external_ref` `^scooling\.flow:[A-Za-z0-9._:-]{1,128}$`; scope `personal` (frontmatter.scope → body.flow.scope) |
 | **Delegation** | **Never** — `SELF_APPLY_DELEGATION_REFUSED` (P4) |
-| **flow_capture** | Seam-classified but **not admitted** in Wave 1 (`SELF_APPLY_NOT_ADMITTED`; SD-7 never-auto) |
+| **flow_capture** | Seam-classified but **not admitted** — Wave 1 and **Wave 2** (`SELF_APPLY_NOT_ADMITTED`; SD-7 / SD-23 never-auto; option B propose-only) |
+
+#### Wave 2 Flow capture (FLOW-CAPTURE-LIVE-KN-b / SD-23)
+
+Capture proposals use `source: flow_capture` with kinds `flow_candidate_promote` |
+`flow_candidate_merge` | `flow_candidate_dismiss`. They remain a **seam surface**
+(SEC-SEAM-1) and stay **out of T5 admission** for the entire Wave 2 — even when
+session-bound `authorActorId === approverActorId`. There is **no** positive
+capture fingerprint helper in Wave 2. Promote/merge/dismiss create proposals only;
+personal self-apply returns `SELF_APPLY_NOT_ADMITTED` (consumer honesty = pending /
+Hub-complete). Gateway→bridge proxies exist for observe/list/propose/dismiss
+(FCL-C10); Knowtation `FLOW_CAPTURE_*_ENABLED` stay default off until SMOKE.
 
 Propose paths persist a validated optional `external_ref` (malformed → 400; absent → propose ok, not admitted). Flow propose accepts `scooling.flow:…` for **all** Wave 1 kinds; import lineage hints must not substitute for the admission ref. E1 create-time evaluation satisfaction widens to admitted Task/Media/Flow fingerprints when `sessionBound` + author gates hold. Client-supplied `evaluation_status` / `evaluated_by` / `evaluated_at` remain stripped (P2).
 

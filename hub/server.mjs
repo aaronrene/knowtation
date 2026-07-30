@@ -1731,7 +1731,7 @@ app.post('/api/v1/flows/candidates/:candidate_id/propose', FLOW_CAPTURE_WRITE_RO
   const candidateId =
     typeof req.params.candidate_id === 'string' ? decodeURIComponent(req.params.candidate_id).trim() : '';
   const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const result = handleFlowCaptureProposeRequest({
+  handleFlowCaptureProposeRequest({
     dataDir: config.data_dir,
     vaultId: req.vault_id ?? 'default',
     userId: req.user?.sub ?? '',
@@ -1745,27 +1745,32 @@ app.post('/api/v1/flows/candidates/:candidate_id/propose', FLOW_CAPTURE_WRITE_RO
     intent: body.intent,
     createProposal,
     config,
-  });
-  if (!result.ok) {
-    const payload = { error: result.error, code: result.code };
-    if (result.merge_into_flow_id) payload.merge_into_flow_id = result.merge_into_flow_id;
-    if (result.overlap != null) payload.overlap = result.overlap;
-    return res.status(result.status).json(payload);
-  }
-  appendAudit(config.data_dir, {
-    userId: req.user?.sub ?? 'unknown',
-    action: 'flow_capture_propose',
-    proposalId: result.payload.proposal_id,
-    detail: { candidate_id: candidateId },
-  });
-  return res.status(201).json(result.payload);
+  })
+    .then((result) => {
+      if (!result.ok) {
+        const payload = { error: result.error, code: result.code };
+        if (result.merge_into_flow_id) payload.merge_into_flow_id = result.merge_into_flow_id;
+        if (result.overlap != null) payload.overlap = result.overlap;
+        return res.status(result.status).json(payload);
+      }
+      appendAudit(config.data_dir, {
+        userId: req.user?.sub ?? 'unknown',
+        action: 'flow_capture_propose',
+        proposalId: result.payload.proposal_id,
+        detail: { candidate_id: candidateId },
+      });
+      return res.status(201).json(result.payload);
+    })
+    .catch((e) => {
+      res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+    });
 });
 
 app.post('/api/v1/flows/candidates/:candidate_id/dismiss', FLOW_CAPTURE_WRITE_ROLES, (req, res) => {
   const candidateId =
     typeof req.params.candidate_id === 'string' ? decodeURIComponent(req.params.candidate_id).trim() : '';
   const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const result = handleFlowCaptureDismissRequest({
+  handleFlowCaptureDismissRequest({
     dataDir: config.data_dir,
     vaultId: req.vault_id ?? 'default',
     userId: req.user?.sub ?? '',
@@ -1773,17 +1778,22 @@ app.post('/api/v1/flows/candidates/:candidate_id/dismiss', FLOW_CAPTURE_WRITE_RO
     candidateId,
     intent: body.intent,
     createProposal,
-  });
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error, code: result.code });
-  }
-  appendAudit(config.data_dir, {
-    userId: req.user?.sub ?? 'unknown',
-    action: 'flow_capture_dismiss',
-    proposalId: result.payload.proposal_id,
-    detail: { candidate_id: candidateId },
-  });
-  return res.status(201).json(result.payload);
+  })
+    .then((result) => {
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.error, code: result.code });
+      }
+      appendAudit(config.data_dir, {
+        userId: req.user?.sub ?? 'unknown',
+        action: 'flow_capture_dismiss',
+        proposalId: result.payload.proposal_id,
+        detail: { candidate_id: candidateId },
+      });
+      return res.status(201).json(result.payload);
+    })
+    .catch((e) => {
+      res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+    });
 });
 
 // External-agent grants (Phase 7A-L2b) — gated by FLOW_EXTERNAL_AGENT_ENABLED (default off).
