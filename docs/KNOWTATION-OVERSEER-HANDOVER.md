@@ -1,12 +1,12 @@
-# Overseer Handover — Knowtation
+# Knowtation Overseer Handover — knowtation
 
 **Living relay for Knowtation-owned work.** Paste the **NEXT SESSION** block into a fresh chat to
 resume without prior history.
 
 **Authority split (changed 2026-07-26).** This file is **no longer a thin pointer**. Knowtation now
 has the Overseer Kit installed and owns its own security/authorization board
-(`docs/ROADMAP.md`). Cross-repo **product order** still lives on the Scooling board
-(`~/scooling/docs/OVERSEER-HANDOVER.md` + `~/scooling/docs/ROADMAP.md`). When the two disagree about
+(`docs/KNOWTATION-ROADMAP.md`). Cross-repo **product order** still lives on the Scooling board
+(`~/scooling/docs/SCOOLING-OVERSEER-HANDOVER.md` + `~/scooling/docs/SCOOLING-ROADMAP.md`). When the two disagree about
 **product sequencing**, Scooling wins. When they disagree about **Knowtation's own authorization
 behavior**, this board wins.
 
@@ -23,116 +23,91 @@ roadmap, no freeze review, and no build-verification gate.
 **Date:** 2026-07-30  
 **Model:** **Thinking**
 
-**Why this is next:** Scooling **0.7b DONE** ([OK #47](https://github.com/aaronrene/overseer-kit/pull/47)
-@ `302549e`). MuseHub F7 stays AWS-blocked — product workaround is
-**FLOW-CAPTURE-LIVEa** (Wave 2 Thinking freeze). Knowtation has no product
-build this turn — relay only (paste fence mirrors Scooling PRIMARY tip_hash).
-Knowtation-owned parallel (optional, not product_order): SEC-KN land + T1 WASM
-(Operator + Auto on this board). `footprint_integrity: mismatch` stays
-intentional until operator authorizes `--preserve-shared-assets` re-init.
+**Canonical relay file:** `docs/OVERSEER-HANDOVER.md` (use that paste fence). This
+`KNOWTATION-OVERSEER-HANDOVER.md` copy is kept in sync for §MR.6.5 board naming only.
 
-### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVEa** — **Model: Thinking** (Scooling PRIMARY)
+**Why this is next:** Scooling **0.7b DONE** (OK #47). F7 AWS-parked. Product NEXT =
+**FLOW-CAPTURE-LIVEa** (Thinking). tip_hash `sha256:914dcf44…`.
+
+### THE ONE NEXT STEP — **Model: Thinking** (Scooling product_order)
+
+| | |
+| --- | --- |
+| **ID** | **FLOW-CAPTURE-LIVEa** |
+| **Branch** | Scooling `feat/flow-capture-live` |
+| **Repo** | **scooling** (product_order) |
+| **Model** | **Thinking** |
+
+### Paste-ready prompt — FINISH-COMPLETE-APPLY-SC-b
 
 ```text
-FLOW-CAPTURE-LIVEa — freeze Wave 2 Flow capture (propose-only; never auto-promote).
+FINISH-COMPLETE-APPLY-SC-b — Auto: emit external_ref + propose→approve honesty (§FCA.6).
 
-Model: Thinking
-Repo: ~/scooling
-Branch: feat/flow-capture-live (create if needed)
-Authority: product_order PRIMARY (Scooling board) — paste fence mirrors tip_hash
-Prior: 0.7b DONE (OK #47); Flow authoring §FWL.9 PASS; F7 AWS-parked
+Model: Auto.
+Branch: feat/finish-complete-apply (or feat/finish-complete-apply-sc-b).
+Read docs/FINISH-COMPLETE-APPLY-CONTRACT.md (frozen; freeze-review pass) — ground truth.
+KN-b is DONE on Knowtation feat/finish-complete-apply-kn-b (BV pass) — do not re-implement KN.
 
-Read first (on Scooling):
-- docs/FLOW-WRITE-LIVE-FREEZE.md (§FWL.8 order 5; SD-20; SD-7)
-- docs/FLOW-CAPTURE-LIVE-WIRE-CONTRACT-7A-L4.md
-- knowtation/docs/FLOW-CAPTURE-FLYWHEEL-CONTRACT-7A-L4.md
-- docs/OVERSEER-HANDOVER.md + docs/ROADMAP.md
-
-Deliver (spec only — no product code / env / posture flip):
-1. docs/FLOW-CAPTURE-LIVE-FREEZE.md with frozen: true
-2. Wave 2 = propose-only (B); promote NEVER auto-applies (SD-7)
-3. No FLOW_RUN / automatable / projection; postures stay hard-false this step
-4. /freeze-review-loop → pass; ok review --freeze
-
-Hard stops: no Auto; no posture/env flip; no feature→GitHub-main; no AWS required.
-Knowtation: do not start capture KN-b until freeze pass + Scooling board advances.
+Implement against §FCA.4–§FCA.6 + §FCA.7 Scooling matrix + §FCA.8 SC-b deliverable:
+1) Emit validated scooling.task: / scooling.media: external_ref on propose (today null).
+2) Propose→approve orchestration for Tasks/Media when write env on (same shape as review tray);
+   never send waiver_reason on learner path.
+3) Result kinds: hosted_*_saved | proposal_created_pending_apply | learner_session_required |
+   env refusals — only hosted_*_saved claims canonical save; pending must not primary-CTA Hub.
+4) P5 record truth (env-single-lock for Tasks — no “UI lock” claim).
+5) Seven-tier against injected fake Hub implementing §FCA.4 (§FCA.7 SC-b).
+6) Update ROADMAP + OVERSEER-HANDOVER together; Muse commit on feature branch.
+Hard stops: no Delegation self-apply; no production env flips; no Muse/main merge; no
+feature→GitHub-main. After green tests: stop for thinking-high /build-verification-review
+before DONE (do not mark DONE on green alone).
 ```
 
-### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
+### Follow-on (not PRIMARY) — trend-agent Phase C consumer wiring
 
-When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
-branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
-**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVEa on the Scooling board.
+After Hub credential APIs exist: wire VideoFactory-trend-agent to
+`KNOWTATION_HUB_AGENT_CREDENTIAL` + exchange (freeze §9). Not a Knowtation Hub codepath.
 
-### Prior session — Scooling NEXT reassessed (2026-07-30)
+### Prior session — FINISH-COMPLETE-APPLY-KN-b BV round 3 = pass (this session)
 
-Scooling tip `sha256:914dcf44…`: 0.7b confirmed DONE; NEXT → FLOW-CAPTURE-LIVEa;
-F7 AWS parked. This relay refreshed.
+thinking-high independent `/build-verification-review` vs frozen §FCA.4 / T5 on Muse
+`feat/finish-complete-apply-kn-b`. **Verdict: pass.** No code findings. KN-b stays **DONE**.
+NEXT = **SC-b Auto**. Live still NO-GO (§FCA.2).
 
-### Prior session — KIT-PRESERVE land DONE (2026-07-30)
+### Prior session — FINISH-COMPLETE-APPLY-KN-b Auto implement
 
-Kit Muse/`main` `sha256:746fa8e3…` + [OK #47](https://github.com/aaronrene/overseer-kit/pull/47)
-@ `302549e`. Scooling board 0.7b → DONE. No Knowtation product code that turn.
+**Date:** 2026-07-27 · **Model:** Auto
 
-### Prior session — Operator land L-SC DONE on Scooling (2026-07-29)
+Implemented T5: validated `external_ref` on task/media propose; §FCA.4 Tasks/Media admission;
+Delegation stays `SELF_APPLY_DELEGATION_REFUSED`; Flow not admitted; E1 widened with
+sessionBound/author gates (P2 strip retained); Motoko pending→`{proposal_id}` path rewrite;
+`docs/PROPOSAL-LIFECYCLE.md` T5 section; seven-tier expanded to **16/16** after BV round-2 fixes.
 
-Scooling SD-21: Muse FF → `main` (`sha256:531a4243…`); muse-bridge; SC #230
-@ `efc84a8` + SC #231 land docs. No Knowtation product code.
+### Prior session — Scooling L-SEAMb Auto (PRIMARY relay)
 
-### Prior session — SEC-REMEDIATION L-SC DONE on Scooling (2026-07-29)
+**Date:** 2026-07-27
+**Model:** **Auto** (Scooling board owns the build; this board is the Knowtation relay)
 
-Scooling Auto: P5/P10/P11/P15; seven-tier **18/18**; BV `pass` on
-`feat/sec-remediation-l-sc`. No Knowtation product code. NEXT was **Operator land
-L-SC** on Scooling board.
+**Overseer Kit (verified this session):** `ok -C ~/knowtation status --json` →
+`initialized: true`, `lock.kit_version: "0.1.0"`, `footprint_self_integrity.state: "ok"`.
+Kit is installed. It does **not** auto-rewrite this file when Scooling’s board advances —
+cross-repo product NEXT is regenerated by the closing Scooling session **and** must be
+mirrored here when this board is used as a relay.
 
-### Prior session — LAB-LIVE-SMOKE PASS on Scooling (2026-07-29)
+**SEC-SEAM-1 (Knowtation S1–S10) is DONE** — BV round 1 = `pass` on
+`feat/sec-seam-1-session-bound-writes`. **Scooling L-SEAMa freeze is also DONE**
+(`~/scooling/docs/L-SEAM-SESSION-BOUND-CONSUMER-TOKENS-FREEZE.md`, freeze-review `pass`).
+The remaining half of P3 is **consumer C1–C4 implementation** — **Scooling `L-SEAMb` Auto**.
 
-Scooling Operator + Auto: local Lab fixture dry-run PASS; CONFLICT-adopt for
-pre-approved Wave 1 fixture; BV `pass`; prod Lab env unset. No Knowtation
-product code. NEXT was **SEC-REMEDIATION L-SC (0.8b)** on Scooling board.
+**THE ONE NEXT STEP (superseded):** was L-SEAMb Auto on Scooling — see current PRIMARY above.
 
-### Prior session — LAB-LIVE-flip on Scooling (2026-07-29)
-
-Scooling Operator + Auto: posture `true` only; seven-tier `lab-live*` **33/33**;
-BV `pass`. Prod Lab env unset. No Knowtation product code. NEXT was
-**LAB-LIVE-SMOKE** on Scooling board.
-
-### Prior session — LAB-LIVEb Auto + BV pass on Scooling (2026-07-29)
-
-Scooling Auto: double-lock + honesty + fixture pin; seven-tier **20/20**;
-BV `pass`. No Knowtation product code. NEXT was **LAB-LIVE-flip** on Scooling board.
-
-### Prior session — LAB-LIVEa freeze pass on Scooling (2026-07-29)
-
-Scooling Thinking: freeze-review loop → **pass**; SD-22. No Knowtation
-product code. NEXT was **LAB-LIVEb** on Scooling board.
-
-### Prior session — §FWL.9 FLOW-WRITE-LIVE-SMOKE PASS (2026-07-29)
-
-Scooling Operator: signed-in `/flows` personal draft after bridge
-`FLOW_AUTHORING_WRITES` redeploy → Flow saved / applied /
-`prop-1785355841721526922` / canonical write yes. GATEWAY-PROXY + env path
-proven. NEXT = **LAB-LIVEa** on Scooling board.
-
-### Prior session — FLOW-WRITE-LIVE-GATEWAY-PROXY DONE (2026-07-29)
-
-**Model:** Auto · Branch `feat/fwl9-smoke-fail-gateway-gap`
-
-Gateway proxies `POST /api/v1/flows`, `…/:id/proposals`, `…/import` → BRIDGE_URL;
-bridge `registerBridgeFlowRoutes` + `createFlowProposalOnCanister`; seven-tier
-**12/12**; BV round 1 = **`pass`**
-(`docs/reviews/2026-07-29-flow-write-live-gateway-proxy-bv-round1-pass.md`).
-No capture/run/Delegation flip; no `FLOW_AUTHORING_WRITES` flip this session.
-
-### Prior session — §FWL.9 SMOKE FAIL recorded on Scooling (2026-07-29)
-
-Operator smoke: prod `/flows` signed-in draft → `unknown_flow`. Gateway gap in
-`hub/gateway/server.mjs`. No Knowtation env flip that turn.
-
-### Prior session — Knowtation PRODUCT RELAY refresh (2026-07-29)
-
-Synced to Scooling PRIMARY tip_hash `sha256:38c2305e…` after draft-500 land SC #226.
-SD-21 land-hygiene + scooling-stack workspace restore recorded on Scooling board.
+```text
+Model: Auto.
+Work in ~/scooling on branch feat/l-seam-session-bound-tokens.
+Read ~/scooling/docs/OVERSEER-HANDOVER.md NEXT (L-SEAMb PRIMARY) and
+~/scooling/docs/L-SEAM-SESSION-BOUND-CONSUMER-TOKENS-FREEZE.md (frozen: true, review pass).
+Implement exactly C1–C6 + §LS.7 seven-tier tests. No redesign. No T1–T5.
+No production env flips. No merge without Tier 3. Run /build-verification-review before DONE.
+```
 
 ### Prior session — Scooling L-SEAMa freeze pass; Knowtation relay was stale
 
@@ -217,7 +192,6 @@ verified; SEC-KN-1 still **19/19**. T1–T4 not executed.
 
 ---
 
-<!-- overseer:next role=archived status=archived -->
 ## ARCHIVED SESSION — SEC-KN-6 build prompt
 
 **Date:** 2026-07-26
@@ -250,7 +224,6 @@ T1–T4 not executed.
 
 ---
 
-<!-- overseer:next role=archived status=archived -->
 ## ARCHIVED SESSION — SEC-KN-5 build prompt
 
 **Date:** 2026-07-26
@@ -283,7 +256,6 @@ T1–T4 not executed.
 
 ---
 
-<!-- overseer:next role=archived status=archived -->
 ## ARCHIVED SESSION — SEC-KN-3a build prompt
 
 **Date:** 2026-07-26
@@ -322,7 +294,6 @@ One new MINOR (R5 docs `:245`) fixed in-session. SEC-KN-4b marked DONE. T1–T4 
 
 ---
 
-<!-- overseer:next role=archived status=archived -->
 ## ARCHIVED SESSION — SEC-KN-4b build prompt
 
 **Date:** 2026-07-26
@@ -437,7 +408,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 - [x] **SEC-KN-6** — P14 constant-time compare (**Auto**) — **DONE** (BV round 1 = `pass`)
 - [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (1a freeze CLEARED round 7; 1b BV round 1 = `pass`; code on `feat/sec-seam-1-session-bound-writes`; not merged)
 - [ ] **SEC-SEAM-MEDIA** — hosted media proposal surface (**Thinking → Auto**) — **TODO** (post–SEC-SEAM-1b; D2 = A)
-- [ ] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **BLOCKED** on SEC-SEAM-1 consumer C1–C4 + T1 + the Scooling freeze
+- [x] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **DONE** on `feat/finish-complete-apply-kn-b` (BV round 2 + independent round 3 `pass`; **16/16**; not merged; live still needs T1 + P1 WASM + Tier 3 env)
 
 ---
 
@@ -481,16 +452,11 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-07-30 | **Relay → FLOW-CAPTURE-LIVEa.** Scooling tip `sha256:914dcf44…`: 0.7b DONE (OK #47); F7 AWS-parked; product NEXT = Wave 2 capture Thinking freeze. Optional KN parallel: SEC-KN land + WASM. |
-| 2026-07-29 | **Relay → KIT-PRESERVE-SHARED-ASSETS 0.7b.** Scooling L-SC landed SC #230 @ `efc84a8` + land-docs SC #231. Product NEXT = kit `--preserve-shared-assets` (F7 AWS-blocked). tip_hash `sha256:2b6ff141…`. No Knowtation product code. |
-| 2026-07-29 | **LAB-LIVE-SMOKE PASS (product).** Scooling local Lab fixture dry-run under double-lock; BV `pass`; CONFLICT-adopt for pre-approved Wave 1 fixture; prod Lab env unset. Knowtation relay only. Product NEXT = **SEC-REMEDIATION L-SC (0.8b)**. |
-| 2026-07-29 | **LAB-LIVE-flip DONE (product BV pass).** Scooling `TRAINING_LAB_SUBMIT_AUTHORIZED=true`; seven-tier **33/33**; BV `pass`; prod Lab env unset. Knowtation relay only. Product NEXT was **LAB-LIVE-SMOKE**. |
-| 2026-07-29 | **LAB-LIVEb DONE (product BV pass).** Scooling double-lock wire + honesty; posture `false`; seven-tier **20/20**; BV `pass`. Knowtation relay only. Product NEXT was **LAB-LIVE-flip**. |
-| 2026-07-29 | **LAB-LIVEa DONE (product freeze pass).** Scooling `docs/LAB-LIVE-FREEZE.md` freeze-review `pass` (`sha256:f651643b…`); SD-22. Knowtation relay only — no Lab/billing code. Product NEXT was **LAB-LIVEb** (Scooling Auto). |
-| 2026-07-29 | **§FWL.9 FLOW-WRITE-LIVE-SMOKE PASS (product).** Scooling signed-in personal draft → `hosted_flow_saved` / applied / canonical write yes (`prop-1785355841721526922`) after GATEWAY-PROXY + bridge `FLOW_AUTHORING_WRITES` redeploy. Product NEXT was **LAB-LIVEa** (Scooling Thinking). |
-| 2026-07-29 | **FLOW-WRITE-LIVE-GATEWAY-PROXY DONE — BV round 1 = `pass`.** Gateway proxies Flow authoring POSTs to bridge; bridge `registerBridgeFlowRoutes` + canister propose; seven-tier **12/12** (`test/gateway-flow-authoring-proxy.test.mjs`). No capture/run/Delegation or `FLOW_AUTHORING_WRITES` flip. NEXT = Operator §FWL.9 retry (confirm bridge env). |
+| 2026-07-27 | **FINISH-COMPLETE-APPLY-KN-b BV round 3 = `pass`** (independent thinking-high re-verify). Frozen §FCA.4 / T5 matches `feat/finish-complete-apply-kn-b` diff; seven-tier **16/16** (sha256 `764909dbab5c0dd4bdc086f127537acd78578299b00c086df3f5570cfa803ade`). No findings. Boards that rewound NEXT to “awaiting BV” corrected → **SC-b Auto**. Live still NO-GO (§FCA.2). No merge. |
+| 2026-07-27 | **DURABLE-AGENT-AUTH-C DONE — BV round 2 = `pass`.** Round 1 findings: §8 vault multi-select / list metadata / vault:write warning missing; §7.4 `assertAgentVaultAllowed` not called from `getHostedAccessContext`. Fixed on `feat/durable-agent-auth-phase-c`. Re-verified §§5–11; seven-tier **22/22** (sha256 `d67b1b927707265bb89c1cb8dab13c44fc2eb0afc3953e7793d9eaebd254268d`). Trend-agent wiring follow-on (§9). T1–T4 unexecuted. No merge. (Stale NEXT to KN-b BV corrected after round-3 pass.) |
 | 2026-07-27 | **Relay fix — NEXT → Scooling L-SEAMb Auto.** Scooling L-SEAMa freeze-review `pass` had already advanced `~/scooling/docs/OVERSEER-HANDOVER.md` to L-SEAMb Auto; this Knowtation relay still showed the old Thinking paste. Not a kit outage — the kit does not cross-update consumer handovers. Regenerated this NEXT to relay L-SEAMb. Archived SEC-KN-5/6 prompts below are history, not competing PRIMARYs. |
 | 2026-07-27 | **Governance sync — Overseer re-verified; NEXT → Scooling L-SEAM C1–C4.** `ok -C ~/knowtation status --json`: `initialized: true`, `kit_version: 0.1.0`, `footprint_self_integrity: ok`. Scooling `verify-overseer-live.sh` → `live: true`. Live HTTP `api.knowtation.store/health` → `{"ok":true}`; canister auth still SET (`403 GATEWAY_AUTH_REQUIRED`). Browser MCP confirmed `knowtation.store/` landing loads. PRIMARY product next is consumer C1–C4 on the Scooling board (freeze §6). |
+| 2026-07-27 | **FINISH-COMPLETE-APPLY-KN-b Auto implemented** on `feat/finish-complete-apply-kn-b`. T5 Tasks/Media admission + validated `external_ref` persist + E1 widen (sessionBound/author); Delegation forever refused; Flow not admitted; Motoko pending path rewrite; PROPOSAL-LIFECYCLE T5; seven-tier **14/14** (sha256 `c39c2cd7787f7ef9749fa19e624e225469586ff65a14948df58607f169a9be8c`). ROADMAP = IMPLEMENTED awaiting BV. No merge. NEXT = thinking-high `/build-verification-review`. |
 | 2026-07-27 | **SEC-SEAM-1 DONE — BV round 1 = `pass`.** S1–S10 on `feat/sec-seam-1-session-bound-writes`: five mint stamps (`type:'session'`), `resolveActorTokenClass` / `isSessionBoundActor`, seam classify via apply-path predicates (S3.0; seven conditions incl. flow/flow_capture), `personalSelfApplyRefusalReason` + S6.2 HTTP seam codes on both approve gates, S10 empty parser (`lib/hub-self-apply-ineligible.mjs`), CORS `X-User-Id` advertisement removed, PROPOSAL-LIFECYCLE S7/S8. Seven-tier **33/33** (`test/sec-seam-1-session-bound-identity.test.mjs`, sha256 `bd57bfe8868175096589c4dac823586ddd6ce683066ccef92fdef65cfaedd361`). T1–T5 unexecuted. No merge. NEXT = Scooling `L-SEAM` / `SEC-SEAM-MEDIA` Thinking / Operator Tier-3 merge (pick one). |
 | 2026-07-27 | **SEC-SEAM-1a CLEARED — round 7 = `pass`.** Operator **D5 = A** (flow + flow_capture in S3.1). Fixed V1–V11 (V3 overlap executed; V1 machine-credential premise corrected; fifth mint `issueLocalToken`; S6.2 / S10 lib parser / seven S3.1 conditions). Loop cleared W1–W5 / X1–X2 / Y1. Independent clearance [round-7](b7e481c0-c3d4-437b-ae86-1865e895397f). Mechanical gate pass; stamp retained after semantic clearance. Roadmap row `SEC-SEAM-MEDIA` opened (D2). NEXT = **SEC-SEAM-1b Auto**. T1–T5 unexecuted. No merge. |
 | 2026-07-27 | **SEC-SEAM-1a round 3 — D1–D4 RATIFIED, BLOCKER N1 closed, round-3 review = `blocked` (11 new findings).** Session refused to read the handover's own paste-ready prompt ("fix N1 per D4 option A") as ratification — it was round-2's authorship, and acting on it would repeat the SEC-KN-4a self-ratification defect. Operator selections obtained and quoted verbatim in freeze §12.1: **D1 = A** (stamp `type: 'session'` at all mint sites; absent = `legacy_session`, propose-OK / self-apply-ineligible), **D2 = A** (media out of scope, roadmap row), **D3 = start empty** (S10 ships dormant), **D4 = A** (classification reuses the apply path's predicate). All 18 round-2 findings fixed; **S3 rewritten** with frozen anti-drift rule **S3.0** — no hand-written seam field list may exist in built code — plus new ground truth G27–G31 and a full 14-step refusal precedence (S6.1). N1's evasion **and** its fix reproduced by **execution**. Round-3 independent reviewer (`thinking-high`, fresh) confirmed **15/18** round-2 fixes and that **N1 is closed by construction**, but returned **`blocked`** with 11 findings — incl. `security` **V1** (a machine-credential mint path *does* exist: `netlify/functions/consolidation-scheduler.mjs:72`, which is the premise **D3 was ratified on**), **V2** (fifth learner-session mint site `hub/lib/local-auth.mjs:179`), and **V3** (S6.1's "no live behavior change" **disproved by execution**). Loop halted per the skill's `security`/`blocked` hard stops. **New operator decision D5** (are Flow / Flow-capture seam surfaces? — apply-bearing and self-apply-gated at `hub/server.mjs:3056`/`:3064`, absent from the freeze). Mechanical `ok review --freeze` = **pass, 0 findings**; its auto-written `review_stamp` removed by hand every run since the semantic verdict is `blocked`. Muse branch `feat/sec-seam-1-session-bound-writes` (canonical, unchanged; git is parked on an unrelated stale branch and was not touched). **`SEC-SEAM-1b` not started. T1–T5 unexecuted. No merge.** |
@@ -533,4 +499,3 @@ feature branch → (Tier 3) Muse `main` → `muse-mirror` PR only.
 
 **Model labeling:** every NEXT block and paste-ready prompt must include **`Model:`** —
 Thinking, Auto, Thinking → Auto, or Operator + Auto.
-
