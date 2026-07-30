@@ -3,7 +3,8 @@
  * (FLOW-WRITE-LIVE-GATEWAY-PROXY — parity with task-routes 2G).
  *
  * Gated by FLOW_AUTHORING_WRITES (default OFF → 403 FLOW_AUTHORING_DISABLED).
- * Does NOT mount capture/run/Delegation write routes.
+ * Capture routes live in flow-capture-routes.mjs (FLOW-CAPTURE-LIVE-KN-b).
+ * Does NOT mount run/Delegation write routes.
  *
  * @see docs/FLOW-AUTHORING-WRITEBACK-CONTRACT-7A-L1.md
  * @see hub/bridge/task-routes.mjs

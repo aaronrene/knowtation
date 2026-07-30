@@ -284,7 +284,7 @@ export function registerFlowTools(server) {
         }
 
         if (args.action === 'propose') {
-          const result = handleFlowCaptureProposeRequest({
+          const result = await handleFlowCaptureProposeRequest({
             ...base,
             candidateId: args.candidate_id,
             confirmedScope: args.confirmed_scope,
@@ -299,7 +299,7 @@ export function registerFlowTools(server) {
           return jsonResponse(result.payload);
         }
 
-        const result = handleFlowCaptureDismissRequest({
+        const result = await handleFlowCaptureDismissRequest({
           ...base,
           candidateId: args.candidate_id,
           intent: args.intent,

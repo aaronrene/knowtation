@@ -47,7 +47,7 @@ describe('Flow capture — performance', () => {
     delete process.env.FLOW_CAPTURE_WRITES_ENABLED;
   });
 
-  it('observe + dedup overlap scan within p95 budget on large index', () => {
+  it('observe + dedup overlap scan within p95 budget on large index', async () => {
     const starterDir = emptyStarterDir(dataDir);
     for (let i = 0; i < 40; i += 1) {
       const bundle = makeFlowBundle({ flowId: `flow_perf_${i}`, steps: 3 });
@@ -58,7 +58,7 @@ describe('Flow capture — performance', () => {
     const samples = [];
     for (let i = 0; i < 20; i += 1) {
       const t0 = performance.now();
-      handleFlowCaptureProposeRequest({
+      await handleFlowCaptureProposeRequest({
         dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_perf1', confirmedScope: 'personal', intent: 'x', createProposal, starterDir,
       });
       samples.push(performance.now() - t0);
@@ -66,7 +66,7 @@ describe('Flow capture — performance', () => {
     assert.ok(p95(samples) < P95_BUDGET_MS, `p95 ${p95(samples)}ms exceeds ${P95_BUDGET_MS}ms`);
   });
 
-  it('list candidates bounded', () => {
+  it('list candidates bounded', async () => {
     for (let i = 0; i < 60; i += 1) {
       upsertCandidate(dataDir, vaultId, makeCandidateRecord({ candidate_id: `cand_p${String(i).padStart(3, '0')}` }));
     }
@@ -77,7 +77,7 @@ describe('Flow capture — performance', () => {
     assert.ok(elapsed < P95_BUDGET_MS);
   });
 
-  it('overlap helper is linear in token sets', () => {
+  it('overlap helper is linear in token sets', async () => {
     const draft = Array.from({ length: 32 }, (_, i) => `step token${i} action verify`);
     const steps = Array.from({ length: 32 }, (_, i) => ({
       owned_job: `token${i}`,
@@ -89,7 +89,7 @@ describe('Flow capture — performance', () => {
     assert.ok(performance.now() - t0 < P95_BUDGET_MS);
   });
 
-  it('observe path bounded for valid meta', () => {
+  it('observe path bounded for valid meta', async () => {
     const samples = [];
     for (let i = 0; i < 30; i += 1) {
       const t0 = performance.now();

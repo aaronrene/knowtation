@@ -143,8 +143,7 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — unit', () => {
     assert.match(bridge, /registerBridgeFlowRoutes/);
     assert.match(routes, /createFlowProposalOnCanister/);
     assert.match(routes, /FLOW_AUTHORING/);
-    // Capture / run must remain unproxied on gateway (hard stop).
-    assert.doesNotMatch(gw, /app\.post\('\/api\/v1\/flows\/capture/);
+    // Run stays unproxied (capture proxies land in FLOW-CAPTURE-LIVE-KN-b).
     assert.doesNotMatch(gw, /app\.post\('\/api\/v1\/flows\/:id\/runs'/);
   });
 });
@@ -354,7 +353,7 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — performance', () => {
 });
 
 describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — security', () => {
-  it('does not proxy capture/run; import path is not captured as :id', async (t) => {
+  it('import path is not captured as :id; run stays unproxied', async (t) => {
     const calls = [];
     const mockBridge = express();
     mockBridge.use(express.json());
@@ -366,8 +365,6 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — security', () => {
       calls.push(`id=${req.params.id}`);
       res.status(403).json({ code: 'FLOW_AUTHORING_DISABLED', error: 'disabled' });
     });
-    // If capture were wrongly proxied, this would 404 on mock (no route) — we assert gateway
-    // source has no capture proxy (unit) and import hits the static route.
     const { bridgeUrl, close } = await startMockBridge(mockBridge);
     t.after(close);
     const port = await bootGateway(t, bridgeUrl, `sec-${Date.now()}`);
@@ -383,6 +380,8 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — security', () => {
     });
     assert.equal(res.status, 403);
     assert.deepEqual(calls, ['import']);
+    const gw = readRepo('hub/gateway/server.mjs');
+    assert.doesNotMatch(gw, /app\.post\('\/api\/v1\/flows\/:id\/runs'/);
   });
 
   it('source scan: no Delegation write env and no Scooling Hub JWT envs added', () => {

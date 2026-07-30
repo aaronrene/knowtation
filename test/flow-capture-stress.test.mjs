@@ -41,7 +41,7 @@ describe('Flow capture — stress', () => {
     delete process.env.FLOW_CAPTURE_WRITES_ENABLED;
   });
 
-  it('rejects observe at MAX_SESSION_SIGNAL_REFS + 1', () => {
+  it('rejects observe at MAX_SESSION_SIGNAL_REFS + 1', async () => {
     const refs = Array.from({ length: MAX_SESSION_SIGNAL_REFS + 1 }, (_, i) => `flow_x#${i + 1}`);
     const r = handleFlowCaptureObserveRequest({
       dataDir, vaultId, visibleScopes: visible, sessionMeta: validSessionMeta({ step_sequence_refs: refs }),
@@ -50,7 +50,7 @@ describe('Flow capture — stress', () => {
     assert.equal(r.code, 'FLOW_CAPTURE_SIGNAL_MALFORMED');
   });
 
-  it('enforces per-session cap on new candidates', () => {
+  it('enforces per-session cap on new candidates', async () => {
     const meta = validSessionMeta({
       observed_counts: {
         repetition: 4,
@@ -64,7 +64,7 @@ describe('Flow capture — stress', () => {
     assert.ok(r.payload.returned_count <= FLOW_CAPTURE_PER_SESSION_CAP);
   });
 
-  it('list at MAX_CANDIDATE_SUMMARIES sets truncated', () => {
+  it('list at MAX_CANDIDATE_SUMMARIES sets truncated', async () => {
     for (let i = 0; i < MAX_CANDIDATE_SUMMARIES + 5; i += 1) {
       upsertCandidate(
         dataDir,
@@ -77,13 +77,22 @@ describe('Flow capture — stress', () => {
     assert.equal(r.payload.truncated, true);
   });
 
-  it('concurrent propose on same candidate — exactly one succeeds', () => {
+  it('concurrent propose on same candidate — exactly one succeeds', async () => {
     upsertCandidate(dataDir, vaultId, makeCandidateRecord({ candidate_id: 'cand_concurrent' }));
     const starterDir = emptyStarterDir(dataDir);
-    const results = Array.from({ length: 5 }, () =>
-      handleFlowCaptureProposeRequest({
-        dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_concurrent', confirmedScope: 'personal', intent: 'x', createProposal, starterDir,
-      }),
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        handleFlowCaptureProposeRequest({
+          dataDir,
+          vaultId,
+          visibleScopes: visible,
+          candidateId: 'cand_concurrent',
+          confirmedScope: 'personal',
+          intent: 'x',
+          createProposal,
+          starterDir,
+        }),
+      ),
     );
     const okCount = results.filter((r) => r.ok).length;
     assert.equal(okCount, 1);

@@ -1072,7 +1072,7 @@ if (BRIDGE_URL) {
   });
 
   // Flow authoring write-back (hosted parity — FLOW-WRITE-LIVE-GATEWAY-PROXY).
-  // Must register BEFORE the /api/v1 canister catch-all. Capture/run stay unproxied.
+  // Must register BEFORE the /api/v1 canister catch-all. Run stays unproxied.
   // Static /import before /:id/proposals so "import" is never treated as a flow id.
   app.post('/api/v1/flows/import', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
@@ -1090,6 +1090,44 @@ if (BRIDGE_URL) {
         '/api/v1/flows/' +
         encodeURIComponent(req.params.id) +
         '/proposals' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  // Flow capture flywheel (hosted parity — FLOW-CAPTURE-LIVE-KN-b / FCL-C10).
+  // Static capture/candidates before catch-all so hosted observe/propose is not canister limbo.
+  // KN capture envs stay default OFF (handlers refuse); Wave 2 never admits T5 self-apply.
+  app.post('/api/v1/flows/capture/observe', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/capture/observe' + q, req, res);
+  });
+  app.get('/api/v1/flows/candidates', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/candidates' + q, req, res);
+  });
+  app.post('/api/v1/flows/candidates/:id/propose', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/candidates/' +
+        encodeURIComponent(req.params.id) +
+        '/propose' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/candidates/:id/dismiss', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/candidates/' +
+        encodeURIComponent(req.params.id) +
+        '/dismiss' +
         q,
       req,
       res,

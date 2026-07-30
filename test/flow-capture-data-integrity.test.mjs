@@ -41,7 +41,7 @@ describe('Flow capture — data integrity', () => {
     delete process.env.FLOW_CAPTURE_WRITES_ENABLED;
   });
 
-  it('candidate round-trip preserves fields via summary', () => {
+  it('candidate round-trip preserves fields via summary', async () => {
     const raw = makeCandidateRecord({ candidate_id: 'cand_integrity1' });
     upsertCandidate(dataDir, vaultId, raw);
     const stored = getCandidate(dataDir, vaultId, 'cand_integrity1', visible);
@@ -51,9 +51,9 @@ describe('Flow capture — data integrity', () => {
     assert.equal(summary.scope_hint, raw.scope_hint);
   });
 
-  it('promote approve reconciles bundle byte-stable vs proposal', () => {
+  it('promote approve reconciles bundle byte-stable vs proposal', async () => {
     upsertCandidate(dataDir, vaultId, makeCandidateRecord({ candidate_id: 'cand_integrity2', scope_hint: 'project' }));
-    const proposed = handleFlowCaptureProposeRequest({
+    const proposed = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_integrity2', confirmedScope: 'personal', intent: 'promote', createProposal, starterDir,
     });
     const proposal = getProposal(dataDir, proposed.payload.proposal_id);
@@ -67,7 +67,7 @@ describe('Flow capture — data integrity', () => {
     assert.notEqual(got.flow.scope, 'project');
   });
 
-  it('merge sets merged_into terminal on approve', () => {
+  it('merge sets merged_into terminal on approve', async () => {
     const existing = makeFlowBundle({
       flowId: 'flow_integrity_merge',
       steps: 2,
@@ -85,7 +85,7 @@ describe('Flow capture — data integrity', () => {
         draft_steps: ['Open the target URL', 'Verify response status', 'Record result pointer'],
       }),
     );
-    const proposed = handleFlowCaptureProposeRequest({
+    const proposed = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_integrity3', confirmedScope: 'personal', intent: 'merge', mergeIntoFlowId: 'flow_integrity_merge', createProposal, starterDir,
     });
     assert.equal(proposed.ok, true);
@@ -96,10 +96,10 @@ describe('Flow capture — data integrity', () => {
     assert.equal(getCandidate(dataDir, vaultId, 'cand_integrity3', visible)?.status, 'merged_into:flow_integrity_merge');
   });
 
-  it('evidence_refs remain pointers after lifecycle', () => {
+  it('evidence_refs remain pointers after lifecycle', async () => {
     const refs = ['hash:deadbeef', 'run:abc', 'proposal:xyz'];
     upsertCandidate(dataDir, vaultId, makeCandidateRecord({ candidate_id: 'cand_integrity4', evidence_refs: refs }));
-    const proposed = handleFlowCaptureProposeRequest({
+    const proposed = await handleFlowCaptureProposeRequest({
       dataDir, vaultId, visibleScopes: visible, candidateId: 'cand_integrity4', confirmedScope: 'personal', intent: 'x', createProposal, starterDir,
     });
     const pre = precheckApprovedCaptureProposal(dataDir, getProposal(dataDir, proposed.payload.proposal_id));

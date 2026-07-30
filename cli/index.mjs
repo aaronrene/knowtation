@@ -1944,7 +1944,7 @@ async function main() {
             'BAD_REQUEST',
           );
         }
-        const result = handleFlowCaptureProposeRequest({
+        const result = await handleFlowCaptureProposeRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
@@ -1970,7 +1970,7 @@ async function main() {
         if (!candidateId || !intent) {
           flowExitWithError('knowtation flow capture dismiss: provide candidate_id and --intent.', 'BAD_REQUEST');
         }
-        const result = handleFlowCaptureDismissRequest({
+        const result = await handleFlowCaptureDismissRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
