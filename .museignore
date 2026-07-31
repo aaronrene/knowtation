@@ -102,6 +102,9 @@ patterns = [
     "docs/*.code-workspace",
     "scripts/archive/",
     ".tmp-transcribe-chunks/",
+
+    # Local Netlify folder (aligned with .gitignore)
+    ".netlify/",
 ]
 
 # [force_track]

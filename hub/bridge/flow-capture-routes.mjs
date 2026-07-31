@@ -17,6 +17,12 @@ import {
   handleFlowCaptureDismissRequest,
 } from '../../lib/flow/flow-capture.mjs';
 import { createCaptureProposalOnCanister } from '../../lib/flow/flow-capture-hosted-proposal.mjs';
+import { applyApprovedCaptureProposalFromCanister } from '../../lib/flow/flow-capture-hosted-apply.mjs';
+import { handleFlowListRequest, handleFlowGetRequest } from '../../lib/flow/flow-handlers.mjs';
+import {
+  withExternalProtocolBlobSync,
+  hydrateExternalProtocolStoresFromBlob,
+} from './external-agent-blob-store.mjs';
 import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
 import jwt from 'jsonwebtoken';
 
@@ -245,6 +251,107 @@ export function registerBridgeFlowCaptureRoutes(app, deps) {
         return res.status(result.status).json({ error: result.error, code: result.code });
       }
       return res.status(201).json(result.payload);
+    } catch (err) {
+      return sendRouteError(res, err);
+    }
+  });
+
+  // Hub-complete capture apply (CAPTURE-HOSTED-APPLY-KN-b / CHA-C2).
+  // Called by the gateway post-approve hook; also re-callable by ops after fixing
+  // store state while the proposal is still `approved` (CHA-C11 recovery).
+  // withExternalProtocolBlobSync hydrates hub_flow_store.json before precheck so a
+  // cold lambda sees pending_review candidates (CHA-C3) and persists after apply.
+  app.post(
+    '/api/v1/flows/capture/proposals/:proposal_id/apply-approved',
+    requireBridgeAuth,
+    async (req, res) => {
+      const hctx = await resolveHostedBridgeContext(req, req.uid);
+      if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+
+      const proposalId =
+        typeof req.params.proposal_id === 'string'
+          ? decodeURIComponent(req.params.proposal_id).trim()
+          : '';
+      if (!proposalId) {
+        return res.status(400).json({ error: 'proposal_id required', code: 'BAD_REQUEST' });
+      }
+
+      try {
+        const result = await withExternalProtocolBlobSync({
+          blobStore: req.blobStore ?? null,
+          dataDir,
+          run: () =>
+            applyApprovedCaptureProposalFromCanister({
+              dataDir,
+              canisterUrl,
+              headers: canisterHeaders({
+                'X-User-Id': hctx.effectiveCanisterUid,
+                'X-Actor-Id': req.uid,
+                'X-Vault-Id': hctx.vaultId,
+              }),
+              proposalId,
+              requireApproved: true,
+            }),
+        });
+        if (!result.ok) {
+          return res.status(result.status).json({ error: result.error, code: result.code });
+        }
+        return res.json(result.payload);
+      } catch (err) {
+        return sendRouteError(res, err);
+      }
+    },
+  );
+
+  // Hosted Flow list/get exposure (CHA-C5) — same handlers as self-hosted hub/server.mjs
+  // so a promote apply is observable via Scooling listFlows. Blob hydrate before read.
+  app.get('/api/v1/flows', requireBridgeAuth, async (req, res) => {
+    const ctx = await captureHandlerContext(req);
+    if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error, code: ctx.code });
+
+    try {
+      await hydrateExternalProtocolStoresFromBlob(req.blobStore ?? null, dataDir);
+      const limitRaw = req.query.limit != null ? parseInt(String(req.query.limit), 10) : undefined;
+      const result = handleFlowListRequest({
+        dataDir,
+        vaultId: ctx.hctx.vaultId,
+        userId: req.uid,
+        role: ctx.role,
+        scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+        tag: typeof req.query.tag === 'string' ? req.query.tag : undefined,
+        limit: Number.isFinite(limitRaw) ? limitRaw : undefined,
+      });
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.error, code: result.code });
+      }
+      return res.json(result.payload);
+    } catch (err) {
+      return sendRouteError(res, err);
+    }
+  });
+
+  // MUST stay registered after GET /api/v1/flows/candidates (above) so 'candidates'
+  // is never treated as a flow id — CHA-C5 static-path ordering.
+  app.get('/api/v1/flows/:id', requireBridgeAuth, async (req, res) => {
+    const ctx = await captureHandlerContext(req);
+    if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error, code: ctx.code });
+
+    const flowId =
+      typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+    try {
+      await hydrateExternalProtocolStoresFromBlob(req.blobStore ?? null, dataDir);
+      const result = handleFlowGetRequest({
+        dataDir,
+        vaultId: ctx.hctx.vaultId,
+        flowId,
+        userId: req.uid,
+        role: ctx.role,
+        version: typeof req.query.version === 'string' ? req.query.version : undefined,
+      });
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.error, code: result.code });
+      }
+      return res.json(result.payload);
     } catch (err) {
       return sendRouteError(res, err);
     }

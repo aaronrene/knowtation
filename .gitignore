@@ -78,3 +78,6 @@ scripts/archive/
 
 # Local transcription / chunk scratch (do not commit binaries)
 .tmp-transcribe-chunks/
+
+# Local Netlify folder
+.netlify

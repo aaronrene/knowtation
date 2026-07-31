@@ -17,55 +17,125 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:8bc642bcdf1f27b40acfe77f7a851b306c299507f5e21c4d021623fa877f6580 -->
-## NEXT SESSION — FLOW-CAPTURE-LIVEb (RELAY → scooling)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:3b6a1e5ad07d8c679136cbd3a8d5f324c6f4e3ef4656eadf85d2b5f0aa753bc2 -->
+## NEXT SESSION — 9-apply re-run (RELAY → scooling)
 
-**Date:** 2026-07-30  
-**Model:** **Auto**
+**Date:** 2026-07-31  
+**Model:** **Operator + Auto**
 
-**Why this is next:** **FLOW-CAPTURE-LIVE-KN-b DONE** (BV round 1 = `pass`,
-seven-tier **13/13**, `docs/reviews/2026-07-30-flow-capture-live-kn-b-bv-round1-pass.md`).
-Wave 2 T5 refuse-all locked; gateway→bridge capture proxies landed; KN capture envs
-still default off. Board advances to Scooling **FLOW-CAPTURE-LIVEb**. MuseHub **F7**
-stays **AWS-parked**.
+**Why this is next:** **9-kn-b CAPTURE-HOSTED-APPLY-KN-b DONE** (2026-07-31) — BV
+round 1 = `pass` (`docs/reviews/2026-07-31-capture-hosted-apply-kn-b-bv-round1-pass.md`,
+`sha256:3b6a1e5a…`); seven-tier **15/15** on `feat/flow-capture-live`. Hosted
+Hub-complete capture apply now exists (gateway hook + bridge apply-approved + GET
+flows exposure). Proposal `prop-1785500300353491755` still **pending**. MuseHub
+**F7** AWS-parked.
 
-### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVEb** — **Model: Auto** (Scooling PRIMARY)
+### THE ONE NEXT STEP — **9-apply re-run** — **Model: Operator + Auto** (Scooling PRIMARY)
 
 ```text
-FLOW-CAPTURE-LIVEb — Wave 2 capture: factory select live adapter + honesty gates.
+CAPTURE-APPLY-RERUN (9-apply re-run) — land hosted capture apply, then approve the
+pending capture proposal through the Hub tray and verify the saved Flow.
 
-Model: Auto
-Step: FLOW-CAPTURE-LIVEb
-Repo: ~/scooling
-Branch: feat/flow-capture-live (create if needed)
-Authority: product_order PRIMARY (Scooling board) — freeze docs/FLOW-CAPTURE-LIVE-FREEZE.md
-Prior: FLOW-CAPTURE-LIVE-KN-b DONE (BV pass; gateway capture proxies + T5 refuse-all); F7 AWS-parked
+Model: Operator + Auto
+Repo: knowtation first (land), then scooling (verify)
+Ground truth: docs/CAPTURE-HOSTED-APPLY-FREEZE.md (sha256:6db36223…);
+  BV pass docs/reviews/2026-07-31-capture-hosted-apply-kn-b-bv-round1-pass.md
+Authority: product_order PRIMARY — Knowtation ROADMAP row 9-kn-b DONE
 
-Read first:
-- docs/FLOW-CAPTURE-LIVE-FREEZE.md (§FCL.3 SC-b; FCL-C5; FCL-C9)
-- src/adapters/flowProjectionAdapter.ts (createLiveFlowCaptureAdapter unselected; postures false)
-- src/adapters/flowHubTransport.ts (capture fetchers)
-- app/routes/flows.tsx (hard-coded Capture off copy)
-- ~/knowtation docs/PROPOSAL-LIFECYCLE.md Wave 2 note (already landed)
-- docs/OVERSEER-HANDOVER.md + docs/ROADMAP.md
+Steps:
+1. Land feat/flow-capture-live per SD-21 finish-mode hygiene (BV pass; diff has no
+   posture/env flip, secrets, money, or Delegation write env): Muse merge ->
+   Muse main -> muse-bridge-deploy -> GitHub PR muse-mirror -> main (green CI only).
+   Confirm hosted gateway redeploy picked up the hook.
+2. Operator approves prop-1785500300353491755 via Hub tray (admin authority).
+3. Verify approve response carries capture_index_applied: true + capture_apply
+   (flow_id for promote); GET api/v1/flows shows the Flow; Scooling listFlows
+   shows it (CHA-C5 observability).
+4. If apply failed after approve: fix store state, re-POST bridge
+   api/v1/flows/capture/proposals/prop-1785500300353491755/apply-approved (CHA-C11).
+5. Governance sync both boards (Knowtation + Scooling relay).
 
-Deliver (mechanical — no redesign; no posture/env flip):
-1. Factory select createLiveFlowCaptureAdapter when either capture double-lock holds (FCL-C5)
-2. Live adapter options: env or factory-bound wire booleans; per-method re-check before Hub fetch
-3. Honesty result kinds (FCL-C9); mandatory Capture detection + Capture writes on|off gates
-4. Seven-tier per freeze §FCL.7 SC-b; /build-verification-review → pass
-5. FLOW_CAPTURE_*_AUTHORIZED stay compile-time false
-
-Hard stops: no KN capture env ON; no T5 admit for flow_capture; no run/automatable/projection
-flip; no feature→GitHub-main; no AWS required. After BV pass: land per SD-21 if criteria met;
-board advances to FLOW-CAPTURE-LIVE-HOSTEDa.
+Hard stops: no T5 admission; no FLOW_CAPTURE_* posture/env flip; never
+feature->GitHub-main (muse-mirror PR only); approve is the operator's click.
 ```
+
+### After 9-apply re-run (queued order)
+
+1. Wave 3 capture UX (candidate list + dismiss surfaces).
+2. Security queue: P1 WASM + T1.
+3. MuseHub F7 — AWS-parked.
 
 ### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
 
 When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
 branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
-**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVEb on the Scooling board.
+**not** unblock F7.
+
+### This session — CAPTURE-HOSTED-APPLY-KN-b DONE (2026-07-31, BV round 1 pass)
+
+Auto on `feat/flow-capture-live`. BV round 1 = **pass**
+(`docs/reviews/2026-07-31-capture-hosted-apply-kn-b-bv-round1-pass.md`,
+`sha256:3b6a1e5a…`; independent verifier subagent — Claude thinking-high slugs were
+API-limited, review ran on Grok 4.5 high, fresh non-build session). Implemented
+CHA-C1–C11 exactly:
+
+- **CHA-C1:** `hub/gateway/capture-approve-hosted.mjs` — `maybeApplyHostedCaptureAfterApprove`
+  + `mergeCaptureApplyIntoApproveResponse`; called after the task hook in the approve
+  success block of `hub/gateway/server.mjs`; failure is non-fatal to approve status and
+  surfaces `capture_index_applied: false` + `capture_apply_error/_code`.
+- **CHA-C2/C3/C10:** `lib/flow/flow-capture-hosted-apply.mjs` —
+  `applyApprovedCaptureProposalFromCanister` (sibling module to avoid the
+  flow-capture → proposals-store → self-apply → hosted-proposal load cycle); reuses
+  shared `precheckApprovedCaptureProposal` + `applyCaptureProposal`; canister `body`
+  kept intact; 400 non-capture / 409 non-approved / precheck refusal passthrough.
+  Bridge route `POST api/v1/flows/capture/proposals/:proposal_id/apply-approved` in
+  `hub/bridge/flow-capture-routes.mjs` wrapped in `withExternalProtocolBlobSync`
+  (hydrate-before-precheck for cold lambdas; persist after apply).
+- **CHA-C5:** bridge `GET api/v1/flows` + `GET api/v1/flows/:id`
+  (self-hosted `handleFlowListRequest`/`handleFlowGetRequest`, blob hydrate before
+  read, registered after `flows/candidates`); gateway proxies registered after
+  projection/external-grants/candidates and before the canister catch-all.
+- **CHA-C4:** no T5 change — `lib/hub-proposal-personal-self-apply.mjs` untouched;
+  capture stays `SELF_APPLY_NOT_ADMITTED` (regression-tested).
+- **CHA-C6:** `docs/PROPOSAL-LIFECYCLE.md` Wave 2 subsection now states Hub-complete
+  approve applies (promote/merge/dismiss) while T5 stays refuse-all; “propose-only”
+  clarified; media hosted apply still absent.
+- **Tests:** `test/capture-hosted-apply-kn-b.test.mjs` seven tiers **15/15**;
+  `flow-capture-live-kn-b` + capture/gateway/T5 suites re-run green; full repo suite
+  4281/4285 pass with 3 pre-existing perf-budget flakes (calendar oauth, flow-authoring
+  p95, flow-store step-keying p95) that pass standalone — unrelated to this diff.
+- **Hard stops honored:** no T5 admission; no `FLOW_CAPTURE_*` env/posture flip;
+  `prop-1785500300353491755` not approved; no GitHub PR.
+
+### Prior session — CAPTURE-HOSTED-APPLY-a freeze pass (2026-07-31)
+
+Thinking on `feat/flow-capture-live`: froze `docs/CAPTURE-HOSTED-APPLY-FREEZE.md`
+(CHA-C1–C11). Freeze-review loop R1 findings fixed (abs-path citation; body-intact
+precheck; approve-then-hook asymmetry); round 2 + `ok review --freeze` = **pass**
+(`sha256:6db36223…`). No product code / env / posture flip. NEXT = **9-kn-b Auto**.
+
+### Prior session — CAPTURE-APPLY-CHECK on Scooling found hosted gap (2026-07-31)
+
+Scooling tip `sha256:f5f2a53d…`: 9-apply verified T5 capture refuse-all (KN-b
+**13/13** re-run) + PLAIN-LANG capture copy (**67/67**) + no Scooling-side apply
+path, then **BLOCKED** on the missing hosted capture apply hook. No approve
+performed; no posture/env flip. Between relay refreshes, Scooling also completed
+HOSTEDb (DONE 2026-07-30), flip (DONE 2026-07-30), FLOW-CAPTURE-LIVE-SMOKE
+(**PASS** 2026-07-31, created `prop-1785500300353491755`), and PLAIN-LANG-a/b
+(DONE 2026-07-31). Knowtation relay refreshed this session. Product NEXT =
+**9-kn-a CAPTURE-HOSTED-APPLY-a** (Thinking, this repo).
+
+### Prior session — FLOW-CAPTURE-LIVE-HOSTEDa freeze pass on Scooling (2026-07-30)
+
+Scooling tip `sha256:6499d790…`: `docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md`
+freeze-review `pass` (`sha256:f01e9c5b…`); FCH-C1–C8; no posture/env flip.
+Knowtation relay only. Product NEXT = **FLOW-CAPTURE-LIVE-HOSTEDb**.
+
+### Prior session — FLOW-CAPTURE-LIVEb DONE on Scooling (2026-07-30)
+
+Scooling tip `sha256:3eedc438…`: factory select live capture + FCL-C9 honesty +
+`/flows` gates; postures false; BV `pass`. Knowtation relay only. Product NEXT was
+**FLOW-CAPTURE-LIVE-HOSTEDa** (now DONE).
 
 ### Prior session — FLOW-CAPTURE-LIVE-KN-b DONE (2026-07-30)
 
@@ -497,6 +567,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-HOSTEDb.** Scooling tip `sha256:6499d790…`: HOSTEDa freeze `pass` (`sha256:f01e9c5b…`); product NEXT = HOSTEDb Auto (Scooling). Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-KN-b.** Scooling tip `sha256:29a8720da…`: FLOW-CAPTURE-LIVEa freeze `pass` (`sha256:f0ca2edd…`); SD-23; product NEXT = KN-b Auto (this repo). Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVEa.** Scooling tip `sha256:056b11031…`: 0.7b DONE (OK #47); F7 AWS-parked; product NEXT = Wave 2 capture Thinking freeze. Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-29 | **Relay → KIT-PRESERVE-SHARED-ASSETS 0.7b.** Scooling L-SC landed SC #230 @ `efc84a8` + land-docs SC #231. Product NEXT = kit `--preserve-shared-assets` (F7 AWS-blocked). tip_hash `sha256:2b6ff141…`. No Knowtation product code. |
