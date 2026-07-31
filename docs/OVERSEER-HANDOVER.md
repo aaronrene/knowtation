@@ -18,48 +18,46 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:3b6a1e5ad07d8c679136cbd3a8d5f324c6f4e3ef4656eadf85d2b5f0aa753bc2 -->
-## NEXT SESSION — 9-kn-c land + fresh capture re-run (RELAY → scooling)
+## NEXT SESSION — 9-kn-d land (stale-merge fix) (RELAY → scooling)
 
 **Date:** 2026-07-31  
 **Model:** **Operator + Auto**
 
-**Why this is next:** 9-apply live attempt (2026-07-31) — `feat/flow-capture-live`
-**landed** (muse-mirror PR merged, hosted redeploy confirmed) and the operator
-**approved** `prop-1785500300353491755` via the Hub tray, but the apply refused with
-`409 FLOW_CANDIDATE_NOT_PROMOTABLE`: the Wave 2 bridge capture routes (observe /
-candidates / propose / dismiss) never persisted the flow store through Netlify Blobs,
-so candidate `cand_6c5bca56` lived only on a warm lambda's ephemeral disk and was gone
-by approve time. Fix built on `fix/capture-store-blob-persist` (ROADMAP row
-**9-kn-c CAPTURE-STORE-BLOB-PERSIST**): three mutating routes wrapped in
-`withExternalProtocolBlobSync`, candidates read hydrates first; regression suite
-`test/capture-store-blob-persist.test.mjs` **11/11** (pre-fix routes fail **7/11**).
+**Why this is next:** 9-apply re-runs (2026-07-31) surfaced and fixed TWO live
+defects. **9-kn-c** (blob persistence on capture routes) landed via muse-mirror
+PR #284 and is live-proven. Then approve of `prop-1785526040570098296` still
+failed on a **warm** lambda: `mergeFlowStoreJson` let stale local
+`candidates`/`flows`/`steps`/`runs` arrays mask fresher blob records
+(tasks/task_loops already merged by id — the others did not). Cold-lambda
+CHA-C11 re-apply of the same proposal succeeded (`flow_cap_9d65aa57`), and
+approve of `prop-1785528026964024269` **auto-applied via the CHA-C1 hook**
+(`flow_cap_ca8f2945`) — hook plumbing verified. CHA-C5 verified both sides:
+hosted `GET api/v1/flows` lists the Flows; Scooling `listFlows` live smoke
+(`test/integration/flow-list-live-smoke.test.ts`, env-gated) **1/1**.
+Fix for the merge is built on `fix/flow-store-stale-merge` (ROADMAP row
+**9-kn-d CAPTURE-STORE-STALE-MERGE**): suite **14/14**, pre-fix merge fails
+**3/14**; all capture/task/delegation/calendar blob suites **133/133**.
 
-### THE ONE NEXT STEP — **land 9-kn-c, then fresh capture re-run** — **Model: Operator + Auto**
+### THE ONE NEXT STEP — **land 9-kn-d** — **Model: Operator + Auto**
 
 ```text
-CAPTURE-BLOB-PERSIST-LAND (9-kn-c) — land the capture store persistence fix, then
-run the capture flywheel fresh end-to-end and verify the saved Flow.
+CAPTURE-STALE-MERGE-LAND (9-kn-d) — land the flow-store stale-merge fix so
+approve-time capture apply works on WARM lambdas too (not just cold).
 
 Model: Operator + Auto
-Repo: knowtation (land + re-run), scooling (listFlows verify + relay sync)
-Ground truth: ROADMAP row 9-kn-c; test/capture-store-blob-persist.test.mjs (11/11,
-  pre-fix 7/11 failures prove coverage)
+Repo: knowtation
+Ground truth: ROADMAP row 9-kn-d; test/capture-store-blob-persist.test.mjs
+  (14/14; pre-fix merge fails 3/14 — warm-stale unit + e2e tiers)
 
 Steps:
-1. Land fix/capture-store-blob-persist per SD-21: Muse merge -> Muse main ->
-   muse-bridge-deploy -> GitHub PR muse-mirror -> main (green CI only). Confirm
-   hosted bridge redeploy.
-2. Fresh capture run against production: POST observe (new candidate) -> POST
-   propose (new proposal). Old prop-1785500300353491755 is spent (candidate lost
-   pre-fix) — do not retry it.
-3. Operator approves the NEW proposal via Hub tray (https://knowtation.store/hub).
-4. Verify approve response carries capture_index_applied: true + capture_apply
-   flow_id; GET api/v1/flows shows the Flow; Scooling listFlows shows it (CHA-C5).
-5. Governance sync both boards (Knowtation + Scooling relay); mark 9-kn-c and
-   9-apply DONE only after live verification.
+1. Land fix/flow-store-stale-merge per SD-21: Muse merge -> Muse main ->
+   muse-bridge-deploy -> GitHub PR muse-mirror -> main (green CI only).
+2. Optional live confirmation on next organic capture: approve should carry
+   capture_index_applied: true regardless of lambda warmth.
+3. Governance sync both boards; mark 9-kn-d DONE.
 
 Hard stops: no T5 admission; no FLOW_CAPTURE_* posture/env flip; never
-feature->GitHub-main (muse-mirror PR only); approve is the operator's click.
+feature->GitHub-main (muse-mirror PR only).
 ```
 
 ### After 9-apply re-run (queued order)
