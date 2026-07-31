@@ -18,42 +18,45 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:3b6a1e5ad07d8c679136cbd3a8d5f324c6f4e3ef4656eadf85d2b5f0aa753bc2 -->
-## NEXT SESSION — 9-apply re-run (RELAY → scooling)
+## NEXT SESSION — 9-kn-c land + fresh capture re-run (RELAY → scooling)
 
 **Date:** 2026-07-31  
 **Model:** **Operator + Auto**
 
-**Why this is next:** **9-kn-b CAPTURE-HOSTED-APPLY-KN-b DONE** (2026-07-31) — BV
-round 1 = `pass` (`docs/reviews/2026-07-31-capture-hosted-apply-kn-b-bv-round1-pass.md`,
-`sha256:3b6a1e5a…`); seven-tier **15/15** on `feat/flow-capture-live`. Hosted
-Hub-complete capture apply now exists (gateway hook + bridge apply-approved + GET
-flows exposure). Proposal `prop-1785500300353491755` still **pending**. MuseHub
-**F7** AWS-parked.
+**Why this is next:** 9-apply live attempt (2026-07-31) — `feat/flow-capture-live`
+**landed** (muse-mirror PR merged, hosted redeploy confirmed) and the operator
+**approved** `prop-1785500300353491755` via the Hub tray, but the apply refused with
+`409 FLOW_CANDIDATE_NOT_PROMOTABLE`: the Wave 2 bridge capture routes (observe /
+candidates / propose / dismiss) never persisted the flow store through Netlify Blobs,
+so candidate `cand_6c5bca56` lived only on a warm lambda's ephemeral disk and was gone
+by approve time. Fix built on `fix/capture-store-blob-persist` (ROADMAP row
+**9-kn-c CAPTURE-STORE-BLOB-PERSIST**): three mutating routes wrapped in
+`withExternalProtocolBlobSync`, candidates read hydrates first; regression suite
+`test/capture-store-blob-persist.test.mjs` **11/11** (pre-fix routes fail **7/11**).
 
-### THE ONE NEXT STEP — **9-apply re-run** — **Model: Operator + Auto** (Scooling PRIMARY)
+### THE ONE NEXT STEP — **land 9-kn-c, then fresh capture re-run** — **Model: Operator + Auto**
 
 ```text
-CAPTURE-APPLY-RERUN (9-apply re-run) — land hosted capture apply, then approve the
-pending capture proposal through the Hub tray and verify the saved Flow.
+CAPTURE-BLOB-PERSIST-LAND (9-kn-c) — land the capture store persistence fix, then
+run the capture flywheel fresh end-to-end and verify the saved Flow.
 
 Model: Operator + Auto
-Repo: knowtation first (land), then scooling (verify)
-Ground truth: docs/CAPTURE-HOSTED-APPLY-FREEZE.md (sha256:6db36223…);
-  BV pass docs/reviews/2026-07-31-capture-hosted-apply-kn-b-bv-round1-pass.md
-Authority: product_order PRIMARY — Knowtation ROADMAP row 9-kn-b DONE
+Repo: knowtation (land + re-run), scooling (listFlows verify + relay sync)
+Ground truth: ROADMAP row 9-kn-c; test/capture-store-blob-persist.test.mjs (11/11,
+  pre-fix 7/11 failures prove coverage)
 
 Steps:
-1. Land feat/flow-capture-live per SD-21 finish-mode hygiene (BV pass; diff has no
-   posture/env flip, secrets, money, or Delegation write env): Muse merge ->
-   Muse main -> muse-bridge-deploy -> GitHub PR muse-mirror -> main (green CI only).
-   Confirm hosted gateway redeploy picked up the hook.
-2. Operator approves prop-1785500300353491755 via Hub tray (admin authority).
-3. Verify approve response carries capture_index_applied: true + capture_apply
-   (flow_id for promote); GET api/v1/flows shows the Flow; Scooling listFlows
-   shows it (CHA-C5 observability).
-4. If apply failed after approve: fix store state, re-POST bridge
-   api/v1/flows/capture/proposals/prop-1785500300353491755/apply-approved (CHA-C11).
-5. Governance sync both boards (Knowtation + Scooling relay).
+1. Land fix/capture-store-blob-persist per SD-21: Muse merge -> Muse main ->
+   muse-bridge-deploy -> GitHub PR muse-mirror -> main (green CI only). Confirm
+   hosted bridge redeploy.
+2. Fresh capture run against production: POST observe (new candidate) -> POST
+   propose (new proposal). Old prop-1785500300353491755 is spent (candidate lost
+   pre-fix) — do not retry it.
+3. Operator approves the NEW proposal via Hub tray (https://knowtation.store/hub).
+4. Verify approve response carries capture_index_applied: true + capture_apply
+   flow_id; GET api/v1/flows shows the Flow; Scooling listFlows shows it (CHA-C5).
+5. Governance sync both boards (Knowtation + Scooling relay); mark 9-kn-c and
+   9-apply DONE only after live verification.
 
 Hard stops: no T5 admission; no FLOW_CAPTURE_* posture/env flip; never
 feature->GitHub-main (muse-mirror PR only); approve is the operator's click.

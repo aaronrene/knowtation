@@ -6,6 +6,12 @@
  * (both default OFF → empty observe / 403 FLOW_CAPTURE_*_DISABLED).
  * Does NOT flip those envs. Does NOT admit T5 self-apply for flow_capture.
  *
+ * Every mutating route runs inside withExternalProtocolBlobSync and every read
+ * hydrates from Blobs first: hosted Netlify lambdas have ephemeral DATA_DIR, so
+ * a candidate written by observe/propose on one instance must survive to the
+ * approve-time apply on another (CAPTURE-STORE-BLOB-PERSIST fix — without this,
+ * apply refuses with FLOW_CANDIDATE_NOT_PROMOTABLE once the warm lambda recycles).
+ *
  * @see docs/FLOW-CAPTURE-FLYWHEEL-CONTRACT-7A-L4.md
  * @see hub/bridge/flow-routes.mjs
  */
@@ -144,14 +150,19 @@ export function registerBridgeFlowCaptureRoutes(app, deps) {
 
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     try {
-      const result = handleFlowCaptureObserveRequest({
+      const result = await withExternalProtocolBlobSync({
+        blobStore: req.blobStore ?? null,
         dataDir,
-        vaultId: ctx.hctx.vaultId,
-        userId: req.uid,
-        role: ctx.role,
-        sessionMeta: body,
-        includeLowConfidence: body.include_low_confidence === true,
-        harness: body.harness,
+        run: () =>
+          handleFlowCaptureObserveRequest({
+            dataDir,
+            vaultId: ctx.hctx.vaultId,
+            userId: req.uid,
+            role: ctx.role,
+            sessionMeta: body,
+            includeLowConfidence: body.include_low_confidence === true,
+            harness: body.harness,
+          }),
       });
       if (!result.ok) {
         return res.status(result.status).json({ error: result.error, code: result.code });
@@ -168,6 +179,7 @@ export function registerBridgeFlowCaptureRoutes(app, deps) {
 
     const limitRaw = req.query.limit != null ? parseInt(String(req.query.limit), 10) : undefined;
     try {
+      await hydrateExternalProtocolStoresFromBlob(req.blobStore ?? null, dataDir);
       const result = handleFlowCaptureListRequest({
         dataDir,
         vaultId: ctx.hctx.vaultId,
@@ -194,24 +206,29 @@ export function registerBridgeFlowCaptureRoutes(app, deps) {
       typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     try {
-      const result = await handleFlowCaptureProposeRequest({
+      const result = await withExternalProtocolBlobSync({
+        blobStore: req.blobStore ?? null,
         dataDir,
-        vaultId: ctx.hctx.vaultId,
-        userId: req.uid,
-        role: ctx.role,
-        candidateId,
-        confirmedScope: body.confirmed_scope,
-        scopeWidenAcknowledged: body.scope_widen_acknowledged === true,
-        allowLowConfidence: body.allow_low_confidence === true,
-        forceNewFlow: body.force_new_flow === true,
-        mergeIntoFlowId: body.merge_into_flow_id,
-        intent: body.intent,
-        createProposal: hostedCreateProposal({
-          effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
-          actorUid: req.uid,
-          vaultId: ctx.hctx.vaultId,
-          sessionBound: sessionBoundFromReq(req),
-        }),
+        run: () =>
+          handleFlowCaptureProposeRequest({
+            dataDir,
+            vaultId: ctx.hctx.vaultId,
+            userId: req.uid,
+            role: ctx.role,
+            candidateId,
+            confirmedScope: body.confirmed_scope,
+            scopeWidenAcknowledged: body.scope_widen_acknowledged === true,
+            allowLowConfidence: body.allow_low_confidence === true,
+            forceNewFlow: body.force_new_flow === true,
+            mergeIntoFlowId: body.merge_into_flow_id,
+            intent: body.intent,
+            createProposal: hostedCreateProposal({
+              effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
+              actorUid: req.uid,
+              vaultId: ctx.hctx.vaultId,
+              sessionBound: sessionBoundFromReq(req),
+            }),
+          }),
       });
       if (!result.ok) {
         const payload = { error: result.error, code: result.code };
@@ -233,19 +250,24 @@ export function registerBridgeFlowCaptureRoutes(app, deps) {
       typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     try {
-      const result = await handleFlowCaptureDismissRequest({
+      const result = await withExternalProtocolBlobSync({
+        blobStore: req.blobStore ?? null,
         dataDir,
-        vaultId: ctx.hctx.vaultId,
-        userId: req.uid,
-        role: ctx.role,
-        candidateId,
-        intent: body.intent,
-        createProposal: hostedCreateProposal({
-          effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
-          actorUid: req.uid,
-          vaultId: ctx.hctx.vaultId,
-          sessionBound: sessionBoundFromReq(req),
-        }),
+        run: () =>
+          handleFlowCaptureDismissRequest({
+            dataDir,
+            vaultId: ctx.hctx.vaultId,
+            userId: req.uid,
+            role: ctx.role,
+            candidateId,
+            intent: body.intent,
+            createProposal: hostedCreateProposal({
+              effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
+              actorUid: req.uid,
+              vaultId: ctx.hctx.vaultId,
+              sessionBound: sessionBoundFromReq(req),
+            }),
+          }),
       });
       if (!result.ok) {
         return res.status(result.status).json({ error: result.error, code: result.code });
