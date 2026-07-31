@@ -81,6 +81,289 @@
   const btnHowToUse = el('btn-how-to-use');
   const btnSettings = el('btn-settings');
   const browseToolbar = el('browse-toolbar');
+  /** @type {number} last unfiltered proposed count for badge pulse */
+  let hubReviewBadgePrevCount = 0;
+  let hubNeedsYouDismissed = false;
+  /** Keyboard selection index for Review / History proposal lists */
+  let proposalListSelectedIndex = 0;
+  /** @type {string[]} proposal ids in the active Review/History list for N-of-M */
+  let proposalListIds = [];
+  try {
+    hubNeedsYouDismissed = sessionStorage.getItem('hub_needs_you_dismissed') === '1';
+  } catch (_) {
+    hubNeedsYouDismissed = false;
+  }
+
+  function hubShellIa() {
+    return globalThis.HubShellIa || null;
+  }
+
+  function getActiveHubMainTab() {
+    const t = document.querySelector('[data-tab].tab.active');
+    return (t && t.dataset.tab) || 'notes';
+  }
+
+  function getActiveNotesView() {
+    const graph = el('notes-view-graph');
+    if (graph && !graph.classList.contains('hidden')) return 'graph';
+    const cal = el('notes-view-calendar');
+    if (cal && !cal.classList.contains('hidden')) return 'calendar';
+    return 'list';
+  }
+
+  function syncVaultAdvancedFiltersOpen() {
+    const details = el('hub-search-advanced');
+    if (!details) return;
+    const SI = hubShellIa();
+    const active = typeof hasActiveNoteListFilters === 'function' ? hasActiveNoteListFilters() : false;
+    const expand =
+      SI && typeof SI.shouldExpandVaultAdvancedFilters === 'function'
+        ? SI.shouldExpandVaultAdvancedFilters(active, details.open)
+        : active || details.open;
+    if (expand) details.open = true;
+  }
+
+  function syncPendingEvalQuickChip() {
+    const chip = el('proposal-pending-eval-chip');
+    if (!chip) return;
+    const SI = hubShellIa();
+    const show =
+      SI && typeof SI.shouldShowPendingEvalQuickChip === 'function'
+        ? SI.shouldShowPendingEvalQuickChip(window.__hubProposalEvaluationRequired)
+        : Boolean(window.__hubProposalEvaluationRequired);
+    const onSuggested = getActiveHubMainTab() === 'suggested';
+    chip.classList.toggle('hidden', !(show && onSuggested));
+    const pe = el('proposal-filter-pending-eval');
+    const pressed = Boolean(pe && pe.checked);
+    chip.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  }
+
+  function syncModeToolbars(activeTab) {
+    const name = activeTab || getActiveHubMainTab();
+    const view = getActiveNotesView();
+    const SI = hubShellIa();
+    const chrome =
+      SI && typeof SI.hubChromeVisibility === 'function'
+        ? SI.hubChromeVisibility(name, view)
+        : {
+            noteSearch: name === 'notes' && view !== 'graph',
+            browseToolbar: name === 'notes' && view !== 'graph',
+            proposalFilters: name === 'suggested' || name === 'activity' || name === 'problem',
+            insights: name === 'notes' && view === 'graph',
+          };
+    const searchSec = el('hub-search-section') || document.querySelector('.search-section');
+    if (searchSec) searchSec.classList.toggle('hidden', !chrome.noteSearch);
+    if (browseToolbar) browseToolbar.classList.toggle('hidden', !chrome.browseToolbar);
+    setProposalFiltersBarVisible(chrome.proposalFilters);
+    if (chrome.noteSearch) syncVaultAdvancedFiltersOpen();
+    syncPendingEvalQuickChip();
+  }
+
+  function setReviewSplitPosition(index1Based, total) {
+    const posEl = el('detail-split-position');
+    const listPos = el('review-list-position');
+    const SI = hubShellIa();
+    const text =
+      SI && typeof SI.formatReviewSplitPosition === 'function'
+        ? SI.formatReviewSplitPosition(index1Based, total)
+        : index1Based > 0 && total > 0
+          ? index1Based + ' of ' + total
+          : '';
+    [posEl, listPos].forEach((node) => {
+      if (!node) return;
+      if (!text) {
+        node.textContent = '';
+        node.classList.add('hidden');
+      } else {
+        node.textContent = text;
+        node.classList.remove('hidden');
+      }
+    });
+  }
+
+  function clearReviewSplitPosition() {
+    setReviewSplitPosition(0, 0);
+  }
+
+  function updateProposalListSelection(container) {
+    if (!container) return;
+    const items = container.querySelectorAll('.list-item[data-id]');
+    if (items.length === 0) {
+      proposalListSelectedIndex = 0;
+      return;
+    }
+    const SI = hubShellIa();
+    proposalListSelectedIndex =
+      SI && typeof SI.clampListKeyboardIndex === 'function'
+        ? SI.clampListKeyboardIndex(proposalListSelectedIndex, items.length)
+        : Math.max(0, Math.min(proposalListSelectedIndex, items.length - 1));
+    items.forEach((item, i) => {
+      item.classList.toggle('selected', i === proposalListSelectedIndex);
+      if (i === proposalListSelectedIndex) item.setAttribute('tabindex', '0');
+      else item.removeAttribute('tabindex');
+    });
+    const sel = items[proposalListSelectedIndex];
+    if (sel) sel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function getActiveProposalListContainer() {
+    const tab = getActiveHubMainTab();
+    if (tab === 'suggested') return el('proposals-suggested');
+    if (tab === 'problem') return el('proposals-problem');
+    if (tab === 'activity') return el('proposals-activity');
+    return null;
+  }
+
+  function syncHubRailChrome(activeTab) {
+    const name = activeTab || getActiveHubMainTab();
+    const historyMode = name === 'activity' || name === 'problem';
+    const histBtn = el('hub-rail-history');
+    if (histBtn) histBtn.classList.toggle('active', historyMode);
+    const bottomHist = el('hub-bottom-history');
+    if (bottomHist) bottomHist.classList.toggle('active', historyMode);
+    const segments = el('history-segments');
+    if (segments) segments.classList.toggle('hidden', !historyMode);
+    document.querySelectorAll('.history-segment').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.tab === name);
+      btn.setAttribute('aria-selected', btn.dataset.tab === name ? 'true' : 'false');
+    });
+    const insights = el('hub-rail-insights');
+    if (insights) {
+      const graphOn =
+        name === 'notes' && !el('notes-view-graph')?.classList.contains('hidden');
+      insights.classList.toggle('active', Boolean(graphOn));
+    }
+    const SI = hubShellIa();
+    if (historyMode && SI && typeof SI.writeHistorySegment === 'function') {
+      SI.writeHistorySegment(name === 'problem' ? 'problem' : 'activity', localStorage);
+    }
+  }
+
+  function setHubMoreSheetOpen(open) {
+    const sheet = el('hub-more-sheet');
+    const moreBtn = el('hub-bottom-more');
+    if (!sheet) return;
+    const show = Boolean(open);
+    sheet.classList.toggle('hidden', !show);
+    if (moreBtn) {
+      moreBtn.classList.toggle('active', show);
+      moreBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
+    }
+  }
+
+  function closeHubMoreSheet() {
+    setHubMoreSheetOpen(false);
+  }
+
+  function openHubMoreSheet() {
+    setHubMoreSheetOpen(true);
+  }
+
+  function runHubSecondaryAction(action) {
+    const key = String(action || '');
+    if (key === 'insights') {
+      switchHubMainTab('notes');
+      switchNotesView('graph');
+      return;
+    }
+    if (key === 'import') {
+      if (typeof openImportModal === 'function') openImportModal();
+      else if (btnImport) btnImport.click();
+      return;
+    }
+    if (key === 'connect') {
+      openSettingsIntegrationsTab();
+      return;
+    }
+    if (key === 'settings') {
+      openSettings();
+      return;
+    }
+    if (key === 'help') {
+      if (typeof openHowToUse === 'function') openHowToUse();
+      else if (btnHowToUse) btnHowToUse.click();
+    }
+  }
+
+  function applyReviewBadgeCount(rawCount) {
+    const SI = hubShellIa();
+    const next = SI && typeof SI.clampProposedBadgeCount === 'function'
+      ? SI.clampProposedBadgeCount(rawCount)
+      : Math.max(0, Math.min(100, Math.floor(Number(rawCount) || 0)));
+    const text =
+      SI && typeof SI.formatProposedBadgeText === 'function'
+        ? SI.formatProposedBadgeText(next)
+        : next > 0
+          ? String(next)
+          : '';
+    const pulse =
+      SI && typeof SI.shouldPulseReviewBadge === 'function'
+        ? SI.shouldPulseReviewBadge(hubReviewBadgePrevCount, next)
+        : next > hubReviewBadgePrevCount;
+    ['hub-review-badge', 'hub-header-review-badge', 'hub-bottom-review-badge'].forEach((id) => {
+      const badge = el(id);
+      if (!badge) return;
+      if (!text) {
+        badge.textContent = '';
+        badge.classList.add('hidden');
+        badge.classList.remove('hub-rail-badge-pulse');
+        return;
+      }
+      badge.textContent = text;
+      badge.classList.remove('hidden');
+      if (pulse) {
+        badge.classList.remove('hub-rail-badge-pulse');
+        void badge.offsetWidth;
+        badge.classList.add('hub-rail-badge-pulse');
+      }
+    });
+    hubReviewBadgePrevCount = next;
+    updateNeedsYouBanner(next);
+  }
+
+  function updateNeedsYouBanner(proposedCount) {
+    const banner = el('hub-needs-you-banner');
+    const textEl = el('hub-needs-you-text');
+    if (!banner) return;
+    const SI = hubShellIa();
+    const show =
+      SI && typeof SI.shouldShowNeedsYouBanner === 'function'
+        ? SI.shouldShowNeedsYouBanner(proposedCount, hubNeedsYouDismissed)
+        : proposedCount > 0 && !hubNeedsYouDismissed;
+    const onVault = getActiveHubMainTab() === 'notes';
+    banner.classList.toggle('hidden', !(show && onVault));
+    if (textEl && SI && typeof SI.needsYouBannerCopy === 'function') {
+      textEl.textContent = SI.needsYouBannerCopy(proposedCount);
+    } else if (textEl) {
+      textEl.textContent =
+        proposedCount +
+        (proposedCount === 1 ? ' proposal' : ' proposals') +
+        ' waiting in Review';
+    }
+  }
+
+  async function refreshReviewBadge() {
+    if (!token) {
+      applyReviewBadgeCount(0);
+      return;
+    }
+    try {
+      const out = await api('/api/v1/proposals?status=proposed&limit=100');
+      applyReviewBadgeCount((out && out.proposals ? out.proposals.length : 0) || 0);
+    } catch (_) {
+      /* keep last badge; fail closed without wiping */
+    }
+  }
+
+  function openHistoryMode(preferredSegment) {
+    const SI = hubShellIa();
+    const seg =
+      preferredSegment ||
+      (SI && typeof SI.readHistorySegment === 'function'
+        ? SI.readHistorySegment(localStorage)
+        : 'activity');
+    switchHubMainTab(seg === 'problem' ? 'problem' : 'activity');
+  }
   const userName = el('user-name');
   const oauthNotConfigured = el('oauth-not-configured');
   const loginIntro = el('login-intro');
@@ -137,6 +420,7 @@
       dp.classList.add('hidden');
       dp.classList.remove('detail-panel-proposal-wide');
     }
+    clearReviewSplitPosition();
   }
 
   /** User dismisses the drawer (Escape, Close): clear open-note state. */
@@ -691,12 +975,16 @@
     select.value = getCurrentVaultId();
     if (!allowed.includes(select.value)) select.value = allowed[0] || 'default';
     setCurrentVaultId(select.value);
-    wrap.classList.toggle('hidden', options.length <= 1);
+    // Always surface the current vault once settings load (even with a single
+    // vault) so the control is discoverable under the left-rail Vault area.
+    wrap.classList.toggle('hidden', options.length < 1);
     if (allowed.length >= 2 && options.length === 1) {
       select.title =
         'This Hub has more vaults. To use them, copy your User ID from Settings → Backup into Vault access on Settings → Vaults, then save and refresh.';
+    } else if (options.length === 1) {
+      select.title = 'Current vault. Add more under Settings → Vaults when your role allows.';
     } else {
-      select.title = '';
+      select.title = 'Switch the active vault for notes, search, and proposals.';
     }
     select.onchange = () => {
       setCurrentVaultId(select.value);
@@ -882,6 +1170,7 @@
     window.__hubProposalReviewHints = Boolean(s.proposal_review_hints_enabled);
     window.__hubEvaluatorMayApprove = Boolean(s.hub_evaluator_may_approve);
     window.__hubProposalRubricItems = Array.isArray(s.proposal_rubric?.items) ? s.proposal_rubric.items : [];
+    syncPendingEvalQuickChip();
     const metaSelf = el('settings-bulk-metadata-self-only');
     if (metaSelf) metaSelf.classList.remove('hidden');
     applyMuseBridgePanel(s);
@@ -1206,23 +1495,16 @@
     if (btnNext) setTimeout(() => btnNext.focus(), 50);
   }
 
-  async function scheduleMaybeShowOnboardingWizard(s) {
-    if (!token) return;
-    if (params.get('open') === 'billing') return;
-    try {
-      const mod = await loadOnboardingModule();
-      const userKey = getOnboardingUserKey();
-      const isHosted = wizardHostedFromContext(s);
-      const hostingPath = isHosted ? 'hosted' : 'selfhosted';
-      let st = mod.parseOnboardingState(localStorage.getItem(mod.ONBOARDING_LS_KEY));
-      if (st && st.userKey !== userKey) st = null;
-      if (st && st.hostingPath !== hostingPath) st = null;
-      if (!mod.shouldAutoOpenWizard(st, userKey, hostingPath)) return;
-      const delayMs = pageLoadHadInviteQuery ? 2200 : 0;
-      setTimeout(() => {
-        void openOnboardingWizard({ restart: false });
-      }, delayMs);
-    } catch (_) {}
+  async function scheduleMaybeShowOnboardingWizard(_s) {
+    // Auto-popup removed: open only from How to use → Open setup walkthrough / Setup guide.
+    return;
+  }
+
+  function syncHubHeaderOffset() {
+    const header = document.querySelector('.hub-header');
+    if (!header) return;
+    const h = Math.max(48, Math.round(header.getBoundingClientRect().height));
+    document.documentElement.style.setProperty('--hub-header-offset', h + 'px');
   }
 
   function showMain() {
@@ -1231,7 +1513,8 @@
     main.classList.remove('hidden');
     btnHowToUse.classList.remove('hidden');
     if (btnSettings) btnSettings.classList.remove('hidden');
-    browseToolbar.classList.remove('hidden');
+    syncHubHeaderOffset();
+    syncModeToolbars(getActiveHubMainTab());
     if (token) {
       btnLoginGoogle.classList.add('hidden');
       btnLoginGithub.classList.add('hidden');
@@ -1244,20 +1527,29 @@
         const isViewer = window.__hubUserRole === 'viewer';
         if (btnNewNote) btnNewNote.classList.toggle('hidden', isViewer);
         if (btnImport) btnImport.classList.toggle('hidden', isViewer);
+        const railImport = el('hub-rail-import');
+        if (railImport) railImport.classList.toggle('hidden', isViewer);
         if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
+        void refreshReviewBadge();
       } catch (_) {
         userName.textContent = 'Logged in';
         window.__hubUserRole = 'member';
         if (btnNewNote) btnNewNote.classList.remove('hidden');
         if (btnImport) btnImport.classList.remove('hidden');
+        const railImport = el('hub-rail-import');
+        if (railImport) railImport.classList.remove('hidden');
         if (btnHeaderSuggested) btnHeaderSuggested.classList.remove('hidden');
         refreshDeleteProjectPanelVisibility();
+        void refreshReviewBadge();
       }
     } else {
       if (btnNewNote) btnNewNote.classList.add('hidden');
       if (btnImport) btnImport.classList.add('hidden');
+      const railImport = el('hub-rail-import');
+      if (railImport) railImport.classList.add('hidden');
       if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
+      applyReviewBadgeCount(0);
     }
     hubRefreshIndexStaleBanner();
   }
@@ -1422,7 +1714,7 @@
         applySettingsPayloadToHubChrome(settingsPayload);
       } catch (_) {}
       syncHubListSortUI('notes');
-      setProposalFiltersBarVisible(false);
+      syncModeToolbars('notes');
       refreshNewProposalTabVisibility();
       loadFacets();
       loadNotes();
@@ -1641,13 +1933,13 @@
   function refreshNewProposalTabVisibility() {
     const btn = el('btn-new-proposal');
     if (!btn) return;
-    const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const tab = getActiveHubMainTab();
     const show = tab === 'suggested' && hubUserCanWriteNotes();
     btn.classList.toggle('hidden', !show);
   }
 
   function applySortedNotesClient(notes) {
-    const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const tab = getActiveHubMainTab();
     if (tab !== 'notes') return notes;
     const S = globalThis.HubListSort;
     const sel = hubListSortGetSelect();
@@ -2511,17 +2803,22 @@
 
     const label = document.createElement('span');
     label.className = 'toolbar-label';
-    label.textContent = 'Quick';
+    label.textContent = 'Quick tags';
+    label.title = 'Quick tags: project, tag, folder, and network filter chips (not the key glossary)';
 
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'filter-chips-toggle';
     toggle.setAttribute('aria-expanded', filterChipsExpanded ? 'true' : 'false');
     toggle.setAttribute('aria-controls', 'filter-chips-panel');
-    toggle.title = filterChipsExpanded ? 'Hide quick filter chips' : 'Show quick filter chips';
+    toggle.title = filterChipsExpanded
+      ? 'Hide Quick tags filter chips'
+      : 'Show Quick tags filter chips';
     toggle.setAttribute(
       'aria-label',
-      filterChipsExpanded ? 'Collapse quick filter chips' : 'Expand quick filter chips',
+      filterChipsExpanded
+        ? 'Collapse Quick tags filter chips'
+        : 'Expand Quick tags filter chips',
     );
     toggle.innerHTML =
       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -2532,10 +2829,14 @@
       } catch (_) {}
       filterChipsEl.classList.toggle('is-expanded', filterChipsExpanded);
       toggle.setAttribute('aria-expanded', filterChipsExpanded ? 'true' : 'false');
-      toggle.title = filterChipsExpanded ? 'Hide quick filter chips' : 'Show quick filter chips';
+      toggle.title = filterChipsExpanded
+        ? 'Hide Quick tags filter chips'
+        : 'Show Quick tags filter chips';
       toggle.setAttribute(
         'aria-label',
-        filterChipsExpanded ? 'Collapse quick filter chips' : 'Expand quick filter chips',
+        filterChipsExpanded
+          ? 'Collapse Quick tags filter chips'
+          : 'Expand Quick tags filter chips',
       );
     };
 
@@ -2547,7 +2848,7 @@
     panel.id = 'filter-chips-panel';
     panel.className = 'filter-chips-panel';
     panel.setAttribute('role', 'region');
-    panel.setAttribute('aria-label', 'Quick filter chips');
+    panel.setAttribute('aria-label', 'Quick tags filter chips');
     filterChipsEl.appendChild(panel);
 
     const allBtn = document.createElement('button');
@@ -2795,7 +3096,7 @@
     const strip = el('hub-empty-vault-strip');
     if (!strip) return;
     const mainVisible = main && !main.classList.contains('hidden');
-    const notesTab = document.querySelector('.tabs .tab.active')?.dataset?.tab === 'notes';
+    const notesTab = getActiveHubMainTab() === 'notes';
     const q = searchQuery && String(searchQuery.value).trim();
     const show =
       Boolean(mainVisible && token) &&
@@ -2866,14 +3167,12 @@
   }
 
   function switchHubMainTab(name) {
-    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    closeHubMoreSheet();
+    document.querySelectorAll('[data-tab].tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    const tab = document.querySelector('[data-tab="' + name + '"]');
-    if (tab) tab.classList.add('active');
     syncHubListSortUI(name);
-    setProposalFiltersBarVisible(
-      name === 'activity' || name === 'suggested' || name === 'problem',
-    );
     refreshNewProposalTabVisibility();
     const panel = el(
       'tab-' +
@@ -2887,11 +3186,22 @@
     );
     if (panel) panel.classList.remove('hidden');
     if (name === 'notes') {
+      const graphPanel = el('notes-view-graph');
+      if (graphPanel && !graphPanel.classList.contains('hidden')) {
+        switchNotesView('list');
+      } else {
+        syncHubRailChrome(name);
+        syncModeToolbars(name);
+      }
       loadNotes();
+      updateNeedsYouBanner(hubReviewBadgePrevCount);
     } else {
+      syncHubRailChrome(name);
+      syncModeToolbars(name);
       if (name === 'activity') loadActivity();
       if (name === 'suggested' || name === 'problem') loadProposals();
       updateEmptyVaultStripVisibility();
+      updateNeedsYouBanner(hubReviewBadgePrevCount);
     }
   }
 
@@ -2909,6 +3219,7 @@
     switchNotesView('list');
     loadNotes();
     renderFilterChips(null);
+    syncVaultAdvancedFiltersOpen();
   };
 
   if (filterContentScope) {
@@ -2948,14 +3259,10 @@
       searchQuery.value = '';
       clearListFacetFilters();
       switchNotesView('list');
-      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-      const notesTab = document.querySelector('[data-tab="notes"]');
-      if (notesTab) notesTab.classList.add('active');
-      const tabNotes = el('tab-notes');
-      if (tabNotes) tabNotes.classList.remove('hidden');
-      loadNotes();
+      switchHubMainTab('notes');
       renderFilterChips(null);
+      const adv = el('hub-search-advanced');
+      if (adv && !hasActiveNoteListFilters()) adv.open = false;
     };
   }
 
@@ -2977,6 +3284,7 @@
     proposalFilterApply.onclick = () => {
       loadProposals();
       loadActivity();
+      syncPendingEvalQuickChip();
     };
   }
   const proposalFilterClear = el('proposal-filter-clear');
@@ -2996,13 +3304,25 @@
       if (rs) rs.value = '';
       loadProposals();
       loadActivity();
+      syncPendingEvalQuickChip();
+    };
+  }
+  const pendingEvalChip = el('proposal-pending-eval-chip');
+  if (pendingEvalChip) {
+    pendingEvalChip.onclick = () => {
+      const pe = el('proposal-filter-pending-eval');
+      if (!pe) return;
+      pe.checked = !pe.checked;
+      syncPendingEvalQuickChip();
+      loadProposals();
+      loadActivity();
     };
   }
 
   const hubListSortEl = hubListSortGetSelect();
   if (hubListSortEl) {
     hubListSortEl.addEventListener('change', () => {
-      const tab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+      const tab = getActiveHubMainTab();
       try {
         if (tab === 'notes') localStorage.setItem(HUB_SORT_STORAGE_NOTES, hubListSortEl.value);
         else if (tab === 'activity' || tab === 'suggested' || tab === 'problem') {
@@ -3174,11 +3494,31 @@
   }
 
   async function loadProposals() {
+    void refreshReviewBadge();
+    syncPendingEvalQuickChip();
+    const SI = hubShellIa();
+    const primaryCta =
+      SI && typeof SI.emptyReviewPrimaryCtaLabel === 'function'
+        ? SI.emptyReviewPrimaryCtaLabel()
+        : 'New proposal';
+    const secondaryCta =
+      SI && typeof SI.emptyReviewSecondaryCtaLabel === 'function'
+        ? SI.emptyReviewSecondaryCtaLabel()
+        : 'How Review works';
+    const canCreate = hubUserCanWriteNotes();
     const emptySuggested =
       '<div class="empty-state empty-state-suggested">' +
       '<p><strong>No proposals waiting for review.</strong> Agents and the CLI queue edits here; nothing applies to your live vault until you approve.</p>' +
-      '<p>Use <strong>New proposal</strong> or open a note and choose <strong>Propose change</strong>, or have an agent or the CLI create one.</p>' +
-      '<p class="empty-state-suggested-actions"><button type="button" class="btn-secondary" id="empty-suggested-how-to">How proposals work</button></p>' +
+      '<p class="empty-state-suggested-actions">' +
+      (canCreate
+        ? '<button type="button" class="btn-primary" id="empty-suggested-new">' +
+          escapeHtml(primaryCta) +
+          '</button>'
+        : '') +
+      '<button type="button" class="btn-secondary" id="empty-suggested-how-to">' +
+      escapeHtml(secondaryCta) +
+      '</button>' +
+      '</p>' +
       '</div>';
     const emptyDiscarded = '<div class="empty-state">No discarded proposals.</div>';
     const fq = proposalFilterQuerySuffix();
@@ -3196,50 +3536,74 @@
           if (list.length === 0) {
             container.innerHTML = emptyHtml;
             if (kind === 'suggested') {
+              proposalListIds = [];
+              clearReviewSplitPosition();
               const how = container.querySelector('#empty-suggested-how-to');
               if (how) how.onclick = () => openHowToUse('knowledge-agents');
+              const neu = container.querySelector('#empty-suggested-new');
+              if (neu) neu.onclick = () => openCreateProposalModal({});
+              const peChip = el('proposal-pending-eval-chip');
+              if (peChip && !peChip.classList.contains('hidden')) {
+                // chip remains available above empty state when policy requires eval
+              }
             }
             return;
           }
           const canDiscard = kind === 'suggested' && hubUserCanWriteNotes();
+          if (kind === 'suggested') {
+            proposalListIds = list.map((p) => String(p.proposal_id));
+            proposalListSelectedIndex = 0;
+          }
           container.innerHTML = list
             .map((p) => {
-              const labelChips = (Array.isArray(p.labels) ? p.labels : [])
-                .slice(0, 4)
-                .map((x) => '<span class="proposal-chip">' + escapeHtml(String(x)) + '</span>')
-                .join('');
               const srcChip = p.source
                 ? '<span class="proposal-chip">' + escapeHtml(String(p.source)) + '</span>'
                 : '';
-              const qChip = p.review_queue
-                ? '<span class="proposal-chip">queue:' + escapeHtml(String(p.review_queue)) + '</span>'
+              const pendingChip =
+                SI && typeof SI.reviewRowNeedsPendingEvalChip === 'function'
+                  ? SI.reviewRowNeedsPendingEvalChip(p.evaluation_status)
+                  : String(p.evaluation_status || '').toLowerCase() === 'pending';
+              const pendingHtml = pendingChip
+                ? '<span class="proposal-chip proposal-chip-pending-eval">Pending eval</span>'
                 : '';
-              const sevChip =
-                p.review_severity === 'elevated'
-                  ? '<span class="proposal-chip">elevated</span>'
-                  : p.review_severity === 'standard'
-                    ? '<span class="proposal-chip">standard</span>'
-                    : '';
-              const extraChips = [labelChips, srcChip, qChip, sevChip].filter(Boolean).join('');
+              const rel =
+                SI && typeof SI.formatRelativeTime === 'function'
+                  ? SI.formatRelativeTime(p.updated_at || p.created_at)
+                  : '';
+              const timeHtml = rel
+                ? '<span class="row-time">' + escapeHtml(rel) + '</span>'
+                : p.updated_at
+                  ? '<span class="row-time">' +
+                    escapeHtml(calendarDisplayDayKey(p.updated_at) || p.updated_at.slice(0, 10)) +
+                    '</span>'
+                  : '';
               const discardBtn = canDiscard
                 ? '<button class="list-item-delete" title="Discard proposal" aria-label="Discard proposal">✕</button>'
                 : '';
               return (
-                '<div class="list-item" data-id="' +
+                '<div class="list-item review-row" data-id="' +
                 escapeHtml(p.proposal_id) +
                 '"><span class="row-title">' +
                 escapeHtml(p.path) +
-                '</span><div class="status">' +
-                escapeHtml(p.status) +
-                (p.updated_at ? ' · ' + (calendarDisplayDayKey(p.updated_at) || p.updated_at.slice(0, 10)) : '') +
-                (p.evaluation_status ? ' · eval:' + escapeHtml(String(p.evaluation_status)) : '') +
-                (extraChips ? ' · ' + extraChips : '') +
-                '</div>' + discardBtn + '</div>'
+                '</span><div class="row-meta">' +
+                srcChip +
+                pendingHtml +
+                timeHtml +
+                '</div>' +
+                discardBtn +
+                '</div>'
               );
             })
             .join('');
-          container.querySelectorAll('.list-item').forEach((item) => {
-            item.onclick = () => openProposal(item.dataset.id);
+          container.querySelectorAll('.list-item').forEach((item, idx) => {
+            item.onclick = () => {
+              proposalListSelectedIndex = idx;
+              updateProposalListSelection(container);
+              if (kind === 'suggested') {
+                setReviewSplitPosition(idx + 1, list.length);
+              }
+              openProposal(item.dataset.id);
+            };
             const db = item.querySelector('.list-item-delete');
             if (db) {
               db.onclick = (e) => {
@@ -3248,6 +3612,7 @@
               };
             }
           });
+          if (kind === 'suggested') updateProposalListSelection(container);
         })
         .catch(() => (container.innerHTML = '<p class="muted">Failed to load</p>'));
     });
@@ -3266,8 +3631,8 @@
         container.innerHTML =
           '<div class="empty-state empty-state-activity">' +
           '<p>No proposal activity yet.</p>' +
-          '<p class="muted small">Pending reviews from agents or the CLI appear under the <strong>Suggested</strong> tab first; this tab is the timeline once things move.</p>' +
-          '<p class="empty-state-activity-actions"><button type="button" class="btn-secondary" id="empty-activity-goto-suggested">Open Suggested tab</button></p>' +
+          '<p class="muted small">Pending reviews from agents or the CLI appear under <strong>Review</strong> first; this view is the timeline once things move.</p>' +
+          '<p class="empty-state-activity-actions"><button type="button" class="btn-secondary" id="empty-activity-goto-suggested">Open Review</button></p>' +
           '</div>';
         const go = container.querySelector('#empty-activity-goto-suggested');
         if (go) go.onclick = () => switchHubMainTab('suggested');
@@ -3319,16 +3684,23 @@
     if (!query) return;
     hubBrowseListEmptyUnfiltered = false;
     updateEmptyVaultStripVisibility();
-    const activeMainTab = document.querySelector('.tabs .tab.active')?.dataset?.tab;
+    const activeMainTab = getActiveHubMainTab();
     const useKeyword = searchMode && searchMode.value === 'keyword';
     if (activeMainTab && activeMainTab !== 'notes') {
-      showToast(useKeyword ? 'Keyword results are shown under the Notes tab.' : 'Semantic results are shown under the Notes tab.');
+      showToast(useKeyword ? 'Keyword results are shown under Vault.' : 'Semantic results are shown under Vault.');
     }
     switchNotesView('list');
-    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('[data-tab].tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === 'notes');
+    });
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
-    document.querySelector('[data-tab="notes"]').classList.add('active');
-    el('tab-notes').classList.remove('hidden');
+    const tabNotes = el('tab-notes');
+    if (tabNotes) tabNotes.classList.remove('hidden');
+    setProposalFiltersBarVisible(false);
+    refreshNewProposalTabVisibility();
+    syncHubRailChrome('notes');
+    syncModeToolbars('notes');
+    syncHubListSortUI('notes');
     notesList.innerHTML = loadingHtml;
     notesTotal.textContent = '';
     const scopeSummary = formatSearchScopeSummary();
@@ -3416,6 +3788,8 @@
     el('notes-view-graph').classList.toggle('hidden', view !== 'graph');
     if (view === 'calendar') renderCalendar();
     if (view === 'graph') { renderDashboard(); refreshConsolidationCard(); }
+    syncHubRailChrome(getActiveHubMainTab());
+    syncModeToolbars(getActiveHubMainTab());
   }
 
   document.querySelectorAll('.view-tab').forEach((t) => {
@@ -3831,7 +4205,7 @@
       pathInput.value = (opts && opts.path) || '';
       if (hint)
         hint.textContent =
-          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in the Suggested tab.';
+          'Submit a proposed file change for review (same as POST /api/v1/proposals). An admin approves in Review.';
     }
     bodyEl.value = (opts && opts.body) || '';
     intentEl.value = (opts && opts.intent) || '';
@@ -3892,7 +4266,7 @@
           if (suggestedTab) suggestedTab.classList.add('active');
           if (suggestedPanel) suggestedPanel.classList.remove('hidden');
           syncHubListSortUI('suggested');
-          setProposalFiltersBarVisible(true);
+          syncModeToolbars('suggested');
           refreshNewProposalTabVisibility();
           loadProposals();
         } catch (e) {
@@ -6649,7 +7023,7 @@
           const fresh = await api('/api/v1/settings');
           const allowed = fresh.allowed_vault_ids || [];
           if (Array.isArray(allowed) && allowed.includes(id)) {
-            setCreateVaultMsg('That vault id already exists. Use the Vault dropdown in the header to switch to it.', true);
+            setCreateVaultMsg('That vault id already exists. Use the Vault dropdown in the left rail to switch to it.', true);
             return;
           }
           const path = 'inbox/.knowtation-vault-bootstrap-' + id + '-' + Date.now() + '.md';
@@ -6679,7 +7053,7 @@
           loadProposals();
           await loadVaultsPanel();
           if (inp) inp.value = '';
-          setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the header to switch.', false);
+          setCreateVaultMsg('Vault "' + id + '" created. Use the Vault dropdown in the left rail to switch.', false);
         } catch (e) {
           setCreateVaultMsg(e.message || 'Could not create vault', true);
         }
@@ -9420,10 +9794,13 @@
     resetDetailSectionSourceState();
     teardownDetailEditBodyLayout();
     closeCreateModal();
+    clearReviewSplitPosition();
     currentNotePathForCopy = path;
     currentOpenNote = null;
     const panel = el('detail-panel');
     panel.classList.remove('detail-panel-proposal-wide');
+    // Reset any prior resize so notes open at the CSS half-page default.
+    panel.style.width = '';
     const title = el('detail-title');
     const bodyEl = el('detail-body');
     const actionsEl = el('detail-actions');
@@ -9821,6 +10198,10 @@
         const openVaultNoteLine = note
           ? '<p class="small proposal-open-note-wrap"><button type="button" class="btn-link btn-link-small" id="proposal-open-note-btn">Open vault note to edit</button> <span class="muted">— tags, episode, entity, causal chain (frontmatter); use Activity again to return to this proposal.</span></p>'
           : '<p class="small muted">No note file at this path yet — approving creates or overwrites the file from the proposal body; then you can edit frontmatter.</p>';
+        const primaryEvalBlock =
+          evalHtml || waiverHtml
+            ? '<div class="proposal-primary-eval">' + evalHtml + waiverHtml + '</div>'
+            : '';
         body.innerHTML =
           (chips.length ? '<div class="proposal-meta-chips">' + chips.join('') + '</div>' : '') +
           autoFlagHtml +
@@ -9833,6 +10214,7 @@
           (p.review_severity ? ' · severity: ' + escapeHtml(String(p.review_severity)) : '') +
           '</p>' +
           openVaultNoteLine +
+          primaryEvalBlock +
           '<div class="proposal-diff-grid">' +
           '<div><h4>Current vault</h4><pre class="proposal-pre">' +
           escapeHtml(currentBlock) +
@@ -9846,12 +10228,21 @@
           mdHtml +
           '</div>' +
           evalRecordHtml +
-          evalHtml +
-          waiverHtml +
           assistantHtml +
           suggestedFmHtml +
           hintsHtml;
         actions.innerHTML = '';
+        {
+          const idx = proposalListIds.indexOf(String(id));
+          if (idx >= 0 && proposalListIds.length > 0) {
+            proposalListSelectedIndex = idx;
+            setReviewSplitPosition(idx + 1, proposalListIds.length);
+            const c = getActiveProposalListContainer();
+            if (c) updateProposalListSelection(c);
+          } else {
+            clearReviewSplitPosition();
+          }
+        }
         const openNoteBtn = body.querySelector('#proposal-open-note-btn');
         if (openNoteBtn && note && p.path) {
           openNoteBtn.onclick = () => openNote(String(p.path));
@@ -9964,7 +10355,7 @@
       // is visible instead of the browser staying at whatever scroll position it was at.
       const scrollHost = el('detail-body');
       if (scrollHost) requestAnimationFrame(() => scrollHost.scrollTo({ top: 0, behavior: 'smooth' }));
-      // Also highlight the matching row in the Suggested/Activity list so the user can see which
+      // Also highlight the matching row in the Review/Activity list so the user can see which
       // proposal was enriched.
       requestAnimationFrame(() => {
         const row = document.querySelector('[data-id="' + CSS.escape(id) + '"]');
@@ -10029,6 +10420,18 @@
     const panel = el('detail-panel');
     const footBtn = panel && panel.querySelector('button[data-hub-detail-close]');
     if (footBtn) footBtn.addEventListener('click', () => closeDetailPanel());
+  })();
+
+  (function initHubHeaderOffsetSync() {
+    syncHubHeaderOffset();
+    window.addEventListener('resize', () => syncHubHeaderOffset());
+    if (typeof ResizeObserver !== 'undefined') {
+      const header = document.querySelector('.hub-header');
+      if (header) {
+        const ro = new ResizeObserver(() => syncHubHeaderOffset());
+        ro.observe(header);
+      }
+    }
   })();
 
   // Resizable detail panel — drag the left edge to widen/narrow.
@@ -10120,14 +10523,16 @@
       return;
     }
     if (inInput && e.key !== 'Escape') return;
-    if (e.key === '/') {
+    const searchSec = el('hub-search-section') || document.querySelector('.search-section');
+    const noteSearchVisible = searchSec && !searchSec.classList.contains('hidden');
+    if (e.key === '/' && noteSearchVisible) {
       searchQuery.focus();
       e.preventDefault();
       return;
     }
     // Enter: if the search box has text but focus is elsewhere (e.g. after clicking the list),
     // run semantic search instead of opening the selected row (avoids "second search does nothing").
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && noteSearchVisible) {
       const q = (searchQuery.value || '').trim();
       if (q) {
         e.preventDefault();
@@ -10139,11 +10544,11 @@
     const listViewVisible = !el('notes-view-list').classList.contains('hidden');
     const items = notesList.querySelectorAll('.list-item');
     if (notesTabActive && listViewVisible && items.length > 0) {
-      if (e.key === 'j' || e.key === 'J') {
+      if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
         listSelectedIndex = Math.min(listSelectedIndex + 1, items.length - 1);
         updateListSelection();
         e.preventDefault();
-      } else if (e.key === 'k' || e.key === 'K') {
+      } else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowUp') {
         listSelectedIndex = Math.max(listSelectedIndex - 1, 0);
         updateListSelection();
         e.preventDefault();
@@ -10152,6 +10557,27 @@
         if (node.dataset.path) openNote(node.dataset.path);
         else if (node.dataset.id) openProposal(node.dataset.id);
         e.preventDefault();
+      }
+      return;
+    }
+    const propContainer = getActiveProposalListContainer();
+    if (propContainer) {
+      const propItems = propContainer.querySelectorAll('.list-item[data-id]');
+      if (propItems.length > 0) {
+        if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
+          proposalListSelectedIndex = Math.min(proposalListSelectedIndex + 1, propItems.length - 1);
+          updateProposalListSelection(propContainer);
+          e.preventDefault();
+        } else if (e.key === 'k' || e.key === 'K' || e.key === 'ArrowUp') {
+          proposalListSelectedIndex = Math.max(proposalListSelectedIndex - 1, 0);
+          updateProposalListSelection(propContainer);
+          e.preventDefault();
+        } else if (e.key === 'Enter' && propItems[proposalListSelectedIndex]) {
+          const node = propItems[proposalListSelectedIndex];
+          setReviewSplitPosition(proposalListSelectedIndex + 1, propItems.length);
+          openProposal(node.dataset.id);
+          e.preventDefault();
+        }
       }
     }
   });
@@ -10163,11 +10589,82 @@
     keyHelp.open = false;
   });
 
-  document.querySelectorAll('.tab').forEach((tab) => {
+  document.querySelectorAll('[data-tab].tab').forEach((tab) => {
     tab.onclick = () => {
       switchHubMainTab(tab.dataset.tab);
     };
   });
+  const hubRailHistory = el('hub-rail-history');
+  if (hubRailHistory) {
+    hubRailHistory.addEventListener('click', () => openHistoryMode());
+  }
+  const hubBottomHistory = el('hub-bottom-history');
+  if (hubBottomHistory) {
+    hubBottomHistory.addEventListener('click', () => {
+      closeHubMoreSheet();
+      openHistoryMode();
+    });
+  }
+  const hubBottomMore = el('hub-bottom-more');
+  if (hubBottomMore) {
+    hubBottomMore.addEventListener('click', () => {
+      const sheet = el('hub-more-sheet');
+      const open = sheet && !sheet.classList.contains('hidden');
+      setHubMoreSheetOpen(!open);
+    });
+  }
+  document.querySelectorAll('[data-hub-more-close]').forEach((node) => {
+    node.addEventListener('click', () => closeHubMoreSheet());
+  });
+  document.querySelectorAll('[data-hub-more-action]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-hub-more-action');
+      closeHubMoreSheet();
+      runHubSecondaryAction(action);
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const sheet = el('hub-more-sheet');
+    if (sheet && !sheet.classList.contains('hidden')) {
+      closeHubMoreSheet();
+      e.preventDefault();
+    }
+  });
+  const hubRailInsights = el('hub-rail-insights');
+  if (hubRailInsights) {
+    hubRailInsights.addEventListener('click', () => runHubSecondaryAction('insights'));
+  }
+  const hubRailImport = el('hub-rail-import');
+  if (hubRailImport) {
+    hubRailImport.addEventListener('click', () => runHubSecondaryAction('import'));
+  }
+  const hubRailConnect = el('hub-rail-connect');
+  if (hubRailConnect) {
+    hubRailConnect.addEventListener('click', () => runHubSecondaryAction('connect'));
+  }
+  const hubRailSettings = el('hub-rail-settings');
+  if (hubRailSettings) {
+    hubRailSettings.addEventListener('click', () => runHubSecondaryAction('settings'));
+  }
+  const hubRailHelp = el('hub-rail-help');
+  if (hubRailHelp) {
+    hubRailHelp.addEventListener('click', () => runHubSecondaryAction('help'));
+  }
+  const needsYouOpen = el('hub-needs-you-open');
+  if (needsYouOpen) {
+    needsYouOpen.addEventListener('click', () => switchHubMainTab('suggested'));
+  }
+  const needsYouDismiss = el('hub-needs-you-dismiss');
+  if (needsYouDismiss) {
+    needsYouDismiss.addEventListener('click', () => {
+      hubNeedsYouDismissed = true;
+      try {
+        sessionStorage.setItem('hub_needs_you_dismissed', '1');
+      } catch (_) {}
+      updateNeedsYouBanner(hubReviewBadgePrevCount);
+    });
+  }
   if (btnHeaderSuggested) {
     btnHeaderSuggested.addEventListener('click', () => switchHubMainTab('suggested'));
   }

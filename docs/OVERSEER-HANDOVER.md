@@ -17,47 +17,34 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:3b6a1e5ad07d8c679136cbd3a8d5f324c6f4e3ef4656eadf85d2b5f0aa753bc2 -->
-## NEXT SESSION — 9-kn-d land (stale-merge fix) (RELAY → scooling)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling -->
+## NEXT SESSION — relay: 9-ux-a APPROVAL-SURFACE-DECISION (RELAY → scooling)
 
 **Date:** 2026-07-31  
-**Model:** **Operator + Auto**
+**Model:** **Thinking** (runs in Scooling)
 
-**Why this is next:** 9-apply re-runs (2026-07-31) surfaced and fixed TWO live
-defects. **9-kn-c** (blob persistence on capture routes) landed via muse-mirror
-PR #284 and is live-proven. Then approve of `prop-1785526040570098296` still
-failed on a **warm** lambda: `mergeFlowStoreJson` let stale local
-`candidates`/`flows`/`steps`/`runs` arrays mask fresher blob records
-(tasks/task_loops already merged by id — the others did not). Cold-lambda
-CHA-C11 re-apply of the same proposal succeeded (`flow_cap_9d65aa57`), and
-approve of `prop-1785528026964024269` **auto-applied via the CHA-C1 hook**
-(`flow_cap_ca8f2945`) — hook plumbing verified. CHA-C5 verified both sides:
-hosted `GET api/v1/flows` lists the Flows; Scooling `listFlows` live smoke
-(`test/integration/flow-list-live-smoke.test.ts`, env-gated) **1/1**.
-Fix for the merge is built on `fix/flow-store-stale-merge` (ROADMAP row
-**9-kn-d CAPTURE-STORE-STALE-MERGE**): suite **14/14**, pre-fix merge fails
-**3/14**; all capture/task/delegation/calendar blob suites **133/133**.
+**Why this is next:** **9-kn-d landed** via muse-mirror
+[PR #285](https://github.com/aaronrene/knowtation/pull/285) (green CI; bridge +
+gateway redeployed from the merge commit) — both 9-apply defects (**9-kn-c**
+blob persistence [PR #284](https://github.com/aaronrene/knowtation/pull/284),
+**9-kn-d** warm-lambda stale merge) are DONE. The capture flywheel is verified
+live end-to-end: operator approve of `prop-1785528026964024269` auto-applied via
+the CHA-C1 hook (`flow_cap_ca8f2945`); CHA-C5 verified both sides (hosted
+`GET api/v1/flows` + Scooling `listFlows` live smoke **1/1**). Knowtation has no
+product_order work pending; the next product step lives on the Scooling board.
 
-### THE ONE NEXT STEP — **land 9-kn-d** — **Model: Operator + Auto**
+> Hub dashboard UI redesign is **not** this baton — that lane lives in
+> [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md)
+> (HUB-DASH-IA landed 2026-07-31; optional HUB-HELP-UX is idle until authorized).
+
+### THE ONE NEXT STEP — **9-ux-a on Scooling** — **Model: Thinking**
 
 ```text
-CAPTURE-STALE-MERGE-LAND (9-kn-d) — land the flow-store stale-merge fix so
-approve-time capture apply works on WARM lambdas too (not just cold).
-
-Model: Operator + Auto
-Repo: knowtation
-Ground truth: ROADMAP row 9-kn-d; test/capture-store-blob-persist.test.mjs
-  (14/14; pre-fix merge fails 3/14 — warm-stale unit + e2e tiers)
-
-Steps:
-1. Land fix/flow-store-stale-merge per SD-21: Muse merge -> Muse main ->
-   muse-bridge-deploy -> GitHub PR muse-mirror -> main (green CI only).
-2. Optional live confirmation on next organic capture: approve should carry
-   capture_index_applied: true regardless of lambda warmth.
-3. Governance sync both boards; mark 9-kn-d DONE.
-
-Hard stops: no T5 admission; no FLOW_CAPTURE_* posture/env flip; never
-feature->GitHub-main (muse-mirror PR only).
+Open ~/scooling/docs/OVERSEER-HANDOVER.md and paste its NEXT SESSION block
+(9-ux-a APPROVAL-SURFACE-DECISION, Model: Thinking) into a fresh chat.
+Decision: where users approve proposals (Scooling surface vs Knowtation Hub
+tray vs link-out), plus 9-ux-b vault picker. Tier 2 — record in
+STANDING-DECISIONS. No Knowtation code needed until that freeze lands.
 ```
 
 ### After 9-apply re-run (queued order)
@@ -72,7 +59,23 @@ When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM fe
 branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
 **not** unblock F7.
 
-### This session — CAPTURE-HOSTED-APPLY-KN-b DONE (2026-07-31, BV round 1 pass)
+### This session — 9-kn-c + 9-kn-d landed; 9-apply verified live; hygiene (2026-07-31)
+
+Operator + Auto. **9-kn-c** blob persistence landed (muse-mirror PR #284, green CI) and
+**9-kn-d** warm-lambda stale merge landed (muse-mirror PR #285, green CI); both
+live-verified — approve of `prop-1785528026964024269` auto-applied via the CHA-C1 hook
+(`flow_cap_ca8f2945`), CHA-C5 confirmed both sides. Regression suite
+`test/capture-store-blob-persist.test.mjs` **14/14** (pre-fix 7/11 then 3/14 fail).
+Token churn ended: durable `kt_agent_` credential at `~/.config/knowtation/agent_cred`;
+`scripts/verify-agent-credential-smoke.mjs` now tracked (live **PASS** — exchange +
+vaults + notes read; default vault aligned to credential scope `default`). GitHub-only
+UI-change audit: muse-mirror and GitHub main tree hashes identical in both Knowtation
+(`8ef5f536…`) and Scooling (`6c5c531f…`) — the 2026-07-17 status-tips/product-pages UI
+commits are already in Muse; nothing to sync. Untracked leftovers intentionally not
+committed: `docs/KNOWTATION-ROADMAP.md` (orphan from abandoned K13 rename) and
+`backups/pre-t1-snapshot-20260728T205623Z/`.
+
+### Prior session — CAPTURE-HOSTED-APPLY-KN-b DONE (2026-07-31, BV round 1 pass)
 
 Auto on `feat/flow-capture-live`. BV round 1 = **pass**
 (`docs/reviews/2026-07-31-capture-hosted-apply-kn-b-bv-round1-pass.md`,
