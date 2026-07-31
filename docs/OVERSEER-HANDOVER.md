@@ -17,51 +17,55 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:1851b93066b558f6d7e1b5dd56410f0a5a10ecda58845e702aafa9e365bc457a -->
-## NEXT SESSION — FLOW-CAPTURE-LIVE-HOSTEDb (RELAY → scooling)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:f5f2a53d99dfca1da270b6a9039a22627c7a17197925dad4e2d762b6b1f3b36b -->
+## NEXT SESSION — CAPTURE-HOSTED-APPLY-a (RELAY → scooling)
 
-**Date:** 2026-07-30  
-**Model:** **Auto**
+**Date:** 2026-07-31  
+**Model:** **Thinking**
 
-**Why this is next:** **FLOW-CAPTURE-LIVE-HOSTEDa DONE** on Scooling (freeze-review
-`pass`, `docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md` `sha256:f01e9c5b…`). L-SEAM
-hosted capture wire frozen (FCH-C1–C8). Capture postures still compile-time
-`false`. Board advances to **FLOW-CAPTURE-LIVE-HOSTEDb**. MuseHub **F7** stays
-**AWS-parked**.
+**Why this is next:** Scooling board advanced past HOSTEDb → flip → SMOKE →
+PLAIN-LANG-a/b (all DONE) to **9-apply CAPTURE-APPLY-CHECK (2026-07-31)**, which
+found a **Knowtation hosted gap**: the gateway approve path has no
+`maybeApplyHostedCaptureAfterApprove` (task/delegation hooks only,
+`hub/gateway/server.mjs:3522,3538`) — approving capture proposal
+`prop-1785500300353491755` would flip status **without creating a saved Flow**
+(`applyCaptureProposal` → `upsertFlowVersion` is self-hosted-only,
+`hub/server.mjs:3161`; Wave 2 option B / SD-23 by design). Proposal left
+**pending, not approved**. T5 refuse-all re-proven (KN-b **13/13**). MuseHub
+**F7** stays **AWS-parked**.
 
-### THE ONE NEXT STEP — **FLOW-CAPTURE-LIVE-HOSTEDb** — **Model: Auto** (Scooling PRIMARY)
+### THE ONE NEXT STEP — **9-kn-a CAPTURE-HOSTED-APPLY-a** — **Model: Thinking** (Scooling PRIMARY)
 
 ```text
-FLOW-CAPTURE-LIVE-HOSTEDb — Implement L-SEAM hosted Flow capture session wire (postures false).
+CAPTURE-HOSTED-APPLY-a — freeze hosted capture Hub-complete apply in Knowtation.
 
-Model: Auto
-Step: FLOW-CAPTURE-LIVE-HOSTEDb
-Repo: ~/scooling
-Branch: feat/flow-capture-live (or feat/flow-capture-live-hosted)
-Authority: product_order PRIMARY (Scooling board) — build docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md exactly
-Prior: FLOW-CAPTURE-LIVE-HOSTEDa DONE (freeze-review pass sha256:f01e9c5b…); LIVEb DONE; KN-b DONE; F7 AWS-parked
-Frozen: docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md (frozen:true; review_stamp pass) — FCH-C1–C8 / §FCH.3–§FCH.7
-Parent: docs/FLOW-CAPTURE-LIVE-FREEZE.md (SD-23; FCL-C1–C11)
+Model: Thinking
+Step: 9-kn-a
+Repo: ~/knowtation
+Authority: product_order PRIMARY (Scooling board) — ROADMAP row 9-kn-a
+Prior: 9-apply CAPTURE-APPLY-CHECK 2026-07-31 — hosted approve→Flow gap; proposal
+prop-1785500300353491755 (queue flow-capture) left pending on the canister store
 
 Read first:
-- docs/FLOW-CAPTURE-LIVE-HOSTED-FREEZE.md (entire; §FCH.3 HOW + §FCH.7 seven-tier)
-- docs/FLOW-WRITE-LIVE-HOSTED-FREEZE.md + src/flow/flowAuthoringWriteSurface.ts (parity pattern)
-- src/adapters/flowHubTransport.ts (capture readers; authoring ForSession / resolve…ForLearner)
-- src/adapters/flowProjectionAdapter.ts (createLiveFlowCaptureAdapter; captureWireHarness; postures false)
-- app/routes/flows.tsx + src/flow/flowSurface.ts
-- docs/OVERSEER-HANDOVER.md + docs/ROADMAP.md
+- ~/scooling/docs/ROADMAP.md rows 9-apply / 9-kn-a + ~/scooling/docs/OVERSEER-HANDOVER.md NEXT
+- hub/gateway/server.mjs:3195-3568 (approve proxy + task/delegation apply hooks)
+- hub/gateway/task-approve-hosted.mjs + delegation-approve-hosted.mjs (hook pattern)
+- lib/flow/flow-capture.mjs:1037-1144 (precheckApprovedCaptureProposal + applyCaptureProposal)
+- lib/flow/flow-capture-hosted-proposal.mjs (canister capture frontmatter + normalize)
+- docs/PROPOSAL-LIFECYCLE.md (Wave 2 option B; self-apply matrix)
 
-Deliver (Auto — implement freeze exactly; no redesign):
-1. ForSession / resolveFlowCaptureWireConfigForLearner; widen capture env helpers; safeParse fail-closed loopback readers
-2. Factory captureConfig + captureTarget injection; never env-credential hosted from default path; live adapter target honesty
-3. runFlowCaptureAction + mapFlowCaptureCaughtError; form intents observe_capture_signals / propose_capture_candidate / dismiss_capture_candidate; Wave 2 observe defaults
-4. Gates non-regression; ADAPTER-CONTRACTS hosted capture note (C6 allowlist)
-5. Seven-tier §FCH.7 green (harness / forced wires; postures stay false)
-6. /build-verification-review → pass before ROADMAP DONE
-7. ROADMAP + HANDOVER → FLOW-CAPTURE-LIVE-flip (Operator + Auto)
+Freeze (WHAT/HOW, frozen: true, then /freeze-review-loop → pass):
+- maybeApplyHostedCaptureAfterApprove gateway hook (parity with task/delegation hooks)
+- Canonical Flow upsert on approve for flow_candidate_promote (+ merge/dismiss terminal
+  states) reachable from the hosted path; precheck parity with self-hosted approve
+- T5 stays refuse-all for source: flow_capture (SELF_APPLY_NOT_ADMITTED — SD-23 kept);
+  approve remains admin/evaluator review only
+- Honest outcome exposure (proposal status/external_ref; Flow via GET /api/v1/flows)
+  so Scooling /flows list shows the saved Flow
+- Seven-tier test matrix; no posture/env flip inside the freeze
 
-Hard stops: no FLOW_CAPTURE_*_AUTHORIZED flip; no SCOOLING_FLOW_CAPTURE_* / KN FLOW_CAPTURE_*_ENABLED
-ON; no T5 admit; no run/automatable/projection flip; no feature→GitHub-main; no AWS required.
+Hard stops: no T5 admission for flow_capture; no posture/env flips; no
+feature→GitHub-main; do NOT approve prop-1785500300353491755 until the apply hook ships.
 ```
 
 ### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
@@ -69,6 +73,17 @@ ON; no T5 admit; no run/automatable/projection flip; no feature→GitHub-main; n
 When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
 branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
 **not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVE-HOSTEDb on the Scooling board.
+
+### Prior session — CAPTURE-APPLY-CHECK on Scooling found hosted gap (2026-07-31)
+
+Scooling tip `sha256:f5f2a53d…`: 9-apply verified T5 capture refuse-all (KN-b
+**13/13** re-run) + PLAIN-LANG capture copy (**67/67**) + no Scooling-side apply
+path, then **BLOCKED** on the missing hosted capture apply hook. No approve
+performed; no posture/env flip. Between relay refreshes, Scooling also completed
+HOSTEDb (DONE 2026-07-30), flip (DONE 2026-07-30), FLOW-CAPTURE-LIVE-SMOKE
+(**PASS** 2026-07-31, created `prop-1785500300353491755`), and PLAIN-LANG-a/b
+(DONE 2026-07-31). Knowtation relay refreshed this session. Product NEXT =
+**9-kn-a CAPTURE-HOSTED-APPLY-a** (Thinking, this repo).
 
 ### Prior session — FLOW-CAPTURE-LIVE-HOSTEDa freeze pass on Scooling (2026-07-30)
 
