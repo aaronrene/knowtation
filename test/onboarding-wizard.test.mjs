@@ -49,8 +49,8 @@ describe('onboarding-wizard.mjs', () => {
     assert.ok(LLM_SELF_HELP_EXPORT_PROMPT.length > 120);
   });
 
-  it('shouldAutoOpenWizard: null state opens; dismissed/completed do not; in_progress opens', () => {
-    assert.equal(shouldAutoOpenWizard(null, 'u1', 'hosted'), true);
+  it('shouldAutoOpenWizard: never auto-opens (How to use only)', () => {
+    assert.equal(shouldAutoOpenWizard(null, 'u1', 'hosted'), false);
     const dismissed = createFreshState('u1', 'hosted');
     dismissed.status = 'dismissed';
     assert.equal(shouldAutoOpenWizard(dismissed, 'u1', 'hosted'), false);
@@ -59,16 +59,16 @@ describe('onboarding-wizard.mjs', () => {
     assert.equal(shouldAutoOpenWizard(done, 'u1', 'hosted'), false);
     const prog = createFreshState('u1', 'hosted');
     prog.stepIndex = 2;
-    assert.equal(shouldAutoOpenWizard(prog, 'u1', 'hosted'), true);
+    assert.equal(shouldAutoOpenWizard(prog, 'u1', 'hosted'), false);
   });
 
-  it('shouldAutoOpenWizard: user or hosting change forces reopen', () => {
+  it('shouldAutoOpenWizard: user or hosting change still does not auto-open', () => {
     const st = createFreshState('u1', 'hosted');
     st.status = 'dismissed';
-    assert.equal(shouldAutoOpenWizard(st, 'u2', 'hosted'), true);
+    assert.equal(shouldAutoOpenWizard(st, 'u2', 'hosted'), false);
     const st2 = createFreshState('u1', 'hosted');
     st2.status = 'completed';
-    assert.equal(shouldAutoOpenWizard(st2, 'u1', 'selfhosted'), true);
+    assert.equal(shouldAutoOpenWizard(st2, 'u1', 'selfhosted'), false);
   });
 
   it('getStepContent returns plain-language blocks for each hosted step', () => {

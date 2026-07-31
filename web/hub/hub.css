@@ -199,14 +199,207 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   flex-wrap: wrap;
   gap: 0.75rem;
   background: var(--surface);
+  /* Stay above the fixed detail panel so Settings / New note / Import stay usable */
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 @supports (color: color-mix(in srgb, white 50%, black 50%)) {
   .hub-header {
     border-bottom-color: color-mix(in srgb, var(--border) 65%, var(--text) 35%);
   }
 }
-.hub-header h1 { margin: 0; font-size: 1.25rem; }
+.hub-header h1,
+.hub-brand { margin: 0; font-size: 1.25rem; font-weight: 600; line-height: 1.2; }
+.hub-brand-name { color: var(--text); }
+.hub-brand-hub {
+  display: inline-block;
+  margin-left: 0.2em;
+  font-size: 0.58em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  vertical-align: 0.15em;
+}
 .hub-auth { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+/* HUB-DASH-IA-b: signed-in left rail shell */
+.hub-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(100vh - 4.5rem);
+}
+.hub-rail {
+  flex: 0 0 11.5rem;
+  display: flex;
+  flex-direction: column;
+  /* Keep primary + secondary clustered near the top (no viewport-tall gap) */
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0.65rem;
+  padding: 0.85rem 0.55rem;
+  border-right: 1px solid var(--border);
+  position: relative;
+  z-index: 5;
+  background: var(--surface);
+}
+.hub-rail-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.hub-rail-primary,
+.hub-rail-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.hub-rail-secondary {
+  margin-top: 0.15rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  /* Soft connector: short accent stub on the divider so top/bottom feel linked */
+  box-shadow: inset 0 2px 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.hub-rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem 0.55rem 0.85rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hub-rail-item:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.hub-rail-item.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.hub-rail-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+/* Mobile bottom nav — desktop hidden; shown in ≤768px media query */
+.hub-bottom-nav { display: none; }
+.hub-more-sheet,
+.hub-more-sheet.hidden { display: none; }
+.hub-rail-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--cta-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.hub-header-review-badge {
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+.hub-rail-badge-pulse {
+  animation: hub-badge-pulse 0.7s ease-out 1;
+}
+@keyframes hub-badge-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  40% { transform: scale(1.12); box-shadow: 0 0 0 6px transparent; }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-rail-badge-pulse { animation: none; }
+}
+.hub-workspace {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hub-needs-you-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin: 0.75rem 1.5rem 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.hub-needs-you-text {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+.hub-needs-you-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.hub-workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.history-segments {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface) 30%);
+}
+.history-segment {
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.history-segment.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.btn-small {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+.btn-link-small {
+  font-size: 0.85rem;
+}
+
 .btn-new-note { background: #22c55e; color: #000; border-color: #22c55e; font-weight: 600; }
 .btn-new-note:hover { filter: brightness(1.08); border-color: #4ade80; }
 .btn-secondary { background: var(--surface); }
@@ -240,6 +433,8 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
 }
 
 /* Search: same stroke as Save preset — see .browse-toolbar .presets-row button */
+.search-section .search-row-primary input[type="text"],
+.search-section .search-row-primary select,
 .search-section .search-row-filters input[type="text"],
 .search-section .search-row-filters select,
 .search-section .search-row-dates-actions input[type="date"],
@@ -296,7 +491,8 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
  * because this is read-only context, not an action — the eye should land on
  * the Re-index button first.
  */
-.search-section .search-row-dates-actions .hub-index-status {
+.search-section .search-row-dates-actions .hub-index-status,
+.search-section .search-row-primary .hub-index-status {
   font-size: 12px;
   color: color-mix(in srgb, var(--text) 60%, transparent 40%);
   align-self: center;
@@ -304,7 +500,8 @@ body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); col
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.search-section .search-row-dates-actions .hub-index-status.hub-index-status-running {
+.search-section .search-row-dates-actions .hub-index-status.hub-index-status-running,
+.search-section .search-row-primary .hub-index-status.hub-index-status-running {
   /* When a background job is in flight the status flips to a softly-pulsing
      accent color so users know to wait before clicking Re-index again. */
   color: color-mix(in srgb, var(--accent) 75%, var(--text) 25%);
@@ -392,6 +589,56 @@ button.btn-new-note.btn-busy::after {
   border-bottom-style: solid;
   border-bottom-color: var(--border);
   align-items: stretch;
+}
+.search-section.hidden {
+  display: none;
+}
+/* Keep Meaning / Search / Clear beside the field (not shoved to the far right) */
+.search-row-primary {
+  max-width: 42rem;
+  justify-content: flex-start;
+}
+.search-row-primary #search-query {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  max-width: 18rem;
+  width: 16rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.search-row-primary .search-mode-select,
+.search-row-primary #btn-search,
+.search-row-primary #btn-clear-search {
+  flex: 0 0 auto;
+}
+.search-row-primary .hub-index-status {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.hub-search-advanced {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem 0.5rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+}
+.hub-search-advanced-summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  list-style: none;
+}
+.hub-search-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+.hub-search-advanced[open] .hub-search-advanced-summary {
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.hub-search-advanced .search-row {
+  margin-top: 0.35rem;
 }
 @supports (color: color-mix(in srgb, white 50%, black 50%)) {
   .search-section {
@@ -906,12 +1153,98 @@ input[readonly]#full-project {
 .proposal-filters-bar.hidden {
   display: none;
 }
+.proposal-filters-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.45rem;
+}
+.proposal-pending-eval-chip {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.proposal-pending-eval-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 28%, var(--surface));
+  border-color: var(--accent);
+}
+.proposal-pending-eval-chip.hidden {
+  display: none;
+}
+.review-list-position.hidden {
+  display: none;
+}
 .proposal-filters-bar .proposal-list-filters {
   margin-bottom: 0;
   padding-bottom: 0;
 }
+.list-item.review-row {
+  padding: 0.55rem 0.75rem;
+}
+.list-item.review-row .row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.3rem;
+}
+.list-item.review-row .row-time {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: auto;
+}
+.list-item .proposal-chip-pending-eval {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+}
+.list-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.detail-header-main {
+  flex: 1;
+  min-width: 0;
+}
+.detail-split-position {
+  margin: 0.25rem 0 0;
+}
+.detail-split-position.hidden {
+  display: none;
+}
+.detail-panel.detail-panel-proposal-wide .detail-actions {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+}
+.detail-panel:not(.detail-panel-proposal-wide) .detail-actions:empty {
+  display: none;
+}
+.proposal-primary-eval {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.empty-state-suggested-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
 .tab { padding: 0.5rem 1rem; border: none; background: transparent; color: var(--muted); }
 .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); margin-bottom: -1px; }
+.hub-rail-item.tab.active {
+  border-bottom: none;
+  margin-bottom: 0;
+}
 .tab-panel { padding: 1rem 1.5rem; }
 .notes-view-panel { min-height: 200px; }
 .list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -1099,11 +1432,15 @@ input[readonly]#full-project {
 
 .detail-panel {
   position: fixed;
-  top: 0;
+  /* Sit below the sticky hub header so top-right chrome stays visible */
+  top: var(--hub-header-offset, 4.75rem);
   right: 0;
-  width: min(420px, 100vw);
-  height: 100vh;
-  max-height: 100dvh;
+  /* Documents default to half the viewport; drag handle still resizes */
+  width: 50vw;
+  min-width: 280px;
+  max-width: 100vw;
+  height: calc(100vh - var(--hub-header-offset, 4.75rem));
+  max-height: calc(100dvh - var(--hub-header-offset, 4.75rem));
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow: hidden;
@@ -2230,6 +2567,29 @@ input[readonly]#full-project {
 .vault-switcher-label { display: inline-flex; align-items: center; gap: 0.5rem; }
 .vault-switcher-text { font-size: 0.9rem; color: var(--muted); }
 .vault-switcher-select { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.9rem; cursor: pointer; }
+.hub-rail-vault-switcher {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0 0.35rem 0.55rem;
+  margin: 0 0 0.15rem;
+  border-bottom: 1px solid var(--border);
+}
+.hub-rail-vault-switcher.hidden { display: none; }
+.hub-rail-vault-switcher .vault-switcher-text {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hub-rail-vault-switcher .vault-switcher-select {
+  width: 100%;
+  max-width: 100%;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.45rem;
+}
 .hub-header .vault-switcher-select {
   border-width: 0.7px;
 }
@@ -2252,7 +2612,11 @@ input[readonly]#full-project {
 }
 .toast.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.toast-err { border-color: #ef4444; color: #fca5a5; }
-.list-item.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.list-item.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 
 /* Settings → Vaults: lead, info buttons, spacing */
 .settings-vaults-lead-row {
@@ -2502,6 +2866,119 @@ input[readonly]#full-project {
 @media (max-width: 768px) {
   .hub-header { padding: 0.75rem 1rem; gap: 0.5rem; }
   .hub-header h1 { font-size: 1.1rem; }
+  .hub-shell { flex-direction: column; min-height: 0; padding-bottom: 4.25rem; }
+  .hub-rail { display: none; }
+  .hub-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 0.15rem;
+    min-height: 3.5rem;
+    padding: 0.35rem 0.4rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 -4px 18px color-mix(in srgb, var(--text) 8%, transparent);
+  }
+  .hub-bottom-nav-item {
+    position: relative;
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 44px;
+    padding: 0.4rem 0.35rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .hub-bottom-nav-item:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .hub-bottom-nav-item.active {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .hub-bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0.55rem;
+    right: 0.55rem;
+    height: 3px;
+    border-radius: 0 0 2px 2px;
+    background: var(--accent);
+  }
+  .hub-bottom-review-badge {
+    position: static;
+    margin-left: 0.15rem;
+  }
+  .hub-more-sheet:not(.hidden) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+  .hub-more-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--text) 35%, transparent);
+  }
+  .hub-more-sheet-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: min(70vh, 28rem);
+    padding: 0.75rem 0.85rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border-radius: 14px 14px 0 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 28px color-mix(in srgb, var(--text) 12%, transparent);
+  }
+  .hub-more-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .hub-more-sheet-title {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .hub-more-sheet-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .hub-more-sheet-action {
+    display: block;
+    width: 100%;
+    text-align: left;
+    min-height: 44px;
+    padding: 0.7rem 0.85rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .hub-more-sheet-action:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .hub-needs-you-banner { margin: 0.5rem 1rem 0; }
+  .hub-workspace-toolbar { padding: 0.5rem 1rem; }
   .hub-auth button:not(.modal-close),
   .hub-auth .btn-provider { min-height: 44px; min-width: 44px; padding: 0.6rem 0.75rem; }
   .search-section { padding: 0.75rem 1rem; gap: 0.5rem; }
