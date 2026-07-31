@@ -17,62 +17,61 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:f5f2a53d99dfca1da270b6a9039a22627c7a17197925dad4e2d762b6b1f3b36b -->
-## NEXT SESSION — CAPTURE-HOSTED-APPLY-a (RELAY → scooling)
+<!-- overseer:next role=relay lane=product status=live product_order=scooling tip_hash=sha256:6db36223e5e6c9bf8ec4788962e69db4e42bbee9032cddad339a2677832000e5 -->
+## NEXT SESSION — CAPTURE-HOSTED-APPLY-KN-b (RELAY → scooling)
 
 **Date:** 2026-07-31  
-**Model:** **Thinking**
+**Model:** **Auto**
 
-**Why this is next:** Scooling board advanced past HOSTEDb → flip → SMOKE →
-PLAIN-LANG-a/b (all DONE) to **9-apply CAPTURE-APPLY-CHECK (2026-07-31)**, which
-found a **Knowtation hosted gap**: the gateway approve path has no
-`maybeApplyHostedCaptureAfterApprove` (task/delegation hooks only,
-`hub/gateway/server.mjs:3522,3538`) — approving capture proposal
-`prop-1785500300353491755` would flip status **without creating a saved Flow**
-(`applyCaptureProposal` → `upsertFlowVersion` is self-hosted-only,
-`hub/server.mjs:3161`; Wave 2 option B / SD-23 by design). Proposal left
-**pending, not approved**. T5 refuse-all re-proven (KN-b **13/13**). MuseHub
-**F7** stays **AWS-parked**.
+**Why this is next:** **9-kn-a CAPTURE-HOSTED-APPLY-a freeze-review `pass`**
+(2026-07-31, round 2) — Knowtation `docs/CAPTURE-HOSTED-APPLY-FREEZE.md`
+(`sha256:6db36223…`; CHA-C1–C11). Spec freezes hosted Hub-complete capture apply
+(gateway hook + bridge apply-approved + GET flows exposure); T5 refuse-all kept.
+Proposal `prop-1785500300353491755` still **pending**. MuseHub **F7** AWS-parked.
 
-### THE ONE NEXT STEP — **9-kn-a CAPTURE-HOSTED-APPLY-a** — **Model: Thinking** (Scooling PRIMARY)
+### THE ONE NEXT STEP — **9-kn-b CAPTURE-HOSTED-APPLY-KN-b** — **Model: Auto** (Scooling PRIMARY)
 
 ```text
-CAPTURE-HOSTED-APPLY-a — freeze hosted capture Hub-complete apply in Knowtation.
+CAPTURE-HOSTED-APPLY-KN-b — implement hosted capture Hub-complete apply.
 
-Model: Thinking
-Step: 9-kn-a
-Repo: ~/knowtation
-Authority: product_order PRIMARY (Scooling board) — ROADMAP row 9-kn-a
-Prior: 9-apply CAPTURE-APPLY-CHECK 2026-07-31 — hosted approve→Flow gap; proposal
-prop-1785500300353491755 (queue flow-capture) left pending on the canister store
+Model: Auto
+Step: 9-kn-b
+Repo: knowtation (workspace root)
+Frozen: docs/CAPTURE-HOSTED-APPLY-FREEZE.md (frozen: true; review_stamp pass;
+  sha256:6db36223e5e6c9bf8ec4788962e69db4e42bbee9032cddad339a2677832000e5)
+Authority: product_order PRIMARY — ROADMAP row 9-kn-b
 
-Read first:
-- ~/scooling/docs/ROADMAP.md rows 9-apply / 9-kn-a + ~/scooling/docs/OVERSEER-HANDOVER.md NEXT
-- hub/gateway/server.mjs:3195-3568 (approve proxy + task/delegation apply hooks)
-- hub/gateway/task-approve-hosted.mjs + delegation-approve-hosted.mjs (hook pattern)
-- lib/flow/flow-capture.mjs:1037-1144 (precheckApprovedCaptureProposal + applyCaptureProposal)
-- lib/flow/flow-capture-hosted-proposal.mjs (canister capture frontmatter + normalize)
-- docs/PROPOSAL-LIFECYCLE.md (Wave 2 option B; self-apply matrix)
+Implement CHA-C1–C11 exactly:
+- hub/gateway/capture-approve-hosted.mjs + wire into approve success block
+- applyApprovedCaptureProposalFromCanister + bridge apply-approved
+- GET api/v1/flows (+ :id) bridge + gateway proxies (ordered)
+- T5 refuse-all unchanged; PROPOSAL-LIFECYCLE Hub-complete note
+- Seven-tier test/capture-hosted-apply-kn-b.test.mjs; re-run flow-capture-live-kn-b
+- /build-verification-review → pass; governance sync; Muse feature-branch commit
 
-Freeze (WHAT/HOW, frozen: true, then /freeze-review-loop → pass):
-- maybeApplyHostedCaptureAfterApprove gateway hook (parity with task/delegation hooks)
-- Canonical Flow upsert on approve for flow_candidate_promote (+ merge/dismiss terminal
-  states) reachable from the hosted path; precheck parity with self-hosted approve
-- T5 stays refuse-all for source: flow_capture (SELF_APPLY_NOT_ADMITTED — SD-23 kept);
-  approve remains admin/evaluator review only
-- Honest outcome exposure (proposal status/external_ref; Flow via GET /api/v1/flows)
-  so Scooling /flows list shows the saved Flow
-- Seven-tier test matrix; no posture/env flip inside the freeze
-
-Hard stops: no T5 admission for flow_capture; no posture/env flips; no
-feature→GitHub-main; do NOT approve prop-1785500300353491755 until the apply hook ships.
+Hard stops: no T5 admission; no posture/env flip; no approve of
+prop-1785500300353491755; no feature→GitHub-main.
 ```
+
+### After 9-kn-b (queued order)
+
+1. **9-apply re-run** — approve pending proposal through Hub tray; verify saved Flow.
+2. Wave 3 capture UX (candidate list + dismiss surfaces).
+3. Security queue: P1 WASM + T1.
+4. MuseHub F7 — AWS-parked.
 
 ### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
 
 When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
 branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
-**not** unblock F7. Does **not** replace FLOW-CAPTURE-LIVE-HOSTEDb on the Scooling board.
+**not** unblock F7.
+
+### Prior session — CAPTURE-HOSTED-APPLY-a freeze pass (2026-07-31)
+
+Thinking on `feat/flow-capture-live`: froze `docs/CAPTURE-HOSTED-APPLY-FREEZE.md`
+(CHA-C1–C11). Freeze-review loop R1 findings fixed (abs-path citation; body-intact
+precheck; approve-then-hook asymmetry); round 2 + `ok review --freeze` = **pass**
+(`sha256:6db36223…`). No product code / env / posture flip. NEXT = **9-kn-b Auto**.
 
 ### Prior session — CAPTURE-APPLY-CHECK on Scooling found hosted gap (2026-07-31)
 
