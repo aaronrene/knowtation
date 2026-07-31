@@ -27,7 +27,10 @@ import { performance } from 'node:perf_hooks';
 import express from 'express';
 
 import { registerBridgeFlowCaptureRoutes } from '../hub/bridge/flow-capture-routes.mjs';
-import { externalProtocolBlobKey } from '../hub/bridge/external-agent-blob-store.mjs';
+import {
+  externalProtocolBlobKey,
+  mergeFlowStoreJson,
+} from '../hub/bridge/external-agent-blob-store.mjs';
 import { FLOW_STORE_FILENAME } from '../lib/flow/flow-store.mjs';
 import { validSessionMeta } from './fixtures/flow/capture-helpers.mjs';
 
@@ -216,6 +219,73 @@ describe('CAPTURE-STORE-BLOB-PERSIST — unit', () => {
   });
 });
 
+describe('CAPTURE-STORE-BLOB-PERSIST — unit (warm-lambda stale merge)', () => {
+  // Live failure 2026-07-31 (prop-1785526040570098296): a WARM lambda whose
+  // local store predated the candidate hydrated the blob, but the merge let the
+  // stale local candidates array mask the blob's — apply refused
+  // FLOW_CANDIDATE_NOT_PROMOTABLE while a cold-lambda retry succeeded.
+  it('blob-only candidates/flows survive a merge against a stale local store', () => {
+    const staleLocal = JSON.stringify({
+      vaults: {
+        [VAULT]: { flows: [], steps: [], runs: [], candidates: [], tasks: [], task_loops: [] },
+      },
+    });
+    const blob = JSON.stringify({
+      vaults: {
+        [VAULT]: {
+          candidates: [
+            { candidate_id: 'cand_blob_only', status: 'pending_review', updated: '2026-07-31T19:00:00Z' },
+          ],
+          flows: [
+            { flow_id: 'flow_blob_only', version: '0.1.0', updated: '2026-07-31T19:00:00Z' },
+          ],
+          steps: [
+            { step_id: 'step_1', flow_id: 'flow_blob_only', flow_version: '0.1.0' },
+          ],
+          runs: [{ run_id: 'run_blob_only' }],
+          tasks: [],
+          task_loops: [],
+        },
+      },
+    });
+    const merged = JSON.parse(mergeFlowStoreJson(staleLocal, blob));
+    const vault = merged.vaults[VAULT];
+    assert.equal(vault.candidates.length, 1, 'stale local candidates masked blob candidate');
+    assert.equal(vault.candidates[0].candidate_id, 'cand_blob_only');
+    assert.equal(vault.flows.length, 1, 'stale local flows masked blob flow');
+    assert.equal(vault.steps.length, 1, 'stale local steps masked blob step');
+    assert.equal(vault.runs.length, 1, 'stale local runs masked blob run');
+  });
+
+  it('newer record wins on key collision; distinct flow versions both survive', () => {
+    const local = JSON.stringify({
+      vaults: {
+        [VAULT]: {
+          candidates: [
+            { candidate_id: 'cand_x', status: 'promoted', updated: '2026-07-31T20:00:00Z' },
+          ],
+          flows: [{ flow_id: 'flow_x', version: '0.2.0', updated: '2026-07-31T20:00:00Z' }],
+        },
+      },
+    });
+    const blob = JSON.stringify({
+      vaults: {
+        [VAULT]: {
+          candidates: [
+            { candidate_id: 'cand_x', status: 'pending_review', updated: '2026-07-31T19:00:00Z' },
+          ],
+          flows: [{ flow_id: 'flow_x', version: '0.1.0', updated: '2026-07-31T19:00:00Z' }],
+        },
+      },
+    });
+    const merged = JSON.parse(mergeFlowStoreJson(local, blob));
+    const vault = merged.vaults[VAULT];
+    assert.equal(vault.candidates.length, 1);
+    assert.equal(vault.candidates[0].status, 'promoted', 'older blob record overwrote newer local');
+    assert.equal(vault.flows.length, 2, 'distinct flow versions collapsed');
+  });
+});
+
 describe('CAPTURE-STORE-BLOB-PERSIST — integration', () => {
   it('propose on a cold instance finds the blob-persisted candidate and persists its state change', async () => {
     const blob = fakeBlobStore();
@@ -324,6 +394,52 @@ describe('CAPTURE-STORE-BLOB-PERSIST — e2e', () => {
       assert.equal(one.status, 200);
     } finally {
       await d.close();
+    }
+  });
+});
+
+describe('CAPTURE-STORE-BLOB-PERSIST — e2e (warm stale lambda)', () => {
+  it('apply-approved on a WARM instance with a stale local store still finds the blob candidate', async () => {
+    const blob = fakeBlobStore();
+
+    // Instance A: observe + propose (candidate + proposal in blob/canister).
+    const a = await startInstance({ dataDir: freshDataDir(), blobStore: blob, canisterUrl: canister.url });
+    let candidateId;
+    let proposalId;
+    try {
+      candidateId = await observeCandidate(a, '7'.repeat(64));
+      const r = await call(a, 'POST', `/api/v1/flows/candidates/${candidateId}/propose`, {
+        confirmed_scope: 'personal',
+        intent: 'warm stale lambda regression',
+      });
+      assert.equal(r.status, 201, `propose failed: ${JSON.stringify(r.json)}`);
+      proposalId = r.json.proposal_id;
+    } finally {
+      await a.close();
+    }
+    canister.rows.get(proposalId).status = 'approved';
+
+    // Instance B: WARM — its local DATA_DIR already holds a stale flow store
+    // (vault exists, candidate absent), exactly the live 2026-07-31 failure.
+    const staleDir = freshDataDir();
+    fs.mkdirSync(staleDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(staleDir, FLOW_STORE_FILENAME),
+      JSON.stringify({
+        vaults: {
+          [VAULT]: { flows: [], steps: [], runs: [], candidates: [], projections: [], tasks: [], task_loops: [] },
+        },
+      }),
+      'utf8',
+    );
+    const b = await startInstance({ dataDir: staleDir, blobStore: blob, canisterUrl: canister.url });
+    try {
+      const r = await call(b, 'POST', `/api/v1/flows/capture/proposals/${proposalId}/apply-approved`, {});
+      assert.equal(r.status, 200,
+        `warm stale lambda refused apply (${r.json.code}) — live 2026-07-31 regression`);
+      assert.ok(r.json.flow_id, 'apply payload missing flow_id');
+    } finally {
+      await b.close();
     }
   });
 });

@@ -50,29 +50,52 @@ export function mergeFlowStoreJson(localRaw, blobRaw) {
   if (!local) return blobRaw;
   if (!blob) return localRaw;
 
-  /** @param {unknown[]} localArr @param {unknown[]} blobArr @param {string} idField */
-  const mergeById = (localArr, blobArr, idField) => {
+  /**
+   * Union local and blob records by natural key; on collision the newer
+   * `updated`/`created` wins (local wins ties). Prevents a warm lambda's stale
+   * local array from masking records another instance persisted to Blobs.
+   *
+   * @param {unknown[]} localArr
+   * @param {unknown[]} blobArr
+   * @param {(rec: Record<string, unknown>) => string|null} keyOf
+   */
+  const mergeByKey = (localArr, blobArr, keyOf) => {
     /** @type {Map<string, Record<string, unknown>>} */
-    const byId = new Map();
+    const byKey = new Map();
     for (const rec of blobArr || []) {
-      if (rec && typeof rec === 'object' && typeof rec[idField] === 'string') {
-        byId.set(rec[idField], /** @type {Record<string, unknown>} */ (rec));
-      }
+      if (!rec || typeof rec !== 'object') continue;
+      const key = keyOf(/** @type {Record<string, unknown>} */ (rec));
+      if (key != null) byKey.set(key, /** @type {Record<string, unknown>} */ (rec));
     }
     for (const rec of localArr || []) {
-      if (!rec || typeof rec !== 'object' || typeof rec[idField] !== 'string') continue;
+      if (!rec || typeof rec !== 'object') continue;
       const row = /** @type {Record<string, unknown>} */ (rec);
-      const existing = byId.get(row[idField]);
+      const key = keyOf(row);
+      if (key == null) continue;
+      const existing = byKey.get(key);
       if (!existing) {
-        byId.set(row[idField], row);
+        byKey.set(key, row);
         continue;
       }
       const tLocal = Date.parse(String(row.updated || row.created || '')) || 0;
       const tBlob = Date.parse(String(existing.updated || existing.created || '')) || 0;
-      byId.set(row[idField], tLocal >= tBlob ? row : existing);
+      byKey.set(key, tLocal >= tBlob ? row : existing);
     }
-    return [...byId.values()];
+    return [...byKey.values()];
   };
+
+  /** @param {string} field @returns {(rec: Record<string, unknown>) => string|null} */
+  const stringKey = (field) => (rec) => (typeof rec[field] === 'string' ? rec[field] : null);
+  const mergeById = (localArr, blobArr, idField) => mergeByKey(localArr, blobArr, stringKey(idField));
+
+  /** Flows are versioned: one record per (flow_id, version). */
+  const flowKey = (rec) =>
+    typeof rec.flow_id === 'string' ? `${rec.flow_id}\0${typeof rec.version === 'string' ? rec.version : ''}` : null;
+  /** Steps key on (flow_id, flow_version, step_id) — 7A-10c store shape. */
+  const stepKey = (rec) =>
+    typeof rec.step_id === 'string' && typeof rec.flow_id === 'string'
+      ? `${rec.flow_id}\0${typeof rec.flow_version === 'string' ? rec.flow_version : ''}\0${rec.step_id}`
+      : null;
 
   if (!local.vaults) local.vaults = {};
   for (const [vaultId, blobVault] of Object.entries(blob.vaults || {})) {
@@ -84,6 +107,10 @@ export function mergeFlowStoreJson(localRaw, blobRaw) {
       blobVault && typeof blobVault === 'object'
         ? /** @type {Record<string, unknown>} */ (blobVault)
         : {};
+    // candidates/flows must merge by id too: a warm lambda's stale local store
+    // otherwise masks blob records written by another instance (this made the
+    // approve-time capture apply refuse FLOW_CANDIDATE_NOT_PROMOTABLE while a
+    // cold-lambda retry of the same apply succeeded — 2026-07-31 live).
     local.vaults[vaultId] = {
       ...blobVaultObj,
       ...localVault,
@@ -96,6 +123,26 @@ export function mergeFlowStoreJson(localRaw, blobRaw) {
         /** @type {unknown[]} */ (localVault.task_loops),
         /** @type {unknown[]} */ (blobVaultObj.task_loops),
         'loop_id',
+      ),
+      candidates: mergeById(
+        /** @type {unknown[]} */ (localVault.candidates),
+        /** @type {unknown[]} */ (blobVaultObj.candidates),
+        'candidate_id',
+      ),
+      flows: mergeByKey(
+        /** @type {unknown[]} */ (localVault.flows),
+        /** @type {unknown[]} */ (blobVaultObj.flows),
+        flowKey,
+      ),
+      steps: mergeByKey(
+        /** @type {unknown[]} */ (localVault.steps),
+        /** @type {unknown[]} */ (blobVaultObj.steps),
+        stepKey,
+      ),
+      runs: mergeById(
+        /** @type {unknown[]} */ (localVault.runs),
+        /** @type {unknown[]} */ (blobVaultObj.runs),
+        'run_id',
       ),
     };
   }
