@@ -71,6 +71,10 @@ import {
   maybeApplyHostedTaskAfterApprove,
   mergeTaskApplyIntoApproveResponse,
 } from './task-approve-hosted.mjs';
+import {
+  maybeApplyHostedCaptureAfterApprove,
+  mergeCaptureApplyIntoApproveResponse,
+} from './capture-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
@@ -1129,6 +1133,39 @@ if (BRIDGE_URL) {
         encodeURIComponent(req.params.id) +
         '/dismiss' +
         q,
+      req,
+      res,
+    );
+  });
+
+  // Capture Hub-complete apply + Flow list/get (CAPTURE-HOSTED-APPLY-KN-b).
+  // apply-approved is the ops recovery surface (CHA-C11); the mandatory path is the
+  // gateway post-approve hook (maybeApplyHostedCaptureAfterApprove).
+  app.post('/api/v1/flows/capture/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/capture/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
+        q,
+      req,
+      res,
+    );
+  });
+  // CHA-C5 ordering: these two GETs are registered AFTER flows/:id/projection,
+  // flows/external-grants, and flows/candidates above, so those static/deeper
+  // routes always win; both still register before the /api/v1 canister catch-all.
+  app.get('/api/v1/flows', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows' + q, req, res);
+  });
+  app.get('/api/v1/flows/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flows/' + encodeURIComponent(req.params.id) + q,
       req,
       res,
     );
@@ -3550,6 +3587,25 @@ async function proxyToCanister(req, res) {
         responseBody = mergeTaskApplyIntoApproveResponse(responseBody, taskApplyOutcome);
         if (taskApplyOutcome && !taskApplyOutcome.applied) {
           console.error('[gateway] task index apply after approve failed:', taskApplyOutcome.error);
+        }
+        // CAPTURE-HOSTED-APPLY-KN-b / CHA-C1: Hub-complete capture apply after approve.
+        // Non-fatal to the approve HTTP status (CHA-C11) — failure surfaces as
+        // capture_index_applied: false in the merged body.
+        const captureApplyOutcome = await maybeApplyHostedCaptureAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergeCaptureApplyIntoApproveResponse(responseBody, captureApplyOutcome);
+        if (captureApplyOutcome && !captureApplyOutcome.applied) {
+          console.error('[gateway] capture apply after approve failed:', captureApplyOutcome.error);
         }
       } catch (e) {
         console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));

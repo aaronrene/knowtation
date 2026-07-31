@@ -70,16 +70,31 @@ Gate **T5** admits **personal-scope Tasks, Media, and Wave 1 Flow authoring** in
 | **Delegation** | **Never** — `SELF_APPLY_DELEGATION_REFUSED` (P4) |
 | **flow_capture** | Seam-classified but **not admitted** — Wave 1 and **Wave 2** (`SELF_APPLY_NOT_ADMITTED`; SD-7 / SD-23 never-auto; option B propose-only) |
 
-#### Wave 2 Flow capture (FLOW-CAPTURE-LIVE-KN-b / SD-23)
+#### Wave 2 Flow capture (FLOW-CAPTURE-LIVE-KN-b / CAPTURE-HOSTED-APPLY-KN-b / SD-23)
 
 Capture proposals use `source: flow_capture` with kinds `flow_candidate_promote` |
 `flow_candidate_merge` | `flow_candidate_dismiss`. They remain a **seam surface**
 (SEC-SEAM-1) and stay **out of T5 admission** for the entire Wave 2 — even when
 session-bound `authorActorId === approverActorId`. There is **no** positive
-capture fingerprint helper in Wave 2. Promote/merge/dismiss create proposals only;
-personal self-apply returns `SELF_APPLY_NOT_ADMITTED` (consumer honesty = pending /
-Hub-complete). Gateway→bridge proxies exist for observe/list/propose/dismiss
-(FCL-C10); Knowtation `FLOW_CAPTURE_*_ENABLED` stay default off until SMOKE.
+capture fingerprint helper in Wave 2. Personal self-apply returns
+`SELF_APPLY_NOT_ADMITTED` (SD-23; consumer honesty = pending / Hub-complete).
+
+**Hub-complete apply is real (CAPTURE-HOSTED-APPLY-KN-b):** when an **admin** or an
+**evaluator with approve permission** approves a capture proposal on the hosted
+gateway, the post-approve hook (`maybeApplyHostedCaptureAfterApprove`) MUST run the
+shared `precheckApprovedCaptureProposal` + `applyCaptureProposal` pair via the
+bridge `POST api/v1/flows/capture/proposals/:proposal_id/apply-approved` route —
+promote upserts the Flow (visible on `GET api/v1/flows`), merge marks the candidate
+`merged_into:{id}`, dismiss marks it `rejected`. Self-hosted approve keeps its
+precheck-before-commit path (`hub/server.mjs`). Hosted approve commits before the
+hook, so an apply failure yields an approved proposal with no Flow, honestly
+surfaced as `capture_index_applied: false` on the approve response.
+
+Wave 2 “propose-only” means **no learner self-apply / no auto-promote** — not
+“approve never applies.” Gateway→bridge proxies exist for
+observe/list/propose/dismiss (FCL-C10) plus apply-approved and Flow list/get
+(CHA-C1–C5); Knowtation `FLOW_CAPTURE_*_ENABLED` posture is unchanged by this
+phase. Hosted **media** apply still does not exist (see below).
 
 Propose paths persist a validated optional `external_ref` (malformed → 400; absent → propose ok, not admitted). Flow propose accepts `scooling.flow:…` for **all** Wave 1 kinds; import lineage hints must not substitute for the admission ref. E1 create-time evaluation satisfaction widens to admitted Task/Media/Flow fingerprints when `sessionBound` + author gates hold. Client-supplied `evaluation_status` / `evaluated_by` / `evaluated_at` remain stripped (P2).
 
