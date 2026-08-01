@@ -100,9 +100,21 @@ Propose paths persist a validated optional `external_ref` (malformed → 400; ab
 
 Honest notes review-tray proposals remain eligible under the fingerprint rules above.
 
-### Media proposals — self-hosted only today (SEC-SEAM-1 / S7)
+### Media proposals — hosted + self-hosted (SEC-SEAM-MEDIA / SEC-SEAM-1 S7)
 
-Media proposals are **self-hosted-only** today. There is no hosted media proposal route on the gateway; Scooling’s hosted media transport targets `api/v1/attachments/*`, which falls through to the canister and returns `404 NOT_FOUND`. Self-hosted media (`source: 'media'`) is still a seam surface when it reaches apply. A future hosted media proposal surface must ship with a `maybeApplyHostedMediaAfterApprove` hook and a matching seam classification condition in the same change.
+1. **Hosted media propose/apply exists** via gateway→bridge (`api/v1/attachments/link-proposals`,
+   `attach-proposals`, `import-consents`, `proposals/:id/apply-approved`, plus attachment
+   list/get) when Hub gates allow (SEC-SEAM-MEDIA SM-C1–C7).
+2. **Seam classification:** hosted canister rows use
+   `normalizeCanisterProposalForMediaPrecheck` (frontmatter markers); self-hosted rows use
+   `source: media`. Both are conditions of `isSeamSurfaceProposal` — the normalize predicate
+   is the **same** call the gateway post-approve hook uses (S3.0; no parallel kind/intent list).
+3. **Gates still default off:** `MEDIA_EXTERNAL_LINK_ENABLED` / `MEDIA_ATTACH_ENABLED` remain
+   default-off; production flips remain Tier 3 (SM-C10).
+4. **Hub-complete approve** invokes `maybeApplyHostedMediaAfterApprove` after canister approve
+   commits. Apply failure is **non-fatal** to approve status and surfaces
+   `media_index_applied: false` (+ `media_apply_error` / `media_apply_code`). Ops may re-call
+   bridge `apply-approved` while status is `approved` (SM-C12).
 ## Optimistic concurrency: `base_state_id`
 
 When a proposal targets an **existing** note path, the client may send **`base_state_id`**: a fingerprint of the vault note **as the client last saw it** (e.g. from `GET /api/v1/notes/:path`). On **Approve**, the Hub (self-hosted Node) recomputes the current fingerprint for that path and returns **409 `CONFLICT`** if it does not match **either** the request body’s `base_state_id` (if provided) **or** the value stored on the proposal.

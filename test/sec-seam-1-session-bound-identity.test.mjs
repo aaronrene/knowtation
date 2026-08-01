@@ -857,10 +857,40 @@ describe('SEC-SEAM-1 security — regression, N1 evasion, V3 overlap, S3.0, S4, 
     assert.equal(/Access-Control-Allow-Headers',\s*'[^']*X-User-Id/.test(corsBr), false);
   });
 
-  test('S7.3: gateway exposes no api/v1/attachments/* route', () => {
+  test('S7.3/S7.6: hosted media attachments routes + media approve hook (SEC-SEAM-MEDIA)', () => {
+    // S7.3 previously asserted NO attachments routes (sentinel until MEDIA).
+    // SEC-SEAM-MEDIA-b deliberately adds gateway→bridge proxies + the matching
+    // maybeApplyHostedMediaAfterApprove hook (S7.6 / S3.0 same-change rule).
     const gw = fs.readFileSync(GATEWAY_SRC, 'utf8');
-    assert.equal(/app\.(get|post|put|patch|delete)\(['"`]\/?api\/v1\/attachments/.test(gw), false);
-    assert.equal(/['"`]\/api\/v1\/attachments\//.test(gw) && /app\.(get|post)/.test(gw), false);
+    assert.equal(
+      /app\.post\(['"`]\/api\/v1\/attachments\/link-proposals['"`]/.test(gw),
+      true,
+      'gateway must proxy link-proposals',
+    );
+    assert.equal(
+      /app\.post\(['"`]\/api\/v1\/attachments\/attach-proposals['"`]/.test(gw),
+      true,
+      'gateway must proxy attach-proposals',
+    );
+    assert.equal(
+      /maybeApplyHostedMediaAfterApprove/.test(gw),
+      true,
+      'gateway approve success block must call media hook',
+    );
+    const mediaHook = path.join(ROOT, 'hub/gateway/media-approve-hosted.mjs');
+    assert.equal(fs.existsSync(mediaHook), true);
+    const hookSrc = fs.readFileSync(mediaHook, 'utf8');
+    assert.equal(
+      /normalizeCanisterProposalForMediaPrecheck/.test(hookSrc),
+      true,
+      'hook classify must use media normalize (S3.0)',
+    );
+    const seamSrc = fs.readFileSync(path.join(ROOT, 'lib/hub-proposal-personal-self-apply.mjs'), 'utf8');
+    assert.equal(
+      /normalizeCanisterProposalForMediaPrecheck/.test(seamSrc),
+      true,
+      'isSeamSurfaceProposal must gain media normalize in same change (S3.1)',
+    );
   });
 
   test('PROXY_HEADER_ALLOWLIST not widened (S4.4)', () => {

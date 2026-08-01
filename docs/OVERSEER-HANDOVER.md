@@ -18,44 +18,123 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=owner lane=security status=live product_order=scooling -->
-## NEXT SESSION — SEC-KN-P6-ROTATE-b (deploy EC2 → dual-secret rotation)
+## NEXT SESSION — SEC-SEAM-MEDIA land (SD-21 / SD-14)
 
 **Date:** 2026-08-01  
 **Model:** **Operator + Auto**
 
-**Why this is next:** SEC-KN-P6-ROTATE-a freeze is **CLEARED**
-(`docs/SEC-KN-P6-ROTATE-FREEZE.md`, freeze-review `pass`, digest `sha256:958c8add…`).
-Decisions frozen: **D1 one signing domain** (gateway + bridge + MCP; naive MCP split
-rejected — README §Post-deploy #3 + cross-host agent JWTs); **D2 deploy-before-rotate**.
-Board correction: SEC-KN-3 tip is an **ancestor of Muse `main`** (stale "not merged"
-row fixed). EC2 runtime is **pre-current-main** — identical Phase C `agent_access`
-token → gateway discard `401`, MCP discard `200` (evidence:
-`docs/reviews/2026-08-01-sec-kn-p6-rotate-ec2-code-divergence.md`). Share remains
-**VERIFIED-SHARED**. No secret rotation / env flip / deploy ran in Thinking.
+**Why this is next:** SEC-SEAM-MEDIA-b Auto is **DONE** — BV round 1 = `pass` on
+`feat/sec-seam-media-b` (SM-C1–C12; seven-tier + SEC-SEAM-1 **50/50**, test_output
+sha256 `2f7bf57d…`). No posture/env flip, no secrets, no real money, no Delegation
+write env → **SD-21 land hygiene is Tier 1** (Muse merge → muse-bridge-deploy →
+green `muse-mirror` → GitHub `main`). SEC-KN-P6-ROTATE R4–R5 remain **PARKED**.
+Cross-repo product order still follows Scooling PRIMARY when the two boards disagree.
 
 > Hub dashboard UI redesign is **not** this baton — that lane lives in
 > [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md).
 
-### THE ONE NEXT STEP — **execute the frozen P6 rotate runbook** — **Model: Operator + Auto**
+### THE ONE NEXT STEP — **land SEC-SEAM-MEDIA** — **Model: Operator + Auto**
 
 ```text
-Step: SEC-KN-P6-ROTATE-b
+Step: SEC-SEAM-MEDIA land
+Model: Operator + Auto
+Authority: knowtation
+Branch: feat/sec-seam-media-b
+Frozen: docs/SEC-SEAM-MEDIA-FREEZE.md (BV pass already recorded)
+
+SD-21 land hygiene (no posture/env/secrets/money in diff):
+1. Muse merge/cherry-pick feat/sec-seam-media-b → Muse main
+2. ./scripts/muse-bridge-deploy.sh "mirror: SEC-SEAM-MEDIA hosted propose+apply"
+3. Open/merge GitHub PR muse-mirror → main only (SD-14); CI SD-14 check required
+4. Governance sync SHAs into ROADMAP + OVERSEER-HANDOVER; feature-branch hygiene done
+
+Do NOT: git push origin main; feature→GitHub-main PR; MEDIA_* / SCOOLING_MEDIA_*
+flips; SESSION_SECRET writes; unpark P6 R4–R5 unless operator asks.
+```
+
+### PARKED — SEC-KN-P6-ROTATE-b R4–R5 (operator 2026-08-01)
+
+**What it is:** Change the shared login-token password (`SESSION_SECRET`) on all
+three hosts with a short overlap so nothing drops mid-cutover. **Not** the P6
+privilege-escalation fix — that closed at R1/R2.
+
+| Slice | Meaning |
+| --- | --- |
+| **R4** | Write new secrets: set `SESSION_SECRET_PREVIOUS=OLD` + `SESSION_SECRET=NEW` on Netlify bridge → gateway → EC2 MCP (Tier-3 T2) |
+| **R5** | Wait ≥24h (drain OLD tokens) → unset `SESSION_SECRET_PREVIOUS` → verify login / agent exchange / MCP OAuth / vault GitHub status |
+
+**Why parked (recommended):** Live P6 elevation is already closed. Rotation shrinks
+blast radius if the old shared secret were ever leaked — valuable hygiene, not an
+incident response. Doing it needs a quiet window (≥24h babysit) and may force a
+one-time **Connect GitHub** re-connect after the drain closes.
+
+**When to unpark:** A low-traffic stretch where you can watch auth for ~24h+5m,
+then paste the runbook below. Until then, P0 (`SESSION_SECRET_PREVIOUS` unset on
+all three hosts at `d48fb11c`) is the stable live state.
+
+```text
+Step: SEC-KN-P6-ROTATE-b (R4–R5) — UNPARK
 Model: Operator + Auto
 Authority: knowtation
 
-Consume docs/SEC-KN-P6-ROTATE-FREEZE.md (frozen: true, review pass) as ground truth.
-Execute D2 order: R1 deploy current main to EC2 MCP host (Tier 3 / T1) → R2 role-cap
-probe (§5.1 must not see MCP 2xx on agent_access discard) → R3 implement P6-C1–C5
-dual-secret verify helper + seven-tier tests → BV pass → R4–R5 operator Tier-3 dual-secret
-env rotation (T2) across gateway+bridge+MCP with drain window. Keep ONE signing domain
-(D1). No secret split. No approve of real pending proposals. No posture/env flips beyond
-SESSION_SECRET / SESSION_SECRET_PREVIOUS. F7 AWS-parked. SD-14: muse-mirror only to GitHub main.
+Consume docs/SEC-KN-P6-ROTATE-FREEZE.md §6 (frozen). P0 code is already live on
+gateway+bridge+EC2 (GitHub main d48fb11c, SESSION_SECRET_PREVIOUS unset). Execute
+R4 P1 (Tier-3 T2): generate NEW = >=32 random bytes (distinct from OLD; never
+commit/log/paste). On ALL THREE hosts in lockstep (bridge -> gateway -> MCP) set
+SESSION_SECRET_PREVIOUS = current OLD SESSION_SECRET, then SESSION_SECRET = NEW:
+  - Netlify gateway + bridge: `netlify env:set` per site, then redeploy each.
+  - EC2 /opt/knowtation/.env: edit both keys, `pm2 restart knowtation-gateway`.
+Never leave gateway on NEW-only while bridge still OLD-only. P2: wait >=24h
+(HUB_JWT_EXPIRY default 24h + skew; also cover Phase C 900s + MCP OAuth TTL).
+P3: unset SESSION_SECRET_PREVIOUS on all three. P4 verify: login/session OK,
+Phase C exchange OK, MCP OAuth OK, vault GitHub status OK (§6.4 re-connect once
+if decrypt fails), cross-host session 200 with a NEW token, OLD-token control
+401 on both hosts. Record evidence in docs/reviews/, mark ROTATE-b DONE,
+governance sync. No other posture/env flips. SD-14 muse-mirror only.
 ```
 
 ### After this (queued order)
 
-1. SEC-SEAM-MEDIA (Thinking → Auto) — still TODO, not urgent (no hosted media route exists).
+1. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
 2. MuseHub F7 — AWS-parked.
+
+### This session — SEC-SEAM-MEDIA-b DONE (BV pass, 2026-08-01)
+
+Auto on `feat/sec-seam-media-b` implemented SM-C1–C12: gateway media approve hook
+after capture; `media-hosted-proposal.mjs` normalize/create/apply; S3.1 media
+normalize in `isSeamSurfaceProposal` same change; bridge media routes + blob sync;
+media_attach temp-stage canister note RMW + propose-time `media_pointer` stamp;
+OpenAPI apply-approved + PROPOSAL-LIFECYCLE honesty; S7.3 sentinel updated for
+hosted routes. Seven-tier + SEC-SEAM-1 **50/50** (sha256 `2f7bf57d…`). BV round 1
+= `pass`. No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5
+untouched. NEXT = **SEC-SEAM-MEDIA land** (SD-21 / SD-14).
+
+### Prior this session — SEC-SEAM-MEDIA-a DONE (freeze pass, 2026-08-01)
+
+Thinking on `feat/sec-seam-media-a`. Wrote `docs/SEC-SEAM-MEDIA-FREEZE.md`
+(`frozen: true`, SM-C1–C12). Freeze-review loop: mechanical C4 rewrite → semantic
+media_attach IO-adapter + OpenAPI in-scope → `ok review --freeze` **pass**
+(`sha256:f9c58fd3…`). No product code, no deploy, no env/posture flips, P6 R4–R5
+untouched. NEXT was **SEC-SEAM-MEDIA-b** Auto.
+
+### Prior this session — SEC-KN-P6-ROTATE-b R1–R3 + P0 deploy; R4–R5 PARKED (2026-08-01)
+
+Operator + Auto. **R1 (T1):** EC2 `knowtation-mcp-gateway` (`i-025679d93cf47aeab`,
+`/opt/knowtation`, PM2) fast-forwarded `257ef705 → 15fba5f5` (current main, SEC-KN-3
+markers present), `npm ci` clean on Node v20, PM2 restart healthy. **R2 (§5.1) PASS:**
+scopes-exact `["propose","vault:read"]` `agent_access` discard of a nonexistent proposal →
+**gateway 401 / MCP 401** (pre-deploy MCP gave `200`); controls green. **R3:**
+`hub/lib/session-secret-rotation.mjs` (`verifyJwtWithSecretRotation`, fail-closed) wired at
+**all nine G10 sites**; signing/HMAC/encrypt stay primary-only; README §Post-deploy #4;
+seven-tier suite `test/sec-kn-p6-session-secret-rotation.test.mjs` 30/30 incl. G10 source
+scan; 2 stale single-secret source-shape assertions refreshed (property preserved). Full
+suite 4378/4380 (1 unrelated flow-store perf flake, green in isolation). **BV round 1 =
+`pass`** (independent verifier; corrected claim: SEC-KN-3 suite is **19/19**, not "31/31").
+Muse `635cfdef` → Muse `main` (ff), muse-mirror **PR #288 merged** `d48fb11c` (SD-14/SD-21;
+CI + TruffleHog green). **P0 deploy:** Netlify gateway + bridge + EC2 all pulled `d48fb11c`
+and restarted healthy (local `/health` 200) with `SESSION_SECRET_PREVIOUS` unset.
+**Operator parked R4–R5** (hygiene, not emergency; unpark when a ≥24h babysit window
+exists). Evidence: `docs/reviews/2026-08-01-sec-kn-p6-rotate-b-r1-r2-deploy-probe.md`.
 
 ### This session — SEC-KN-P6-ROTATE-a DONE (freeze pass, 2026-08-01)
 
@@ -580,7 +659,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 - [x] **SEC-KN-5** — P12 clamp policy TTL + P13 `viewer` cannot mint (**Auto**) — **DONE** (BV round 1 = `pass`)
 - [x] **SEC-KN-6** — P14 constant-time compare (**Auto**) — **DONE** (tip contained in Muse `main`; live health 2026-07-31)
 - [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (tip contained in Muse `main` 2026-07-31)
-- [ ] **SEC-SEAM-MEDIA** — hosted media proposal surface (**Thinking → Auto**) — **TODO** (post–SEC-SEAM-1b; D2 = A)
+- [x] **SEC-SEAM-MEDIA-a** — hosted media freeze (**Thinking**) — **DONE 2026-08-01** (`docs/SEC-SEAM-MEDIA-FREEZE.md`, digest `sha256:f9c58fd3…`)
+- [x] **SEC-SEAM-MEDIA-b** — hosted media build (**Auto**) — **DONE 2026-08-01** (BV round 1 = `pass` on `feat/sec-seam-media-b`; not merged)
 - [x] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **DONE + landed** KN #275; board clear closed P1 Motoko/health gate 2026-07-31
 
 ---
@@ -604,14 +684,14 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | **Canister gateway auth secret** | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister. |
 | **SEC-KN-1 fail-closed** | **On Muse `main`** (tip contained). Live health `gateway_auth_configured:true` + `/vaults` → `403 GATEWAY_AUTH_REQUIRED` (**re-verified 2026-07-31**). |
 | **SEC-KN-2 server-only eval** | **On Muse `main`** (finish/SEC land path). |
-| **SEC-KN-3 mcp_access role cap** | **On Muse `main`** (tip `5954c433…` ancestor; GitHub mirror since `69a7673`). **EC2 MCP host runtime lagging** current main (P6-ROTATE evidence). |
+| **SEC-KN-3 mcp_access role cap** | **On Muse `main`** (tip `5954c433…` ancestor; GitHub mirror since `69a7673`). **EC2 MCP host on current main** (`d48fb11c`, 2026-08-01 R1); R2 discard probe **401/401**. |
 | **SEC-KN-4 P4 (delegation principal)** | **On Muse `main`** (SEC-KN-4a tip contained). SEC-KN-4c identity restore **DONE + landed 2026-08-01** (BV `pass`; Muse `main` `2466ad64…` + muse-mirror). Live module hash `0x039360a0…` re-verified 2026-08-01 (matches T4); no redeploy. Live proposal `created_by` **CONFIRMED-POPULATED** (2026-08-01 P6-VERIFY sidecar). |
 | **SEC-KN-3a (RBAC assertion refresh)** | **DONE** (BV round 1 = `pass`); on Muse `main` via SEC-KN-4a lineage. |
 | **SEC-KN-5 (P12 TTL clamp + P13 admin mint)** | **DONE** (BV round 1 = `pass`); on Muse `main` path. |
 | **SEC-KN-6 (P14 constant-time compare)** | **On Muse `main`** (tip contained); live health surface present 2026-07-31. |
 | **SEC-SEAM-1 (P3 session-bound identity)** | **On Muse `main`** (tip contained 2026-07-31). Scooling L-SEAMb already landed (SC #219). |
 | **Knowtation Netlify env** | Site `knowtation-gateway` (`api.knowtation.store`, id `3123cc84-…`): `CANISTER_AUTH_SECRET` present, `SESSION_SECRET` present, `HUB_ADMIN_USER_IDS` present, `HUB_EVALUATOR_MAY_APPROVE` **absent** (fail-safe). |
-| **MCP host / gateway `SESSION_SECRET` sharing** | **VERIFIED-SHARED** (2026-08-01) — evidence `docs/reviews/2026-08-01-sec-kn-p6-verify-session-secret-share.md`. Freeze CLEARED: `docs/SEC-KN-P6-ROTATE-FREEZE.md`. NEXT = ROTATE-b (deploy EC2 then dual-secret rotate). |
+| **MCP host / gateway `SESSION_SECRET` sharing** | **VERIFIED-SHARED** (2026-08-01). Dual-verify helper **P0 live** on gateway+bridge+EC2 (`d48fb11c`, `SESSION_SECRET_PREVIOUS` unset). **R4–R5 secret rotation PARKED** — unpark runbook in NEXT PARKED block. Evidence: share doc + `docs/reviews/2026-08-01-sec-kn-p6-rotate-b-r1-r2-deploy-probe.md`. |
 
 ## Hard stops
 
@@ -625,6 +705,9 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-08-01 | **SEC-SEAM-MEDIA-b DONE — BV round 1 = `pass`.** SM-C1–C12 on `feat/sec-seam-media-b`: gateway `maybeApplyHostedMediaAfterApprove` after capture; `lib/attachments/media-hosted-proposal.mjs`; S3.1 media normalize in `isSeamSurfaceProposal` same change; bridge propose/consent/list/get/apply-approved + `media-blob-store`; media_attach temp-stage canister note RMW + propose-time `media_pointer`; OpenAPI + PROPOSAL-LIFECYCLE honesty; S7.3 sentinel updated. Seven-tier + SEC-SEAM-1 **50/50** (sha256 `2f7bf57d…`). No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5 untouched. NEXT = **SEC-SEAM-MEDIA land** (SD-21 / SD-14). |
+| 2026-08-01 | **SEC-SEAM-MEDIA-a DONE — freeze-review `pass`.** `docs/SEC-SEAM-MEDIA-FREEZE.md` (`frozen: true`, digest `sha256:f9c58fd3…`): SM-C1–C12 hosted media propose+apply; S3.0 same-change hook+`normalizeCanisterProposalForMediaPrecheck`; media_attach canister note IO adapter; blob media stores; no posture/env flip; P6 R4–R5 stayed parked. Branch `feat/sec-seam-media-a`. NEXT was **SEC-SEAM-MEDIA-b** Auto. |
+| 2026-08-01 | **SEC-KN-P6-ROTATE-b R1–R3 DONE; R4–R5 PARKED.** EC2 deploy + R2 discard 401/401 (elevation closed); dual-verify helper P0 live on gateway+bridge+EC2 (`d48fb11c`, PR #288); BV `pass`. Operator parked R4–R5 (hygiene, not emergency — need ≥24h babysit window). NEXT was **SEC-SEAM-MEDIA-a** Thinking; unpark runbook stays in handover PARKED block. |
 | 2026-08-01 | **SEC-KN-P6-ROTATE-a DONE — freeze-review `pass`.** `docs/SEC-KN-P6-ROTATE-FREEZE.md` (`frozen: true`, digest `sha256:958c8add…`): D1 one signing domain; D2 deploy-before-rotate; dual-secret runbook; G10 full `jwt.verify` wire-up. Top input: SEC-KN-3 on Muse/`main` (stale "not merged" corrected); EC2 pre-current-main (discard 401 vs 200). Evidence: `docs/reviews/2026-08-01-sec-kn-p6-rotate-ec2-code-divergence.md`. No T1–T4. NEXT = **SEC-KN-P6-ROTATE-b** (Operator + Auto). |
 | 2026-08-01 | **SEC-KN-P6-VERIFY DONE (Outcome B VERIFIED-SHARED).** Cross-acceptance probe: gateway-signed `agent_access` JWT accepted on both `api.knowtation.store` and distinct EC2 `mcp.knowtation.store` session route; garbage/no-auth 401. Optional `created_by` CONFIRMED-POPULATED. Evidence: `docs/reviews/2026-08-01-sec-kn-p6-verify-session-secret-share.md`. |
 | 2026-08-01 | **SEC-KN-4c LANDED (operator Tier 3).** `feat/sec-kn-4c-land` fast-forwarded into Muse `main` (`4179ed46… → 2466ad64…`); suites green on `main` (11/11, 31/31, verify exit 0); bridged to GitHub `muse-mirror` → `main` [PR #287](https://github.com/aaronrene/knowtation/pull/287) — **MERGED**, merge commit `15fba5f5d897…`; mirror/main tree hashes identical (`b6a558ca…`). No canister deploy. |
