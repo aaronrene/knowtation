@@ -356,13 +356,24 @@ describe('3.5 Canister CORS locked to gateway origin when auth secret set', () =
   });
 
   test('migration preserves gateway_auth_secret and cors_allowed_origin', () => {
+    // Post SEC-KN-4c (T4) the actor hook is identity on StableStorage: it returns
+    // `old` unchanged, so every field — including gateway_auth_secret and
+    // cors_allowed_origin — is preserved by construction. Assert that shape plus
+    // the presence of both fields on StableStorage itself.
     const src = loadMigration();
     const migBlock = src.slice(src.indexOf('public func migration'));
-    assert.ok(migBlock.includes('gateway_auth_secret = old.storage.gateway_auth_secret'),
-      'migration must preserve existing gateway auth secret');
-    // V7 stable already includes cors_allowed_origin; actor hook maps V7→current by preserving it.
-    assert.ok(migBlock.includes('cors_allowed_origin = old.storage.cors_allowed_origin'),
-      'migration must preserve cors_allowed_origin from V7 storage');
+    assert.match(
+      migBlock,
+      /public func migration\(old : \{ var storage : StableStorage \}\) : \{ var storage : StableStorage \}/,
+      'migration must be identity on StableStorage (preserves all fields)',
+    );
+    assert.ok(/\{\s*old\s*;?\s*\}/.test(migBlock) || migBlock.includes('old\n'),
+      'migration body must return old unchanged');
+    const stableBlock = src.slice(src.lastIndexOf('public type StableStorage'));
+    assert.ok(stableBlock.includes('gateway_auth_secret'),
+      'StableStorage must carry gateway_auth_secret through upgrades');
+    assert.ok(stableBlock.includes('cors_allowed_origin'),
+      'StableStorage must carry cors_allowed_origin through upgrades');
   });
 
   test('saveStable preserves cors_allowed_origin', () => {

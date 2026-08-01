@@ -17,49 +17,80 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling -->
-## NEXT SESSION — relay: 9-ux-a APPROVAL-SURFACE-DECISION (RELAY → scooling)
+<!-- overseer:next role=owner lane=security status=live product_order=scooling -->
+## NEXT SESSION — P6 MCP / `SESSION_SECRET` share verification (SEC-KN-4c LANDED)
 
-**Date:** 2026-07-31  
-**Model:** **Thinking** (runs in Scooling)
+**Date:** 2026-08-01  
+**Model:** **Operator + Auto**
 
-**Why this is next:** **9-kn-d landed** via muse-mirror
-[PR #285](https://github.com/aaronrene/knowtation/pull/285) (green CI; bridge +
-gateway redeployed from the merge commit) — both 9-apply defects (**9-kn-c**
-blob persistence [PR #284](https://github.com/aaronrene/knowtation/pull/284),
-**9-kn-d** warm-lambda stale merge) are DONE. The capture flywheel is verified
-live end-to-end: operator approve of `prop-1785528026964024269` auto-applied via
-the CHA-C1 hook (`flow_cap_ca8f2945`); CHA-C5 verified both sides (hosted
-`GET api/v1/flows` + Scooling `listFlows` live smoke **1/1**). Knowtation has no
-product_order work pending; the next product step lives on the Scooling board.
+**Why this is next:** SEC-KN-4c is **DONE + landed** — operator authorized the Tier 3
+merge 2026-08-01; `feat/sec-kn-4c-land` fast-forwarded into Muse `main`
+(`4179ed46… → 2466ad64…`), suites re-run green on `main` (11/11, 31/31,
+`canister:verify-migration` exit 0), mirrored to GitHub via muse-mirror PR (merge SHA
+in the post-land docs commit / change log). Live canister untouched
+(`0x039360a0…` verified same day). The last **UNVERIFIED** security question on this
+board is whether the MCP host shares the gateway's `SESSION_SECRET` — that determines
+whether P6 is exploitable today, and it has been carried UNVERIFIED since 2026-07-26.
 
 > Hub dashboard UI redesign is **not** this baton — that lane lives in
-> [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md)
-> (HUB-DASH-IA landed 2026-07-31; optional HUB-HELP-UX is idle until authorized).
+> [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md).
 
-### THE ONE NEXT STEP — **9-ux-a on Scooling** — **Model: Thinking**
+### THE ONE NEXT STEP — **verify P6 MCP / `SESSION_SECRET` share** — **Model: Operator + Auto**
 
 ```text
-Open ~/scooling/docs/OVERSEER-HANDOVER.md and paste its NEXT SESSION block
-(9-ux-a APPROVAL-SURFACE-DECISION, Model: Thinking) into a fresh chat.
-Decision: where users approve proposals (Scooling surface vs Knowtation Hub
-tray vs link-out), plus 9-ux-b vault picker. Tier 2 — record in
-STANDING-DECISIONS. No Knowtation code needed until that freeze lands.
+Step: SEC-KN-P6-VERIFY
+Model: Operator + Auto
+Authority: knowtation
+
+Determine whether the MCP host (mcp.knowtation.store deploy) shares the
+knowtation-gateway SESSION_SECRET. Evidence required (quote in session):
+Netlify env listing for both sites (operator access) and/or a signed-token
+cross-acceptance probe. Outcome A (not shared): mark P6 share VERIFIED-ISOLATED
+on the board. Outcome B (shared): open a SEC-KN phase (Thinking freeze) to
+rotate/split the secret — no fix improvised in the verify session.
+Optional same session: authenticated GET of one live proposal to confirm
+created_by is populated (closes the last UNVERIFIED row).
+Read-only probes; no posture/env flips; keep F7 AWS-parked.
 ```
 
-### After 9-apply re-run (queued order)
+### After this (queued order)
 
-1. Wave 3 capture UX (candidate list + dismiss surfaces).
-2. Security queue: P1 WASM + T1.
+1. Optional live proposal `created_by` probe (if not done in the same session).
+2. SEC-SEAM-MEDIA (Thinking → Auto) — still TODO, not urgent (no hosted media route exists).
 3. MuseHub F7 — AWS-parked.
 
-### Parallel (Knowtation-owned — not product_order) — SEC-KN land + WASM
+### This session (later) — SEC-KN-4c LANDED (operator Tier 3, 2026-08-01)
 
-When operator wants security finish (separate chat): land SEC-KN-1…6 / SEAM feature
-branches → Muse/`main` + muse-mirror; Tier 3 canister WASM (T1) + SEC-KN-4c. Does
-**not** unblock F7.
+Operator authorized the Tier 3 land in-session. `muse checkout main` +
+`muse merge feat/sec-kn-4c-land` → **fast-forward `4179ed46… → 2466ad64…`** (8 files).
+Suites re-run on `main`: `test/sec-kn-4c-migration-hook-restore.test.mjs` **11/11**,
+SEC-KN-4 **31/31**, `canister:verify-migration` exit 0. Mirrored via
+`muse-bridge-deploy` → GitHub `muse-mirror` → `main` PR (SD-14 path; merge SHA in the
+change log). No `dfx deploy`; live hash `0x039360a0…` still the T4 module. Board
+residual is now only: P6 MCP/`SESSION_SECRET` share (NEXT), optional `created_by`
+probe, SEC-SEAM-MEDIA, F7 (parked).
 
-### This session — 9-kn-c + 9-kn-d landed; 9-apply verified live; hygiene (2026-07-31)
+### Earlier this session — SEC-KN-4c-b Auto land code DONE, BV round 1 pass (2026-08-01)
+
+Auto on fresh `feat/sec-kn-4c-land` (freeze §4 option B; the 2026-07-28
+`feat/sec-kn-4c-identity-migration` branch was 73 files behind main, so only the
+in-scope delta came forward). One Muse commit `ec1e80b3…`: identity
+`Migration.migration` on `StableStorage` + post-T1 header invariant (4C-R1–R4,
+`hub/icp/src/hub/Migration.mo:455-457`), verify-script contract flips (4C-R5),
+SEC-KN-4 unit assertion flipped off `TODO(SEC-KN-4c)` with title rename (4C-R6),
+new seven-tier suite `test/sec-kn-4c-migration-hook-restore.test.mjs` **11/11**
+(unit/integration/e2e/stress/data-integrity/performance/security incl. scrubbed-env
+`dfx build --check hub`), SEC-KN-4 **31/31**, `canister:verify-migration` exit 0.
+4C-R8 honored: live `dfx canister --network ic info rsovz-byaaa-aaaaa-qgira-cai` →
+`Module hash: 0x039360a0985c79e2ec993e0d0b81dc6e6b85e4d924c1123f5d1af26cdfd69bae`
+(exact frozen match); `/health` → `{"ok":true,"gateway_auth_configured":true}`;
+**no deploy run**. BV round 1 = **`pass`** by an independent verifier subagent
+(`docs/reviews/2026-08-01-sec-kn-4c-b-bv-round1-pass.md`; re-ran all evidence and
+re-read the live hash itself). No posture/env flips; F7 untouched; P6 untouched; no
+GitHub PR opened. Untracked leftovers (`docs/KNOWTATION-ROADMAP.md`,
+`backups/pre-t1-snapshot-20260728T205623Z/`) intentionally left per 2026-07-31 note.
+
+### Prior session — 9-kn-c + 9-kn-d landed; 9-apply verified live; hygiene (2026-07-31)
 
 Operator + Auto. **9-kn-c** blob persistence landed (muse-mirror PR #284, green CI) and
 **9-kn-d** warm-lambda stale merge landed (muse-mirror PR #285, green CI); both
@@ -496,13 +527,13 @@ Governance gates (§KH1.9 — mandatory; silence is not pass):
 
 | ID | Sev | Finding | Primary citation |
 | --- | --- | --- | --- |
-| **P1** | **CRITICAL**-conditional | `gatewayAuthorized` fails **open** on empty secret; identity from raw `X-User-Id` | `hub/icp/src/hub/main.mo:930-939`, `:153-158`, `:1017`, `:1149` — **fixed in tree (SEC-KN-1); canister upgrade pending Tier 3** |
+| **P1** | **CRITICAL**-conditional | `gatewayAuthorized` fails **open** on empty secret; identity from raw `X-User-Id` | `hub/icp/src/hub/main.mo` — **SEC-KN-1 on Muse `main`**; live health `gateway_auth_configured:true` (2026-07-31) |
 | **P2** | **MAJOR** | Client-supplied `evaluation_status: "passed"` / `evaluated_by` persisted verbatim outside the fingerprint class | `lib/hub-proposal-create-augment.mjs` — **fixed in tree (SEC-KN-2)** |
-| **P4** | **MAJOR** | Delegation apply trusts `proposal.body.principal_ref`; no `created_by` on the record → approval mints a grant for an attacker-named principal | `lib/agent/delegation.mjs:837-878`, `:1013`; `Migration.mo:154-184` — **fixed in tree (SEC-KN-4b)**; not live until T1 |
+| **P4** | **MAJOR** | Delegation apply trusts `proposal.body.principal_ref`; no `created_by` on the record → approval mints a grant for an attacker-named principal | `lib/agent/delegation.mjs`; `Migration.mo` — **SEC-KN-4b on Muse `main`**; SEC-KN-4c hook restore **DONE + landed 2026-08-01** (BV `pass`; Muse `main` `2466ad64…` + muse-mirror); live proposal `created_by` field UNVERIFIED |
 | **P6** | **MAJOR** | `mcp_access` tokens get admin-allowlist role lookup, contradicting `access-token-authz.mjs`; agent tokens also satisfy the self-apply human-review predicate | `hub/gateway/server.mjs` + `access-token-authz.mjs` + `hub-proposal-personal-self-apply.mjs` — **fixed in tree (SEC-KN-3)**; stale assertion hygiene **SEC-KN-3a DONE** |
 | **P12** | **MINOR** | Vault policy `max_ttl_seconds` accepted with no ceiling → silently widens SD-10's 24h cap | `lib/agent/delegation.mjs:124-136` with `:996-1003` — **fixed in tree (SEC-KN-5)** |
 | **P13** | **MINOR** | Self-hosted `viewer` may mint delegation grants (runtime bearer authority) | `hub/server.mjs:1872,1912` — **fixed in tree (SEC-KN-5)**; mint is `admin` only |
-| **P14** | **INFO** | Non-constant-time secret comparison | `main.mo:919-939` — **fixed in tree (SEC-KN-6)**; canister upgrade pending Tier 3 |
+| **P14** | **INFO** | Non-constant-time secret comparison | `main.mo` — **SEC-KN-6 on Muse `main`**; live health surface present 2026-07-31 |
 | **P3** | **MAJOR** (shared) | Task/media/delegation proposals arrive with a **shared service token**, not a learner session — no ownership proof for self-apply | Scooling `src/adapters/taskWriteHubTransport.ts:210,298` and siblings |
 
 **What Pass 2 found CLEAN in Knowtation** (do not re-litigate): `PROXY_HEADER_ALLOWLIST` never
@@ -516,18 +547,18 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 - [x] **Overseer Kit installed** — 2026-07-26, `initialized: true`, `kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced`
 - [x] **SEC-KN-0** — canister gateway auth secret verified **SET** (2026-07-26 live probe) — **DONE**
-- [x] **SEC-KN-1** — P1 fail-closed + security-tier regression test (**Auto**) — **DONE** (code; canister upgrade pending Tier 3)
-- [x] **SEC-KN-2** — P2 server-only evaluation fields (**Auto**) — **DONE** (code on `feat/sec-kn-2-server-only-evaluation`)
-- [x] **SEC-KN-3** — P6 `mcp_access` role cap + no self-apply for agent tokens (**Auto**) — **DONE** (code on `feat/sec-kn-3-mcp-access-role-cap`)
-- [x] **SEC-KN-4a** — **DONE** — P4 spec frozen; **three** review rounds (1 blocked → 8 amended; 2 confirmed all hold, blocked on self-ratification; **3 `pass`**); **D1/D2 RATIFIED by operator 2026-07-26** (`docs/SEC-KN-4-DELEGATION-PRINCIPAL-BINDING-FREEZE.md` §11, §12.1)
-- [x] **SEC-KN-4b** — P4 build against the frozen spec (**Auto**) — **DONE** (BV round 2 = `pass`; code on branch; not merged)
-- [ ] **SEC-KN-4c** — restore the migration hook to identity after the T1 canister upgrade (**Operator + Auto**)
+- [x] **SEC-KN-1** — P1 fail-closed + security-tier regression test (**Auto**) — **DONE** (on Muse `main`; live `gateway_auth_configured` 2026-07-31)
+- [x] **SEC-KN-2** — P2 server-only evaluation fields (**Auto**) — **DONE** (code landed via finish/SEC path on Muse `main`)
+- [x] **SEC-KN-3** — P6 `mcp_access` role cap + no self-apply for agent tokens (**Auto**) — **DONE**
+- [x] **SEC-KN-4a** — **DONE** — P4 spec frozen; tip **contained in Muse `main`** (2026-07-31 board clear)
+- [x] **SEC-KN-4b** — P4 build against the frozen spec (**Auto**) — **DONE** (BV round 2 = `pass`; on Muse `main`)
+- [x] **SEC-KN-4c** — migration hook restored to identity (**Operator + Auto**) — **DONE + landed 2026-08-01** (BV round 1 = `pass`; Muse `main` `2466ad64…` + muse-mirror; operator Tier 3)
 - [x] **SEC-KN-3a** — 4 stale RBAC source-shape assertions + billing-repair isolation (**Auto**) — **DONE** (BV round 1 = `pass`)
 - [x] **SEC-KN-5** — P12 clamp policy TTL + P13 `viewer` cannot mint (**Auto**) — **DONE** (BV round 1 = `pass`)
-- [x] **SEC-KN-6** — P14 constant-time compare (**Auto**) — **DONE** (BV round 1 = `pass`)
-- [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (1a freeze CLEARED round 7; 1b BV round 1 = `pass`; code on `feat/sec-seam-1-session-bound-writes`; not merged)
+- [x] **SEC-KN-6** — P14 constant-time compare (**Auto**) — **DONE** (tip contained in Muse `main`; live health 2026-07-31)
+- [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (tip contained in Muse `main` 2026-07-31)
 - [ ] **SEC-SEAM-MEDIA** — hosted media proposal surface (**Thinking → Auto**) — **TODO** (post–SEC-SEAM-1b; D2 = A)
-- [ ] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **BLOCKED** on SEC-SEAM-1 consumer C1–C4 + T1 + the Scooling freeze
+- [x] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **DONE + landed** KN #275; board clear closed P1 Motoko/health gate 2026-07-31
 
 ---
 
@@ -548,14 +579,14 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | **Overseer Kit** | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced`, `substrate: healthy` — **re-verified 2026-07-27** via `ok -C ~/knowtation status --json` |
 | **Footprint deviation (intentional)** | `ok status --check-footprint` → `footprint_integrity: mismatch`. Cause: `MUSE-BRIDGE-WORKFLOW.md` and `scripts/muse-bridge-deploy.sh` were restored to Knowtation's live versions (sha256 `ef8a50b5…` and `fcc17c36…`) after `init --force` overwrote them with kit templates. Knowtation's bridge script is 10,004 bytes and is the live deploy path; the kit template is 3,842 bytes and is **not** a substitute. **Do not "repair" these two files.** Recorded in `.overseer/config.yaml` → `kit.notes`. |
 | **Canister gateway auth secret** | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister. |
-| **SEC-KN-1 fail-closed (source)** | **Landed on feature branch** — empty secret DENIES in Motoko; health exposes `gateway_auth_configured`. **Not live on canister until Tier 3 upgrade.** |
-| **SEC-KN-2 server-only eval (source)** | **Landed on feature branch** — create augment strips client evaluation fields; E1 uses server audit only. **Not merged to main.** |
-| **SEC-KN-3 mcp_access role cap (source)** | **Landed on feature branch** — scope-capped role; no allowlist elevation; agent tokens barred from self-apply. **Not merged to main.** |
-| **SEC-KN-4 P4 (delegation principal)** | **DONE on feature branch** (BV round 2 = `pass`). R1–R9 on `feat/sec-kn-4a-delegation-principal-binding-freeze`: canister `created_by`, author-bound apply, gate on apply path, `org_ref:` rejected on both refs for every kind; seven-tier tests **31/31**; Motoko compile **VERIFIED**; `canister:verify-migration` exit 0. **Not live** until T1 canister upgrade installs `created_by` (hosted apply refuses fail-closed until then). Repeat deploy after T1 is **refused** (`M0216`) until T4. |
-| **SEC-KN-3a (RBAC assertion refresh)** | **DONE on feature branch** (BV round 1 = `pass`). Four stale source-shape assertions updated to post-SEC-KN-3 shape (single verify + `isMcpAccess` + `roleFromVerifiedAccessPayload` fallback). Billing-repair: **not** replica-gated; isolated via `KNOWTATION_BILLING_DB_PATH`. RBAC trio + SEC-KN-3 + billing-repair **82/82**. **Not merged to main.** |
-| **SEC-KN-5 (P12 TTL clamp + P13 admin mint)** | **DONE on feature branch** (BV round 1 = `pass`). `readVaultDelegationPolicy` clamps to `MAX_TTL_SECONDS`; self-hosted grant mint is `requireRole('admin')` only. Seven-tier `test/sec-kn-5-delegation-ttl-viewer-mint.test.mjs` + route assertion **26/26**; related delegation **64/64**. **Not merged to main.** |
-| **SEC-KN-6 (P14 constant-time compare)** | **DONE on feature branch** (BV round 1 = `pass`). `constantTimeTextEqual` (OR-of-XOR full scan) replaces `got == expected` in `gatewayAuthorized` and `operatorExportAuthorized`. JS mirror updated. Seven-tier **18/18**; SEC-KN-1 still **19/19**; Motoko compile **VERIFIED**. **Not live on canister until Tier 3 upgrade.** **Not merged to main.** |
-| **SEC-SEAM-1 (P3 session-bound identity)** | **DONE on feature branch** (BV round 1 = `pass`). Five mint stamps; seam classify via apply-path predicates (incl. flow/flow_capture); named refusal codes; S10 empty; CORS advertisement removed. Seven-tier **33/33**. **Not merged to main.** T1–T5 unexecuted. Consumer **L-SEAMa freeze `pass`** on Scooling; remaining load is **Scooling L-SEAMb Auto** (C1–C4 impl). |
+| **SEC-KN-1 fail-closed** | **On Muse `main`** (tip contained). Live health `gateway_auth_configured:true` + `/vaults` → `403 GATEWAY_AUTH_REQUIRED` (**re-verified 2026-07-31**). |
+| **SEC-KN-2 server-only eval** | **On Muse `main`** (finish/SEC land path). |
+| **SEC-KN-3 mcp_access role cap** | **On Muse `main`**. P6 MCP/`SESSION_SECRET` **share** still **UNVERIFIED**. |
+| **SEC-KN-4 P4 (delegation principal)** | **On Muse `main`** (SEC-KN-4a tip contained). SEC-KN-4c identity restore **DONE + landed 2026-08-01** (BV `pass`; Muse `main` `2466ad64…` + muse-mirror). Live module hash `0x039360a0…` re-verified 2026-08-01 (matches T4); no redeploy. Live proposal `created_by` field **UNVERIFIED**. |
+| **SEC-KN-3a (RBAC assertion refresh)** | **DONE** (BV round 1 = `pass`); on Muse `main` via SEC-KN-4a lineage. |
+| **SEC-KN-5 (P12 TTL clamp + P13 admin mint)** | **DONE** (BV round 1 = `pass`); on Muse `main` path. |
+| **SEC-KN-6 (P14 constant-time compare)** | **On Muse `main`** (tip contained); live health surface present 2026-07-31. |
+| **SEC-SEAM-1 (P3 session-bound identity)** | **On Muse `main`** (tip contained 2026-07-31). Scooling L-SEAMb already landed (SC #219). |
 | **Knowtation Netlify env** | Site `knowtation-gateway` (`api.knowtation.store`, id `3123cc84-…`): `CANISTER_AUTH_SECRET` present, `SESSION_SECRET` present, `HUB_ADMIN_USER_IDS` present, `HUB_EVALUATOR_MAY_APPROVE` **absent** (fail-safe). |
 | **MCP host / gateway `SESSION_SECRET` sharing** | **UNVERIFIED** — determines P6 exploitability today |
 
@@ -571,6 +602,9 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-08-01 | **SEC-KN-4c LANDED (operator Tier 3).** `feat/sec-kn-4c-land` fast-forwarded into Muse `main` (`4179ed46… → 2466ad64…`); suites green on `main` (11/11, 31/31, verify exit 0); bridged to GitHub `muse-mirror` → `main` PR #287 (merge SHA recorded post-merge). No canister deploy. NEXT = P6 MCP/`SESSION_SECRET` share verification. |
+| 2026-08-01 | **Land CI fix-forward.** PR #287 first run failed `test (20)` on two stale/toolchain items: `test/phase3-security.test.mjs:358` still asserted the pre-4c explicit field-mapping hook (property now holds by identity — assertion flipped to identity shape + `StableStorage` field presence), and the new integration tier ran `dfx build --check` on a runner without dfx (now explicit skip with reason when dfx absent; enforced locally/BV). Full local suite **4349 pass / 0 fail** (1 pre-existing attestation-replica skip). |
+| 2026-08-01 | **SEC-KN-4c-b code DONE (BV round 1 `pass`).** Identity `Migration.migration` on `StableStorage` + verify-script flips + SEC-KN-4 test flip + seven-tier `test/sec-kn-4c-migration-hook-restore.test.mjs` (11/11; SEC-KN-4 31/31; `canister:verify-migration` exit 0; `dfx build --check hub` exit 0) landed on fresh `feat/sec-kn-4c-land` (`sha256:ec1e80b3…` off main `4179ed46…`). Live hash `0x039360a0…` re-read — matches frozen expected, **no redeploy** (4C-R8). BV: `docs/reviews/2026-08-01-sec-kn-4c-b-bv-round1-pass.md`. NEXT = Tier 3 / SD-21 land of the branch (D6). |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-HOSTEDb.** Scooling tip `sha256:6499d790…`: HOSTEDa freeze `pass` (`sha256:f01e9c5b…`); product NEXT = HOSTEDb Auto (Scooling). Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-KN-b.** Scooling tip `sha256:29a8720da…`: FLOW-CAPTURE-LIVEa freeze `pass` (`sha256:f0ca2edd…`); SD-23; product NEXT = KN-b Auto (this repo). Optional KN parallel: SEC-KN land + WASM. |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVEa.** Scooling tip `sha256:056b11031…`: 0.7b DONE (OK #47); F7 AWS-parked; product NEXT = Wave 2 capture Thinking freeze. Optional KN parallel: SEC-KN land + WASM. |
