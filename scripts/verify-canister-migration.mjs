@@ -46,8 +46,8 @@ const migrationChecks = [
     ok: (s) => s.includes('migrateFromV0ToV1(old : { var storage : StableStorageV0 })'),
   },
   {
-    name: 'migration(old : { var storage : StableStorageV7 }) — V7→V8 adds cors_allowed_origin',
-    ok: (s) => s.includes('migration(old : { var storage : StableStorageV7 })'),
+    name: 'migration(old : { var storage : StableStorage }) — identity after SEC-KN-4c / T4',
+    ok: (s) => s.includes('migration(old : { var storage : StableStorage })'),
   },
   {
     name: 'StableStorageV5 — pre-V6 on-chain layout',
@@ -98,10 +98,12 @@ const migrationChecks = [
       s.includes('func _proposalV4ToV5(p : ProposalRecordV4) : ProposalRecordV7'),
   },
   {
-    name: 'SEC-KN-4 migration hook maps V7 rows via _proposalV7ToCurrent',
+    name: 'SEC-KN-4c identity hook; historical _proposalV7ToCurrent retained',
     ok: (s) =>
       s.includes('func _proposalV7ToCurrent(p : ProposalRecordV7) : ProposalRecord') &&
-      s.includes('TODO(SEC-KN-4c)'),
+      s.includes('migration(old : { var storage : StableStorage })') &&
+      s.includes('SEC-KN-4c') &&
+      !s.includes('TODO(SEC-KN-4c)'),
   },
   {
     name: 'V0 → V1 maps notes into vault "default"',

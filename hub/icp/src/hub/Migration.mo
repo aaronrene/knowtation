@@ -5,7 +5,11 @@
  * V3 = ProposalRecord gains review_queue, review_severity, auto_flag_reasons_json, review_hints* (Text).
  * V4 = ProposalRecord gains assistant_notes, assistant_model, assistant_at, suggested_labels_json (LLM Enrich).
  * V5 = ProposalRecord gains assistant_suggested_frontmatter_json (structured Enrich metadata).
- * Actor upgrade hook: after mainnet has run **one** V4→V5 deploy, stable storage is `StableStorage` (V5). The hook is **identity** on `StableStorage` so repeat deploys succeed. Canisters still on `StableStorageV4` must install **once** a WASM whose `migration` input is `StableStorageV4` (see git history before identity migration), then upgrade to this tree. Canisters still on `StableStorageBeforeEnrich` need the V4 migration path first (intermediate release).
+ * Actor upgrade hook: after mainnet has run **one** V7→`created_by` deploy (SEC-KN-4 T1), stable storage is
+ * `StableStorage` (proposals carry `created_by`). The hook is **identity** on `StableStorage` so repeat
+ * deploys succeed (SEC-KN-4c / T4). Canisters still on pre-`created_by` `StableStorageV7` must install
+ * **once** a WASM whose `migration` input is `StableStorageV7` (see git history before this identity
+ * restore), then upgrade to this tree.
  * See https://internetcomputer.org/docs/motoko/fundamentals/actors/compatibility
  */
 import Array "mo:base/Array";
@@ -446,23 +450,9 @@ module Migration {
   };
 
   /// Actor upgrade hook: input type must match **current** on-chain `storage` before this WASM installs.
-  /// V7 is the post–CORS-lock layout; `StableStorage` may gain fields later — map explicitly here.
-  /// TODO(SEC-KN-4c): restore identity on `StableStorage` in the release immediately after T1.
-  public func migration(old : { var storage : StableStorageV7 }) : { var storage : StableStorage } {
-    {
-      var storage = {
-        vaultEntries = old.storage.vaultEntries;
-        proposalEntries = Array.map<(Text, [ProposalRecordV7]), (Text, [ProposalRecord])>(
-          old.storage.proposalEntries,
-          func(e : (Text, [ProposalRecordV7])) : (Text, [ProposalRecord]) {
-            (e.0, Array.map<ProposalRecordV7, ProposalRecord>(e.1, _proposalV7ToCurrent));
-          },
-        );
-        billingByUser = old.storage.billingByUser;
-        operator_export_secret = old.storage.operator_export_secret;
-        gateway_auth_secret = old.storage.gateway_auth_secret;
-        cors_allowed_origin = old.storage.cors_allowed_origin;
-      };
-    };
+  /// Identity on `StableStorage` after the one-time V7→`created_by` upgrade (SEC-KN-4 T1) has run.
+  /// SEC-KN-4c / T4 — restores deployability; repeat upgrades no longer hit M0216.
+  public func migration(old : { var storage : StableStorage }) : { var storage : StableStorage } {
+    old
   };
 }

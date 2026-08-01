@@ -450,12 +450,17 @@ describe('SEC-KN-4 integration — call sites + canister contracts', () => {
     assert.match(main, /\\"created_by\\":\\"/);
   });
 
-  test('Migration.mo pins V5/V6/V7 to ProposalRecordV7 and _proposalV7ToCurrent + TODO(SEC-KN-4c)', () => {
+  test('Migration.mo pins V5/V6/V7 to ProposalRecordV7; identity hook after SEC-KN-4c (T4)', () => {
     const migration = fs.readFileSync(MIGRATION_MO, 'utf8');
     assert.match(migration, /public type ProposalRecordV7/);
     assert.match(migration, /proposalEntries : \[\(Text, \[ProposalRecordV7\]\)\];/);
     assert.match(migration, /func _proposalV7ToCurrent\(p : ProposalRecordV7\) : ProposalRecord/);
-    assert.match(migration, /TODO\(SEC-KN-4c\)/);
+    // SEC-KN-4c (T4): actor hook restored to identity on StableStorage; one-shot marker gone.
+    assert.match(
+      migration,
+      /public func migration\(old : \{ var storage : StableStorage \}\) : \{ var storage : StableStorage \}/,
+    );
+    assert.doesNotMatch(migration, /TODO\(SEC-KN-4c\)/);
     assert.match(
       migration,
       /func _proposalBeforeEnrichToCurrent\(p : ProposalRecordBeforeEnrich\) : ProposalRecordV7/,
