@@ -14,7 +14,6 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import AdmZip from 'adm-zip';
 import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
@@ -59,6 +58,7 @@ import {
   resolveAllowedVaultIdsForHostedContext,
 } from '../lib/hosted-workspace-resolve.mjs';
 import { applyScopeFilterToNotes, applyScopeFilterToProposals } from '../lib/scope-filter.mjs';
+import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
 import { actorMayApproveProposals } from '../lib/hub-evaluator-may-approve.mjs';
 import {
   buildCalendarTimeline,
@@ -98,6 +98,9 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 // Path under HUB_UI_ORIGIN where the Hub app lives (e.g. /hub). Empty string = root.
 const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
+// SEC-KN-P6-ROTATE: verify-only previous secret for zero-downtime rotation.
+// signState/verifyState HMAC and GitHub-token encrypt stay on SESSION_SECRET only.
+const SESSION_SECRET_PREVIOUS = resolveSessionSecretPrevious();
 const CANISTER_AUTH_SECRET = process.env.CANISTER_AUTH_SECRET || '';
 const HOSTED_CONTEXT_FETCH_TIMEOUT_MS = (() => {
   const n = parseInt(String(process.env.HOSTED_CONTEXT_FETCH_TIMEOUT_MS || ''), 10);
@@ -840,12 +843,8 @@ function verifyState(stateStr, maxAgeMs = 600000) {
 }
 
 function userIdFromJwt(token) {
-  try {
-    const payload = jwt.verify(token, SESSION_SECRET);
-    return payload.sub ?? null;
-  } catch (_) {
-    return null;
-  }
+  const payload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  return payload ? payload.sub ?? null : null;
 }
 
 const app = express();

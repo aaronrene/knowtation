@@ -26,6 +26,7 @@ import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './not
 import { applyGatewayCors } from './cors-middleware.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './request-path.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
+import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
 import { createMetadataBulkHandlers } from './metadata-bulk-canister.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
 import { loadProposalRubric } from '../../lib/hub-proposal-rubric.mjs';
@@ -154,6 +155,9 @@ if (BRIDGE_URL) {
 }
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
+// SEC-KN-P6-ROTATE: verify-only previous secret for zero-downtime rotation.
+// Never used to sign (jwt.sign / HMAC / encrypt stay on SESSION_SECRET only).
+const SESSION_SECRET_PREVIOUS = resolveSessionSecretPrevious();
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
 const GATEWAY_DATA_DIR =
   process.env.KNOWTATION_GATEWAY_DATA_DIR || path.join(projectRoot, 'data');
@@ -241,14 +245,10 @@ function issueToken(user) {
 }
 
 function verifyToken(token) {
-  try {
-    const payload = jwt.verify(token, SESSION_SECRET);
-    // Identity-only: does not enforce MCP scopes. Mutating REST must go through getUserId
-    // (scope-aware for type:mcp_access — DURABLE-AGENT-AUTH-SPEC §8).
-    return payload.sub ?? null;
-  } catch (_) {
-    return null;
-  }
+  const payload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  // Identity-only: does not enforce MCP scopes. Mutating REST must go through getUserId
+  // (scope-aware for type:mcp_access — DURABLE-AGENT-AUTH-SPEC §8).
+  return payload ? payload.sub ?? null : null;
 }
 
 /**
@@ -258,11 +258,7 @@ function verifyToken(token) {
  * @returns {object|null}
  */
 function decodeVerifiedToken(token) {
-  try {
-    return jwt.verify(token, SESSION_SECRET);
-  } catch (_) {
-    return null;
-  }
+  return verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
 }
 
 /**
@@ -675,6 +671,7 @@ if (shouldMountDurableAgentAuth({
     const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
     const oauthProvider = new KnowtationOAuthProvider({
       sessionSecret: SESSION_SECRET,
+      sessionSecretPrevious: SESSION_SECRET_PREVIOUS,
       baseUrl: BASE_URL,
       // Phase A: reuse the same durable refresh store as native OAuth (strong file backend).
       refreshStore,
@@ -1821,6 +1818,7 @@ const metadataBulkHandlers = createMetadataBulkHandlers({
   CANISTER_AUTH_SECRET,
   BRIDGE_URL,
   SESSION_SECRET: SESSION_SECRET || '',
+  SESSION_SECRET_PREVIOUS: SESSION_SECRET_PREVIOUS || '',
   getUserId,
   getHostedAccessContext,
 });
@@ -3111,7 +3109,7 @@ async function resolveHostedActorRole(req, hctx) {
     const auth = req.headers.authorization;
     const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
     if (token && SESSION_SECRET) {
-      bearerPayload = jwt.verify(token, SESSION_SECRET);
+      bearerPayload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
     }
   } catch (_) {
     bearerPayload = null;

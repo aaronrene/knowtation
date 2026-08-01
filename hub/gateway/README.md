@@ -110,7 +110,9 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 
 2. **`BRIDGE_URL`:** Must be the bridge **origin only** — full URL with `https://`, no path (e.g. `https://knowtation-bridge.netlify.app`). Wrong values produce malformed redirect URLs; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §2–3.
 
-3. **`SESSION_SECRET` / `HUB_JWT_SECRET`:** The **bridge** site must use the **same** secret as this gateway so JWTs verify on `/api/v1/vault/github-status` and Connect GitHub. Mismatch → Settings shows “Not connected” after OAuth; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §6.
+3. **`SESSION_SECRET` / `HUB_JWT_SECRET`:** The **bridge** site (and the persistent **MCP host**) must use the **same primary** secret as this gateway so JWTs verify on `/api/v1/vault/github-status` and Connect GitHub. Mismatch → Settings shows “Not connected” after OAuth; see [docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md](../../docs/CONNECT-GITHUB-AND-STORAGE-CHECK.md) §6.
+
+4. **`SESSION_SECRET_PREVIOUS` (rotation window only):** Verify-only fallback secret used by `hub/lib/session-secret-rotation.mjs` during a zero-downtime `SESSION_SECRET` rotation (SEC-KN-P6-ROTATE runbook, `docs/SEC-KN-P6-ROTATE-FREEZE.md` §6). It is **never used to sign** JWTs, HMACs, or GitHub-token encryption. Set `previous ← OLD` and `primary ← NEW` on **gateway + bridge + MCP host in lockstep**, wait out the drain window (floor: web-session default **`24h`** via `HUB_JWT_EXPIRY` unless a shorter expiry is proven on all three hosts — plus Phase C exchange 900s and MCP OAuth access TTL), then unset `SESSION_SECRET_PREVIOUS` everywhere. After the rotation closes, stored GitHub tokens encrypted under OLD may require a one-time **Connect GitHub** re-connect.
 
 ## Reference
 

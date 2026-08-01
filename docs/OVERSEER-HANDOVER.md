@@ -18,46 +18,69 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=owner lane=security status=live product_order=scooling -->
-## NEXT SESSION — P6 MCP / `SESSION_SECRET` share verification (SEC-KN-4c LANDED)
+## NEXT SESSION — SEC-KN-P6-ROTATE-b (deploy EC2 → dual-secret rotation)
 
 **Date:** 2026-08-01  
 **Model:** **Operator + Auto**
 
-**Why this is next:** SEC-KN-4c is **DONE + landed** — operator authorized the Tier 3
-merge 2026-08-01; `feat/sec-kn-4c-land` fast-forwarded into Muse `main`
-(`4179ed46… → 2466ad64…`), suites re-run green on `main` (11/11, 31/31,
-`canister:verify-migration` exit 0), mirrored to GitHub via muse-mirror PR (merge SHA
-in the post-land docs commit / change log). Live canister untouched
-(`0x039360a0…` verified same day). The last **UNVERIFIED** security question on this
-board is whether the MCP host shares the gateway's `SESSION_SECRET` — that determines
-whether P6 is exploitable today, and it has been carried UNVERIFIED since 2026-07-26.
+**Why this is next:** SEC-KN-P6-ROTATE-a freeze is **CLEARED**
+(`docs/SEC-KN-P6-ROTATE-FREEZE.md`, freeze-review `pass`, digest `sha256:958c8add…`).
+Decisions frozen: **D1 one signing domain** (gateway + bridge + MCP; naive MCP split
+rejected — README §Post-deploy #3 + cross-host agent JWTs); **D2 deploy-before-rotate**.
+Board correction: SEC-KN-3 tip is an **ancestor of Muse `main`** (stale "not merged"
+row fixed). EC2 runtime is **pre-current-main** — identical Phase C `agent_access`
+token → gateway discard `401`, MCP discard `200` (evidence:
+`docs/reviews/2026-08-01-sec-kn-p6-rotate-ec2-code-divergence.md`). Share remains
+**VERIFIED-SHARED**. No secret rotation / env flip / deploy ran in Thinking.
 
 > Hub dashboard UI redesign is **not** this baton — that lane lives in
 > [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md).
 
-### THE ONE NEXT STEP — **verify P6 MCP / `SESSION_SECRET` share** — **Model: Operator + Auto**
+### THE ONE NEXT STEP — **execute the frozen P6 rotate runbook** — **Model: Operator + Auto**
 
 ```text
-Step: SEC-KN-P6-VERIFY
+Step: SEC-KN-P6-ROTATE-b
 Model: Operator + Auto
 Authority: knowtation
 
-Determine whether the MCP host (mcp.knowtation.store deploy) shares the
-knowtation-gateway SESSION_SECRET. Evidence required (quote in session):
-Netlify env listing for both sites (operator access) and/or a signed-token
-cross-acceptance probe. Outcome A (not shared): mark P6 share VERIFIED-ISOLATED
-on the board. Outcome B (shared): open a SEC-KN phase (Thinking freeze) to
-rotate/split the secret — no fix improvised in the verify session.
-Optional same session: authenticated GET of one live proposal to confirm
-created_by is populated (closes the last UNVERIFIED row).
-Read-only probes; no posture/env flips; keep F7 AWS-parked.
+Consume docs/SEC-KN-P6-ROTATE-FREEZE.md (frozen: true, review pass) as ground truth.
+Execute D2 order: R1 deploy current main to EC2 MCP host (Tier 3 / T1) → R2 role-cap
+probe (§5.1 must not see MCP 2xx on agent_access discard) → R3 implement P6-C1–C5
+dual-secret verify helper + seven-tier tests → BV pass → R4–R5 operator Tier-3 dual-secret
+env rotation (T2) across gateway+bridge+MCP with drain window. Keep ONE signing domain
+(D1). No secret split. No approve of real pending proposals. No posture/env flips beyond
+SESSION_SECRET / SESSION_SECRET_PREVIOUS. F7 AWS-parked. SD-14: muse-mirror only to GitHub main.
 ```
 
 ### After this (queued order)
 
-1. Optional live proposal `created_by` probe (if not done in the same session).
-2. SEC-SEAM-MEDIA (Thinking → Auto) — still TODO, not urgent (no hosted media route exists).
-3. MuseHub F7 — AWS-parked.
+1. SEC-SEAM-MEDIA (Thinking → Auto) — still TODO, not urgent (no hosted media route exists).
+2. MuseHub F7 — AWS-parked.
+
+### This session — SEC-KN-P6-ROTATE-a DONE (freeze pass, 2026-08-01)
+
+Thinking on `feat/sec-kn-p6-rotate` (ff-merged `feat/sec-kn-p6-verify` first). Wrote
+`docs/SEC-KN-P6-ROTATE-FREEZE.md` (`frozen: true`). Freeze-review loop: mechanical C4
+rewrites → semantic expand G10 `jwt.verify` wire-up + D2 ordering → `ok review --freeze`
+**pass** (`sha256:958c8add…`). Top input resolved: SEC-KN-3 **on main**; EC2 **behind**
+(discard 401 vs 200). No T1–T4. Evidence sidecar:
+`docs/reviews/2026-08-01-sec-kn-p6-rotate-ec2-code-divergence.md`.
+
+### Prior this session — SEC-KN-P6-VERIFY DONE (Outcome B, evidence-only, 2026-08-01)
+
+Operator + Auto, read-only. Resolved the P6 `SESSION_SECRET` share carried UNVERIFIED
+since 2026-07-26. **Hosts proven distinct** first (Netlify `server: Netlify`+`x-nf-request-id`
+with CORS `Allow-Origin: https://knowtation.store`; MCP host `Server: nginx/1.24.0 (Ubuntu)`
+HTTP/1.1 with CORS `Allow-Origin: https://knowtation-gateway.netlify.app`), ruling out a
+reverse-proxy explanation. **Cross-acceptance probe:** minted one gateway-signed `agent_access`
+JWT via `POST /api/v1/auth/agent/token` (credential from `~/.config/knowtation/agent_cred`,
+never printed); `GET /api/v1/auth/session` → **200 on the gateway (control) AND 200 on the MCP
+host (probe)**; garbage token → 401 and no-auth → 401 on the MCP host (controls).
+**Verdict: SHARED (Outcome B)** → board marked **VERIFIED-SHARED**; opened **SEC-KN-P6-ROTATE**
+(Thinking) — no improvised fix. **Optional `created_by` sidecar CONFIRMED:** `GET /api/v1/proposals`
+returned 64; the 7 newest (post-SEC-KN-4) carry a server-derived `created_by` (`google:…`)
+incl. `prop-1785500300353491755`; the older 57 are empty by design. No posture/env flip, no
+rotation, no deploy, no GitHub PR. Probes archived: `scripts/archive/2026-08-01-*.mjs`.
 
 ### This session (later) — SEC-KN-4c LANDED (operator Tier 3, 2026-08-01)
 
@@ -581,14 +604,14 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | **Canister gateway auth secret** | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister. |
 | **SEC-KN-1 fail-closed** | **On Muse `main`** (tip contained). Live health `gateway_auth_configured:true` + `/vaults` → `403 GATEWAY_AUTH_REQUIRED` (**re-verified 2026-07-31**). |
 | **SEC-KN-2 server-only eval** | **On Muse `main`** (finish/SEC land path). |
-| **SEC-KN-3 mcp_access role cap** | **On Muse `main`**. P6 MCP/`SESSION_SECRET` **share** still **UNVERIFIED**. |
-| **SEC-KN-4 P4 (delegation principal)** | **On Muse `main`** (SEC-KN-4a tip contained). SEC-KN-4c identity restore **DONE + landed 2026-08-01** (BV `pass`; Muse `main` `2466ad64…` + muse-mirror). Live module hash `0x039360a0…` re-verified 2026-08-01 (matches T4); no redeploy. Live proposal `created_by` field **UNVERIFIED**. |
+| **SEC-KN-3 mcp_access role cap** | **On Muse `main`** (tip `5954c433…` ancestor; GitHub mirror since `69a7673`). **EC2 MCP host runtime lagging** current main (P6-ROTATE evidence). |
+| **SEC-KN-4 P4 (delegation principal)** | **On Muse `main`** (SEC-KN-4a tip contained). SEC-KN-4c identity restore **DONE + landed 2026-08-01** (BV `pass`; Muse `main` `2466ad64…` + muse-mirror). Live module hash `0x039360a0…` re-verified 2026-08-01 (matches T4); no redeploy. Live proposal `created_by` **CONFIRMED-POPULATED** (2026-08-01 P6-VERIFY sidecar). |
 | **SEC-KN-3a (RBAC assertion refresh)** | **DONE** (BV round 1 = `pass`); on Muse `main` via SEC-KN-4a lineage. |
 | **SEC-KN-5 (P12 TTL clamp + P13 admin mint)** | **DONE** (BV round 1 = `pass`); on Muse `main` path. |
 | **SEC-KN-6 (P14 constant-time compare)** | **On Muse `main`** (tip contained); live health surface present 2026-07-31. |
 | **SEC-SEAM-1 (P3 session-bound identity)** | **On Muse `main`** (tip contained 2026-07-31). Scooling L-SEAMb already landed (SC #219). |
 | **Knowtation Netlify env** | Site `knowtation-gateway` (`api.knowtation.store`, id `3123cc84-…`): `CANISTER_AUTH_SECRET` present, `SESSION_SECRET` present, `HUB_ADMIN_USER_IDS` present, `HUB_EVALUATOR_MAY_APPROVE` **absent** (fail-safe). |
-| **MCP host / gateway `SESSION_SECRET` sharing** | **UNVERIFIED** — determines P6 exploitability today |
+| **MCP host / gateway `SESSION_SECRET` sharing** | **VERIFIED-SHARED** (2026-08-01) — evidence `docs/reviews/2026-08-01-sec-kn-p6-verify-session-secret-share.md`. Freeze CLEARED: `docs/SEC-KN-P6-ROTATE-FREEZE.md`. NEXT = ROTATE-b (deploy EC2 then dual-secret rotate). |
 
 ## Hard stops
 
@@ -602,7 +625,9 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-08-01 | **SEC-KN-4c LANDED (operator Tier 3).** `feat/sec-kn-4c-land` fast-forwarded into Muse `main` (`4179ed46… → 2466ad64…`); suites green on `main` (11/11, 31/31, verify exit 0); bridged to GitHub `muse-mirror` → `main` PR #287 (merge SHA recorded post-merge). No canister deploy. NEXT = P6 MCP/`SESSION_SECRET` share verification. |
+| 2026-08-01 | **SEC-KN-P6-ROTATE-a DONE — freeze-review `pass`.** `docs/SEC-KN-P6-ROTATE-FREEZE.md` (`frozen: true`, digest `sha256:958c8add…`): D1 one signing domain; D2 deploy-before-rotate; dual-secret runbook; G10 full `jwt.verify` wire-up. Top input: SEC-KN-3 on Muse/`main` (stale "not merged" corrected); EC2 pre-current-main (discard 401 vs 200). Evidence: `docs/reviews/2026-08-01-sec-kn-p6-rotate-ec2-code-divergence.md`. No T1–T4. NEXT = **SEC-KN-P6-ROTATE-b** (Operator + Auto). |
+| 2026-08-01 | **SEC-KN-P6-VERIFY DONE (Outcome B VERIFIED-SHARED).** Cross-acceptance probe: gateway-signed `agent_access` JWT accepted on both `api.knowtation.store` and distinct EC2 `mcp.knowtation.store` session route; garbage/no-auth 401. Optional `created_by` CONFIRMED-POPULATED. Evidence: `docs/reviews/2026-08-01-sec-kn-p6-verify-session-secret-share.md`. |
+| 2026-08-01 | **SEC-KN-4c LANDED (operator Tier 3).** `feat/sec-kn-4c-land` fast-forwarded into Muse `main` (`4179ed46… → 2466ad64…`); suites green on `main` (11/11, 31/31, verify exit 0); bridged to GitHub `muse-mirror` → `main` [PR #287](https://github.com/aaronrene/knowtation/pull/287) — **MERGED**, merge commit `15fba5f5d897…`; mirror/main tree hashes identical (`b6a558ca…`). No canister deploy. |
 | 2026-08-01 | **Land CI fix-forward.** PR #287 first run failed `test (20)` on two stale/toolchain items: `test/phase3-security.test.mjs:358` still asserted the pre-4c explicit field-mapping hook (property now holds by identity — assertion flipped to identity shape + `StableStorage` field presence), and the new integration tier ran `dfx build --check` on a runner without dfx (now explicit skip with reason when dfx absent; enforced locally/BV). Full local suite **4349 pass / 0 fail** (1 pre-existing attestation-replica skip). |
 | 2026-08-01 | **SEC-KN-4c-b code DONE (BV round 1 `pass`).** Identity `Migration.migration` on `StableStorage` + verify-script flips + SEC-KN-4 test flip + seven-tier `test/sec-kn-4c-migration-hook-restore.test.mjs` (11/11; SEC-KN-4 31/31; `canister:verify-migration` exit 0; `dfx build --check hub` exit 0) landed on fresh `feat/sec-kn-4c-land` (`sha256:ec1e80b3…` off main `4179ed46…`). Live hash `0x039360a0…` re-read — matches frozen expected, **no redeploy** (4C-R8). BV: `docs/reviews/2026-08-01-sec-kn-4c-b-bv-round1-pass.md`. NEXT = Tier 3 / SD-21 land of the branch (D6). |
 | 2026-07-30 | **Relay → FLOW-CAPTURE-LIVE-HOSTEDb.** Scooling tip `sha256:6499d790…`: HOSTEDa freeze `pass` (`sha256:f01e9c5b…`); product NEXT = HOSTEDb Auto (Scooling). Optional KN parallel: SEC-KN land + WASM. |

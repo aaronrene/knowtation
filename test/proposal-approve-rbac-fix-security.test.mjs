@@ -67,7 +67,12 @@ describe('Security: JWT forgery resistance', () => {
     const fnStart = src.indexOf('async function resolveHostedActorRole');
     const fn = src.slice(fnStart, src.indexOf('\n}\n', fnStart) + 3);
     // SEC-KN-3: verify once at entry; fallback must consume bearerPayload, never raw-parse.
-    assert.ok(fn.includes('jwt.verify(token, SESSION_SECRET)'), 'Entry path verifies JWT with SESSION_SECRET');
+    // SEC-KN-P6-ROTATE: entry verify goes through the dual-secret rotation helper
+    // (primary SESSION_SECRET first; SESSION_SECRET_PREVIOUS verify-only during cutover).
+    assert.ok(
+      fn.includes('verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS)'),
+      'Entry path verifies JWT with SESSION_SECRET (+ rotation-window previous)',
+    );
     const fallbackBlock = fn.slice(fn.indexOf('!bridgeResolved'));
     assert.ok(
       fallbackBlock.includes('roleFromVerifiedAccessPayload(bearerPayload'),

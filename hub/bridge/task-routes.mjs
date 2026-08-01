@@ -26,7 +26,7 @@ import {
 import { withLoopPassAuditBlobSync } from './loop-pass-audit-blob-store.mjs';
 import { persistExternalProtocolStoresToBlob } from './external-agent-blob-store.mjs';
 import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
-import jwt from 'jsonwebtoken';
+import { verifyJwtWithSecretRotation } from '../lib/session-secret-rotation.mjs';
 
 const BRIDGE_STARTER_TASKS_DIR = resolveStarterTasksDir(import.meta.url);
 const BRIDGE_STARTER_LOOPS_DIR = resolveStarterTaskLoopsDir(import.meta.url);
@@ -98,16 +98,12 @@ export function registerBridgeTaskRoutes(app, deps) {
    * @returns {boolean}
    */
   function sessionBoundFromReq(req) {
-    try {
-      const auth = req.headers.authorization;
-      const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-      const secret = process.env.SESSION_SECRET;
-      if (!token || !secret) return false;
-      const payload = jwt.verify(token, secret);
-      return isSessionBoundActor(payload);
-    } catch {
-      return false;
-    }
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const secret = process.env.SESSION_SECRET;
+    if (!token || !secret) return false;
+    const payload = verifyJwtWithSecretRotation(token, secret, process.env.SESSION_SECRET_PREVIOUS);
+    return payload ? isSessionBoundActor(payload) : false;
   }
 
   /**

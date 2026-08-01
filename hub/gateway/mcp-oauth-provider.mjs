@@ -15,6 +15,7 @@
 
 import { randomUUID, createHash } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import { verifyJwtWithSecretRotation } from '../lib/session-secret-rotation.mjs';
 import {
   DEFAULT_TOKEN_TTL_MS,
   DEFAULT_FAMILY_TTL_MS,
@@ -109,6 +110,7 @@ export class KnowtationOAuthProvider {
   /**
    * @param {{
    *   sessionSecret: string,
+   *   sessionSecretPrevious?: string|null,
    *   baseUrl: string,
    *   loginUrl?: string,
    *   refreshStore: {
@@ -125,6 +127,8 @@ export class KnowtationOAuthProvider {
       throw new Error('KnowtationOAuthProvider requires refreshStore { issue, rotate, revoke }');
     }
     this._sessionSecret = opts.sessionSecret;
+    // SEC-KN-P6-ROTATE: verify-only during rotation; signing stays on _sessionSecret.
+    this._sessionSecretPrevious = opts.sessionSecretPrevious || null;
     this._baseUrl = opts.baseUrl.replace(/\/$/, '');
     // C3: canonical issuer identifier — matches the `issuer.href` the mcpAuthRouter
     // advertises in discovery metadata (new URL(BASE_URL).href).  URL normalises
@@ -325,7 +329,8 @@ export class KnowtationOAuthProvider {
 
   async verifyAccessToken(token) {
     try {
-      const payload = jwt.verify(token, this._sessionSecret);
+      const payload = verifyJwtWithSecretRotation(token, this._sessionSecret, this._sessionSecretPrevious);
+      if (!payload) throw new Error('signature verification failed');
       if (payload.type !== 'mcp_access') throw new Error('Not an MCP access token');
       return {
         token,
