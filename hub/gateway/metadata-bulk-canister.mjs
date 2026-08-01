@@ -3,7 +3,7 @@
  * @see docs/HUB-METADATA-BULK-OPS.md
  */
 
-import jwt from 'jsonwebtoken';
+import { verifyJwtWithSecretRotation } from '../lib/session-secret-rotation.mjs';
 import { effectiveProjectSlug, normalizeSlug } from '../../lib/vault.mjs';
 import { materializeListFrontmatter } from './note-facets.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
@@ -15,24 +15,21 @@ import { mergeHostedNoteBodyForCanister } from './apply-note-provenance.mjs';
  *   CANISTER_AUTH_SECRET: string,
  *   BRIDGE_URL: string,
  *   SESSION_SECRET: string,
+ *   SESSION_SECRET_PREVIOUS?: string,
  *   getUserId: (req: import('express').Request) => string | null,
  *   getHostedAccessContext: (req: import('express').Request) => Promise<Record<string, unknown>|null>,
  * }} deps
  */
 export function createMetadataBulkHandlers(deps) {
-  const { CANISTER_URL, CANISTER_AUTH_SECRET, BRIDGE_URL, SESSION_SECRET, getUserId, getHostedAccessContext } = deps;
+  const { CANISTER_URL, CANISTER_AUTH_SECRET, BRIDGE_URL, SESSION_SECRET, SESSION_SECRET_PREVIOUS, getUserId, getHostedAccessContext } = deps;
 
   async function resolveRole(req) {
     const auth = req.headers.authorization;
     const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
     let role = 'member';
-    try {
-      if (token && SESSION_SECRET) {
-        const p = jwt.verify(token, SESSION_SECRET);
-        if (p && typeof p === 'object' && p.role) role = String(p.role);
-      }
-    } catch (_) {
-      /* keep default */
+    if (token && SESSION_SECRET) {
+      const p = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+      if (p && typeof p === 'object' && p.role) role = String(p.role);
     }
     if (BRIDGE_URL && auth) {
       try {

@@ -13,7 +13,7 @@
 import { handleFlowProposeRequest } from '../../lib/flow/flow-authoring.mjs';
 import { createFlowProposalOnCanister } from '../../lib/flow/flow-hosted-proposal.mjs';
 import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
-import jwt from 'jsonwebtoken';
+import { verifyJwtWithSecretRotation } from '../lib/session-secret-rotation.mjs';
 
 /**
  * Map bridge role to flow handler role (member → editor, matching self-hosted hub/server.mjs).
@@ -73,16 +73,12 @@ export function registerBridgeFlowRoutes(app, deps) {
    * @returns {boolean}
    */
   function sessionBoundFromReq(req) {
-    try {
-      const auth = req.headers.authorization;
-      const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-      const secret = process.env.SESSION_SECRET;
-      if (!token || !secret) return false;
-      const payload = jwt.verify(token, secret);
-      return isSessionBoundActor(payload);
-    } catch {
-      return false;
-    }
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const secret = process.env.SESSION_SECRET;
+    if (!token || !secret) return false;
+    const payload = verifyJwtWithSecretRotation(token, secret, process.env.SESSION_SECRET_PREVIOUS);
+    return payload ? isSessionBoundActor(payload) : false;
   }
 
   /**

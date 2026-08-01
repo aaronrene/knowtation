@@ -44,9 +44,13 @@ describe('resolveHostedActorRole — unit wiring', () => {
   test('bridge fallback path: uses once-verified bearerPayload (not raw header parse)', () => {
     const s = load();
     const fn = s.slice(s.indexOf('async function resolveHostedActorRole'), s.indexOf('\n}\n', s.indexOf('async function resolveHostedActorRole')) + 3);
-    // SEC-KN-3: jwt.verify runs once at the top into bearerPayload; fallback reuses it.
-    const verifyCount = (fn.match(/jwt\.verify/g) || []).length;
-    assert.equal(verifyCount, 1, `jwt.verify called exactly once at entry (got ${verifyCount})`);
+    // SEC-KN-3: verify runs once at the top into bearerPayload; fallback reuses it.
+    // SEC-KN-P6-ROTATE: the entry verify is the dual-secret rotation helper
+    // (verifyJwtWithSecretRotation), replacing the raw single-secret jwt.verify.
+    const helperCount = (fn.match(/verifyJwtWithSecretRotation/g) || []).length;
+    assert.equal(helperCount, 1, `rotation-helper verify called exactly once at entry (got ${helperCount})`);
+    const rawVerifyCount = (fn.match(/jwt\.verify/g) || []).length;
+    assert.equal(rawVerifyCount, 0, `no raw jwt.verify remains in resolveHostedActorRole (got ${rawVerifyCount})`);
     const fallbackBlock = fn.slice(fn.indexOf('!bridgeResolved'));
     assert.ok(
       fallbackBlock.includes('roleFromVerifiedAccessPayload(bearerPayload'),
