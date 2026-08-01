@@ -76,6 +76,10 @@ import {
   maybeApplyHostedCaptureAfterApprove,
   mergeCaptureApplyIntoApproveResponse,
 } from './capture-approve-hosted.mjs';
+import {
+  maybeApplyHostedMediaAfterApprove,
+  mergeMediaApplyIntoApproveResponse,
+} from './media-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
@@ -1295,6 +1299,63 @@ if (BRIDGE_URL) {
         encodeURIComponent(req.params.loop_id) +
         '/instances/proposals' +
         q,
+      req,
+      res,
+    );
+  });
+
+  // Media write surfaces (SEC-SEAM-MEDIA-b / SM-C7): proxy to bridge BEFORE the
+  // /api/v1 canister catch-all. Static import-consents routes register before
+  // GET /api/v1/attachments/:id so the consent path is never read as an id.
+  app.post('/api/v1/attachments/link-proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/link-proposals' + q, req, res);
+  });
+  app.post('/api/v1/attachments/attach-proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/attach-proposals' + q, req, res);
+  });
+  app.post('/api/v1/attachments/import-consents', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/import-consents' + q, req, res);
+  });
+  app.get('/api/v1/attachments/import-consents', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/import-consents' + q, req, res);
+  });
+  app.delete('/api/v1/attachments/import-consents/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/attachments/import-consents/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+  // Ops recovery surface (SM-C12); the mandatory path is the gateway post-approve
+  // hook (maybeApplyHostedMediaAfterApprove).
+  app.post('/api/v1/attachments/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/attachments/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.get('/api/v1/attachments', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments' + q, req, res);
+  });
+  app.get('/api/v1/attachments/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/attachments/' + encodeURIComponent(req.params.id) + q,
       req,
       res,
     );
@@ -3604,6 +3665,25 @@ async function proxyToCanister(req, res) {
         responseBody = mergeCaptureApplyIntoApproveResponse(responseBody, captureApplyOutcome);
         if (captureApplyOutcome && !captureApplyOutcome.applied) {
           console.error('[gateway] capture apply after approve failed:', captureApplyOutcome.error);
+        }
+        // SEC-SEAM-MEDIA-b / SM-C1: Hub-complete media apply after approve.
+        // Non-fatal to the approve HTTP status (SM-C12) — failure surfaces as
+        // media_index_applied: false in the merged body.
+        const mediaApplyOutcome = await maybeApplyHostedMediaAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergeMediaApplyIntoApproveResponse(responseBody, mediaApplyOutcome);
+        if (mediaApplyOutcome && !mediaApplyOutcome.applied) {
+          console.error('[gateway] media apply after approve failed:', mediaApplyOutcome.error);
         }
       } catch (e) {
         console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));

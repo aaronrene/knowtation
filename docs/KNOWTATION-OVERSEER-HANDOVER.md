@@ -381,7 +381,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 - [x] **SEC-KN-5** — P12 clamp policy TTL + P13 `viewer` cannot mint (**Auto**) — **DONE** (BV round 1 = `pass`)
 - [x] **SEC-KN-6** — P14 constant-time compare (**Auto**) — **DONE** (BV round 1 = `pass`)
 - [x] **SEC-SEAM-1** — P3 session-bound identity for task/media/delegation/flow writes (**Thinking → Auto**) — **DONE** (1a freeze CLEARED round 7; 1b BV round 1 = `pass`; code on `feat/sec-seam-1-session-bound-writes`; not merged)
-- [ ] **SEC-SEAM-MEDIA** — hosted media proposal surface (**Thinking → Auto**) — **TODO** (post–SEC-SEAM-1b; D2 = A)
+- [x] **SEC-SEAM-MEDIA-a** — hosted media freeze — **DONE 2026-08-01** (`docs/SEC-SEAM-MEDIA-FREEZE.md`, digest `sha256:f9c58fd3…`)
+- [x] **SEC-SEAM-MEDIA-b** — hosted media build (**Auto**) — **DONE 2026-08-01** (BV `pass` on `feat/sec-seam-media-b`); see `docs/OVERSEER-HANDOVER.md` for land NEXT
 - [x] **KN-b** — FINISH-COMPLETE-APPLY self-apply policy — **DONE** on `feat/finish-complete-apply-kn-b` (BV round 2 + independent round 3 `pass`; **16/16**; not merged; live still needs T1 + P1 WASM + Tier 3 env)
 
 ---
