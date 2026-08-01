@@ -85,19 +85,35 @@ describe('SEC-KN-4c unit — identity hook source contracts', () => {
 // ---------------------------------------------------------------------------
 // Tier 2 — integration (Motoko compile check)
 // ---------------------------------------------------------------------------
+function dfxAvailable() {
+  try {
+    execSync('command -v dfx', { stdio: 'pipe', shell: '/bin/bash' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe('SEC-KN-4c integration — Motoko compile check', () => {
-  test('dfx build --check hub exits 0 (scrubbed env)', () => {
-    execSync('dfx build --check hub', {
-      cwd: ICP_DIR,
-      stdio: 'pipe',
-      env: {
-        PATH: process.env.PATH,
-        HOME: process.env.HOME,
-        NO_COLOR: '1',
-        TERM: 'dumb',
-      },
-    });
-  });
+  // CI runners do not install dfx; the compile check is enforced locally and in
+  // build-verification (freeze 4C-R7 integration tier). Skipping when the
+  // toolchain is absent is explicit, never silent.
+  test(
+    'dfx build --check hub exits 0 (scrubbed env)',
+    { skip: dfxAvailable() ? false : 'dfx not installed on this runner — enforced locally/BV' },
+    () => {
+      execSync('dfx build --check hub', {
+        cwd: ICP_DIR,
+        stdio: 'pipe',
+        env: {
+          PATH: process.env.PATH,
+          HOME: process.env.HOME,
+          NO_COLOR: '1',
+          TERM: 'dumb',
+        },
+      });
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
