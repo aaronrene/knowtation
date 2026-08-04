@@ -269,6 +269,8 @@ export function registerBridgeMediaRoutes(app, deps) {
             body,
             intent: body.intent,
             sessionBound: sessionBoundFromReq(req),
+            // Canister GET fingerprint — not yaml-stage→readNote (body trimEnd flip).
+            liveStateIdOverride: staged?.liveStateId,
             createProposal: hostedCreateProposal({
               effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
               actorUid: req.uid,

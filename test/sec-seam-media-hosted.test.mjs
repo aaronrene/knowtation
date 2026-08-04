@@ -25,6 +25,7 @@ import {
   mergeMediaFrontmatter,
   normalizeCanisterProposalForMediaPrecheck,
   applyApprovedMediaProposalFromCanister,
+  stageCanisterNoteToTempVault,
 } from '../lib/attachments/media-hosted-proposal.mjs';
 import {
   MEDIA_PROPOSAL_SOURCE,
@@ -32,6 +33,7 @@ import {
   precheckApprovedMediaProposal,
   reconcileApprovedMediaProposal,
   handleMediaLinkProposeRequest,
+  handleMediaAttachProposeRequest,
   resolveMediaPointerForAttach,
 } from '../lib/attachments/attachment-write.mjs';
 import { handleAttachmentListRequest } from '../lib/attachments/attachment-handlers.mjs';
@@ -51,6 +53,7 @@ import {
   buildMediaWriteFixture,
   grantActiveConsent,
   sampleLinkProposeBody,
+  sampleAttachProposeBody,
 } from './fixtures/media/write-helpers.mjs';
 import { createProposal } from '../hub/proposals-store.mjs';
 import { loadMediaImportConsentStore, saveMediaImportConsentStore } from '../lib/attachments/media-import-consent.mjs';
@@ -441,6 +444,122 @@ describe('SEC-SEAM-MEDIA-b — unit', () => {
     assert.equal(resolveMediaPointerForAttach(vaultPath, {}, mistId), null);
   });
 
+  it('yaml-stage kn1 flip: canister GET fingerprint override prevents MEDIA_LINEAGE_CONFLICT', async (t) => {
+    process.env.MEDIA_ATTACH_ENABLED = '1';
+    const notePath = 'hms-c7-attach-smoke.md';
+    const frontmatter = { title: 'HMS C7 Attach', type: 'note' };
+    // Trailing newline is common on canister payloads; parseFrontmatterAndBody trimEnds it.
+    const bodyWithNl = 'Smoke body for hosted attach kn1.\n';
+    const getKn1 = noteStateIdFromParts(frontmatter, bodyWithNl);
+
+    const noteRows = new Map([[notePath, { frontmatter, body: bodyWithNl }]]);
+    const { url: canisterUrl, close } = await startServer(mockCanisterApp(new Map(), noteRows));
+    t.after(close);
+
+    const staged = await stageCanisterNoteToTempVault({
+      canisterUrl,
+      headers: {},
+      notePath,
+    });
+    assert.ok(!('error' in staged), JSON.stringify(staged));
+    assert.equal(staged.staged, true);
+    assert.equal(staged.liveStateId, getKn1);
+
+    const afterRead = readNote(staged.vaultPath, notePath);
+    const stageKn1 = noteStateIdFromParts(afterRead.frontmatter ?? {}, afterRead.body ?? '');
+    assert.notEqual(
+      stageKn1,
+      getKn1,
+      'yaml-stage→readNote must diverge when body has trailing newline',
+    );
+
+    const fx = buildMediaWriteFixture(path.join(tmpRoot, 'kn1-override'));
+    // Attachment discovery walks vaultPath; stage only the note, so bring media bytes along.
+    fs.cpSync(path.join(fx.vaultPath, 'media'), path.join(staged.vaultPath, 'media'), {
+      recursive: true,
+    });
+
+    const proposeBody = sampleAttachProposeBody(fx, {
+      note_ref: `note:${notePath}`,
+      base_state_id: getKn1,
+    });
+
+    const without = await handleMediaAttachProposeRequest({
+      dataDir: fx.dataDir,
+      vaultPath: staged.vaultPath,
+      vaultId: fx.vaultId,
+      cliScopes: ['personal', 'project', 'org'],
+      body: proposeBody,
+      intent: 'attach without override',
+      createProposal,
+    });
+    assert.equal(without.ok, false);
+    assert.equal(without.code, 'MEDIA_LINEAGE_CONFLICT');
+
+    const withOverride = await handleMediaAttachProposeRequest({
+      dataDir: fx.dataDir,
+      vaultPath: staged.vaultPath,
+      vaultId: fx.vaultId,
+      cliScopes: ['personal', 'project', 'org'],
+      body: proposeBody,
+      intent: 'attach with canister GET kn1',
+      liveStateIdOverride: staged.liveStateId,
+      createProposal,
+    });
+    assert.equal(withOverride.ok, true, JSON.stringify(withOverride));
+
+    const preNo = precheckApprovedMediaProposal(
+      fx.dataDir,
+      {
+        vault_id: fx.vaultId,
+        status: 'approved',
+        source: MEDIA_PROPOSAL_SOURCE,
+        base_state_id: getKn1,
+        media_meta: {
+          proposal_kind: 'media_attach',
+          attachment_id: fx.fileId,
+          note_ref: `note:${notePath}`,
+          media_pointer: fx.fileId,
+        },
+        body: JSON.stringify({
+          proposal_kind: 'media_attach',
+          attachment_id: fx.fileId,
+          note_ref: `note:${notePath}`,
+          media_pointer: fx.fileId,
+        }),
+      },
+      { vaultPath: staged.vaultPath, vaultConfig: {} },
+    );
+    assert.equal(preNo.ok, false);
+    assert.equal(preNo.code, 'MEDIA_LINEAGE_CONFLICT');
+
+    const preYes = precheckApprovedMediaProposal(
+      fx.dataDir,
+      {
+        vault_id: fx.vaultId,
+        status: 'approved',
+        source: MEDIA_PROPOSAL_SOURCE,
+        base_state_id: getKn1,
+        media_meta: {
+          proposal_kind: 'media_attach',
+          attachment_id: fx.fileId,
+          note_ref: `note:${notePath}`,
+          media_pointer: fx.fileId,
+        },
+        body: JSON.stringify({
+          proposal_kind: 'media_attach',
+          attachment_id: fx.fileId,
+          note_ref: `note:${notePath}`,
+          media_pointer: fx.fileId,
+        }),
+      },
+      { vaultPath: staged.vaultPath, vaultConfig: {}, liveStateIdOverride: staged.liveStateId },
+    );
+    assert.equal(preYes.ok, true, JSON.stringify(preYes));
+
+    staged.cleanup();
+  });
+
   it('hook returns null for non-approve paths and non-2xx approve', async () => {
     const ctxBase = {
       method: 'POST',
@@ -625,6 +744,45 @@ describe('SEC-SEAM-MEDIA-b — integration', () => {
     const written = noteRows.get(notePath);
     assert.ok(written);
     assert.ok(Array.isArray(written.frontmatter.attachments));
+    assert.ok(written.frontmatter.attachments.includes(pointer));
+  });
+
+  it('media_attach apply preserves trailing-newline body kn1 via canister GET override', async (t) => {
+    const notePath = 'trail-nl.md';
+    const frontmatter = { title: 'Trail NL', type: 'note' };
+    const bodyWithNl = 'Body with trailing newline.\n';
+    const baseStateId = noteStateIdFromParts(frontmatter, bodyWithNl);
+    const pointer = 'att_file_trailnldeadbeefdeadbeefdeadbe';
+    const proposalId = 'prop-trail-nl';
+
+    const noteRows = new Map([[notePath, { frontmatter, body: bodyWithNl }]]);
+    const rows = new Map([
+      [
+        proposalId,
+        mediaAttachRow({
+          proposalId,
+          attachmentId: pointer,
+          noteRef: `note:${notePath}`,
+          baseStateId,
+          mediaPointer: pointer,
+        }),
+      ],
+    ]);
+    const { url: canisterUrl, close } = await startServer(mockCanisterApp(rows, noteRows));
+    t.after(close);
+
+    const fx = buildMediaWriteFixture(path.join(tmpRoot, 'int-attach-trail'));
+    const result = await applyApprovedMediaProposalFromCanister({
+      dataDir: fx.dataDir,
+      canisterUrl,
+      headers: {},
+      proposalId,
+      vaultId: fx.vaultId,
+    });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const written = noteRows.get(notePath);
+    assert.ok(written);
+    assert.equal(written.body, bodyWithNl, 'canister POST must keep trailing newline body');
     assert.ok(written.frontmatter.attachments.includes(pointer));
   });
 });
