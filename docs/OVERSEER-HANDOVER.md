@@ -18,35 +18,35 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=owner lane=security status=live product_order=scooling -->
-## NEXT SESSION — SEC-SEAM-MEDIA land (SD-21 / SD-14)
+## NEXT SESSION — Land hosted attach kn1 stage fix (SD-21 / SD-14)
 
-**Date:** 2026-08-01  
+**Date:** 2026-08-04  
 **Model:** **Operator + Auto**
 
-**Why this is next:** SEC-SEAM-MEDIA-b Auto is **DONE** — BV round 1 = `pass` on
-`feat/sec-seam-media-b` (SM-C1–C12; seven-tier + SEC-SEAM-1 **50/50**, test_output
-sha256 `2f7bf57d…`). No posture/env flip, no secrets, no real money, no Delegation
-write env → **SD-21 land hygiene is Tier 1** (Muse merge → muse-bridge-deploy →
-green `muse-mirror` → GitHub `main`). SEC-KN-P6-ROTATE R4–R5 remain **PARKED**.
-Cross-repo product order still follows Scooling PRIMARY when the two boards disagree.
+**Why this is next:** SEC-SEAM-MEDIA is on Muse `main` (`364c712a…`). Live HMS attach
+hits `MEDIA_LINEAGE_CONFLICT` because yaml-stage → `readNote` `trimEnd`s body while
+clients hash Hub GET JSON (trailing newline kept). Fix on
+`feat/hosted-media-attach-kn1-stage`: pass canister GET `liveStateId` into propose +
+apply precheck; preserve canister body on attach write-back. Seven-tier media hosted
+tests green locally. No posture/env/secrets/money → **SD-21 Tier 1 land**. SEC-KN-P6
+R4–R5 remain **PARKED**. Product attach SMOKE returns to Scooling PRIMARY after Hub
+publish.
 
-> Hub dashboard UI redesign is **not** this baton — that lane lives in
-> [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) + [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md).
-
-### THE ONE NEXT STEP — **land SEC-SEAM-MEDIA** — **Model: Operator + Auto**
+### THE ONE NEXT STEP — **land hosted-media-attach-kn1-stage** — **Model: Operator + Auto**
 
 ```text
-Step: SEC-SEAM-MEDIA land
+Step: hosted-media-attach-kn1-stage land
 Model: Operator + Auto
 Authority: knowtation
-Branch: feat/sec-seam-media-b
-Frozen: docs/SEC-SEAM-MEDIA-FREEZE.md (BV pass already recorded)
+Branch: feat/hosted-media-attach-kn1-stage
+Parent: SEC-SEAM-MEDIA (Muse main 364c712a…)
 
 SD-21 land hygiene (no posture/env/secrets/money in diff):
-1. Muse merge/cherry-pick feat/sec-seam-media-b → Muse main
-2. ./scripts/muse-bridge-deploy.sh "mirror: SEC-SEAM-MEDIA hosted propose+apply"
+1. Muse merge feat/hosted-media-attach-kn1-stage → Muse main
+2. ./scripts/muse-bridge-deploy.sh "mirror: hosted attach kn1 GET fingerprint (yaml-stage trimEnd)"
 3. Open/merge GitHub PR muse-mirror → main only (SD-14); CI SD-14 check required
-4. Governance sync SHAs into ROADMAP + OVERSEER-HANDOVER; feature-branch hygiene done
+4. After Netlify/bridge publish: Scooling HMS attach re-SMOKE
+5. Governance sync SHAs into ROADMAP + OVERSEER-HANDOVER
 
 Do NOT: git push origin main; feature→GitHub-main PR; MEDIA_* / SCOOLING_MEDIA_*
 flips; SESSION_SECRET writes; unpark P6 R4–R5 unless operator asks.
@@ -95,10 +95,21 @@ governance sync. No other posture/env flips. SD-14 muse-mirror only.
 
 ### After this (queued order)
 
-1. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
-2. MuseHub F7 — AWS-parked.
+1. After Hub publish — Scooling HOSTED-MEDIA-SMOKE attach re-SMOKE (product PRIMARY).
+2. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
+3. MuseHub F7 — AWS-parked.
 
-### This session — SEC-SEAM-MEDIA-b DONE (BV pass, 2026-08-01)
+### This session — hosted attach kn1 stage fix (2026-08-04)
+
+Root cause: `stageCanisterNoteToTempVault` yaml→`readNote` uses `parseFrontmatterAndBody`
+`trimEnd` on body; Hub GET keeps trailing newlines → client `kn1_` ≠ staged `kn1_` →
+false `MEDIA_LINEAGE_CONFLICT`. Fix: `liveStateId` from canister GET on stage;
+`liveStateIdOverride` on propose + approve precheck; attach write-back prefers canister
+body. Tests: `test/sec-seam-media-hosted.test.mjs` (yaml-stage flip + apply trail-nl).
+Branch `feat/hosted-media-attach-kn1-stage`. No MEDIA_* / SESSION_SECRET flips. NEXT =
+**SD-21 land** this branch.
+
+### Prior — SEC-SEAM-MEDIA-b DONE (BV pass, 2026-08-01)
 
 Auto on `feat/sec-seam-media-b` implemented SM-C1–C12: gateway media approve hook
 after capture; `media-hosted-proposal.mjs` normalize/create/apply; S3.1 media
@@ -106,8 +117,9 @@ normalize in `isSeamSurfaceProposal` same change; bridge media routes + blob syn
 media_attach temp-stage canister note RMW + propose-time `media_pointer` stamp;
 OpenAPI apply-approved + PROPOSAL-LIFECYCLE honesty; S7.3 sentinel updated for
 hosted routes. Seven-tier + SEC-SEAM-1 **50/50** (sha256 `2f7bf57d…`). BV round 1
-= `pass`. No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5
-untouched. NEXT = **SEC-SEAM-MEDIA land** (SD-21 / SD-14).
+= `pass`. Contained in Muse `main` at `364c712a…` (parent of kn1-stage branch).
+No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5
+untouched.
 
 ### Prior this session — SEC-SEAM-MEDIA-a DONE (freeze pass, 2026-08-01)
 
@@ -705,7 +717,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-08-01 | **SEC-SEAM-MEDIA-b DONE — BV round 1 = `pass`.** SM-C1–C12 on `feat/sec-seam-media-b`: gateway `maybeApplyHostedMediaAfterApprove` after capture; `lib/attachments/media-hosted-proposal.mjs`; S3.1 media normalize in `isSeamSurfaceProposal` same change; bridge propose/consent/list/get/apply-approved + `media-blob-store`; media_attach temp-stage canister note RMW + propose-time `media_pointer`; OpenAPI + PROPOSAL-LIFECYCLE honesty; S7.3 sentinel updated. Seven-tier + SEC-SEAM-1 **50/50** (sha256 `2f7bf57d…`). No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5 untouched. NEXT = **SEC-SEAM-MEDIA land** (SD-21 / SD-14). |
+| 2026-08-04 | **Hosted attach kn1 stage fix (code).** `feat/hosted-media-attach-kn1-stage`: canister GET `liveStateId` / `liveStateIdOverride` so yaml-stage `trimEnd` cannot false-`MEDIA_LINEAGE_CONFLICT`; attach write-back keeps canister body. Tests in `test/sec-seam-media-hosted.test.mjs`. No posture/env flips. NEXT = SD-21 land → Scooling attach SMOKE. |
+| 2026-08-01 | **SEC-SEAM-MEDIA-b DONE — BV round 1 = `pass`.** SM-C1–C12 on `feat/sec-seam-media-b`: gateway `maybeApplyHostedMediaAfterApprove` after capture; `lib/attachments/media-hosted-proposal.mjs`; S3.1 media normalize in `isSeamSurfaceProposal` same change; bridge propose/consent/list/get/apply-approved + `media-blob-store`; media_attach temp-stage canister note RMW + propose-time `media_pointer`; OpenAPI + PROPOSAL-LIFECYCLE honesty; S7.3 sentinel updated. Seven-tier + SEC-SEAM-1 **50/50** (sha256 `2f7bf57d…`). No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5 untouched. Contained in Muse `main` `364c712a…`. |
 | 2026-08-01 | **SEC-SEAM-MEDIA-a DONE — freeze-review `pass`.** `docs/SEC-SEAM-MEDIA-FREEZE.md` (`frozen: true`, digest `sha256:f9c58fd3…`): SM-C1–C12 hosted media propose+apply; S3.0 same-change hook+`normalizeCanisterProposalForMediaPrecheck`; media_attach canister note IO adapter; blob media stores; no posture/env flip; P6 R4–R5 stayed parked. Branch `feat/sec-seam-media-a`. NEXT was **SEC-SEAM-MEDIA-b** Auto. |
 | 2026-08-01 | **SEC-KN-P6-ROTATE-b R1–R3 DONE; R4–R5 PARKED.** EC2 deploy + R2 discard 401/401 (elevation closed); dual-verify helper P0 live on gateway+bridge+EC2 (`d48fb11c`, PR #288); BV `pass`. Operator parked R4–R5 (hygiene, not emergency — need ≥24h babysit window). NEXT was **SEC-SEAM-MEDIA-a** Thinking; unpark runbook stays in handover PARKED block. |
 | 2026-08-01 | **SEC-KN-P6-ROTATE-a DONE — freeze-review `pass`.** `docs/SEC-KN-P6-ROTATE-FREEZE.md` (`frozen: true`, digest `sha256:958c8add…`): D1 one signing domain; D2 deploy-before-rotate; dual-secret runbook; G10 full `jwt.verify` wire-up. Top input: SEC-KN-3 on Muse/`main` (stale "not merged" corrected); EC2 pre-current-main (discard 401 vs 200). Evidence: `docs/reviews/2026-08-01-sec-kn-p6-rotate-ec2-code-divergence.md`. No T1–T4. NEXT = **SEC-KN-P6-ROTATE-b** (Operator + Auto). |
