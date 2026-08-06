@@ -2153,10 +2153,10 @@ app.post('/api/v1/flows/:id/runs/:run_id/execute-automatable', FLOW_RUN_WRITE_RO
   return res.json(result.payload);
 });
 
-app.post('/api/v1/flows/:id/runs/:run_id/submit-review', FLOW_RUN_WRITE_ROLES, (req, res) => {
+app.post('/api/v1/flows/:id/runs/:run_id/submit-review', FLOW_RUN_WRITE_ROLES, async (req, res) => {
   const runId = typeof req.params.run_id === 'string' ? decodeURIComponent(req.params.run_id).trim() : '';
   const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const result = handleFlowRunSubmitReviewRequest({
+  const result = await handleFlowRunSubmitReviewRequest({
     dataDir: config.data_dir,
     vaultId: req.vault_id ?? 'default',
     userId: req.user?.sub ?? '',

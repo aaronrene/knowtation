@@ -461,7 +461,7 @@ export function registerFlowTools(server) {
         const config = loadConfig();
         const vaultId = args.vault_id?.trim() || config.default_vault_id || 'default';
         const cliScopes = Array.isArray(config.flow?.visible_scopes) ? config.flow.visible_scopes : undefined;
-        const result = handleFlowRunMcpRequest({
+        const result = await handleFlowRunMcpRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,

@@ -77,6 +77,7 @@ import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
 import { registerBridgeFlowRoutes } from './flow-routes.mjs';
 import { registerBridgeFlowCaptureRoutes } from './flow-capture-routes.mjs';
+import { registerBridgeFlowRunRoutes } from './flow-run-routes.mjs';
 import { registerBridgeMediaRoutes } from './media-routes.mjs';
 import { registerBridgeExternalAgentRoutes } from './external-agent-routes.mjs';
 
@@ -3398,6 +3399,18 @@ registerBridgeFlowRoutes(app, {
 
 // Flow capture observe/list/propose/dismiss (hosted parity — FLOW-CAPTURE-LIVE-KN-b).
 registerBridgeFlowCaptureRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Flow run / consent (hosted parity — SITE-FINISH-FLOW-RUN-KN-b / §FR.0.4).
+// FLOW_RUN_WRITES_ENABLED + FLOW_AUTOMATABLE_EXECUTION_ENABLED stay default OFF.
+registerBridgeFlowRunRoutes(app, {
   dataDir: DATA_DIR,
   canisterUrl: CANISTER_URL,
   canisterHeaders,
