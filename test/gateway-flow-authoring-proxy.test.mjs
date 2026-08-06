@@ -143,8 +143,8 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — unit', () => {
     assert.match(bridge, /registerBridgeFlowRoutes/);
     assert.match(routes, /createFlowProposalOnCanister/);
     assert.match(routes, /FLOW_AUTHORING/);
-    // Run stays unproxied (capture proxies land in FLOW-CAPTURE-LIVE-KN-b).
-    assert.doesNotMatch(gw, /app\.post\('\/api\/v1\/flows\/:id\/runs'/);
+    // Run proxies land in SITE-FINISH-FLOW-RUN-KN-b (separate module).
+    assert.match(readRepo('hub/gateway/server.mjs'), /SITE-FINISH-FLOW-RUN-KN-b/);
   });
 });
 
@@ -353,7 +353,7 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — performance', () => {
 });
 
 describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — security', () => {
-  it('import path is not captured as :id; run stays unproxied', async (t) => {
+  it('import path is not captured as :id; run proxies coexist with authoring', async (t) => {
     const calls = [];
     const mockBridge = express();
     mockBridge.use(express.json());
@@ -381,7 +381,8 @@ describe('FLOW-WRITE-LIVE-GATEWAY-PROXY — security', () => {
     assert.equal(res.status, 403);
     assert.deepEqual(calls, ['import']);
     const gw = readRepo('hub/gateway/server.mjs');
-    assert.doesNotMatch(gw, /app\.post\('\/api\/v1\/flows\/:id\/runs'/);
+    assert.match(gw, /SITE-FINISH-FLOW-RUN-KN-b/);
+    assert.match(gw, /app\.post\('\/api\/v1\/flows\/:id\/runs'/);
   });
 
   it('source scan: no Delegation write env and no Scooling Hub JWT envs added', () => {

@@ -1077,7 +1077,7 @@ if (BRIDGE_URL) {
   });
 
   // Flow authoring write-back (hosted parity — FLOW-WRITE-LIVE-GATEWAY-PROXY).
-  // Must register BEFORE the /api/v1 canister catch-all. Run stays unproxied.
+  // Must register BEFORE the /api/v1 canister catch-all.
   // Static /import before /:id/proposals so "import" is never treated as a flow id.
   app.post('/api/v1/flows/import', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
@@ -1155,9 +1155,125 @@ if (BRIDGE_URL) {
       res,
     );
   });
+
+  // Flow run / consent (hosted parity — SITE-FINISH-FLOW-RUN-KN-b / §FR.0.4).
+  // Register BEFORE GET /api/v1/flows/:id so "runs" paths are not stolen as flow ids.
+  // Static GET /api/v1/flow-runs/:run_id before flows/:id/runs for hosted read parity.
+  // KN FLOW_RUN_WRITES_ENABLED / FLOW_AUTOMATABLE_EXECUTION_ENABLED stay default OFF.
+  app.get('/api/v1/flow-runs/:run_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flow-runs/' + encodeURIComponent(req.params.run_id) + q,
+      req,
+      res,
+    );
+  });
+  app.get('/api/v1/flows/:id/runs', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/advance', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/advance' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/evidence', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/evidence' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/execute-automatable', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/execute-automatable' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/submit-review', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/submit-review' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/consent', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/consent' +
+        q,
+      req,
+      res,
+    );
+  });
+
   // CHA-C5 ordering: these two GETs are registered AFTER flows/:id/projection,
-  // flows/external-grants, and flows/candidates above, so those static/deeper
-  // routes always win; both still register before the /api/v1 canister catch-all.
+  // flows/external-grants, flows/candidates, and flows/:id/runs above, so those
+  // static/deeper routes always win; both still register before the /api/v1 catch-all.
   app.get('/api/v1/flows', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows' + q, req, res);

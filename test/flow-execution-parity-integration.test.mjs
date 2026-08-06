@@ -37,7 +37,7 @@ describe('Flow execution — triple-surface parity', () => {
     delete process.env.FLOW_AUTOMATABLE_EXECUTION_ENABLED;
   });
 
-  it('Hub handler and MCP start produce deep-equal run records', () => {
+  it('Hub handler and MCP start produce deep-equal run records', async () => {
     const hubDir = freshDataDir('hub');
     const mcpDir = freshDataDir('mcp');
     const bundle = seedAutomatableFlow(hubDir, 'default');
@@ -51,7 +51,7 @@ describe('Flow execution — triple-surface parity', () => {
       flowVersion: bundle.flow.version,
       harness: 'hub',
     });
-    const mcp = handleFlowRunMcpRequest({
+    const mcp = await handleFlowRunMcpRequest({
       dataDir: mcpDir,
       vaultId: 'default',
       cliScopes: ['personal', 'project', 'org'],
@@ -71,7 +71,7 @@ describe('Flow execution — triple-surface parity', () => {
     assert.equal(hubRun.step_states.length, mcpRun.step_states.length);
   });
 
-  it('FLOW_RUN_WRITES_ENABLED=off ⇒ identical disabled code', () => {
+  it('FLOW_RUN_WRITES_ENABLED=off ⇒ identical disabled code', async () => {
     delete process.env.FLOW_RUN_WRITES_ENABLED;
     const dir = freshDataDir('off');
     seedAutomatableFlow(dir, 'default');
@@ -82,7 +82,7 @@ describe('Flow execution — triple-surface parity', () => {
       flowId: 'flow_automatable_test',
       flowVersion: '1.0.0',
     });
-    const mcp = handleFlowRunMcpRequest({
+    const mcp = await handleFlowRunMcpRequest({
       dataDir: dir,
       vaultId: 'default',
       cliScopes: ['personal', 'project', 'org'],

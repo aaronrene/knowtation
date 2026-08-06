@@ -38,7 +38,7 @@ describe('Flow execution — e2e', () => {
     delete process.env.FLOW_AUTOMATABLE_EXECUTION_ENABLED;
   });
 
-  it('start → consent → execute automatable → submit review', () => {
+  it('start → consent → execute automatable → submit review', async () => {
     const start = handleFlowRunStartRequest({
       dataDir,
       vaultId,
@@ -72,7 +72,7 @@ describe('Flow execution — e2e', () => {
     assert.equal(execute.payload.execution.status, 'completed');
     assert.ok(execute.payload.execution.evidence_ref);
 
-    const submit = handleFlowRunSubmitReviewRequest({
+    const submit = await handleFlowRunSubmitReviewRequest({
       dataDir,
       vaultId,
       cliScopes: ['personal', 'project', 'org'],

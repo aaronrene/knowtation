@@ -27,7 +27,7 @@ describe('Flow run store — triple-surface parity', () => {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 
-  it('Hub handler and MCP get by run_ref produce deep-equal payloads', () => {
+  it('Hub handler and MCP get by run_ref produce deep-equal payloads', async () => {
     const hubDir = path.join(tmpRoot, 'hub');
     const mcpDir = path.join(tmpRoot, 'mcp');
     fs.mkdirSync(hubDir);
@@ -40,7 +40,7 @@ describe('Flow run store — triple-surface parity', () => {
       cliScopes: scopes,
       runId: OVERSEER_FIXTURE_RUN_REF,
     });
-    const mcp = handleFlowRunMcpRequest({
+    const mcp = await handleFlowRunMcpRequest({
       dataDir: mcpDir,
       vaultId: 'default',
       cliScopes: scopes,

@@ -4,7 +4,8 @@
  *
  * Gated by FLOW_AUTHORING_WRITES (default OFF → 403 FLOW_AUTHORING_DISABLED).
  * Capture routes live in flow-capture-routes.mjs (FLOW-CAPTURE-LIVE-KN-b).
- * Does NOT mount run/Delegation write routes.
+ * Run/consent routes live in flow-run-routes.mjs (SITE-FINISH-FLOW-RUN-KN-b).
+ * Does NOT mount Delegation write routes.
  *
  * @see docs/FLOW-AUTHORING-WRITEBACK-CONTRACT-7A-L1.md
  * @see hub/bridge/task-routes.mjs

@@ -1763,7 +1763,7 @@ async function main() {
         if (!runId || !intent) {
           flowExitWithError('knowtation flow run submit-review: provide run_id and --intent.', 'BAD_REQUEST');
         }
-        const result = handleFlowRunSubmitReviewRequest({
+        const result = await handleFlowRunSubmitReviewRequest({
           dataDir: config.data_dir,
           vaultId,
           cliScopes,
