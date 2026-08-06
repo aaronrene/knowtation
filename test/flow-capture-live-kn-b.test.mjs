@@ -619,12 +619,15 @@ describe('FLOW-CAPTURE-LIVE-KN-b — security', () => {
     assert.doesNotMatch(selfApplySrc, /matchesScoolingFlowCaptureFingerprint/);
   });
 
-  it('source scan: no capture env hard-on; no Delegation write env; run unproxied', () => {
+  it('source scan: no capture env hard-on; no Delegation write env; no secrets in gateway', () => {
     const gw = readRepo('hub/gateway/server.mjs');
     const routes = readRepo('hub/bridge/flow-capture-routes.mjs');
     assert.doesNotMatch(routes, /FLOW_CAPTURE_WRITES_ENABLED\s*=\s*['"]1['"]/);
     assert.doesNotMatch(routes, /DELEGATION_WRITES\s*=/);
-    assert.doesNotMatch(gw, /app\.post\('\/api\/v1\/flows\/:id\/runs'/);
+    // Run proxies are SITE-FINISH-FLOW-RUN-KN-b (not this suite). Capture still
+    // must not hard-on run env or embed Hub JWTs in gateway source.
+    assert.doesNotMatch(gw, /FLOW_RUN_WRITES_ENABLED\s*=\s*['"]1['"]/);
+    assert.doesNotMatch(gw, /FLOW_AUTOMATABLE_EXECUTION_ENABLED\s*=\s*['"]1['"]/);
     assert.doesNotMatch(gw, /SCOOLING_.*HUB.*JWT/);
   });
 });
