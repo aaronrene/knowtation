@@ -105,6 +105,8 @@ describe('SITE-FINISH-FLOW-RUN-KN-b — unit', () => {
     assert.match(routes, /handleFlowRunStartRequest/);
     assert.match(routes, /handleFlowExecutionConsentMintRequest/);
     assert.match(routes, /withExternalProtocolBlobSync/);
+    assert.match(routes, /resolveStarterFlowsDir/);
+    assert.match(routes, /starterDir:\s*BRIDGE_STARTER_FLOWS_DIR/);
     // Authoring + capture still present (no silent deletion).
     assert.match(gw, /FLOW-WRITE-LIVE-GATEWAY-PROXY/);
     assert.match(gw, /FLOW-CAPTURE-LIVE-KN-b/);

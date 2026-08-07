@@ -104,4 +104,29 @@ describe('Flow execution — e2e', () => {
     assert.equal(execute.ok, false);
     assert.equal(execute.code, 'FLOW_EXECUTION_CONSENT_REQUIRED');
   });
+
+  it('start seeds missing starter Flow when vault already has other flows', () => {
+    const emptyRoot = path.join(tmpRoot, 'seed-gap');
+    fs.rmSync(emptyRoot, { recursive: true, force: true });
+    fs.mkdirSync(emptyRoot, { recursive: true });
+    writeExecutionPolicy(emptyRoot);
+    seedAutomatableFlow(emptyRoot, vaultId);
+    const starterDir = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'flows',
+      'starter',
+    );
+    const start = handleFlowRunStartRequest({
+      dataDir: emptyRoot,
+      vaultId,
+      cliScopes: ['personal', 'project', 'org'],
+      flowId: 'flow_session_to_flow',
+      flowVersion: '0.1.0',
+      starterDir,
+    });
+    assert.equal(start.ok, true, start.error ?? start.code);
+    assert.equal(start.payload.run.flow_id, 'flow_session_to_flow');
+    fs.rmSync(emptyRoot, { recursive: true, force: true });
+  });
 });
