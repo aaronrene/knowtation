@@ -20,6 +20,7 @@ import {
   flowDefinitionForClient,
   listFlows,
   getFlow,
+  resolveStarterFlowsDir,
   FLOW_ID_RE,
   FLOW_STEP_ID_RE,
   FLOW_RUN_ID_RE,
@@ -76,6 +77,14 @@ describe('Flow store — persistence', () => {
 });
 
 describe('Flow store — id and semver helpers', () => {
+  it('resolveStarterFlowsDir finds bundled flows/starter from bridge module URL', () => {
+    const dir = resolveStarterFlowsDir(
+      new URL('../hub/bridge/flow-run-routes.mjs', import.meta.url).href,
+    );
+    assert.ok(fs.existsSync(dir), dir);
+    assert.ok(fs.existsSync(path.join(dir, 'flow_session_to_flow.json')));
+  });
+
   it('regexes accept canonical ids and reject malformed', () => {
     assert.ok(FLOW_ID_RE.test('flow_weekly_review'));
     assert.ok(!FLOW_ID_RE.test('weekly_review'));
@@ -141,6 +150,42 @@ describe('Flow store — validation and seeding', () => {
     const second = seedStarterFlows(dataDir, vaultId, { starterDir });
     assert.equal(second.seeded, 0);
     assert.ok(second.skipped >= 6);
+  });
+
+  it('getFlow seeds missing starters when vault already has authored flows', () => {
+    saveFlowStore(dataDir, {
+      vaults: {
+        [vaultId]: {
+          flows: [
+            {
+              schema: 'knowtation.flow/v0',
+              flow_id: 'flow_custom_authored',
+              title: 'Custom',
+              version: '0.0.1',
+              scope: 'personal',
+              summary: 'pre-existing',
+              tags: [],
+              steps: [],
+              inputs: [],
+              updated: '2026-01-01T00:00:00Z',
+              truncated: false,
+            },
+          ],
+          steps: [],
+          runs: [],
+          candidates: [],
+          projections: [],
+        },
+      },
+    });
+    const got = getFlow(dataDir, vaultId, 'flow_session_to_flow', {
+      filterScopes: new Set(['personal']),
+      version: '0.1.0',
+      starterDir,
+    });
+    assert.ok(got);
+    assert.equal(got.flow.flow_id, 'flow_session_to_flow');
+    assert.equal(got.flow.version, '0.1.0');
   });
 });
 

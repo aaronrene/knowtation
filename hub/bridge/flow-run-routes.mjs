@@ -26,6 +26,7 @@ import {
   handleFlowRunSubmitReviewRequest,
   handleFlowExecutionConsentMintRequest,
 } from '../../lib/flow/flow-execution.mjs';
+import { resolveStarterFlowsDir } from '../../lib/flow/flow-store.mjs';
 import { FLOW_PROPOSAL_SOURCE } from '../../lib/flow/flow-authoring.mjs';
 import {
   withExternalProtocolBlobSync,
@@ -33,6 +34,9 @@ import {
 } from './external-agent-blob-store.mjs';
 import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
 import { verifyJwtWithSecretRotation } from '../lib/session-secret-rotation.mjs';
+
+/** Bundled `flows/starter` for Netlify included_files (parity with task-routes). */
+const BRIDGE_STARTER_FLOWS_DIR = resolveStarterFlowsDir(import.meta.url);
 
 /**
  * Map bridge role to flow-run handler role (member → editor, matching self-hosted hub).
@@ -243,6 +247,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
         userId: req.uid,
         role: ctx.role,
         runId,
+        starterDir: BRIDGE_STARTER_FLOWS_DIR,
       });
       if (!result.ok) {
         return res.status(result.status).json({ error: result.error, code: result.code });
@@ -267,6 +272,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
         userId: req.uid,
         role: ctx.role,
         flowId,
+        starterDir: BRIDGE_STARTER_FLOWS_DIR,
       });
       if (!result.ok) {
         return res.status(result.status).json({ error: result.error, code: result.code });
@@ -299,6 +305,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
             taskRef: body.task_ref,
             externalRef: body.external_ref,
             harness: 'hub',
+            starterDir: BRIDGE_STARTER_FLOWS_DIR,
           }),
       });
       if (!result.ok) {
@@ -331,6 +338,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
             stepId: body.step_id,
             toStatus: body.to_status,
             skipReason: body.skip_reason,
+            starterDir: BRIDGE_STARTER_FLOWS_DIR,
           }),
       });
       if (!result.ok) {
@@ -363,6 +371,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
             stepId: body.step_id,
             evidenceRef: body.evidence_ref,
             pointerKind: body.pointer_kind,
+            starterDir: BRIDGE_STARTER_FLOWS_DIR,
           }),
       });
       if (!result.ok) {
@@ -399,6 +408,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
               consentId: body.consent_id,
               modelLane: body.model_lane,
               dryRun: body.dry_run,
+              starterDir: BRIDGE_STARTER_FLOWS_DIR,
             }),
         });
         if (!result.ok) {
@@ -430,6 +440,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
             role: ctx.role,
             runId,
             intent: body.intent,
+            starterDir: BRIDGE_STARTER_FLOWS_DIR,
             createProposal: hostedCreateProposal({
               effectiveCanisterUid: ctx.hctx.effectiveCanisterUid,
               actorUid: req.uid,
@@ -470,6 +481,7 @@ export function registerBridgeFlowRunRoutes(app, deps) {
             costCapUnits: body.cost_cap_units,
             ttlSeconds: body.ttl_seconds,
             actorLabel: sessionBoundFromReq(req) ? req.uid : undefined,
+            starterDir: BRIDGE_STARTER_FLOWS_DIR,
           }),
       });
       if (!result.ok) {
