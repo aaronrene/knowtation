@@ -38,11 +38,13 @@
   timeout = 60
   external_node_modules = ["exceljs"]
   # Phase 2G hosted lazy-seed: resolveStarter* reads starter JSON at runtime (esbuild does not bundle fs paths).
+  # Flow starters required for SITE-FINISH-FLOW-RUN Start run (ensureStarterSeed / getFlow).
   included_files = [
     "tasks/starter/*.json",
     "task-loops/starter/*.json",
     "task-loops/starter/instances/*.json",
     "orchestrator-graphs/starter/*.json",
+    "flows/starter/*.json",
   ]
 
 # Background function: receives kickoff from the sync `bridge` function when the

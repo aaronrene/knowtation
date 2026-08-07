@@ -107,6 +107,12 @@ describe('SITE-FINISH-FLOW-RUN-KN-b — unit', () => {
     assert.match(routes, /withExternalProtocolBlobSync/);
     assert.match(routes, /resolveStarterFlowsDir/);
     assert.match(routes, /starterDir:\s*BRIDGE_STARTER_FLOWS_DIR/);
+    // Bridge Netlify site uses deploy/bridge/netlify.toml (Package directory), not root only.
+    const bridgeToml = fs.readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'deploy', 'bridge', 'netlify.toml'),
+      'utf8',
+    );
+    assert.match(bridgeToml, /flows\/starter\/\*\.json/);
     // Authoring + capture still present (no silent deletion).
     assert.match(gw, /FLOW-WRITE-LIVE-GATEWAY-PROXY/);
     assert.match(gw, /FLOW-CAPTURE-LIVE-KN-b/);
