@@ -29,12 +29,13 @@
 # external for the bridge function only so gateway.zip does not add node_modules/exceljs.
 [functions."bridge"]
   external_node_modules = ["exceljs"]
-  # Phase 2G hosted lazy-seed: bridge reads starter JSON from tasks/ and task-loops/ at runtime.
+  # Hosted lazy-seed: bridge reads starter JSON at runtime (tasks/loops/graphs + Flow v0).
   included_files = [
     "tasks/starter/*.json",
     "task-loops/starter/*.json",
     "task-loops/starter/instances/*.json",
     "orchestrator-graphs/starter/*.json",
+    "flows/starter/*.json",
   ]
 
 # Netlify sync-function platform max is 60 s per docs.netlify.com/build/functions/overview.
