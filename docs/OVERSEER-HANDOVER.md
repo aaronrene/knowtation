@@ -17,33 +17,59 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=owner lane=security status=live product_order=scooling -->
-## NEXT SESSION — Scooling FINISH-PUSH (product PRIMARY); KN queue idle
+<!-- overseer:next role=primary lane=auth status=live product_order=scooling -->
+## NEXT SESSION — KN-APPLE-NATIVE-HOSTED-EXCHANGE Thinking (PRIMARY — Knowtation-owned)
 
-**Date:** 2026-08-04  
-**Model:** **Auto** (product order) / Knowtation idle unless Scooling pull
+**Date:** 2026-08-09  
+**Model:** **Thinking**  
+**Ownership:** Knowtation authorization/auth surface (this board wins on HOW).  
+**Product order:** Matches Scooling PRIMARY (`~/scooling/docs/OVERSEER-HANDOVER.md`).
 
-**Why this is next:** HOSTED-MEDIA-SMOKE **DONE** on Scooling (UI attach Media saved;
-Hub tip `baa41bf` already published). Product baton is Scooling **FINISH-PUSH** (SD-26):
-hygiene → polish → **Lab complete** → WEB-FINISH → Apple. Knowtation owns only its
-security/authorization queue; SEC-KN-P6 R4–R5 remain **PARKED**. F7 is MuseHub AWS —
-not Knowtation NEXT.
+**Why this is next:** Scooling Apple Phases 0–5 scaffold are **landed and inert**
+(apple #7 `@da5f6c4`). APPLE-4-live + APPLE-5-live are **DEFER** because Knowtation
+has **no** Apple Sign-in / `native-apple-exchange` today (Hub OAuth = Google+GitHub
+only). T15 blocks Operator live authorize on Scooling. Building that server path
+is Knowtation-owned. Prior relay pointing at APPLE-2 / FLOW-RUN-SMOKE is **stale**
+(those are DONE on the Scooling board).
 
-### THE ONE NEXT STEP — **relay: do not invent KN product work** — **Model: Auto**
+### THE ONE NEXT STEP — Apple assertion → hosted session freeze (`KN-APPLE-a`)
 
 ```text
-Step: Relay — Scooling FINISH-PUSH-1a is product PRIMARY
-Model: Auto (only if KN hygiene needed) else Operator waits on Scooling
-Authority: scooling product order wins for sequencing
-Consume: ~/scooling/docs/OVERSEER-HANDOVER.md PRIMARY + SD-26
+Step: KN-APPLE-NATIVE-HOSTED-EXCHANGE Thinking — freeze Knowtation Apple assertion exchange (T15)
+Model: Thinking
+Repo: knowtation
+Authority: ~/scooling/docs/APPLE-4-LIVE-HOSTED-AUTH-FREEZE.md (§A4.2.5 label
+  native-apple-exchange; §A4.8 T1+T2+T15); ~/scooling/docs/ECOSYSTEM-IDENTITY-LINKING-CONTRACT.md;
+  ~/scooling/docs/reviews/2026-08-09-apple-4-live-defer.md;
+  ~/scooling/docs/reviews/2026-08-09-apple-5-live-defer.md;
+  existing C7 GET api/v1/auth/session introspect shape
+Branch: feat/kn-apple-native-hosted-exchange
+Frozen: create docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md (frozen:true)
 
 Do exactly:
-1. Do not open a Knowtation product phase unless Scooling PRIMARY names KN.
-2. If Operator unparks SEC-KN-P6 R4–R5, use the parked runbook below.
-3. Refresh this relay when Scooling Lab complete (FINISH-PUSH-2) or WEB-FINISH needs KN APIs.
+1. Freeze WHAT/HOW: accept short-lived Sign in with Apple identity assertion;
+   verify Apple id_token / JWKS server-side; mint opaque hosted session; map
+   Layer-1 apple:<sub> → Layer-2 scooling_uid via server HMAC only; expose
+   introspection compatible with GET api/v1/auth/session.
+2. Specify route allowlist, error codes, env/secrets (Apple Services ID / key — never
+   git), fail-closed cases, seven-tier matrix, and explicit differences from
+   Passport Google/GitHub and from /api/v1/auth/native PKCE (browser companion path).
+3. Non-goals: vault write authorize; Scooling CapabilityGate flips; App Store;
+   identity persistence durable store; F7; client HMAC.
+4. Freeze-review-loop → pass; then ROADMAP/HANDOVER → KN-APPLE-b Auto only.
 
-Do NOT: MEDIA_* flips; feature→GitHub-main; invent Lab/Apple work on this board.
+Do NOT: implement the route in Thinking; claim native PKCE = SIWA; invent live
+  Scooling REAL_NETWORK/VAULT_WRITE flips; commit Apple Team IDs/keys; feature→GitHub-main.
 ```
+
+### PARKED — after KN-APPLE lands (Scooling Operator; do not skip ahead)
+
+| Tip | When |
+| --- | --- |
+| **APPLE-4-live revisit** | T15 evidence live → authorize T1+T2+T15 together |
+| **APPLE-5-live revisit** | After APPLE-4-live → authorize T2+T3 vault propose→approve |
+| **SEC-KN-P6-ROTATE-b R4–R5** | Independent hygiene; quiet ≥24h window (runbook below) |
+| **MuseHub F7** | AWS parked — not required for Apple |
 
 ### PARKED — SEC-KN-P6-ROTATE-b R4–R5 (operator 2026-08-01)
 
@@ -88,11 +114,38 @@ governance sync. No other posture/env flips. SD-14 muse-mirror only.
 
 ### After this (queued order)
 
-1. Scooling **FINISH-PUSH** (product PRIMARY) — 1a honesty → Lab complete → WEB-FINISH → Apple.
-2. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
-3. MuseHub F7 — AWS-parked (not WEB-FINISH critical path).
+1. **KN-APPLE-NATIVE-HOSTED-EXCHANGE Thinking → Auto → land/deploy** — T15 readiness evidence.
+2. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
+3. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
+4. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
+5. MuseHub F7 — AWS-parked.
 
-### This session — hosted attach kn1 LANDED + Hub published (2026-08-04)
+### Prior — SITE-FINISH-FLOW-RUN-SMOKE / WEB-FINISH / Apple 0–5 (closed on Scooling board)
+
+Product FLOW-RUN SMOKE **PASS** 2026-08-07; WEB-FINISH declared; APPLE-0–5 scaffold
+landed inert; APPLE-4-live + APPLE-5-live **DEFER**. Do **not** re-open those tips
+from this Knowtation board. See `~/scooling/docs/OVERSEER-HANDOVER.md`.
+
+### This session — board sync (2026-08-09)
+
+Synced KN PRIMARY to **KN-APPLE-NATIVE-HOSTED-EXCHANGE Thinking**. Stale relays
+(APPLE-2 / FLOW-RUN-SMOKE as PRIMARY) retired. No Apple exchange code in this tip.
+
+### Prior — SITE-FINISH-FLOW-RUN-KN-b LANDED Muse main (2026-08-06)
+
+FF `feat/site-finish-flow-run-kn-b` → Muse `main` (`a33cba5c…`). Envs remain off
+until SMOKE. Hub GitHub/Netlify publish follows muse-bridge this session.
+
+### Prior — SITE-FINISH-FLOW-RUN-KN-b DONE (BV, 2026-08-06)
+
+**Done:** Gateway→bridge proxies for §FR.0.4 run/consent family; bridge
+`registerBridgeFlowRunRoutes` + flow-store blob sync; async submit-review for
+hosted canister create; seven-tier **10/10**; BV round 1 **`pass`**.
+`FLOW_RUN_WRITES_ENABLED` / `FLOW_AUTOMATABLE_EXECUTION_ENABLED` remain default
+**off**. No SC posture flip. Branch `feat/site-finish-flow-run-kn-b`.
+Evidence: `docs/reviews/2026-08-06-site-finish-flow-run-kn-b-bv-round1-pass.md`.
+
+### Prior — hosted attach kn1 LANDED + Hub published (2026-08-04)
 
 Root cause: `stageCanisterNoteToTempVault` yaml→`readNote` uses `parseFrontmatterAndBody`
 `trimEnd` on body; Hub GET keeps trailing newlines → client `kn1_` ≠ staged `kn1_` →
@@ -101,8 +154,7 @@ false `MEDIA_LINEAGE_CONFLICT`. Fix: `liveStateId` from canister GET on stage;
 body. Tests: `test/sec-seam-media-hosted.test.mjs`. Muse merge →
 [PR #290](https://github.com/aaronrene/knowtation/pull/290) `baa41bf` MERGED; Netlify
 bridge+gateway production **ready** at `baa41bf`. Audit overrides commit
-`6518a12b…` included in land. Scooling HMS attach **DONE** 2026-08-04; product PRIMARY
-= FINISH-PUSH (SD-26).
+`6518a12b…` included in land. NEXT = **Scooling attach SMOKE**.
 
 ### Prior — SEC-SEAM-MEDIA-b DONE (BV pass, 2026-08-01)
 
@@ -712,8 +764,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-08-04 | **Finish-push relay (SD-26).** HMS DONE on Scooling; KN idle; product PRIMARY = Scooling FINISH-PUSH-1a → Lab → WEB-FINISH → Apple. P6 R4–R5 parked; F7 parked. |
-| 2026-08-04 | **Hosted attach kn1 LANDED + published.** Muse `main` `d3f6da81…` + audit `6518a12b…` → [PR #290](https://github.com/aaronrene/knowtation/pull/290) `baa41bf` MERGED; Netlify bridge+gateway production ready at `baa41bf`. Canister GET `liveStateIdOverride` clears yaml-stage `trimEnd` false `MEDIA_LINEAGE_CONFLICT`. HMS attach later DONE on Scooling. |
+| 2026-08-06 | **SITE-FINISH-FLOW-RUN-KN-b DONE — BV round 1 = `pass`.** Gateway→bridge §FR.0.4 run/consent proxies + bridge `registerBridgeFlowRunRoutes` (flow-store blob sync); async submit-review for hosted canister create; seven-tier **10/10** (`test/site-finish-flow-run-kn-b.test.mjs`, sha256 `0f6d17ac…`). `FLOW_RUN_WRITES_ENABLED` / `FLOW_AUTOMATABLE_EXECUTION_ENABLED` stay default off. No SC posture flip. Branch `feat/site-finish-flow-run-kn-b`. Evidence: `docs/reviews/2026-08-06-site-finish-flow-run-kn-b-bv-round1-pass.md`. Product NEXT = **SITE-FINISH-FLOW-RUN-flip**. |
+| 2026-08-04 | **Hosted attach kn1 LANDED + published.** Muse `main` `d3f6da81…` + audit `6518a12b…` → [PR #290](https://github.com/aaronrene/knowtation/pull/290) `baa41bf` MERGED; Netlify bridge+gateway production ready at `baa41bf`. Canister GET `liveStateIdOverride` clears yaml-stage `trimEnd` false `MEDIA_LINEAGE_CONFLICT`. NEXT = Scooling HMS attach SMOKE. |
 | 2026-08-04 | **Hosted attach kn1 stage fix (code).** `feat/hosted-media-attach-kn1-stage`: canister GET `liveStateId` / `liveStateIdOverride` so yaml-stage `trimEnd` cannot false-`MEDIA_LINEAGE_CONFLICT`; attach write-back keeps canister body. Tests in `test/sec-seam-media-hosted.test.mjs`. No posture/env flips. |
 | 2026-08-01 | **SEC-SEAM-MEDIA-b DONE — BV round 1 = `pass`.** SM-C1–C12 on `feat/sec-seam-media-b`: gateway `maybeApplyHostedMediaAfterApprove` after capture; `lib/attachments/media-hosted-proposal.mjs`; S3.1 media normalize in `isSeamSurfaceProposal` same change; bridge propose/consent/list/get/apply-approved + `media-blob-store`; media_attach temp-stage canister note RMW + propose-time `media_pointer`; OpenAPI + PROPOSAL-LIFECYCLE honesty; S7.3 sentinel updated. Seven-tier + SEC-SEAM-1 **50/50** (sha256 `2f7bf57d…`). No MEDIA_*/SCOOLING_MEDIA_* flips; no SESSION_SECRET writes; P6 R4–R5 untouched. Contained in Muse `main` `364c712a…`. |
 | 2026-08-01 | **SEC-SEAM-MEDIA-a DONE — freeze-review `pass`.** `docs/SEC-SEAM-MEDIA-FREEZE.md` (`frozen: true`, digest `sha256:f9c58fd3…`): SM-C1–C12 hosted media propose+apply; S3.0 same-change hook+`normalizeCanisterProposalForMediaPrecheck`; media_attach canister note IO adapter; blob media stores; no posture/env flip; P6 R4–R5 stayed parked. Branch `feat/sec-seam-media-a`. NEXT was **SEC-SEAM-MEDIA-b** Auto. |
