@@ -18,47 +18,47 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=primary lane=auth status=live product_order=scooling -->
-## NEXT SESSION — KN-APPLE-NATIVE-HOSTED-EXCHANGE-b Auto (PRIMARY — Knowtation-owned)
+## NEXT SESSION — KN-APPLE land + Operator T1 (PRIMARY — Knowtation-owned)
 
 **Date:** 2026-08-09  
-**Model:** **Auto**  
+**Model:** **Operator + Auto**  
 **Ownership:** Knowtation authorization/auth surface (this board wins on HOW).  
 **Product order:** Matches Scooling PRIMARY (`~/scooling/docs/OVERSEER-HANDOVER.md`).
 
-**Why this is next:** KN-APPLE-a freeze CLEARED (`docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md`,
-freeze-review **`pass`**, digest `sha256:4ec69573…`). APPLE-4-live + APPLE-5-live
-remain **DEFER** until this route lands with T15 readiness evidence. Build exactly
-against the freeze — no redesign.
+**Why this is next:** KN-APPLE-b Auto **DONE** — BV round 1 **`pass`**
+(`docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md`); seven-tier **13/13**
+(test_output `sha256:d419cfb2…`). Code readiness on
+`feat/kn-apple-native-hosted-exchange`. Live T15 evidence still needs Muse/`main`
+land + gateway deploy with `APPLE_CLIENT_ID` (Operator T1). APPLE-4-live /
+APPLE-5-live remain **DEFER** until that evidence exists.
 
-### THE ONE NEXT STEP — Apple assertion → hosted session build (`KN-APPLE-b`)
+### THE ONE NEXT STEP — Land KN-APPLE + configure/deploy Apple env (`Operator T1`)
 
 ```text
-Step: KN-APPLE-NATIVE-HOSTED-EXCHANGE-b Auto — implement Apple assertion exchange (T15)
-Model: Auto
+Step: KN-APPLE land + Operator T1 — Muse main + muse-mirror + Apple env deploy
+Model: Operator + Auto
 Repo: knowtation
-Authority: docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md (frozen:true; freeze-review pass;
-  digest sha256:4ec695738daf8e582923a6a6971d607bc5649eff35493d27dcd2de6303bd4dfa)
-Branch: feat/kn-apple-native-hosted-exchange
+Authority: docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md §KNA.8 T1; BV pass
+  docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md
+Branch: feat/kn-apple-native-hosted-exchange → Muse main (SD-21 land hygiene if
+  criteria met) → muse-bridge → GitHub muse-mirror → main only
 
 Do exactly:
-0. Bootstrap (§KNA.1): ensure feature-branch gateway tree includes issueToken with
-   type: 'session' (origin/main lineage). Recover via Muse-canonical path — never
-   git push origin main / never feature→GitHub-main.
-1. Implement POST api/v1/auth/native-apple-exchange per freeze §KNA.3 (request/response
-   allowlists, Apple JWKS verify module, issueToken mint provider:apple, C7 compatible).
-2. Extend GET api/v1/auth/providers with apple boolean; env layout §KNA.4 (placeholders
-   only in .env.example — no real Team IDs/keys).
-3. Seven-tier test/kn-apple-native-hosted-exchange.test.mjs per §KNA.6; security
-   regression vs unverified accept.
-4. Docs honesty (gateway README + HUB-API); /build-verification-review → pass; update
-   ROADMAP/HANDOVER; Muse commit on feature branch.
+1. Confirm no live posture/env flip / secrets / real money in the land diff
+   (SD-21). Feature-branch suite still green.
+2. Muse merge/ff feature → Muse main; run ./scripts/muse-bridge-deploy.sh;
+   open/merge GitHub PR muse-mirror → main only (SD-14). Never feature→GitHub-main.
+3. Operator T1: set APPLE_CLIENT_ID (Bundle ID or Services ID) on hosted gateway
+   secret store; redeploy Netlify gateway. Do not commit Team IDs / .p8 / prod JWTs.
+4. Record readiness evidence (route 200 or documented NOT_CONFIGURED→configured
+   flip; providers.apple true). Then hand product PRIMARY to Scooling APPLE-4-live
+   (T1+T2+T15 together — Operator authorize).
 
-Do NOT: redesign the freeze; flip Scooling CapabilityGates; authorize vault write;
-  claim PKCE = SIWA; commit Apple secrets; App Store; MuseHub staging; feature→GitHub-main;
-  start APPLE-6; live production Apple probe (Operator T1).
+Do NOT: Auto-flip Scooling CapabilityGates; vault-write authorize; App Store;
+  MuseHub staging; claim PKCE = SIWA; start APPLE-6; git push origin main.
 ```
 
-### PARKED — after KN-APPLE lands (Scooling Operator; do not skip ahead)
+### PARKED — after land + T1 (Scooling Operator; do not skip ahead)
 
 | Tip | When |
 | --- | --- |
@@ -110,13 +110,22 @@ governance sync. No other posture/env flips. SD-14 muse-mirror only.
 
 ### After this (queued order)
 
-1. **KN-APPLE-b Auto → BV → land/deploy** — T15 code readiness (+ Operator T1 prod Apple env).
+1. **Operator land + T1** — Muse/`main` + muse-mirror + `APPLE_CLIENT_ID` deploy.
 2. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
 3. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
 4. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
 5. MuseHub F7 — AWS-parked.
 
-### This session — KN-APPLE-a Thinking CLEARED (2026-08-09)
+### This session — KN-APPLE-b Auto DONE + BV pass (2026-08-09)
+
+Implemented `POST /api/v1/auth/native-apple-exchange` + `hub/gateway/apple-identity-token.mjs`
+(JWKS verify, allowlists, fail-closed codes); `providers.apple`; env placeholders;
+docs/OpenAPI honesty; seven-tier **13/13**; BV round 1 **`pass`**
+(`docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md`). Bootstrap used Muse tree
+with `issueToken` `type:'session'`. No Scooling gate flips; no vault-write authorize;
+no App Store; no live Apple probe. Feature branch only.
+
+### Prior this session — KN-APPLE-a Thinking CLEARED (2026-08-09)
 
 Froze `docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md` (`frozen: true`). Freeze-review
 loop round 2 **`pass`** (`ok review --freeze`; digest `sha256:4ec69573…`). Route

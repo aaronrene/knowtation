@@ -26,6 +26,7 @@ import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './not
 import { applyGatewayCors } from './cors-middleware.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './request-path.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
+import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
 import { createMetadataBulkHandlers } from './metadata-bulk-canister.mjs';
 import { filterUpstreamResponseHeadersForDecodedBody } from './upstream-response-headers.mjs';
 import { loadProposalRubric } from '../../lib/hub-proposal-rubric.mjs';
@@ -41,7 +42,11 @@ import {
 } from './proposal-llm-store.mjs';
 import { augmentProposalEvaluationBodyForCanister } from './proposal-evaluation-canister-body.mjs';
 import { augmentProposalCreateForHosted } from './proposal-create-hosted-body.mjs';
-import { personalSelfApplyAllowsApprove } from '../../lib/hub-proposal-personal-self-apply.mjs';
+import {
+  personalSelfApplyRefusalReason,
+  isHttpVisibleSelfApplySeamCode,
+  SELF_APPLY_SEAM_ERROR_MESSAGES,
+} from '../../lib/hub-proposal-personal-self-apply.mjs';
 import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
 import { maybeScheduleHostedProposalReviewHints } from './proposal-review-hints-async.mjs';
 import { proposalDataForHostedReviewHintsFromCreate } from './proposal-hints-create-context.mjs';
@@ -67,6 +72,14 @@ import {
   maybeApplyHostedTaskAfterApprove,
   mergeTaskApplyIntoApproveResponse,
 } from './task-approve-hosted.mjs';
+import {
+  maybeApplyHostedCaptureAfterApprove,
+  mergeCaptureApplyIntoApproveResponse,
+} from './capture-approve-hosted.mjs';
+import {
+  maybeApplyHostedMediaAfterApprove,
+  mergeMediaApplyIntoApproveResponse,
+} from './media-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
@@ -79,7 +92,17 @@ import {
   createGatewayRefreshStore,
   pruneRefreshTokens as pruneGatewayRefreshTokens,
 } from './refresh-token-store.mjs';
-import { subFromVerifiedPayload, shouldMountDurableAgentAuth } from './access-token-authz.mjs';
+import {
+  subFromVerifiedPayload,
+  shouldMountDurableAgentAuth,
+  roleFromVerifiedAccessPayload,
+  mayApplyAdminAllowlistOverride,
+  isMcpAccessPayload,
+  isAgentAccessPayload,
+  isSessionBoundActor,
+  assertAgentVaultAllowed,
+} from './access-token-authz.mjs';
+import { createAgentCredentialRouter } from './agent-credential-routes.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -91,6 +114,12 @@ import { oauthDisabledGuard, logBootstrapInstructionOnce } from '../lib/local-au
 import { registerLocalAuthRoutes, credentialStoreHasAdmin } from '../lib/local-auth-routes.mjs';
 import { pruneExpiredBootstrapRecord } from '../lib/local-auth-bootstrap.mjs';
 import { resolveLocalAuthRole } from '../lib/local-auth-role.mjs';
+import {
+  appleProviderAdvertised,
+  defaultAppleIdentityVerifier,
+  jwtExpiryToSeconds,
+  parseAppleExchangeBody,
+} from './apple-identity-token.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -136,7 +165,13 @@ if (BRIDGE_URL) {
 }
 const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
+// SEC-KN-P6-ROTATE: verify-only previous secret for zero-downtime rotation.
+// Never used to sign (jwt.sign / HMAC / encrypt stay on SESSION_SECRET only).
+const SESSION_SECRET_PREVIOUS = resolveSessionSecretPrevious();
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
+/** Apple SIWA audience (Bundle ID or Services ID). Read once at boot — never commit real values. */
+const APPLE_CLIENT_ID =
+  typeof process.env.APPLE_CLIENT_ID === 'string' ? process.env.APPLE_CLIENT_ID.trim() : '';
 const GATEWAY_DATA_DIR =
   process.env.KNOWTATION_GATEWAY_DATA_DIR || path.join(projectRoot, 'data');
 
@@ -215,6 +250,7 @@ function issueToken(user) {
       id: user.id,
       name: user.displayName ?? '',
       role,
+      type: 'session',
     },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
@@ -222,14 +258,10 @@ function issueToken(user) {
 }
 
 function verifyToken(token) {
-  try {
-    const payload = jwt.verify(token, SESSION_SECRET);
-    // Identity-only: does not enforce MCP scopes. Mutating REST must go through getUserId
-    // (scope-aware for type:mcp_access — DURABLE-AGENT-AUTH-SPEC §8).
-    return payload.sub ?? null;
-  } catch (_) {
-    return null;
-  }
+  const payload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  // Identity-only: does not enforce MCP scopes. Mutating REST must go through getUserId
+  // (scope-aware for type:mcp_access — DURABLE-AGENT-AUTH-SPEC §8).
+  return payload ? payload.sub ?? null : null;
 }
 
 /**
@@ -239,11 +271,7 @@ function verifyToken(token) {
  * @returns {object|null}
  */
 function decodeVerifiedToken(token) {
-  try {
-    return jwt.verify(token, SESSION_SECRET);
-  } catch (_) {
-    return null;
-  }
+  return verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
 }
 
 /**
@@ -274,7 +302,7 @@ function issueAccessTokenForSub(sub) {
   const provider = idx > 0 ? sub.slice(0, idx) : '';
   const id = idx > 0 ? sub.slice(idx + 1) : sub;
   return jwt.sign(
-    { sub, provider, id, name: '', role: roleForSub(sub) },
+    { sub, provider, id, name: '', role: roleForSub(sub), type: 'session' },
     SESSION_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -424,6 +452,18 @@ app.use('/api/v1', (req, res, next) => {
   next();
 });
 
+// Phase C — vault binding for agent_access JWTs (freeze §7.4).
+app.use('/api/v1', (req, res, next) => {
+  const payload = getBearerPayload(req);
+  if (isAgentAccessPayload(payload)) {
+    const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    if (!assertAgentVaultAllowed(payload, vaultId)) {
+      return res.status(403).json({ error: 'vault forbidden for agent credential', code: 'AGENT_VAULT_FORBIDDEN' });
+    }
+  }
+  return next();
+});
+
 // Health (no auth) — returns { ok: true }. If a CDN or host wrapper returns usage_exceeded, that is outside this app (check Netlify site / account limits and which commit is deployed).
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/v1/health', (_req, res) => res.json({ ok: true }));
@@ -433,11 +473,74 @@ app.use(createScoolingWriteBackSmokeRouter());
 // Which OAuth providers are configured (no auth)
 app.get('/api/v1/auth/providers', (_req, res) => {
   if (offlineLockedActive) {
-    return res.json({ google: false, github: false, local: true });
+    return res.json({ google: false, github: false, apple: false, local: true });
   }
   res.json({
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+    apple: appleProviderAdvertised({
+      appleClientId: APPLE_CLIENT_ID,
+      offlineLocked: false,
+    }),
+  });
+});
+
+// KN-APPLE-NATIVE-HOSTED-EXCHANGE — Apple identity assertion → hosted session (T15).
+// Not Passport Google/GitHub. Not api/v1/auth/native PKCE. No refresh cookie on this route.
+// Layer-2 scooling_uid stays Scooling-server HMAC after C7 — never minted here.
+const appleIdentityVerifier =
+  typeof globalThis.__knowtation_apple_identity_verifier === 'object' &&
+  globalThis.__knowtation_apple_identity_verifier != null
+    ? globalThis.__knowtation_apple_identity_verifier
+    : defaultAppleIdentityVerifier;
+
+app.options('/api/v1/auth/native-apple-exchange', (_req, res) => res.status(204).end());
+app.post('/api/v1/auth/native-apple-exchange', async (req, res) => {
+  if (offlineLockedActive) {
+    return res.status(403).json({
+      error: 'OAuth disabled in offline-locked mode',
+      code: 'OAUTH_DISABLED',
+    });
+  }
+  if (!APPLE_CLIENT_ID || !SESSION_SECRET) {
+    return res.status(503).json({
+      error: 'Apple native exchange is not configured',
+      code: 'NOT_CONFIGURED',
+    });
+  }
+
+  const parsed = parseAppleExchangeBody(req.body);
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error, code: 'BAD_REQUEST' });
+  }
+
+  const verified = await appleIdentityVerifier.verifyIdentityToken(parsed.identityToken, {
+    audience: APPLE_CLIENT_ID,
+    nonce: parsed.nonce,
+  });
+  if (!verified.ok) {
+    const status = verified.code === 'APPLE_JWKS_UNAVAILABLE' ? 503 : 401;
+    return res.status(status).json({ error: verified.error, code: verified.code });
+  }
+
+  const user = {
+    provider: 'apple',
+    id: verified.claims.appleSub,
+    displayName: parsed.fullName || '',
+  };
+  const accessToken = issueToken(user);
+  if (!accessToken) {
+    return res.status(401).json({
+      error: 'Unable to mint session',
+      code: 'APPLE_ASSERTION_INVALID',
+    });
+  }
+
+  return res.status(200).json({
+    schema_version: 1,
+    token_type: 'Bearer',
+    access_token: accessToken,
+    expires_in: jwtExpiryToSeconds(JWT_EXPIRY),
   });
 });
 
@@ -644,6 +747,7 @@ if (shouldMountDurableAgentAuth({
     const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
     const oauthProvider = new KnowtationOAuthProvider({
       sessionSecret: SESSION_SECRET,
+      sessionSecretPrevious: SESSION_SECRET_PREVIOUS,
       baseUrl: BASE_URL,
       // Phase A: reuse the same durable refresh store as native OAuth (strong file backend).
       refreshStore,
@@ -721,6 +825,23 @@ if (shouldMountDurableAgentAuth({
   console.log('[gateway] MCP OAuth/session endpoints skipped on Netlify (stateful sessions require persistent server)');
 } else if (SESSION_SECRET && offlineLockedActive) {
   console.log('[gateway] MCP/native OAuth skipped: offline-locked mode (durable agent auth unsupported)');
+}
+
+// Phase C — scoped REST agent credentials. Mounted on Netlify REST (unlike MCP OAuth).
+if (SESSION_SECRET) {
+  try {
+    const { router: agentCredRouter } = createAgentCredentialRouter({
+      sessionSecret: SESSION_SECRET,
+      getSessionSub: getUserId,
+      getSessionPayload: getBearerPayload,
+      grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+      offlineLockedActive,
+    });
+    app.use('/api/v1/auth/agent', agentCredRouter);
+    console.log('[gateway] Phase C agent credentials mounted at /api/v1/auth/agent');
+  } catch (e) {
+    console.error('[gateway] Agent credential router failed to load:', e.message || e);
+  }
 }
 
 if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
@@ -1027,6 +1148,218 @@ if (BRIDGE_URL) {
     );
   });
 
+  // Flow authoring write-back (hosted parity — FLOW-WRITE-LIVE-GATEWAY-PROXY).
+  // Must register BEFORE the /api/v1 canister catch-all.
+  // Static /import before /:id/proposals so "import" is never treated as a flow id.
+  app.post('/api/v1/flows/import', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/import' + q, req, res);
+  });
+  app.post('/api/v1/flows', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows' + q, req, res);
+  });
+  app.post('/api/v1/flows/:id/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/proposals' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  // Flow capture flywheel (hosted parity — FLOW-CAPTURE-LIVE-KN-b / FCL-C10).
+  // Static capture/candidates before catch-all so hosted observe/propose is not canister limbo.
+  // KN capture envs stay default OFF (handlers refuse); Wave 2 never admits T5 self-apply.
+  app.post('/api/v1/flows/capture/observe', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/capture/observe' + q, req, res);
+  });
+  app.get('/api/v1/flows/candidates', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows/candidates' + q, req, res);
+  });
+  app.post('/api/v1/flows/candidates/:id/propose', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/candidates/' +
+        encodeURIComponent(req.params.id) +
+        '/propose' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/candidates/:id/dismiss', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/candidates/' +
+        encodeURIComponent(req.params.id) +
+        '/dismiss' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  // Capture Hub-complete apply + Flow list/get (CAPTURE-HOSTED-APPLY-KN-b).
+  // apply-approved is the ops recovery surface (CHA-C11); the mandatory path is the
+  // gateway post-approve hook (maybeApplyHostedCaptureAfterApprove).
+  app.post('/api/v1/flows/capture/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/capture/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  // Flow run / consent (hosted parity — SITE-FINISH-FLOW-RUN-KN-b / §FR.0.4).
+  // Register BEFORE GET /api/v1/flows/:id so "runs" paths are not stolen as flow ids.
+  // Static GET /api/v1/flow-runs/:run_id before flows/:id/runs for hosted read parity.
+  // KN FLOW_RUN_WRITES_ENABLED / FLOW_AUTOMATABLE_EXECUTION_ENABLED stay default OFF.
+  app.get('/api/v1/flow-runs/:run_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flow-runs/' + encodeURIComponent(req.params.run_id) + q,
+      req,
+      res,
+    );
+  });
+  app.get('/api/v1/flows/:id/runs', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/advance', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/advance' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/evidence', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/evidence' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/execute-automatable', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/execute-automatable' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/submit-review', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/submit-review' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/flows/:id/runs/:run_id/consent', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/flows/' +
+        encodeURIComponent(req.params.id) +
+        '/runs/' +
+        encodeURIComponent(req.params.run_id) +
+        '/consent' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  // CHA-C5 ordering: these two GETs are registered AFTER flows/:id/projection,
+  // flows/external-grants, flows/candidates, and flows/:id/runs above, so those
+  // static/deeper routes always win; both still register before the /api/v1 catch-all.
+  app.get('/api/v1/flows', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/flows' + q, req, res);
+  });
+  app.get('/api/v1/flows/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/flows/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+
   // Agent delegation (hosted parity — 7C-L1): proxy to bridge when DELEGATION_ENABLED on bridge.
   app.post('/api/v1/agents/identities', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
@@ -1154,6 +1487,63 @@ if (BRIDGE_URL) {
         encodeURIComponent(req.params.loop_id) +
         '/instances/proposals' +
         q,
+      req,
+      res,
+    );
+  });
+
+  // Media write surfaces (SEC-SEAM-MEDIA-b / SM-C7): proxy to bridge BEFORE the
+  // /api/v1 canister catch-all. Static import-consents routes register before
+  // GET /api/v1/attachments/:id so the consent path is never read as an id.
+  app.post('/api/v1/attachments/link-proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/link-proposals' + q, req, res);
+  });
+  app.post('/api/v1/attachments/attach-proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/attach-proposals' + q, req, res);
+  });
+  app.post('/api/v1/attachments/import-consents', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/import-consents' + q, req, res);
+  });
+  app.get('/api/v1/attachments/import-consents', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments/import-consents' + q, req, res);
+  });
+  app.delete('/api/v1/attachments/import-consents/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/attachments/import-consents/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+  // Ops recovery surface (SM-C12); the mandatory path is the gateway post-approve
+  // hook (maybeApplyHostedMediaAfterApprove).
+  app.post('/api/v1/attachments/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/attachments/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
+        q,
+      req,
+      res,
+    );
+  });
+  app.get('/api/v1/attachments', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/attachments' + q, req, res);
+  });
+  app.get('/api/v1/attachments/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/attachments/' + encodeURIComponent(req.params.id) + q,
       req,
       res,
     );
@@ -1486,7 +1876,20 @@ function getUserId(req) {
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
   const payload = decodeVerifiedToken(token);
-  return subFromVerifiedPayload(payload, { method: req.method });
+  const pathOnly = String(req.path || req.url || '').split('?')[0];
+  return subFromVerifiedPayload(payload, { method: req.method, path: pathOnly });
+}
+
+/**
+ * Verified JWT payload for the request Bearer, or null.
+ * @param {import('express').Request} req
+ * @returns {object|null}
+ */
+function getBearerPayload(req) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return null;
+  return decodeVerifiedToken(token);
 }
 
 /**
@@ -1592,6 +1995,11 @@ async function getHostedAccessContext(req) {
   const sub = getUserId(req);
   if (!sub) return null;
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  // Phase C freeze §7.4 — vault choke point before bridge/canister forwarding.
+  const agentPayload = getBearerPayload(req);
+  if (isAgentAccessPayload(agentPayload) && !assertAgentVaultAllowed(agentPayload, vaultId)) {
+    return null;
+  }
   const cacheKey = `${sub}\0${vaultId}`;
   const now = Date.now();
   const hit = hostedCtxCache.get(cacheKey);
@@ -1659,6 +2067,7 @@ const metadataBulkHandlers = createMetadataBulkHandlers({
   CANISTER_AUTH_SECRET,
   BRIDGE_URL,
   SESSION_SECRET: SESSION_SECRET || '',
+  SESSION_SECRET_PREVIOUS: SESSION_SECRET_PREVIOUS || '',
   getUserId,
   getHostedAccessContext,
 });
@@ -2932,14 +3341,45 @@ const PROPOSAL_APPROVE_OR_DISCARD_RE = /^\/api\/v1\/proposals\/[^/]+\/(approve|d
 
 /**
  * Bridge / JWT actor role for proposal RBAC (canister only sees effective X-User-Id).
+ *
+ * SEC-KN-3 / Pass 2 P6: when the bearer is `type: mcp_access`, role is capped by the
+ * token's own scopes and the HUB_ADMIN_USER_IDS allowlist override is never applied.
+ *
  * @param {import('express').Request} req
  * @param {Record<string, unknown>|null} hctx
- * @returns {Promise<{ role: string, mayApproveProposals: boolean }>}
+ * @returns {Promise<{ role: string, mayApproveProposals: boolean, isMcpAccess: boolean, payload: object|null }>}
  */
 async function resolveHostedActorRole(req, hctx) {
   const envFallback = process.env.HUB_EVALUATOR_MAY_APPROVE === '1';
   let role = 'member';
   let mayApproveProposals = false;
+  let bearerPayload = null;
+  try {
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (token && SESSION_SECRET) {
+      bearerPayload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+    }
+  } catch (_) {
+    bearerPayload = null;
+  }
+
+  // Agent tokens: scope-capped only — skip bridge/hctx elevation and allowlist override.
+  // mcp_access and agent_access are separate returns so SEC-KN-3 / SEC-SEAM source-scan
+  // shapes stay exact (isMcpAccess: true|false + payload) while Phase C adds agent_access.
+  if (isMcpAccessPayload(bearerPayload)) {
+    const capped = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+    role = capped.role;
+    mayApproveProposals = role === 'admin';
+    return { role, mayApproveProposals, isMcpAccess: true, payload: bearerPayload };
+  }
+  if (isAgentAccessPayload(bearerPayload)) {
+    const capped = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+    role = capped.role;
+    mayApproveProposals = role === 'admin';
+    return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload };
+  }
+
   if (hctx && typeof hctx.role === 'string') {
     role = hctx.role;
     if (typeof hctx.may_approve_proposals === 'boolean') {
@@ -2969,37 +3409,31 @@ async function resolveHostedActorRole(req, hctx) {
     } catch (_) {}
     // Bridge unreachable or rejected the JWT (e.g. SESSION_SECRET mismatch after a redeploy).
     // Fall back to the JWT payload role so the gateway owner is never locked out by bridge state.
-    if (!bridgeResolved) {
-      try {
-        const auth = req.headers.authorization;
-        const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-        if (token && SESSION_SECRET) {
-          const payload = jwt.verify(token, SESSION_SECRET);
-          role = payload.role || roleForSub(payload.sub);
-          mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
-        }
-      } catch (_) {}
+    if (!bridgeResolved && bearerPayload) {
+      const resolved = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+      role = resolved.role;
+      mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
     }
-  } else {
-    try {
-      const auth = req.headers.authorization;
-      const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-      if (token && SESSION_SECRET) {
-        const payload = jwt.verify(token, SESSION_SECRET);
-        role = payload.role || roleForSub(payload.sub);
-        mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
-      }
-    } catch (_) {}
+  } else if (bearerPayload) {
+    const resolved = roleFromVerifiedAccessPayload(bearerPayload, roleForSub);
+    role = resolved.role;
+    mayApproveProposals = role === 'admin' || (role === 'evaluator' && envFallback);
   }
   // Gateway-level admin override: HUB_ADMIN_USER_IDS is the authoritative owner list.
   // A sub in that list is always admin — the gateway owner must never be locked out by a
   // bridge state reset, role-store loss, or SESSION_SECRET mismatch between gateway and bridge.
+  // Never applied to mcp_access (handled above / mayApplyAdminAllowlistOverride).
   const actorSub = getUserId(req);
-  if (actorSub && role !== 'admin' && roleForSub(actorSub) === 'admin') {
+  if (
+    mayApplyAdminAllowlistOverride(bearerPayload) &&
+    actorSub &&
+    role !== 'admin' &&
+    roleForSub(actorSub) === 'admin'
+  ) {
     role = 'admin';
     mayApproveProposals = true;
   }
-  return { role, mayApproveProposals };
+  return { role, mayApproveProposals, isMcpAccess: false, payload: bearerPayload };
 }
 
 /**
@@ -3051,7 +3485,8 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
     return false;
   }
 
-  const { role, mayApproveProposals } = await resolveHostedActorRole(req, hctx);
+  const { role, mayApproveProposals, isMcpAccess, payload } = await resolveHostedActorRole(req, hctx);
+  const isAgentAccess = isAgentAccessPayload(payload);
 
   if (/\/discard\/?$/.test(pathNoQuery)) {
     if (role !== 'admin') {
@@ -3065,6 +3500,9 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
   if (canApprove) return true;
 
   // Personal self-apply (Scooling review-tray fingerprint) — scoped member approve only.
+  // SEC-KN-3: agent tokens are never human-review eligible.
+  // SEC-SEAM-1 / S2.1 + S6.2: author/session inputs + named seam refusal codes.
+  // Phase C: agent_access is also non-human (same bar as mcp_access).
   const approveId = proposalIdFromApprovePath(pathNoQuery);
   const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
   const effective =
@@ -3075,15 +3513,31 @@ async function assertHostedProposalApproveDiscard(req, res, pathNoQuery, method,
     ? await fetchHostedProposalForSelfApply(approveId, effective, uid, vaultId)
     : null;
   const hasVaultWrite = scopesForRole(role).includes('vault:write');
-  if (
-    personalSelfApplyAllowsApprove({
-      proposal,
-      hasVaultWrite,
-      partitionOwned: Boolean(proposal),
-      role,
-    })
-  ) {
+  const authorActorId =
+    proposal && typeof proposal.created_by === 'string' ? proposal.created_by : '';
+  const reason = personalSelfApplyRefusalReason({
+    proposal,
+    hasVaultWrite,
+    partitionOwned: Boolean(proposal),
+    role,
+    humanActor: !isMcpAccess && !isAgentAccess,
+    // Keep mcp ternary form for SEC-KN-3 source-scan; agent_access is the third arm.
+    tokenType: isMcpAccess ? 'mcp_access' : isAgentAccess ? 'agent_access' : null,
+    actorKind: isMcpAccess || isAgentAccess ? 'agent' : 'human',
+    authorActorId,
+    approverActorId: uid,
+    sessionBound: isSessionBoundActor(payload),
+  });
+  if (reason === null) {
     return true;
+  }
+
+  if (isHttpVisibleSelfApplySeamCode(reason)) {
+    res.status(403).json({
+      error: SELF_APPLY_SEAM_ERROR_MESSAGES[reason] || reason,
+      code: reason,
+    });
+    return false;
   }
 
   res.status(403).json({
@@ -3248,13 +3702,22 @@ async function proxyToCanister(req, res) {
   }
   if (bodyOut !== undefined && typeof bodyOut === 'object' && !Buffer.isBuffer(bodyOut)) {
     bodyOut = augmentProposalEvaluationBodyForCanister(req.method, pathOnlyForBody, bodyOut);
+    const authHdr = req.headers.authorization;
+    const bearerTok = authHdr && authHdr.startsWith('Bearer ') ? authHdr.slice(7) : null;
+    const createPayload = bearerTok ? decodeVerifiedToken(bearerTok) : null;
     const policyOpts =
       hostedLlmPrefs != null
         ? {
             evaluationRequired: effectiveHostedEvaluationRequired(hostedLlmPrefs, dataDir),
             evaluatedBy: uid,
+            sessionBound: isSessionBoundActor(createPayload),
+            authorActorId: uid,
           }
-        : { evaluatedBy: uid };
+        : {
+            evaluatedBy: uid,
+            sessionBound: isSessionBoundActor(createPayload),
+            authorActorId: uid,
+          };
     bodyOut = augmentProposalCreateForHosted(req.method, pathOnlyForBody, bodyOut, dataDir, policyOpts);
     if (req.method === 'POST') {
       const approveId = proposalIdFromApprovePath(pathOnlyForBody);
@@ -3371,6 +3834,44 @@ async function proxyToCanister(req, res) {
         responseBody = mergeTaskApplyIntoApproveResponse(responseBody, taskApplyOutcome);
         if (taskApplyOutcome && !taskApplyOutcome.applied) {
           console.error('[gateway] task index apply after approve failed:', taskApplyOutcome.error);
+        }
+        // CAPTURE-HOSTED-APPLY-KN-b / CHA-C1: Hub-complete capture apply after approve.
+        // Non-fatal to the approve HTTP status (CHA-C11) — failure surfaces as
+        // capture_index_applied: false in the merged body.
+        const captureApplyOutcome = await maybeApplyHostedCaptureAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergeCaptureApplyIntoApproveResponse(responseBody, captureApplyOutcome);
+        if (captureApplyOutcome && !captureApplyOutcome.applied) {
+          console.error('[gateway] capture apply after approve failed:', captureApplyOutcome.error);
+        }
+        // SEC-SEAM-MEDIA-b / SM-C1: Hub-complete media apply after approve.
+        // Non-fatal to the approve HTTP status (SM-C12) — failure surfaces as
+        // media_index_applied: false in the merged body.
+        const mediaApplyOutcome = await maybeApplyHostedMediaAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergeMediaApplyIntoApproveResponse(responseBody, mediaApplyOutcome);
+        if (mediaApplyOutcome && !mediaApplyOutcome.applied) {
+          console.error('[gateway] media apply after approve failed:', mediaApplyOutcome.error);
         }
       } catch (e) {
         console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));

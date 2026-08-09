@@ -38,6 +38,63 @@ paths:
             application/json:
               schema: { type: object, properties: { ok: { type: boolean } }, required: [ok] }
 
+  /auth/agent/credentials:
+    post:
+      tags: [Auth]
+      summary: Phase C — mint scoped REST agent credential (secret once)
+      description: |
+        Requires a human session JWT. Returns opaque `kt_agent_<id>.<secret>` once.
+        Default scopes: propose + vault:read. No admin scopes.
+      responses:
+        '201':
+          description: Credential minted
+        '401':
+          description: Unauthorized
+        '409':
+          description: Credential limit
+    get:
+      tags: [Auth]
+      summary: Phase C — list agent credentials (metadata only)
+      responses:
+        '200':
+          description: Credential list without secrets
+  /auth/agent/credentials/{id}:
+    delete:
+      tags: [Auth]
+      summary: Phase C — revoke agent credential
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Revoked (idempotent)
+  /auth/agent/credentials/{id}/rotate:
+    post:
+      tags: [Auth]
+      summary: Phase C — rotate agent credential secret (shown once)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: New secret issued
+  /auth/agent/token:
+    post:
+      tags: [Auth]
+      summary: Phase C — exchange kt_agent_ credential for agent_access JWT
+      security: []
+      responses:
+        '200':
+          description: Access token issued
+        '401':
+          description: Invalid credential
+        '503':
+          description: Store unavailable
+
   /api/v1/auth/session:
     get:
       tags: [Auth]
@@ -67,7 +124,7 @@ paths:
                     example: google:104164334692309763642
                   provider:
                     type: string
-                    enum: [google, github]
+                    enum: [google, github, apple]
                   id:
                     type: string
                     description: Provider-specific user ID
@@ -112,6 +169,51 @@ paths:
                 properties:
                   google: { type: boolean }
                   github: { type: boolean }
+                  apple: { type: boolean }
+                  local: { type: boolean }
+
+  /api/v1/auth/native-apple-exchange:
+    post:
+      tags: [Auth]
+      summary: Sign in with Apple identity-assertion exchange (native)
+      description: |
+        Verifies an Apple `identity_token` (JWKS) and mints a hosted session JWT
+        (`provider: apple`, `type: session`). Not Passport Google/GitHub and not
+        `api/v1/auth/native` PKCE. Does not return `scooling_uid`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identity_token]
+              additionalProperties: false
+              properties:
+                identity_token: { type: string }
+                nonce: { type: string }
+                full_name: { type: string, maxLength: 128 }
+      responses:
+        '200':
+          description: Hosted session minted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schema_version, token_type, access_token, expires_in]
+                properties:
+                  schema_version: { type: integer, enum: [1] }
+                  token_type: { type: string, enum: [Bearer] }
+                  access_token: { type: string }
+                  expires_in: { type: integer }
+        '400':
+          description: Bad request
+        '401':
+          description: Apple assertion invalid
+        '403':
+          description: Offline-locked OAuth disabled
+        '503':
+          description: Not configured or Apple JWKS unavailable
 
   /notes/facets:
     get:
@@ -972,6 +1074,8 @@ paths:
         Returns knowtation.attachment_list/v0 summaries for attachments visible in
         the caller's authorized workspace scope. Scope query param narrows only — never widens.
         List responses never include linked_note_refs, byte_size, mime_type, or agent_visible.
+        On hosted gateway→bridge (SEC-SEAM-MEDIA), connector_ref rows from
+        hub_attachment_external_refs.json are included after media external-link apply.
       parameters:
         - name: scope
           in: query
@@ -1034,6 +1138,8 @@ paths:
       description: >
         Creates a media_external_link proposal. Gated by MEDIA_EXTERNAL_LINK_ENABLED (default off).
         Requires an active import consent and allowlisted connector. Never fetches opaque_ref.
+        Available on self-hosted Hub and on hosted gateway→bridge (SEC-SEAM-MEDIA) when the
+        same gate is enabled; hosted creates the proposal on the canister proposal store.
       requestBody:
         required: true
         content:
@@ -1064,6 +1170,9 @@ paths:
       summary: Propose attaching media to a note (review-before-write)
       description: >
         Creates a media_attach proposal. Gated by MEDIA_ATTACH_ENABLED (default off).
+        Available on self-hosted Hub and on hosted gateway→bridge (SEC-SEAM-MEDIA) when the
+        same gate is enabled. Hosted propose stamps media_pointer onto the canister row so
+        apply does not require a vault-wide mist walk on the bridge.
       requestBody:
         required: true
         content:
@@ -1161,6 +1270,56 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /attachments/proposals/{proposal_id}/apply-approved:
+    post:
+      tags: [Attachments]
+      summary: Apply an approved media proposal (hosted Hub-complete / ops recovery)
+      description: >
+        Runs the shared media precheck + reconcile against bridge dataDir stores
+        (and canister note RMW for media_attach). Requires proposal status approved
+        (409 CONFLICT otherwise). The mandatory client path is the gateway post-approve
+        hook (maybeApplyHostedMediaAfterApprove); this route is the ops recovery surface
+        and the hook's bridge target (SEC-SEAM-MEDIA SM-C4 / SM-C12). Self-hosted Hub
+        applies on approve without this route.
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [applied, proposal_id, vault_id, proposal_kind]
+                properties:
+                  applied: { type: boolean, enum: [true] }
+                  proposal_id: { type: string }
+                  vault_id: { type: string }
+                  proposal_kind:
+                    type: string
+                    enum: [media_external_link, media_attach]
+                  attachment_id: { type: string }
+                  connector_id: { type: ['string', 'null'] }
+                  note_ref: { type: string }
+        '400':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /attachments/{id}:
     get:
       tags: [Attachments]
@@ -1168,7 +1327,9 @@ paths:
       description: >
         Returns knowtation.attachment_get/v0 with the full attachment record when
         the caller is authorized. Missing or invisible attachments return 404
-        unknown_attachment (no existence leak).
+        unknown_attachment (no existence leak). On hosted gateway→bridge, connector_ref
+        rows derived from hub_attachment_external_refs.json are visible after media
+        external-link apply (blob-backed stores).
       parameters:
         - name: id
           in: path
