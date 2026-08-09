@@ -15,16 +15,18 @@ naming only — **always prefer `OVERSEER-HANDOVER.md`**.
 ## NEXT SESSION — see canonical `docs/OVERSEER-HANDOVER.md`
 
 **Date:** 2026-08-09  
-**Model:** **Thinking**  
-**PRIMARY:** **KN-APPLE-NATIVE-HOSTED-EXCHANGE Thinking** (Knowtation-owned T15 freeze).
+**Model:** **Auto**  
+**PRIMARY:** **KN-APPLE-NATIVE-HOSTED-EXCHANGE-b Auto** (Knowtation-owned T15 build).
+Freeze CLEARED: `docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md` digest
+`sha256:4ec69573…`.
 
-Paste the fence from **`docs/OVERSEER-HANDOVER.md`**. Do not use older FLOW-CAPTURE /
-FLOW-RUN / APPLE-2 fences from prior copies of this file.
+Paste the fence from **`docs/OVERSEER-HANDOVER.md`**. Do not use the prior
+KN-APPLE-a Thinking fence or older FLOW-CAPTURE / FLOW-RUN / APPLE-2 fences.
 
-| After KN-APPLE lands | Tip |
+| After KN-APPLE-b lands | Tip |
 | --- | --- |
 | Scooling Operator | APPLE-4-live (T1+T2+T15) → APPLE-5-live (T2+T3) |
 | Parked hygiene | SEC-KN-P6-ROTATE R4–R5 |
 | Parked infra | MuseHub F7 (AWS) |
 
-**Roadmap row:** `docs/ROADMAP.md` → **KN-APPLE-NATIVE-HOSTED-EXCHANGE**.
+**Roadmap row:** `docs/ROADMAP.md` → **KN-APPLE-b**.
