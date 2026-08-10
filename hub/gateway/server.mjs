@@ -114,6 +114,12 @@ import { oauthDisabledGuard, logBootstrapInstructionOnce } from '../lib/local-au
 import { registerLocalAuthRoutes, credentialStoreHasAdmin } from '../lib/local-auth-routes.mjs';
 import { pruneExpiredBootstrapRecord } from '../lib/local-auth-bootstrap.mjs';
 import { resolveLocalAuthRole } from '../lib/local-auth-role.mjs';
+import {
+  appleProviderAdvertised,
+  defaultAppleIdentityVerifier,
+  jwtExpiryToSeconds,
+  parseAppleExchangeBody,
+} from './apple-identity-token.mjs';
 
 // Safe when bundled (e.g. Netlify Functions CJS) where import.meta may be undefined
 let projectRoot;
@@ -163,6 +169,9 @@ const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 // Never used to sign (jwt.sign / HMAC / encrypt stay on SESSION_SECRET only).
 const SESSION_SECRET_PREVIOUS = resolveSessionSecretPrevious();
 const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
+/** Apple SIWA audience (Bundle ID or Services ID). Read once at boot — never commit real values. */
+const APPLE_CLIENT_ID =
+  typeof process.env.APPLE_CLIENT_ID === 'string' ? process.env.APPLE_CLIENT_ID.trim() : '';
 const GATEWAY_DATA_DIR =
   process.env.KNOWTATION_GATEWAY_DATA_DIR || path.join(projectRoot, 'data');
 
@@ -464,11 +473,74 @@ app.use(createScoolingWriteBackSmokeRouter());
 // Which OAuth providers are configured (no auth)
 app.get('/api/v1/auth/providers', (_req, res) => {
   if (offlineLockedActive) {
-    return res.json({ google: false, github: false, local: true });
+    return res.json({ google: false, github: false, apple: false, local: true });
   }
   res.json({
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+    apple: appleProviderAdvertised({
+      appleClientId: APPLE_CLIENT_ID,
+      offlineLocked: false,
+    }),
+  });
+});
+
+// KN-APPLE-NATIVE-HOSTED-EXCHANGE — Apple identity assertion → hosted session (T15).
+// Not Passport Google/GitHub. Not api/v1/auth/native PKCE. No refresh cookie on this route.
+// Layer-2 scooling_uid stays Scooling-server HMAC after C7 — never minted here.
+const appleIdentityVerifier =
+  typeof globalThis.__knowtation_apple_identity_verifier === 'object' &&
+  globalThis.__knowtation_apple_identity_verifier != null
+    ? globalThis.__knowtation_apple_identity_verifier
+    : defaultAppleIdentityVerifier;
+
+app.options('/api/v1/auth/native-apple-exchange', (_req, res) => res.status(204).end());
+app.post('/api/v1/auth/native-apple-exchange', async (req, res) => {
+  if (offlineLockedActive) {
+    return res.status(403).json({
+      error: 'OAuth disabled in offline-locked mode',
+      code: 'OAUTH_DISABLED',
+    });
+  }
+  if (!APPLE_CLIENT_ID || !SESSION_SECRET) {
+    return res.status(503).json({
+      error: 'Apple native exchange is not configured',
+      code: 'NOT_CONFIGURED',
+    });
+  }
+
+  const parsed = parseAppleExchangeBody(req.body);
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error, code: 'BAD_REQUEST' });
+  }
+
+  const verified = await appleIdentityVerifier.verifyIdentityToken(parsed.identityToken, {
+    audience: APPLE_CLIENT_ID,
+    nonce: parsed.nonce,
+  });
+  if (!verified.ok) {
+    const status = verified.code === 'APPLE_JWKS_UNAVAILABLE' ? 503 : 401;
+    return res.status(status).json({ error: verified.error, code: verified.code });
+  }
+
+  const user = {
+    provider: 'apple',
+    id: verified.claims.appleSub,
+    displayName: parsed.fullName || '',
+  };
+  const accessToken = issueToken(user);
+  if (!accessToken) {
+    return res.status(401).json({
+      error: 'Unable to mint session',
+      code: 'APPLE_ASSERTION_INVALID',
+    });
+  }
+
+  return res.status(200).json({
+    schema_version: 1,
+    token_type: 'Bearer',
+    access_token: accessToken,
+    expires_in: jwtExpiryToSeconds(JWT_EXPIRY),
   });
 });
 
