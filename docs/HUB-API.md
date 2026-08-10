@@ -60,7 +60,9 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **GET /health** — Returns `200` and `{ "ok": true }` if the Hub is up. No JWT required.
 
-- **GET /api/v1/auth/providers** (no auth) — Which OAuth providers are configured. **Response:** `{ "google": boolean, "github": boolean }`. The Rich Hub UI uses this to show **Continue with Google** / **Continue with GitHub** only when env vars are set; if both are `false`, the UI explains how to configure OAuth (no separate sign-up — identity is Google or GitHub only).
+- **GET /api/v1/auth/providers** (no auth) — Which OAuth providers are configured. **Response:** `{ "google": boolean, "github": boolean, "apple": boolean }` (offline-locked adds `"local": true` and forces OAuth flags false). Hub UI uses `google`/`github` for browser Continue buttons. `apple: true` when `APPLE_CLIENT_ID` is set (native Sign in with Apple exchange available) — not a Hub web SIWA button in this phase.
+
+- **POST /api/v1/auth/native-apple-exchange** (no Bearer auth) — Native **Sign in with Apple** identity-assertion exchange. Body allowlist: `identity_token` (required), `nonce?`, `full_name?` (cosmetic ≤128). Verifies Apple `id_token` against Apple JWKS (`aud` = `APPLE_CLIENT_ID`), mints the same hosted session JWT class as browser login (`provider: "apple"`, `sub: "apple:<apple_sub>"`, `type: "session"`). **Success 200:** `{ schema_version: 1, token_type: "Bearer", access_token, expires_in }`. Introspect via existing **GET /api/v1/auth/session**. **Errors:** `400 BAD_REQUEST`, `401 APPLE_ASSERTION_INVALID`, `403 OAUTH_DISABLED`, `503 NOT_CONFIGURED` / `APPLE_JWKS_UNAVAILABLE`. Does **not** return `scooling_uid` (Layer-2 HMAC remains Scooling-server-only). Distinct from Passport Google/GitHub and from `api/v1/auth/native` PKCE.
 
 ### 3.2 Vault read
 

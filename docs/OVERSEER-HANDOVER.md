@@ -17,38 +17,55 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=relay lane=product status=live product_order=scooling -->
-## NEXT SESSION — SITE-FINISH-FLOW-RUN-SMOKE (RELAY → scooling)
+<!-- overseer:next role=primary lane=auth status=live product_order=scooling -->
+## NEXT SESSION — KN-APPLE land + Operator T1 (PRIMARY — Knowtation-owned)
 
-**Date:** 2026-08-06  
-**Model:** **Operator**
+**Date:** 2026-08-09  
+**Model:** **Operator + Auto**  
+**Ownership:** Knowtation authorization/auth surface (this board wins on HOW).  
+**Product order:** Matches Scooling PRIMARY (`~/scooling/docs/OVERSEER-HANDOVER.md`).
 
-**Why this is next:** SITE-FINISH-FLOW-RUN-KN-b **landed Muse `main`**
-(`a33cba5c…`; BV `pass`; seven-tier **10/10**; KN envs still default off).
-Scooling flip already on GitHub `main` (SC #254 — compile-time run+automatable
-`true`). Product baton = **Hub publish + coordinated env ON + signed-in SMOKE**.
-SEC-KN-P6 R4–R5 remain **PARKED**. Do **not** re-run Thinking RUNa or flip Auto.
+**Why this is next:** KN-APPLE-b Auto **DONE** — BV round 1 **`pass`**
+(`docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md`); seven-tier **13/13**
+(test_output `sha256:d419cfb2…`). Code readiness on
+`feat/kn-apple-native-hosted-exchange`. Live T15 evidence still needs Muse/`main`
+land + gateway deploy with `APPLE_CLIENT_ID` (Operator T1). APPLE-4-live /
+APPLE-5-live remain **DEFER** until that evidence exists.
 
-### THE ONE NEXT STEP — paste-ready product tip (identical Step/Model to Scooling PRIMARY)
+### THE ONE NEXT STEP — Land KN-APPLE + configure/deploy Apple env (`Operator T1`)
 
 ```text
-Step: SITE-FINISH-FLOW-RUN-SMOKE — Coordinated env ON + signed-in start→advance
-Model: Operator
-Authority: ~/scooling/docs/SITE-FINISH-FLOW-RUN-FREEZE.md §FR.9 / §FR.2 (pass sha256:24f10167…); SD-29
-KN-b landed: Muse main a33cba5c… (proxies; FLOW_RUN_WRITES_ENABLED off until this step)
-SC flip: SC #254 — FLOW_RUN_WRITES_AUTHORIZED=true + FLOW_AUTOMATABLE_EXECUTION_AUTHORIZED=true
+Step: KN-APPLE land + Operator T1 — Muse main + muse-mirror + Apple env deploy
+Model: Operator + Auto
+Repo: knowtation
+Authority: docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md §KNA.8 T1; BV pass
+  docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md
+Branch: feat/kn-apple-native-hosted-exchange → Muse main (SD-21 land hygiene if
+  criteria met) → muse-bridge → GitHub muse-mirror → main only
 
 Do exactly:
-1. Publish Hub (muse-bridge → GitHub muse-mirror→main → Netlify gateway+bridge green).
-2. Set KN FLOW_RUN_WRITES_ENABLED=1 and FLOW_AUTOMATABLE_EXECUTION_ENABLED=1
-   on gateway+bridge (envTriState accepts 1|true); set SC Netlify
-   SCOOLING_FLOW_RUN_WRITE=enabled and SCOOLING_FLOW_AUTOMATABLE_EXECUTION=enabled.
-3. Signed-in personal /flows: start → advance; honesty is run started/advanced
-   (not "Flow saved"). Automatable: dry_run:true only.
+1. Confirm no live posture/env flip / secrets / real money in the land diff
+   (SD-21). Feature-branch suite still green.
+2. Muse merge/ff feature → Muse main; run ./scripts/muse-bridge-deploy.sh;
+   open/merge GitHub PR muse-mirror → main only (SD-14). Never feature→GitHub-main.
+3. Operator T1: set APPLE_CLIENT_ID (Bundle ID or Services ID) on hosted gateway
+   secret store; redeploy Netlify gateway. Do not commit Team IDs / .p8 / prod JWTs.
+4. Record readiness evidence (route 200 or documented NOT_CONFIGURED→configured
+   flip; providers.apple true). Then hand product PRIMARY to Scooling APPLE-4-live
+   (T1+T2+T15 together — Operator authorize).
 
-Do NOT: Thinking RUNa; projection; Delegation write; WEB-FINISH; Apple; F7;
-  Lab SMOKE re-claim; dry_run:false spend; feature→GitHub-main.
+Do NOT: Auto-flip Scooling CapabilityGates; vault-write authorize; App Store;
+  MuseHub staging; claim PKCE = SIWA; start APPLE-6; git push origin main.
 ```
+
+### PARKED — after land + T1 (Scooling Operator; do not skip ahead)
+
+| Tip | When |
+| --- | --- |
+| **APPLE-4-live revisit** | T15 evidence live → authorize T1+T2+T15 together |
+| **APPLE-5-live revisit** | After APPLE-4-live → authorize T2+T3 vault propose→approve |
+| **SEC-KN-P6-ROTATE-b R4–R5** | Independent hygiene; quiet ≥24h window (runbook below) |
+| **MuseHub F7** | AWS parked — not required for Apple |
 
 ### PARKED — SEC-KN-P6-ROTATE-b R4–R5 (operator 2026-08-01)
 
@@ -93,11 +110,42 @@ governance sync. No other posture/env flips. SD-14 muse-mirror only.
 
 ### After this (queued order)
 
-1. **SITE-FINISH-FLOW-RUN-SMOKE** — Operator (Hub publish if needed; KN+SC env ON; start→advance).
-2. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
-3. MuseHub F7 — AWS-parked.
+1. **Operator land + T1** — Muse/`main` + muse-mirror + `APPLE_CLIENT_ID` deploy.
+2. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
+3. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
+4. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
+5. MuseHub F7 — AWS-parked.
 
-### This session — SITE-FINISH-FLOW-RUN-KN-b LANDED Muse main (2026-08-06)
+### This session — KN-APPLE-b Auto DONE + BV pass (2026-08-09)
+
+Implemented `POST /api/v1/auth/native-apple-exchange` + `hub/gateway/apple-identity-token.mjs`
+(JWKS verify, allowlists, fail-closed codes); `providers.apple`; env placeholders;
+docs/OpenAPI honesty; seven-tier **13/13**; BV round 1 **`pass`**
+(`docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md`). Bootstrap used Muse tree
+with `issueToken` `type:'session'`. No Scooling gate flips; no vault-write authorize;
+no App Store; no live Apple probe. Feature branch only.
+
+### Prior this session — KN-APPLE-a Thinking CLEARED (2026-08-09)
+
+Froze `docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md` (`frozen: true`). Freeze-review
+loop round 2 **`pass`** (`ok review --freeze`; digest `sha256:4ec69573…`). Route
+`POST api/v1/auth/native-apple-exchange`; Apple JWKS verify; `issueToken` mint
+`provider:apple`; C7 introspect unchanged; Layer-2 HMAC stays in Scooling; not
+Passport; not `api/v1/auth/native` PKCE. No route implementation in Thinking.
+NEXT = **KN-APPLE-b Auto**.
+
+### Prior — SITE-FINISH-FLOW-RUN-SMOKE / WEB-FINISH / Apple 0–5 (closed on Scooling board)
+
+Product FLOW-RUN SMOKE **PASS** 2026-08-07; WEB-FINISH declared; APPLE-0–5 scaffold
+landed inert; APPLE-4-live + APPLE-5-live **DEFER**. Do **not** re-open those tips
+from this Knowtation board. See `~/scooling/docs/OVERSEER-HANDOVER.md`.
+
+### This session — board sync (2026-08-09)
+
+Synced KN PRIMARY to **KN-APPLE-NATIVE-HOSTED-EXCHANGE Thinking**. Stale relays
+(APPLE-2 / FLOW-RUN-SMOKE as PRIMARY) retired. No Apple exchange code in this tip.
+
+### Prior — SITE-FINISH-FLOW-RUN-KN-b LANDED Muse main (2026-08-06)
 
 FF `feat/site-finish-flow-run-kn-b` → Muse `main` (`a33cba5c…`). Envs remain off
 until SMOKE. Hub GitHub/Netlify publish follows muse-bridge this session.

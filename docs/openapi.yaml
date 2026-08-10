@@ -124,7 +124,7 @@ paths:
                     example: google:104164334692309763642
                   provider:
                     type: string
-                    enum: [google, github]
+                    enum: [google, github, apple]
                   id:
                     type: string
                     description: Provider-specific user ID
@@ -169,6 +169,51 @@ paths:
                 properties:
                   google: { type: boolean }
                   github: { type: boolean }
+                  apple: { type: boolean }
+                  local: { type: boolean }
+
+  /api/v1/auth/native-apple-exchange:
+    post:
+      tags: [Auth]
+      summary: Sign in with Apple identity-assertion exchange (native)
+      description: |
+        Verifies an Apple `identity_token` (JWKS) and mints a hosted session JWT
+        (`provider: apple`, `type: session`). Not Passport Google/GitHub and not
+        `api/v1/auth/native` PKCE. Does not return `scooling_uid`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identity_token]
+              additionalProperties: false
+              properties:
+                identity_token: { type: string }
+                nonce: { type: string }
+                full_name: { type: string, maxLength: 128 }
+      responses:
+        '200':
+          description: Hosted session minted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schema_version, token_type, access_token, expires_in]
+                properties:
+                  schema_version: { type: integer, enum: [1] }
+                  token_type: { type: string, enum: [Bearer] }
+                  access_token: { type: string }
+                  expires_in: { type: integer }
+        '400':
+          description: Bad request
+        '401':
+          description: Apple assertion invalid
+        '403':
+          description: Offline-locked OAuth disabled
+        '503':
+          description: Not configured or Apple JWKS unavailable
 
   /notes/facets:
     get:
