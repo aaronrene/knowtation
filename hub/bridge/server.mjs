@@ -79,6 +79,7 @@ import { registerBridgeFlowRoutes } from './flow-routes.mjs';
 import { registerBridgeFlowCaptureRoutes } from './flow-capture-routes.mjs';
 import { registerBridgeFlowRunRoutes } from './flow-run-routes.mjs';
 import { registerBridgeMediaRoutes } from './media-routes.mjs';
+import { registerBridgeDocsRoutes } from './docs-routes.mjs';
 import { registerBridgeExternalAgentRoutes } from './external-agent-routes.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
@@ -3430,6 +3431,16 @@ registerBridgeMediaRoutes(app, {
   resolveHostedBridgeContext,
   effectiveRole,
   loadRoles,
+});
+
+// Docs connectors (Drive OAuth + Notion Hub-key — KN-DOCS-SYNC-b). Gates hard-coded false.
+registerBridgeDocsRoutes(app, {
+  dataDir: DATA_DIR,
+  requireBridgeAuth,
+  requireBridgeEditorOrAdmin,
+  resolveHostedBridgeContext,
+  resolveHostedBridgeSettingsContext,
+  sanitizeVaultId,
 });
 
 // External Agent Protocol (7D-b-b)

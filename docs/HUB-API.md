@@ -133,9 +133,31 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 - **POST /import** — Import from uploaded file or ZIP (editor/admin). Multipart form: `source_type` (required), `file` (required), `project?`, `output_dir?`, `tags?` (comma-separated). Source types include `markdown`, `pdf`, `docx`, `url`, `chatgpt-export`, `claude-export`, `mif`, `mem0-export`, `supabase-memory`, `notion`, `jira-export`, `notebooklm`, `gdrive`, `linear-export`, `audio`, `video`, `wallet-csv` (see `lib/import-source-types.mjs`). If file is a ZIP, it is extracted and the extracted folder is used as input (for folder-based sources like chatgpt-export). For **`pdf`**, upload a single `.pdf` file (not a ZIP). For **`docx`**, upload a single `.docx` file (Office Open XML; not legacy `.doc`).  
   After import, the Hub runs a **provenance pass** on each imported path (`author_kind: import`, editor `sub`).  
   **Response:** `{ "imported": [ { "path", "source_id?" } ], "count": number }`.  
-  **400** if file or source_type missing/invalid; **500** on import failure.
+  **400** if file or source_type missing/invalid; **500** on import failure.  
+  **Honesty:** Hub `source_type` **`gdrive`** is a **folder of Markdown files**, not live Google Drive OAuth. Live Drive/Notion connectors are **`/docs/connectors`** below (gated off by default).
 
 - **POST /import-url** — Import a public **https** URL into the vault (editor/admin). JSON body: `{ "url": string, "mode"?: "auto" | "bookmark" | "extract", "project"?, "output_dir"?, "tags"? }` (`tags` may be a comma-separated string or string array). Server-side fetch with SSRF protections; article extraction when `mode` allows. Same provenance pass and response shape as **POST /import**. **Hosted:** gateway proxies to bridge when `BRIDGE_URL` is set.
+
+### 3.2.1 Docs connectors (KN-DOCS-SYNC — gated off)
+
+Live Google Drive (readonly OAuth) and Notion (Hub-key) connectors. Compile-time gates
+`DOCS_OAUTH_GOOGLE_AUTHORIZED` and `DOCS_NOTION_HUB_KEY_AUTHORIZED` are **hard-coded false**
+until an operator Tier-3 flip. Gate off → **501** `{ code: "NOT_AUTHORIZED" }` with **no**
+provider network and **no** vault I/O. Import creates **Review-before-write** proposals
+(`review_queue: docs-sync`); routes never call `writeNote` directly. Folder importer
+`gdrive` / CLI `notion` POST import paths are unchanged and separate.
+
+| Method | Path | Role | Notes |
+| --- | --- | --- | --- |
+| POST | `/docs/connectors` | editor, admin | Body `{ provider: "google-drive"\|"notion", display_name?, return_url? }`. Drive → `{ connector_id, authorization_url, expires_at }`. Notion → `{ connector_id, status }` (`connected` if `NOTION_API_KEY` present). |
+| GET | `/docs/connectors/callback` | state-authenticated (no JWT) | Drive OAuth only. **302** allowlisted `return_url`. |
+| GET | `/docs/connectors` | viewer+ | `{ schema: "knowtation.docs_connectors/v0", connectors: […] }` — no secrets, no `sync_cursor`. |
+| GET | `/docs/connectors/:id/files` | viewer+ | Metadata only; optional `page_token`, `q` (`^[A-Za-z0-9 ._-]{1,128}$`). |
+| POST | `/docs/connectors/:id/import` | editor, admin | Body `{ file_ids: string[] }` (1–20). `{ proposed, skipped, proposal_ids }`. |
+| POST | `/docs/connectors/:id/sync` | editor, admin | Optional cursor; rate-limited ≥60s. `{ proposed, skipped, last_sync_at }`. |
+| DELETE | `/docs/connectors/:id` | editor, admin | Revoke; vault notes **kept**. `{ revoked: true }`. |
+
+**Hosted:** gateway proxies to bridge; pending OAuth state uses strong Blob consistency (`docs/` keys, not `calendar/oauth/…`).
 
 ### 3.3.0 Billing (Phase 16 hosted)
 

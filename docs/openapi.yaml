@@ -21,6 +21,7 @@ tags:
   - name: Flows
   - name: Tasks
   - name: Attachments
+  - name: DocsConnectors
 
 security:
   - BearerAuth: []
@@ -2093,6 +2094,155 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /docs/connectors:
+    get:
+      tags: [DocsConnectors]
+      summary: List docs connectors (Drive + Notion). Gate off → 501 NOT_AUTHORIZED. No secrets.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schema, connectors]
+                properties:
+                  schema: { type: string, enum: [knowtation.docs_connectors/v0] }
+                  connectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        connector_id: { type: string }
+                        provider: { type: string, enum: [google-drive, notion] }
+                        display_name: { type: string }
+                        status: { type: string, enum: [pending, connected, needs_reauth, revoked] }
+                        last_sync_at: { type: string, nullable: true }
+                        last_sync_error: { type: string }
+                        file_count: { type: integer }
+                        revoked_at: { type: string, nullable: true }
+        '501':
+          description: Gate not authorized
+    post:
+      tags: [DocsConnectors]
+      summary: Begin Drive OAuth or Notion Hub-key connector (editor/admin). Gates hard-coded false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider: { type: string, enum: [google-drive, notion] }
+                display_name: { type: string, maxLength: 128 }
+                return_url: { type: string, description: Required for google-drive; exact-allowlisted }
+      responses:
+        '200':
+          description: Drive returns authorization_url; Notion returns status
+        '400':
+          description: BAD_REQUEST / PROVIDER_DENIED / RETURN_URL_DENIED
+        '501':
+          description: NOT_AUTHORIZED
+
+  /docs/connectors/callback:
+    get:
+      tags: [DocsConnectors]
+      summary: Google Drive OAuth callback (state-authenticated; no JWT)
+      security: []
+      parameters:
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+      responses:
+        '302':
+          description: Redirect to allowlisted return_url
+
+  /docs/connectors/{id}/files:
+    get:
+      tags: [DocsConnectors]
+      summary: List importable file metadata (no bodies)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: page_token
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string, pattern: '^[A-Za-z0-9 ._-]{1,128}$' }
+      responses:
+        '200':
+          description: files + optional next_page_token
+        '400':
+          description: BAD_REQUEST (invalid q or ids)
+        '501':
+          description: NOT_AUTHORIZED
+
+  /docs/connectors/{id}/import:
+    post:
+      tags: [DocsConnectors]
+      summary: Create docs-sync Review proposals for 1–20 file ids (never writeNote)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_ids]
+              properties:
+                file_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string }
+      responses:
+        '200':
+          description: '{ proposed, skipped, proposal_ids }'
+        '501':
+          description: NOT_AUTHORIZED
+
+  /docs/connectors/{id}/sync:
+    post:
+      tags: [DocsConnectors]
+      summary: Optional cursor sync; rate-limited ≥60s; creates proposals only
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: '{ proposed, skipped, last_sync_at }'
+        '429':
+          description: RATE_LIMITED
+        '501':
+          description: NOT_AUTHORIZED
+
+  /docs/connectors/{id}:
+    delete:
+      tags: [DocsConnectors]
+      summary: Revoke connector; imported vault notes stay
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: '{ revoked: true }'
+        '501':
+          description: NOT_AUTHORIZED
 
   /settings:
     get:

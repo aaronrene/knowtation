@@ -1104,6 +1104,56 @@ if (BRIDGE_URL) {
     );
   });
 
+  // Docs connectors (KN-DOCS-SYNC-b) — proxy to bridge; gates hard-coded false in lib.
+  app.get('/api/v1/docs/connectors/callback', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/docs/connectors/callback' + q, req, res);
+  });
+  app.post('/api/v1/docs/connectors', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/docs/connectors' + q, req, res);
+  });
+  app.get('/api/v1/docs/connectors', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/docs/connectors' + q, req, res);
+  });
+  app.get('/api/v1/docs/connectors/:id/files', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + '/files' + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/docs/connectors/:id/import', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + '/import' + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/docs/connectors/:id/sync', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + '/sync' + q,
+      req,
+      res,
+    );
+  });
+  app.delete('/api/v1/docs/connectors/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+
   // Flow routes (hosted parity — 7A-L2b): proxy read projections (+ grants when gate on).
   const isFlowHostedProjectionEnabled = () => {
     const v = process.env.FLOW_HOSTED_PROJECTION_ENABLED;

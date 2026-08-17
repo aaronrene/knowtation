@@ -128,6 +128,14 @@ import {
   handleBeginGoogleConnector,
   handleListGoogleConnectors,
 } from '../lib/calendar/google-oauth-connector.mjs';
+import {
+  createProductionGoogleDriveClient,
+  createProductionNotionClient,
+  handleBeginDocsProvider,
+  handleDocsConnectorAction,
+  handleDocsConnectorCallbackUnified,
+  handleListAllDocsConnectors,
+} from '../lib/docs/docs-api.mjs';
 import { handleFlowListRequest, handleFlowGetRequest, handleFlowProjectRequest } from '../lib/flow/flow-handlers.mjs';
 import { handleTaskListRequest, handleTaskGetRequest } from '../lib/task/task-handlers.mjs';
 import {
@@ -823,7 +831,26 @@ app.get('/api/v1/calendar/connectors/callback', async (req, res) => {
   }
 });
 
+// GET /api/v1/docs/connectors/callback — Drive OAuth redirect (state-authenticated; no JWT)
+app.get('/api/v1/docs/connectors/callback', async (req, res) => {
+  try {
+    const result = await handleDocsConnectorCallbackUnified({
+      dataDir: config.data_dir,
+      query: req.query,
+      googleClient: createProductionGoogleDriveClient(),
+      env: process.env,
+    });
+    if (result.redirect) {
+      return res.redirect(result.status, result.redirect);
+    }
+    return res.status(result.status).json({ code: result.code });
+  } catch (e) {
+    return res.status(500).json({ error: 'Callback failed', code: 'RUNTIME_ERROR' });
+  }
+});
+
 app.use('/api/v1/calendar', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/docs', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/tasks', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/attachments', jwtAuth, apiLimiter, requireVaultAccess);
@@ -1176,6 +1203,117 @@ app.delete('/api/v1/calendar/connectors/:id', requireRole('editor', 'admin'), as
       connectorId,
       googleClient,
       env: process.env,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// ── Docs connectors (KN-DOCS-SYNC-b) — gates hard-coded false ───────────────
+app.post('/api/v1/docs/connectors', requireRole('editor', 'admin'), (req, res) => {
+  const result = handleBeginDocsProvider({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    body: req.body,
+    env: process.env,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
+  }
+  return res.status(result.status).json(result.payload);
+});
+
+app.get('/api/v1/docs/connectors', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const result = handleListAllDocsConnectors({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'Not authorized', code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.get('/api/v1/docs/connectors/:id/files', requireRole('viewer', 'editor', 'admin', 'evaluator'), async (req, res) => {
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const result = await handleDocsConnectorAction('list', {
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      connectorId,
+      query: req.query,
+      env: process.env,
+      googleClient: createProductionGoogleDriveClient(),
+      notionClient: createProductionNotionClient(),
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/docs/connectors/:id/import', requireRole('editor', 'admin'), async (req, res) => {
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const result = await handleDocsConnectorAction('import', {
+      dataDir: config.data_dir,
+      vaultPath: req.vaultPath,
+      vaultId: req.vault_id ?? 'default',
+      connectorId,
+      body: req.body,
+      env: process.env,
+      googleClient: createProductionGoogleDriveClient(),
+      notionClient: createProductionNotionClient(),
+      createProposalFn: createProposal,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.post('/api/v1/docs/connectors/:id/sync', requireRole('editor', 'admin'), async (req, res) => {
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const result = await handleDocsConnectorAction('sync', {
+      dataDir: config.data_dir,
+      vaultPath: req.vaultPath,
+      vaultId: req.vault_id ?? 'default',
+      connectorId,
+      env: process.env,
+      googleClient: createProductionGoogleDriveClient(),
+      notionClient: createProductionNotionClient(),
+      createProposalFn: createProposal,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ code: result.code });
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+app.delete('/api/v1/docs/connectors/:id', requireRole('editor', 'admin'), async (req, res) => {
+  const connectorId = typeof req.params.id === 'string' ? decodeURIComponent(req.params.id).trim() : '';
+  try {
+    const result = await handleDocsConnectorAction('revoke', {
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      connectorId,
+      env: process.env,
+      googleClient: createProductionGoogleDriveClient(),
+      notionClient: createProductionNotionClient(),
     });
     if (!result.ok) {
       return res.status(result.status).json({ code: result.code });

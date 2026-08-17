@@ -142,7 +142,7 @@ Besides setting **`external_ref`** at **`POST /api/v1/proposals`** (create), ope
 | `labels` | String array for triage/filter (not only inside proposed frontmatter). |
 | `source` | e.g. `agent`, `human`, `import`. |
 | `suggested_labels`, `assistant_notes`, `assistant_model`, `assistant_at` | Tier-2 enrichment output when enabled. |
-| `review_queue` | Optional string for triage (e.g. `legal`), set by deterministic triggers or client. |
+| `review_queue` | Optional string for triage (e.g. `legal`), set by deterministic triggers or client. Live Drive/Notion imports use **`docs-sync`** (KN-DOCS-SYNC). Proposals on that queue are **not** admitted to personal self-apply (no T5 fingerprint); human approve only. |
 | `review_severity` | `standard` or `elevated`, from triggers. |
 | `auto_flag_reasons` | String array of structured reason codes (e.g. `phrase:…`, `path_prefix:…`); audited on create when non-empty. |
 | `review_hints`, `review_hints_at`, `review_hints_model` | Optional async LLM text for humans only; **never** the sole merge gate. |
