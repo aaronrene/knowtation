@@ -18,42 +18,40 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
-## PRODUCT RELAY — KN-DOCS-SYNC-b DONE (PRIMARY lives on the Scooling board)
+## PRODUCT RELAY — Drive gate LIVE (PRIMARY lives on the Scooling board)
 
 **Date:** 2026-08-17  
-**Model:** **Operator + Auto** (product NEXT is Scooling)  
-**Ownership:** Product order wins on Scooling; this board completed the Knowtation build.  
-**Product order:** PRIMARY is **CONNECT-DRIVE-READY** on Scooling after operator Tier 3 for
-Drive credentials + gate — see `~/scooling/docs/OVERSEER-HANDOVER.md`.
+**Model:** **Auto** (product NEXT is Scooling CONNECT-DRIVE-READY)  
+**Ownership:** Product order wins on Scooling; this board owns the Knowtation gate.  
+**Product order:** PRIMARY is **CONNECT-DRIVE-READY** on Scooling — see
+`~/scooling/docs/OVERSEER-HANDOVER.md`.
 
-**Why this board owned the build:** Scooling `/connect` Drive and Notion stay
-`not_wired` until Knowtation lands the connector. Hub `gdrive` remains a
-Markdown-folder importer. CONNECT-CATALOG-b BV **pass**. MEDIA-LIVE-READS smoke **PASS**.
+**Why this board flipped:** Operator authorized Tier-3 “Flip Drive gate”
+2026-08-17. `DOCS_OAUTH_GOOGLE_AUTHORIZED = true`. Notion remains gated false.
+Netlify env (Drive client + `KNOWTATION_DOCS_OAUTH_SECRET` + redirect + allowlist)
+must be present on gateway and bridge before live OAuth succeeds.
 
-### THE ONE NEXT STEP — **Model: Operator + Auto** (Scooling CONNECT-DRIVE-READY)
+### THE ONE NEXT STEP — **Model: Auto** (Scooling CONNECT-DRIVE-READY)
 
-Knowtation **KN-DOCS-SYNC-b** is **DONE** (BV pass). Gates stay hard-coded
-`false` until an operator Tier-3 flip. Do **not** redesign the connector here.
+Knowtation Drive gate is **live**. Do **not** redesign the connector here.
 Product Ready flip for `/connect` Drive is a **Scooling** tip.
 
 ### Paste-ready prompt — product NEXT (Scooling board)
 
 ```text
-Auto: CONNECT-DRIVE-READY — flip Scooling /connect Drive to Ready only after Knowtation KN-DOCS-SYNC-b lands and operator authorizes DOCS_OAUTH_GOOGLE_AUTHORIZED + Google Drive OAuth client. Scooling never collects the key; initiate + status only. Notion Ready is after Drive. No Hub source_type gdrive/notion from Scooling.
+Auto: CONNECT-DRIVE-READY — flip Scooling /connect Drive to Ready. Knowtation DOCS_OAUTH_GOOGLE_AUTHORIZED is true (Tier 3 2026-08-17). Scooling never collects the key; initiate + status only. Notion Ready is after Drive. No Hub source_type gdrive/notion from Scooling.
 
 Repo: scooling
 Model: Auto
 Authority: CONNECT-AND-OPEN-RANGE + Knowtation docs/KN-DOCS-SYNC-FREEZE.md
 ```
 
-### This session — KN-DOCS-SYNC-b **DONE** (2026-08-17)
+### This session — KN-DOCS-SYNC-DRIVE-GATE **DONE** (2026-08-17)
 
-Implemented D1–D17 on `feat/kn-docs-sync-b`: Drive readonly OAuth + encrypted
-`docs_oauth` custody; Notion Hub-key; list/import as `docs-sync` proposals
-(never `writeNote` on live routes); optional sync cursor; strong docs blob
-store; self-hosted + bridge + gateway routes; API honesty. Gates source-literal
-`false`. Seven-tier **12/12** (`sha256:41713d88…`). BV round 1 **pass**.
-No Scooling edits. No Ready Drive flip. Folder `gdrive` unchanged.
+Operator authorized Flip Drive gate. Source constant → `true`; seven-tier
+docs-oauth tests updated (calendar pattern: `authorizedOverride: false` for
+off-path). HUB-API honesty. Notion gate unchanged false. Land via Muse →
+muse-mirror → GitHub so Netlify redeploys gateway + bridge.
 
 ---
 

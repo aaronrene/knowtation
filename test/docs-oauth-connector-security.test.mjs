@@ -37,15 +37,15 @@ const env = {
   SCOOLING_RETURN_URL_ALLOWLIST: 'https://school.example/connect',
 };
 
-test('security: compile-time gates are false and short-circuit before I/O', async () => {
-  assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, false);
+test('security: Drive override-off and Notion gate short-circuit before I/O', async () => {
+  assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, true);
   assert.equal(DOCS_NOTION_HUB_KEY_AUTHORIZED, false);
   let called = false;
   const googleClient = new Proxy({}, { get: () => { called = true; throw new Error('network touched'); } });
   for (const response of [
-    await handleListDocsConnectorFiles({ dataDir: '/denied', googleClient }),
-    await handleImportDocsConnectorFiles({ dataDir: '/denied', googleClient }),
-    await handleSyncDocsConnector({ dataDir: '/denied', googleClient }),
+    await handleListDocsConnectorFiles({ dataDir: '/denied', googleClient, authorizedOverride: false }),
+    await handleImportDocsConnectorFiles({ dataDir: '/denied', googleClient, authorizedOverride: false }),
+    await handleSyncDocsConnector({ dataDir: '/denied', googleClient, authorizedOverride: false }),
     handleBeginNotionConnector({ dataDir: '/denied', body: { provider: 'notion' } }),
   ]) {
     assert.equal(response.status, 501);
@@ -78,7 +78,7 @@ test('security: query injection, id injection, secrets, PKCE, allowlist, namespa
   const driveSource = fs.readFileSync(new URL('../lib/docs/google-drive-connector.mjs', import.meta.url), 'utf8');
   const notionSource = fs.readFileSync(new URL('../lib/docs/notion-hub-connector.mjs', import.meta.url), 'utf8');
   const vaultSource = fs.readFileSync(new URL('../lib/docs/oauth-token-vault.mjs', import.meta.url), 'utf8');
-  assert.match(driveSource, /DOCS_OAUTH_GOOGLE_AUTHORIZED = false/);
+  assert.match(driveSource, /DOCS_OAUTH_GOOGLE_AUTHORIZED = true/);
   assert.match(notionSource, /DOCS_NOTION_HUB_KEY_AUTHORIZED = false/);
   assert.doesNotMatch(driveSource, /from ['"]\.\.\/write\.mjs['"]/);
   assert.doesNotMatch(notionSource, /from ['"]\.\.\/write\.mjs['"]/);

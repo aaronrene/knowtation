@@ -101,7 +101,7 @@ test('e2e: Notion Hub-key list, review import, and revoke keep notes untouched',
 });
 
 test('e2e: Drive connect → list metadata → docs-sync proposal → apply note → revoke keeps note', async () => {
-  assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, false);
+  assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, true);
   assert.equal(DOCS_NOTION_HUB_KEY_AUTHORIZED, false);
 
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kn-docs-e2e-drive-data-'));
@@ -122,6 +122,7 @@ test('e2e: Drive connect → list metadata → docs-sync proposal → apply note
     vaultId: 'vault-d',
     body: { provider: 'google-drive', return_url: 'https://school.example/connect' },
     env: driveEnv,
+    authorizedOverride: false,
   });
   assert.equal(denied.code, 'NOT_AUTHORIZED');
   assert.equal(denied.status, 501);

@@ -8,6 +8,7 @@ import {
   DOCS_OAUTH_GOOGLE_AUTHORIZED,
   GOOGLE_DRIVE_OAUTH_SCOPES,
   handleBeginDocsConnector,
+  isDocsGoogleOAuthEnabled,
 } from '../lib/docs/google-drive-connector.mjs';
 import {
   ALLOWED_DRIVE_MIMES,
@@ -23,7 +24,8 @@ import {
 } from '../lib/docs/oauth-token-vault.mjs';
 
 test('unit: frozen gates, scopes, MIME and query validation', () => {
-  assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, false);
+  assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, true);
+  assert.equal(isDocsGoogleOAuthEnabled({ authorizedOverride: false }), false);
   assert.deepEqual(GOOGLE_DRIVE_OAUTH_SCOPES, [
     'openid',
     'https://www.googleapis.com/auth/drive.readonly',
@@ -34,7 +36,12 @@ test('unit: frozen gates, scopes, MIME and query validation', () => {
   assert.equal(buildDriveNameContainsQuery("x' or trashed = false"), null);
   assert.equal(safeId('../bad:id'), 'badid');
   assert.equal(safeId('a'.repeat(100)).length, 64);
-  assert.deepEqual(handleBeginDocsConnector({ dataDir: '/unreadable', vaultId: 'v', body: {} }), {
+  assert.deepEqual(handleBeginDocsConnector({
+    dataDir: '/unreadable',
+    vaultId: 'v',
+    body: {},
+    authorizedOverride: false,
+  }), {
     ok: false,
     status: 501,
     code: 'NOT_AUTHORIZED',
