@@ -17,53 +17,96 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=primary lane=auth status=live product_order=scooling -->
-## NEXT SESSION — KN-APPLE land + Operator T1 (PRIMARY — Knowtation-owned)
+<!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
+## PRODUCT RELAY — KN-DOCS-SYNC-b DONE (PRIMARY lives on the Scooling board)
 
-**Date:** 2026-08-09  
-**Model:** **Operator + Auto**  
-**Ownership:** Knowtation authorization/auth surface (this board wins on HOW).  
-**Product order:** Matches Scooling PRIMARY (`~/scooling/docs/OVERSEER-HANDOVER.md`).
+**Date:** 2026-08-17  
+**Model:** **Operator + Auto** (product NEXT is Scooling)  
+**Ownership:** Product order wins on Scooling; this board completed the Knowtation build.  
+**Product order:** PRIMARY is **CONNECT-DRIVE-READY** on Scooling after operator Tier 3 for
+Drive credentials + gate — see `~/scooling/docs/OVERSEER-HANDOVER.md`.
 
-**Why this is next:** KN-APPLE-b Auto **DONE** — BV round 1 **`pass`**
-(`docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md`); seven-tier **13/13**
-(test_output `sha256:d419cfb2…`). Code readiness on
-`feat/kn-apple-native-hosted-exchange`. Live T15 evidence still needs Muse/`main`
-land + gateway deploy with `APPLE_CLIENT_ID` (Operator T1). APPLE-4-live /
-APPLE-5-live remain **DEFER** until that evidence exists.
+**Why this board owned the build:** Scooling `/connect` Drive and Notion stay
+`not_wired` until Knowtation lands the connector. Hub `gdrive` remains a
+Markdown-folder importer. CONNECT-CATALOG-b BV **pass**. MEDIA-LIVE-READS smoke **PASS**.
 
-### THE ONE NEXT STEP — Land KN-APPLE + configure/deploy Apple env (`Operator T1`)
+### THE ONE NEXT STEP — **Model: Operator + Auto** (Scooling CONNECT-DRIVE-READY)
+
+Knowtation **KN-DOCS-SYNC-b** is **DONE** (BV pass). Gates stay hard-coded
+`false` until an operator Tier-3 flip. Do **not** redesign the connector here.
+Product Ready flip for `/connect` Drive is a **Scooling** tip.
+
+### Paste-ready prompt — product NEXT (Scooling board)
 
 ```text
-Step: KN-APPLE land + Operator T1 — Muse main + muse-mirror + Apple env deploy
-Model: Operator + Auto
-Repo: knowtation
-Authority: docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md §KNA.8 T1; BV pass
-  docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md
-Branch: feat/kn-apple-native-hosted-exchange → Muse main (SD-21 land hygiene if
-  criteria met) → muse-bridge → GitHub muse-mirror → main only
+Auto: CONNECT-DRIVE-READY — flip Scooling /connect Drive to Ready only after Knowtation KN-DOCS-SYNC-b lands and operator authorizes DOCS_OAUTH_GOOGLE_AUTHORIZED + Google Drive OAuth client. Scooling never collects the key; initiate + status only. Notion Ready is after Drive. No Hub source_type gdrive/notion from Scooling.
 
-Do exactly:
-1. Confirm no live posture/env flip / secrets / real money in the land diff
-   (SD-21). Feature-branch suite still green.
-2. Muse merge/ff feature → Muse main; run ./scripts/muse-bridge-deploy.sh;
-   open/merge GitHub PR muse-mirror → main only (SD-14). Never feature→GitHub-main.
-3. Operator T1: set APPLE_CLIENT_ID (Bundle ID or Services ID) on hosted gateway
-   secret store; redeploy Netlify gateway. Do not commit Team IDs / .p8 / prod JWTs.
-4. Record readiness evidence (route 200 or documented NOT_CONFIGURED→configured
-   flip; providers.apple true). Then hand product PRIMARY to Scooling APPLE-4-live
-   (T1+T2+T15 together — Operator authorize).
-
-Do NOT: Auto-flip Scooling CapabilityGates; vault-write authorize; App Store;
-  MuseHub staging; claim PKCE = SIWA; start APPLE-6; git push origin main.
+Repo: scooling
+Model: Auto
+Authority: CONNECT-AND-OPEN-RANGE + Knowtation docs/KN-DOCS-SYNC-FREEZE.md
 ```
 
-### PARKED — after land + T1 (Scooling Operator; do not skip ahead)
+### This session — KN-DOCS-SYNC-b **DONE** (2026-08-17)
+
+Implemented D1–D17 on `feat/kn-docs-sync-b`: Drive readonly OAuth + encrypted
+`docs_oauth` custody; Notion Hub-key; list/import as `docs-sync` proposals
+(never `writeNote` on live routes); optional sync cursor; strong docs blob
+store; self-hosted + bridge + gateway routes; API honesty. Gates source-literal
+`false`. Seven-tier **12/12** (`sha256:41713d88…`). BV round 1 **pass**.
+No Scooling edits. No Ready Drive flip. Folder `gdrive` unchanged.
+
+---
+
+<!-- overseer:next role=lane_tip lane=auth status=live -->
+## LANE TIP — Knowtation authorization/security lane
+
+**Date:** 2026-08-11  
+**Model:** **Auto**  
+**Scope:** Knowtation's own board. Does **not** claim product sequencing.
+
+```text
+Step: KN-CRED-STORE-LAND — land the phase8-p1b credential-store repair
+Model: Auto
+Repo: ~/knowtation (branch feat/knowtation-honesty-gates, committed not landed)
+Authority: this board; SD-14 mirror path; Tier 3 for any main merge
+
+Context (verified 2026-08-11, not from memory):
+- scripts.test globbed test/*/external-protocol-*.test.mjs, so 29 assertions
+  across all seven tiers of phase8-p1b never ran under `pnpm test`.
+- Turning them on failed two, both real:
+  Argon2id was below its own 50ms floor (median 30.4ms) -> memoryCost raised
+  64MiB to 128MiB (median 62ms, OWASP-aligned); DECOY_ARGON2_PHC regenerated to
+  match so an unknown username does not become cheaper than a known one.
+  The timing-oracle test measured nothing: 40 requests tripped the global
+  20/min bucket and the 5-failure lockout, so it compared 31.0ms of half-real
+  verifies against 0.72ms of instant rejections. Both guards are now reset per
+  sample and each response asserted INVALID_CREDENTIALS.
+- Full suite after: 4454 pass, 0 skipped.
+
+Do exactly:
+1. Re-run `pnpm test`. Expect 4454 pass / 0 skip.
+2. Expect ONE pre-existing unrelated failure:
+   test/flow-store-versioned-step-keying-performance.test.mjs asserts p95 <25ms,
+   measures ~29.5ms under the parallel suite, passes 3/3 in isolation. Decide
+   deliberately: make the budget load-robust, or leave and record as known.
+   Do NOT widen the number silently to get green.
+3. `ok verify-step --all` -> test_coverage_globs must pass with an
+   ARTIFACT_SHA256 (allow_hand_verified is false; you cannot assert it).
+4. Muse commit on the feature branch; update this board + docs/ROADMAP.md
+   together in that commit.
+
+Do NOT: merge to main without Tier 3; lower ARGON2_PARAMS to make latency
+  assertions pass; use assertArgon2ParamsFloor to gate verification of
+  already-stored credentials (that would lock out existing users);
+  `git push origin main`; touch Scooling CapabilityGates from this board.
+```
+
+### PARKED — after APPLE-4-live (do not skip ahead)
 
 | Tip | When |
 | --- | --- |
-| **APPLE-4-live revisit** | T15 evidence live → authorize T1+T2+T15 together |
-| **APPLE-5-live revisit** | After APPLE-4-live → authorize T2+T3 vault propose→approve |
+| **APPLE-5-live revisit** | After APPLE-4-live AUTHORIZE → T2+T3 vault |
+| **KN-DOCS-SYNC-a/b** | **IN PROGRESS 2026-08-17** — freeze pass; library pass green; route/docs/full-suite/BV remain. |
 | **SEC-KN-P6-ROTATE-b R4–R5** | Independent hygiene; quiet ≥24h window (runbook below) |
 | **MuseHub F7** | AWS parked — not required for Apple |
 
@@ -110,13 +153,27 @@ governance sync. No other posture/env flips. SD-14 muse-mirror only.
 
 ### After this (queued order)
 
-1. **Operator land + T1** — Muse/`main` + muse-mirror + `APPLE_CLIENT_ID` deploy.
-2. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
-3. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
-4. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
-5. MuseHub F7 — AWS-parked.
+1. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
+2. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
+3. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
+4. MuseHub F7 — AWS-parked.
 
-### This session — KN-APPLE-b Auto DONE + BV pass (2026-08-09)
+### This session — KN-APPLE Operator T1 COMPLETE (2026-08-10)
+
+App ID `com.scooling.apple`; Netlify `APPLE_CLIENT_ID` on knowtation-gateway;
+live `apple:true`; Xcode Display Name `Scooling` + SIWA capability. Evidence:
+`docs/reviews/2026-08-10-kn-apple-t1-complete.md`. PRIMARY → Scooling **APPLE-4-live**.
+
+### This session — KN-APPLE land DONE + T1 partial (2026-08-10)
+
+SD-21 land hygiene **pass**. FF `feat/kn-apple-native-hosted-exchange` → Muse
+`main` (`789db7e7…`); audit pins `55930e9c…` + `e2bbdbfa…`; muse-bridge →
+[KN #295](https://github.com/aaronrene/knowtation/pull/295) merge `c2a77b1`.
+Production gateway ready. Live: `apple:false` + exchange `503 NOT_CONFIGURED`.
+Evidence: `docs/reviews/2026-08-10-kn-apple-land-t1-partial.md`. NEXT = set
+`APPLE_CLIENT_ID` then APPLE-4-live.
+
+### Prior — KN-APPLE-b Auto DONE + BV pass (2026-08-09)
 
 Implemented `POST /api/v1/auth/native-apple-exchange` + `hub/gateway/apple-identity-token.mjs`
 (JWKS verify, allowlists, fail-closed codes); `providers.apple`; env placeholders;
