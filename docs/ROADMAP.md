@@ -29,7 +29,7 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** (`providers.apple: true`; `APPLE_CLIENT_ID=com.scooling.apple`) |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`; live `apple:true`; evidence `docs/reviews/2026-08-10-kn-apple-t1-complete.md`. |
-| **THE ONE NEXT STEP** | **Scooling CONNECT-DRIVE-READY** (product order) — Knowtation `DOCS_OAUTH_GOOGLE_AUTHORIZED` flipped **true** 2026-08-17 (operator Tier 3). Notion gate stays false. |
+| **THE ONE NEXT STEP** | **Scooling LAB-GPU-TRAIN-SMOKE S4 land** (product order) — tip `feat/hub-publish-training-rate` publishes Hub `operation: "training"` @ 100 cents (hold merge). Drive gate remains **true**. Notion gate stays false. |
 | **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS) |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 
