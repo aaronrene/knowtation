@@ -81,6 +81,24 @@ describe('COST_BREAKDOWN consolidation entry', () => {
   });
 });
 
+describe('COST_CENTS.training', () => {
+  it('training costs 100 cents (1 credit display)', () => {
+    assert.strictEqual(COST_CENTS.training, 100);
+  });
+});
+
+describe('COST_BREAKDOWN training entry', () => {
+  it('contains a training entry for Scooling Lab published rate', () => {
+    const entry = COST_BREAKDOWN.find((r) => r.operation === 'training');
+    assert.ok(entry, 'COST_BREAKDOWN must include a training entry');
+    assert.strictEqual(entry.cost_cents, 100);
+    assert.ok(typeof entry.label === 'string' && entry.label.length > 0);
+    assert.ok(typeof entry.cost_usd_display === 'string');
+    assert.strictEqual(entry.cost_usd_display, '1.00');
+    assert.strictEqual(entry.credits_display, '1.00');
+  });
+});
+
 // ── billing-logic ─────────────────────────────────────────────────────────────
 
 describe('effectiveMonthlyConsolidationPassesIncluded', () => {

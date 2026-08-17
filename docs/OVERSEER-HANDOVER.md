@@ -18,16 +18,23 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
-## PRODUCT RELAY — Drive gate LIVE (PRIMARY lives on the Scooling board)
+## PRODUCT RELAY — LAB-GPU S4 Hub training rate tip (PRIMARY lives on the Scooling board)
 
 **Date:** 2026-08-17  
-**Model:** **Auto** (product NEXT is Scooling CONNECT-DRIVE-READY)  
-**Ownership:** Product order wins on Scooling; this board owns the Knowtation gate.  
-**Product order:** PRIMARY is **CONNECT-DRIVE-READY** on Scooling — see
+**Model:** **Operator + Auto** (product NEXT is Scooling LAB-GPU-TRAIN-SMOKE S4 land)  
+**Ownership:** Product order wins on Scooling; this board owns the Hub billing rate publish.  
+**Product order:** PRIMARY is **LAB-GPU-TRAIN-SMOKE S4 land** on Scooling — see
 `~/scooling/docs/OVERSEER-HANDOVER.md`.
 
-**Why this board flipped:** Operator authorized Tier-3 “Flip Drive gate”
-2026-08-17. `DOCS_OAUTH_GOOGLE_AUTHORIZED = true`. Notion remains gated false.
+**This tip:** `feat/hub-publish-training-rate` adds Hub `COST_CENTS.training = 100` and a
+`COST_BREAKDOWN` row `operation: "training"` (SD-30 / SD-31). Display rate only — does **not**
+invent a Hub training deduct path. Merge held until Operator land GO. After Muse `main` +
+muse-bridge + Hub deploy, Scooling bind tip can enable GPU opt-in.
+
+**Why this board flipped:** Operator authorized finish path for LAB-GPU S4 (Hub rate +
+Scooling bind) 2026-08-17. Drive gate remains LIVE. Notion remains gated false.
+
+---
 Netlify env (Drive client + `KNOWTATION_DOCS_OAUTH_SECRET` + redirect + allowlist)
 must be present on gateway and bridge before live OAuth succeeds.
 

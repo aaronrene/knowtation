@@ -193,6 +193,12 @@ export const COST_CENTS = {
   note_write: 2,
   proposal_write: 2,
   consolidation: 5,
+  /**
+   * Published training rate for Scooling Lab GPU opt-in (SD-30 / SD-31).
+   * 100 cents = 1 credit after Scooling floor(credits_per_unit). Display only until a
+   * Hub training consume path is authorized — publishing the rate does not invent deduct.
+   */
+  training: 100,
 };
 
 /**
@@ -229,6 +235,12 @@ export const COST_BREAKDOWN = [
     label: 'Memory consolidation pass (hosted)',
     cost_cents: COST_CENTS.consolidation,
     relates_to: 'Hub LLM (gpt-4o-mini) — merge, verify, discover passes',
+  },
+  {
+    operation: 'training',
+    label: 'Scooling Lab training job (one job)',
+    cost_cents: COST_CENTS.training,
+    relates_to: 'Scooling Lab advanced GPU / model-train reservation at published rate',
   },
 ].map((row) => ({
   ...row,
