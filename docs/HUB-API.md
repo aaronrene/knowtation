@@ -138,12 +138,13 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **POST /import-url** — Import a public **https** URL into the vault (editor/admin). JSON body: `{ "url": string, "mode"?: "auto" | "bookmark" | "extract", "project"?, "output_dir"?, "tags"? }` (`tags` may be a comma-separated string or string array). Server-side fetch with SSRF protections; article extraction when `mode` allows. Same provenance pass and response shape as **POST /import**. **Hosted:** gateway proxies to bridge when `BRIDGE_URL` is set.
 
-### 3.2.1 Docs connectors (KN-DOCS-SYNC — gated off)
+### 3.2.1 Docs connectors (KN-DOCS-SYNC — Drive live; Notion gated)
 
-Live Google Drive (readonly OAuth) and Notion (Hub-key) connectors. Compile-time gates
-`DOCS_OAUTH_GOOGLE_AUTHORIZED` and `DOCS_NOTION_HUB_KEY_AUTHORIZED` are **hard-coded false**
-until an operator Tier-3 flip. Gate off → **501** `{ code: "NOT_AUTHORIZED" }` with **no**
-provider network and **no** vault I/O. Import creates **Review-before-write** proposals
+Live Google Drive (readonly OAuth) and Notion (Hub-key) connectors.
+`DOCS_OAUTH_GOOGLE_AUTHORIZED` is **true** (operator Tier-3 flip 2026-08-17).
+`DOCS_NOTION_HUB_KEY_AUTHORIZED` remains **hard-coded false** until a separate Tier-3 flip.
+Gate off → **501** `{ code: "NOT_AUTHORIZED" }` with **no** provider network and **no**
+vault I/O. Import creates **Review-before-write** proposals
 (`review_queue: docs-sync`); routes never call `writeNote` directly. Folder importer
 `gdrive` / CLI `notion` POST import paths are unchanged and separate.
 

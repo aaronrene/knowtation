@@ -1,8 +1,9 @@
 /**
  * Hosted bridge REST routes for docs connectors (KN-DOCS-SYNC-b).
  *
- * Gates DOCS_OAUTH_GOOGLE_AUTHORIZED / DOCS_NOTION_HUB_KEY_AUTHORIZED stay
- * hard-coded false in lib — production never passes authorizedOverride.
+ * DOCS_OAUTH_GOOGLE_AUTHORIZED flipped true 2026-08-17 (Tier 3).
+ * DOCS_NOTION_HUB_KEY_AUTHORIZED stays false until a separate flip.
+ * Production never passes authorizedOverride.
  * Blob hydrate/persist uses strong consistency for pending OAuth state (D17).
  *
  * @see docs/KN-DOCS-SYNC-FREEZE.md
