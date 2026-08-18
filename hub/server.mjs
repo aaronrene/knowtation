@@ -166,6 +166,16 @@ import {
   TASK_PROPOSAL_SOURCE,
 } from '../lib/task/task-write.mjs';
 import {
+  handlePathListRequest,
+  handlePathGetRequest,
+} from '../lib/path/path-handlers.mjs';
+import {
+  handlePathProposeRequest,
+  precheckApprovedPathProposal,
+  reconcileApprovedPathProposal,
+  PATH_PROPOSAL_SOURCE,
+} from '../lib/path/path-write.mjs';
+import {
   handleFlowExternalGrantMintRequest,
   handleFlowExternalGrantRevokeRequest,
   handleFlowExternalGrantListRequest,
@@ -855,6 +865,7 @@ app.use('/api/v1/flows', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/tasks', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/attachments', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/task-loops', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/learning-paths', jwtAuth, apiLimiter, requireVaultAccess);
 
 // Facets cache (60s) per vault; invalidate on write/approve
 const FACETS_TTL_MS = 60 * 1000;
@@ -1725,6 +1736,75 @@ app.post('/api/v1/task-loops/proposals', TASK_WRITE_ROLES, async (req, res) => {
       action: 'task_loop_propose',
       proposalId: result.payload.proposal_id,
       detail: { proposal_kind: result.payload.proposal_kind, loop_id: result.payload.loop_id },
+    });
+    return res.status(201).json(result.payload);
+  } catch (e) {
+    return res.status(500).json({ error: e.message, code: 'RUNTIME_ERROR' });
+  }
+});
+
+// Learning paths (KN-WORK-PATH-LIST-b) — list/get always authorized; writes gated PATH_WRITES_ENABLED default off.
+app.get('/api/v1/learning-paths', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const result = handlePathListRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+    scope: typeof req.query.scope === 'string' ? req.query.scope : undefined,
+    workspace_id: typeof req.query.workspace_id === 'string' ? req.query.workspace_id : undefined,
+    status: typeof req.query.status === 'string' ? req.query.status : undefined,
+    limit: req.query.limit,
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+app.get('/api/v1/learning-paths/:path_id', requireRole('viewer', 'editor', 'admin', 'evaluator'), (req, res) => {
+  const pathId =
+    typeof req.params.path_id === 'string' ? decodeURIComponent(req.params.path_id).trim() : '';
+  const result = handlePathGetRequest({
+    dataDir: config.data_dir,
+    vaultId: req.vault_id ?? 'default',
+    pathId,
+    userId: req.user?.sub ?? '',
+    role: effectiveRole(req),
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  return res.json(result.payload);
+});
+
+const PATH_WRITE_ROLES = requireRole('viewer', 'editor', 'admin', 'evaluator');
+
+app.post('/api/v1/learning-paths/proposals', PATH_WRITE_ROLES, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const proposalKind =
+      typeof body.proposal_kind === 'string' && body.proposal_kind.trim()
+        ? body.proposal_kind.trim()
+        : 'path_create';
+    const result = await handlePathProposeRequest({
+      dataDir: config.data_dir,
+      vaultId: req.vault_id ?? 'default',
+      userId: req.user?.sub ?? '',
+      role: effectiveRole(req),
+      proposalKind,
+      body,
+      intent: body.intent,
+      sessionBound: isSessionBoundActor(req.user),
+      createProposal: createProposalWithSession(req),
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error, code: result.code });
+    }
+    appendAudit(config.data_dir, {
+      userId: req.user?.sub ?? 'unknown',
+      action: 'path_propose',
+      proposalId: result.payload.proposal_id,
+      detail: { proposal_kind: result.payload.proposal_kind, path_id: result.payload.path_id },
     });
     return res.status(201).json(result.payload);
   } catch (e) {
@@ -3206,6 +3286,7 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     proposal.source !== FLOW_CAPTURE_PROPOSAL_SOURCE &&
     proposal.source !== DELEGATION_PROPOSAL_SOURCE &&
     proposal.source !== TASK_PROPOSAL_SOURCE &&
+    proposal.source !== PATH_PROPOSAL_SOURCE &&
     proposal.source !== MEDIA_PROPOSAL_SOURCE
   ) {
     let currentId;
@@ -3268,6 +3349,14 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
     }
     taskApply = taskPrecheck;
   }
+  let pathApply = null;
+  if (proposal.source === PATH_PROPOSAL_SOURCE) {
+    const pathPrecheck = precheckApprovedPathProposal(config.data_dir, proposal);
+    if (!pathPrecheck.ok) {
+      return res.status(pathPrecheck.status).json({ error: pathPrecheck.error, code: pathPrecheck.code });
+    }
+    pathApply = pathPrecheck;
+  }
   let mediaApply = null;
   if (proposal.source === MEDIA_PROPOSAL_SOURCE) {
     const mediaPrecheck = precheckApprovedMediaProposal(config.data_dir, proposal, {
@@ -3306,6 +3395,9 @@ app.post('/api/v1/proposals/:id/approve', requireApproveRole, async (req, res) =
       if (taskReconcile.cascade_task_ids && Array.isArray(taskReconcile.cascade_task_ids)) {
         patchProposalTaskMetaCascade(config.data_dir, req.params.id, taskReconcile.cascade_task_ids);
       }
+    }
+    if (pathApply) {
+      reconcileApprovedPathProposal(config.data_dir, pathApply);
     }
     if (mediaApply) {
       reconcileApprovedMediaProposal(config.data_dir, mediaApply);

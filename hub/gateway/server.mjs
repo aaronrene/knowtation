@@ -80,6 +80,10 @@ import {
   maybeApplyHostedMediaAfterApprove,
   mergeMediaApplyIntoApproveResponse,
 } from './media-approve-hosted.mjs';
+import {
+  maybeApplyHostedPathAfterApprove,
+  mergePathApplyIntoApproveResponse,
+} from './path-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
@@ -1536,6 +1540,37 @@ if (BRIDGE_URL) {
         '/api/v1/task-loops/' +
         encodeURIComponent(req.params.loop_id) +
         '/instances/proposals' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  app.get('/api/v1/learning-paths', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/learning-paths' + q, req, res);
+  });
+  app.get('/api/v1/learning-paths/:path_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/learning-paths/' + encodeURIComponent(req.params.path_id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/learning-paths/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/learning-paths/proposals' + q, req, res);
+  });
+  app.post('/api/v1/learning-paths/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/learning-paths/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
         q,
       req,
       res,
@@ -3922,6 +3957,22 @@ async function proxyToCanister(req, res) {
         responseBody = mergeMediaApplyIntoApproveResponse(responseBody, mediaApplyOutcome);
         if (mediaApplyOutcome && !mediaApplyOutcome.applied) {
           console.error('[gateway] media apply after approve failed:', mediaApplyOutcome.error);
+        }
+        const pathApplyOutcome = await maybeApplyHostedPathAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergePathApplyIntoApproveResponse(responseBody, pathApplyOutcome);
+        if (pathApplyOutcome && !pathApplyOutcome.applied) {
+          console.error('[gateway] path index apply after approve failed:', pathApplyOutcome.error);
         }
       } catch (e) {
         console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));

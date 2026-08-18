@@ -18,40 +18,51 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
-## PRODUCT RELAY — LAB-GPU S4 Hub training rate tip (PRIMARY lives on the Scooling board)
+## PRODUCT RELAY — KN-WORK-PATH-LIST-b land (PRIMARY lives on the Scooling board)
 
-**Date:** 2026-08-17  
-**Model:** **Operator + Auto** (product NEXT is Scooling LAB-GPU-TRAIN-SMOKE S4 land)  
-**Ownership:** Product order wins on Scooling; this board owns the Hub billing rate publish.  
-**Product order:** PRIMARY is **LAB-GPU-TRAIN-SMOKE S4 land** on Scooling — see
-`~/scooling/docs/OVERSEER-HANDOVER.md`.
+**Date:** 2026-08-18  
+**Model:** **Operator + Auto SD-21 land KN-WORK-PATH-LIST-b** (this repo)  
+**Ownership:** Product order wins on Scooling; this board owns the path store + list/get (shipped, not landed).  
+**Product order:** PRIMARY is **Operator + Auto SD-21 land** of Knowtation tip `feat/kn-work-path-list-b`. Scooling F15 HOME-BIND-a+b **LANDED** — GitHub [PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`. This board does not edit `~/scooling/`.
 
-**This tip:** `feat/hub-publish-training-rate` adds Hub `COST_CENTS.training = 100` and a
-`COST_BREAKDOWN` row `operation: "training"` (SD-30 / SD-31). Display rate only — does **not**
-invent a Hub training deduct path. Merge held until Operator land GO. After Muse `main` +
-muse-bridge + Hub deploy, Scooling bind tip can enable GPU opt-in.
+**This tip:** `feat/kn-work-path-list-b` implemented `docs/KN-WORK-PATH-LIST-FREEZE.md`
+(freeze-review **pass**, `sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`).
+BV r1 **pass** (`docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md`); seven-tier **44/44**
+(`test_output` `sha256:a733bb9fe7c66f7d20821519c656fd39c04ac0928f3f8add74d2b4e1a09dcd98`).
+Dedicated `learning_paths[]` in `hub_flow_store.json`; list/get REST; Review-before-write
+persist gated `PATH_WRITES_ENABLED` default **off**. Drive gate remains LIVE. Notion remains gated false.
 
-**Why this board flipped:** Operator authorized finish path for LAB-GPU S4 (Hub rate +
-Scooling bind) 2026-08-17. Drive gate remains LIVE. Notion remains gated false.
+**Locks that still hold:** Do not invent Live. Do not Auto BRAIN-PAIR-b. Do not put chat on Home.
+Do not flip `PATH_WRITES_ENABLED` on. Do not POST apply-approved.
 
 ---
-Netlify env (Drive client + `KNOWTATION_DOCS_OAUTH_SECRET` + redirect + allowlist)
-must be present on gateway and bridge before live OAuth succeeds.
 
-### THE ONE NEXT STEP — **Model: Auto** (Scooling CONNECT-DRIVE-READY)
+### THE ONE NEXT STEP — **Model: Operator + Auto KN-WORK-PATH-LIST-b SD-21 land** (Knowtation)
 
-Knowtation Drive gate is **live**. Do **not** redesign the connector here.
-Product Ready flip for `/connect` Drive is a **Scooling** tip.
+Land this tip `feat/kn-work-path-list-b` via Muse `main` → muse-bridge → `muse-mirror` → GitHub `main`.
+Do **not** flip `PATH_WRITES_ENABLED`. Do **not** Auto BRAIN-PAIR-b. Do **not** edit `~/scooling/`.
 
-### Paste-ready prompt — product NEXT (Scooling board)
+### Paste-ready prompt — Operator + Auto KN-WORK-PATH-LIST-b SD-21 land (Knowtation)
 
 ```text
-Auto: CONNECT-DRIVE-READY — flip Scooling /connect Drive to Ready. Knowtation DOCS_OAUTH_GOOGLE_AUTHORIZED is true (Tier 3 2026-08-17). Scooling never collects the key; initiate + status only. Notion Ready is after Drive. No Hub source_type gdrive/notion from Scooling.
+Knowtation Operator + Auto. SD-21 land feat/kn-work-path-list-b after F14b BV r1 pass. Muse merge/cherry-pick to main, then muse-bridge, then GitHub PR muse-mirror → main only. Diff has no live posture/env flip, secrets, real money, or Delegation write env. Do not flip PATH_WRITES_ENABLED. Do not Auto BRAIN-PAIR-b. Never git push origin main. Never feature→GitHub-main.
 
-Repo: scooling
-Model: Auto
-Authority: CONNECT-AND-OPEN-RANGE + Knowtation docs/KN-DOCS-SYNC-FREEZE.md
+Repo: knowtation
+Model: Operator + Auto
+Authority: docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md; docs/KN-WORK-PATH-LIST-FREEZE.md; ~/scooling/docs/ROADMAP.md F14; SD-14; SD-21
 ```
+
+### This session — PRODUCT RELAY refresh (2026-08-18)
+
+Scooling F15 HOME-BIND-a+b **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product PRIMARY is now **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b`. This board still does not edit `~/scooling/`. `PATH_WRITES_ENABLED` stays default off. **BRAIN-PAIR-b** stays blocked.
+
+### This session — KN-WORK-PATH-LIST-b **DONE** (2026-08-18)
+
+Auto implemented D1–D12 against the freeze. `learning_paths[]` on `hub_flow_store.json`; `GET api/v1/learning-paths` + `GET :path_id`; gated `POST` proposals + apply. Hosted `maybeApplyHostedPathAfterApprove`. T5 not admitted. Seven-tier **44/44**. BV r1 **pass**. `PATH_WRITES_ENABLED` stays default off. No Scooling edits. Tip `feat/kn-work-path-list-b`. NEXT was **Thinking AGENT-WORK-CHAT-HOME-BIND** (Scooling; now DONE).
+
+### This session — KN-WORK-PATH-LIST-a freeze-review **pass** (2026-08-18)
+
+Thinking froze Knowtation path persist + list/get. `/freeze-review-loop` r1–r2 = findings (cited; freeze text only). Round 3 + `ok review --freeze` → **pass**. Digest `sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`. No routes. No env flip. NEXT was **Auto KN-WORK-PATH-LIST-b**.
 
 ### This session — KN-DOCS-SYNC-DRIVE-GATE **DONE** (2026-08-17)
 
@@ -111,7 +122,7 @@ Do NOT: merge to main without Tier 3; lower ARGON2_PARAMS to make latency
 | Tip | When |
 | --- | --- |
 | **APPLE-5-live revisit** | After APPLE-4-live AUTHORIZE → T2+T3 vault |
-| **KN-DOCS-SYNC-a/b** | **IN PROGRESS 2026-08-17** — freeze pass; library pass green; route/docs/full-suite/BV remain. |
+| **KN-DOCS-SYNC-a/b** | **DONE 2026-08-17** — Drive gate live; Notion remains false. |
 | **SEC-KN-P6-ROTATE-b R4–R5** | Independent hygiene; quiet ≥24h window (runbook below) |
 | **MuseHub F7** | AWS parked — not required for Apple |
 
@@ -840,6 +851,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling F15 HOME-BIND **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product NEXT = **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b`. This board does not edit `~/scooling/`. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **KN-WORK-PATH-LIST-b DONE — BV round 1 = `pass`.** D1–D12 on `feat/kn-work-path-list-b`: `learning_paths[]` in `hub_flow_store.json`; list/get REST; gated propose/apply (`PATH_WRITES_ENABLED` default off); hosted `maybeApplyHostedPathAfterApprove`; T5 not admitted. Seven-tier **44/44** (`test/path-list-*.test.mjs`, sha256 `a733bb9f…`). Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md`. No Scooling edits. No write-gate flip. Product NEXT = **Thinking AGENT-WORK-CHAT-HOME-BIND** (Scooling). |
 | 2026-08-06 | **SITE-FINISH-FLOW-RUN-KN-b DONE — BV round 1 = `pass`.** Gateway→bridge §FR.0.4 run/consent proxies + bridge `registerBridgeFlowRunRoutes` (flow-store blob sync); async submit-review for hosted canister create; seven-tier **10/10** (`test/site-finish-flow-run-kn-b.test.mjs`, sha256 `0f6d17ac…`). `FLOW_RUN_WRITES_ENABLED` / `FLOW_AUTOMATABLE_EXECUTION_ENABLED` stay default off. No SC posture flip. Branch `feat/site-finish-flow-run-kn-b`. Evidence: `docs/reviews/2026-08-06-site-finish-flow-run-kn-b-bv-round1-pass.md`. Product NEXT = **SITE-FINISH-FLOW-RUN-flip**. |
 | 2026-08-04 | **Hosted attach kn1 LANDED + published.** Muse `main` `d3f6da81…` + audit `6518a12b…` → [PR #290](https://github.com/aaronrene/knowtation/pull/290) `baa41bf` MERGED; Netlify bridge+gateway production ready at `baa41bf`. Canister GET `liveStateIdOverride` clears yaml-stage `trimEnd` false `MEDIA_LINEAGE_CONFLICT`. NEXT = Scooling HMS attach SMOKE. |
 | 2026-08-04 | **Hosted attach kn1 stage fix (code).** `feat/hosted-media-attach-kn1-stage`: canister GET `liveStateId` / `liveStateIdOverride` so yaml-stage `trimEnd` cannot false-`MEDIA_LINEAGE_CONFLICT`; attach write-back keeps canister body. Tests in `test/sec-seam-media-hosted.test.mjs`. No posture/env flips. |

@@ -75,6 +75,7 @@ import { withCalendarBlobSync } from './calendar-blob-store.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
+import { registerBridgePathRoutes } from './path-routes.mjs';
 import { registerBridgeFlowRoutes } from './flow-routes.mjs';
 import { registerBridgeFlowCaptureRoutes } from './flow-capture-routes.mjs';
 import { registerBridgeFlowRunRoutes } from './flow-run-routes.mjs';
@@ -3378,6 +3379,16 @@ registerBridgeDelegationRoutes(app, {
 
 // Task read + write propose (hosted parity — 2G): same handler family as self-hosted hub/server.mjs.
 registerBridgeTaskRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+registerBridgePathRoutes(app, {
   dataDir: DATA_DIR,
   canisterUrl: CANISTER_URL,
   canisterHeaders,
