@@ -144,6 +144,11 @@ export function mergeFlowStoreJson(localRaw, blobRaw) {
         /** @type {unknown[]} */ (blobVaultObj.runs),
         'run_id',
       ),
+      learning_paths: mergeById(
+        /** @type {unknown[]} */ (localVault.learning_paths),
+        /** @type {unknown[]} */ (blobVaultObj.learning_paths),
+        'path_id',
+      ),
     };
   }
 

@@ -69,6 +69,7 @@ Gate **T5** admits **personal-scope Tasks, Media, and Wave 1 Flow authoring** in
 | **Flow authoring** | `source === flow`; `flow_meta` present as object **and** `flow_meta.kind` exactly ∈ {`new`,`edit`,`import`} (missing/empty kind ⇒ not admitted — do **not** default to `new`); path `^meta/flows/[A-Za-z0-9._:-]{1,128}\.md$`; `external_ref` `^scooling\.flow:[A-Za-z0-9._:-]{1,128}$`; scope `personal` (frontmatter.scope → body.flow.scope) |
 | **Delegation** | **Never** — `SELF_APPLY_DELEGATION_REFUSED` (P4) |
 | **flow_capture** | Seam-classified but **not admitted** — Wave 1 and **Wave 2** (`SELF_APPLY_NOT_ADMITTED`; SD-7 / SD-23 never-auto; option B propose-only) |
+| **learning-path** | Seam-classified (`source === learning_path`, `review_queue === learning-path`) but **not admitted** this Auto (`SELF_APPLY_NOT_ADMITTED`). `path_create` \| `path_update` \| `path_archive` stay off T5 / `ADMITTED_*` lists. Human approve → apply-approved hook. A valid `scooling.path:` `external_ref` is **not** T5 admission. |
 
 #### Wave 2 Flow capture (FLOW-CAPTURE-LIVE-KN-b / CAPTURE-HOSTED-APPLY-KN-b / SD-23)
 
