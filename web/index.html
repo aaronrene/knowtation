@@ -670,6 +670,52 @@
     .hero-value-fold-heading-text {
       margin: 0;
     }
+    .hero-value-fold-summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+    }
+    .hero-value-fold-chevron {
+      flex-shrink: 0;
+      font-size: 2.35rem;
+      line-height: 0.85;
+      font-weight: 700;
+      color: #4da3ff;
+      text-shadow:
+        0 0 8px rgba(77, 163, 255, 0.95),
+        0 0 18px rgba(77, 163, 255, 0.55);
+      transition: transform 0.2s ease;
+    }
+    html[data-theme="light"] .hero-value-fold-chevron {
+      color: #0969da;
+      text-shadow:
+        0 0 6px rgba(9, 105, 218, 0.45),
+        0 0 14px rgba(9, 105, 218, 0.28);
+    }
+    .hero-value-fold[open] .hero-value-fold-chevron {
+      transform: rotate(-180deg);
+    }
+    .hero-value-fold-triangle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.28rem;
+      margin-top: 0.4rem;
+      width: 100%;
+    }
+    .hero-value-fold-triangle span {
+      display: block;
+      height: 2px;
+      border-radius: 1px;
+      background: #4da3ff;
+    }
+    html[data-theme="light"] .hero-value-fold-triangle span {
+      background: #0969da;
+    }
+    .hero-value-fold-triangle span:nth-child(1) { width: 8.25rem; }
+    .hero-value-fold-triangle span:nth-child(2) { width: 5.15rem; }
+    .hero-value-fold-triangle span:nth-child(3) { width: 2.35rem; }
     .feature-highlights {
       padding: 2.5rem 0 2.75rem;
       border-top: 1px solid var(--border);
@@ -760,6 +806,130 @@
       max-width: 40rem;
       margin: 0 auto 1.5rem;
       line-height: 1.6;
+    }
+    .ecosystem-vision-lead a,
+    .ecosystem-vision-lead a:visited,
+    .family-presence-band a,
+    .family-presence-band a:visited,
+    a.parentier-link,
+    a.parentier-link:visited {
+      color: #7dd3fc;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
+    html[data-theme="light"] .ecosystem-vision-lead a,
+    html[data-theme="light"] .ecosystem-vision-lead a:visited,
+    html[data-theme="light"] .family-presence-band a,
+    html[data-theme="light"] .family-presence-band a:visited,
+    html[data-theme="light"] a.parentier-link,
+    html[data-theme="light"] a.parentier-link:visited {
+      color: #0369a1;
+    }
+    .family-presence-band {
+      background: #000;
+      color: #e8eef6;
+      padding: 3.25rem 1.5rem;
+      margin: 0;
+      border-top: 1px solid #1a1a1a;
+    }
+    .family-presence-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+      gap: 2rem 2.5rem;
+      align-items: center;
+    }
+    @media (max-width: 800px) {
+      .family-presence-inner { grid-template-columns: 1fr; }
+    }
+    .family-presence-figure {
+      margin: 0;
+    }
+    .family-presence-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      background: #111;
+    }
+    .family-presence-copy h2 {
+      font-family: var(--font-sans);
+      font-size: clamp(1.25rem, 3vw, 1.65rem);
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 0.85rem;
+      letter-spacing: -0.02em;
+    }
+    .family-presence-copy p {
+      margin: 0 0 0.85rem;
+      line-height: 1.65;
+      font-size: 0.98rem;
+      color: #d7dee8;
+    }
+    .family-presence-copy p:last-child { margin-bottom: 0; }
+    .brain-grow-show {
+      margin: 0;
+    }
+    .brain-grow-show__kicker {
+      margin: 0 0 0.65rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9aa8b8;
+      font-weight: 600;
+    }
+    .brain-grow-show__stack {
+      position: relative;
+      overflow: hidden;
+      border-radius: 14px;
+      background: #111;
+      aspect-ratio: 3 / 2;
+    }
+    .brain-grow-show__slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.45s ease;
+      pointer-events: none;
+    }
+    .brain-grow-show__slide.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .brain-grow-show__slide img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #111;
+    }
+    .brain-grow-show__caption {
+      margin: 0.7rem 0 0;
+      text-align: center;
+      color: #f4f7fb;
+      font-size: 0.95rem;
+    }
+    .brain-grow-show__dots {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 0.7rem;
+    }
+    .brain-grow-show__dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid #9aa8b8;
+      background: transparent;
+      cursor: pointer;
+    }
+    .brain-grow-show__dot[aria-current="true"] {
+      background: #f4f7fb;
+      border-color: #f4f7fb;
     }
     .ecosystem-flow-row {
       display: flex;
@@ -1179,32 +1349,21 @@
       max-width: none;
       margin-left: auto;
       margin-right: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface-elevated);
+      border: none;
+      background: transparent;
       padding: 0;
     }
     .hero-value-fold-summary {
       list-style: none;
       cursor: pointer;
-      padding: 0.85rem 1rem 1.5rem;
+      padding: 0.85rem 1rem 1.15rem;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.45rem;
     }
     .hero-value-fold-summary::-webkit-details-marker { display: none; }
-    .hero-value-fold-summary::after {
-      content: "▾";
-      font-size: 1.35rem;
-      line-height: 1;
-      font-weight: 700;
-      color: var(--accent);
-      transition: transform 0.2s ease;
-    }
-    .hero-value-fold[open] .hero-value-fold-summary::after {
-      transform: rotate(-180deg);
-    }
+    .hero-value-fold-summary::marker { content: ""; }
     .hero-value-fold-body {
       padding: 1rem 0 2rem;
       border-top: 1px solid var(--border);
@@ -1259,6 +1418,34 @@
       fill: currentColor;
     }
     footer .footer-links { margin-top: 0.75rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1rem; }
+    footer .footer-family {
+      margin: 1.15rem 0 0;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+    footer .footer-family-link,
+    footer .footer-family-link:visited {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: #ffffff;
+      font-weight: 700;
+      text-decoration: none;
+      vertical-align: middle;
+    }
+    footer .footer-family-link:hover { text-decoration: underline; }
+    html[data-theme="light"] footer .footer-family-link {
+      color: #0f172a;
+    }
+    footer .parentier-mark {
+      width: 1.35rem;
+      height: 1.2rem;
+      flex-shrink: 0;
+      color: #7dd3fc;
+    }
+    html[data-theme="light"] footer .parentier-mark {
+      color: #0369a1;
+    }
   </style>
 </head>
 <body>
@@ -1328,7 +1515,17 @@
         </div>
       </div>
       <details class="hero-value-fold" id="structured-memory-hero-fold">
-        <summary class="hero-value-fold-summary"><span class="flow-intro-title structured-memory-heading hero-value-fold-heading-text">Structured memory for humans and agents</span></summary>
+        <summary class="hero-value-fold-summary">
+          <span class="hero-value-fold-summary-row">
+            <span class="flow-intro-title structured-memory-heading hero-value-fold-heading-text">Structured memory for humans and agents</span>
+            <span class="hero-value-fold-chevron" aria-hidden="true">▾</span>
+          </span>
+          <span class="hero-value-fold-triangle" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+        </summary>
         <div class="hero-value-fold-body value-pitch-inner">
           <p class="value-pitch-lead">
             Your <strong>owned</strong>, <strong>indexed</strong> notes—optional <strong>time</strong>, <strong>chains</strong>, <strong>episodes</strong>, and <strong>entities</strong>—plus a deep <strong>MCP</strong> surface for assistants that support it.
@@ -1563,7 +1760,7 @@
     <div class="ecosystem-vision-heading-wrap">
       <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
     </div>
-    <p class="ecosystem-vision-lead">Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
+    <p class="ecosystem-vision-lead">Knowtation is part of <a class="parentier-link" href="https://parentier.org" target="_blank" rel="noopener noreferrer">Parentier</a>, the organization that supports community operating systems. Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
     <div class="ecosystem-vision-card">
       <h3 class="ecosystem-architecture-title">Future Facing Architecture</h3>
       <div class="ecosystem-flow-row ecosystem-flow-row--in-card" aria-hidden="true">
@@ -1571,7 +1768,7 @@
         <span class="ecosystem-flow-arrow">↔</span>
         <div class="ecosystem-flow-node">Muse / MuseHub<span>Hands · VCS · review</span></div>
         <span class="ecosystem-flow-arrow">↔</span>
-        <div class="ecosystem-flow-node">AgentCeption<span>Nerves · plans · agents</span></div>
+        <div class="ecosystem-flow-node">scool.ing<span>Lifelong learning</span></div>
         <span class="ecosystem-flow-arrow">↔</span>
         <div class="ecosystem-flow-node">Your Vision<span>Propel Projects</span></div>
       </div>
@@ -1582,14 +1779,86 @@
         <div class="detail-inner">
           <p><strong>Stack roles (from <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">ECOSYSTEM-VISION.md</a>):</strong></p>
           <ul>
+            <li><strong>Parentier</strong> — Organization that supports this family of community operating systems — <a href="https://parentier.org" target="_blank" rel="noopener noreferrer">parentier.org</a></li>
             <li><strong>Knowtation</strong> — Vaults, semantic search, Hub, MCP/CLI (<a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">WHITEPAPER.md</a>)</li>
             <li><strong>Muse / MuseHub</strong> — Domain-agnostic VCS, MuseHub collaboration — <a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">github.com/cgcardona/muse</a>, <a href="https://staging.musehub.ai/explore" target="_blank" rel="noopener">MuseHub (staging)</a></li>
-            <li><strong>AgentCeption</strong> — Brain dump → plan → issues → agents — <a href="https://github.com/cgcardona/agentception" target="_blank" rel="noopener">github.com/cgcardona/agentception</a></li>
+            <li><strong>scool.ing</strong> — Control panel for private lifelong learning — <a href="https://scool.ing" target="_blank" rel="noopener noreferrer">scool.ing</a></li>
+            <li><strong>theBRAIN</strong> — Spaces and presence: a private AI you can hold, with consent — <a href="https://the-brain.space" target="_blank" rel="noopener noreferrer">the-brain.space</a></li>
+            <li><strong>Overseer Kit</strong> — Freeze the plan, review independently, verify the build — <a href="https://github.com/aaronrene/overseer-kit" target="_blank" rel="noopener noreferrer">github.com/aaronrene/overseer-kit</a></li>
           </ul>
           <p><strong>Knowtation integration:</strong> <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-INTEGRATION.md" target="_blank" rel="noopener">Agent integration</a> — CLI, MCP, Hub API, proposals, optional external lineage, and hosted MCP in one guide. Multi-agent patterns: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">AGENT-ORCHESTRATION.md</a>.</p>
           <p class="ecosystem-doc-link-hint">Full narrative, use cases, triple loop, and phasing: <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">docs/ECOSYSTEM-VISION.md</a></p>
         </div>
       </details>
+    </div>
+  </section>
+
+  <section class="family-presence-band" aria-labelledby="family-presence-heading">
+    <div class="family-presence-inner">
+      <div class="brain-grow-show" data-brain-grow-show>
+        <p class="brain-grow-show__kicker">Many Ways to Grow</p>
+        <div class="brain-grow-show__stack" aria-live="polite" aria-atomic="true">
+          <div class="brain-grow-show__slide is-active">
+            <img src="/assets/thebrain-show/models-lineup-sensors.webp" width="1536" height="1024" alt="Four theBRAIN models in a ladder lineup with side sensors and docks">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/tech-exploded-dual-cam.webp" width="1536" height="1024" alt="Exploded view of theBRAIN internals with dual cameras and round mic array">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/privacy-local-desk.webp" width="1536" height="1024" alt="Person working at a desk with a personal theBRAIN unit nearby">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/models-movable-vision-coverage.webp" width="1600" height="900" alt="theBRAIN vision coverage plate showing movable camera dock positions">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/tech-sensor-addons.webp" width="1536" height="1024" alt="theBRAIN with optional climate, GPS, and slim vision sensor add-ons">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/privacy-team-posture.webp" width="1536" height="1024" alt="Team collaborating near a shared theBRAIN unit with visible consent posture">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/tech-exploded-internals.webp" width="1536" height="1024" alt="Exploded internals of theBRAIN showing Raspberry Pi stack and UPS">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/usecase-adult-second-brain.webp" width="1536" height="1024" alt="Adult using a theBRAIN unit as a personal second brain at home">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/models-brain-pro-max-omni.webp" width="1536" height="1024" alt="BRAIN PRO MAX OMNI product shells showing the shared form factor">
+          </div>
+          <div class="brain-grow-show__slide">
+            <img src="/assets/thebrain-show/privacy-shared-room.webp" width="1536" height="1024" alt="People in a shared room with a theBRAIN unit as group presence">
+          </div>
+        </div>
+        <p class="brain-grow-show__caption"><strong>BRAIN → PRO → MAX → OMNI</strong></p>
+        <div class="brain-grow-show__dots" role="tablist" aria-label="theBRAIN Many Ways to Grow slides">
+          <button type="button" class="brain-grow-show__dot" aria-label="BRAIN → PRO → MAX → OMNI" aria-current="true"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Dual cameras &amp; mic array"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Private at the desk"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Movable vision docks"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Sensors &amp; side docks"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Team in the room"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Pi 5 stack inside"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Everyday companion"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="One shell, four tiers"></button>
+          <button type="button" class="brain-grow-show__dot" aria-label="Shared space intelligence"></button>
+        </div>
+      </div>
+      <div class="family-presence-copy">
+        <h2 id="family-presence-heading">Control panel, presence, and the Parentier family</h2>
+        <p>
+          <a href="https://scool.ing" target="_blank" rel="noopener noreferrer">scool.ing</a>
+          is the control panel — a private lifelong-learning home for school, work, research, and teams. Calendar, tasks, and Flows live there. Agent help runs only with consent.
+        </p>
+        <p>
+          <a href="https://the-brain.space" target="_blank" rel="noopener noreferrer">theBRAIN</a>
+          brings spaces and presence into the system: a private AI you can hold in the room. It speaks, shows when it is thinking, runs on the device, and works in personal and shared spaces with consent.
+        </p>
+        <p>
+          Knowtation keeps the vault. MuseHub keeps history.
+          <a class="parentier-link" href="https://parentier.org" target="_blank" rel="noopener noreferrer">Parentier</a>
+          is the organization that supports this family of community operating systems.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -1996,6 +2265,7 @@
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">Getting started</a>
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">Agent orchestration</a>
     </div>
+    <p class="footer-family">Part of the <a class="footer-family-link" href="https://parentier.org" target="_blank" rel="noopener noreferrer"><svg class="parentier-mark" viewBox="0 0 80 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none"><circle cx="24" cy="26" r="8" stroke="currentColor" stroke-width="6.5"/><circle cx="56" cy="26" r="8" stroke="currentColor" stroke-width="6.5"/><path d="M18 50 C 30 64 50 64 62 50" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"/></svg>Parentier</a> family</p>
   </footer>
 
   <script>
@@ -2044,6 +2314,44 @@
       var p = a.getAttribute('data-provider');
       if (gateway && p) a.href = gateway + '/auth/login?provider=' + p;
     });
+  })();
+
+  (function () {
+    var root = document.querySelector('[data-brain-grow-show]');
+    if (!root) return;
+    var slides = root.querySelectorAll('.brain-grow-show__slide');
+    var dots = root.querySelectorAll('.brain-grow-show__dot');
+    var caption = root.querySelector('.brain-grow-show__caption strong');
+    var i = 0;
+    var timer;
+
+    function show(next) {
+      slides[i].classList.remove('is-active');
+      dots[i].removeAttribute('aria-current');
+      i = (next + slides.length) % slides.length;
+      slides[i].classList.add('is-active');
+      dots[i].setAttribute('aria-current', 'true');
+      if (caption) caption.textContent = dots[i].getAttribute('aria-label') || '';
+    }
+
+    function start() {
+      stop();
+      timer = setInterval(function () { show(i + 1); }, 4500);
+    }
+
+    function stop() {
+      if (timer) clearInterval(timer);
+    }
+
+    dots.forEach(function (dot, idx) {
+      dot.addEventListener('click', function () {
+        show(idx);
+        start();
+      });
+    });
+    root.addEventListener('mouseenter', stop);
+    root.addEventListener('mouseleave', start);
+    start();
   })();
   </script>
 </body>

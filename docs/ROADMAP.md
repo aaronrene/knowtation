@@ -22,15 +22,15 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-18)
+## Current status (2026-08-19)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** (`providers.apple: true`; `APPLE_CLIENT_ID=com.scooling.apple`) |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`; live `apple:true`; evidence `docs/reviews/2026-08-10-kn-apple-t1-complete.md`. |
-| **THE ONE NEXT STEP** | **Operator + Auto SD-21 land KN-WORK-PATH-LIST-b** (this repo; product order). BV r1 **pass**; seven-tier **44/44**; tip `feat/kn-work-path-list-b` not landed. Scooling HOME-BIND **LANDED** [PR #301](https://github.com/aaronrene/scooling/pull/301). Do not flip `PATH_WRITES_ENABLED`. Do not Auto BRAIN-PAIR-b. This board does not edit `~/scooling/`. |
-| **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS); BRAIN-PAIR-b (device not ready). |
+| **THE ONE NEXT STEP** | **Operator MuseHub F7** (Scooling product order). F14 **LANDED** [PR #299](https://github.com/aaronrene/knowtation/pull/299). F16+F17 **LANDED** [SC #303](https://github.com/aaronrene/scooling/pull/303). `PATH_WRITES_ENABLED=1` **ON** (Netlify gateway+bridge). T5 path kinds **not** admitted. Do not Auto BRAIN-PAIR-b. |
+| **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS, parallel); BRAIN-PAIR-b (device not ready); SOCIAL-OPEN-RANGE-b (F7+3G). |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 
 ## Build queue
@@ -71,7 +71,7 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **KN-DOCS-SYNC-b** | **Auto** | **DONE 2026-08-17** — BV round 1 = **`pass`** (`docs/reviews/2026-08-17-kn-docs-sync-b-bv-round1-pass.md`); seven-tier **12/12** (test_output `sha256:41713d88…`) on `feat/kn-docs-sync-b` | Implement freeze D1–D17: Drive readonly OAuth + `docs_oauth` vault; list/import → `docs-sync` proposals (no `writeNote`); optional `sync_cursor`; Notion Hub-key list/import; strong docs blob store; self-hosted + bridge + gateway routes; HUB-API/OpenAPI/PROPOSAL-LIFECYCLE honesty. Gates hard-coded **false** at ship. Folder `gdrive` unchanged. No Scooling edits. |
 | **KN-DOCS-SYNC-DRIVE-GATE** | **Operator + Auto** | **DONE 2026-08-17** — operator authorized “Flip Drive gate”; source `DOCS_OAUTH_GOOGLE_AUTHORIZED = true` | Live Drive OAuth gate on. Notion gate stays **false**. Env must already be set on gateway+bridge. |
 | **KN-WORK-PATH-LIST-a** | **Thinking** | **DONE 2026-08-18** — freeze-review **pass** (`sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`) | **Path persist + list/get freeze.** Artifact `docs/KN-WORK-PATH-LIST-FREEZE.md`. Dedicated `learning_paths[]` in `hub_flow_store.json`; list/get REST; Review-before-write persist gated `PATH_WRITES_ENABLED` default off. No Scooling harvest. No Home bind. No Live. Source: Scooling F14 + F13 BV pass + AGENT-WORK-CHAT-HOME-BIND park. |
-| **KN-WORK-PATH-LIST-b** | **Auto** | **DONE 2026-08-18** — BV round 1 = **`pass`** (`docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md`); seven-tier **44/44** (test_output `sha256:a733bb9f…`) on `feat/kn-work-path-list-b` | Implement D1–D12: `learning_paths[]` in `hub_flow_store.json`; `GET api/v1/learning-paths` + `GET :path_id`; gated `POST` proposals + apply (`PATH_WRITES_ENABLED` default off). Hosted `maybeApplyHostedPathAfterApprove`. T5 not admitted. No Scooling edits. No write-gate flip. No BRAIN-PAIR-b. |
+| **KN-WORK-PATH-LIST-b** | **Auto** | **DONE + landed 2026-08-18**; write env **ON 2026-08-19** (Netlify `PATH_WRITES_ENABLED=1` gateway+bridge; T5 not admitted). BV round 1 = **`pass`**; seven-tier **44/44**; GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff` | List/get REST; gated propose/apply. Hosted `maybeApplyHostedPathAfterApprove`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
 
 > **Hub UI redesign** is a **separate lane** — see [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md) + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md). It must not alter this board's product NEXT. (HUB-DASH-IA landed 2026-07-31 via muse-mirror PR #286.)
 

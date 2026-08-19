@@ -18,43 +18,45 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
-## PRODUCT RELAY — KN-WORK-PATH-LIST-b land (PRIMARY lives on the Scooling board)
+## PRODUCT RELAY — Operator MuseHub F7 (PRIMARY lives on the Scooling board)
 
-**Date:** 2026-08-18  
-**Model:** **Operator + Auto SD-21 land KN-WORK-PATH-LIST-b** (this repo)  
-**Ownership:** Product order wins on Scooling; this board owns the path store + list/get (shipped, not landed).  
-**Product order:** PRIMARY is **Operator + Auto SD-21 land** of Knowtation tip `feat/kn-work-path-list-b`. Scooling F15 HOME-BIND-a+b **LANDED** — GitHub [PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`. This board does not edit `~/scooling/`.
+**Date:** 2026-08-19  
+**Model:** **Operator MuseHub F7** (Scooling board)  
+**Ownership:** Product order wins on Scooling; this board owns the path store + list/get (**LANDED**) and Path write env (**ON**, Netlify-only).  
+**Product order:** PRIMARY is **Operator MuseHub F7**. F16+F17 **LANDED** — GitHub [SC #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. F14 KN-WORK-PATH-LIST **LANDED** — GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. Scooling F15 HOME-BIND **LANDED** — GitHub [PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`. `PATH_WRITES_ENABLED=1` on knowtation-gateway + knowtation-bridge (production + deploy-preview). T5 path kinds **not** admitted. Helper local-model invoke still **off** on Scooling (no Brain HTTPS URL).
 
-**This tip:** `feat/kn-work-path-list-b` implemented `docs/KN-WORK-PATH-LIST-FREEZE.md`
-(freeze-review **pass**, `sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`).
-BV r1 **pass** (`docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md`); seven-tier **44/44**
-(`test_output` `sha256:a733bb9fe7c66f7d20821519c656fd39c04ac0928f3f8add74d2b4e1a09dcd98`).
-Dedicated `learning_paths[]` in `hub_flow_store.json`; list/get REST; Review-before-write
-persist gated `PATH_WRITES_ENABLED` default **off**. Drive gate remains LIVE. Notion remains gated false.
+**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not put chat on Home. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply.
 
-**Locks that still hold:** Do not invent Live. Do not Auto BRAIN-PAIR-b. Do not put chat on Home.
-Do not flip `PATH_WRITES_ENABLED` on. Do not POST apply-approved.
+**Standing (product order lives on Scooling):** Launch-finish 1–4 done. F16/F17 landed. Leftovers: open-range Coming (Auto parked on F7+3G+unpark), pairing (the-brain E2), live Space membership, helper invoke env, Patterns 3F, Notion, Delegation write, APPLE-7-ship, Parentier.org last, P6 R4–R5 parked. This board does not Auto SOCIAL.
 
 ---
 
-### THE ONE NEXT STEP — **Model: Operator + Auto KN-WORK-PATH-LIST-b SD-21 land** (Knowtation)
+### THE ONE NEXT STEP — **Model: Operator MuseHub F7** (Scooling)
 
-Land this tip `feat/kn-work-path-list-b` via Muse `main` → muse-bridge → `muse-mirror` → GitHub `main`.
-Do **not** flip `PATH_WRITES_ENABLED`. Do **not** Auto BRAIN-PAIR-b. Do **not** edit `~/scooling/`.
+AWS `musehub-infra` + staging (Gabriel). Do **not** Auto BRAIN-PAIR-b. Do **not** remove Coming. Do **not** admit T5 path kinds.
 
-### Paste-ready prompt — Operator + Auto KN-WORK-PATH-LIST-b SD-21 land (Knowtation)
+### Paste-ready prompt — Operator MuseHub F7 (Scooling)
 
 ```text
-Knowtation Operator + Auto. SD-21 land feat/kn-work-path-list-b after F14b BV r1 pass. Muse merge/cherry-pick to main, then muse-bridge, then GitHub PR muse-mirror → main only. Diff has no live posture/env flip, secrets, real money, or Delegation write env. Do not flip PATH_WRITES_ENABLED. Do not Auto BRAIN-PAIR-b. Never git push origin main. Never feature→GitHub-main.
+Operator MuseHub F7. AWS musehub-infra + staging deploy (Gabriel). Product Work F16+F17 already landed (scooling PR #303). Path writes ON at Hub (Netlify). Do not Auto BRAIN-PAIR-b. Do not start SOCIAL-OPEN-RANGE-b. Do not flip Delegation write. Never git push origin main. Never feature→GitHub-main.
 
-Repo: knowtation
-Model: Operator + Auto
-Authority: docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md; docs/KN-WORK-PATH-LIST-FREEZE.md; ~/scooling/docs/ROADMAP.md F14; SD-14; SD-21
+Repo: scooling (product order) / musehub-infra (this work)
+Model: Operator
+Step: MuseHub F7
+Authority: ~/scooling/docs/ROADMAP.md; ~/scooling/docs/OVERSEER-HANDOVER.md; ~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md
 ```
+
+### This session — Path writes ON + F16/F17 land (2026-08-19)
+
+Operator authorized `PATH_WRITES_ENABLED=1` on gateway+bridge. Rebuilds ready. T5 not admitted. Scooling F16+F17 GitHub [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. NEXT = **Operator MuseHub F7**.
+
+### This session — SD-21 land KN-WORK-PATH-LIST-b **DONE** (2026-08-18)
+
+Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, secrets, real money, or Delegation write env in the diff). Muse FF `feat/kn-work-path-list-b` → `main` `sha256:87cf7a0d6cfdcfee542b0128171cb8406c9366a764efc43e59be8ab25901cfb5`. Then `./scripts/muse-bridge-deploy.sh` → GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff` (merge commit; required checks green: `test (20)`, `Secret scanning (TruffleHog)`). Never `git push origin main`. Never feature→GitHub-`main`. `PATH_WRITES_ENABLED` not flipped. **BRAIN-PAIR-b** stays blocked on the-brain E2. Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-land.md`. NEXT = **Thinking SOCIAL-OPEN-RANGE-a** (Scooling).
 
 ### This session — PRODUCT RELAY refresh (2026-08-18)
 
-Scooling F15 HOME-BIND-a+b **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product PRIMARY is now **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b`. This board still does not edit `~/scooling/`. `PATH_WRITES_ENABLED` stays default off. **BRAIN-PAIR-b** stays blocked.
+Scooling F15 HOME-BIND-a+b **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product PRIMARY was **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b` (now **LANDED**). `PATH_WRITES_ENABLED` stays default off. **BRAIN-PAIR-b** stays blocked.
 
 ### This session — KN-WORK-PATH-LIST-b **DONE** (2026-08-18)
 
@@ -825,7 +827,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Area | State |
 | --- | --- |
-| **Overseer Kit** | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced`, `substrate: healthy` — **re-verified 2026-07-27** via `ok -C ~/knowtation status --json` |
+| **Overseer Kit** | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced` — **re-verified 2026-08-18** via `ok -C ~/knowtation status --json` |
+| **KN-WORK-PATH-LIST** | **LANDED** 2026-08-18 — Muse `main` `sha256:87cf7a0d…` → [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED` default off. |
 | **Footprint deviation (intentional)** | `ok status --check-footprint` → `footprint_integrity: mismatch`. Cause: `MUSE-BRIDGE-WORKFLOW.md` and `scripts/muse-bridge-deploy.sh` were restored to Knowtation's live versions (sha256 `ef8a50b5…` and `fcc17c36…`) after `init --force` overwrote them with kit templates. Knowtation's bridge script is 10,004 bytes and is the live deploy path; the kit template is 3,842 bytes and is **not** a substitute. **Do not "repair" these two files.** Recorded in `.overseer/config.yaml` → `kit.notes`. |
 | **Canister gateway auth secret** | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister. |
 | **SEC-KN-1 fail-closed** | **On Muse `main`** (tip contained). Live health `gateway_auth_configured:true` + `/vaults` → `403 GATEWAY_AUTH_REQUIRED` (**re-verified 2026-07-31**). |
@@ -851,7 +854,12 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling F15 HOME-BIND **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product NEXT = **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b`. This board does not edit `~/scooling/`. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-19 | **Path writes ON + Scooling F16/F17 LANDED.** `PATH_WRITES_ENABLED=1` Netlify gateway+bridge (prod+DP); rebuilds ready. T5 not admitted. Scooling [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Product NEXT = **Operator MuseHub F7**. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling PRIMARY = **Thinking AGENT-WORK-CHAT-LIVE-a** (F16). Honesty inventory on Scooling. MuseHub F7 parallel. This board does not Auto F16 or SOCIAL. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling SOCIAL-OPEN-RANGE-a freeze-review **pass** (`sha256:89a7f2e0…`). Product NEXT was **Operator MuseHub F7**. SOCIAL-OPEN-RANGE-b Auto parked. This board does not Auto SOCIAL. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **Standing brief.** Launch-finish 1–4 done. Product NEXT remains **Thinking SOCIAL-OPEN-RANGE-a** (Scooling). Leftovers stay labeled; this board does not Auto SOCIAL. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **KN-WORK-PATH-LIST-b LANDED (SD-21).** Muse FF `feat/kn-work-path-list-b` → `main` `sha256:87cf7a0d…`; muse-bridge → GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED` stays off. Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-land.md`. Product NEXT = **Thinking SOCIAL-OPEN-RANGE-a** (Scooling). **BRAIN-PAIR-b** stays blocked. |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling F15 HOME-BIND **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product NEXT was **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b` (now landed). `PATH_WRITES_ENABLED` stays off. |
 | 2026-08-18 | **KN-WORK-PATH-LIST-b DONE — BV round 1 = `pass`.** D1–D12 on `feat/kn-work-path-list-b`: `learning_paths[]` in `hub_flow_store.json`; list/get REST; gated propose/apply (`PATH_WRITES_ENABLED` default off); hosted `maybeApplyHostedPathAfterApprove`; T5 not admitted. Seven-tier **44/44** (`test/path-list-*.test.mjs`, sha256 `a733bb9f…`). Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md`. No Scooling edits. No write-gate flip. Product NEXT = **Thinking AGENT-WORK-CHAT-HOME-BIND** (Scooling). |
 | 2026-08-06 | **SITE-FINISH-FLOW-RUN-KN-b DONE — BV round 1 = `pass`.** Gateway→bridge §FR.0.4 run/consent proxies + bridge `registerBridgeFlowRunRoutes` (flow-store blob sync); async submit-review for hosted canister create; seven-tier **10/10** (`test/site-finish-flow-run-kn-b.test.mjs`, sha256 `0f6d17ac…`). `FLOW_RUN_WRITES_ENABLED` / `FLOW_AUTOMATABLE_EXECUTION_ENABLED` stay default off. No SC posture flip. Branch `feat/site-finish-flow-run-kn-b`. Evidence: `docs/reviews/2026-08-06-site-finish-flow-run-kn-b-bv-round1-pass.md`. Product NEXT = **SITE-FINISH-FLOW-RUN-flip**. |
 | 2026-08-04 | **Hosted attach kn1 LANDED + published.** Muse `main` `d3f6da81…` + audit `6518a12b…` → [PR #290](https://github.com/aaronrene/knowtation/pull/290) `baa41bf` MERGED; Netlify bridge+gateway production ready at `baa41bf`. Canister GET `liveStateIdOverride` clears yaml-stage `trimEnd` false `MEDIA_LINEAGE_CONFLICT`. NEXT = Scooling HMS attach SMOKE. |
