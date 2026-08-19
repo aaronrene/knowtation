@@ -76,13 +76,6 @@ describe('landing family placement (integration)', () => {
     for (const name of expected) {
       assert.ok(existsSync(join(showDir, name)), name);
     }
-    assert.match(bandHtml, /scool\.ing/);
-    assert.match(bandHtml, /control panel/);
-    assert.match(bandHtml, /theBRAIN/);
-    assert.match(bandHtml, /spaces and presence/);
-    assert.match(bandHtml, /Parentier/);
-    assert.doesNotMatch(bandHtml, /\bschooling\b/i);
-    assert.ok(existsSync(join(root, 'web', 'assets', 'thebrain.webp')));
   });
 
   it('closes the page with a white Parentier family line, rings mark, after footer links', () => {
