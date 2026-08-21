@@ -12,11 +12,15 @@ describe('landing family copy (unit)', () => {
     assert.equal(/agentception/i.test(indexHtml), false);
   });
 
-  it('names Parentier, scool.ing, theBRAIN, and Overseer Kit', () => {
-    assert.match(indexHtml, /Parentier/);
+  it('names Ourware, scool.ing, theBRAIN, and Overseer Kit', () => {
+    assert.match(indexHtml, /Ourware/);
     assert.match(indexHtml, /scool\.ing/);
     assert.match(indexHtml, /theBRAIN/);
     assert.match(indexHtml, /Overseer Kit/);
+  });
+
+  it('does not retain Parentier branding on the public landing page', () => {
+    assert.equal(/parentier/i.test(indexHtml), false);
   });
 
   it('avoids Parent Here, parent company, schooling, and school.ing labels', () => {

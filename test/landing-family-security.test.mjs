@@ -10,10 +10,14 @@ const indexHtml = readFileSync(join(root, 'web', 'index.html'), 'utf8');
 describe('landing family links (security)', () => {
   it('opens family outbound links in a new tab with noopener noreferrer', () => {
     const familyHrefs = [
-      'https://parentier.org',
+      'https://ourware.org',
       'https://scool.ing',
       'https://the-brain.space',
       'https://github.com/aaronrene/overseer-kit',
+      'https://www.facebook.com/profile.php?id=61593821631787',
+      'https://www.linkedin.com/company/143378951',
+      'https://www.youtube.com/channel/UC85lDAayTYjkqPFOyDaORWA',
+      'https://x.com/ourware',
     ];
     for (const href of familyHrefs) {
       const re = new RegExp(

@@ -25,7 +25,7 @@ describe('structured-memory hero fold', () => {
     assert.match(indexHtml, /\.hero-value-fold-chevron\s*\{[^}]*color:\s*#4da3ff/s);
   });
 
-  it('paints Parentier ecosystem links in bright cyan, including visited', () => {
+  it('paints Ourware ecosystem links in bright cyan, including visited', () => {
     assert.match(
       indexHtml,
       /\.ecosystem-vision-lead a:visited[\s\S]*?color:\s*#7dd3fc/

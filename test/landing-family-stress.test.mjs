@@ -12,7 +12,9 @@ describe('landing family copy (stress)', () => {
     for (let i = 0; i < 250; i += 1) {
       const html = readFileSync(indexPath, 'utf8');
       assert.equal(/agentception/i.test(html), false);
-      assert.ok(html.includes('https://parentier.org'));
+      assert.equal(/parentier/i.test(html), false);
+      assert.ok(html.includes('https://ourware.org'));
+      assert.ok(html.includes('https://x.com/ourware'));
       assert.ok(html.includes('scool.ing'));
       assert.ok(html.includes('Overseer Kit'));
       assert.ok(html.includes('class="hero-value-fold-triangle"'));

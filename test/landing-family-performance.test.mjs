@@ -12,10 +12,12 @@ describe('landing family scan (performance)', () => {
     const t0 = performance.now();
     const html = readFileSync(indexPath, 'utf8');
     const ok =
-      html.includes('Parentier') &&
+      html.includes('Ourware') &&
+      html.includes('https://ourware.org') &&
       html.includes('scool.ing') &&
       html.includes('Overseer Kit') &&
-      !/agentception/i.test(html);
+      !/agentception/i.test(html) &&
+      !/parentier/i.test(html);
     const elapsed = performance.now() - t0;
     assert.equal(ok, true);
     assert.ok(elapsed < 50, `scan took ${elapsed}ms`);

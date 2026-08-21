@@ -32,7 +32,8 @@ describe('landing family page (e2e)', () => {
       assert.match(body, /Structured memory for humans and agents/);
       assert.match(body, /class="hero-value-fold-triangle"/);
       assert.match(body, /class="hero-value-fold-chevron"/);
-      assert.match(body, /Parentier/);
+      assert.match(body, /Ourware/);
+      assert.match(body, /https:\/\/ourware\.org/);
       assert.match(body, /scool\.ing/);
       assert.match(body, /theBRAIN/);
       assert.match(body, /class="family-presence-band"/);
@@ -40,7 +41,9 @@ describe('landing family page (e2e)', () => {
       assert.match(body, /Many Ways to Grow/);
       assert.match(body, /src="\/assets\/thebrain-show\/privacy-local-desk\.webp"/);
       assert.match(body, /Overseer Kit/);
+      assert.match(body, /class="footer-ourware-social"/);
       assert.equal(/agentception/i.test(body), false);
+      assert.equal(/parentier/i.test(body), false);
     } finally {
       server.close();
     }
