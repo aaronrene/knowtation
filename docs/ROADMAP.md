@@ -22,14 +22,14 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-19)
+## Current status (2026-08-20)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** (`providers.apple: true`; `APPLE_CLIENT_ID=com.scooling.apple`) |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`; live `apple:true`; evidence `docs/reviews/2026-08-10-kn-apple-t1-complete.md`. |
-| **THE ONE NEXT STEP** | **Operator MuseHub F7** (Scooling product order). F14 **LANDED** [PR #299](https://github.com/aaronrene/knowtation/pull/299). F16+F17 **LANDED** [SC #303](https://github.com/aaronrene/scooling/pull/303). `PATH_WRITES_ENABLED=1` **ON** (Netlify gateway+bridge). T5 path kinds **not** admitted. Do not Auto BRAIN-PAIR-b. |
+| **THE ONE NEXT STEP** | **Operator F20 HELPER-SMOKE re-smoke** (Scooling product order) after Netlify redeploy of [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c` (F30b LANDED). Read fold `data-next-step`. F18-P0b Bearer **LANDED** [SC #307](https://github.com/aaronrene/scooling/pull/307). F29b **LANDED** [SC #311](https://github.com/aaronrene/scooling/pull/311). Prior F20 still **FINDINGS**. Canonical fence: `~/scooling/docs/OVERSEER-HANDOVER.md` → search `Paste-ready prompt — Operator F20 HELPER-SMOKE re-smoke`. F14 **LANDED** [PR #299](https://github.com/aaronrene/knowtation/pull/299). `PATH_WRITES_ENABLED=1` **ON**. T5 **not** admitted. Do not Auto BRAIN-PAIR-b. Do not say helper live / all good. |
 | **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS, parallel); BRAIN-PAIR-b (device not ready); SOCIAL-OPEN-RANGE-b (F7+3G). |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 

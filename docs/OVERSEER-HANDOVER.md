@@ -17,38 +17,64 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
-## PRODUCT RELAY — Operator MuseHub F7 (PRIMARY lives on the Scooling board)
+<!-- overseer:next role=product_relay lane=product status=live product_order=scooling tip_hash=sha256:c08556ac0e40f2a5686ecea893278ac12cd02032da63614e96b50d9a55f31308 -->
+## PRODUCT RELAY — Operator F20 HELPER-SMOKE re-smoke after F32b (PRIMARY lives on the Scooling board)
 
-**Date:** 2026-08-19  
-**Model:** **Operator MuseHub F7** (Scooling board)  
+**Date:** 2026-08-20  
+**Model:** **Operator + Auto** (Scooling board)  
 **Ownership:** Product order wins on Scooling; this board owns the path store + list/get (**LANDED**) and Path write env (**ON**, Netlify-only).  
-**Product order:** PRIMARY is **Operator MuseHub F7**. F16+F17 **LANDED** — GitHub [SC #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. F14 KN-WORK-PATH-LIST **LANDED** — GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. Scooling F15 HOME-BIND **LANDED** — GitHub [PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`. `PATH_WRITES_ENABLED=1` on knowtation-gateway + knowtation-bridge (production + deploy-preview). T5 path kinds **not** admitted. Helper local-model invoke still **off** on Scooling (no Brain HTTPS URL).
+**Product order:** PRIMARY is **Operator F20 HELPER-SMOKE re-smoke after F32b** after F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. Land published clearer refuse class labels only — does **not** by itself make Start/Send return a draft. Evidence `~/scooling/docs/reviews/2026-08-20-helper-endpoint-refuse-b-land.md`. F14 KN-WORK-PATH-LIST **LANDED** — GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED=1` on knowtation-gateway + knowtation-bridge. T5 path kinds **not** admitted. MuseHub F7 is **parallel**, not PRIMARY.
 
-**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not put chat on Home. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply.
+**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not put chat on Home. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply. Do not say Scooling is done / helper live / all good. Do not invent Notion Ready. Do not put helper API keys in git. Do not flip Work chip Live without a real draft. Do not invent HTTP status.
 
-**Standing (product order lives on Scooling):** Launch-finish 1–4 done. F16/F17 landed. Leftovers: open-range Coming (Auto parked on F7+3G+unpark), pairing (the-brain E2), live Space membership, helper invoke env, Patterns 3F, Notion, Delegation write, APPLE-7-ship, Parentier.org last, P6 R4–R5 parked. This board does not Auto SOCIAL.
+**Standing (product order lives on Scooling):** Not finished. Bearer + F29b + F30b + F31b + F32b on GitHub `main`; F20 still **FINDINGS** until Operator re-smoke after #317 Netlify redeploy. Helper/model is P0 unfinished. Leftovers: open-range Coming (Auto parked on F7+3G+unpark), pairing (the-brain E2), live Space membership, Patterns 3F, Notion, Delegation write, APPLE-7-ship, Parentier.org last, P6 R4–R5 parked. This board does not Auto SOCIAL or land Scooling.
+
+**Canonical paste fence:** `~/scooling/docs/OVERSEER-HANDOVER.md` → **NEXT SESSION — Operator F20 HELPER-SMOKE re-smoke** (search `Paste-ready prompt — Operator F20 after F32b`). The copy below matches that fence.
 
 ---
 
-### THE ONE NEXT STEP — **Model: Operator MuseHub F7** (Scooling)
+### THE ONE NEXT STEP — **Model: Operator + Auto** (Scooling)
 
-AWS `musehub-infra` + staging (Gabriel). Do **not** Auto BRAIN-PAIR-b. Do **not** remove Coming. Do **not** admit T5 path kinds.
+Operator F20 re-smoke after #317 redeploy. Read class `data-next-step`. Do **not** say all good / helper live. Do **not** Auto BRAIN-PAIR-b. Do **not** admit T5 path kinds.
 
-### Paste-ready prompt — Operator MuseHub F7 (Scooling)
+### Paste-ready prompt — Operator F20 after F32b (Scooling)
 
 ```text
-Operator MuseHub F7. AWS musehub-infra + staging deploy (Gabriel). Product Work F16+F17 already landed (scooling PR #303). Path writes ON at Hub (Netlify). Do not Auto BRAIN-PAIR-b. Do not start SOCIAL-OPEN-RANGE-b. Do not flip Delegation write. Never git push origin main. Never feature→GitHub-main.
+Operator + Auto F20 HELPER-SMOKE re-smoke after F32b land. Confirm Netlify production redeploy of PR #317 @7691fba9 includes that SHA (or a later published HEAD that has it as ancestor). Signed-in Home Start + Work Send; read data-next-step (next_helper_auth / next_helper_request / next_helper_rate / next_helper_server / next_helper_endpoint; still rule out malformed/abort/runtime/reservation/parse). Record fold id + whether a real draft appeared. If still refuse, Operator fixes the named Netlify helper env cause (never secrets in git). Refresh work?open= + Path propose only if a real draft appears. Do not invent helper live / all good / HTTP status / Notion Ready. Do not Auto BRAIN-PAIR-b. Do not start SOCIAL-OPEN-RANGE-b. Never git push origin main. Never feature→GitHub-main.
 
-Repo: scooling (product order) / musehub-infra (this work)
-Model: Operator
-Step: MuseHub F7
-Authority: ~/scooling/docs/ROADMAP.md; ~/scooling/docs/OVERSEER-HANDOVER.md; ~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md
+Repo: scooling
+Model: Operator + Auto
+Step: Operator F20 HELPER-SMOKE re-smoke after F32b
+Authority: docs/reviews/2026-08-20-helper-endpoint-refuse-b-land.md + prior FINDINGS docs/reviews/2026-08-20-helper-smoke-resmoke-f31b-findings.md
 ```
+
+### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
+
+Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = **Operator F20 HELPER-SMOKE re-smoke** after Netlify redeploy; read class `data-next-step`. Path writes stay **ON**. T5 not admitted. This board does not Auto Scooling. NEXT = **Operator F20** (Scooling).
+
+### This session — PRODUCT RELAY → Thinking F32 after F20 FINDINGS (2026-08-20) — superseded
+
+Scooling F20 after F31b **FINDINGS** — fold `next_helper_endpoint`. PRIMARY was **Thinking F32 HELPER-ENDPOINT-REFUSE-a** (now **pass** → F32b **LANDED**). Path writes stay **ON**. T5 not admitted. **Superseded:** Operator F20 after F32b land.
+
+### This session — PRODUCT RELAY → Operator F20 after F31b land (2026-08-20) — superseded
+
+Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY was **Operator F20** after #315; that smoke was **FINDINGS** (`next_helper_endpoint`). Path writes stay **ON**. T5 not admitted. **Superseded:** Thinking F32 → F32b land → Operator F20.
+
+### This session — PRODUCT RELAY → Operator F18-P0 after F19b land (2026-08-19)
+
+Scooling F19b **LANDED** [SC #305](https://github.com/aaronrene/scooling/pull/305) `@8051402`. PRIMARY was **Operator F18-P0 HELPER-INVOKE** (superseded same day by Bearer freeze). Helper invoke still refuses on apex. Path writes stay **ON**. T5 not admitted.
+
+### This session — PRODUCT RELAY → SD-21 land F19b (2026-08-19)
+
+Scooling PRIMARY moved to **Operator + Auto SD-21 land F19b**. F19b **DONE on tip** then **LANDED** same day. Helper invoke still refuses on apex. Path writes stay **ON**. T5 not admitted. This board does not land Scooling.
+
+### This session — PRODUCT RELAY → F18 FINISH-LINE-HONESTY-a (2026-08-19)
+
+Scooling PRIMARY moved to **Thinking FINISH-LINE-HONESTY-a**. Helper invoke still refuses on apex. Path writes stay **ON**. T5 not admitted. This board does not Auto F18. NEXT = **Thinking FINISH-LINE-HONESTY-a** (Scooling).
 
 ### This session — Path writes ON + F16/F17 land (2026-08-19)
 
-Operator authorized `PATH_WRITES_ENABLED=1` on gateway+bridge. Rebuilds ready. T5 not admitted. Scooling F16+F17 GitHub [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. NEXT = **Operator MuseHub F7**.
+Operator authorized `PATH_WRITES_ENABLED=1` on gateway+bridge. Rebuilds ready. T5 not admitted. Scooling F16+F17 GitHub [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. NEXT was **Operator MuseHub F7** (superseded same day by F18).
 
 ### This session — SD-21 land KN-WORK-PATH-LIST-b **DONE** (2026-08-18)
 
@@ -854,7 +880,15 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-08-19 | **Path writes ON + Scooling F16/F17 LANDED.** `PATH_WRITES_ENABLED=1` Netlify gateway+bridge (prod+DP); rebuilds ready. T5 not admitted. Scooling [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Product NEXT = **Operator MuseHub F7**. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
+| 2026-08-20 | **PRODUCT RELAY → Operator F20 after F32b land.** Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = F20 re-smoke after Netlify redeploy; read class `data-next-step` (auth / request / rate / server / endpoint). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-20 | **PRODUCT RELAY → Operator F20 after F31b land.** Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step` (endpoint / malformed / abort / runtime). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-20 | **PRODUCT RELAY → Operator F20 HELPER-SMOKE re-smoke.** Scooling F30b **LANDED** [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step`. Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-20 | **PRODUCT RELAY → Thinking F30 HELPER-RUNTIME-REFUSE-a** (superseded same day by F30b land → F20). Scooling F20 re-smoke **FINDINGS** after F29b [SC #311](https://github.com/aaronrene/scooling/pull/311) redeploy. Bearer + JSON contract on apex; helper still refuses. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → Thinking F18-P0a HELPER-API-KEY.** Operator Groq + Netlify env reported. Bearer freeze is Scooling PRIMARY. Helper still refuses until code + smoke. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → Operator F18-P0 after F19b land.** Scooling F19b **LANDED** [SC #305](https://github.com/aaronrene/scooling/pull/305) `@8051402`. PRIMARY was helper URL (superseded same day). Helper invoke still refuses. MuseHub F7 parallel. This board does not land Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → SD-21 land F19b.** Scooling PRIMARY is land of `feat/drive-home-copy-b` after F19b BV pass. Helper invoke still refuses. MuseHub F7 parallel. This board does not land Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → F18 FINISH-LINE-HONESTY-a.** Scooling PRIMARY is Thinking freeze-review of `~/scooling/docs/reviews/2026-08-19-finish-line-honesty.md`. Helper invoke still refuses. MuseHub F7 parallel. This board does not Auto F18. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **Path writes ON + Scooling F16/F17 LANDED.** `PATH_WRITES_ENABLED=1` Netlify gateway+bridge (prod+DP); rebuilds ready. T5 not admitted. Scooling [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Product NEXT was **Operator MuseHub F7** (same-day superseded by F18). Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
 | 2026-08-18 | **PRODUCT RELAY refresh.** Scooling PRIMARY = **Thinking AGENT-WORK-CHAT-LIVE-a** (F16). Honesty inventory on Scooling. MuseHub F7 parallel. This board does not Auto F16 or SOCIAL. `PATH_WRITES_ENABLED` stays off. |
 | 2026-08-18 | **PRODUCT RELAY refresh.** Scooling SOCIAL-OPEN-RANGE-a freeze-review **pass** (`sha256:89a7f2e0…`). Product NEXT was **Operator MuseHub F7**. SOCIAL-OPEN-RANGE-b Auto parked. This board does not Auto SOCIAL. `PATH_WRITES_ENABLED` stays off. |
 | 2026-08-18 | **Standing brief.** Launch-finish 1–4 done. Product NEXT remains **Thinking SOCIAL-OPEN-RANGE-a** (Scooling). Leftovers stay labeled; this board does not Auto SOCIAL. `PATH_WRITES_ENABLED` stays off. |
