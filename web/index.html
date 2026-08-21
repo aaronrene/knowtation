@@ -811,8 +811,8 @@
     .ecosystem-vision-lead a:visited,
     .family-presence-band a,
     .family-presence-band a:visited,
-    a.parentier-link,
-    a.parentier-link:visited {
+    a.ourware-link,
+    a.ourware-link:visited {
       color: #7dd3fc;
       font-weight: 700;
       text-decoration: underline;
@@ -822,8 +822,8 @@
     html[data-theme="light"] .ecosystem-vision-lead a:visited,
     html[data-theme="light"] .family-presence-band a,
     html[data-theme="light"] .family-presence-band a:visited,
-    html[data-theme="light"] a.parentier-link,
-    html[data-theme="light"] a.parentier-link:visited {
+    html[data-theme="light"] a.ourware-link,
+    html[data-theme="light"] a.ourware-link:visited {
       color: #0369a1;
     }
     .family-presence-band {
@@ -1437,14 +1437,42 @@
     html[data-theme="light"] footer .footer-family-link {
       color: #0f172a;
     }
-    footer .parentier-mark {
+    footer .ourware-mark {
       width: 1.35rem;
       height: 1.2rem;
       flex-shrink: 0;
       color: #7dd3fc;
     }
-    html[data-theme="light"] footer .parentier-mark {
+    html[data-theme="light"] footer .ourware-mark {
       color: #0369a1;
+    }
+    footer .footer-ourware-social {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+      margin: 0.65rem 0 0;
+    }
+    footer .footer-ourware-social a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem;
+      color: #7dd3fc;
+      text-decoration: none;
+      border-radius: 10px;
+      transition: color 0.15s, background 0.15s;
+    }
+    footer .footer-ourware-social a:hover {
+      background: var(--surface-elevated);
+    }
+    html[data-theme="light"] footer .footer-ourware-social a {
+      color: #0369a1;
+    }
+    footer .footer-ourware-social svg {
+      width: 1.2rem;
+      height: 1.2rem;
+      fill: currentColor;
     }
   </style>
 </head>
@@ -1760,7 +1788,7 @@
     <div class="ecosystem-vision-heading-wrap">
       <h2 id="ecosystem-vision-heading" class="flow-intro-title">Ecosystem visions</h2>
     </div>
-    <p class="ecosystem-vision-lead">Knowtation is part of <a class="parentier-link" href="https://parentier.org" target="_blank" rel="noopener noreferrer">Parentier</a>, the organization that supports community operating systems. Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
+    <p class="ecosystem-vision-lead">Knowtation is part of <a class="ourware-link" href="https://ourware.org" target="_blank" rel="noopener noreferrer">Ourware</a>, the organization that supports community operating systems. Knowtation is the <strong>brain</strong> — files, search, memory, and review. Together with <strong>your custom workflow</strong>, you get one direction: humans and agents propose, humans curate, and history stays inspectable across life, work, and research.</p>
     <div class="ecosystem-vision-card">
       <h3 class="ecosystem-architecture-title">Future Facing Architecture</h3>
       <div class="ecosystem-flow-row ecosystem-flow-row--in-card" aria-hidden="true">
@@ -1779,7 +1807,7 @@
         <div class="detail-inner">
           <p><strong>Stack roles (from <a href="https://github.com/aaronrene/knowtation/blob/main/docs/ECOSYSTEM-VISION.md" target="_blank" rel="noopener">ECOSYSTEM-VISION.md</a>):</strong></p>
           <ul>
-            <li><strong>Parentier</strong> — Organization that supports this family of community operating systems — <a href="https://parentier.org" target="_blank" rel="noopener noreferrer">parentier.org</a></li>
+            <li><strong>Ourware</strong> — Organization that supports this family of community operating systems — <a href="https://ourware.org" target="_blank" rel="noopener noreferrer">ourware.org</a></li>
             <li><strong>Knowtation</strong> — Vaults, semantic search, Hub, MCP/CLI (<a href="https://github.com/aaronrene/knowtation/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noopener">WHITEPAPER.md</a>)</li>
             <li><strong>Muse / MuseHub</strong> — Domain-agnostic VCS, MuseHub collaboration — <a href="https://github.com/cgcardona/muse" target="_blank" rel="noopener">github.com/cgcardona/muse</a>, <a href="https://staging.musehub.ai/explore" target="_blank" rel="noopener">MuseHub (staging)</a></li>
             <li><strong>scool.ing</strong> — Control panel for private lifelong learning — <a href="https://scool.ing" target="_blank" rel="noopener noreferrer">scool.ing</a></li>
@@ -1844,7 +1872,7 @@
         </div>
       </div>
       <div class="family-presence-copy">
-        <h2 id="family-presence-heading">Control panel, presence, and the Parentier family</h2>
+        <h2 id="family-presence-heading">Control panel, presence, and the Ourware family</h2>
         <p>
           <a href="https://scool.ing" target="_blank" rel="noopener noreferrer">scool.ing</a>
           is the control panel — a private lifelong-learning home for school, work, research, and teams. Calendar, tasks, and Flows live there. Agent help runs only with consent.
@@ -1855,7 +1883,7 @@
         </p>
         <p>
           Knowtation keeps the vault. MuseHub keeps history.
-          <a class="parentier-link" href="https://parentier.org" target="_blank" rel="noopener noreferrer">Parentier</a>
+          <a class="ourware-link" href="https://ourware.org" target="_blank" rel="noopener noreferrer">Ourware</a>
           is the organization that supports this family of community operating systems.
         </p>
       </div>
@@ -2265,7 +2293,21 @@
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/GETTING-STARTED.md" target="_blank" rel="noopener">Getting started</a>
       <a href="https://github.com/aaronrene/knowtation/blob/main/docs/AGENT-ORCHESTRATION.md" target="_blank" rel="noopener">Agent orchestration</a>
     </div>
-    <p class="footer-family">Part of the <a class="footer-family-link" href="https://parentier.org" target="_blank" rel="noopener noreferrer"><svg class="parentier-mark" viewBox="0 0 80 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none"><circle cx="24" cy="26" r="8" stroke="currentColor" stroke-width="6.5"/><circle cx="56" cy="26" r="8" stroke="currentColor" stroke-width="6.5"/><path d="M18 50 C 30 64 50 64 62 50" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"/></svg>Parentier</a> family</p>
+    <p class="footer-family">Part of the <a class="footer-family-link" href="https://ourware.org" target="_blank" rel="noopener noreferrer"><svg class="ourware-mark" viewBox="0 0 80 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none"><circle cx="24" cy="26" r="8" stroke="currentColor" stroke-width="6.5"/><circle cx="56" cy="26" r="8" stroke="currentColor" stroke-width="6.5"/><path d="M18 50 C 30 64 50 64 62 50" stroke="currentColor" stroke-width="6.5" stroke-linecap="round"/></svg>Ourware</a> family</p>
+    <div class="footer-ourware-social" role="navigation" aria-label="Ourware on social">
+      <a href="https://www.facebook.com/profile.php?id=61593821631787" target="_blank" rel="noopener noreferrer" aria-label="Ourware on Facebook" title="Facebook">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M14 8h3V4.5C16.4 4.3 15.2 4 13.9 4 11.2 4 9.3 5.7 9.3 8.7V11H6.5v3.8h2.8V22h3.4v-7.2H15l.5-3.8h-3.2V9c0-1.1.3-1.8 1.7-1.8z"/></svg>
+      </a>
+      <a href="https://www.linkedin.com/company/143378951" target="_blank" rel="noopener noreferrer" aria-label="Ourware on LinkedIn" title="LinkedIn">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.24.79 24 1.77 24h20.46c.98 0 1.77-.76 1.77-1.73V1.73C24 .77 23.21 0 22.23 0z"/></svg>
+      </a>
+      <a href="https://www.youtube.com/channel/UC85lDAayTYjkqPFOyDaORWA" target="_blank" rel="noopener noreferrer" aria-label="Ourware on YouTube" title="YouTube">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <a href="https://x.com/ourware" target="_blank" rel="noopener noreferrer" aria-label="Ourware on X (@ourware)" title="X (Twitter)">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932L18.901 1.153zm-1.292 19.494h2.039L6.486 3.24H4.298l13.311 17.407z"/></svg>
+      </a>
+    </div>
   </footer>
 
   <script>

@@ -13,15 +13,15 @@ const ecosystem = indexHtml.slice(ecosystemStart, ecosystemEnd);
 const footer = indexHtml.slice(indexHtml.lastIndexOf('<footer>'));
 
 describe('landing family placement (integration)', () => {
-  it('opens ecosystem vision with Parentier and the Knowtation brain role', () => {
+  it('opens ecosystem vision with Ourware and the Knowtation brain role', () => {
     assert.ok(ecosystemStart !== -1 && ecosystemEnd > ecosystemStart);
     assert.match(ecosystem, /ecosystem-vision-lead/);
     const leadStart = ecosystem.indexOf('class="ecosystem-vision-lead"');
     const lead = ecosystem.slice(leadStart, ecosystem.indexOf('</p>', leadStart));
-    assert.match(lead, /Parentier/);
-    assert.match(lead, /https:\/\/parentier\.org/);
+    assert.match(lead, /Ourware/);
+    assert.match(lead, /https:\/\/ourware\.org/);
     assert.match(lead, /brain/i);
-    assert.ok(lead.indexOf('Parentier') < lead.toLowerCase().indexOf('brain'));
+    assert.ok(lead.indexOf('Ourware') < lead.toLowerCase().indexOf('brain'));
   });
 
   it('puts scool.ing in the architecture flow and Overseer Kit in technical details', () => {
@@ -58,7 +58,7 @@ describe('landing family placement (integration)', () => {
     assert.match(bandHtml, /control panel/);
     assert.match(bandHtml, /theBRAIN/);
     assert.match(bandHtml, /spaces and presence/);
-    assert.match(bandHtml, /Parentier/);
+    assert.match(bandHtml, /Ourware/);
     assert.doesNotMatch(bandHtml, /\bschooling\b/i);
     const showDir = join(root, 'web', 'assets', 'thebrain-show');
     const expected = [
@@ -78,13 +78,19 @@ describe('landing family placement (integration)', () => {
     }
   });
 
-  it('closes the page with a white Parentier family line, rings mark, after footer links', () => {
+  it('closes the page with a white Ourware family line, rings mark, and Ourware socials', () => {
     const familyIdx = footer.indexOf('class="footer-family"');
     const linksIdx = footer.indexOf('class="footer-links"');
+    const ourwareSocialIdx = footer.indexOf('class="footer-ourware-social"');
     assert.ok(familyIdx !== -1 && linksIdx !== -1 && familyIdx > linksIdx);
+    assert.ok(ourwareSocialIdx !== -1 && ourwareSocialIdx > familyIdx);
     assert.match(footer, /class="footer-family-link"/);
-    assert.match(footer, /class="parentier-mark"/);
-    assert.match(footer, /Parentier/);
+    assert.match(footer, /class="ourware-mark"/);
+    assert.match(footer, /Ourware/);
+    assert.match(footer, /https:\/\/www\.facebook\.com\/profile\.php\?id=61593821631787/);
+    assert.match(footer, /https:\/\/www\.linkedin\.com\/company\/143378951/);
+    assert.match(footer, /https:\/\/www\.youtube\.com\/channel\/UC85lDAayTYjkqPFOyDaORWA/);
+    assert.match(footer, /https:\/\/x\.com\/ourware/);
     assert.match(indexHtml, /footer \.footer-family-link[\s\S]*?color:\s*#ffffff/);
   });
 });
