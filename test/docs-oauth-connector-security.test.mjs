@@ -39,14 +39,14 @@ const env = {
 
 test('security: Drive override-off and Notion gate short-circuit before I/O', async () => {
   assert.equal(DOCS_OAUTH_GOOGLE_AUTHORIZED, true);
-  assert.equal(DOCS_NOTION_HUB_KEY_AUTHORIZED, false);
+  assert.equal(DOCS_NOTION_HUB_KEY_AUTHORIZED, true);
   let called = false;
   const googleClient = new Proxy({}, { get: () => { called = true; throw new Error('network touched'); } });
   for (const response of [
     await handleListDocsConnectorFiles({ dataDir: '/denied', googleClient, authorizedOverride: false }),
     await handleImportDocsConnectorFiles({ dataDir: '/denied', googleClient, authorizedOverride: false }),
     await handleSyncDocsConnector({ dataDir: '/denied', googleClient, authorizedOverride: false }),
-    handleBeginNotionConnector({ dataDir: '/denied', body: { provider: 'notion' } }),
+    handleBeginNotionConnector({ dataDir: '/denied', body: { provider: 'notion' }, authorizedOverride: false }),
   ]) {
     assert.equal(response.status, 501);
     assert.equal(response.code, 'NOT_AUTHORIZED');
@@ -79,7 +79,7 @@ test('security: query injection, id injection, secrets, PKCE, allowlist, namespa
   const notionSource = fs.readFileSync(new URL('../lib/docs/notion-hub-connector.mjs', import.meta.url), 'utf8');
   const vaultSource = fs.readFileSync(new URL('../lib/docs/oauth-token-vault.mjs', import.meta.url), 'utf8');
   assert.match(driveSource, /DOCS_OAUTH_GOOGLE_AUTHORIZED = true/);
-  assert.match(notionSource, /DOCS_NOTION_HUB_KEY_AUTHORIZED = false/);
+  assert.match(notionSource, /DOCS_NOTION_HUB_KEY_AUTHORIZED = true/);
   assert.doesNotMatch(driveSource, /from ['"]\.\.\/write\.mjs['"]/);
   assert.doesNotMatch(notionSource, /from ['"]\.\.\/write\.mjs['"]/);
   assert.match(vaultSource, /docs_oauth/);

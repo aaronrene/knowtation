@@ -2,7 +2,7 @@
  * Hosted bridge REST routes for docs connectors (KN-DOCS-SYNC-b).
  *
  * DOCS_OAUTH_GOOGLE_AUTHORIZED flipped true 2026-08-17 (Tier 3).
- * DOCS_NOTION_HUB_KEY_AUTHORIZED stays false until a separate flip.
+ * DOCS_NOTION_HUB_KEY_AUTHORIZED flipped true 2026-08-22 (Tier 3).
  * Production never passes authorizedOverride.
  * Blob hydrate/persist uses strong consistency for pending OAuth state (D17).
  *

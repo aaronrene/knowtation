@@ -142,7 +142,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 Live Google Drive (readonly OAuth) and Notion (Hub-key) connectors.
 `DOCS_OAUTH_GOOGLE_AUTHORIZED` is **true** (operator Tier-3 flip 2026-08-17).
-`DOCS_NOTION_HUB_KEY_AUTHORIZED` remains **hard-coded false** until a separate Tier-3 flip.
+`DOCS_NOTION_HUB_KEY_AUTHORIZED` flipped **true** 2026-08-22 (Tier 3). Requires `NOTION_API_KEY` on bridge host.
 Gate off → **501** `{ code: "NOT_AUTHORIZED" }` with **no** provider network and **no**
 vault I/O. Import creates **Review-before-write** proposals
 (`review_queue: docs-sync`); routes never call `writeNote` directly. Folder importer
