@@ -56,7 +56,9 @@ import {
   resolveEffectiveCanisterUser,
   getScopeForUserVaultFromScopeMap,
   resolveAllowedVaultIdsForHostedContext,
+  resolveAllowedVaultIdsForSessionBoundActor,
 } from '../lib/hosted-workspace-resolve.mjs';
+import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
 import { applyScopeFilterToNotes, applyScopeFilterToProposals } from '../lib/scope-filter.mjs';
 import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
 import { actorMayApproveProposals } from '../lib/hub-evaluator-may-approve.mjs';
@@ -713,11 +715,17 @@ async function resolveHostedBridgeContext(req, actorUid) {
   const explicitVaultIds = explicitVaultAccessForUser(access, actorUid);
   const canisterIds =
     delegate && explicitVaultIds ? explicitVaultIds : await fetchCanisterVaultIdsForUser(effective);
-  const allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
+  let allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
     delegate,
     actorUid,
     accessMap: access,
     canisterIds,
+  });
+  allowedVaultIds = resolveAllowedVaultIdsForSessionBoundActor({
+    sessionBound: bridgeSessionBoundFromReq(req),
+    allowedVaultIds,
+    canisterIds,
+    vaultId,
   });
   if (!allowedVaultIds.includes(vaultId)) {
     return {
@@ -902,6 +910,18 @@ app.get('/api/v1/bridge-version', (_req, res) => {
 });
 
 // ——— Roles & invites (hosted parity) ———
+/**
+ * @param {import('express').Request} req
+ * @returns {boolean}
+ */
+function bridgeSessionBoundFromReq(req) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token || !SESSION_SECRET) return false;
+  const payload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  return payload ? isSessionBoundActor(payload) : false;
+}
+
 async function requireBridgeAuth(req, res, next) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;

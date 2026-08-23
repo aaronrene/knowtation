@@ -23,6 +23,8 @@ import {
   hydrateDelegationStoresFromBlob,
   withDelegationBlobSync,
 } from './delegation-blob-store.mjs';
+import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
+import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
 
 /**
  * @param {import('express').Express} app
@@ -44,6 +46,7 @@ import {
  */
 export function registerBridgeDelegationRoutes(app, deps) {
   const { dataDir, canisterUrl, canisterHeaders, requireBridgeAuth, resolveHostedBridgeContext } = deps;
+  const sessionSecretPrevious = resolveSessionSecretPrevious();
 
   /**
    * @param {import('express').Request} req
@@ -54,22 +57,41 @@ export function registerBridgeDelegationRoutes(app, deps) {
   }
 
   /**
+   * @param {import('express').Request} req
+   * @returns {boolean}
+   */
+  function sessionBoundFromReq(req) {
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const secret = process.env.SESSION_SECRET;
+    if (!token || !secret) return false;
+    const payload = verifyJwtWithSecretRotation(token, secret, sessionSecretPrevious);
+    return payload ? isSessionBoundActor(payload) : false;
+  }
+
+  /**
    * @param {{
    *   effectiveCanisterUid: string,
    *   actorUid: string,
    *   vaultId: string,
+   *   sessionBound?: boolean,
    * }} ctx
    */
   function hostedCreateProposal(ctx) {
     return async function createProposal(_dataDir, input) {
       return createDelegationProposalOnCanister({
         canisterUrl,
+        sessionBound: ctx.sessionBound === true,
         headers: canisterHeaders({
           'X-User-Id': ctx.effectiveCanisterUid,
           'X-Actor-Id': ctx.actorUid,
           'X-Vault-Id': ctx.vaultId,
         }),
-        input,
+        input: {
+          ...input,
+          vault_id: ctx.vaultId,
+          proposed_by: ctx.actorUid,
+        },
       });
     };
   }
@@ -114,6 +136,7 @@ export function registerBridgeDelegationRoutes(app, deps) {
               effectiveCanisterUid: hctx.effectiveCanisterUid,
               actorUid: req.uid,
               vaultId: hctx.vaultId,
+              sessionBound: sessionBoundFromReq(req),
             }),
           }),
       });
@@ -166,6 +189,7 @@ export function registerBridgeDelegationRoutes(app, deps) {
               effectiveCanisterUid: hctx.effectiveCanisterUid,
               actorUid: req.uid,
               vaultId: hctx.vaultId,
+              sessionBound: sessionBoundFromReq(req),
             }),
           }),
       });
