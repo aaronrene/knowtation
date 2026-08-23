@@ -81,6 +81,7 @@ export function registerBridgeDelegationRoutes(app, deps) {
     return async function createProposal(_dataDir, input) {
       return createDelegationProposalOnCanister({
         canisterUrl,
+        dataDir,
         sessionBound: ctx.sessionBound === true,
         headers: canisterHeaders({
           'X-User-Id': ctx.effectiveCanisterUid,
@@ -112,6 +113,7 @@ export function registerBridgeDelegationRoutes(app, deps) {
     const status = typeof e.status === 'number' ? e.status : 500;
     const code = typeof e.code === 'string' ? e.code : 'RUNTIME_ERROR';
     const message = typeof e.message === 'string' ? e.message : String(err);
+    console.error('[bridge] delegation route error', { status, code, message });
     return res.status(status).json({ error: message, code });
   }
 
@@ -141,6 +143,11 @@ export function registerBridgeDelegationRoutes(app, deps) {
           }),
       });
       if (!result.ok) {
+        console.error('[bridge] POST /api/v1/agents/identities/propose', {
+          status: result.status,
+          code: result.code,
+          error: result.error,
+        });
         return res.status(result.status).json({ error: result.error, code: result.code });
       }
       return res.status(201).json(result.payload);
@@ -167,7 +174,16 @@ export function registerBridgeDelegationRoutes(app, deps) {
 
   app.post('/api/v1/delegation/consents', requireBridgeAuth, async (req, res) => {
     const hctx = await vaultContext(req);
-    if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+    if (!hctx.ok) {
+      console.error('[bridge] POST /api/v1/delegation/consents vault context denied', {
+        status: hctx.status,
+        code: hctx.code,
+        error: hctx.error,
+        actorUid: req.uid,
+        vaultId: req.headers['x-vault-id'],
+      });
+      return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
+    }
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     try {
       const result = await withDelegationBlobSync({
@@ -194,6 +210,13 @@ export function registerBridgeDelegationRoutes(app, deps) {
           }),
       });
       if (!result.ok) {
+        console.error('[bridge] POST /api/v1/delegation/consents', {
+          status: result.status,
+          code: result.code,
+          error: result.error,
+          vaultId: hctx.vaultId,
+          actorUid: req.uid,
+        });
         return res.status(result.status).json({ error: result.error, code: result.code });
       }
       return res.status(201).json(result.payload);
