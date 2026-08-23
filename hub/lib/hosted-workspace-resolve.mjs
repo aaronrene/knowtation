@@ -89,3 +89,20 @@ export function resolveAllowedVaultIdsForHostedContext({ delegate, actorUid, acc
   const allowedRaw = delegate ? explicitList ?? ['default'] : explicitList ?? ids;
   return intersectVaultIds(ids, allowedRaw);
 }
+
+/**
+ * L-SEAM / SEC-SEAM-1 — session-bound learner JWTs (`type: 'session'`) may target any
+ * vault on the effective canister partition. Delegate `hub_vault_access` rows restrict
+ * integration tokens and Hub UI, not Scooling consumer writes attributed to the signed-in
+ * learner (operator vault via `X-Vault-Id`, e.g. Business).
+ *
+ * @param {{ sessionBound: boolean, allowedVaultIds: string[], canisterIds: string[], vaultId: string }} p
+ * @returns {string[]}
+ */
+export function resolveAllowedVaultIdsForSessionBoundActor(p) {
+  if (!p.sessionBound) return p.allowedVaultIds;
+  const ids = Array.isArray(p.canisterIds) && p.canisterIds.length ? p.canisterIds.map(String) : ['default'];
+  const vid = String(p.vaultId || '').trim() || 'default';
+  if (!ids.includes(vid)) return p.allowedVaultIds;
+  return ids;
+}

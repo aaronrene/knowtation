@@ -14,7 +14,6 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import AdmZip from 'adm-zip';
 import { parseCanisterProposalGetBody } from '../../lib/canister-proposal-response-parse.mjs';
@@ -57,8 +56,11 @@ import {
   resolveEffectiveCanisterUser,
   getScopeForUserVaultFromScopeMap,
   resolveAllowedVaultIdsForHostedContext,
+  resolveAllowedVaultIdsForSessionBoundActor,
 } from '../lib/hosted-workspace-resolve.mjs';
+import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
 import { applyScopeFilterToNotes, applyScopeFilterToProposals } from '../lib/scope-filter.mjs';
+import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
 import { actorMayApproveProposals } from '../lib/hub-evaluator-may-approve.mjs';
 import {
   buildCalendarTimeline,
@@ -75,6 +77,12 @@ import { withCalendarBlobSync } from './calendar-blob-store.mjs';
 import { materializeListFrontmatter } from '../gateway/note-facets.mjs';
 import { registerBridgeDelegationRoutes } from './delegation-routes.mjs';
 import { registerBridgeTaskRoutes } from './task-routes.mjs';
+import { registerBridgePathRoutes } from './path-routes.mjs';
+import { registerBridgeFlowRoutes } from './flow-routes.mjs';
+import { registerBridgeFlowCaptureRoutes } from './flow-capture-routes.mjs';
+import { registerBridgeFlowRunRoutes } from './flow-run-routes.mjs';
+import { registerBridgeMediaRoutes } from './media-routes.mjs';
+import { registerBridgeDocsRoutes } from './docs-routes.mjs';
 import { registerBridgeExternalAgentRoutes } from './external-agent-routes.mjs';
 
 // When Netlify bundles as CJS, import.meta.url is empty; avoid it in serverless so the app loads and routes register.
@@ -96,6 +104,9 @@ const HUB_UI_ORIGIN = (process.env.HUB_UI_ORIGIN || BASE_URL).replace(/\/$/, '')
 // Path under HUB_UI_ORIGIN where the Hub app lives (e.g. /hub). Empty string = root.
 const HUB_UI_PATH = (process.env.HUB_UI_PATH || '/hub').replace(/\/$/, '');
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
+// SEC-KN-P6-ROTATE: verify-only previous secret for zero-downtime rotation.
+// signState/verifyState HMAC and GitHub-token encrypt stay on SESSION_SECRET only.
+const SESSION_SECRET_PREVIOUS = resolveSessionSecretPrevious();
 const CANISTER_AUTH_SECRET = process.env.CANISTER_AUTH_SECRET || '';
 const HOSTED_CONTEXT_FETCH_TIMEOUT_MS = (() => {
   const n = parseInt(String(process.env.HOSTED_CONTEXT_FETCH_TIMEOUT_MS || ''), 10);
@@ -704,11 +715,17 @@ async function resolveHostedBridgeContext(req, actorUid) {
   const explicitVaultIds = explicitVaultAccessForUser(access, actorUid);
   const canisterIds =
     delegate && explicitVaultIds ? explicitVaultIds : await fetchCanisterVaultIdsForUser(effective);
-  const allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
+  let allowedVaultIds = resolveAllowedVaultIdsForHostedContext({
     delegate,
     actorUid,
     accessMap: access,
     canisterIds,
+  });
+  allowedVaultIds = resolveAllowedVaultIdsForSessionBoundActor({
+    sessionBound: bridgeSessionBoundFromReq(req),
+    allowedVaultIds,
+    canisterIds,
+    vaultId,
   });
   if (!allowedVaultIds.includes(vaultId)) {
     return {
@@ -838,12 +855,8 @@ function verifyState(stateStr, maxAgeMs = 600000) {
 }
 
 function userIdFromJwt(token) {
-  try {
-    const payload = jwt.verify(token, SESSION_SECRET);
-    return payload.sub ?? null;
-  } catch (_) {
-    return null;
-  }
+  const payload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  return payload ? payload.sub ?? null : null;
 }
 
 const app = express();
@@ -869,7 +882,7 @@ app.use((req, _res, next) => {
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', process.env.HUB_CORS_ORIGIN || '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id, X-User-Id');
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Vault-Id');
   res.set('Access-Control-Allow-Credentials', 'true');
   next();
 });
@@ -897,6 +910,18 @@ app.get('/api/v1/bridge-version', (_req, res) => {
 });
 
 // ——— Roles & invites (hosted parity) ———
+/**
+ * @param {import('express').Request} req
+ * @returns {boolean}
+ */
+function bridgeSessionBoundFromReq(req) {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token || !SESSION_SECRET) return false;
+  const payload = verifyJwtWithSecretRotation(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  return payload ? isSessionBoundActor(payload) : false;
+}
+
 async function requireBridgeAuth(req, res, next) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
@@ -3381,6 +3406,72 @@ registerBridgeTaskRoutes(app, {
   resolveHostedBridgeContext,
   effectiveRole,
   loadRoles,
+});
+
+registerBridgePathRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Flow authoring write propose (hosted parity — FLOW-WRITE-LIVE-GATEWAY-PROXY).
+registerBridgeFlowRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Flow capture observe/list/propose/dismiss (hosted parity — FLOW-CAPTURE-LIVE-KN-b).
+registerBridgeFlowCaptureRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Flow run / consent (hosted parity — SITE-FINISH-FLOW-RUN-KN-b / §FR.0.4).
+// FLOW_RUN_WRITES_ENABLED + FLOW_AUTOMATABLE_EXECUTION_ENABLED stay default OFF.
+registerBridgeFlowRunRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Media write surfaces: propose/consent/apply-approved + attachment list/get
+// (hosted parity — SEC-SEAM-MEDIA-b). Gates default off; blob-backed stores.
+registerBridgeMediaRoutes(app, {
+  dataDir: DATA_DIR,
+  canisterUrl: CANISTER_URL,
+  canisterHeaders,
+  requireBridgeAuth,
+  resolveHostedBridgeContext,
+  effectiveRole,
+  loadRoles,
+});
+
+// Docs connectors (Drive OAuth + Notion Hub-key — KN-DOCS-SYNC-b). Gates hard-coded false.
+registerBridgeDocsRoutes(app, {
+  dataDir: DATA_DIR,
+  requireBridgeAuth,
+  requireBridgeEditorOrAdmin,
+  resolveHostedBridgeContext,
+  resolveHostedBridgeSettingsContext,
+  sanitizeVaultId,
 });
 
 // External Agent Protocol (7D-b-b)
