@@ -93,6 +93,8 @@ describe('7C-L1b delegation hosted proposal — integration', () => {
     try {
       const proposal = await createDelegationProposalOnCanister({
         canisterUrl: 'https://canister.test',
+        dataDir,
+        sessionBound: true,
         headers: { 'X-User-Id': 'owner', 'X-Vault-Id': vaultId },
         input: {
           path: 'meta/agents/smoke.md',
@@ -100,6 +102,7 @@ describe('7C-L1b delegation hosted proposal — integration', () => {
           intent: 'agent_identity_register',
           vault_id: vaultId,
           review_queue: 'delegation',
+          proposed_by: 'google:owner-smoke',
           delegation_meta: { record_kind: 'agent_identity', agent_id: 'agent_smoke01' },
         },
       });
@@ -108,7 +111,44 @@ describe('7C-L1b delegation hosted proposal — integration', () => {
       assert.match(calls[0].url, /\/api\/v1\/proposals$/);
       const sent = JSON.parse(String(calls[0].init.body));
       assert.equal(sent.intent, 'agent_identity_register');
+      assert.equal(sent.source, DELEGATION_PROPOSAL_SOURCE);
+      assert.equal(sent.evaluation_status, 'pending');
       assert.equal(sent.frontmatter[FM_PROPOSAL_SOURCE], DELEGATION_PROPOSAL_SOURCE);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('createDelegationProposalOnCanister forwards canister error code', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 403,
+      text: async () =>
+        JSON.stringify({ error: 'Gateway authentication required', code: 'GATEWAY_AUTH_REQUIRED' }),
+    });
+    try {
+      await assert.rejects(
+        () =>
+          createDelegationProposalOnCanister({
+            canisterUrl: 'https://canister.test',
+            dataDir,
+            headers: { 'X-User-Id': 'owner', 'X-Vault-Id': vaultId },
+            input: {
+              path: 'meta/delegation/consents/x.md',
+              body: '{}',
+              intent: 'delegation_consent_create',
+              review_queue: 'delegation',
+              proposed_by: 'google:learner',
+              delegation_meta: { record_kind: 'delegation_consent', consent_id: 'dcons_x' },
+            },
+          }),
+        (err) => {
+          assert.equal(err.status, 403);
+          assert.equal(err.code, 'GATEWAY_AUTH_REQUIRED');
+          return true;
+        },
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }

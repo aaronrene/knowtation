@@ -37,6 +37,21 @@ describe('SEC-SEAM delegation hosted consent propose — unit', () => {
     assert.match(src, /bridgeSessionBoundFromReq/);
     assert.match(src, /isSessionBoundActor/);
   });
+
+  it('delegation-hosted-proposal augments canister create body (session + pending eval)', () => {
+    const src = readRepo('lib/agent/delegation-hosted-proposal.mjs');
+    assert.match(src, /augmentProposalCreateRequestBody/);
+    assert.match(src, /sessionBound: opts\.sessionBound === true/);
+    assert.match(src, /evaluation_status = 'pending'/);
+    assert.match(src, /source: DELEGATION_PROPOSAL_SOURCE/);
+  });
+
+  it('delegation-routes logs consent propose failures with Hub code', () => {
+    const src = readRepo('hub/bridge/delegation-routes.mjs');
+    assert.match(src, /POST \/api\/v1\/delegation\/consents/);
+    assert.match(src, /vault context denied/);
+    assert.match(src, /delegation route error/);
+  });
 });
 
 describe('SEC-SEAM delegation hosted consent propose — integration (handler)', () => {
