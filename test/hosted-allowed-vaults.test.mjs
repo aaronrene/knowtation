@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { resolveAllowedVaultIdsForHostedContext } from '../hub/lib/hosted-workspace-resolve.mjs';
+import {
+  resolveAllowedVaultIdsForHostedContext,
+  resolveAllowedVaultIdsForSessionBoundActor,
+} from '../hub/lib/hosted-workspace-resolve.mjs';
 
 test('non-delegate without access row: all canister vaults', () => {
   const out = resolveAllowedVaultIdsForHostedContext({
@@ -40,4 +43,53 @@ test('delegate with explicit access', () => {
     canisterIds: ['default', 'work'],
   });
   assert.deepStrictEqual(out, ['work']);
+});
+
+test('session-bound delegate may use Business on owner partition', () => {
+  const base = resolveAllowedVaultIdsForHostedContext({
+    delegate: true,
+    actorUid: 'google:learner',
+    accessMap: {},
+    canisterIds: ['default', 'Business'],
+  });
+  assert.deepStrictEqual(base, ['default']);
+  const expanded = resolveAllowedVaultIdsForSessionBoundActor({
+    sessionBound: true,
+    allowedVaultIds: base,
+    canisterIds: ['default', 'Business'],
+    vaultId: 'Business',
+  });
+  assert.deepStrictEqual(expanded, ['default', 'Business']);
+});
+
+test('session-bound does not expand to vault absent from canister', () => {
+  const base = resolveAllowedVaultIdsForHostedContext({
+    delegate: true,
+    actorUid: 'google:learner',
+    accessMap: { 'google:learner': ['default'] },
+    canisterIds: ['default'],
+  });
+  const expanded = resolveAllowedVaultIdsForSessionBoundActor({
+    sessionBound: true,
+    allowedVaultIds: base,
+    canisterIds: ['default'],
+    vaultId: 'Business',
+  });
+  assert.deepStrictEqual(expanded, ['default']);
+});
+
+test('integration token (non-session) keeps delegate vault map', () => {
+  const base = resolveAllowedVaultIdsForHostedContext({
+    delegate: true,
+    actorUid: 'google:learner',
+    accessMap: {},
+    canisterIds: ['default', 'Business'],
+  });
+  const unchanged = resolveAllowedVaultIdsForSessionBoundActor({
+    sessionBound: false,
+    allowedVaultIds: base,
+    canisterIds: ['default', 'Business'],
+    vaultId: 'Business',
+  });
+  assert.deepStrictEqual(unchanged, ['default']);
 });
