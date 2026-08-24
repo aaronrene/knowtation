@@ -1,5 +1,5 @@
 /**
- * Phase C — stress: concurrent exchanges must not revoke opaque credential.
+ * Phase C + Lane D — stress: concurrent verify + failure persist keeps other records.
  */
 
 import { describe, it } from 'node:test';
@@ -40,5 +40,29 @@ describe('Phase C stress — concurrent verify', () => {
       )
     );
     assert.ok(results.every((r) => r.ok === true));
+  });
+
+  it('concurrent failure persist on one id does not drop sibling records', async () => {
+    const a = mintCredential({}, {
+      sub: 'google:1',
+      name: 'a',
+      vault_ids: ['default'],
+      scopes: ['propose', 'vault:read'],
+    });
+    const b = mintCredential(a.records, {
+      sub: 'google:1',
+      name: 'b',
+      vault_ids: ['default'],
+      scopes: ['propose', 'vault:read'],
+    });
+    const badCred = b.credential.replace(/.$/, 'x');
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => Promise.resolve(verifyCredential(b.records, badCred, { now: Date.now() })))
+    );
+    assert.ok(results.every((r) => r.ok === false && r.records));
+    const ids = Object.keys(results[0].records);
+    assert.equal(ids.length, 2);
+    assert.ok(ids.includes(a.id));
+    assert.ok(ids.includes(b.id));
   });
 });

@@ -5814,11 +5814,20 @@
     warn.style.display = box.checked ? 'block' : 'none';
   }
 
+  function syncAgentCredStoreBanner(opts) {
+    const banner = el('agent-cred-store-banner');
+    if (!banner) return;
+    const show = Boolean(opts && opts.show);
+    banner.style.display = show ? 'block' : 'none';
+    banner.textContent = show && opts.copy ? String(opts.copy) : '';
+  }
+
   async function refreshAgentCredList() {
     const list = el('agent-cred-list');
     if (!list) return;
     const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
     if (!hubTok) {
+      syncAgentCredStoreBanner({ show: false });
       list.innerHTML = '<li>Sign in to manage agent credentials.</li>';
       return;
     }
@@ -5827,14 +5836,46 @@
         headers: agentCredAuthHeaders(),
         credentials: 'omit',
       });
+      const data = await res.json().catch(function () { return {}; });
+      const code = data && data.code ? String(data.code) : '';
       if (!res.ok) {
-        list.innerHTML = '<li>Agent credentials unavailable on this host (' + res.status + ').</li>';
+        if (res.status === 503 && code === 'AGENT_CREDENTIAL_STORE_INCONSISTENT') {
+          syncAgentCredStoreBanner({
+            show: true,
+            copy:
+              'Agent credential store is inconsistent. Do not remint. Existing robots should retry; this is not a dead credential.',
+          });
+        } else if (res.status === 503 && code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE') {
+          syncAgentCredStoreBanner({
+            show: true,
+            copy: 'Agent credential store is temporarily unavailable. Do not remint. Retry.',
+          });
+        } else {
+          syncAgentCredStoreBanner({ show: false });
+        }
+        list.innerHTML =
+          '<li>Agent credentials unavailable on this host (' +
+          (code || String(res.status)) +
+          ').</li>';
         return;
       }
-      const data = await res.json();
+      const store = data.store && typeof data.store === 'object' ? data.store : {};
+      if (store.wipe_required) {
+        syncAgentCredStoreBanner({
+          show: true,
+          copy:
+            'Operator wipe required on the agent credential store. Robots will fail exchange until reminted after the wipe. This is not a browser session blip.',
+        });
+      } else {
+        syncAgentCredStoreBanner({ show: false });
+      }
       const creds = Array.isArray(data.credentials) ? data.credentials : [];
       if (creds.length === 0) {
-        list.innerHTML = '<li>No agent credentials yet.</li>';
+        if (store.wipe_required || store.inconsistent) {
+          list.innerHTML = '<li>Agent credential store requires operator attention.</li>';
+        } else {
+          list.innerHTML = '<li>No agent credentials yet.</li>';
+        }
         return;
       }
       list.innerHTML = creds
@@ -5844,23 +5885,31 @@
           const scopes = (Array.isArray(c.scopes) ? c.scopes : []).join(' ').replace(/[<>&"]/g, '');
           const vaults = (Array.isArray(c.vault_ids) ? c.vault_ids : []).join(', ').replace(/[<>&"]/g, '') || '—';
           const created = formatAgentCredTs(c.created_at);
+          const lastSuccess = formatAgentCredTs(c.last_used_at);
+          const lastFailure = c.last_failure_code
+            ? String(c.last_failure_code).replace(/[<>&"]/g, '') +
+              (c.last_failure_at ? ' @ ' + formatAgentCredTs(c.last_failure_at) : '')
+            : '—';
+          const revokedAt = c.revoked_at ? formatAgentCredTs(c.revoked_at) : '—';
           const expires = formatAgentCredTs(c.expires_at);
-          const lastUsed = formatAgentCredTs(c.last_used_at);
-          const revoked = c.revoked ? ' (revoked)' : '';
           return (
             '<li><strong>' +
             name +
             '</strong> — vaults: ' +
             vaults +
-            '; scopes: ' +
-            scopes +
             '; created: ' +
             created +
+            '; last successful exchange: ' +
+            lastSuccess +
+            '; last failure code: ' +
+            lastFailure +
+            '; revoked-at: ' +
+            revokedAt +
+            '; scopes: ' +
+            scopes +
             '; expires: ' +
             expires +
-            '; last used: ' +
-            lastUsed +
-            revoked +
+            (c.revoked ? ' (revoked)' : '') +
             ' <button type="button" class="btn-secondary btn-agent-cred-revoke" data-id="' +
             id +
             '">Revoke</button> <button type="button" class="btn-secondary btn-agent-cred-rotate" data-id="' +
@@ -5916,6 +5965,7 @@
         };
       });
     } catch (_) {
+      syncAgentCredStoreBanner({ show: false });
       list.innerHTML = '<li>Could not load agent credentials.</li>';
     }
   }

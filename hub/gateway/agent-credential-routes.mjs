@@ -16,7 +16,10 @@ import {
   normalizeScopes,
   normalizeVaultIds,
 } from '../lib/agent-credential-core.mjs';
-import { createAgentCredentialStore } from './agent-credential-store.mjs';
+import {
+  createAgentCredentialStore,
+  AGENT_CREDENTIAL_STORE_INCONSISTENT,
+} from './agent-credential-store.mjs';
 import {
   isMcpAccessPayload,
   isAgentAccessPayload,
@@ -63,6 +66,21 @@ export function createAgentCredentialRouter(opts) {
   } = opts;
 
   if (!sessionSecret) throw new Error('createAgentCredentialRouter requires sessionSecret');
+
+  function respondStoreError(res, e) {
+    const code = e && e.code ? String(e.code) : 'AGENT_CREDENTIAL_STORE_UNAVAILABLE';
+    if (code === AGENT_CREDENTIAL_STORE_INCONSISTENT) {
+      return res.status(503).json({
+        error: 'credential store inconsistent',
+        code: AGENT_CREDENTIAL_STORE_INCONSISTENT,
+        store: { wipe_required: false, inconsistent: true },
+      });
+    }
+    return res.status(503).json({
+      error: 'credential store unavailable',
+      code: 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
 
   const router = express.Router();
   router.use(express.json({ limit: '32kb' }));
@@ -121,10 +139,7 @@ export function createAgentCredentialRouter(opts) {
         return res.status(400).json({ error: e.message || 'bad request', code });
       }
       console.error('[agent-credentials] mint failed:', e && e.message ? e.message : e);
-      return res.status(503).json({
-        error: 'credential store unavailable',
-        code: 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
-      });
+      return respondStoreError(res, e);
     }
   });
 
@@ -132,14 +147,11 @@ export function createAgentCredentialRouter(opts) {
     const sub = requireHumanSession(req, res);
     if (!sub) return;
     try {
-      const credentials = await store.list(sub);
-      return res.status(200).json({ credentials });
+      const listed = await store.list(sub);
+      return res.status(200).json(listed);
     } catch (e) {
       console.error('[agent-credentials] list failed:', e && e.message ? e.message : e);
-      return res.status(503).json({
-        error: 'credential store unavailable',
-        code: 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
-      });
+      return respondStoreError(res, e);
     }
   });
 
@@ -151,10 +163,7 @@ export function createAgentCredentialRouter(opts) {
       return res.status(200).json({ ok: true });
     } catch (e) {
       console.error('[agent-credentials] revoke failed:', e && e.message ? e.message : e);
-      return res.status(503).json({
-        error: 'credential store unavailable',
-        code: 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
-      });
+      return respondStoreError(res, e);
     }
   });
 
@@ -170,10 +179,7 @@ export function createAgentCredentialRouter(opts) {
         return res.status(404).json({ error: e.message || 'not found', code });
       }
       console.error('[agent-credentials] rotate failed:', e && e.message ? e.message : e);
-      return res.status(503).json({
-        error: 'credential store unavailable',
-        code: 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
-      });
+      return respondStoreError(res, e);
     }
   });
 
@@ -200,10 +206,7 @@ export function createAgentCredentialRouter(opts) {
       result = await store.verify(presented);
     } catch (e) {
       console.error('[agent-credentials] verify failed:', e && e.message ? e.message : e);
-      return res.status(503).json({
-        error: 'credential store unavailable',
-        code: 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
-      });
+      return respondStoreError(res, e);
     }
     if (!result.ok) {
       return res.status(401).json({ error: 'invalid credential', code: 'AGENT_CREDENTIAL_INVALID' });

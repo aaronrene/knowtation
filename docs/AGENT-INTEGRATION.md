@@ -166,9 +166,22 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 - **EC2 / VPS deploy (clone, `git pull`, `npm ci`, PM2):** Operator runbook for the MCP gateway lives in **`hub/gateway/README.md`** (deploy + verification).
 - **Concrete example:** a Hub base URL like `https://knowtation-gateway.netlify.app` is this pattern. **Do not** point Cursor’s `knowtation-hosted` (`url` … `/mcp`) at that host—it will flap **red / green with zero tools** or log `fetch failed` / transient errors. Keep **`knowtation`** (stdio + local vault) for Cursor in the repo; use **REST + copied JWT** (or Abacus HTTP actions) for the **hosted** vault until a non-Netlify MCP gateway URL exists.
 
-### Always-on cloud agents (Hermes / VPS) — do not paste Hub JWT as durable auth
+### Always-on cloud agents (Hermes / VPS) — machine vs human lanes
 
-**Session tokens** from Hub **Settings → Integrations → Copy session access token (expires)** are short-lived **access** JWTs. They have **no refresh**. Re-copy on 401 is correct for curl and one-off scripts — **not** for always-on agents with a token in `/data/.env`.
+**Do not** use **Copy Hub URL, token & vault** session JWTs as the durable automation path for Paperclip, cron, or launchd. That paste is a short-lived **human** session access JWT — fine for one-off `curl`, **not** for always-on robots.
+
+> **Machine lane (REST / Paperclip / cron)**  
+> **Who:** REST-only runners, Paperclip, launchd, cron  
+> **Durable material:** Opaque `kt_agent_…` in env **`KNOWTATION_HUB_AGENT_CREDENTIAL`** (mint once in Hub **Settings → Integrations → Agent credentials**)  
+> **Short JWT:** `type: agent_access` (15 minutes)  
+> **Exchange:** `POST api/v1/auth/agent/token` with the opaque credential (body or `Authorization: Bearer kt_agent_…`)  
+> **Never:** `KNOWTATION_HUB_REFRESH_TOKEN`, browser `ktn_refresh` cookie, or Copy-Hub session JWT in Netlify/cron env as the SOP.
+
+> **Human lane (Hub UI / browser)**  
+> **Who:** Hub UI, interactive curl with Copy Hub  
+> **Durable material:** Browser cookie `ktn_refresh`  
+> **Short JWT:** `type: session` access JWT in memory  
+> **Exchange:** `POST api/v1/auth/refresh`
 
 | Client | Recommended path | Public URL |
 | --- | --- | --- |
@@ -352,7 +365,7 @@ Cursor, Claude Desktop, and other MCP hosts can load **multiple MCP servers** in
 - **Auth:** JWT via OAuth (Google/GitHub). Header on every protected request: `Authorization: Bearer <token>`.
 - **Vault:** For vault-scoped routes, send header `X-Vault-Id` (e.g. `default` or the id shown in the Hub header). Match the vault you intend to act on.
 - **Copy or move a note to another vault:** **`POST /api/v1/notes/copy`** with JSON `from_vault_id`, `to_vault_id`, `path`, and optional `delete_source` (move). Same JWT and hosted allowlist rules as other writes; Hub UI exposes this as **Copy to vault…** on a note. See [HUB-API.md](./HUB-API.md) §3.3.
-- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That pastes `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID`, and, when the deployment sets `window.HUB_MCP_PUBLIC_URL` in `web/hub/config.js`, also **`KNOWTATION_MCP_URL`**, then a **blank line**, then **two** short `#` lines: a link to this document, and a **reminder** of the three headers to add to `curl` (full examples below). `KNOWTATION_HUB_TOKEN` is the **raw JWT**; always compose `Authorization: Bearer <token>` in HTTP. **Treat the paste as a secret.** The token is time-limited (default **24 hours** on the hosted gateway unless your deployment sets `HUB_JWT_EXPIRY`); on **401**, copy fresh lines again—your browser session and the **API** block are separate.
+- **Obtain URL + token + vault (no DevTools):** In the Hub, open **Settings → Integrations → Hub API** and click **Copy Hub URL, token & vault**. That pastes `KNOWTATION_HUB_URL`, `KNOWTATION_HUB_TOKEN`, and `KNOWTATION_HUB_VAULT_ID`, and, when the deployment sets `window.HUB_MCP_PUBLIC_URL` in `web/hub/config.js`, also **`KNOWTATION_MCP_URL`**, then a **blank line**, then **two** short `#` lines: a link to this document, and a **reminder** of the three headers to add to `curl` (full examples below). `KNOWTATION_HUB_TOKEN` is the **raw JWT**; always compose `Authorization: Bearer <token>` in HTTP. **Treat the paste as a secret.** The token is time-limited (default **24 hours** on the hosted gateway unless your deployment sets `HUB_JWT_EXPIRY`); on **401**, copy fresh lines again—your browser session and the **API** block are separate. **For always-on REST automations**, use the **machine lane** (`KNOWTATION_HUB_AGENT_CREDENTIAL` + `POST api/v1/auth/agent/token`) — see [§2](#2-mcp-cursor-claude-code-etc) and the boxed path there; do **not** treat Copy-Hub JWT as the durable robot SOP.
 - **Hub REST vs remote MCP URL:** Use **`KNOWTATION_HUB_URL`** for **`/api/v1/...`**. For **HTTP MCP clients**, set **`url`** to **`KNOWTATION_MCP_URL`** when the paste includes it (see [§2](#2-mcp-cursor-claude-code-etc) for Netlify vs persistent `/mcp`). For **large or scripted writes**, **REST** `POST /api/v1/notes` is often the most reliable path; MCP is for interactive tools.
 - **Not the same button:** **Settings → Agents → Copy embedding env** copies only embedding-related lines (e.g. Ollama URL / model comment) so local indexers match the Hub—it does **not** copy the Hub JWT.
 

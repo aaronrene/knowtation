@@ -1,8 +1,8 @@
 /**
- * Phase C — integration: mint → exchange → REST propose; revoke; wrong vault.
+ * Phase C + Lane D — integration: mint → exchange; isolation from refresh store.
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -10,6 +10,7 @@ import path from 'node:path';
 import http from 'node:http';
 import jwt from 'jsonwebtoken';
 import { createAgentCredentialRouter } from '../hub/gateway/agent-credential-routes.mjs';
+import { createAgentCredentialStore } from '../hub/gateway/agent-credential-store.mjs';
 import {
   subFromVerifiedPayload,
   assertAgentVaultAllowed,
@@ -124,5 +125,99 @@ describe('Phase C integration — agent credentials', () => {
         await new Promise((r) => server.close(r));
       }
     });
+  });
+
+  it('exchange 200 while refresh store empty; never SESSION_STORE_UNAVAILABLE; ktn_refresh → 401', async () => {
+    await withTempStore(async () => {
+      const app = express();
+      const { router } = createAgentCredentialRouter({
+        sessionSecret: SECRET,
+        getSessionSub: (req) => {
+          try {
+            return jwt.verify(req.headers.authorization.slice(7), SECRET).sub;
+          } catch {
+            return null;
+          }
+        },
+        getSessionPayload: (req) => {
+          try {
+            return jwt.verify(req.headers.authorization.slice(7), SECRET);
+          } catch {
+            return null;
+          }
+        },
+        grantedScopes: () => ['vault:read', 'vault:write'],
+      });
+      app.use('/api/v1/auth/agent', router);
+      const server = http.createServer(app);
+      await new Promise((r) => server.listen(0, r));
+      const base = `http://127.0.0.1:${server.address().port}`;
+      try {
+        const mintRes = await fetch(`${base}/api/v1/auth/agent/credentials`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${sessionJwt()}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'iso', vault_ids: ['default'] }),
+        });
+        const minted = await mintRes.json();
+
+        const refreshShaped = await fetch(`${base}/api/v1/auth/agent/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: 'ktn_refresh_fakevalue' }),
+        });
+        assert.equal(refreshShaped.status, 401);
+        const refreshBody = await refreshShaped.json();
+        assert.equal(refreshBody.code, 'AGENT_CREDENTIAL_INVALID');
+        assert.notEqual(refreshBody.code, 'SESSION_STORE_UNAVAILABLE');
+
+        const tokRes = await fetch(`${base}/api/v1/auth/agent/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: minted.credential }),
+        });
+        assert.equal(tokRes.status, 200);
+        const tokBody = await tokRes.json();
+        assert.notEqual(tokBody.code, 'SESSION_STORE_UNAVAILABLE');
+      } finally {
+        await new Promise((r) => server.close(r));
+      }
+    });
+  });
+
+  it('store I/O throw → 503 UNAVAILABLE; inconsistent meta → 503 INCONSISTENT without empty save', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kt-agent-int-'));
+    process.env.KNOWTATION_GATEWAY_DATA_DIR = dir;
+    await fs.writeFile(
+      path.join(dir, 'hosted_agent_credentials.meta.json'),
+      JSON.stringify({ schema_version: 1, nonempty_seen: true, count: 2, updated_at: Date.now() }),
+      'utf8'
+    );
+    const app = express();
+    const brokenStore = createAgentCredentialStore();
+    const { router } = createAgentCredentialRouter({
+      sessionSecret: SECRET,
+      getSessionSub: () => 'google:tester',
+      getSessionPayload: () => ({ sub: 'google:tester', type: 'session' }),
+      grantedScopes: () => ['vault:read'],
+      store: brokenStore,
+    });
+    app.use('/api/v1/auth/agent', router);
+    const server = http.createServer(app);
+    await new Promise((r) => server.listen(0, r));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const list = await fetch(`${base}/api/v1/auth/agent/credentials`, {
+        headers: { Authorization: `Bearer ${sessionJwt()}` },
+      });
+      assert.equal(list.status, 503);
+      const body = await list.json();
+      assert.equal(body.code, 'AGENT_CREDENTIAL_STORE_INCONSISTENT');
+      assert.equal(body.store.inconsistent, true);
+      assert.ok(!await fs.stat(path.join(dir, 'hosted_agent_credentials.json')).then(() => true).catch(() => false));
+    } finally {
+      await new Promise((r) => server.close(r));
+      delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });
