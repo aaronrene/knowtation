@@ -374,6 +374,7 @@
   const filterSince = el('filter-since');
   const filterUntil = el('filter-until');
   const filterContentScope = el('filter-content-scope');
+  const filterContentClass = el('filter-content-class');
   const filterNetwork = el('filter-network');
   const filterWallet = el('filter-wallet');
   const searchMode = el('search-mode');
@@ -2055,6 +2056,13 @@
     } else if (cs === 'approval_logs') {
       out = out.filter((n) => hubRowIsApprovalLog(n));
     }
+    if (opts.content_class) {
+      const cc = String(opts.content_class).trim().toLowerCase();
+      out = out.filter((n) => {
+        const v = n.content_class ?? n.frontmatter?.content_class;
+        return v != null && String(v).trim().toLowerCase() === cc;
+      });
+    }
     // Phase 12 — blockchain filters (client-side safety net; gateway also filters on hosted)
     if (opts.network) {
       const net = String(opts.network).trim().toLowerCase();
@@ -3117,6 +3125,7 @@
     if (filterSince && filterSince.value) q.set('since', filterSince.value);
     if (filterUntil && filterUntil.value) q.set('until', filterUntil.value);
     if (filterContentScope && filterContentScope.value) q.set('content_scope', filterContentScope.value);
+    if (filterContentClass && filterContentClass.value) q.set('content_class', filterContentClass.value);
     // Phase 12 — blockchain filters
     const networkVal = filterNetwork ? filterNetwork.value : '';
     const walletVal = filterWallet ? filterWallet.value : '';
@@ -3136,6 +3145,7 @@
         since: filterSince?.value || '',
         until: filterUntil?.value || '',
         content_scope: filterContentScope && filterContentScope.value ? filterContentScope.value : '',
+        content_class: filterContentClass && filterContentClass.value ? filterContentClass.value : '',
         network: networkVal,
         wallet_address: walletVal,
         payment_status: paymentStatusVal,
@@ -5982,6 +5992,7 @@
       const scopes = [];
       if (el('agent-cred-scope-propose') && el('agent-cred-scope-propose').checked) scopes.push('propose');
       if (el('agent-cred-scope-read') && el('agent-cred-scope-read').checked) scopes.push('vault:read');
+      if (el('agent-cred-scope-ingest') && el('agent-cred-scope-ingest').checked) scopes.push('ingest:automation');
       if (el('agent-cred-scope-write') && el('agent-cred-scope-write').checked) scopes.push('vault:write');
       try {
         const res = await fetch(String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials', {
@@ -6038,6 +6049,17 @@
   if (agentCredWriteBox) {
     agentCredWriteBox.onchange = syncAgentCredWriteWarn;
     syncAgentCredWriteWarn();
+  }
+  function syncAgentCredIngestWarn() {
+    const warn = el('agent-cred-ingest-warn');
+    const box = el('agent-cred-scope-ingest');
+    if (!warn || !box) return;
+    warn.style.display = box.checked ? 'block' : 'none';
+  }
+  const agentCredIngestBox = el('agent-cred-scope-ingest');
+  if (agentCredIngestBox) {
+    agentCredIngestBox.onchange = syncAgentCredIngestWarn;
+    syncAgentCredIngestWarn();
   }
   try {
     refreshAgentCredVaultSelect();
@@ -6103,8 +6125,109 @@
       if (id === 'backup') void refreshBulkDeletePresetDropdowns();
       if (id === 'consolidation') loadConsolidationSettings();
       if (id === 'integrations') applyMuseBridgePanel(lastBackupSettingsPayload);
+      if (id === 'automation') loadIngestRulesPanel();
     });
   });
+
+  async function loadIngestRulesPanel() {
+    const tbody = el('ingest-rules-tbody');
+    const tmplList = el('ingest-templates-list');
+    const msg = el('ingest-rules-msg');
+    if (!tbody) return;
+    try {
+      const data = await api('/api/v1/automation/ingest-rules');
+      const rules = Array.isArray(data.rules) ? data.rules : [];
+      const templates = Array.isArray(data.templates) ? data.templates : [];
+      if (!rules.length) {
+        tbody.innerHTML = '<tr><td colspan="6">No rules yet.</td></tr>';
+      } else {
+        tbody.innerHTML = rules.map((r) => {
+          const match = r.match || {};
+          const summary = ['credential_name', 'path_prefix', 'content_class', 'intent']
+            .filter((k) => match[k])
+            .map((k) => k + '=' + match[k])
+            .join(', ');
+          return '<tr data-rule-id="' + String(r.rule_id || '') + '">' +
+            '<td>' + String(r.label || '') + '</td>' +
+            '<td>' + summary + '</td>' +
+            '<td>' + String(r.disposition || '') + '</td>' +
+            '<td>' + (r.enabled ? 'yes' : 'no') + '</td>' +
+            '<td><input type="number" class="ingest-rule-priority-input settings-input" min="0" max="10000" value="' + String(r.priority ?? 100) + '" data-rule-id="' + String(r.rule_id || '') + '" /></td>' +
+            '<td><button type="button" class="btn-secondary btn-ingest-toggle" data-rule-id="' + String(r.rule_id || '') + '">' + (r.enabled ? 'Disable' : 'Enable') + '</button> ' +
+            '<button type="button" class="btn-secondary btn-ingest-delete" data-rule-id="' + String(r.rule_id || '') + '">Delete</button></td></tr>';
+        }).join('');
+      }
+      if (tmplList) {
+        tmplList.innerHTML = templates.map((t) =>
+          '<li>' + String(t.label || t.rule_id) + ' <button type="button" class="btn-secondary btn-ingest-from-template" data-template-id="' + String(t.rule_id || '') + '">Add to my rules</button></li>'
+        ).join('');
+      }
+      tbody.querySelectorAll('.btn-ingest-toggle').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute('data-rule-id');
+          const next = rules.map((r) => r.rule_id === id ? { ...r, enabled: !r.enabled } : r);
+          await api('/api/v1/automation/ingest-rules', { method: 'PUT', body: JSON.stringify({ rules: next }) });
+          loadIngestRulesPanel();
+        };
+      });
+      tbody.querySelectorAll('.btn-ingest-delete').forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute('data-rule-id');
+          await api('/api/v1/automation/ingest-rules/' + encodeURIComponent(id), { method: 'DELETE' });
+          loadIngestRulesPanel();
+        };
+      });
+      tbody.querySelectorAll('.ingest-rule-priority-input').forEach((inp) => {
+        inp.onchange = async () => {
+          const id = inp.getAttribute('data-rule-id');
+          const pri = parseInt(inp.value, 10);
+          const next = rules.map((r) => r.rule_id === id ? { ...r, priority: pri } : r);
+          await api('/api/v1/automation/ingest-rules', { method: 'PUT', body: JSON.stringify({ rules: next }) });
+          loadIngestRulesPanel();
+        };
+      });
+      if (tmplList) {
+        tmplList.querySelectorAll('.btn-ingest-from-template').forEach((btn) => {
+          btn.onclick = async () => {
+            const enable = el('ingest-template-enable') && el('ingest-template-enable').checked;
+            await api('/api/v1/automation/ingest-rules/from-template', {
+              method: 'POST',
+              body: JSON.stringify({ template_id: btn.getAttribute('data-template-id'), enable: Boolean(enable) }),
+            });
+            loadIngestRulesPanel();
+          };
+        });
+      }
+    } catch (e) {
+      if (msg) msg.textContent = (e && e.message) || 'Could not load ingest rules.';
+    }
+  }
+
+  const btnIngestRuleSave = el('btn-ingest-rule-save');
+  if (btnIngestRuleSave) {
+    btnIngestRuleSave.onclick = async () => {
+      const msg = el('ingest-rules-msg');
+      try {
+        await api('/api/v1/automation/ingest-rules', {
+          method: 'POST',
+          body: JSON.stringify({
+            label: el('ingest-rule-label') ? el('ingest-rule-label').value : '',
+            priority: el('ingest-rule-priority') ? parseInt(el('ingest-rule-priority').value, 10) : 100,
+            disposition: el('ingest-rule-disposition') ? el('ingest-rule-disposition').value : 'review_queue',
+            content_class: el('ingest-rule-content-class') && el('ingest-rule-content-class').value ? el('ingest-rule-content-class').value : null,
+            match: {
+              credential_name: el('ingest-rule-match-name') && el('ingest-rule-match-name').value ? el('ingest-rule-match-name').value : null,
+              path_prefix: el('ingest-rule-match-prefix') && el('ingest-rule-match-prefix').value ? el('ingest-rule-match-prefix').value : null,
+            },
+          }),
+        });
+        if (msg) msg.textContent = 'Saved.';
+        loadIngestRulesPanel();
+      } catch (e) {
+        if (msg) msg.textContent = (e && e.message) || 'Save failed.';
+      }
+    };
+  }
 
   function formatTokenCount(n) {
     if (n == null || !Number.isFinite(Number(n))) return '—';

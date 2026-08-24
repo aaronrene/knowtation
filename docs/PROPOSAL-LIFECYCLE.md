@@ -15,7 +15,7 @@ Allowed transitions:
 - `proposed` → `approved` (admin / permitted evaluator **Approve**; or **personal self-apply** for the Scooling review-tray class — see below; may require human evaluation first — see **Evaluation**)
 - `proposed` → `discarded` (admin: **Discard**, or bulk housekeeping)
 
-There is **no** `draft` status in the store today; agents create `proposed` rows via `POST /api/v1/proposals`.
+There is **no** `draft` status in the store today; agents create `proposed` rows via `POST /api/v1/proposals`. Agent ingest may skip Review only via AIP rules (`POST api/v1/automation/ingest` or the agent-only ingest-shaped proposals hook). Approve HTTP remains denied for `agent_access`. Elevated review triggers still apply. See [AUTOMATION-INGEST-POLICY-FREEZE.md](./AUTOMATION-INGEST-POLICY-FREEZE.md).
 
 ## Roles (Phase 13 + evaluator)
 

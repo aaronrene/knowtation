@@ -75,7 +75,7 @@ function checkNoteStorageCap(u, currentNoteCount) {
  * @returns {Promise<boolean>} true if request may proceed
  */
 export async function runBillingGate(req, res, getUserId, opts = {}) {
-  const op = operationFromRequest(req.method, req);
+  const op = typeof opts.operation === 'string' && opts.operation ? opts.operation : operationFromRequest(req.method, req);
   if (!op) return true;
 
   const uid = getUserId(req);
@@ -95,8 +95,8 @@ export async function runBillingGate(req, res, getUserId, opts = {}) {
     );
   }
 
-  // Storage cap check — only for note CREATE, only when enforce is on.
-  if (isNoteCreate(req.method, req) && uid) {
+  // Storage cap check — note CREATE, or ingest opts.operation === 'note_write' (D24).
+  if ((isNoteCreate(req.method, req) || opts.operation === 'note_write') && uid) {
     if (billingEnforced() && typeof opts.getNoteCount === 'function') {
       try {
         await resetMonthlyTokensIfNeeded(uid);

@@ -182,6 +182,12 @@
               <option value="notes">Notes only</option>
               <option value="approval_logs">Approval logs only</option>
             </select>
+            <select id="filter-content-class" title="Filter notes by content class (Research, Ops, General)." aria-label="Content class: all classes, research, ops, or general">
+              <option value="">All classes</option>
+              <option value="research">Research</option>
+              <option value="ops">Ops</option>
+              <option value="general">General</option>
+            </select>
             <select id="filter-network" class="filter-blockchain hidden" title="Filter by blockchain network (e.g. icp, ethereum). Only shown when vault has notes with network frontmatter." aria-label="Filter by blockchain network">
               <option value="">All networks</option>
             </select>
@@ -707,6 +713,7 @@ Your note body here.</pre>
           <button type="button" class="settings-tab hidden" id="settings-tab-team" role="tab" aria-selected="false" data-settings-tab="team">Team</button>
           <button type="button" class="settings-tab hidden" id="settings-tab-vaults" role="tab" aria-selected="false" data-settings-tab="vaults">Vaults</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="integrations">Integrations</button>
+          <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="automation">Automation</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="appearance">Appearance</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="billing">Billing</button>
           <button type="button" class="settings-tab" role="tab" aria-selected="false" data-settings-tab="consolidation">Consolidation</button>
@@ -1447,11 +1454,14 @@ Your note body here.</pre>
               <select id="agent-cred-vault-select" class="settings-input" multiple size="3" aria-label="Vaults for agent credential" style="min-width: 12rem; max-width: 18rem;"></select>
               <label class="settings-label"><input type="checkbox" id="agent-cred-scope-propose" checked /> propose</label>
               <label class="settings-label"><input type="checkbox" id="agent-cred-scope-read" checked /> vault:read</label>
+              <label class="settings-label"><input type="checkbox" id="agent-cred-scope-ingest" /> ingest:automation</label>
               <label class="settings-label"><input type="checkbox" id="agent-cred-scope-write" /> vault:write</label>
               <button type="button" id="btn-agent-cred-mint" class="btn-primary">Mint credential</button>
               <button type="button" id="btn-agent-cred-refresh" class="btn-secondary">Refresh list</button>
             </div>
             <p id="agent-cred-write-warn" class="settings-intro small" style="display:none; color: var(--danger, #b45309);" role="status">Warning: <code>vault:write</code> allows direct mutating REST (including note write). Prefer <code>propose</code> + <code>vault:read</code> for Paperclip/cron.</p>
+            <p id="agent-cred-ingest-warn" class="settings-intro small" style="display:none;" role="status">ingest:automation lets this robot use the ingest router per Settings rules; it does not grant <code>vault:write</code>.</p>
+            <p class="settings-intro small">Ingest routing lives under Settings → Automation.</p>
             <p id="agent-cred-msg" class="settings-msg" role="status" aria-live="polite"></p>
             <pre id="agent-cred-once" class="settings-intro small" style="display:none; white-space: pre-wrap; word-break: break-all; margin-top: 0.5rem;"></pre>
             <ul id="agent-cred-list" class="settings-intro small" style="margin-top: 0.5rem; padding-left: 1.25rem;"></ul>
@@ -1491,6 +1501,57 @@ Your note body here.</pre>
               <button type="button" id="btn-copy-env-agentception" class="btn-secondary">Copy embedding env</button>
               <span id="agents-copy-msg" class="settings-msg"></span>
             </div>
+          </div>
+        </div>
+        <div id="settings-panel-automation" class="settings-panel" role="tabpanel">
+          <div class="settings-body">
+            <h3 class="settings-h3">Ingest rules</h3>
+            <p class="settings-intro small">Matching robot writes can go to the vault, auto-apply, or Review. Elevated legal/security triggers still force Review. Born Free templates stay off until you add them.</p>
+            <table id="ingest-rules-table" class="settings-intro small" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th align="left">Label</th>
+                  <th align="left">Match</th>
+                  <th align="left">Disposition</th>
+                  <th align="left">Enabled</th>
+                  <th align="left">Priority</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ingest-rules-tbody">
+                <tr><td colspan="6">No rules yet.</td></tr>
+              </tbody>
+            </table>
+            <h3 class="settings-h3">Add rule</h3>
+            <div class="settings-row" style="flex-wrap:wrap; gap:0.5rem;">
+              <label class="settings-label" for="ingest-rule-label">Label</label>
+              <input type="text" id="ingest-rule-label" class="settings-input" maxlength="128" />
+              <label class="settings-label" for="ingest-rule-priority">Priority</label>
+              <input type="number" id="ingest-rule-priority" class="settings-input" min="0" max="10000" value="100" />
+              <label class="settings-label" for="ingest-rule-disposition">Disposition</label>
+              <select id="ingest-rule-disposition" class="settings-input">
+                <option value="review_queue">Review queue</option>
+                <option value="direct_note">Direct vault note</option>
+                <option value="proposal_auto_apply">Server auto-apply</option>
+              </select>
+              <label class="settings-label" for="ingest-rule-content-class">content_class</label>
+              <select id="ingest-rule-content-class" class="settings-input">
+                <option value="">(none)</option>
+                <option value="research">research</option>
+                <option value="ops">ops</option>
+                <option value="general">general</option>
+              </select>
+              <label class="settings-label" for="ingest-rule-match-name">credential_name</label>
+              <input type="text" id="ingest-rule-match-name" class="settings-input" />
+              <label class="settings-label" for="ingest-rule-match-prefix">path_prefix</label>
+              <input type="text" id="ingest-rule-match-prefix" class="settings-input" placeholder="inbox/trends/" />
+              <button type="button" id="btn-ingest-rule-save" class="btn-primary">Save</button>
+            </div>
+            <p id="ingest-rules-msg" class="settings-msg" role="status" aria-live="polite"></p>
+            <h3 class="settings-h3">Born Free templates</h3>
+            <p class="settings-intro small">Packaged examples. They stay disabled unless you check Enable on add.</p>
+            <ul id="ingest-templates-list" class="settings-intro small"></ul>
+            <label class="settings-label"><input type="checkbox" id="ingest-template-enable" /> Enable on add</label>
           </div>
         </div>
         <div id="settings-panel-appearance" class="settings-panel" role="tabpanel">

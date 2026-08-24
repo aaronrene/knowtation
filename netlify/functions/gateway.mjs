@@ -24,6 +24,14 @@ export const handler = async (event, context) => {
     name: 'gateway-agent-credentials',
     consistency: 'eventual',
   });
+  globalThis.__knowtation_gateway_ingest_rules_blob = getStore({
+    name: 'gateway-automation-ingest-rules',
+    consistency: 'eventual',
+  });
+  globalThis.__knowtation_gateway_ingest_idempotency_blob = getStore({
+    name: 'gateway-automation-ingest-idempotency',
+    consistency: 'eventual',
+  });
   try {
     return await serverless(app)(event, context);
   } finally {
@@ -31,5 +39,7 @@ export const handler = async (event, context) => {
     delete globalThis.__knowtation_attest_blob;
     delete globalThis.__knowtation_gateway_auth_blob;
     delete globalThis.__knowtation_gateway_agent_cred_blob;
+    delete globalThis.__knowtation_gateway_ingest_rules_blob;
+    delete globalThis.__knowtation_gateway_ingest_idempotency_blob;
   }
 };

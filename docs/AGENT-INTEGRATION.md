@@ -175,6 +175,7 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 > **Durable material:** Opaque `kt_agent_…` in env **`KNOWTATION_HUB_AGENT_CREDENTIAL`** (mint once in Hub **Settings → Integrations → Agent credentials**)  
 > **Short JWT:** `type: agent_access` (15 minutes)  
 > **Exchange:** `POST api/v1/auth/agent/token` with the opaque credential (body or `Authorization: Bearer kt_agent_…`)  
+> **Preferred write:** `POST api/v1/automation/ingest` with scopes `ingest:automation` + `vault:read` (REST-only; no MCP ingest tool; do not put the JWT in env as the durable secret)  
 > **Never:** `KNOWTATION_HUB_REFRESH_TOKEN`, browser `ktn_refresh` cookie, or Copy-Hub session JWT in Netlify/cron env as the SOP.
 
 > **Human lane (Hub UI / browser)**  
@@ -187,7 +188,7 @@ Remote MCP clients (Claude Desktop, Cursor, custom agents) can connect to the Hu
 | --- | --- | --- |
 | Cursor / Claude (desktop) | MCP **OAuth Sign-in** (PKCE); refresh survives gateway restart | `https://mcp.knowtation.store/mcp` (`KNOWTATION_MCP_URL`) |
 | Hermes / headless VPS | **Primary:** Hub **Connect cloud agent** (RFC 8628 device code). **Interim:** desktop `mcp-remote` OAuth → copy `~/.mcp-auth/mcp-remote-*` to agent `HOME` → Hermes stdio `npx mcp-remote`. Do **not** rely on `hermes mcp login` on Hostinger until re-verified. | Same MCP URL — **never** Netlify `/mcp` |
-| REST-only runners (Paperclip, cron) | **Phase C scoped agent credential** — Hub **Settings → Integrations → Agent credentials (REST)**: mint `KNOWTATION_HUB_AGENT_CREDENTIAL` (`kt_agent_…`), exchange at `POST …/api/v1/auth/agent/token` for a 15m `agent_access` JWT. Do **not** paste browser `ktn_refresh` / session refresh cookies. | `https://api.knowtation.store` |
+| REST-only runners (Paperclip, cron) | **Phase C scoped agent credential** — Hub **Settings → Integrations → Agent credentials (REST)**: mint `KNOWTATION_HUB_AGENT_CREDENTIAL` (`kt_agent_…`) with recommended cron scopes `ingest:automation` + `vault:read` (do **not** mint `vault:write` for cron). Exchange at `POST …/api/v1/auth/agent/token` for a 15m `agent_access` JWT. Preferred write: `POST api/v1/automation/ingest`. Do **not** paste browser `ktn_refresh` / session refresh cookies. Ingest is **REST-only** (no MCP tool). | `https://api.knowtation.store` |
 
 #### A. Desktop MCP (Cursor) — already good
 

@@ -24,7 +24,7 @@ export const AGENT_ACCESS_TYPE = 'agent_access';
 export const AGENT_ACCESS_TYP = 'kt_agent_access';
 export const AGENT_ACCESS_AUD = 'knowtation-hub-rest';
 
-export const ALLOWED_AGENT_SCOPES = Object.freeze(['vault:read', 'propose', 'vault:write']);
+export const ALLOWED_AGENT_SCOPES = Object.freeze(['vault:read', 'propose', 'vault:write', 'ingest:automation']);
 export const FORBIDDEN_AGENT_SCOPES = Object.freeze(['admin', 'vault:admin']);
 export const DEFAULT_AGENT_SCOPES = Object.freeze(['propose', 'vault:read']);
 
@@ -107,7 +107,7 @@ export function applyScopeCeiling(requested, roleScopes) {
   const role = Array.isArray(roleScopes) ? roleScopes.map(String) : [];
   const out = [];
   for (const s of requested) {
-    if (s === 'propose') {
+    if (s === 'propose' || s === 'ingest:automation') {
       out.push(s);
       continue;
     }
@@ -423,14 +423,21 @@ const PROPOSE_CREATE_PATHS = new Set([
 export function agentScopesPermitMethod(scopes, method, path) {
   const list = Array.isArray(scopes) ? scopes.map(String) : [];
   const m = String(method || 'GET').toUpperCase();
+  const np = normalizeAgentRequestPath(path);
+  if (np === 'api/v1/automation/ingest-rules' || np.startsWith('api/v1/automation/ingest-rules/')) {
+    return false;
+  }
   const safe = m === 'GET' || m === 'HEAD' || m === 'OPTIONS';
   const hasWrite =
     list.includes('vault:write') || list.includes('vault:admin') || list.includes('admin');
   if (hasWrite) return true;
   if (safe) return list.includes('vault:read');
+  if (m === 'POST' && np === 'api/v1/automation/ingest') {
+    return list.includes('ingest:automation');
+  }
   if (!list.includes('propose')) return false;
   if (m !== 'POST') return false;
-  return PROPOSE_CREATE_PATHS.has(normalizeAgentRequestPath(path));
+  return PROPOSE_CREATE_PATHS.has(np);
 }
 
 /**

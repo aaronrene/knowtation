@@ -111,7 +111,30 @@ import {
   isHttpVisibleSelfApplySeamCode,
   SELF_APPLY_SEAM_ERROR_MESSAGES,
 } from '../lib/hub-proposal-personal-self-apply.mjs';
-import { isSessionBoundActor } from './gateway/access-token-authz.mjs';
+import {
+  isSessionBoundActor,
+  isAgentAccessPayload,
+  resolveActorTokenClass,
+  assertAgentVaultAllowed,
+} from './gateway/access-token-authz.mjs';
+import { agentScopesPermitMethod } from './lib/agent-credential-core.mjs';
+import { effectiveRequestPath } from './gateway/request-path.mjs';
+import { augmentProposalCreateRequestBody } from '../lib/hub-proposal-create-augment.mjs';
+import {
+  processAutomationIngest,
+  sendIngestError,
+  isIngestContractBody,
+  normalizeRuleForSave,
+  mintRuleId,
+  MAX_USER_RULES,
+  listPackTemplates,
+} from '../lib/automation-ingest-policy.mjs';
+import {
+  loadIngestRulesForSub,
+  saveIngestRulesForSub,
+  getIngestIdempotency,
+  putIngestIdempotency,
+} from './gateway/automation-ingest-store.mjs';
 import {
   parseMuseConfigFromEnv,
   resolveExternalRefForApprove,
@@ -544,6 +567,162 @@ function requireVaultAccess(req, res, next) {
   next();
 }
 
+function assertSelfHostedAgentScope(req, res) {
+  if (!isAgentAccessPayload(req.user)) return true;
+  const pathOnly = effectiveRequestPath(req);
+  if (!agentScopesPermitMethod(req.user.scopes, req.method, pathOnly)) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return false;
+  }
+  const vaultId = req.vault_id || String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  if (!assertAgentVaultAllowed(req.user, vaultId)) {
+    res.status(403).json({ error: 'vault forbidden for agent credential', code: 'AGENT_VAULT_FORBIDDEN' });
+    return false;
+  }
+  return true;
+}
+
+function ingestSessionWriteRole(role) {
+  return role === 'editor' || role === 'admin' || role === 'member';
+}
+
+function requireSessionIngestCrud(req, res, next) {
+  const actorClass = resolveActorTokenClass(req.user);
+  if (actorClass !== 'session' && actorClass !== 'legacy_session') {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  if (isAgentAccessPayload(req.user) || !assertSelfHostedAgentScope(req, res)) {
+    if (!res.headersSent) res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return;
+  }
+  const role = effectiveRole(req);
+  if (!ingestSessionWriteRole(role)) {
+    return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+  }
+  return next();
+}
+
+function makeSelfHostedIngestIo(req) {
+  const dataDir = config.data_dir;
+  const vaultPath = req.vaultPath;
+  return {
+    async getIdempotency(storeKey) {
+      return getIngestIdempotency(storeKey, dataDir);
+    },
+    async putIdempotency(storeKey, entry) {
+      return putIngestIdempotency(storeKey, entry, dataDir);
+    },
+    async appendAudit(action, detail, proposalId) {
+      appendAudit(dataDir, {
+        userId: req.user?.sub ?? 'unknown',
+        action,
+        proposalId: proposalId || '',
+        detail,
+      });
+    },
+    async runBilling() {
+      return true;
+    },
+    async readExistingNote(notePath) {
+      try {
+        return readNote(vaultPath, notePath);
+      } catch {
+        return null;
+      }
+    },
+    async writeNote(notePath, payload) {
+      writeNote(vaultPath, notePath, { body: payload.body, frontmatter: payload.frontmatter });
+    },
+    async createProposal(payload) {
+      const policyPending = getProposalEvaluationRequired(dataDir);
+      const augmented = augmentProposalCreateRequestBody(
+        {
+          path: payload.path,
+          body: payload.body,
+          frontmatter: payload.frontmatter,
+          intent: payload.intent,
+          labels: payload.labels,
+          source: payload.source,
+          proposed_by: payload.proposed_by,
+        },
+        dataDir,
+        {
+          evaluationRequired: policyPending,
+          evaluatedBy: req.user?.sub,
+          sessionBound: isSessionBoundActor(req.user),
+          authorActorId: req.user?.sub,
+        }
+      );
+      return createProposal(dataDir, {
+        ...augmented,
+        vault_id: req.vault_id,
+        proposed_by: req.user?.sub ?? undefined,
+        evaluationRequired: policyPending,
+        evaluationForcedPending: Boolean(augmented.auto_flag_reasons?.length),
+        review_queue: augmented.review_queue,
+        review_severity: augmented.review_severity,
+        auto_flag_reasons: augmented.auto_flag_reasons,
+      });
+    },
+    async markProposalApproved(proposalId) {
+      try {
+        updateProposalStatus(dataDir, proposalId, 'approved');
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    },
+  };
+}
+
+async function handleSelfHostedAutomationIngest(req, res, { requireContract = false } = {}) {
+  if (!assertSelfHostedAgentScope(req, res)) return;
+  if (!req.vaultPath) {
+    const allowed = getAllowedVaultIds(config.data_dir, req.user?.sub ?? '');
+    const vaultId = req.vault_id || String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+    if (!allowed.includes(vaultId)) {
+      return res.status(403).json({ error: 'Access to this vault is not allowed.', code: 'FORBIDDEN' });
+    }
+    const vaultPath = config.resolveVaultPath(vaultId);
+    if (!vaultPath) return res.status(404).json({ error: 'Vault not found.', code: 'NOT_FOUND' });
+    req.vault_id = vaultId;
+    req.vaultPath = vaultPath;
+  }
+  const actorClass = resolveActorTokenClass(req.user);
+  if (actorClass !== 'agent_access' && actorClass !== 'session' && actorClass !== 'legacy_session') {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  if (actorClass !== 'agent_access' && !ingestSessionWriteRole(effectiveRole(req))) {
+    return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+  }
+  try {
+    const loaded = await loadIngestRulesForSub(req.user?.sub ?? '', config.data_dir);
+    const out = await processAutomationIngest({
+      rawBody: req.body,
+      idempotencyHeader: req.headers['x-ingest-idempotency-key'],
+      actor: {
+        sub: req.user?.sub ?? '',
+        vaultId: req.vault_id || 'default',
+        credentialId: req.user?.cid != null ? String(req.user.cid) : null,
+        credentialName: req.user?.agent != null ? String(req.user.agent) : null,
+        evaluationRequired: getProposalEvaluationRequired(config.data_dir),
+        sessionBound: isSessionBoundActor(req.user),
+      },
+      rules: loaded.rules,
+      triggers: loadReviewTriggers(config.data_dir),
+      io: makeSelfHostedIngestIo(req),
+      requireContract,
+    });
+    if (out && out.billed === false) return;
+    return res.status(out.status).json(out.body);
+  } catch (e) {
+    if (e && e.code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE') {
+      return res.status(503).json({ error: e.message || 'store unavailable', code: e.code });
+    }
+    return sendIngestError(res, e);
+  }
+}
+
 const app = express();
 // Trust the first downstream proxy so express-rate-limit reads the real client IP from
 // X-Forwarded-For instead of the CDN/load-balancer address.
@@ -814,6 +993,102 @@ app.post('/api/v1/capture', captureAuth, (req, res) => {
 app.use('/api/v1/notes', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/search', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/proposals', jwtAuth, apiLimiter, requireVaultAccess);
+app.use('/api/v1/automation', jwtAuth, apiLimiter);
+
+app.post('/api/v1/automation/ingest', (req, res) => {
+  return handleSelfHostedAutomationIngest(req, res, { requireContract: false });
+});
+
+app.get('/api/v1/automation/ingest-rules', requireSessionIngestCrud, async (req, res) => {
+  try {
+    const loaded = await loadIngestRulesForSub(req.user?.sub ?? '', config.data_dir);
+    return res.json({ rules: loaded.rules, templates: loaded.templates });
+  } catch (e) {
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.put('/api/v1/automation/ingest-rules', requireSessionIngestCrud, async (req, res) => {
+  try {
+    const incoming = Array.isArray(req.body && req.body.rules) ? req.body.rules : req.body;
+    const list = Array.isArray(incoming) ? incoming : [];
+    if (list.length > MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const rules = list.map((row) => normalizeRuleForSave(row, { mintMissingId: true }));
+    await saveIngestRulesForSub(req.user?.sub ?? '', rules, config.data_dir);
+    return res.json({ rules, templates: listPackTemplates() });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/automation/ingest-rules', requireSessionIngestCrud, async (req, res) => {
+  try {
+    const loaded = await loadIngestRulesForSub(req.user?.sub ?? '', config.data_dir);
+    if (loaded.rules.length >= MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const rule = normalizeRuleForSave({ ...req.body, rule_id: undefined }, { mintMissingId: true });
+    const rules = [...loaded.rules, rule];
+    await saveIngestRulesForSub(req.user?.sub ?? '', rules, config.data_dir);
+    return res.status(201).json({ rule, rules, templates: listPackTemplates() });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/automation/ingest-rules/from-template', requireSessionIngestCrud, async (req, res) => {
+  try {
+    const templateId = String((req.body && req.body.template_id) || '').trim();
+    const templates = listPackTemplates();
+    const tmpl = templates.find((t) => t.rule_id === templateId);
+    if (!tmpl) return res.status(400).json({ error: 'unknown template', code: 'BAD_REQUEST' });
+    const loaded = await loadIngestRulesForSub(req.user?.sub ?? '', config.data_dir);
+    if (loaded.rules.length >= MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const enable = req.body && req.body.enable === true;
+    const rule = normalizeRuleForSave(
+      { ...tmpl, rule_id: mintRuleId(), enabled: enable === true },
+      { mintMissingId: false }
+    );
+    const rules = [...loaded.rules, rule];
+    await saveIngestRulesForSub(req.user?.sub ?? '', rules, config.data_dir);
+    return res.status(201).json({ rule, rules, templates });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.delete('/api/v1/automation/ingest-rules/:rule_id', requireSessionIngestCrud, async (req, res) => {
+  try {
+    const loaded = await loadIngestRulesForSub(req.user?.sub ?? '', config.data_dir);
+    const rules = loaded.rules.filter((r) => r.rule_id !== String(req.params.rule_id || ''));
+    await saveIngestRulesForSub(req.user?.sub ?? '', rules, config.data_dir);
+    return res.json({ rules, templates: loaded.templates });
+  } catch (e) {
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
 app.use('/api/v1/note-outline', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/document-tree', jwtAuth, apiLimiter, requireVaultAccess);
 app.use('/api/v1/metadata-facets', jwtAuth, apiLimiter, requireVaultAccess);
@@ -2477,6 +2752,7 @@ app.get('/api/v1/notes', parseQueryBounds, (req, res) => {
       fields: req.query.fields || 'path+metadata',
       countOnly: req.query.count_only === 'true',
       content_scope: req.query.content_scope,
+      content_class: req.query.content_class,
     };
     const vaultConfig = { ...config, vault_path: req.vaultPath };
     const out = (req.scope?.projects?.length || req.scope?.folders?.length)
@@ -3192,6 +3468,10 @@ app.post('/api/v1/proposals/:id/evaluation', requireRole('admin', 'evaluator'), 
 });
 
 app.post('/api/v1/proposals', requireRole('editor', 'admin', 'evaluator'), (req, res) => {
+  if (!assertSelfHostedAgentScope(req, res)) return;
+  if (isAgentAccessPayload(req.user) && isIngestContractBody(req.body)) {
+    return handleSelfHostedAutomationIngest(req, res, { requireContract: true });
+  }
   const {
     path: notePath,
     body,
