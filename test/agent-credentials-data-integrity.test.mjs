@@ -1,5 +1,5 @@
 /**
- * Phase C — data-integrity: secret never persisted; list omits credential; namespace separate.
+ * Phase C + Lane D — data-integrity: secret never persisted; isolation; meta sibling file.
  */
 
 import { describe, it } from 'node:test';
@@ -7,8 +7,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createAgentCredentialStore } from '../hub/gateway/agent-credential-store.mjs';
+import { readFile } from 'node:fs/promises';
+import { createAgentCredentialStore, BLOB_GLOBAL } from '../hub/gateway/agent-credential-store.mjs';
 import { mintCredential, listCredentialsForSub } from '../hub/lib/agent-credential-core.mjs';
+
+const agentStoreSrc = await readFile(
+  new URL('../hub/gateway/agent-credential-store.mjs', import.meta.url),
+  'utf8'
+);
 
 describe('Phase C data-integrity — agent credentials', () => {
   it('persisted JSON never contains raw secret; list has no credential field', async () => {
@@ -33,8 +39,9 @@ describe('Phase C data-integrity — agent credentials', () => {
       assert.ok(!raw.includes('refresh-tokens'));
 
       const list = await store.list('google:1');
-      assert.equal(list[0].credential, undefined);
-      assert.equal(list[0].token_hash, undefined);
+      assert.equal(list.credentials[0].credential, undefined);
+      assert.equal(list.credentials[0].token_hash, undefined);
+      assert.ok(await fs.stat(path.join(dir, 'hosted_agent_credentials.meta.json')));
     } finally {
       delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
       await fs.rm(dir, { recursive: true, force: true });
@@ -52,5 +59,36 @@ describe('Phase C data-integrity — agent credentials', () => {
     assert.equal(list[0].id, id);
     assert.equal(list[0].token_hash, undefined);
     assert.equal(list[0].lookup_id, undefined);
+  });
+
+  it('agent store source never references refresh-tokens-v1 or gateway-auth', () => {
+    const code = agentStoreSrc
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    assert.ok(!code.includes('refresh-tokens-v1'));
+    assert.ok(!code.includes('gateway-auth'));
+    assert.ok(!code.includes('hosted_refresh_tokens.json'));
+    assert.ok(agentStoreSrc.includes('hosted_agent_credentials.meta.json'));
+  });
+
+  it('NETLIFY set + missing agent blob global throws and does not write file fallback', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kt-agent-di-netlify-'));
+    process.env.KNOWTATION_GATEWAY_DATA_DIR = dir;
+    const prevNetlify = process.env.NETLIFY;
+    process.env.NETLIFY = 'true';
+    delete globalThis[BLOB_GLOBAL];
+    try {
+      const store = createAgentCredentialStore();
+      await assert.rejects(() => store.list('google:1'), (e) => e.code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE');
+      await assert.rejects(
+        () => fs.stat(path.join(dir, 'hosted_agent_credentials.json')),
+        (e) => e && e.code === 'ENOENT'
+      );
+    } finally {
+      if (prevNetlify === undefined) delete process.env.NETLIFY;
+      else process.env.NETLIFY = prevNetlify;
+      delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });

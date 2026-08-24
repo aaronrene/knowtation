@@ -235,11 +235,32 @@ export function mintCredential(records, opts) {
     created_at: now,
     expires_at: now + ttlMs,
     last_used_at: null,
+    last_failure_code: null,
+    last_failure_at: null,
     revoked: false,
     revoked_at: null,
   };
 
   return { records: next, credential, id: cid, record: next[cid] };
+}
+
+/**
+ * Persist last-failure health on a known credential id (Lane D §5.2).
+ * @param {Record<string, object>} records
+ * @param {string} cid
+ * @param {'invalid'|'revoked'|'expired'} reason
+ * @param {number} [now]
+ * @returns {Record<string, object>}
+ */
+export function recordCredentialFailure(records, cid, reason, now) {
+  const allowed = new Set(['invalid', 'revoked', 'expired']);
+  if (!allowed.has(reason)) return cloneRecords(records);
+  const next = cloneRecords(records);
+  if (!next[cid]) return next;
+  const ts = Number.isFinite(now) ? now : Date.now();
+  next[cid].last_failure_code = reason;
+  next[cid].last_failure_at = ts;
+  return next;
 }
 
 /**
@@ -263,10 +284,31 @@ export function verifyCredential(records, credential, opts = {}) {
   }
   if (!found || !foundId) return { ok: false, reason: 'invalid' };
   if (!safeEqualHashes(found.token_hash, hashSecret(parsed.secret))) {
-    return { ok: false, reason: 'invalid' };
+    return {
+      ok: false,
+      reason: 'invalid',
+      id: foundId,
+      records: recordCredentialFailure(records, foundId, 'invalid', now),
+    };
   }
-  if (found.revoked) return { ok: false, reason: 'revoked', id: foundId, sub: found.sub };
-  if (now >= found.expires_at) return { ok: false, reason: 'expired', id: foundId, sub: found.sub };
+  if (found.revoked) {
+    return {
+      ok: false,
+      reason: 'revoked',
+      id: foundId,
+      sub: found.sub,
+      records: recordCredentialFailure(records, foundId, 'revoked', now),
+    };
+  }
+  if (now >= found.expires_at) {
+    return {
+      ok: false,
+      reason: 'expired',
+      id: foundId,
+      sub: found.sub,
+      records: recordCredentialFailure(records, foundId, 'expired', now),
+    };
+  }
 
   const next = cloneRecords(records);
   next[foundId].last_used_at = now;
@@ -340,10 +382,13 @@ export function listCredentialsForSub(records, sub) {
       name: rec.name,
       vault_ids: [...(rec.vault_ids || [])],
       scopes: [...(rec.scopes || [])],
-      created_at: rec.created_at,
-      expires_at: rec.expires_at,
-      last_used_at: rec.last_used_at,
+      created_at: rec.created_at ?? null,
+      expires_at: rec.expires_at ?? null,
+      last_used_at: rec.last_used_at ?? null,
+      last_failure_code: rec.last_failure_code ?? null,
+      last_failure_at: rec.last_failure_at ?? null,
       revoked: Boolean(rec.revoked),
+      revoked_at: rec.revoked_at ?? null,
     });
   }
   out.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));

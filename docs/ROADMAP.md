@@ -22,15 +22,15 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-20)
+## Current status (2026-08-24)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
-| **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** (`providers.apple: true`; `APPLE_CLIENT_ID=com.scooling.apple`) |
-| **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`; live `apple:true`; evidence `docs/reviews/2026-08-10-kn-apple-t1-complete.md`. |
-| **THE ONE NEXT STEP** | **Operator F20 HELPER-SMOKE re-smoke** (Scooling product order) after Netlify redeploy of [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c` (F30b LANDED). Read fold `data-next-step`. F18-P0b Bearer **LANDED** [SC #307](https://github.com/aaronrene/scooling/pull/307). F29b **LANDED** [SC #311](https://github.com/aaronrene/scooling/pull/311). Prior F20 still **FINDINGS**. Canonical fence: `~/scooling/docs/OVERSEER-HANDOVER.md` → search `Paste-ready prompt — Operator F20 HELPER-SMOKE re-smoke`. F14 **LANDED** [PR #299](https://github.com/aaronrene/knowtation/pull/299). `PATH_WRITES_ENABLED=1` **ON**. T5 **not** admitted. Do not Auto BRAIN-PAIR-b. Do not say helper live / all good. |
-| **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS, parallel); BRAIN-PAIR-b (device not ready); SOCIAL-OPEN-RANGE-b (F7+3G). |
+| **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
+| **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
+| **THE ONE NEXT STEP** | **Product relay** — Scooling PRIMARY = **F28 AUTH-LANE-HONESTY-a** (Thinking). Knowtation KN-AUTH-LANE-D-b **LANDED** 2026-08-24 ([land evidence](reviews/2026-08-24-kn-auth-lane-d-b-land.md)). VideoFactory consumer wiring = follow-on after Hub deploy. |
+| **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS, parallel); BRAIN-PAIR-b; SOCIAL-OPEN-RANGE-b (F7+3G). |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 
 ## Build queue
@@ -72,6 +72,8 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **KN-DOCS-SYNC-DRIVE-GATE** | **Operator + Auto** | **DONE 2026-08-17** — operator authorized “Flip Drive gate”; source `DOCS_OAUTH_GOOGLE_AUTHORIZED = true` | Live Drive OAuth gate on. Notion gate stays **false**. Env must already be set on gateway+bridge. |
 | **KN-WORK-PATH-LIST-a** | **Thinking** | **DONE 2026-08-18** — freeze-review **pass** (`sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`) | **Path persist + list/get freeze.** Artifact `docs/KN-WORK-PATH-LIST-FREEZE.md`. Dedicated `learning_paths[]` in `hub_flow_store.json`; list/get REST; Review-before-write persist gated `PATH_WRITES_ENABLED` default off. No Scooling harvest. No Home bind. No Live. Source: Scooling F14 + F13 BV pass + AGENT-WORK-CHAT-HOME-BIND park. |
 | **KN-WORK-PATH-LIST-b** | **Auto** | **DONE + landed 2026-08-18**; write env **ON 2026-08-19** (Netlify `PATH_WRITES_ENABLED=1` gateway+bridge; T5 not admitted). BV round 1 = **`pass`**; seven-tier **44/44**; GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff` | List/get REST; gated propose/apply. Hosted `maybeApplyHostedPathAfterApprove`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
+| **KN-AUTH-LANE-D-a** | **Thinking** | **DONE 2026-08-24** — freeze-review **pass** (rounds 1–3 findings; round 4 + `ok review --freeze` **pass**; digest `sha256:e5c48a8fa0e80a61b2fd1505d7b7a857db94c904c3107eafc51d95b62e59f972`) | **Machine lane reliability freeze.** Hub health fields; isolate `kt_agent_` from `ktn_refresh` / `gateway-auth`; no silent mass-invalidate; 503 must not 401 robots; one automation path. Artifact: `docs/KN-AUTH-LANE-D-FREEZE.md`. No Auto in this tip. No live revoke. Sibling Scooling F28 = human session reads. |
+| **KN-AUTH-LANE-D-b** | **Auto** | **DONE + landed 2026-08-24** — BV round 1 = **`pass`**; seven-tier **36/36**; Muse FF → `main` `b8c418d8…`; land evidence `docs/reviews/2026-08-24-kn-auth-lane-d-b-land.md` | Health fields + `recordCredentialFailure`; store isolation D1–D11 (meta sentinel, Netlify blob-only, throw on I/O); list `{credentials,store}`; Hub banner `agent-cred-store-banner`; docs one machine path + HUB-API 503 table; OpenAPI health schema. No Scooling edits. No live revoke/wipe. GitHub PR pending bridge merge. |
 
 > **Hub UI redesign** is a **separate lane** — see [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md) + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md). It must not alter this board's product NEXT. (HUB-DASH-IA landed 2026-07-31 via muse-mirror PR #286.)
 

@@ -1438,6 +1438,8 @@ Your note body here.</pre>
               Agent credentials (REST / Paperclip / cron)
             </h3>
             <p class="settings-intro small">Mint a <strong>scoped robot credential</strong> for REST automations (Paperclip, launchd, cron). Not a browser session. Revoke blocks new token exchange immediately; in-flight access JWTs end within 15 minutes. Do <strong>not</strong> paste Hub refresh cookies into Paperclip.</p>
+            <p class="settings-intro small">Robots use <code>kt_agent_</code> and <code>POST api/v1/auth/agent/token</code>. Humans use the browser session cookie. A session-store 503 does not revoke robot credentials.</p>
+            <p id="agent-cred-store-banner" class="settings-intro small" role="status" style="display:none; color: var(--danger, #b45309);"></p>
             <div class="settings-row" style="flex-wrap: wrap; gap: 0.5rem; align-items: flex-end;">
               <label class="settings-label" for="agent-cred-name-input">Name</label>
               <input type="text" id="agent-cred-name-input" class="settings-input" maxlength="128" placeholder="videofactory-trend-agent" autocomplete="off" style="max-width: 16rem;" />

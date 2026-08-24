@@ -11,6 +11,20 @@ This document defines the **Hub REST API contract** and **auth model** for Phase
 ### 1.1 Model
 
 - **Login required for interactive use.** There is **no unscoped long-lived API key**. All Hub API calls require a **JWT**: either a session JWT after login, an MCP/`mcp_access` token, or a Phase C **scoped agent credential** exchange (`kt_agent_…` → short-lived `type: agent_access` JWT). Machine/Paperclip/cron path: Settings → Integrations → **Agent credentials (REST)** — see [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md) and `docs/DURABLE-AGENT-AUTH-PHASE-C-FREEZE.md`.
+
+#### 1.1.1 Machine vs browser error codes (503 vs 401)
+
+Robots and humans must not collapse these codes. A browser session-store blip is **not** a dead robot credential.
+
+| Code | Lane | Meaning | Robot action |
+| --- | --- | --- | --- |
+| `SESSION_STORE_UNAVAILABLE` | Browser / native refresh only | Refresh store I/O threw; cookie kept | **Not a robot signal** — do not remint `kt_agent_` |
+| `AGENT_CREDENTIAL_STORE_UNAVAILABLE` | Agent store I/O | Agent blob/file threw; credential **not** revoked | Retry; do not remint |
+| `AGENT_CREDENTIAL_STORE_INCONSISTENT` | Agent store | Meta says store was nonempty; data read is empty/missing | Retry; operator banner; do **not** remint |
+| `AGENT_CREDENTIAL_INVALID` | Agent exchange | Unknown / bad / expired / revoked `kt_agent_` | Check Hub health before reminting |
+| `REFRESH_REUSE` / `REFRESH_REVOKED` / `REFRESH_EXPIRED` | Browser refresh family | Session cookie burned or stale | Humans sign in again |
+
+`POST api/v1/auth/agent/token` **never** returns `SESSION_STORE_UNAVAILABLE`. Valid `kt_agent_` still returns **200** while the browser refresh store is down.
 - **Self-hosted (Docker):** Login via **OAuth 2.0** (Google and/or GitHub). After successful OAuth callback, the server issues a **JWT** (access token). Optional: refresh token for long-lived sessions.
 - **Hosted (ICP):** Login via **Internet Identity** (or, if fronted by a gateway that performs OAuth, a JWT trusted by the canister). The canister validates the JWT or II delegation.
 

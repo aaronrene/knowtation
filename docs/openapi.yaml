@@ -59,7 +59,49 @@ paths:
       summary: Phase C — list agent credentials (metadata only)
       responses:
         '200':
-          description: Credential list without secrets
+          description: Credential list without secrets; includes health fields and store banner flags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credentials, store]
+                properties:
+                  credentials:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        vault_ids: { type: array, items: { type: string } }
+                        scopes: { type: array, items: { type: string } }
+                        created_at: { type: number, nullable: true }
+                        last_used_at: { type: number, nullable: true }
+                        last_failure_code: { type: string, nullable: true, enum: [invalid, revoked, expired] }
+                        last_failure_at: { type: number, nullable: true }
+                        expires_at: { type: number, nullable: true }
+                        revoked: { type: boolean }
+                        revoked_at: { type: number, nullable: true }
+                  store:
+                    type: object
+                    required: [wipe_required, inconsistent]
+                    properties:
+                      wipe_required: { type: boolean }
+                      inconsistent: { type: boolean }
+        '503':
+          description: Agent credential store unavailable or inconsistent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [AGENT_CREDENTIAL_STORE_UNAVAILABLE, AGENT_CREDENTIAL_STORE_INCONSISTENT]
+                  store:
+                    type: object
+                    properties:
+                      inconsistent: { type: boolean }
   /auth/agent/credentials/{id}:
     delete:
       tags: [Auth]
@@ -95,7 +137,15 @@ paths:
         '401':
           description: Invalid credential
         '503':
-          description: Store unavailable
+          description: Agent credential store unavailable or inconsistent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    enum: [AGENT_CREDENTIAL_STORE_UNAVAILABLE, AGENT_CREDENTIAL_STORE_INCONSISTENT]
 
   /api/v1/auth/session:
     get:

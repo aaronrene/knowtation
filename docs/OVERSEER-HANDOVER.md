@@ -17,36 +17,54 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=product_relay lane=product status=live product_order=scooling tip_hash=sha256:c08556ac0e40f2a5686ecea893278ac12cd02032da63614e96b50d9a55f31308 -->
-## PRODUCT RELAY — Operator F20 HELPER-SMOKE re-smoke after F32b (PRIMARY lives on the Scooling board)
+<!-- overseer:next role=lane_tip lane=auth status=live -->
+## NEXT SESSION — KN-AUTH-LANE-D-b LANDED (Knowtation PRIMARY)
 
-**Date:** 2026-08-20  
-**Model:** **Operator + Auto** (Scooling board)  
-**Ownership:** Product order wins on Scooling; this board owns the path store + list/get (**LANDED**) and Path write env (**ON**, Netlify-only).  
-**Product order:** PRIMARY is **Operator F20 HELPER-SMOKE re-smoke after F32b** after F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. Land published clearer refuse class labels only — does **not** by itself make Start/Send return a draft. Evidence `~/scooling/docs/reviews/2026-08-20-helper-endpoint-refuse-b-land.md`. F14 KN-WORK-PATH-LIST **LANDED** — GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED=1` on knowtation-gateway + knowtation-bridge. T5 path kinds **not** admitted. MuseHub F7 is **parallel**, not PRIMARY.
+**Date:** 2026-08-24  
+**Model:** **Thinking** (Scooling F28a — product order)  
+**Ownership:** KN-AUTH-LANE-D-b **LANDED** on Muse `main` `sha256:b8c418d8…`. GitHub mirror PR pending merge after bridge.  
+**Product order:** Scooling PRIMARY = **F28 AUTH-LANE-HONESTY-a**. Lock: `~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md`.
 
-**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not put chat on Home. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply. Do not say Scooling is done / helper live / all good. Do not invent Notion Ready. Do not put helper API keys in git. Do not flip Work chip Live without a real draft. Do not invent HTTP status.
+**Locks:** Do not live-revoke production credentials. Do not edit Scooling from this board. VideoFactory wiring = follow-on after Hub deploy.
 
-**Standing (product order lives on Scooling):** Not finished. Bearer + F29b + F30b + F31b + F32b on GitHub `main`; F20 still **FINDINGS** until Operator re-smoke after #317 Netlify redeploy. Helper/model is P0 unfinished. Leftovers: open-range Coming (Auto parked on F7+3G+unpark), pairing (the-brain E2), live Space membership, Patterns 3F, Notion, Delegation write, APPLE-7-ship, Parentier.org last, P6 R4–R5 parked. This board does not Auto SOCIAL or land Scooling.
+### THE ONE NEXT STEP — **Model: Thinking** (Scooling F28a)
 
-**Canonical paste fence:** `~/scooling/docs/OVERSEER-HANDOVER.md` → **NEXT SESSION — Operator F20 HELPER-SMOKE re-smoke** (search `Paste-ready prompt — Operator F20 after F32b`). The copy below matches that fence.
+Session-bound Helpers reads on Scooling — **not** another Netlify JWT. Paste the F28a fence below in a **Scooling** chat.
+
+### This session — SD-21 land KN-AUTH-LANE-D-b **DONE** (2026-08-24)
+
+Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, secrets, real money, or Delegation write env). Muse FF `feat/kn-auth-lane-d-b` → `main` `sha256:b8c418d87e4140b4003b80da384f18b824e9960c084c50b6e0e6fd6174a281d7`. Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-b-land.md`. Never `git push origin main`. Never feature→GitHub-`main`. No production credential revoke.
+
+### Paste-ready prompt — F28a (Scooling sibling — paste in a Scooling chat)
+
+```text
+F28 AUTH-LANE-HONESTY-a Thinking. Stop JWT-as-Netlify-secret. Ground truth docs/reviews/2026-08-24-auth-lane-honesty.md.
+
+YOUR JOB: Freeze settings.delegation loader session-bound Hub reads. Signed-out = Sign in again. No Netlify KNOWTATION_AUTH_TOKEN. No Auto until freeze-review pass.
+
+Repo: scooling
+Model: Thinking
+Branch: feat/auth-lane-honesty-a
+Authority: docs/reviews/2026-08-24-auth-lane-honesty.md
+```
 
 ---
 
-### THE ONE NEXT STEP — **Model: Operator + Auto** (Scooling)
+<!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
+## PRODUCT RELAY — F28 AUTH-LANE-HONESTY (PRIMARY lives on the Scooling board)
 
-Operator F20 re-smoke after #317 redeploy. Read class `data-next-step`. Do **not** say all good / helper live. Do **not** Auto BRAIN-PAIR-b. Do **not** admit T5 path kinds.
+**Date:** 2026-08-24  
+**Model:** **Thinking** (Scooling F28a) + **Operator** (this board SD-21 land after KN-AUTH-LANE-D-b **DONE**)  
+**Ownership:** Product order wins on Scooling. This board owns Hub machine credentials + session store.  
+**Product order:** PRIMARY on Scooling is **F28a**. This board does not Auto Scooling. F26 smoke waits on F28. T5 path kinds **not** admitted. MuseHub F7 **parallel**.
 
-### Paste-ready prompt — Operator F20 after F32b (Scooling)
+**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply. Do not say Scooling is done / all good. Do not put helper API keys or Hub JWTs in git.
 
-```text
-Operator + Auto F20 HELPER-SMOKE re-smoke after F32b land. Confirm Netlify production redeploy of PR #317 @7691fba9 includes that SHA (or a later published HEAD that has it as ancestor). Signed-in Home Start + Work Send; read data-next-step (next_helper_auth / next_helper_request / next_helper_rate / next_helper_server / next_helper_endpoint; still rule out malformed/abort/runtime/reservation/parse). Record fold id + whether a real draft appeared. If still refuse, Operator fixes the named Netlify helper env cause (never secrets in git). Refresh work?open= + Path propose only if a real draft appears. Do not invent helper live / all good / HTTP status / Notion Ready. Do not Auto BRAIN-PAIR-b. Do not start SOCIAL-OPEN-RANGE-b. Never git push origin main. Never feature→GitHub-main.
+**Canonical paste fence (Scooling):** `~/scooling/docs/OVERSEER-HANDOVER.md` → search `Paste-ready prompt — F28 AUTH-LANE-HONESTY-a`.
 
-Repo: scooling
-Model: Operator + Auto
-Step: Operator F20 HELPER-SMOKE re-smoke after F32b
-Authority: docs/reviews/2026-08-20-helper-endpoint-refuse-b-land.md + prior FINDINGS docs/reviews/2026-08-20-helper-smoke-resmoke-f31b-findings.md
-```
+### THE ONE NEXT STEP — product order — **Model: Thinking** (Scooling F28a)
+
+Session-bound Helpers reads. **Not** another Netlify JWT.
 
 ### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
 

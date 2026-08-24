@@ -1,6 +1,5 @@
 /**
- * Phase C — security: mint gates, no admin, propose≠approve, browser refresh rejected,
- * offline-lock, allowlist never elevates agent_access.
+ * Phase C + Lane D — security: mint gates, no SESSION_STORE_UNAVAILABLE from agent routes.
  */
 
 import { describe, it } from 'node:test';
@@ -11,6 +10,7 @@ import path from 'node:path';
 import http from 'node:http';
 import jwt from 'jsonwebtoken';
 import express from 'express';
+import { readFile } from 'node:fs/promises';
 import { createAgentCredentialRouter } from '../hub/gateway/agent-credential-routes.mjs';
 import {
   mayApplyAdminAllowlistOverride,
@@ -21,6 +21,10 @@ import { roleEligibleForPersonalSelfApply } from '../lib/hub-proposal-personal-s
 import { normalizeScopes, agentScopesPermitMethod } from '../hub/lib/agent-credential-core.mjs';
 
 const SECRET = 'phase-c-security-test-secret-32byte!!';
+const routesSrc = await readFile(
+  new URL('../hub/gateway/agent-credential-routes.mjs', import.meta.url),
+  'utf8'
+);
 
 describe('Phase C security — agent credentials', () => {
   it('rejects admin scopes at normalize', () => {
@@ -127,6 +131,47 @@ describe('Phase C security — agent credentials', () => {
         ),
         null
       );
+    } finally {
+      await new Promise((r) => server.close(r));
+      delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('agent routes source never emits SESSION_STORE_UNAVAILABLE', () => {
+    assert.ok(!routesSrc.includes('SESSION_STORE_UNAVAILABLE'));
+  });
+
+  it('list omits secret hash and lookup_id on health rows', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kt-agent-sec-list-'));
+    process.env.KNOWTATION_GATEWAY_DATA_DIR = dir;
+    const app = express();
+    const { router } = createAgentCredentialRouter({
+      sessionSecret: SECRET,
+      getSessionSub: () => 'google:1',
+      getSessionPayload: () => ({ sub: 'google:1', type: 'session' }),
+      grantedScopes: () => ['vault:read'],
+    });
+    app.use('/api/v1/auth/agent', router);
+    const server = http.createServer(app);
+    await new Promise((r) => server.listen(0, r));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const session = jwt.sign({ sub: 'google:1', type: 'session' }, SECRET, { expiresIn: '1h' });
+    try {
+      const mint = await fetch(`${base}/api/v1/auth/agent/credentials`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'sec', vault_ids: ['default'] }),
+      });
+      const m = await mint.json();
+      const list = await (await fetch(`${base}/api/v1/auth/agent/credentials`, {
+        headers: { Authorization: `Bearer ${session}` },
+      })).json();
+      const row = list.credentials[0];
+      assert.equal(row.credential, undefined);
+      assert.equal(row.token_hash, undefined);
+      assert.equal(row.lookup_id, undefined);
+      assert.ok(!JSON.stringify(list).includes(m.credential));
     } finally {
       await new Promise((r) => server.close(r));
       delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
