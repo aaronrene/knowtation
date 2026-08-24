@@ -31,6 +31,7 @@ import {
   resolveActorTokenClass,
   mayApplyAdminAllowlistOverride,
 } from '../hub/gateway/access-token-authz.mjs';
+import { effectiveRequestPath } from '../hub/gateway/request-path.mjs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -95,6 +96,8 @@ describe('Phase C unit — agent credentials', () => {
     assert.equal(agentScopesPermitMethod(scopes, 'POST', 'api/v1/proposals'), true);
     assert.equal(agentScopesPermitMethod(scopes, 'POST', '/api/v1/notes'), false);
     assert.equal(agentScopesPermitMethod(scopes, 'POST', '/api/v1/proposals/x/approve'), false);
+    // Express mount bug: suffix-only path must not authorize propose (getUserId uses effectiveRequestPath).
+    assert.equal(agentScopesPermitMethod(scopes, 'POST', '/proposals'), false);
   });
 
   it('normalizeAgentRequestPath strips query and leading slash', () => {
@@ -124,6 +127,20 @@ describe('Phase C unit — agent credentials', () => {
     assert.equal(isAgentAccessPayload(good), true);
     assert.equal(resolveActorTokenClass(good), 'agent_access');
     assert.equal(mayApplyAdminAllowlistOverride(good), false);
+  });
+
+  it('effectiveRequestPath + subFromVerifiedPayload authorizes mounted /api/v1/proposals', () => {
+    const payload = {
+      sub: 'google:1',
+      type: 'agent_access',
+      typ: 'kt_agent_access',
+      aud: 'knowtation-hub-rest',
+      scopes: ['propose', 'vault:read'],
+    };
+    const req = { method: 'POST', baseUrl: '/api/v1', path: '/proposals', url: '/api/v1/proposals' };
+    const pathOnly = effectiveRequestPath(req);
+    assert.equal(pathOnly, '/api/v1/proposals');
+    assert.equal(subFromVerifiedPayload(payload, { method: req.method, path: pathOnly }), 'google:1');
   });
 
   it('list includes revoked_at and last_failure fields', () => {
