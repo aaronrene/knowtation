@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "rule_id": "tmpl_born_free_trend_review",
+      "enabled": false,
+      "priority": 100,
+      "pack_id": "born_free_v1",
+      "label": "Born Free trend → Review",
+      "match": {
+        "credential_id": null,
+        "credential_name": "videofactory-trend-agent",
+        "credential_name_prefix": null,
+        "path_prefix": "inbox/trends/",
+        "intent": null,
+        "content_class": "research"
+      },
+      "disposition": "review_queue",
+      "content_class": "research"
+    },
+    {
+      "rule_id": "tmpl_born_free_trend_direct",
+      "enabled": false,
+      "priority": 100,
+      "pack_id": "born_free_v1",
+      "label": "Born Free trend → vault note",
+      "match": {
+        "credential_id": null,
+        "credential_name": "videofactory-trend-agent",
+        "credential_name_prefix": null,
+        "path_prefix": "inbox/trends/accepted/",
+        "intent": null,
+        "content_class": "research"
+      },
+      "disposition": "direct_note",
+      "content_class": "research"
+    },
+    {
+      "rule_id": "tmpl_born_free_trend_auto",
+      "enabled": false,
+      "priority": 100,
+      "pack_id": "born_free_v1",
+      "label": "Born Free trend → auto-apply",
+      "match": {
+        "credential_id": null,
+        "credential_name": "videofactory-trend-agent",
+        "credential_name_prefix": null,
+        "path_prefix": "inbox/trends/drafts/",
+        "intent": null,
+        "content_class": "research"
+      },
+      "disposition": "proposal_auto_apply",
+      "content_class": "research"
+    }
+  ]
+}

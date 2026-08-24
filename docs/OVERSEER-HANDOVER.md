@@ -18,24 +18,50 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=lane_tip lane=auth status=live -->
-## NEXT SESSION — propose-path hotfix LANDED (Knowtation PRIMARY)
+## NEXT SESSION — AIP-b SD-21 land (Knowtation PRIMARY)
 
 **Date:** 2026-08-24  
-**Model:** **Operator** (trend-agent propose smoke after deploy)  
-**Ownership:** KN-AUTH-LANE-D propose-path hotfix **LANDED** on Muse `main` `sha256:c2c048ac…`; GitHub PR pending merge after bridge. KN #306 landed D-b; this fix unblocks `POST /api/v1/proposals` for `agent_access`.  
-**Product order:** Scooling PRIMARY = **F28b land** → **Operator F26 smoke**.
+**Model:** **Operator + Auto**  
+**Ownership:** AIP-b BV r1 **pass**. Artifact `docs/AUTOMATION-INGEST-POLICY-FREEZE.md` digest `sha256:9fded978386543865225f5cc2bc0f04f09e777f8de96a56ef5d516c995a2793c`. Evidence `docs/reviews/2026-08-24-automation-ingest-policy-b-bv-round1-pass.md`.  
+**Product order:** Scooling PRIMARY = **F28b land** → **Operator F26 smoke**. This board does not Auto Scooling.
 
-**Locks:** Do not live-revoke production credentials. Do not edit Scooling from this board.
+**Locks:** Do not edit Scooling. Do not enable Born Free templates in the packaged JSON. Do not change SEC-SEAM / personal self-apply / T5. Do not grant `vault:write` on cron default mint. Do not let `agent_access` call approve. Do not claim production smoke. Do not live-revoke credentials. Never `git push origin main`. Never feature → GitHub `main`.
 
-### THE ONE NEXT STEP — **Model: Operator**
+### THE ONE NEXT STEP — **Model: Operator + Auto**
 
-After Netlify production deploy picks up this land, re-run trend-agent step 4: `POST /api/v1/proposals` with exchanged `agent_access` token + `X-Vault-Id: Business`. Expect 200/201. Record PASS or FINDINGS in `docs/reviews/2026-08-24-kn-auth-lane-d-live-smoke.md`.
+SD-21 land `feat/automation-ingest-policy-b` → Muse `main` → `./scripts/muse-bridge-deploy.sh` → GitHub PR `muse-mirror` → `main` (merge commit). Diff has no live posture/env flip, secrets, real money, or Delegation write env. Production ingest smoke is Operator T2 after deploy — not this land session.
+
+### This session — AIP-b Auto **DONE** (2026-08-24)
+
+Implemented D1–D27 against the freeze. Seven-tier **26/26**. BV r1 **pass**. Branch `feat/automation-ingest-policy-b`. Pack templates stay `enabled: false`. Session `POST api/v1/proposals` unchanged. No Scooling edits. No production-smoke claim.
+
+### This session — AIP-a Thinking freeze **DONE** (2026-08-24)
+
+Freeze authored + `/freeze-review-loop` r1–r2 findings (cited) + r3 + `ok review --freeze` + `ok check-ok --path` **pass**. No routes. No env flip. Branch `feat/automation-ingest-policy-a`.
 
 ### This session — SD-21 land propose-path hotfix **DONE** (2026-08-24)
 
-Operator + Auto. `getUserId()` → `effectiveRequestPath(req)` fixes agent POST `/api/v1/proposals` 401. Tests **37/37**. No live env flip. Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-propose-path-fix-land.md`.
+Operator + Auto. `getUserId()` → `effectiveRequestPath(req)` fixes agent POST `api/v1/proposals` 401. Tests **37/37**. No live env flip. Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-propose-path-fix-land.md`.
 
-### Paste-ready prompt — trend-agent propose re-smoke (after deploy)
+### Paste-ready prompt — AIP-b SD-21 land
+
+```text
+SD-21 land feat/automation-ingest-policy-b on Knowtation. AIP-b BV r1 pass (docs/reviews/2026-08-24-automation-ingest-policy-b-bv-round1-pass.md; test_output sha256:250daf41bd930d4a6f7ded0cb3a75205b73a0f27a1b2a7c078519bd66f1ed0ea). No live posture/env flip, secrets, real money, or Delegation write env.
+
+1. Muse merge/FF feat/automation-ingest-policy-b → Muse main
+2. ./scripts/muse-bridge-deploy.sh
+3. GitHub PR muse-mirror → main (merge commit)
+4. Never git push origin main. Never feature → GitHub main.
+
+Do not claim production ingest smoke. Operator T2 after deploy records PASS or FINDINGS in docs/reviews/<date>-automation-ingest-live-smoke.md (status + JSON code only, no secrets).
+
+Repo: knowtation
+Model: Operator + Auto
+Branch: feat/automation-ingest-policy-b
+Authority: docs/AUTOMATION-INGEST-POLICY-FREEZE.md §19; docs/reviews/2026-08-24-automation-ingest-policy-b-bv-round1-pass.md
+```
+
+### Paste-ready prompt — trend-agent propose re-smoke (after deploy; Operator, not AIP-b)
 
 ```text
 Re-run KN-AUTH-LANE-D live smoke step 4 after propose-path hotfix deploy. POST /api/v1/proposals with agent_access Bearer + X-Vault-Id Business. Expect 200/201 with proposal id. Record PASS or FINDINGS (status + JSON code only, no secrets) in docs/reviews/2026-08-24-kn-auth-lane-d-live-smoke.md.

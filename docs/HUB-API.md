@@ -84,7 +84,7 @@ Same semantics as CLI where applicable. Request/response JSON matches SPEC §4.2
 
 - **GET /vault/folders** — Self-hosted: returns `{ "folders": string[] }` of vault-relative directory prefixes for the active vault (`inbox` first, then other top-level dirs and each `projects/<name>`). Hidden directories (names starting with `.`) are omitted. Used by the Hub **New note** folder picker; includes empty folders. Hosted gateway returns `{ "folders": ["inbox"] }` (no canister filesystem). JWT and vault access required.
 
-- **GET /notes** — List notes. Query params: `folder`, `project`, `tag`, `since`, `until`, `chain`, `entity`, `episode`, `limit`, `offset`, `order` (`date` \| `date-asc`), `fields` (`path` \| `path+metadata` \| `full`), `count_only`, **`content_scope`** (`all` implicit \| `notes` \| `approval_logs`) — narrow to normal notes vs materialized approval logs under `approvals/` (see approve response).  
+- **GET /notes** — List notes. Query params: `folder`, `project`, `tag`, `since`, `until`, `chain`, `entity`, `episode`, `limit`, `offset`, `order` (`date` \| `date-asc`), `fields` (`path` \| `path+metadata` \| `full`), `count_only`, **`content_scope`** (`all` implicit \| `notes` \| `approval_logs`) — narrow to normal notes vs materialized approval logs under `approvals/` (see approve response), **`content_class`** (`research` \| `ops` \| `general`) — exact match on note `content_class` or `frontmatter.content_class`.  
   **Response:** `{ "notes": [ ... ], "total": number }` or `{ "total": number }` if `count_only=true`. Per-note shape per SPEC §4.2 list-notes.
 
 - **GET /notes/:path** — Get one note by vault-relative path. Path must be URL-encoded.
@@ -254,6 +254,16 @@ On **hosted**, vault-access and scope JSON persist in the **bridge** (same shape
   **Response:** `{ "proposal_id", "status": "discarded" }`.
 
 - **POST /proposals/:id/enrich** — *(Optional Tier 2)* When **enrich** is enabled (env `KNOWTATION_HUB_PROPOSAL_ENRICH` or admin-saved prefs; see **GET /settings**), **editor**, **admin**, or **evaluator** may request an LLM **summary**, **suggested labels**, and **suggested frontmatter** (versioned JSON envelope parsed via [lib/proposal-enrich-llm.mjs](../lib/proposal-enrich-llm.mjs)). **404** if the feature is disabled (`NOT_FOUND` body). **Self-hosted:** Node Hub runs the model and updates local proposal storage. **Hosted:** The **gateway** runs `completeChat` ([lib/llm-complete.mjs](../lib/llm-complete.mjs)) and **POST**s `{ "assistant_notes", "assistant_model", "suggested_labels_json", "assistant_suggested_frontmatter_json" }` to the canister (`assistant_suggested_frontmatter_json` is a JSON **string** of the normalized object, capped like Node); **response** is the same shape as **GET /proposals/:id** from the canister. Chat backends: **OpenAI** (`OPENAI_API_KEY`), else **Anthropic** (`ANTHROPIC_API_KEY`), else **Ollama** (local). **Canister** route stores enrich fields only (trusted caller is the gateway with user headers). **ICP canister:** [hub/icp/src/hub/JsonValidate.mo](../hub/icp/src/hub/JsonValidate.mo) validates that `suggested_labels_json` is a JSON **array** and `assistant_suggested_frontmatter_json` is a JSON **object** before persisting (invalid values are coerced to `[]` / `{}`; **400** if valid JSON but over **4000** / **14000** characters so nothing is truncated mid-token). **GET /proposals/:id** on the canister always splices **valid** JSON fragments for those two fields (legacy bad rows fall back to `[]` / `{}`). Suggestions are **advisory** — they are **not** merged into the vault on approve unless operators copy them manually (or a future product feature adds an explicit apply step).
+
+### 3.4.0 Automation ingest (AIP)
+
+Per-account ingest rules route matching robot writes. Packaged Born Free templates **ship disabled** (`enabled: false` in `hub/automation-ingest-rules-default.json`). They are not copied enabled into a new sub. Operator enable is per-account CRUD.
+
+- **POST /api/v1/automation/ingest** — Preferred cron entry. Auth: `agent_access` with `ingest:automation` (or `vault:write` short-circuit) **or** session `editor`/`admin`/`member`. Body requires `path`, `body`, `source_fingerprint`. Optional `content_class`, `intent`, `labels`, `X-Ingest-Idempotency-Key`. JWT does **not** need `vault:write`. Elevated review triggers still force Review. `agent_access` still cannot `POST /api/v1/proposals/:id/approve`.
+- **GET/PUT/POST /api/v1/automation/ingest-rules** and **POST …/from-template**, **DELETE …/:rule_id** — Session only (`type: session` or legacy). `agent_access` → 401. No PATCH in v1.
+- Legacy **POST /api/v1/proposals** with an ingest-shaped body (`source_fingerprint` + `ingest: true` or known `content_class`) is hooked for `agent_access` only. Session/human create is unchanged.
+
+REST-only in v1. No MCP ingest tool. See [AUTOMATION-INGEST-POLICY-FREEZE.md](./AUTOMATION-INGEST-POLICY-FREEZE.md) and [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
 
 ### 3.4.1 Learning paths (KN-WORK-PATH-LIST — gated writes default off)
 

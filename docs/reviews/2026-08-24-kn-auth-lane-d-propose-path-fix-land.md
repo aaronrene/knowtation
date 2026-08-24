@@ -31,8 +31,10 @@ Muse fast-forward `feat/kn-auth-lane-d-propose-path-fix` → Muse `main`:
 
 | Step | Evidence |
 | --- | --- |
-| muse-bridge-deploy | pending |
-| PR | pending — `muse-mirror` → `main` only |
+| muse-bridge-deploy | `origin/muse-mirror` `5c8eb46` = `mirror: muse sha256:e5754b62860a10a6e1281438b927060ede916f7d8b730ce9c5beddda22fdb966` |
+| PR | [#307](https://github.com/aaronrene/knowtation/pull/307) `muse-mirror` → `main` only |
+| Required checks | `test (20)` SUCCESS; `Secret scanning (TruffleHog)` SUCCESS |
+| Merge | merge commit `697242221d52b0b0da7c4f9c9293d2f8ac23b416` (2026-08-24T13:02:26Z) |
 | Never | `git push origin main`; feature→GitHub-`main` |
 
 ## Notes

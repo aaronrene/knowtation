@@ -105,8 +105,26 @@ import {
   isAgentAccessPayload,
   isSessionBoundActor,
   assertAgentVaultAllowed,
+  resolveActorTokenClass,
 } from './access-token-authz.mjs';
 import { createAgentCredentialRouter } from './agent-credential-routes.mjs';
+import { loadReviewTriggers } from '../../lib/hub-proposal-review-triggers.mjs';
+import { appendAudit } from '../audit-log.mjs';
+import {
+  processAutomationIngest,
+  sendIngestError,
+  isIngestContractBody,
+  normalizeRuleForSave,
+  mintRuleId,
+  MAX_USER_RULES,
+  listPackTemplates,
+} from '../../lib/automation-ingest-policy.mjs';
+import {
+  loadIngestRulesForSub,
+  saveIngestRulesForSub,
+  getIngestIdempotency,
+  putIngestIdempotency,
+} from './automation-ingest-store.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -4461,6 +4479,313 @@ app.post('/api/v1/notes/copy', async (req, res) => {
     to_vault_id: toVault,
     moved: deleteSource,
   });
+});
+
+function ingestSessionWriteRole(role) {
+  return role === 'editor' || role === 'admin' || role === 'member';
+}
+
+async function hostedIngestCanisterHeaders(req, uid) {
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  return {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'x-user-id': effective,
+    'x-actor-id': uid,
+    'x-vault-id': vaultId,
+    ...canisterAuthHeaders(),
+  };
+}
+
+function makeHostedIngestIo(req, res, uid) {
+  const dataDir = GATEWAY_DATA_DIR;
+  return {
+    async getIdempotency(storeKey) {
+      return getIngestIdempotency(storeKey, dataDir);
+    },
+    async putIdempotency(storeKey, entry) {
+      return putIngestIdempotency(storeKey, entry, dataDir);
+    },
+    async appendAudit(action, detail, proposalId) {
+      appendAudit(dataDir, {
+        userId: uid,
+        action,
+        proposalId: proposalId || '',
+        detail,
+      });
+    },
+    async runBilling(operation) {
+      return runBillingGate(req, res, getUserId, {
+        operation,
+        getNoteCount: getNoteCountForUser,
+      });
+    },
+    async readExistingNote(notePath) {
+      if (!CANISTER_URL) return null;
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      const url = `${CANISTER_URL}/api/v1/notes/${notePath}`;
+      const r = await fetch(url, { method: 'GET', headers });
+      if (r.status === 404) return null;
+      if (!r.ok) return null;
+      return r.json();
+    },
+    async writeNote(notePath, payload) {
+      if (!CANISTER_URL) {
+        const err = new Error('canister unavailable');
+        err.status = 503;
+        err.code = 'AGENT_CREDENTIAL_STORE_UNAVAILABLE';
+        throw err;
+      }
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      const r = await fetch(`${CANISTER_URL}/api/v1/notes`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: notePath, body: payload.body, frontmatter: payload.frontmatter }),
+      });
+      if (!r.ok) {
+        const err = new Error('hosted note write failed');
+        err.status = r.status >= 400 && r.status < 600 ? r.status : 502;
+        err.code = 'INGEST_PATH_INVALID';
+        throw err;
+      }
+    },
+    async createProposal(payload) {
+      if (!CANISTER_URL) {
+        const err = new Error('canister unavailable');
+        err.status = 503;
+        err.code = 'AGENT_CREDENTIAL_STORE_UNAVAILABLE';
+        throw err;
+      }
+      const bearer = getBearerPayload(req);
+      const policyOpts = {
+        evaluationRequired: effectiveHostedEvaluationRequired(
+          await loadHostedProposalLlmPrefs().catch(() => null),
+          dataDir
+        ),
+        evaluatedBy: uid,
+        sessionBound: isSessionBoundActor(bearer),
+        authorActorId: uid,
+      };
+      const augmented = augmentProposalCreateForHosted(
+        'POST',
+        '/api/v1/proposals',
+        payload,
+        dataDir,
+        policyOpts
+      );
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      const r = await fetch(`${CANISTER_URL}/api/v1/proposals`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(augmented),
+      });
+      if (!r.ok) {
+        const err = new Error('hosted proposal create failed');
+        err.status = r.status >= 400 && r.status < 600 ? r.status : 502;
+        err.code = 'INGEST_BODY_REQUIRED';
+        throw err;
+      }
+      const json = await r.json();
+      return { proposal_id: json.proposal_id || json.id || json.proposalId };
+    },
+    async markProposalApproved(proposalId) {
+      if (!CANISTER_URL || !proposalId) return { ok: false };
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      try {
+        const r = await fetch(`${CANISTER_URL}/api/v1/proposals/${proposalId}/approve`, {
+          method: 'POST',
+          headers,
+          body: '{}',
+        });
+        return { ok: r.ok };
+      } catch {
+        return { ok: false };
+      }
+    },
+  };
+}
+
+async function handleHostedAutomationIngest(req, res, { requireContract = false } = {}) {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const payload = getBearerPayload(req);
+  const actorClass = resolveActorTokenClass(payload);
+  if (actorClass !== 'agent_access' && actorClass !== 'session' && actorClass !== 'legacy_session') {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  if (actorClass !== 'agent_access') {
+    const { role } = await resolveHostedActorRole(req, await getHostedAccessContext(req));
+    if (!ingestSessionWriteRole(role)) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    const llmPrefs = await loadHostedProposalLlmPrefs().catch(() => null);
+    const out = await processAutomationIngest({
+      rawBody: req.body,
+      idempotencyHeader: req.headers['x-ingest-idempotency-key'],
+      actor: {
+        sub: uid,
+        vaultId,
+        credentialId: payload && payload.cid != null ? String(payload.cid) : null,
+        credentialName: payload && payload.agent != null ? String(payload.agent) : null,
+        evaluationRequired: effectiveHostedEvaluationRequired(llmPrefs, GATEWAY_DATA_DIR),
+        sessionBound: isSessionBoundActor(payload),
+      },
+      rules: loaded.rules,
+      triggers: loadReviewTriggers(GATEWAY_DATA_DIR),
+      io: makeHostedIngestIo(req, res, uid),
+      requireContract,
+    });
+    if (out && out.billed === false) return;
+    return res.status(out.status).json(out.body);
+  } catch (e) {
+    if (e && e.code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE') {
+      return res.status(503).json({ error: e.message || 'store unavailable', code: e.code });
+    }
+    return sendIngestError(res, e);
+  }
+}
+
+async function requireHostedSessionIngestCrud(req, res) {
+  const uid = getUserId(req);
+  if (!uid) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return null;
+  }
+  const payload = getBearerPayload(req);
+  const actorClass = resolveActorTokenClass(payload);
+  if (actorClass !== 'session' && actorClass !== 'legacy_session') {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return null;
+  }
+  const { role } = await resolveHostedActorRole(req, await getHostedAccessContext(req));
+  if (!ingestSessionWriteRole(role)) {
+    res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    return null;
+  }
+  return uid;
+}
+
+app.post('/api/v1/automation/ingest', async (req, res) => {
+  return handleHostedAutomationIngest(req, res, { requireContract: false });
+});
+
+app.get('/api/v1/automation/ingest-rules', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    return res.json({ rules: loaded.rules, templates: loaded.templates });
+  } catch (e) {
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.put('/api/v1/automation/ingest-rules', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const incoming = Array.isArray(req.body && req.body.rules) ? req.body.rules : req.body;
+    const list = Array.isArray(incoming) ? incoming : [];
+    if (list.length > MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const rules = list.map((row) => normalizeRuleForSave(row, { mintMissingId: true }));
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.json({ rules, templates: listPackTemplates() });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/automation/ingest-rules', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    if (loaded.rules.length >= MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const rule = normalizeRuleForSave({ ...req.body, rule_id: undefined }, { mintMissingId: true });
+    const rules = [...loaded.rules, rule];
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.status(201).json({ rule, rules, templates: listPackTemplates() });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/automation/ingest-rules/from-template', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const templateId = String((req.body && req.body.template_id) || '').trim();
+    const templates = listPackTemplates();
+    const tmpl = templates.find((t) => t.rule_id === templateId);
+    if (!tmpl) return res.status(400).json({ error: 'unknown template', code: 'BAD_REQUEST' });
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    if (loaded.rules.length >= MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const enable = req.body && req.body.enable === true;
+    const rule = normalizeRuleForSave(
+      { ...tmpl, rule_id: mintRuleId(), enabled: enable === true },
+      { mintMissingId: false }
+    );
+    const rules = [...loaded.rules, rule];
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.status(201).json({ rule, rules, templates });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.delete('/api/v1/automation/ingest-rules/:rule_id', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    const rules = loaded.rules.filter((r) => r.rule_id !== String(req.params.rule_id || ''));
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.json({ rules, templates: loaded.templates });
+  } catch (e) {
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/proposals', async (req, res) => {
+  const payload = getBearerPayload(req);
+  if (isAgentAccessPayload(payload) && isIngestContractBody(req.body)) {
+    return handleHostedAutomationIngest(req, res, { requireContract: true });
+  }
+  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
+  return proxyToCanister(req, res);
 });
 
 app.use('/api/v1', async (req, res) => {

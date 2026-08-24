@@ -23,6 +23,7 @@ tags:
   - name: LearningPaths
   - name: Attachments
   - name: DocsConnectors
+  - name: Automation
 
 security:
   - BearerAuth: []
@@ -39,6 +40,105 @@ paths:
           content:
             application/json:
               schema: { type: object, properties: { ok: { type: boolean } }, required: [ok] }
+
+  /automation/ingest:
+    post:
+      tags: [Automation]
+      summary: AIP — preferred cron ingest
+      description: |
+        Routes a robot write by first-match per-account rules.
+        Requires agent_access with ingest:automation, or a session editor/admin/member.
+        Does not require vault:write. REST-only (no MCP).
+      parameters:
+        - name: X-Vault-Id
+          in: header
+          schema: { type: string }
+        - name: X-Ingest-Idempotency-Key
+          in: header
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, body, source_fingerprint]
+              properties:
+                path: { type: string }
+                body: { type: string }
+                frontmatter: { type: object }
+                intent: { type: string }
+                labels: { type: array, items: { type: string } }
+                source: { type: string }
+                source_fingerprint: { type: string }
+                content_class: { type: string, enum: [research, ops, general] }
+                ingest: { type: boolean }
+      responses:
+        '201':
+          description: First apply
+        '200':
+          description: Idempotent replay
+        '400':
+          description: Validation
+        '401':
+          description: Unauthorized
+        '403':
+          description: Vault forbidden
+        '409':
+          description: Path or idempotency conflict
+
+  /automation/ingest-rules:
+    get:
+      tags: [Automation]
+      summary: List ingest rules and disabled pack templates (session only)
+      responses:
+        '200':
+          description: '{ rules, templates }'
+        '401':
+          description: Unauthorized
+    put:
+      tags: [Automation]
+      summary: Replace ingest rules (session only)
+      responses:
+        '200':
+          description: Replaced
+        '400':
+          description: Validation or cap
+        '401':
+          description: Unauthorized
+    post:
+      tags: [Automation]
+      summary: Append one ingest rule (session only)
+      responses:
+        '201':
+          description: Created
+        '401':
+          description: Unauthorized
+
+  /automation/ingest-rules/from-template:
+    post:
+      tags: [Automation]
+      summary: Copy a pack template into user rules (stays disabled unless enable=true)
+      responses:
+        '201':
+          description: Copied
+        '401':
+          description: Unauthorized
+
+  /automation/ingest-rules/{rule_id}:
+    delete:
+      tags: [Automation]
+      summary: Delete one user ingest rule (session only)
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Remaining rules
+        '401':
+          description: Unauthorized
 
   /auth/agent/credentials:
     post:
@@ -317,6 +417,9 @@ paths:
         - name: count_only
           in: query
           schema: { type: boolean }
+        - name: content_class
+          in: query
+          schema: { type: string, enum: [research, ops, general] }
       responses:
         '200':
           content:
