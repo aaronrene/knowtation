@@ -18,34 +18,41 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=lane_tip lane=auth status=live -->
-## NEXT SESSION — KN-AUTH-LANE-D-b LANDED (Knowtation PRIMARY)
+## NEXT SESSION — propose-path hotfix LANDED (Knowtation PRIMARY)
 
 **Date:** 2026-08-24  
-**Model:** **Thinking** (Scooling F28a — product order)  
-**Ownership:** KN-AUTH-LANE-D-b **LANDED** on Muse `main` `sha256:b8c418d8…`. GitHub mirror PR pending merge after bridge.  
-**Product order:** Scooling PRIMARY = **F28 AUTH-LANE-HONESTY-a**. Lock: `~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md`.
+**Model:** **Operator** (trend-agent propose smoke after deploy)  
+**Ownership:** KN-AUTH-LANE-D propose-path hotfix **LANDED** on Muse `main` `sha256:c2c048ac…`; GitHub PR pending merge after bridge. KN #306 landed D-b; this fix unblocks `POST /api/v1/proposals` for `agent_access`.  
+**Product order:** Scooling PRIMARY = **F28b land** → **Operator F26 smoke**.
 
-**Locks:** Do not live-revoke production credentials. Do not edit Scooling from this board. VideoFactory wiring = follow-on after Hub deploy.
+**Locks:** Do not live-revoke production credentials. Do not edit Scooling from this board.
 
-### THE ONE NEXT STEP — **Model: Thinking** (Scooling F28a)
+### THE ONE NEXT STEP — **Model: Operator**
 
-Session-bound Helpers reads on Scooling — **not** another Netlify JWT. Paste the F28a fence below in a **Scooling** chat.
+After Netlify production deploy picks up this land, re-run trend-agent step 4: `POST /api/v1/proposals` with exchanged `agent_access` token + `X-Vault-Id: Business`. Expect 200/201. Record PASS or FINDINGS in `docs/reviews/2026-08-24-kn-auth-lane-d-live-smoke.md`.
 
-### This session — SD-21 land KN-AUTH-LANE-D-b **DONE** (2026-08-24)
+### This session — SD-21 land propose-path hotfix **DONE** (2026-08-24)
 
-Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, secrets, real money, or Delegation write env). Muse FF `feat/kn-auth-lane-d-b` → `main` `sha256:b8c418d87e4140b4003b80da384f18b824e9960c084c50b6e0e6fd6174a281d7`. Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-b-land.md`. Never `git push origin main`. Never feature→GitHub-`main`. No production credential revoke.
+Operator + Auto. `getUserId()` → `effectiveRequestPath(req)` fixes agent POST `/api/v1/proposals` 401. Tests **37/37**. No live env flip. Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-propose-path-fix-land.md`.
 
-### Paste-ready prompt — F28a (Scooling sibling — paste in a Scooling chat)
+### Paste-ready prompt — trend-agent propose re-smoke (after deploy)
 
 ```text
-F28 AUTH-LANE-HONESTY-a Thinking. Stop JWT-as-Netlify-secret. Ground truth docs/reviews/2026-08-24-auth-lane-honesty.md.
+Re-run KN-AUTH-LANE-D live smoke step 4 after propose-path hotfix deploy. POST /api/v1/proposals with agent_access Bearer + X-Vault-Id Business. Expect 200/201 with proposal id. Record PASS or FINDINGS (status + JSON code only, no secrets) in docs/reviews/2026-08-24-kn-auth-lane-d-live-smoke.md.
 
-YOUR JOB: Freeze settings.delegation loader session-bound Hub reads. Signed-out = Sign in again. No Netlify KNOWTATION_AUTH_TOKEN. No Auto until freeze-review pass.
+Repo: knowtation / VideoFactory trend agent
+Model: Operator
+```
+
+### Paste-ready prompt — Scooling F28b land + F26 smoke (product order — paste in Scooling chat)
+
+```text
+SD-21 land feat/auth-lane-honesty-a on Scooling. F28b BV pass. Then Operator F26 DELEGATION-WRITE smoke — signed-in /settings/delegation lists helpers and submit works without Netlify KNOWTATION_AUTH_TOKEN.
 
 Repo: scooling
-Model: Thinking
+Model: Operator + Auto (land) then Operator (smoke)
 Branch: feat/auth-lane-honesty-a
-Authority: docs/reviews/2026-08-24-auth-lane-honesty.md
+Authority: docs/reviews/2026-08-24-auth-lane-honesty-a.md; docs/reviews/2026-08-24-auth-lane-honesty-b-bv-round1-pass.md
 ```
 
 ---

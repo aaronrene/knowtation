@@ -1961,7 +1961,9 @@ function getUserId(req) {
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
   const payload = decodeVerifiedToken(token);
-  const pathOnly = String(req.path || req.url || '').split('?')[0];
+  // Must match effectiveRequestPath: under app.use('/api/v1', …) Express sets req.path to the
+  // suffix (/proposals). agentScopesPermitMethod allowlists api/v1/proposals — suffix-only → 401.
+  const pathOnly = effectiveRequestPath(req);
   return subFromVerifiedPayload(payload, { method: req.method, path: pathOnly });
 }
 
