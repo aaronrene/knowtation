@@ -17,53 +17,170 @@ roadmap, no freeze review, and no build-verification gate.
 
 ---
 
-<!-- overseer:next role=primary lane=auth status=live product_order=scooling -->
-## NEXT SESSION — KN-APPLE land + Operator T1 (PRIMARY — Knowtation-owned)
+<!-- overseer:next role=lane_tip lane=auth status=live -->
+## NEXT SESSION — KN-AUTH-LANE-D-a (Knowtation PRIMARY)
 
-**Date:** 2026-08-09  
-**Model:** **Operator + Auto**  
-**Ownership:** Knowtation authorization/auth surface (this board wins on HOW).  
-**Product order:** Matches Scooling PRIMARY (`~/scooling/docs/OVERSEER-HANDOVER.md`).
+**Date:** 2026-08-24  
+**Model:** **Thinking**  
+**Ownership:** This board owns machine-auth reliability. Product order sibling is Scooling **F28a** (human session reads — no Netlify JWT).  
+**Product order:** Scooling PRIMARY = **F28 AUTH-LANE-HONESTY-a**. This board PRIMARY = **KN-AUTH-LANE-D-a**. Both before the next edge. Lock: `~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md`.
 
-**Why this is next:** KN-APPLE-b Auto **DONE** — BV round 1 **`pass`**
-(`docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md`); seven-tier **13/13**
-(test_output `sha256:d419cfb2…`). Code readiness on
-`feat/kn-apple-native-hosted-exchange`. Live T15 evidence still needs Muse/`main`
-land + gateway deploy with `APPLE_CLIENT_ID` (Operator T1). APPLE-4-live /
-APPLE-5-live remain **DEFER** until that evidence exists.
+**Locks:** Do not accept `ktn_refresh` as agent credential. Do not invent unscoped API keys. Do not edit Scooling in this tip. Do not silently wipe `kt_agent_` on session-store restart. Do not Auto BRAIN-PAIR-b. Do not say all good.
 
-### THE ONE NEXT STEP — Land KN-APPLE + configure/deploy Apple env (`Operator T1`)
+### THE ONE NEXT STEP — **Model: Thinking** (Knowtation)
+
+Freeze machine-lane operability. Phase C `kt_agent_` stays. Fix health + store isolation + no silent revoke.
+
+### Paste-ready prompt — KN-AUTH-LANE-D-a (copy the whole fence)
 
 ```text
-Step: KN-APPLE land + Operator T1 — Muse main + muse-mirror + Apple env deploy
-Model: Operator + Auto
+KN-AUTH-LANE-D-a Thinking. Machine auth must survive browser session-store blips. Born Free 2026-08-23: weeks of 401 on POST /api/v1/auth/agent/token; SESSION_STORE_UNAVAILABLE 503; 47-row pending queue. Phase C kt_agent_ design is correct; operability is not. Sibling Scooling F28 is session reads — do not edit Scooling.
+
+YOUR JOB:
+1. Freeze: Hub UI agent-credential health (created, last successful exchange, last failure code, vaults, revoked-at — no secrets). Isolate kt_agent_ store from ktn_refresh / gateway-auth blob. No silent mass-invalidate on session-store restart (operator banner if wipe required). 503 SESSION_STORE_UNAVAILABLE must not 401 every robot. Document one automation path: kt_agent_ for REST/cron; browser cookie for humans. Never accept ktn_refresh as agent credential (Phase C T4).
+2. Out: unscoped long-lived API keys; inbound-pull product (later P1); Scooling source; JWT-as-env SOP.
+3. frozen: true docs/KN-AUTH-LANE-D-FREEZE.md. /freeze-review-loop → pass. No Auto until pass. No live revoke of existing creds in Thinking.
+
 Repo: knowtation
-Authority: docs/KN-APPLE-NATIVE-HOSTED-EXCHANGE-FREEZE.md §KNA.8 T1; BV pass
-  docs/reviews/2026-08-09-kn-apple-b-bv-round1-pass.md
-Branch: feat/kn-apple-native-hosted-exchange → Muse main (SD-21 land hygiene if
-  criteria met) → muse-bridge → GitHub muse-mirror → main only
-
-Do exactly:
-1. Confirm no live posture/env flip / secrets / real money in the land diff
-   (SD-21). Feature-branch suite still green.
-2. Muse merge/ff feature → Muse main; run ./scripts/muse-bridge-deploy.sh;
-   open/merge GitHub PR muse-mirror → main only (SD-14). Never feature→GitHub-main.
-3. Operator T1: set APPLE_CLIENT_ID (Bundle ID or Services ID) on hosted gateway
-   secret store; redeploy Netlify gateway. Do not commit Team IDs / .p8 / prod JWTs.
-4. Record readiness evidence (route 200 or documented NOT_CONFIGURED→configured
-   flip; providers.apple true). Then hand product PRIMARY to Scooling APPLE-4-live
-   (T1+T2+T15 together — Operator authorize).
-
-Do NOT: Auto-flip Scooling CapabilityGates; vault-write authorize; App Store;
-  MuseHub staging; claim PKCE = SIWA; start APPLE-6; git push origin main.
+Model: Thinking
+Branch: feat/kn-auth-lane-d-a
+Authority: docs/DURABLE-AGENT-AUTH-PHASE-C-FREEZE.md; docs/AGENT-INTEGRATION.md; hub/auth-session.mjs SESSION_STORE_UNAVAILABLE; ~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md
 ```
 
-### PARKED — after land + T1 (Scooling Operator; do not skip ahead)
+### Paste-ready prompt — F28a (Scooling sibling — paste in a Scooling chat)
+
+```text
+F28 AUTH-LANE-HONESTY-a Thinking. Stop JWT-as-Netlify-secret. Ground truth docs/reviews/2026-08-24-auth-lane-honesty.md.
+
+YOUR JOB: Freeze settings.delegation loader session-bound Hub reads. Signed-out = Sign in again. No Netlify KNOWTATION_AUTH_TOKEN. No Auto until freeze-review pass.
+
+Repo: scooling
+Model: Thinking
+Branch: feat/auth-lane-honesty-a
+Authority: docs/reviews/2026-08-24-auth-lane-honesty.md
+```
+
+---
+
+<!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
+## PRODUCT RELAY — F28 AUTH-LANE-HONESTY (PRIMARY lives on the Scooling board)
+
+**Date:** 2026-08-24  
+**Model:** **Thinking** (Scooling F28a) + **Thinking** (this board KN-AUTH-LANE-D-a)  
+**Ownership:** Product order wins on Scooling. This board owns Hub machine credentials + session store.  
+**Product order:** PRIMARY on Scooling is **F28a**. This board does not Auto Scooling. F26 smoke waits on F28. T5 path kinds **not** admitted. MuseHub F7 **parallel**.
+
+**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply. Do not say Scooling is done / all good. Do not put helper API keys or Hub JWTs in git.
+
+**Canonical paste fence (Scooling):** `~/scooling/docs/OVERSEER-HANDOVER.md` → search `Paste-ready prompt — F28 AUTH-LANE-HONESTY-a`.
+
+### THE ONE NEXT STEP — product order — **Model: Thinking** (Scooling F28a)
+
+Session-bound Helpers reads. **Not** another Netlify JWT.
+
+### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
+
+Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = **Operator F20 HELPER-SMOKE re-smoke** after Netlify redeploy; read class `data-next-step`. Path writes stay **ON**. T5 not admitted. This board does not Auto Scooling. NEXT = **Operator F20** (Scooling).
+
+### This session — PRODUCT RELAY → Thinking F32 after F20 FINDINGS (2026-08-20) — superseded
+
+Scooling F20 after F31b **FINDINGS** — fold `next_helper_endpoint`. PRIMARY was **Thinking F32 HELPER-ENDPOINT-REFUSE-a** (now **pass** → F32b **LANDED**). Path writes stay **ON**. T5 not admitted. **Superseded:** Operator F20 after F32b land.
+
+### This session — PRODUCT RELAY → Operator F20 after F31b land (2026-08-20) — superseded
+
+Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY was **Operator F20** after #315; that smoke was **FINDINGS** (`next_helper_endpoint`). Path writes stay **ON**. T5 not admitted. **Superseded:** Thinking F32 → F32b land → Operator F20.
+
+### This session — PRODUCT RELAY → Operator F18-P0 after F19b land (2026-08-19)
+
+Scooling F19b **LANDED** [SC #305](https://github.com/aaronrene/scooling/pull/305) `@8051402`. PRIMARY was **Operator F18-P0 HELPER-INVOKE** (superseded same day by Bearer freeze). Helper invoke still refuses on apex. Path writes stay **ON**. T5 not admitted.
+
+### This session — PRODUCT RELAY → SD-21 land F19b (2026-08-19)
+
+Scooling PRIMARY moved to **Operator + Auto SD-21 land F19b**. F19b **DONE on tip** then **LANDED** same day. Helper invoke still refuses on apex. Path writes stay **ON**. T5 not admitted. This board does not land Scooling.
+
+### This session — PRODUCT RELAY → F18 FINISH-LINE-HONESTY-a (2026-08-19)
+
+Scooling PRIMARY moved to **Thinking FINISH-LINE-HONESTY-a**. Helper invoke still refuses on apex. Path writes stay **ON**. T5 not admitted. This board does not Auto F18. NEXT = **Thinking FINISH-LINE-HONESTY-a** (Scooling).
+
+### This session — Path writes ON + F16/F17 land (2026-08-19)
+
+Operator authorized `PATH_WRITES_ENABLED=1` on gateway+bridge. Rebuilds ready. T5 not admitted. Scooling F16+F17 GitHub [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. NEXT was **Operator MuseHub F7** (superseded same day by F18).
+
+### This session — SD-21 land KN-WORK-PATH-LIST-b **DONE** (2026-08-18)
+
+Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, secrets, real money, or Delegation write env in the diff). Muse FF `feat/kn-work-path-list-b` → `main` `sha256:87cf7a0d6cfdcfee542b0128171cb8406c9366a764efc43e59be8ab25901cfb5`. Then `./scripts/muse-bridge-deploy.sh` → GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff` (merge commit; required checks green: `test (20)`, `Secret scanning (TruffleHog)`). Never `git push origin main`. Never feature→GitHub-`main`. `PATH_WRITES_ENABLED` not flipped. **BRAIN-PAIR-b** stays blocked on the-brain E2. Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-land.md`. NEXT = **Thinking SOCIAL-OPEN-RANGE-a** (Scooling).
+
+### This session — PRODUCT RELAY refresh (2026-08-18)
+
+Scooling F15 HOME-BIND-a+b **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product PRIMARY was **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b` (now **LANDED**). `PATH_WRITES_ENABLED` stays default off. **BRAIN-PAIR-b** stays blocked.
+
+### This session — KN-WORK-PATH-LIST-b **DONE** (2026-08-18)
+
+Auto implemented D1–D12 against the freeze. `learning_paths[]` on `hub_flow_store.json`; `GET api/v1/learning-paths` + `GET :path_id`; gated `POST` proposals + apply. Hosted `maybeApplyHostedPathAfterApprove`. T5 not admitted. Seven-tier **44/44**. BV r1 **pass**. `PATH_WRITES_ENABLED` stays default off. No Scooling edits. Tip `feat/kn-work-path-list-b`. NEXT was **Thinking AGENT-WORK-CHAT-HOME-BIND** (Scooling; now DONE).
+
+### This session — KN-WORK-PATH-LIST-a freeze-review **pass** (2026-08-18)
+
+Thinking froze Knowtation path persist + list/get. `/freeze-review-loop` r1–r2 = findings (cited; freeze text only). Round 3 + `ok review --freeze` → **pass**. Digest `sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`. No routes. No env flip. NEXT was **Auto KN-WORK-PATH-LIST-b**.
+
+### This session — KN-DOCS-SYNC-DRIVE-GATE **DONE** (2026-08-17)
+
+Operator authorized Flip Drive gate. Source constant → `true`; seven-tier
+docs-oauth tests updated (calendar pattern: `authorizedOverride: false` for
+off-path). HUB-API honesty. Notion gate unchanged false. Land via Muse →
+muse-mirror → GitHub so Netlify redeploys gateway + bridge.
+
+---
+
+<!-- overseer:next role=lane_tip lane=auth status=live -->
+## LANE TIP — Knowtation authorization/security lane
+
+**Date:** 2026-08-11  
+**Model:** **Auto**  
+**Scope:** Knowtation's own board. Does **not** claim product sequencing.
+
+```text
+Step: KN-CRED-STORE-LAND — land the phase8-p1b credential-store repair
+Model: Auto
+Repo: ~/knowtation (branch feat/knowtation-honesty-gates, committed not landed)
+Authority: this board; SD-14 mirror path; Tier 3 for any main merge
+
+Context (verified 2026-08-11, not from memory):
+- scripts.test globbed test/*/external-protocol-*.test.mjs, so 29 assertions
+  across all seven tiers of phase8-p1b never ran under `pnpm test`.
+- Turning them on failed two, both real:
+  Argon2id was below its own 50ms floor (median 30.4ms) -> memoryCost raised
+  64MiB to 128MiB (median 62ms, OWASP-aligned); DECOY_ARGON2_PHC regenerated to
+  match so an unknown username does not become cheaper than a known one.
+  The timing-oracle test measured nothing: 40 requests tripped the global
+  20/min bucket and the 5-failure lockout, so it compared 31.0ms of half-real
+  verifies against 0.72ms of instant rejections. Both guards are now reset per
+  sample and each response asserted INVALID_CREDENTIALS.
+- Full suite after: 4454 pass, 0 skipped.
+
+Do exactly:
+1. Re-run `pnpm test`. Expect 4454 pass / 0 skip.
+2. Expect ONE pre-existing unrelated failure:
+   test/flow-store-versioned-step-keying-performance.test.mjs asserts p95 <25ms,
+   measures ~29.5ms under the parallel suite, passes 3/3 in isolation. Decide
+   deliberately: make the budget load-robust, or leave and record as known.
+   Do NOT widen the number silently to get green.
+3. `ok verify-step --all` -> test_coverage_globs must pass with an
+   ARTIFACT_SHA256 (allow_hand_verified is false; you cannot assert it).
+4. Muse commit on the feature branch; update this board + docs/ROADMAP.md
+   together in that commit.
+
+Do NOT: merge to main without Tier 3; lower ARGON2_PARAMS to make latency
+  assertions pass; use assertArgon2ParamsFloor to gate verification of
+  already-stored credentials (that would lock out existing users);
+  `git push origin main`; touch Scooling CapabilityGates from this board.
+```
+
+### PARKED — after APPLE-4-live (do not skip ahead)
 
 | Tip | When |
 | --- | --- |
-| **APPLE-4-live revisit** | T15 evidence live → authorize T1+T2+T15 together |
-| **APPLE-5-live revisit** | After APPLE-4-live → authorize T2+T3 vault propose→approve |
+| **APPLE-5-live revisit** | After APPLE-4-live AUTHORIZE → T2+T3 vault |
+| **KN-DOCS-SYNC-a/b** | **DONE 2026-08-17** — Drive gate live; Notion remains false. |
 | **SEC-KN-P6-ROTATE-b R4–R5** | Independent hygiene; quiet ≥24h window (runbook below) |
 | **MuseHub F7** | AWS parked — not required for Apple |
 
@@ -110,13 +227,27 @@ governance sync. No other posture/env flips. SD-14 muse-mirror only.
 
 ### After this (queued order)
 
-1. **Operator land + T1** — Muse/`main` + muse-mirror + `APPLE_CLIENT_ID` deploy.
-2. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
-3. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
-4. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
-5. MuseHub F7 — AWS-parked.
+1. **APPLE-4-live** (Scooling Operator) — T1+T2+T15 together with written evidence.
+2. **APPLE-5-live** (Scooling Operator) — T2+T3 vault propose→approve with session vault binding.
+3. SEC-KN-P6-ROTATE-b R4–R5 — **PARKED** (unpark runbook above; quiet ≥24h window).
+4. MuseHub F7 — AWS-parked.
 
-### This session — KN-APPLE-b Auto DONE + BV pass (2026-08-09)
+### This session — KN-APPLE Operator T1 COMPLETE (2026-08-10)
+
+App ID `com.scooling.apple`; Netlify `APPLE_CLIENT_ID` on knowtation-gateway;
+live `apple:true`; Xcode Display Name `Scooling` + SIWA capability. Evidence:
+`docs/reviews/2026-08-10-kn-apple-t1-complete.md`. PRIMARY → Scooling **APPLE-4-live**.
+
+### This session — KN-APPLE land DONE + T1 partial (2026-08-10)
+
+SD-21 land hygiene **pass**. FF `feat/kn-apple-native-hosted-exchange` → Muse
+`main` (`789db7e7…`); audit pins `55930e9c…` + `e2bbdbfa…`; muse-bridge →
+[KN #295](https://github.com/aaronrene/knowtation/pull/295) merge `c2a77b1`.
+Production gateway ready. Live: `apple:false` + exchange `503 NOT_CONFIGURED`.
+Evidence: `docs/reviews/2026-08-10-kn-apple-land-t1-partial.md`. NEXT = set
+`APPLE_CLIENT_ID` then APPLE-4-live.
+
+### Prior — KN-APPLE-b Auto DONE + BV pass (2026-08-09)
 
 Implemented `POST /api/v1/auth/native-apple-exchange` + `hub/gateway/apple-identity-token.mjs`
 (JWKS verify, allowlists, fail-closed codes); `providers.apple`; env placeholders;
@@ -752,7 +883,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Area | State |
 | --- | --- |
-| **Overseer Kit** | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced`, `substrate: healthy` — **re-verified 2026-07-27** via `ok -C ~/knowtation status --json` |
+| **Overseer Kit** | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced` — **re-verified 2026-08-18** via `ok -C ~/knowtation status --json` |
+| **KN-WORK-PATH-LIST** | **LANDED** 2026-08-18 — Muse `main` `sha256:87cf7a0d…` → [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED` default off. |
 | **Footprint deviation (intentional)** | `ok status --check-footprint` → `footprint_integrity: mismatch`. Cause: `MUSE-BRIDGE-WORKFLOW.md` and `scripts/muse-bridge-deploy.sh` were restored to Knowtation's live versions (sha256 `ef8a50b5…` and `fcc17c36…`) after `init --force` overwrote them with kit templates. Knowtation's bridge script is 10,004 bytes and is the live deploy path; the kit template is 3,842 bytes and is **not** a substitute. **Do not "repair" these two files.** Recorded in `.overseer/config.yaml` → `kit.notes`. |
 | **Canister gateway auth secret** | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister. |
 | **SEC-KN-1 fail-closed** | **On Muse `main`** (tip contained). Live health `gateway_auth_configured:true` + `/vaults` → `403 GATEWAY_AUTH_REQUIRED` (**re-verified 2026-07-31**). |
@@ -778,6 +910,21 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
+| 2026-08-20 | **PRODUCT RELAY → Operator F20 after F32b land.** Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = F20 re-smoke after Netlify redeploy; read class `data-next-step` (auth / request / rate / server / endpoint). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-20 | **PRODUCT RELAY → Operator F20 after F31b land.** Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step` (endpoint / malformed / abort / runtime). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-20 | **PRODUCT RELAY → Operator F20 HELPER-SMOKE re-smoke.** Scooling F30b **LANDED** [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step`. Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-20 | **PRODUCT RELAY → Thinking F30 HELPER-RUNTIME-REFUSE-a** (superseded same day by F30b land → F20). Scooling F20 re-smoke **FINDINGS** after F29b [SC #311](https://github.com/aaronrene/scooling/pull/311) redeploy. Bearer + JSON contract on apex; helper still refuses. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → Thinking F18-P0a HELPER-API-KEY.** Operator Groq + Netlify env reported. Bearer freeze is Scooling PRIMARY. Helper still refuses until code + smoke. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → Operator F18-P0 after F19b land.** Scooling F19b **LANDED** [SC #305](https://github.com/aaronrene/scooling/pull/305) `@8051402`. PRIMARY was helper URL (superseded same day). Helper invoke still refuses. MuseHub F7 parallel. This board does not land Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → SD-21 land F19b.** Scooling PRIMARY is land of `feat/drive-home-copy-b` after F19b BV pass. Helper invoke still refuses. MuseHub F7 parallel. This board does not land Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **PRODUCT RELAY → F18 FINISH-LINE-HONESTY-a.** Scooling PRIMARY is Thinking freeze-review of `~/scooling/docs/reviews/2026-08-19-finish-line-honesty.md`. Helper invoke still refuses. MuseHub F7 parallel. This board does not Auto F18. Path writes stay ON. T5 not admitted. |
+| 2026-08-19 | **Path writes ON + Scooling F16/F17 LANDED.** `PATH_WRITES_ENABLED=1` Netlify gateway+bridge (prod+DP); rebuilds ready. T5 not admitted. Scooling [PR #303](https://github.com/aaronrene/scooling/pull/303) `@dff211d`. Product NEXT was **Operator MuseHub F7** (same-day superseded by F18). Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling PRIMARY = **Thinking AGENT-WORK-CHAT-LIVE-a** (F16). Honesty inventory on Scooling. MuseHub F7 parallel. This board does not Auto F16 or SOCIAL. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling SOCIAL-OPEN-RANGE-a freeze-review **pass** (`sha256:89a7f2e0…`). Product NEXT was **Operator MuseHub F7**. SOCIAL-OPEN-RANGE-b Auto parked. This board does not Auto SOCIAL. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **Standing brief.** Launch-finish 1–4 done. Product NEXT remains **Thinking SOCIAL-OPEN-RANGE-a** (Scooling). Leftovers stay labeled; this board does not Auto SOCIAL. `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **KN-WORK-PATH-LIST-b LANDED (SD-21).** Muse FF `feat/kn-work-path-list-b` → `main` `sha256:87cf7a0d…`; muse-bridge → GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED` stays off. Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-land.md`. Product NEXT = **Thinking SOCIAL-OPEN-RANGE-a** (Scooling). **BRAIN-PAIR-b** stays blocked. |
+| 2026-08-18 | **PRODUCT RELAY refresh.** Scooling F15 HOME-BIND **LANDED** ([PR #301](https://github.com/aaronrene/scooling/pull/301) `@9147514`). Product NEXT was **Operator + Auto SD-21 land** of `feat/kn-work-path-list-b` (now landed). `PATH_WRITES_ENABLED` stays off. |
+| 2026-08-18 | **KN-WORK-PATH-LIST-b DONE — BV round 1 = `pass`.** D1–D12 on `feat/kn-work-path-list-b`: `learning_paths[]` in `hub_flow_store.json`; list/get REST; gated propose/apply (`PATH_WRITES_ENABLED` default off); hosted `maybeApplyHostedPathAfterApprove`; T5 not admitted. Seven-tier **44/44** (`test/path-list-*.test.mjs`, sha256 `a733bb9f…`). Evidence: `docs/reviews/2026-08-18-kn-work-path-list-b-bv-round1-pass.md`. No Scooling edits. No write-gate flip. Product NEXT = **Thinking AGENT-WORK-CHAT-HOME-BIND** (Scooling). |
 | 2026-08-06 | **SITE-FINISH-FLOW-RUN-KN-b DONE — BV round 1 = `pass`.** Gateway→bridge §FR.0.4 run/consent proxies + bridge `registerBridgeFlowRunRoutes` (flow-store blob sync); async submit-review for hosted canister create; seven-tier **10/10** (`test/site-finish-flow-run-kn-b.test.mjs`, sha256 `0f6d17ac…`). `FLOW_RUN_WRITES_ENABLED` / `FLOW_AUTOMATABLE_EXECUTION_ENABLED` stay default off. No SC posture flip. Branch `feat/site-finish-flow-run-kn-b`. Evidence: `docs/reviews/2026-08-06-site-finish-flow-run-kn-b-bv-round1-pass.md`. Product NEXT = **SITE-FINISH-FLOW-RUN-flip**. |
 | 2026-08-04 | **Hosted attach kn1 LANDED + published.** Muse `main` `d3f6da81…` + audit `6518a12b…` → [PR #290](https://github.com/aaronrene/knowtation/pull/290) `baa41bf` MERGED; Netlify bridge+gateway production ready at `baa41bf`. Canister GET `liveStateIdOverride` clears yaml-stage `trimEnd` false `MEDIA_LINEAGE_CONFLICT`. NEXT = Scooling HMS attach SMOKE. |
 | 2026-08-04 | **Hosted attach kn1 stage fix (code).** `feat/hosted-media-attach-kn1-stage`: canister GET `liveStateId` / `liveStateIdOverride` so yaml-stage `trimEnd` cannot false-`MEDIA_LINEAGE_CONFLICT`; attach write-back keeps canister body. Tests in `test/sec-seam-media-hosted.test.mjs`. No posture/env flips. |
