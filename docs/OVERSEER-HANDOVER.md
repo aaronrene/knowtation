@@ -18,33 +18,41 @@ roadmap, no freeze review, and no build-verification gate.
 ---
 
 <!-- overseer:next role=lane_tip lane=auth status=live -->
-## NEXT SESSION — KN-AUTH-LANE-D-a (Knowtation PRIMARY)
+## NEXT SESSION — KN-AUTH-LANE-D-b (Knowtation PRIMARY)
 
 **Date:** 2026-08-24  
-**Model:** **Thinking**  
+**Model:** **Auto**  
 **Ownership:** This board owns machine-auth reliability. Product order sibling is Scooling **F28a** (human session reads — no Netlify JWT).  
-**Product order:** Scooling PRIMARY = **F28 AUTH-LANE-HONESTY-a**. This board PRIMARY = **KN-AUTH-LANE-D-a**. Both before the next edge. Lock: `~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md`.
+**Product order:** Scooling PRIMARY = **F28 AUTH-LANE-HONESTY-a**. This board PRIMARY = **KN-AUTH-LANE-D-b**. Both before the next edge. Lock: `~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md`.
 
-**Locks:** Do not accept `ktn_refresh` as agent credential. Do not invent unscoped API keys. Do not edit Scooling in this tip. Do not silently wipe `kt_agent_` on session-store restart. Do not Auto BRAIN-PAIR-b. Do not say all good.
+**Locks:** Do not accept `ktn_refresh` as agent credential. Do not invent unscoped API keys. Do not edit Scooling in this tip. Do not silently wipe `kt_agent_` on session-store restart. Do not live-revoke production credentials. Do not Auto BRAIN-PAIR-b. Do not say all good. Do not mark DONE without BV **pass**.
 
-### THE ONE NEXT STEP — **Model: Thinking** (Knowtation)
+### THE ONE NEXT STEP — **Model: Auto** (Knowtation)
 
-Freeze machine-lane operability. Phase C `kt_agent_` stays. Fix health + store isolation + no silent revoke.
+Implement `docs/KN-AUTH-LANE-D-FREEZE.md` only. Phase C `kt_agent_` stays.
 
-### Paste-ready prompt — KN-AUTH-LANE-D-a (copy the whole fence)
+### This session — KN-AUTH-LANE-D-a freeze-review **pass** (2026-08-24)
+
+Thinking froze machine-lane operability. `/freeze-review-loop` r1–r3 = findings (cited; freeze text only). Round 4 + `ok review --freeze` → **pass**. Digest `sha256:e5c48a8fa0e80a61b2fd1505d7b7a857db94c904c3107eafc51d95b62e59f972`. No routes. No live revoke. No Scooling edits. NEXT = **Auto KN-AUTH-LANE-D-b**.
+
+### Paste-ready prompt — KN-AUTH-LANE-D-b (copy the whole fence)
 
 ```text
-KN-AUTH-LANE-D-a Thinking. Machine auth must survive browser session-store blips. Born Free 2026-08-23: weeks of 401 on POST /api/v1/auth/agent/token; SESSION_STORE_UNAVAILABLE 503; 47-row pending queue. Phase C kt_agent_ design is correct; operability is not. Sibling Scooling F28 is session reads — do not edit Scooling.
+KN-AUTH-LANE-D-b Auto. Implement docs/KN-AUTH-LANE-D-FREEZE.md only (freeze-review pass, digest sha256:e5c48a8fa0e80a61b2fd1505d7b7a857db94c904c3107eafc51d95b62e59f972). Phase C kt_agent_ stays. Sibling Scooling F28 is session reads — do not edit Scooling.
 
 YOUR JOB:
-1. Freeze: Hub UI agent-credential health (created, last successful exchange, last failure code, vaults, revoked-at — no secrets). Isolate kt_agent_ store from ktn_refresh / gateway-auth blob. No silent mass-invalidate on session-store restart (operator banner if wipe required). 503 SESSION_STORE_UNAVAILABLE must not 401 every robot. Document one automation path: kt_agent_ for REST/cron; browser cookie for humans. Never accept ktn_refresh as agent credential (Phase C T4).
-2. Out: unscoped long-lived API keys; inbound-pull product (later P1); Scooling source; JWT-as-env SOP.
-3. frozen: true docs/KN-AUTH-LANE-D-FREEZE.md. /freeze-review-loop → pass. No Auto until pass. No live revoke of existing creds in Thinking.
+1. Health: list + Hub UI show created, last successful exchange, last failure code, vaults, revoked-at — no secrets. Banner id agent-cred-store-banner. Parse JSON code/store; do not pick copy from HTTP status alone.
+2. Isolate kt_agent_ store from ktn_refresh / gateway-auth. D1–D11: no NETLIFY file fallback; I/O throw not empty {}; meta sentinel agent-credentials-v1-meta / hosted_agent_credentials.meta.json; no silent save of empty when nonempty_seen.
+3. POST api/v1/auth/agent/token never returns SESSION_STORE_UNAVAILABLE. Store I/O → 503 AGENT_CREDENTIAL_STORE_UNAVAILABLE. Inconsistent → 503 AGENT_CREDENTIAL_STORE_INCONSISTENT. Valid kt_agent_ still 200 while gateway-auth is down. Never accept ktn_refresh (Phase C T4).
+4. Docs same PR: one automation path (KNOWTATION_HUB_AGENT_CREDENTIAL + exchange). Retract JWT-as-env SOP. HUB-API 503-vs-401 table.
+5. Extend test/agent-credentials-*.test.mjs (seven-tier). /build-verification-review → pass. No DONE without pass.
+
+Out: unscoped API keys; inbound-pull; Scooling source; live revoke/wipe; BRAIN-PAIR-b.
 
 Repo: knowtation
-Model: Thinking
-Branch: feat/kn-auth-lane-d-a
-Authority: docs/DURABLE-AGENT-AUTH-PHASE-C-FREEZE.md; docs/AGENT-INTEGRATION.md; hub/auth-session.mjs SESSION_STORE_UNAVAILABLE; ~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md
+Model: Auto
+Branch: feat/kn-auth-lane-d-b
+Authority: docs/KN-AUTH-LANE-D-FREEZE.md
 ```
 
 ### Paste-ready prompt — F28a (Scooling sibling — paste in a Scooling chat)
@@ -66,7 +74,7 @@ Authority: docs/reviews/2026-08-24-auth-lane-honesty.md
 ## PRODUCT RELAY — F28 AUTH-LANE-HONESTY (PRIMARY lives on the Scooling board)
 
 **Date:** 2026-08-24  
-**Model:** **Thinking** (Scooling F28a) + **Thinking** (this board KN-AUTH-LANE-D-a)  
+**Model:** **Thinking** (Scooling F28a) + **Auto** (this board KN-AUTH-LANE-D-b; D-a freeze-review **pass**)  
 **Ownership:** Product order wins on Scooling. This board owns Hub machine credentials + session store.  
 **Product order:** PRIMARY on Scooling is **F28a**. This board does not Auto Scooling. F26 smoke waits on F28. T5 path kinds **not** admitted. MuseHub F7 **parallel**.
 
