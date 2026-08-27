@@ -89,6 +89,7 @@ import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-au
 import {
   issueRefreshCookie,
   createRefreshHandler,
+  createEstablishRefreshHandler,
   createLogoutHandler,
   refreshCookieOptions,
 } from '../auth-session.mjs';
@@ -601,12 +602,24 @@ app.get('/api/v1/auth/session', (req, res) => {
 // invocation is isolated, no shared counter) and trips ERR_ERL_* under serverless proxies. Brute
 // force is bounded instead by edge limits (see hub/gateway/README.md) and, more fundamentally, by
 // the opaque high-entropy token + rotation/reuse detection in refresh-token-core.mjs.
-app.options(['/api/v1/auth/refresh', '/api/v1/auth/logout'], (_req, res) => res.status(204).end());
+app.options(
+  ['/api/v1/auth/refresh', '/api/v1/auth/logout', '/api/v1/auth/establish-refresh'],
+  (_req, res) => res.status(204).end()
+);
 app.post(
   '/api/v1/auth/refresh',
   createRefreshHandler({
     store: refreshStore,
     issueAccessToken: issueAccessTokenForSub,
+    cookieOptions: refreshCookiePolicy,
+    meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
+  })
+);
+app.post(
+  '/api/v1/auth/establish-refresh',
+  createEstablishRefreshHandler({
+    store: refreshStore,
+    verifyAccessToken: decodeVerifiedToken,
     cookieOptions: refreshCookiePolicy,
     meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
   })

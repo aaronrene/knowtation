@@ -37,6 +37,7 @@ describe('hosted gateway wires persistent sessions', () => {
   test('mounts POST /api/v1/auth/refresh and /api/v1/auth/logout before the proxies', () => {
     const s = load();
     assert.ok(/app\.post\(\s*'\/api\/v1\/auth\/refresh'/.test(s), 'must mount POST /auth/refresh');
+    assert.ok(/app\.post\(\s*'\/api\/v1\/auth\/establish-refresh'/.test(s), 'must mount POST /auth/establish-refresh');
     assert.ok(/app\.post\(\s*'\/api\/v1\/auth\/logout'/.test(s), 'must mount POST /auth/logout');
     // Auth routes must be registered before any bridge/canister proxy so they are handled locally.
     const refreshIdx = s.indexOf("'/api/v1/auth/refresh'");
@@ -46,7 +47,8 @@ describe('hosted gateway wires persistent sessions', () => {
 
   test('answers OPTIONS preflight for the credentialed auth routes', () => {
     const s = load();
-    assert.ok(/app\.options\(\[\s*'\/api\/v1\/auth\/refresh'/.test(s), 'must handle OPTIONS preflight');
+    assert.ok(s.includes("app.options(") && s.includes("'/api/v1/auth/refresh'"), 'must handle OPTIONS preflight');
+    assert.ok(s.includes("'/api/v1/auth/establish-refresh'"), 'OPTIONS must include establish-refresh');
   });
 
   test('refresh route uses createRefreshHandler with a sub-only access-token signer', () => {
