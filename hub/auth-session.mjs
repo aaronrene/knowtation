@@ -203,7 +203,15 @@ export function createEstablishRefreshHandler(deps) {
       });
       res.cookie(cookieName, token, deps.cookieOptions());
       return res.json({ schema_version: 1, refresh_token: token, token_type: 'refresh' });
-    } catch (_) {
+    } catch (err) {
+      // Must log — silent catch made SESSION_STORE_UNAVAILABLE undiagnosable on Netlify.
+      const authBlobPresent = Boolean(globalThis.__knowtation_gateway_auth_blob);
+      console.error(
+        '[gateway] establish-refresh FAILED sub=%s authBlobPresent=%s: %s',
+        payload.sub,
+        authBlobPresent,
+        err && err.stack ? err.stack : (err && err.message) || String(err),
+      );
       return res.status(503).json({
         error: 'Session service temporarily unavailable.',
         code: 'SESSION_STORE_UNAVAILABLE',

@@ -68,4 +68,20 @@ describe('createEstablishRefreshHandler', () => {
     assert.equal(res.statusCode, 403);
     assert.equal(res.body.code, 'SESSION_ESTABLISH_DENIED');
   });
+
+  test('store throw → 503 SESSION_STORE_UNAVAILABLE', async () => {
+    const failing = createEstablishRefreshHandler({
+      store: {
+        issue: async () => {
+          throw new Error('blob write refused');
+        },
+      },
+      verifyAccessToken: () => ({ sub: 'google:1', type: 'session' }),
+      cookieOptions: () => ({ httpOnly: true, path: '/api/v1/auth' }),
+    });
+    const res = mockRes();
+    await failing({ headers: { authorization: 'Bearer good' } }, res);
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.code, 'SESSION_STORE_UNAVAILABLE');
+  });
 });
