@@ -166,6 +166,52 @@ export function createRefreshHandler(deps) {
  * }} deps
  * @returns {(req: object, res: object) => Promise<void>}
  */
+/**
+ * Build `POST /auth/establish-refresh`: exchange a valid human session access JWT for a durable
+ * refresh token. Returns the refresh token in the JSON body (CLI bootstrap) and sets the HttpOnly
+ * cookie (browser). Used when OAuth redirect cannot attach Set-Cookie reliably (Netlify).
+ *
+ * @param {{
+ *   store: { issue: (sub: string, opts?: object) => ({ token: string } | Promise<{ token: string }>) },
+ *   verifyAccessToken: (token: string) => (object | null),
+ *   cookieName?: string,
+ *   cookieOptions: () => object,
+ *   meta?: (req: object) => object,
+ * }} deps
+ * @returns {(req: object, res: object) => Promise<void>}
+ */
+export function createEstablishRefreshHandler(deps) {
+  const cookieName = deps.cookieName || REFRESH_COOKIE_NAME;
+  return async function establishRefreshHandler(req, res) {
+    res.set('Cache-Control', 'private, no-store, must-revalidate');
+    const auth = req.headers && typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+    const m = /^Bearer\s+(\S+)/i.exec(auth);
+    if (!m) {
+      return res.status(401).json({ error: 'Missing bearer token', code: 'UNAUTHORIZED' });
+    }
+    const payload = deps.verifyAccessToken(m[1]);
+    if (!payload || typeof payload.sub !== 'string' || !payload.sub) {
+      return res.status(401).json({ error: 'Invalid or expired session token', code: 'UNAUTHORIZED' });
+    }
+    const typ = typeof payload.type === 'string' ? payload.type : 'session';
+    if (typ !== 'session') {
+      return res.status(403).json({ error: 'Not a human session token', code: 'SESSION_ESTABLISH_DENIED' });
+    }
+    try {
+      const { token } = await deps.store.issue(payload.sub, {
+        meta: typeof deps.meta === 'function' ? deps.meta(req) : undefined,
+      });
+      res.cookie(cookieName, token, deps.cookieOptions());
+      return res.json({ schema_version: 1, refresh_token: token, token_type: 'refresh' });
+    } catch (_) {
+      return res.status(503).json({
+        error: 'Session service temporarily unavailable.',
+        code: 'SESSION_STORE_UNAVAILABLE',
+      });
+    }
+  };
+}
+
 export function createLogoutHandler(deps) {
   const cookieName = deps.cookieName || REFRESH_COOKIE_NAME;
   return async function logoutHandler(req, res) {

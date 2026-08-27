@@ -15,16 +15,15 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-27, KN0 deploy proof FINDINGS)
+### Product-order relay (2026-08-27, KN0 deploy proof PASS)
 
-**Sequential order (not parallel):** (1) KN0 deploy proof **Operator** → (2) **RHF-b-KN1** this
-repo → (3) Scooling **RHF-b-SC** after KN1 BV **`pass`**.
+**Sequential order (not parallel):** (1) KN0 deploy proof **PASS** → (2) **RHF-b-KN1** this repo
+→ (3) Scooling **RHF-b-SC** after KN1 BV **`pass`**.
 
-KN0 compatibility **DONE** (BV **`pass`**, seven-tier **17/17** on `feat/retail-helper-finish-b-kn0`).
-Deploy proof **FINDINGS** 2026-08-27 — KN0 **not on hosted bridge**; session JWT expired; KN0 gate
-not observed. Evidence: `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`.
-**NEXT on this board:** land KN0 + refresh JWT + re-run deploy proof **PASS**, then **RHF-b-KN1**.
-Scooling handover has the **RHF-b-SC** paste (blocked until KN1 done).
+KN0 compatibility **DONE** + landed [PR #309](https://github.com/aaronrene/knowtation/pull/309).
+Deploy proof **PASS** 2026-08-27 — `type:session` → **403** `DELEGATION_HELPER_ACTOR_DENIED`.
+Evidence: `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`.
+**NEXT on this board:** **RHF-b-KN1**. Scooling **RHF-b-SC** blocked until KN1 BV **`pass`**.
 
 Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. **Paste summary:**
 `~/scooling/docs/OVERSEER-HANDOVER-PASTE.txt`.
@@ -34,37 +33,33 @@ Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. **Paste su
 ---
 
 <!-- overseer:next role=lane_tip lane=auth status=live -->
-## NEXT SESSION — KN0 deploy proof re-run (then RHF-b-KN1)
+## NEXT SESSION — RHF-b-KN1 DELEGATION-RETAIL
 
 **Date:** 2026-08-27  
-**Model:** **Operator** (re-run deploy proof) → **Operator + Auto** (KN1 after PASS)  
+**Model:** **Operator + Auto**  
 **Program:** `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`  
-**Product order:** Step **1** deploy proof **FINDINGS** — land + re-probe before KN1. Step **3**
+**Product order:** KN0 deploy proof **PASS** (`docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`).
 Scooling **RHF-b-SC** (**blocked** until KN1 BV **`pass`** — **not parallel**).
 
-### THE ONE NEXT STEP — **Model: Operator**
-
-KN0 deploy proof recorded as **FINDINGS** (`docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`).
-Hosted bridge still on pre-KN0 GitHub `main` `@e9300f2`; operator session JWT expired. **Do not start
-KN1** until deploy proof is **PASS**.
+### THE ONE NEXT STEP — **Model: Operator + Auto**
 
 ```text
-Step: RHF-b-KN0 deploy proof re-run (Operator)
+Step: RHF-b-KN1 DELEGATION-RETAIL
 
-1. Tier 3 — land feat/retail-helper-finish-b-kn0 (Muse main → muse-bridge → GitHub muse-mirror→main).
-2. Redeploy knowtation-gateway + knowtation-bridge; confirm bridge-version / KN0 gate live.
-3. Refresh hosted session JWT in operator env (browser sign-in; never commit).
-4. Verify POST api/v1/delegation/grants → 403 DELEGATION_HELPER_ACTOR_DENIED for type:session AND legacy_session.
-5. Update docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md to PASS (status + JSON code only).
-6. Then start RHF-b-KN1 in a separate chat (paste block below).
+Prerequisites (must be true before starting):
+1. docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md verdict = PASS.
+2. Operator Tier-3 authorization for candidate/marker cutover path when cutover is reached.
 
-Do not create authority marker, approve consent, mint a grant, or run Codex turns.
+Implement only Knowtation KN1 from ~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md §B2–B7:
+DelegationAuthorityStore, renew-personal, validate, helper-access; seven-tier + BV pass.
+No Scooling edits. No production marker without operator authorization.
 
-Model: Operator
+Model: Operator + Auto
+Branch: feat/retail-helper-finish-b-kn1 (create at start)
 Repo: knowtation
 ```
 
-### Paste-ready prompt — RHF-b-KN1 (separate chat; **blocked until deploy proof PASS**)
+### Paste-ready prompt — RHF-b-KN1 (fresh chat)
 
 ```text
 Step: RHF-b-KN1 DELEGATION-RETAIL
@@ -81,12 +76,15 @@ Model: Operator + Auto
 Branch: feat/retail-helper-finish-b-kn1 (create at start)
 ```
 
-### This session — RHF-b-KN0 deploy proof Operator **FINDINGS** (2026-08-27)
+### This session — RHF-b-KN0 deploy proof Operator **PASS** (2026-08-27)
 
-Probed `https://api.knowtation.store/api/v1/delegation/grants`. KN0 **not deployed** (GitHub main
-still `@e9300f2`; bridge-version commit null). `type:session` probe → **401** `UNAUTHORIZED` (JWT
-expired 2026-08-24; did not reach KN0 gate). `legacy_session` probe not run (needs fresh prod JWT).
-Evidence: `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`. No marker/consent/grant/Codex.
+Probed `https://api.knowtation.store/api/v1/delegation/grants`. `type:session` → **403**
+`DELEGATION_HELPER_ACTOR_DENIED`. `legacy_session` **SKIP** (no local `KNOWTATION_SESSION_SECRET`).
+Evidence: `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`. **KN1 unblocked.** No marker/consent/grant/Codex.
+
+### Prior — RHF-b-KN0 deploy proof Operator **FINDINGS** (2026-08-27)
+
+Pre-KN0 deploy / expired JWT; superseded by PASS above.
 
 ### This session — RHF-b-KN0 Auto **DONE** (2026-08-27)
 

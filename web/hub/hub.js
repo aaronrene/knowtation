@@ -53,6 +53,7 @@
   /** Used to defer onboarding until invite consume has run (see scheduleMaybeShowOnboardingWizard). */
   const pageLoadHadInviteQuery = Boolean(params.get('invite'));
   let token = hashParams.get('token') || params.get('token') || localStorage.getItem('hub_token');
+  const freshLoginFromOAuth = Boolean(hashParams.get('token') || params.get('token'));
   if (token) {
     localStorage.setItem('hub_token', token);
     if (hashParams.has('token')) {
@@ -62,6 +63,22 @@
       u.searchParams.delete('token');
       history.replaceState({}, '', u.toString());
     }
+  }
+
+  /** After OAuth, mint HttpOnly refresh cookie when redirect Set-Cookie is missing (Netlify). */
+  async function establishPersistentSession(accessToken) {
+    if (!accessToken) return;
+    try {
+      await fetch(apiBase + '/api/v1/auth/establish-refresh', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+      });
+    } catch (_) {}
+  }
+  if (freshLoginFromOAuth && token) {
+    establishPersistentSession(token);
   }
 
   /** Latest GET /api/v1/settings used for Backup tab (hosted repo field + sync body). */
