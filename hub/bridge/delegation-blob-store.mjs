@@ -14,6 +14,10 @@ import {
   DELEGATION_GRANTS_FILE,
   DELEGATION_AUDIT_FILE,
 } from '../../lib/agent/delegation.mjs';
+import {
+  delegationAuthorityMarkerBlobKey,
+  delegationAuthorityMarkerFileName,
+} from '../../lib/agent/delegation-authority-compat.mjs';
 
 /** @typedef {{ get: (key: string, opts?: { type?: string }) => Promise<string|ArrayBuffer|null>, set: (key: string, value: string) => Promise<void> }} BlobStore */
 
@@ -121,6 +125,31 @@ export async function hydrateDelegationStoresFromBlob(blobStore, dataDir) {
     } catch {
       /* keep existing file or empty */
     }
+  }
+
+  try {
+    const vaultIds = new Set(['default', 'Business']);
+    for (const vaultId of vaultIds) {
+      const markerKey = delegationAuthorityMarkerBlobKey(vaultId);
+      const markerRaw = await blobStore.get(markerKey, { type: 'text' });
+      if (typeof markerRaw !== 'string' || !markerRaw.trim()) continue;
+      fs.writeFileSync(path.join(dataDir, delegationAuthorityMarkerFileName(vaultId)), markerRaw, 'utf8');
+      let marker;
+      try {
+        marker = JSON.parse(markerRaw);
+      } catch {
+        continue;
+      }
+      if (marker && typeof marker.envelope_key === 'string' && marker.envelope_key.trim()) {
+        const envelopeRaw = await blobStore.get(marker.envelope_key, { type: 'text' });
+        if (typeof envelopeRaw === 'string' && envelopeRaw.trim()) {
+          const localEnvelopeName = path.basename(marker.envelope_key);
+          fs.writeFileSync(path.join(dataDir, localEnvelopeName), envelopeRaw, 'utf8');
+        }
+      }
+    }
+  } catch {
+    /* non-fatal — legacy stores remain authoritative when marker hydration fails */
   }
 }
 
