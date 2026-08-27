@@ -184,6 +184,8 @@ describe('gateway refresh store — blob backend', () => {
   it('strong consistency ignores blob even when blob global is set', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-gw-strong-'));
     const savedEnv = process.env.KNOWTATION_GATEWAY_DATA_DIR;
+    const savedLambda = process.env.AWS_LAMBDA_FUNCTION_NAME;
+    delete process.env.AWS_LAMBDA_FUNCTION_NAME;
     process.env.KNOWTATION_GATEWAY_DATA_DIR = dir;
     let blobWrites = 0;
     globalThis[AUTH_BLOB_GLOBAL] = {
@@ -200,7 +202,28 @@ describe('gateway refresh store — blob backend', () => {
       delete globalThis[AUTH_BLOB_GLOBAL];
       if (savedEnv === undefined) delete process.env.KNOWTATION_GATEWAY_DATA_DIR;
       else process.env.KNOWTATION_GATEWAY_DATA_DIR = savedEnv;
+      if (savedLambda === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      else process.env.AWS_LAMBDA_FUNCTION_NAME = savedLambda;
       try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) { /* noop */ }
+    }
+  });
+
+  it('Lambda + strong + blob uses blob (never mkdir /var/task/data)', async () => {
+    const savedLambda = process.env.AWS_LAMBDA_FUNCTION_NAME;
+    process.env.AWS_LAMBDA_FUNCTION_NAME = 'gateway';
+    let blobWrites = 0;
+    globalThis[AUTH_BLOB_GLOBAL] = {
+      async get() { return { tokens: {} }; },
+      async setJSON() { blobWrites += 1; },
+    };
+    try {
+      const store = createGatewayRefreshStore({ consistency: 'strong' });
+      await store.issue('google:lambda', { now: 1000 });
+      assert.equal(blobWrites, 1);
+    } finally {
+      delete globalThis[AUTH_BLOB_GLOBAL];
+      if (savedLambda === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      else process.env.AWS_LAMBDA_FUNCTION_NAME = savedLambda;
     }
   });
 });

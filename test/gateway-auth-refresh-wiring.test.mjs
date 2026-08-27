@@ -92,6 +92,14 @@ describe('hosted gateway wires persistent sessions', () => {
     assert.doesNotMatch(block, /catch\s*\(\s*_\s*\)\s*\{\s*\/\/[^\n]*\n\s*\}/, 'must not silently swallow the error');
   });
 
+  test('Netlify/Lambda uses eventual refresh store (not strong file)', () => {
+    const s = load();
+    assert.ok(
+      s.includes('AWS_LAMBDA_FUNCTION_NAME'),
+      'must detect Lambda runtime — NETLIFY alone is unset on Functions and caused /var/task/data ENOENT',
+    );
+  });
+
   test('Netlify function provisions the gateway-auth blob (eventual consistency) and cleans it up', () => {
     const fn = fs.readFileSync(path.join(ROOT, 'netlify/functions/gateway.mjs'), 'utf8');
     assert.ok(fn.includes("name: 'gateway-auth'"), 'must provision the gateway-auth store');
