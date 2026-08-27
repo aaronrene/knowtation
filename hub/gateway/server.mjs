@@ -80,11 +80,16 @@ import {
   maybeApplyHostedMediaAfterApprove,
   mergeMediaApplyIntoApproveResponse,
 } from './media-approve-hosted.mjs';
+import {
+  maybeApplyHostedPathAfterApprove,
+  mergePathApplyIntoApproveResponse,
+} from './path-approve-hosted.mjs';
 import { exportNoteRecordToContent } from '../../lib/export.mjs';
 import { canisterAuthHeaders as canisterAuthHeadersFromEnv } from './canister-auth-headers.mjs';
 import {
   issueRefreshCookie,
   createRefreshHandler,
+  createEstablishRefreshHandler,
   createLogoutHandler,
   refreshCookieOptions,
 } from '../auth-session.mjs';
@@ -101,8 +106,26 @@ import {
   isAgentAccessPayload,
   isSessionBoundActor,
   assertAgentVaultAllowed,
+  resolveActorTokenClass,
 } from './access-token-authz.mjs';
 import { createAgentCredentialRouter } from './agent-credential-routes.mjs';
+import { loadReviewTriggers } from '../../lib/hub-proposal-review-triggers.mjs';
+import { appendAudit } from '../audit-log.mjs';
+import {
+  processAutomationIngest,
+  sendIngestError,
+  isIngestContractBody,
+  normalizeRuleForSave,
+  mintRuleId,
+  MAX_USER_RULES,
+  listPackTemplates,
+} from '../../lib/automation-ingest-policy.mjs';
+import {
+  loadIngestRulesForSub,
+  saveIngestRulesForSub,
+  getIngestIdempotency,
+  putIngestIdempotency,
+} from './automation-ingest-store.mjs';
 import { createScoolingNoteOutlineSmokeRouter } from './scooling-note-outline-smoke.mjs';
 import { createScoolingWriteBackSmokeRouter } from './scooling-write-back-smoke.mjs';
 import { buildNoteOutline } from '../../lib/note-outline.mjs';
@@ -385,8 +408,10 @@ app.use((req, res, next) => {
 // Persistent sessions (refresh-token rotation), hosted edition. On the persistent MCP host
 // (non-Netlify) use strong-consistency file backend — required for MCP OAuth refresh and shared
 // with native OAuth. Netlify web cookies keep the eventual blob path via createGatewayRefreshStore().
+// Detect Lambda runtime too: Netlify Functions often omit NETLIFY=true at runtime (see bridge.mjs);
+// wrong strong/file choice caused mkdir '/var/task/data' ENOENT while auth blob was provisioned.
 const refreshStore = createGatewayRefreshStore(
-  process.env.NETLIFY ? {} : { consistency: 'strong' }
+  process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME ? {} : { consistency: 'strong' }
 );
 
 /**
@@ -579,12 +604,24 @@ app.get('/api/v1/auth/session', (req, res) => {
 // invocation is isolated, no shared counter) and trips ERR_ERL_* under serverless proxies. Brute
 // force is bounded instead by edge limits (see hub/gateway/README.md) and, more fundamentally, by
 // the opaque high-entropy token + rotation/reuse detection in refresh-token-core.mjs.
-app.options(['/api/v1/auth/refresh', '/api/v1/auth/logout'], (_req, res) => res.status(204).end());
+app.options(
+  ['/api/v1/auth/refresh', '/api/v1/auth/logout', '/api/v1/auth/establish-refresh'],
+  (_req, res) => res.status(204).end()
+);
 app.post(
   '/api/v1/auth/refresh',
   createRefreshHandler({
     store: refreshStore,
     issueAccessToken: issueAccessTokenForSub,
+    cookieOptions: refreshCookiePolicy,
+    meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
+  })
+);
+app.post(
+  '/api/v1/auth/establish-refresh',
+  createEstablishRefreshHandler({
+    store: refreshStore,
+    verifyAccessToken: decodeVerifiedToken,
     cookieOptions: refreshCookiePolicy,
     meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
   })
@@ -1104,6 +1141,56 @@ if (BRIDGE_URL) {
     );
   });
 
+  // Docs connectors (KN-DOCS-SYNC-b) — proxy to bridge; gates hard-coded false in lib.
+  app.get('/api/v1/docs/connectors/callback', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/docs/connectors/callback' + q, req, res);
+  });
+  app.post('/api/v1/docs/connectors', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/docs/connectors' + q, req, res);
+  });
+  app.get('/api/v1/docs/connectors', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/docs/connectors' + q, req, res);
+  });
+  app.get('/api/v1/docs/connectors/:id/files', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + '/files' + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/docs/connectors/:id/import', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + '/import' + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/docs/connectors/:id/sync', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + '/sync' + q,
+      req,
+      res,
+    );
+  });
+  app.delete('/api/v1/docs/connectors/:id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/docs/connectors/' + encodeURIComponent(req.params.id) + q,
+      req,
+      res,
+    );
+  });
+
   // Flow routes (hosted parity — 7A-L2b): proxy read projections (+ grants when gate on).
   const isFlowHostedProjectionEnabled = () => {
     const v = process.env.FLOW_HOSTED_PROJECTION_ENABLED;
@@ -1399,6 +1486,18 @@ if (BRIDGE_URL) {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants' + q, req, res);
   });
+  app.post('/api/v1/delegation/grants/renew-personal', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants/renew-personal' + q, req, res);
+  });
+  app.post('/api/v1/delegation/grants/validate', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants/validate' + q, req, res);
+  });
+  app.get('/api/v1/delegation/helper-access', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/helper-access' + q, req, res);
+  });
   app.get('/api/v1/delegation/grants', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants' + q, req, res);
@@ -1486,6 +1585,37 @@ if (BRIDGE_URL) {
         '/api/v1/task-loops/' +
         encodeURIComponent(req.params.loop_id) +
         '/instances/proposals' +
+        q,
+      req,
+      res,
+    );
+  });
+
+  app.get('/api/v1/learning-paths', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/learning-paths' + q, req, res);
+  });
+  app.get('/api/v1/learning-paths/:path_id', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL + '/api/v1/learning-paths/' + encodeURIComponent(req.params.path_id) + q,
+      req,
+      res,
+    );
+  });
+  app.post('/api/v1/learning-paths/proposals', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/learning-paths/proposals' + q, req, res);
+  });
+  app.post('/api/v1/learning-paths/proposals/:proposal_id/apply-approved', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(
+      BRIDGE_URL,
+      BRIDGE_URL +
+        '/api/v1/learning-paths/proposals/' +
+        encodeURIComponent(req.params.proposal_id) +
+        '/apply-approved' +
         q,
       req,
       res,
@@ -1769,6 +1899,12 @@ async function proxyTo(baseUrl, url, req, res) {
   if (req.headers['x-delegation-bearer']) {
     headers['x-delegation-bearer'] = req.headers['x-delegation-bearer'];
   }
+  if (req.headers['x-delegation-actor']) {
+    headers['x-delegation-actor'] = req.headers['x-delegation-actor'];
+  }
+  if (req.headers['x-retail-visit']) {
+    headers['x-retail-visit'] = req.headers['x-retail-visit'];
+  }
   const opts = { method: req.method, headers };
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {
     opts.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
@@ -1876,7 +2012,9 @@ function getUserId(req) {
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return null;
   const payload = decodeVerifiedToken(token);
-  const pathOnly = String(req.path || req.url || '').split('?')[0];
+  // Must match effectiveRequestPath: under app.use('/api/v1', …) Express sets req.path to the
+  // suffix (/proposals). agentScopesPermitMethod allowlists api/v1/proposals — suffix-only → 401.
+  const pathOnly = effectiveRequestPath(req);
   return subFromVerifiedPayload(payload, { method: req.method, path: pathOnly });
 }
 
@@ -3873,6 +4011,22 @@ async function proxyToCanister(req, res) {
         if (mediaApplyOutcome && !mediaApplyOutcome.applied) {
           console.error('[gateway] media apply after approve failed:', mediaApplyOutcome.error);
         }
+        const pathApplyOutcome = await maybeApplyHostedPathAfterApprove({
+          method: req.method,
+          pathOnly: pathOnlyForBody,
+          upstreamStatus: upstream.status,
+          canisterUrl: CANISTER_URL,
+          bridgeUrl: BRIDGE_URL,
+          authorization: req.headers.authorization,
+          vaultId,
+          effectiveUserId: effective,
+          actorUserId: uid,
+          canisterAuthHeaders,
+        });
+        responseBody = mergePathApplyIntoApproveResponse(responseBody, pathApplyOutcome);
+        if (pathApplyOutcome && !pathApplyOutcome.applied) {
+          console.error('[gateway] path index apply after approve failed:', pathApplyOutcome.error);
+        }
       } catch (e) {
         console.error('[gateway] delegation apply after approve (non-fatal):', e?.message || String(e));
       }
@@ -4358,6 +4512,313 @@ app.post('/api/v1/notes/copy', async (req, res) => {
     to_vault_id: toVault,
     moved: deleteSource,
   });
+});
+
+function ingestSessionWriteRole(role) {
+  return role === 'editor' || role === 'admin' || role === 'member';
+}
+
+async function hostedIngestCanisterHeaders(req, uid) {
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  const hctx = await getHostedAccessContext(req);
+  const effective =
+    hctx && typeof hctx.effective_canister_user_id === 'string' && hctx.effective_canister_user_id
+      ? hctx.effective_canister_user_id
+      : uid;
+  return {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'x-user-id': effective,
+    'x-actor-id': uid,
+    'x-vault-id': vaultId,
+    ...canisterAuthHeaders(),
+  };
+}
+
+function makeHostedIngestIo(req, res, uid) {
+  const dataDir = GATEWAY_DATA_DIR;
+  return {
+    async getIdempotency(storeKey) {
+      return getIngestIdempotency(storeKey, dataDir);
+    },
+    async putIdempotency(storeKey, entry) {
+      return putIngestIdempotency(storeKey, entry, dataDir);
+    },
+    async appendAudit(action, detail, proposalId) {
+      appendAudit(dataDir, {
+        userId: uid,
+        action,
+        proposalId: proposalId || '',
+        detail,
+      });
+    },
+    async runBilling(operation) {
+      return runBillingGate(req, res, getUserId, {
+        operation,
+        getNoteCount: getNoteCountForUser,
+      });
+    },
+    async readExistingNote(notePath) {
+      if (!CANISTER_URL) return null;
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      const url = `${CANISTER_URL}/api/v1/notes/${notePath}`;
+      const r = await fetch(url, { method: 'GET', headers });
+      if (r.status === 404) return null;
+      if (!r.ok) return null;
+      return r.json();
+    },
+    async writeNote(notePath, payload) {
+      if (!CANISTER_URL) {
+        const err = new Error('canister unavailable');
+        err.status = 503;
+        err.code = 'AGENT_CREDENTIAL_STORE_UNAVAILABLE';
+        throw err;
+      }
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      const r = await fetch(`${CANISTER_URL}/api/v1/notes`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: notePath, body: payload.body, frontmatter: payload.frontmatter }),
+      });
+      if (!r.ok) {
+        const err = new Error('hosted note write failed');
+        err.status = r.status >= 400 && r.status < 600 ? r.status : 502;
+        err.code = 'INGEST_PATH_INVALID';
+        throw err;
+      }
+    },
+    async createProposal(payload) {
+      if (!CANISTER_URL) {
+        const err = new Error('canister unavailable');
+        err.status = 503;
+        err.code = 'AGENT_CREDENTIAL_STORE_UNAVAILABLE';
+        throw err;
+      }
+      const bearer = getBearerPayload(req);
+      const policyOpts = {
+        evaluationRequired: effectiveHostedEvaluationRequired(
+          await loadHostedProposalLlmPrefs().catch(() => null),
+          dataDir
+        ),
+        evaluatedBy: uid,
+        sessionBound: isSessionBoundActor(bearer),
+        authorActorId: uid,
+      };
+      const augmented = augmentProposalCreateForHosted(
+        'POST',
+        '/api/v1/proposals',
+        payload,
+        dataDir,
+        policyOpts
+      );
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      const r = await fetch(`${CANISTER_URL}/api/v1/proposals`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(augmented),
+      });
+      if (!r.ok) {
+        const err = new Error('hosted proposal create failed');
+        err.status = r.status >= 400 && r.status < 600 ? r.status : 502;
+        err.code = 'INGEST_BODY_REQUIRED';
+        throw err;
+      }
+      const json = await r.json();
+      return { proposal_id: json.proposal_id || json.id || json.proposalId };
+    },
+    async markProposalApproved(proposalId) {
+      if (!CANISTER_URL || !proposalId) return { ok: false };
+      const headers = await hostedIngestCanisterHeaders(req, uid);
+      try {
+        const r = await fetch(`${CANISTER_URL}/api/v1/proposals/${proposalId}/approve`, {
+          method: 'POST',
+          headers,
+          body: '{}',
+        });
+        return { ok: r.ok };
+      } catch {
+        return { ok: false };
+      }
+    },
+  };
+}
+
+async function handleHostedAutomationIngest(req, res, { requireContract = false } = {}) {
+  const uid = getUserId(req);
+  if (!uid) return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const payload = getBearerPayload(req);
+  const actorClass = resolveActorTokenClass(payload);
+  if (actorClass !== 'agent_access' && actorClass !== 'session' && actorClass !== 'legacy_session') {
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  }
+  if (actorClass !== 'agent_access') {
+    const { role } = await resolveHostedActorRole(req, await getHostedAccessContext(req));
+    if (!ingestSessionWriteRole(role)) {
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+  }
+  const vaultId = String(req.headers['x-vault-id'] || 'default').trim() || 'default';
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    const llmPrefs = await loadHostedProposalLlmPrefs().catch(() => null);
+    const out = await processAutomationIngest({
+      rawBody: req.body,
+      idempotencyHeader: req.headers['x-ingest-idempotency-key'],
+      actor: {
+        sub: uid,
+        vaultId,
+        credentialId: payload && payload.cid != null ? String(payload.cid) : null,
+        credentialName: payload && payload.agent != null ? String(payload.agent) : null,
+        evaluationRequired: effectiveHostedEvaluationRequired(llmPrefs, GATEWAY_DATA_DIR),
+        sessionBound: isSessionBoundActor(payload),
+      },
+      rules: loaded.rules,
+      triggers: loadReviewTriggers(GATEWAY_DATA_DIR),
+      io: makeHostedIngestIo(req, res, uid),
+      requireContract,
+    });
+    if (out && out.billed === false) return;
+    return res.status(out.status).json(out.body);
+  } catch (e) {
+    if (e && e.code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE') {
+      return res.status(503).json({ error: e.message || 'store unavailable', code: e.code });
+    }
+    return sendIngestError(res, e);
+  }
+}
+
+async function requireHostedSessionIngestCrud(req, res) {
+  const uid = getUserId(req);
+  if (!uid) {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return null;
+  }
+  const payload = getBearerPayload(req);
+  const actorClass = resolveActorTokenClass(payload);
+  if (actorClass !== 'session' && actorClass !== 'legacy_session') {
+    res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return null;
+  }
+  const { role } = await resolveHostedActorRole(req, await getHostedAccessContext(req));
+  if (!ingestSessionWriteRole(role)) {
+    res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
+    return null;
+  }
+  return uid;
+}
+
+app.post('/api/v1/automation/ingest', async (req, res) => {
+  return handleHostedAutomationIngest(req, res, { requireContract: false });
+});
+
+app.get('/api/v1/automation/ingest-rules', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    return res.json({ rules: loaded.rules, templates: loaded.templates });
+  } catch (e) {
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.put('/api/v1/automation/ingest-rules', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const incoming = Array.isArray(req.body && req.body.rules) ? req.body.rules : req.body;
+    const list = Array.isArray(incoming) ? incoming : [];
+    if (list.length > MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const rules = list.map((row) => normalizeRuleForSave(row, { mintMissingId: true }));
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.json({ rules, templates: listPackTemplates() });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/automation/ingest-rules', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    if (loaded.rules.length >= MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const rule = normalizeRuleForSave({ ...req.body, rule_id: undefined }, { mintMissingId: true });
+    const rules = [...loaded.rules, rule];
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.status(201).json({ rule, rules, templates: listPackTemplates() });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/automation/ingest-rules/from-template', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const templateId = String((req.body && req.body.template_id) || '').trim();
+    const templates = listPackTemplates();
+    const tmpl = templates.find((t) => t.rule_id === templateId);
+    if (!tmpl) return res.status(400).json({ error: 'unknown template', code: 'BAD_REQUEST' });
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    if (loaded.rules.length >= MAX_USER_RULES) {
+      return res.status(400).json({ error: 'max 32 rules', code: 'BAD_REQUEST' });
+    }
+    const enable = req.body && req.body.enable === true;
+    const rule = normalizeRuleForSave(
+      { ...tmpl, rule_id: mintRuleId(), enabled: enable === true },
+      { mintMissingId: false }
+    );
+    const rules = [...loaded.rules, rule];
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.status(201).json({ rule, rules, templates });
+  } catch (e) {
+    if (e && e.status) return sendIngestError(res, e);
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.delete('/api/v1/automation/ingest-rules/:rule_id', async (req, res) => {
+  const uid = await requireHostedSessionIngestCrud(req, res);
+  if (!uid) return;
+  try {
+    const loaded = await loadIngestRulesForSub(uid, GATEWAY_DATA_DIR);
+    const rules = loaded.rules.filter((r) => r.rule_id !== String(req.params.rule_id || ''));
+    await saveIngestRulesForSub(uid, rules, GATEWAY_DATA_DIR);
+    return res.json({ rules, templates: loaded.templates });
+  } catch (e) {
+    return res.status(503).json({
+      error: e.message || 'store unavailable',
+      code: e.code || 'AGENT_CREDENTIAL_STORE_UNAVAILABLE',
+    });
+  }
+});
+
+app.post('/api/v1/proposals', async (req, res) => {
+  const payload = getBearerPayload(req);
+  if (isAgentAccessPayload(payload) && isIngestContractBody(req.body)) {
+    return handleHostedAutomationIngest(req, res, { requireContract: true });
+  }
+  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
+  return proxyToCanister(req, res);
 });
 
 app.use('/api/v1', async (req, res) => {
