@@ -118,6 +118,8 @@ describe('Agent delegation — security', () => {
     const { handleAgentIdentityListRequest } = await import('../lib/agent/delegation.mjs');
     const list = handleAgentIdentityListRequest({ dataDir, vaultId });
     assert.equal(list.ok, true);
-    assert.equal(list.payload.identities[0].label.includes('<script>'), true);
+    const fixture = list.payload.identities.find((i) => i.agent_id === 'agent_tutor_test01');
+    assert.ok(fixture, 'expected seeded fixture identity in list');
+    assert.equal(fixture.label.includes('<script>'), true);
   });
 });

@@ -15,50 +15,155 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
+### Product-order relay (2026-08-27, KN0 deploy proof FINDINGS)
+
+**Sequential order (not parallel):** (1) KN0 deploy proof **Operator** → (2) **RHF-b-KN1** this
+repo → (3) Scooling **RHF-b-SC** after KN1 BV **`pass`**.
+
+KN0 compatibility **DONE** (BV **`pass`**, seven-tier **17/17** on `feat/retail-helper-finish-b-kn0`).
+Deploy proof **FINDINGS** 2026-08-27 — KN0 **not on hosted bridge**; session JWT expired; KN0 gate
+not observed. Evidence: `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`.
+**NEXT on this board:** land KN0 + refresh JWT + re-run deploy proof **PASS**, then **RHF-b-KN1**.
+Scooling handover has the **RHF-b-SC** paste (blocked until KN1 done).
+
+Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. **Paste summary:**
+`~/scooling/docs/OVERSEER-HANDOVER-PASTE.txt`.
+
+**MuseHub (2026-08-26):** Gabriel granted AWS SSO. Deploy smoke is **queued after Scooling Codex 29** — not a Knowtation task. F7b/KD-6b wait on Gabriel until smoke passes. Relay: `~/scooling/docs/reviews/2026-08-26-musehub-aws-sso-deploy-smoke.md`.
+
 ---
 
 <!-- overseer:next role=lane_tip lane=auth status=live -->
-## NEXT SESSION — AIP-b SD-21 land (Knowtation PRIMARY)
+## NEXT SESSION — KN0 deploy proof re-run (then RHF-b-KN1)
 
-**Date:** 2026-08-24  
-**Model:** **Operator + Auto**  
-**Ownership:** AIP-b BV r1 **pass**. Artifact `docs/AUTOMATION-INGEST-POLICY-FREEZE.md` digest `sha256:9fded978386543865225f5cc2bc0f04f09e777f8de96a56ef5d516c995a2793c`. Evidence `docs/reviews/2026-08-24-automation-ingest-policy-b-bv-round1-pass.md`.  
-**Product order:** Scooling PRIMARY = **F28b land** → **Operator F26 smoke**. This board does not Auto Scooling.
+**Date:** 2026-08-27  
+**Model:** **Operator** (re-run deploy proof) → **Operator + Auto** (KN1 after PASS)  
+**Program:** `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`  
+**Product order:** Step **1** deploy proof **FINDINGS** — land + re-probe before KN1. Step **3**
+Scooling **RHF-b-SC** (**blocked** until KN1 BV **`pass`** — **not parallel**).
 
-**Locks:** Do not edit Scooling. Do not enable Born Free templates in the packaged JSON. Do not change SEC-SEAM / personal self-apply / T5. Do not grant `vault:write` on cron default mint. Do not let `agent_access` call approve. Do not claim production smoke. Do not live-revoke credentials. Never `git push origin main`. Never feature → GitHub `main`.
+### THE ONE NEXT STEP — **Model: Operator**
 
-### THE ONE NEXT STEP — **Model: Operator + Auto**
-
-SD-21 land `feat/automation-ingest-policy-b` → Muse `main` → `./scripts/muse-bridge-deploy.sh` → GitHub PR `muse-mirror` → `main` (merge commit). Diff has no live posture/env flip, secrets, real money, or Delegation write env. Production ingest smoke is Operator T2 after deploy — not this land session.
-
-### This session — AIP-b Auto **DONE** (2026-08-24)
-
-Implemented D1–D27 against the freeze. Seven-tier **26/26**. BV r1 **pass**. Branch `feat/automation-ingest-policy-b`. Pack templates stay `enabled: false`. Session `POST api/v1/proposals` unchanged. No Scooling edits. No production-smoke claim.
-
-### This session — AIP-a Thinking freeze **DONE** (2026-08-24)
-
-Freeze authored + `/freeze-review-loop` r1–r2 findings (cited) + r3 + `ok review --freeze` + `ok check-ok --path` **pass**. No routes. No env flip. Branch `feat/automation-ingest-policy-a`.
-
-### This session — SD-21 land propose-path hotfix **DONE** (2026-08-24)
-
-Operator + Auto. `getUserId()` → `effectiveRequestPath(req)` fixes agent POST `api/v1/proposals` 401. Tests **37/37**. No live env flip. Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-propose-path-fix-land.md`.
-
-### Paste-ready prompt — AIP-b SD-21 land
+KN0 deploy proof recorded as **FINDINGS** (`docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`).
+Hosted bridge still on pre-KN0 GitHub `main` `@e9300f2`; operator session JWT expired. **Do not start
+KN1** until deploy proof is **PASS**.
 
 ```text
-SD-21 land feat/automation-ingest-policy-b on Knowtation. AIP-b BV r1 pass (docs/reviews/2026-08-24-automation-ingest-policy-b-bv-round1-pass.md; test_output sha256:250daf41bd930d4a6f7ded0cb3a75205b73a0f27a1b2a7c078519bd66f1ed0ea). No live posture/env flip, secrets, real money, or Delegation write env.
+Step: RHF-b-KN0 deploy proof re-run (Operator)
 
-1. Muse merge/FF feat/automation-ingest-policy-b → Muse main
-2. ./scripts/muse-bridge-deploy.sh
-3. GitHub PR muse-mirror → main (merge commit)
-4. Never git push origin main. Never feature → GitHub main.
+1. Tier 3 — land feat/retail-helper-finish-b-kn0 (Muse main → muse-bridge → GitHub muse-mirror→main).
+2. Redeploy knowtation-gateway + knowtation-bridge; confirm bridge-version / KN0 gate live.
+3. Refresh hosted session JWT in operator env (browser sign-in; never commit).
+4. Verify POST api/v1/delegation/grants → 403 DELEGATION_HELPER_ACTOR_DENIED for type:session AND legacy_session.
+5. Update docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md to PASS (status + JSON code only).
+6. Then start RHF-b-KN1 in a separate chat (paste block below).
 
-Do not claim production ingest smoke. Operator T2 after deploy records PASS or FINDINGS in docs/reviews/<date>-automation-ingest-live-smoke.md (status + JSON code only, no secrets).
+Do not create authority marker, approve consent, mint a grant, or run Codex turns.
+
+Model: Operator
+Repo: knowtation
+```
+
+### Paste-ready prompt — RHF-b-KN1 (separate chat; **blocked until deploy proof PASS**)
+
+```text
+Step: RHF-b-KN1 DELEGATION-RETAIL
+
+Prerequisites (must be true before starting):
+1. docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md verdict = PASS.
+2. Operator Tier-3 authorization for candidate/marker cutover path when cutover is reached.
+
+Implement only Knowtation KN1 from ~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md §B2–B7:
+DelegationAuthorityStore, renew-personal, validate, helper-access; seven-tier + BV pass.
+No Scooling edits. No production marker without operator authorization.
+
+Model: Operator + Auto
+Branch: feat/retail-helper-finish-b-kn1 (create at start)
+```
+
+### This session — RHF-b-KN0 deploy proof Operator **FINDINGS** (2026-08-27)
+
+Probed `https://api.knowtation.store/api/v1/delegation/grants`. KN0 **not deployed** (GitHub main
+still `@e9300f2`; bridge-version commit null). `type:session` probe → **401** `UNAUTHORIZED` (JWT
+expired 2026-08-24; did not reach KN0 gate). `legacy_session` probe not run (needs fresh prod JWT).
+Evidence: `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`. No marker/consent/grant/Codex.
+
+### This session — RHF-b-KN0 Auto **DONE** (2026-08-27)
+
+Implemented KN0 compatibility on `feat/retail-helper-finish-b-kn0`: Bridge generic grant mint rejects
+human session tokens before catalog resolution; immutable reserved `agent_codex_retail` catalog;
+marker-aware fail-closed compatibility reads; seven-tier **17/17**; BV round 1 **`pass`**
+(`docs/reviews/2026-08-27-rhf-b-kn0-bv-round1-pass.md`). Related delegation suites **79/79**. No
+candidate/marker/cutover/deploy/consent/grant mint/env flip/spend.
+
+### Archived — RHF-b-KN0 paste block (completed)
+
+```text
+Step: RHF-b-KN0 COMPATIBILITY
+
+Implement only Knowtation KN0 from Scooling's passed freeze:
+~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md.
+
+Required:
+1. Generic Bridge POST api/v1/delegation/grants rejects session-bound human tokens.
+2. Compatibility reads follow only a valid active marker; absent marker uses legacy stores;
+   unknown/missing/mismatched marker/envelope fails closed.
+3. Add immutable reserved provider catalog entry agent_codex_retail exactly as frozen; reserved id
+   cannot be shadowed by legacy/proposed records.
+4. Seven-tier tests including proof generic session mint is denied before catalog resolution.
+5. Run independent /build-verification-review; pass required before DONE.
+6. Update Knowtation ROADMAP + OVERSEER-HANDOVER together and commit on the feature branch.
+
+Do not build KN1 renewal/cutover, create a candidate/marker, approve consent, mint a grant, change
+production env, deploy, or spend money.
+
+Model: Auto
+Branch: feat/retail-helper-finish-b-kn0
+```
+
+### Archived — CODEX-HUB-ACTOR (was PRIMARY after #331 — superseded)
+
+```text
+CODEX-HUB-ACTOR — register OpenAI Codex as 7D external_provider on Knowtation Hub.
 
 Repo: knowtation
 Model: Operator + Auto
-Branch: feat/automation-ingest-policy-b
-Authority: docs/AUTOMATION-INGEST-POLICY-FREEZE.md §19; docs/reviews/2026-08-24-automation-ingest-policy-b-bv-round1-pass.md
+Authority: ~/scooling/docs/CODEX-LIVE-FINISH.md row 25 · docs/skills/external-agent/codex.md
+SD-32: do not park.
+
+After Scooling PR #331 is on GitHub main:
+1) Register agent_id (e.g. agent_aaron_codex), provider: codex, hashed provider_session_ref, SD-10 consent.
+2) Mint one short grant for a draft_only task. Bearer in env only.
+3) Record PASS/FINDINGS in docs/reviews/<date>-codex-hub-actor.md — no secrets.
+
+Then start CODEX-HUB-GRANT-UI (auto-mint + needs-input) without waiting.
+Never git push origin main. Never feature → GitHub main.
+```
+
+### Archived — AIP-b Operator T2 live smoke (parallel residual)
+
+**Date:** 2026-08-24  
+**Model:** **Operator**  
+AIP-b **landed** ([KN #308](https://github.com/aaronrene/knowtation/pull/308) `@e9300f2`). Does **not** block Codex.
+
+After Netlify deploy from KN #308, production ingest smoke on `api.knowtation.store` may still be recorded in `docs/reviews/<date>-automation-ingest-live-smoke.md` — `rule_id`, disposition, HTTP status + JSON `code` only; **no secrets**.
+
+### This session — SD-21 land AIP-b **DONE** (2026-08-24)
+
+Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, secrets, real money, or Delegation write env). Muse FF `feat/automation-ingest-policy-b` → `main` `sha256:4f7a536421fec9084b51a924bf9f3f2535fe5d05bf84d2ce36e17a5821c5a2e3`. Then `./scripts/muse-bridge-deploy.sh` → GitHub [PR #308](https://github.com/aaronrene/knowtation/pull/308) `@e9300f25390b42c60bc279e7d8433245c51b7665` (merge commit; required checks green: `test (20)`, `Secret scanning (TruffleHog)`). Never `git push origin main`. Never feature→GitHub-`main`. Born Free templates stay disabled. Evidence: `docs/reviews/2026-08-24-automation-ingest-policy-b-land.md`. Production ingest smoke **not** claimed.
+
+### This session — AIP-b Auto **DONE** (2026-08-24)
+
+Implemented D1–D27 against the freeze. Seven-tier **26/26**. BV r1 **pass**. Branch `feat/automation-ingest-policy-b`. Pack templates stay `enabled: false`. Session `POST api/v1/proposals` unchanged. No Scooling edits.
+
+### Paste-ready prompt — AIP-b Operator T2 live smoke
+
+```text
+Run production automation ingest smoke on api.knowtation.store after KN #308 deploy. Use scripts/verify-automation-ingest-smoke.mjs with production target only if credentials are already in env (never paste kt_agent_ or JWTs into git). Record PASS or FINDINGS in docs/reviews/<date>-automation-ingest-live-smoke.md: rule_id, disposition, Review proposed-count delta, HTTP status + JSON code only. No secrets.
+
+Repo: knowtation
+Model: Operator
+Authority: docs/AUTOMATION-INGEST-POLICY-FREEZE.md T2; docs/reviews/2026-08-24-automation-ingest-policy-b-land.md
 ```
 
 ### Paste-ready prompt — trend-agent propose re-smoke (after deploy; Operator, not AIP-b)
@@ -83,21 +188,18 @@ Authority: docs/reviews/2026-08-24-auth-lane-honesty-a.md; docs/reviews/2026-08-
 
 ---
 
-<!-- overseer:next role=product_relay lane=product status=live product_order=scooling -->
-## PRODUCT RELAY — F28 AUTH-LANE-HONESTY (PRIMARY lives on the Scooling board)
+<!-- overseer:next role=product_relay lane=product status=live product_order=scooling tip_hash=sha256:ac529a9ce2e2b851e3d4f5f39d69cf3a841f0b1cdadf26c65c0f970c954be0fb -->
+## PRODUCT RELAY — sequencing (Scooling board)
 
-**Date:** 2026-08-24  
-**Model:** **Thinking** (Scooling F28a) + **Operator** (this board SD-21 land after KN-AUTH-LANE-D-b **DONE**)  
-**Ownership:** Product order wins on Scooling. This board owns Hub machine credentials + session store.  
-**Product order:** PRIMARY on Scooling is **F28a**. This board does not Auto Scooling. F26 smoke waits on F28. T5 path kinds **not** admitted. MuseHub F7 **parallel**.
+**Date:** 2026-08-27  
+**Order:** KN0 deploy proof → **KN1 (this repo)** → Scooling **RHF-b-SC** (blocked)  
+**Not parallel:** Scooling RHF-b-SC needs KN1 `renew-personal` + `helper-access` APIs.
 
-**Locks that still hold:** Do not invent Live social. Do not Auto BRAIN-PAIR-b. Do not POST apply-approved from Scooling. Do not admit path kinds to personal self-apply. Do not say Scooling is done / all good. Do not put helper API keys or Hub JWTs in git.
-
-**Canonical paste fence (Scooling):** `~/scooling/docs/OVERSEER-HANDOVER.md` → search `Paste-ready prompt — F28 AUTH-LANE-HONESTY-a`.
-
-### THE ONE NEXT STEP — product order — **Model: Thinking** (Scooling F28a)
-
-Session-bound Helpers reads. **Not** another Netlify JWT.
+| Step | Repo | ID | Status |
+| --- | --- | --- | --- |
+| 1 | Knowtation | KN0 deploy proof | **FINDINGS** — land KN0 + refresh JWT + re-probe |
+| 2 | Knowtation | **RHF-b-KN1** | **BLOCKED** until step 1 **PASS** |
+| 3 | Scooling | RHF-b-SC | **BLOCKED** until step 2 BV **`pass`** |
 
 ### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
 
@@ -931,7 +1033,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date | Event |
 | --- | --- |
-| 2026-08-20 | **PRODUCT RELAY → Operator F20 after F32b land.** Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = F20 re-smoke after Netlify redeploy; read class `data-next-step` (auth / request / rate / server / endpoint). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
+| 2026-08-24 | **AIP-b LANDED (SD-21).** Muse FF `feat/automation-ingest-policy-b` → `main` `sha256:4f7a536…`; muse-bridge → GitHub [PR #308](https://github.com/aaronrene/knowtation/pull/308) `@e9300f2`. Born Free templates stay disabled. Production ingest smoke **not** claimed — Operator T2 next. Evidence: `docs/reviews/2026-08-24-automation-ingest-policy-b-land.md`. **AIP-c** not started. |
 | 2026-08-20 | **PRODUCT RELAY → Operator F20 after F31b land.** Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step` (endpoint / malformed / abort / runtime). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
 | 2026-08-20 | **PRODUCT RELAY → Operator F20 HELPER-SMOKE re-smoke.** Scooling F30b **LANDED** [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step`. Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted. |
 | 2026-08-20 | **PRODUCT RELAY → Thinking F30 HELPER-RUNTIME-REFUSE-a** (superseded same day by F30b land → F20). Scooling F20 re-smoke **FINDINGS** after F29b [SC #311](https://github.com/aaronrene/scooling/pull/311) redeploy. Bearer + JSON contract on apex; helper still refuses. Path writes stay ON. T5 not admitted. |

@@ -24,7 +24,7 @@ import {
   withDelegationBlobSync,
 } from './delegation-blob-store.mjs';
 import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
-import { isSessionBoundActor } from '../gateway/access-token-authz.mjs';
+import { isSessionBoundActor, resolveActorTokenClass } from '../gateway/access-token-authz.mjs';
 
 /**
  * @param {import('express').Express} app
@@ -54,6 +54,23 @@ export function registerBridgeDelegationRoutes(app, deps) {
   async function vaultContext(req) {
     const hctx = await resolveHostedBridgeContext(req, req.uid);
     return hctx;
+  }
+
+  /**
+   * RHF-b-KN0 — generic Bridge grant mint rejects human session tokens before catalog/store work.
+   *
+   * @param {import('express').Request} req
+   * @returns {boolean}
+   */
+  function humanSessionTokenFromReq(req) {
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const secret = process.env.SESSION_SECRET;
+    if (!token || !secret) return false;
+    const payload = verifyJwtWithSecretRotation(token, secret, sessionSecretPrevious);
+    if (!payload) return false;
+    const tokenClass = resolveActorTokenClass(payload);
+    return tokenClass === 'session' || tokenClass === 'legacy_session';
   }
 
   /**
@@ -278,6 +295,13 @@ export function registerBridgeDelegationRoutes(app, deps) {
   });
 
   app.post('/api/v1/delegation/grants', requireBridgeAuth, async (req, res) => {
+    if (humanSessionTokenFromReq(req)) {
+      return res.status(403).json({
+        schema: 'knowtation.delegation_error/v1',
+        code: 'DELEGATION_HELPER_ACTOR_DENIED',
+        error: 'Generic grant mint is not available for session tokens',
+      });
+    }
     const hctx = await vaultContext(req);
     if (!hctx.ok) return res.status(hctx.status).json({ error: hctx.error, code: hctx.code });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
