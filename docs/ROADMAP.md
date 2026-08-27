@@ -30,7 +30,7 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
 | **Product order (Scooling)** | **RHF RETAIL-HELPER-FINISH** — Scooling RHF-a semantic round 7 + mechanical check **pass**; freeze `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. |
-| **THE ONE NEXT STEP** | **RHF-b-KN1 DELEGATION-RETAIL — Operator + Auto.** Blocked on KN0 deployed proof + operator cutover authorization. KN0 compatibility **DONE** on `feat/retail-helper-finish-b-kn0`. |
+| **THE ONE NEXT STEP** | **Operator — KN0 deploy proof**, then **RHF-b-KN1**. Scooling **RHF-b-SC** blocked on KN1 BV pass (not parallel). |
 | **Parked (not Codex)** | SEC-KN-P6-ROTATE-b R4–R5 (quiet window); SOCIAL-OPEN-RANGE-b (F7). F7 does **not** block Codex. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 

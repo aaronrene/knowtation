@@ -17,10 +17,14 @@ roadmap, no freeze review, and no build-verification gate.
 
 ### Product-order relay (2026-08-27, KN0 DONE)
 
-Scooling PRIMARY advances to **RHF-b-SC** (Scooling Auto) per product order; Knowtation **RHF-b-KN0
-COMPATIBILITY** is **DONE** (BV round 1 **`pass`**, seven-tier **17/17**). **NEXT on this board:**
-**RHF-b-KN1 DELEGATION-RETAIL** — blocked on deployed KN0 proof + operator cutover authorization.
-Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. **Paste (Scooling):**
+**Sequential order (not parallel):** (1) KN0 deploy proof **Operator** → (2) **RHF-b-KN1** this
+repo → (3) Scooling **RHF-b-SC** after KN1 BV **`pass`**.
+
+KN0 compatibility **DONE** (BV **`pass`**, seven-tier **17/17** on `feat/retail-helper-finish-b-kn0`).
+**NEXT on this board:** step 1 deploy proof, then **RHF-b-KN1** — see **NEXT SESSION** below.
+Scooling handover has the **RHF-b-SC** paste (blocked until KN1 done).
+
+Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. **Paste summary:**
 `~/scooling/docs/OVERSEER-HANDOVER-PASTE.txt`.
 
 **MuseHub (2026-08-26):** Gabriel granted AWS SSO. Deploy smoke is **queued after Scooling Codex 29** — not a Knowtation task. F7b/KD-6b wait on Gabriel until smoke passes. Relay: `~/scooling/docs/reviews/2026-08-26-musehub-aws-sso-deploy-smoke.md`.
@@ -28,17 +32,18 @@ Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. **Paste (S
 ---
 
 <!-- overseer:next role=lane_tip lane=auth status=live -->
-## NEXT SESSION — RHF-b-KN1 delegation retail (blocked)
+## NEXT SESSION — RHF-b-KN1 delegation retail (after KN0 deploy proof)
 
 **Date:** 2026-08-27  
 **Model:** **Operator + Auto**  
 **Program:** `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`  
-**Product order:** Scooling row **22b RHF-b-KN1** after **RHF-b-SC**. **Hard stop:** no candidate/marker/cutover until operator authorizes Tier 3.
+**Product order:** Step **2** after Operator KN0 deploy proof. Step **3** is Scooling **RHF-b-SC**
+(**blocked** until this phase BV **`pass`** — **not parallel**).
 
 ### THE ONE NEXT STEP — **Model: Operator + Auto**
 
-**BLOCKED** until KN0 compatibility is deployed and proof recorded, then operator authorizes
-authority-envelope cutover. Do **not** start Auto until those gates clear.
+**Start only after** KN0 compatibility is **deployed** and deploy proof is recorded. Cutover
+marker creation remains **Tier 3** operator authorization.
 
 When unblocked, build KN1 only: `DelegationAuthorityStore`, `renew-personal`, `validate`, and
 `helper-access` from the passed freeze. No Scooling edits in the KN1 session.
@@ -158,21 +163,17 @@ Authority: docs/reviews/2026-08-24-auth-lane-honesty-a.md; docs/reviews/2026-08-
 ---
 
 <!-- overseer:next role=product_relay lane=product status=live product_order=scooling tip_hash=sha256:ac529a9ce2e2b851e3d4f5f39d69cf3a841f0b1cdadf26c65c0f970c954be0fb -->
-## PRODUCT RELAY — RHF-b-KN1 (PRIMARY lives on the Scooling board)
+## PRODUCT RELAY — sequencing (Scooling board)
 
 **Date:** 2026-08-27  
-**Model:** **Operator + Auto**  
-**Ownership:** Product order wins on Scooling. Knowtation owns canonical delegation authority.  
-**Product order:** KN0 **DONE**; Scooling PRIMARY = **RHF-b-SC**; Knowtation NEXT = **RHF-b-KN1** (blocked on deploy proof + cutover authorization).
+**Order:** KN0 deploy proof → **KN1 (this repo)** → Scooling **RHF-b-SC** (blocked)  
+**Not parallel:** Scooling RHF-b-SC needs KN1 `renew-personal` + `helper-access` APIs.
 
-| | |
-| --- | --- |
-| **ID** | **RHF-b-KN1 DELEGATION-RETAIL** |
-
-### THE ONE NEXT STEP — product order — **Model: Operator + Auto**
-
-**BLOCKED** — do not start until KN0 deployed proof + operator cutover authorization. Scooling
-**RHF-b-SC** may proceed in parallel on the Scooling board.
+| Step | Repo | ID | Status |
+| --- | --- | --- | --- |
+| 1 | Knowtation | KN0 deploy proof | **Operator — NOW** |
+| 2 | Knowtation | **RHF-b-KN1** | **NEXT Auto chat** after step 1 |
+| 3 | Scooling | RHF-b-SC | **BLOCKED** until step 2 BV **`pass`** |
 
 ### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
 
