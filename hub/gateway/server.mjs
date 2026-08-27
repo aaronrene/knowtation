@@ -1486,6 +1486,18 @@ if (BRIDGE_URL) {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants' + q, req, res);
   });
+  app.post('/api/v1/delegation/grants/renew-personal', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants/renew-personal' + q, req, res);
+  });
+  app.post('/api/v1/delegation/grants/validate', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants/validate' + q, req, res);
+  });
+  app.get('/api/v1/delegation/helper-access', async (req, res) => {
+    const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/helper-access' + q, req, res);
+  });
   app.get('/api/v1/delegation/grants', async (req, res) => {
     const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
     await proxyTo(BRIDGE_URL, BRIDGE_URL + '/api/v1/delegation/grants' + q, req, res);
@@ -1886,6 +1898,12 @@ async function proxyTo(baseUrl, url, req, res) {
   if (req.headers['x-vault-id']) headers['x-vault-id'] = req.headers['x-vault-id'];
   if (req.headers['x-delegation-bearer']) {
     headers['x-delegation-bearer'] = req.headers['x-delegation-bearer'];
+  }
+  if (req.headers['x-delegation-actor']) {
+    headers['x-delegation-actor'] = req.headers['x-delegation-actor'];
+  }
+  if (req.headers['x-retail-visit']) {
+    headers['x-retail-visit'] = req.headers['x-retail-visit'];
   }
   const opts = { method: req.method, headers };
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body !== undefined) {

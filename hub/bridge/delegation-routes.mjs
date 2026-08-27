@@ -20,6 +20,16 @@ import {
 } from '../../lib/agent/delegation.mjs';
 import { createDelegationProposalOnCanister, applyApprovedDelegationProposalFromCanister } from '../../lib/agent/delegation-hosted-proposal.mjs';
 import {
+  createDelegationAuthorityStore,
+  DELEGATION_ERROR_SCHEMA,
+  DELEGATION_REQUEST_INVALID,
+  DELEGATION_SESSION_REQUIRED,
+  DELEGATION_HELPER_ACTOR_DENIED,
+  DELEGATION_AUTHORITY_CONFLICT,
+  DELEGATION_AUTHORITY_UNAVAILABLE,
+  RETAIL_ACTOR_ID,
+} from '../../lib/agent/delegation-authority-store.mjs';
+import {
   hydrateDelegationStoresFromBlob,
   withDelegationBlobSync,
 } from './delegation-blob-store.mjs';
@@ -71,6 +81,53 @@ export function registerBridgeDelegationRoutes(app, deps) {
     if (!payload) return false;
     const tokenClass = resolveActorTokenClass(payload);
     return tokenClass === 'session' || tokenClass === 'legacy_session';
+  }
+
+  /**
+   * RHF-b-KN1 — renew-personal / helper-access / validate accept only type:session.
+   *
+   * @param {import('express').Request} req
+   * @returns {{ ok: true, payload: object } | { ok: false, status: number, code: string, error: string }}
+   */
+  function requireStrictSessionToken(req) {
+    const auth = req.headers.authorization;
+    const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const secret = process.env.SESSION_SECRET;
+    if (!token || !secret) {
+      return { ok: false, status: 401, code: DELEGATION_SESSION_REQUIRED, error: 'Session required' };
+    }
+    const payload = verifyJwtWithSecretRotation(token, secret, sessionSecretPrevious);
+    if (!payload || resolveActorTokenClass(payload) !== 'session') {
+      return { ok: false, status: 401, code: DELEGATION_SESSION_REQUIRED, error: 'Session required' };
+    }
+    return { ok: true, payload };
+  }
+
+  /**
+   * @param {import('express').Response} res
+   * @param {{ status: number, code: string, error?: string }} result
+   */
+  function sendDelegationError(res, result) {
+    return res.status(result.status).json({
+      schema: DELEGATION_ERROR_SCHEMA,
+      code: result.code,
+      error: result.error || result.code,
+    });
+  }
+
+  /**
+   * @param {import('express').Request} req
+   * @param {string} vaultId
+   */
+  function authorityStoreFor(req, vaultId) {
+    return createDelegationAuthorityStore({
+      dataDir,
+      vaultId,
+      blobStore: blobStoreFromReq(req),
+      sessionSecret: process.env.SESSION_SECRET || '',
+      sessionSecretPrevious,
+      operatorAuthorizedMarker: false,
+    });
   }
 
   /**
@@ -395,5 +452,146 @@ export function registerBridgeDelegationRoutes(app, deps) {
       return res.status(result.status).json({ error: result.error, code: result.code });
     }
     return res.status(201).json(result.payload);
+  });
+
+  /**
+   * @param {unknown} hctx
+   * @returns {{ status: number, code: string, error: string }}
+   */
+  function mapVaultDenial(hctx) {
+    const status = typeof hctx?.status === 'number' ? hctx.status : 503;
+    if (status === 401) {
+      return { status: 401, code: DELEGATION_SESSION_REQUIRED, error: 'Session required' };
+    }
+    if (status === 403) {
+      return { status: 403, code: DELEGATION_HELPER_ACTOR_DENIED, error: 'Helper actor denied' };
+    }
+    if (status === 409) {
+      return { status: 409, code: DELEGATION_AUTHORITY_CONFLICT, error: 'Authority conflict' };
+    }
+    return {
+      status: 503,
+      code: DELEGATION_AUTHORITY_UNAVAILABLE,
+      error: 'Authority unavailable',
+    };
+  }
+
+  /**
+   * Session-first auth for KN1 retail routes (allowlisted 401 before bridge UNAUTHORIZED).
+   *
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   */
+  function requireRetailSession(req, res, next) {
+    const session = requireStrictSessionToken(req);
+    if (!session.ok) return sendDelegationError(res, session);
+    const sub = typeof session.payload.sub === 'string' ? session.payload.sub.trim() : '';
+    if (!sub) {
+      return sendDelegationError(res, {
+        status: 401,
+        code: DELEGATION_SESSION_REQUIRED,
+        error: 'Session required',
+      });
+    }
+    req.uid = sub;
+    return next();
+  }
+
+  /**
+   * @param {import('express').Response} res
+   * @param {unknown} err
+   */
+  function sendAuthorityUnavailable(res, err) {
+    console.error('[bridge] delegation authority route error', {
+      code: DELEGATION_AUTHORITY_UNAVAILABLE,
+      message: err && typeof err === 'object' && 'message' in err ? String(err.message) : 'error',
+    });
+    return res.status(503).json({
+      schema: DELEGATION_ERROR_SCHEMA,
+      code: DELEGATION_AUTHORITY_UNAVAILABLE,
+      error: 'Authority unavailable',
+    });
+  }
+
+  // --- RHF-b-KN1 retail authority routes (session-only; envelope CAS) ---
+
+  app.post('/api/v1/delegation/grants/renew-personal', requireRetailSession, async (req, res) => {
+    const hctx = await vaultContext(req);
+    if (!hctx.ok) return sendDelegationError(res, mapVaultDenial(hctx));
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const actor =
+      typeof body.actor_agent_id === 'string' ? body.actor_agent_id.trim() : RETAIL_ACTOR_ID;
+    if (actor !== RETAIL_ACTOR_ID) {
+      return sendDelegationError(res, {
+        status: 403,
+        code: DELEGATION_HELPER_ACTOR_DENIED,
+        error: 'Helper actor denied',
+      });
+    }
+    try {
+      const store = authorityStoreFor(req, hctx.vaultId);
+      const result = await store.renewPersonal(req.uid, actor);
+      if (!result.ok) return sendDelegationError(res, result);
+      res.set('Cache-Control', 'no-store');
+      return res.status(201).json(result.payload);
+    } catch (err) {
+      return sendAuthorityUnavailable(res, err);
+    }
+  });
+
+  app.post('/api/v1/delegation/grants/validate', requireRetailSession, async (req, res) => {
+    const hctx = await vaultContext(req);
+    if (!hctx.ok) return sendDelegationError(res, mapVaultDenial(hctx));
+    const bearerHeader = req.headers['x-delegation-bearer'];
+    const actorHeader = req.headers['x-delegation-actor'];
+    const visitHeader = req.headers['x-retail-visit'];
+    const bearer = typeof bearerHeader === 'string' ? bearerHeader.trim() : '';
+    const actor = typeof actorHeader === 'string' ? actorHeader.trim() : '';
+    const visitHandle = typeof visitHeader === 'string' ? visitHeader.trim() : '';
+    if (!bearer || !actor || !visitHandle) {
+      return sendDelegationError(res, {
+        status: 400,
+        code: DELEGATION_REQUEST_INVALID,
+        error: 'Invalid validation request',
+      });
+    }
+    try {
+      const store = authorityStoreFor(req, hctx.vaultId);
+      const result = await store.validateAndConsume({
+        uid: req.uid,
+        bearer,
+        actorId: actor,
+        visitHandle,
+      });
+      if (!result.ok) return sendDelegationError(res, result);
+      res.set('Cache-Control', 'no-store');
+      return res.status(200).json(result.payload);
+    } catch (err) {
+      return sendAuthorityUnavailable(res, err);
+    }
+  });
+
+  app.get('/api/v1/delegation/helper-access', requireRetailSession, async (req, res) => {
+    const hctx = await vaultContext(req);
+    if (!hctx.ok) return sendDelegationError(res, mapVaultDenial(hctx));
+    const actor =
+      typeof req.query.actor_agent_id === 'string' ? req.query.actor_agent_id.trim() : '';
+    if (!actor) {
+      return sendDelegationError(res, {
+        status: 400,
+        code: DELEGATION_REQUEST_INVALID,
+        error: 'actor_agent_id required',
+      });
+    }
+    try {
+      const store = authorityStoreFor(req, hctx.vaultId);
+      const result = await store.readHelperAccess(req.uid, actor);
+      if (!result.ok) return sendDelegationError(res, result);
+      res.set('Cache-Control', 'no-store');
+      return res.status(200).json(result.payload);
+    } catch (err) {
+      return sendAuthorityUnavailable(res, err);
+    }
   });
 }
