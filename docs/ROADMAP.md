@@ -22,15 +22,16 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-24)
+## Current status (2026-08-27)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
-| **THE ONE NEXT STEP** | **Auto KN-AUTH-LANE-D-b** — implement `docs/KN-AUTH-LANE-D-FREEZE.md` only (freeze-review **pass**, digest `sha256:e5c48a8fa0e80a61b2fd1505d7b7a857db94c904c3107eafc51d95b62e59f972`). Product order sibling: Scooling **F28a** (session-bound Helpers reads — do not JWT-paste Netlify). Lock: `~/scooling/docs/reviews/2026-08-24-auth-lane-honesty.md`. No Scooling edits. No unscoped API keys. No live revoke. T5 **not** admitted. Do not Auto BRAIN-PAIR-b. |
-| **Parked** | SEC-KN-P6-ROTATE-b R4–R5 (hygiene); MuseHub F7 (AWS, parallel); BRAIN-PAIR-b; SOCIAL-OPEN-RANGE-b (F7+3G). |
+| **Product order (Scooling)** | **RHF RETAIL-HELPER-FINISH** — Scooling RHF-a semantic round 7 + mechanical check **pass**; freeze `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. |
+| **THE ONE NEXT STEP** | **RHF-b-KN1 DELEGATION-RETAIL — Operator + Auto.** Blocked on KN0 deployed proof + operator cutover authorization. KN0 compatibility **DONE** on `feat/retail-helper-finish-b-kn0`. |
+| **Parked (not Codex)** | SEC-KN-P6-ROTATE-b R4–R5 (quiet window); SOCIAL-OPEN-RANGE-b (F7). F7 does **not** block Codex. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 
 ## Build queue
@@ -73,7 +74,14 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **KN-WORK-PATH-LIST-a** | **Thinking** | **DONE 2026-08-18** — freeze-review **pass** (`sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`) | **Path persist + list/get freeze.** Artifact `docs/KN-WORK-PATH-LIST-FREEZE.md`. Dedicated `learning_paths[]` in `hub_flow_store.json`; list/get REST; Review-before-write persist gated `PATH_WRITES_ENABLED` default off. No Scooling harvest. No Home bind. No Live. Source: Scooling F14 + F13 BV pass + AGENT-WORK-CHAT-HOME-BIND park. |
 | **KN-WORK-PATH-LIST-b** | **Auto** | **DONE + landed 2026-08-18**; write env **ON 2026-08-19** (Netlify `PATH_WRITES_ENABLED=1` gateway+bridge; T5 not admitted). BV round 1 = **`pass`**; seven-tier **44/44**; GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff` | List/get REST; gated propose/apply. Hosted `maybeApplyHostedPathAfterApprove`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
 | **KN-AUTH-LANE-D-a** | **Thinking** | **DONE 2026-08-24** — freeze-review **pass** (rounds 1–3 findings; round 4 + `ok review --freeze` **pass**; digest `sha256:e5c48a8fa0e80a61b2fd1505d7b7a857db94c904c3107eafc51d95b62e59f972`) | **Machine lane reliability freeze.** Hub health fields; isolate `kt_agent_` from `ktn_refresh` / `gateway-auth`; no silent mass-invalidate; 503 must not 401 robots; one automation path. Artifact: `docs/KN-AUTH-LANE-D-FREEZE.md`. No Auto in this tip. No live revoke. Sibling Scooling F28 = human session reads. |
-| **KN-AUTH-LANE-D-b** | **Auto** | **PRIMARY 2026-08-24** — ready after D-a **pass** | Implement freeze only. Health + isolation + banner + docs. Seven-tier + BV **pass** before DONE. No Scooling edits. No unscoped API keys. No live revoke/wipe. |
+| **KN-AUTH-LANE-D-b** | **Auto** | **DONE + landed 2026-08-24** — BV r1 **pass**; Muse FF → GitHub [PR #306](https://github.com/aaronrene/knowtation/pull/306) `@1d6eec39`. **Propose-path hotfix** landed same day (`getUserId` → `effectiveRequestPath`; tests **37/37**). Evidence: `docs/reviews/2026-08-24-kn-auth-lane-d-b-land.md`, `docs/reviews/2026-08-24-kn-auth-lane-d-propose-path-fix-land.md`. |
+| **AIP-a** | **Thinking** | **DONE 2026-08-24** — freeze-review **pass** (rounds 1–2 findings; round 3 + `ok review --freeze` + `ok check-ok --path` **pass**; digest `sha256:9fded978386543865225f5cc2bc0f04f09e777f8de96a56ef5d516c995a2793c`) | **Per-account ingest rules freeze.** Artifact `docs/AUTOMATION-INGEST-POLICY-FREEZE.md`. First-match router; `ingest:automation`; `POST api/v1/automation/ingest`; Born Free pack disabled; REST-only v1. No routes in Thinking. No Scooling edits. VideoFactory wire = AIP-c. |
+| **AIP-b** | **Auto** | **DONE + landed 2026-08-24** — BV r1 **pass**; seven-tier **26/26**; Muse FF → GitHub [PR #308](https://github.com/aaronrene/knowtation/pull/308) `@e9300f2`. Evidence: `docs/reviews/2026-08-24-automation-ingest-policy-b-land.md`. | Router + `POST api/v1/automation/ingest` + session CRUD + disabled Born Free pack + Research filter. No Scooling. No pack enable. Production smoke = Operator T2. No E1/T5 edits. |
+| **RHF-b-KN0 COMPATIBILITY** | **Auto** | **DONE 2026-08-27** — BV round 1 = **`pass`** (`docs/reviews/2026-08-27-rhf-b-kn0-bv-round1-pass.md`); seven-tier **17/17** (`test/rhf-b-kn0-compatibility.test.mjs`, test_output `sha256:1955887c…`); branch `feat/retail-helper-finish-b-kn0`; **not merged to main** | Generic Bridge `POST api/v1/delegation/grants` rejects `session` + `legacy_session` before vault/catalog work; immutable `TRUSTED_EXTERNAL_PROVIDER_IDENTITIES` exposes frozen `agent_codex_retail`; marker-aware compatibility reader (legacy without marker, 503 on invalid/missing envelope); reserved id 409 on propose/apply; related delegation suites **79/79**. No candidate/marker/cutover/deploy/live mutation. |
+| **RHF-b-KN1 DELEGATION-RETAIL** | **Operator + Auto** | **BLOCKED on KN0 BV + deployed proof + cutover authorization** | Transactional authority envelope and personal renewal/eligibility/validation from the passed Scooling freeze. Candidate/marker cutover is Tier 3. |
+| **CODEX-HUB-ACTOR** | **Operator + Auto** | **SUPERSEDED by RHF-b-KN0/KN1 + RHF-d** | Do not register a mutable per-vault smoke actor or mint a terminal grant. Retail actor is immutable reserved catalog; later RHF-d verifies it and establishes reviewed smoke consent only. |
+| **CODEX-HUB-GRANT-UI** | **Thinking → Auto** | **SUPERSEDED by passed RHF freeze** | Personal server renewal and Settings eligibility are specified by RHF-b; generic mint remains privileged. |
+| **CODEX-HUB-FLOW-PROPOSAL** | **Thinking → Auto** | **QUEUED** | Codex Flow/Path output is a proposal only (Scooling row 31). Never silent apply. |
 
 > **Hub UI redesign** is a **separate lane** — see [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md) + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md). It must not alter this board's product NEXT. (HUB-DASH-IA landed 2026-07-31 via muse-mirror PR #286.)
 
