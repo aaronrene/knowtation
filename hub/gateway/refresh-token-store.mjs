@@ -86,13 +86,24 @@ function normalizeRecords(raw) {
 
 async function readFromBlob() {
   const store = getBlobStore();
-  const raw = await store.get(BLOB_KEY, { type: 'json' });
-  return normalizeRecords(raw);
+  try {
+    const raw = await store.get(BLOB_KEY, { type: 'json' });
+    return normalizeRecords(raw);
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    throw new Error(`gateway-auth blob get ${BLOB_KEY} failed: ${msg}`);
+  }
 }
 
 async function writeToBlob(records) {
   const store = getBlobStore();
-  await store.setJSON(BLOB_KEY, { tokens: records || {} });
+  try {
+    await store.setJSON(BLOB_KEY, { tokens: records || {} });
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    const n = records && typeof records === 'object' ? Object.keys(records).length : 0;
+    throw new Error(`gateway-auth blob setJSON ${BLOB_KEY} failed (n=${n}): ${msg}`);
+  }
 }
 
 async function readFromFile() {
