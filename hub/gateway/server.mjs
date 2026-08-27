@@ -408,8 +408,10 @@ app.use((req, res, next) => {
 // Persistent sessions (refresh-token rotation), hosted edition. On the persistent MCP host
 // (non-Netlify) use strong-consistency file backend — required for MCP OAuth refresh and shared
 // with native OAuth. Netlify web cookies keep the eventual blob path via createGatewayRefreshStore().
+// Detect Lambda runtime too: Netlify Functions often omit NETLIFY=true at runtime (see bridge.mjs);
+// wrong strong/file choice caused mkdir '/var/task/data' ENOENT while auth blob was provisioned.
 const refreshStore = createGatewayRefreshStore(
-  process.env.NETLIFY ? {} : { consistency: 'strong' }
+  process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME ? {} : { consistency: 'strong' }
 );
 
 /**

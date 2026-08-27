@@ -220,7 +220,9 @@ export async function pruneRefreshTokens(opts = {}) {
  * @param {{ consistency?: 'strong' | 'eventual' }} [opts]
  *   - `strong` — **always** use the local JSON file backend (read-after-write). Required for
  *     MCP OAuth refresh on the persistent MCP host. Prohibits the Netlify blob path even if
- *     `globalThis.__knowtation_gateway_auth_blob` is set (blob is eventual; ≤60s reuse lag).
+ *     `globalThis.__knowtation_gateway_auth_blob` is set (blob is eventual; ≤60s reuse lag),
+ *     **except** on AWS Lambda (`AWS_LAMBDA_FUNCTION_NAME`) where the FS is read-only — then
+ *     the provisioned blob must be used (Netlify Functions may omit `NETLIFY=true` at runtime).
  *   - omit / `eventual` — blob when provisioned (Netlify web refresh cookies), else file.
  * @returns {{
  *   issue: Function,
@@ -234,13 +236,21 @@ export function createGatewayRefreshStore(opts = {}) {
   const consistency = opts.consistency === 'strong' ? 'strong' : 'eventual';
   const forceFile = consistency === 'strong';
 
+  function preferBlob() {
+    if (!getBlobStore()) return false;
+    if (!forceFile) return true;
+    // Hotfix: strong was chosen because NETLIFY was unset at module init, but we are on
+    // Lambda with a live auth blob — never fall back to mkdir /var/task/data.
+    return Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+  }
+
   async function load() {
-    if (!forceFile && getBlobStore()) return readFromBlob();
+    if (preferBlob()) return readFromBlob();
     return readFromFile();
   }
 
   async function save(records) {
-    if (!forceFile && getBlobStore()) {
+    if (preferBlob()) {
       await writeToBlob(records);
       return;
     }
