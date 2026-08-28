@@ -15,48 +15,54 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-28, RHF-f1 LANDED)
+### Product-order relay (2026-08-28, helper-access fix DONE)
 
-**Knowtation RHF-d + RHF-f1 land complete:** catalog/consent evidence on Muse `main` →
-[PR #314](https://github.com/aaronrene/knowtation/pull/314) `@525b914`. Scooling RHF-b-SC+RHF-c
-via [#334](https://github.com/aaronrene/scooling/pull/334). **No production marker.**
-**No** `MY_WORK_CODEX_ENABLED` flip.
+**Knowtation helper-access Lambda fix:** BV **pass**; land + bridge redeploy this tip.
+Business authority marker already active (`lineage_lymik9fcy353fuo`).
 
-**Scooling product order wins:** Product NEXT = **RHF-e** (fresh-browser smoke on `https://scool.ing`
-after deploy + spend auth) → **RHF-f2** closeout.
+**Scooling product order wins:** NEXT = **resume RHF-e smoke** (Settings fold ≠
+`unavailable`) → finish smoke → RHF-f2. **No** RHF-e DONE until evidence pass. Spend 0/5.
 
 Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`.
-Land evidence: `docs/reviews/2026-08-28-rhf-f1-land.md`.
+Smoke evidence: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md`.
+Fix evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md`.
 
 ---
 
-## NEXT SESSION — RHF-e RETAIL-SMOKE (product order)
+## NEXT SESSION — Resume RHF-e smoke (Scooling)
 
 **Date:** 2026-08-28  
 **Model:** **Operator + Auto** (Scooling chat — product board)  
-**This board:** Knowtation RHF-d + f1 land **DONE**. Paste from **Scooling** handover.
+**This board:** helper-access fix **DONE**. Paste from **Scooling** handover.
 
 ### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in **Scooling** chat)
 
 ```text
-RHF-e RETAIL-SMOKE (Operator + Auto)
+RHF-e RETAIL-SMOKE resume (Operator + Auto)
 
-Fresh-browser production smoke on https://scool.ing after RHF-f1 land + deploy.
+Knowtation helper-access Lambda fix landed + bridge redeployed.
+Confirm Settings helperAccessState ∈ ready|renewable|consent_required
+(not unavailable). Then finish production smoke checks 2–7, 9.
 
-See ~/scooling/docs/OVERSEER-HANDOVER.md for the full paste-ready fence.
-
-Do NOT activate Knowtation production authority marker without Tier-3 auth.
-Do NOT flip MY_WORK_CODEX_ENABLED or spend on Codex without explicit spend authorization.
+Spend still 0/5 until spend auth. No RHF-e DONE without evidence pass.
 
 Model: Operator + Auto
-Authority: scooling/docs/reviews/2026-08-27-retail-helper-finish.md row 25
+Repo: scooling
+Authority: docs/reviews/2026-08-27-retail-helper-finish.md row 25
+Evidence: docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md
 ```
 
-### This session — RHF-f1 Knowtation land **DONE** (2026-08-28)
+### This session — helper-access Lambda fix **DONE** (2026-08-28)
+
+Root cause: Netlify Blobs `consistency: 'strong'` under Lambda → `BlobsConsistencyError`
+→ helper-access 503. Fix: `authorityBlobGetOpts()`. Seven-tier **25/25**; BV round 1
+**pass**. Evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md` +
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix-bv-round1.md`.
+
+### Archived — RHF-f1 Knowtation land **DONE** (2026-08-28)
 
 Muse `sha256:bfb78d35…` RHF-d evidence → muse-mirror → [PR #314](https://github.com/aaronrene/knowtation/pull/314)
-`@525b914`. Docs/script only; gateway+bridge still KN1 retail. **No** marker. Evidence:
-`docs/reviews/2026-08-28-rhf-f1-land.md` + `docs/reviews/2026-08-27-rhf-d-catalog-consent.md`.
+`@525b914`. Docs/script only; gateway+bridge still KN1 retail.
 
 ### Archived — SD-21 land RHF-b-KN1 **DONE** (2026-08-27)
 

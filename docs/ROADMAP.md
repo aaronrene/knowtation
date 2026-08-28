@@ -22,15 +22,15 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-27)
+## Current status (2026-08-28)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
-| **Product order (Scooling)** | **RHF RETAIL-HELPER-FINISH** — RHF-f1 **LANDED** 2026-08-28 (Scooling [#334](https://github.com/aaronrene/scooling/pull/334); Knowtation [#314](https://github.com/aaronrene/knowtation/pull/314)). Freeze `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. |
-| **THE ONE NEXT STEP** | **Scooling RHF-e** (fresh-browser smoke — separate chat). RHF-d evidence landed; **no** production marker; **no** Codex spend until spend auth. |
+| **Product order (Scooling)** | **RHF RETAIL-HELPER-FINISH** — helper-access Lambda fix **DONE** (this tip). Freeze `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. |
+| **THE ONE NEXT STEP** | **Scooling RHF-e resume** — Settings fold ≠ `unavailable`; then finish smoke. **No** RHF-e DONE until evidence pass. Spend 0/5. |
 | **Parked (not Codex)** | SEC-KN-P6-ROTATE-b R4–R5 (quiet window); SOCIAL-OPEN-RANGE-b (F7). F7 does **not** block Codex. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 
@@ -80,6 +80,7 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **RHF-b-KN0 COMPATIBILITY** | **Auto** | **DONE 2026-08-27** — BV round 1 = **`pass`** (`docs/reviews/2026-08-27-rhf-b-kn0-bv-round1-pass.md`); seven-tier **17/17**; landed Muse/`main` → GitHub muse-mirror [PR #309](https://github.com/aaronrene/knowtation/pull/309) | Generic Bridge `POST api/v1/delegation/grants` rejects `session` + `legacy_session` before vault/catalog work; immutable catalog + marker-aware compatibility reader. |
 | **RHF-b-KN0 deploy proof** | **Operator** | **PASS 2026-08-27** — `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`; `type:session` → **403** `DELEGATION_HELPER_ACTOR_DENIED`; `legacy_session` probe **SKIP** (no local secret) | KN1 unblocked. Optional: re-probe `legacy_session` with local `KNOWTATION_SESSION_SECRET`. |
 | **RHF-b-KN1 DELEGATION-RETAIL** | **Operator + Auto** | **DONE + LANDED 2026-08-27** — BV round 3 **`pass`**; Muse FF → GitHub [PR #313](https://github.com/aaronrene/knowtation/pull/313) `@8df71bc`; gateway+bridge redeployed | CAS store + renew/validate/helper-access live. **No** production marker. Evidence: `docs/reviews/2026-08-27-rhf-b-kn1-land.md`. |
+| **RHF-e helper-access Lambda fix** | **Auto** | **DONE 2026-08-28** — BV round 1 **`pass`**; seven-tier **25/25**; land SD-21 this tip | `authorityBlobGetOpts()` — eventual on Netlify Lambda (no `BlobsConsistencyError`); strong on persistent hosts. Evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md` + BV. **Not** RHF-e DONE. |
 | **CODEX-HUB-ACTOR** | **Operator + Auto** | **SUPERSEDED by RHF-b-KN0/KN1 + RHF-d** | Do not register a mutable per-vault smoke actor or mint a terminal grant. Retail actor is immutable reserved catalog; later RHF-d verifies it and establishes reviewed smoke consent only. |
 | **CODEX-HUB-GRANT-UI** | **Thinking → Auto** | **SUPERSEDED by passed RHF freeze** | Personal server renewal and Settings eligibility are specified by RHF-b; generic mint remains privileged. |
 | **CODEX-HUB-FLOW-PROPOSAL** | **Thinking → Auto** | **QUEUED** | Codex Flow/Path output is a proposal only (Scooling row 31). Never silent apply. |
