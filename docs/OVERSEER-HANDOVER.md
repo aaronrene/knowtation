@@ -15,26 +15,71 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-27, RHF-b-KN1 BV pass)
+### Product-order relay (2026-08-27, RHF-b-KN1 LANDED)
 
-**Sequential order:** (1) KN0 deploy proof **PASS** → (2) **RHF-b-KN1 DONE** (BV round 3
-`**pass`**, seven-tier **23/23**) → (3) **Land KN1** → (4) Scooling **RHF-b-SC** (unblocked).
+**Order complete through KN1 land:** KN0 deploy proof **PASS** → KN1 BV **`pass`** → Muse/`main`
+→ [PR #313](https://github.com/aaronrene/knowtation/pull/313) `@8df71bc` → gateway+bridge prod.
+**No production marker.** Product NEXT = Scooling **RHF-b-SC**.
 
 Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`.
 
-**MuseHub (2026-08-26):** Gabriel granted AWS SSO. Deploy smoke is **queued after Scooling Codex 29** — not a Knowtation task. F7b/KD-6b wait on Gabriel until smoke passes. Relay: `~/scooling/docs/reviews/2026-08-26-musehub-aws-sso-deploy-smoke.md`.
-
 ---
 
-## NEXT SESSION — Land RHF-b-KN1 (then Scooling RHF-b-SC)
+## NEXT SESSION — Scooling RHF-b-SC (product order)
+
+**Date:** 2026-08-27  
+**Model:** **Auto** (Scooling chat)  
+**This board:** Knowtation KN1 land **DONE**. No further Knowtation code until RHF-d / cutover Tier 3.
+
+### THE ONE NEXT STEP — **Model: Auto** (paste in **Scooling** chat)
+
+```text
+RHF-b-SC DELEGATION-RETAIL (Auto)
+
+Implement only Scooling RHF-b-SC from the passed freeze:
+scooling/docs/reviews/2026-08-27-retail-helper-finish.md § RHF-b-SC.
+
+Required:
+1. mintCodexShimGrantBearer calls only renew-personal with server-fixed agent_codex_retail.
+2. Bearer server-only in Remix action/transport; never in browser state, cookies, or logs.
+3. Typed next_helper_delegation + exact Helper settings copy/link (https://scool.ing/settings/delegation).
+4. Settings helperAccessState fold (ready / renewable / consent_required / unavailable) + enable_helper action.
+5. requireSameOriginMutation on Home/Work/Settings mutation actions per freeze.
+6. Seven-tier tests + independent /build-verification-review pass before DONE.
+7. Update Scooling ROADMAP + OVERSEER-HANDOVER together; commit on feature branch.
+
+Prerequisite: Knowtation RHF-b-KN1 landed + deployed (renew-personal + helper-access live).
+
+Do not build RHF-c visit orchestration, deploy, flip MY_WORK_CODEX_ENABLED, or spend on Codex.
+Do not activate Knowtation production authority marker.
+
+Model: Auto
+Branch: feat/retail-helper-finish-b-sc
+```
+
+### This session — SD-21 land RHF-b-KN1 **DONE** (2026-08-27)
+
+Muse FF `feat/retail-helper-finish-b-kn1` → `main` `sha256:354ec7b7…`. muse-bridge → GitHub
+[PR #313](https://github.com/aaronrene/knowtation/pull/313) merge `@8df71bc`. Netlify gateway +
+bridge production ready on that SHA. Live unauthenticated renew/helper-access → 401
+`DELEGATION_SESSION_REQUIRED`. **No** `RHF_AUTHORITY_MARKER_AUTHORIZED`. Evidence:
+`docs/reviews/2026-08-27-rhf-b-kn1-land.md`.
+
+### Archived — Land RHF-b-KN1 paste (completed)
+
+```text
+Step: Land RHF-b-KN1 (SD-21)
+…
+```
+
+## NEXT SESSION — Land RHF-b-KN1 (ARCHIVED — DONE)
 
 **Date:** 2026-08-27  
 **Model:** **Operator + Auto** (SD-21 land hygiene)  
 **Program:** `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`  
-**Product order:** KN1 code **DONE**. Scooling **RHF-b-SC** unblocked after land (or local API
-wiring against this feature branch).
+**Product order:** KN1 code **DONE**. Scooling **RHF-b-SC** unblocked after land.
 
-### THE ONE NEXT STEP — **Model: Operator + Auto**
+### THE ONE NEXT STEP — **Model: Operator + Auto** (archived)
 
 ```text
 Step: Land RHF-b-KN1 (SD-21)
