@@ -233,6 +233,9 @@ describe('RHF-b-KN1 — integration', () => {
     assert.equal(mint.ok, true);
     assert.equal(mint.payload.schema, 'knowtation.delegation_grant_mint/v0');
     assert.ok(mint.payload.bearer);
+    assert.equal(mint.payload.grant.audit_sequence, undefined);
+    assert.equal(mint.payload.grant.pending_audit_count, undefined);
+    assert.equal(mint.payload.grant.last_materialized_audit_sequence, undefined);
     const ready = await store2.readHelperAccess(TEST_UID, RETAIL_ACTOR_ID);
     assert.equal(ready.payload.state, 'ready');
   });

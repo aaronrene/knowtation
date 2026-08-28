@@ -17,7 +17,8 @@ roadmap, no freeze review, and no build-verification gate.
 
 ### Product-order relay (2026-08-28, helper-access fix DONE)
 
-**Knowtation helper-access Lambda fix:** BV **pass**; land + bridge redeploy this tip.
+**Knowtation helper-access Lambda fix:** BV **pass**; Muse → [PR #316](https://github.com/aaronrene/knowtation/pull/316)
+`@e878b878`; gateway+bridge production ready; authenticated helper-access → **200** `renewable`.
 Business authority marker already active (`lineage_lymik9fcy353fuo`).
 
 **Scooling product order wins:** NEXT = **resume RHF-e smoke** (Settings fold ≠
@@ -40,7 +41,8 @@ Fix evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md`.
 ```text
 RHF-e RETAIL-SMOKE resume (Operator + Auto)
 
-Knowtation helper-access Lambda fix landed + bridge redeployed.
+Knowtation helper-access Lambda fix landed ([PR #316](https://github.com/aaronrene/knowtation/pull/316) `@e878b878`)
++ bridge redeployed. Prod probe: helper-access **200** `renewable`.
 Confirm Settings helperAccessState ∈ ready|renewable|consent_required
 (not unavailable). Then finish production smoke checks 2–7, 9.
 
@@ -52,12 +54,15 @@ Authority: docs/reviews/2026-08-27-retail-helper-finish.md row 25
 Evidence: docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md
 ```
 
-### This session — helper-access Lambda fix **DONE** (2026-08-28)
+### This session — helper-access Lambda fix **DONE + LANDED** (2026-08-28)
 
 Root cause: Netlify Blobs `consistency: 'strong'` under Lambda → `BlobsConsistencyError`
 → helper-access 503. Fix: `authorityBlobGetOpts()`. Seven-tier **25/25**; BV round 1
-**pass**. Evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md` +
-`docs/reviews/2026-08-28-rhf-e-helper-access-fix-bv-round1.md`.
+**pass**. Land: Muse `sha256:78979467…` → [PR #316](https://github.com/aaronrene/knowtation/pull/316)
+`@e878b878`; prod **200** `renewable`. Evidence:
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix.md` +
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix-bv-round1.md` +
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix-land.md`.
 
 ### Archived — RHF-f1 Knowtation land **DONE** (2026-08-28)
 
