@@ -19,44 +19,47 @@ roadmap, no freeze review, and no build-verification gate.
 
 **Knowtation RHF-d complete:** catalog `agent_codex_retail` verified on prod; Business vault
 personal consent active via reviewed proposal workflow. Evidence:
-`docs/reviews/2026-08-27-rhf-d-catalog-consent.md`. **No production marker.** Product NEXT =
-Scooling **RHF-c** (or **RHF-b-SC** if not yet DONE — see `~/scooling/docs/OVERSEER-HANDOVER.md`).
+`docs/reviews/2026-08-27-rhf-d-catalog-consent.md`. **No production marker.**
+
+**Scooling product order wins** (`~/scooling/docs/OVERSEER-HANDOVER.md`): RHF-b-SC **DONE**,
+RHF-c **DONE**, RHF-d **DONE**. Product NEXT = **RHF-f1** (pre-smoke land + deploy), then
+**RHF-e** (fresh-browser smoke on `https://scool.ing`), then **RHF-f2** closeout.
 
 Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`.
 
 ---
 
-## NEXT SESSION — Scooling RHF-c (product order)
+## NEXT SESSION — RHF-f1 PRE-SMOKE LAND (product order)
 
 **Date:** 2026-08-28  
-**Model:** **Auto** (Scooling chat)  
-**This board:** Knowtation **RHF-d DONE**. No further Knowtation work until authority-marker Tier 3.
+**Model:** **Operator + Auto** (cross-repo land)  
+**This board:** Knowtation **RHF-d DONE**. Paste from **Scooling** handover (product authority).
 
-### THE ONE NEXT STEP — **Model: Auto** (paste in **Scooling** chat)
+### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in **Scooling** chat — product board)
 
 ```text
-RHF-c RETAIL-CODEX-VISIT (Auto)
+RHF-f1 PRE-SMOKE LAND (Operator + Auto)
 
-Implement only Scooling RHF-c from the passed freeze:
-scooling/docs/reviews/2026-08-27-retail-helper-finish.md § RHF-c.
+Land + deploy all reviewed retail-helper code before smoke.
 
-Prerequisites:
-- Knowtation RHF-b-KN1 landed + deployed (renew-personal + helper-access routes).
-- Knowtation RHF-d DONE — catalog agent_codex_retail verified; Business vault personal consent active
-  (evidence: knowtation/docs/reviews/2026-08-27-rhf-d-catalog-consent.md).
-- Scooling RHF-b-SC DONE (renew-personal adapter + Settings helper-access fold).
+Prerequisites (all DONE):
+- Knowtation KN0 / KN1 landed + deployed
+- Scooling RHF-b-SC DONE (BV pass)
+- Scooling RHF-c DONE (BV pass)
+- Knowtation RHF-d DONE — catalog + Business personal consent
+  (knowtation/docs/reviews/2026-08-27-rhf-d-catalog-consent.md)
 
 Required:
-1. runRetailCodexHelperTurn shared Home/Work orchestration (async visit protocol).
-2. No signed-in Groq fallback when MY_WORK_CODEX_ENABLED is false/absent/malformed.
-3. Runner visit facade only; no browser-supplied authority headers.
-4. Seven-tier tests + independent /build-verification-review pass before DONE.
-5. Update Scooling ROADMAP + OVERSEER-HANDOVER together; commit on feature branch.
+1. Muse-first land of remaining feature tips (Scooling RHF-b-SC + RHF-c; Knowtation RHF-d docs/script).
+2. muse-bridge → GitHub muse-mirror → main (SD-14); redeploy gateway/bridge/site as needed.
+3. Do NOT activate Knowtation production authority marker without Tier-3 auth.
+4. Do NOT flip MY_WORK_CODEX_ENABLED or spend on Codex until RHF-e spend authorization.
+5. Update both ROADMAP + OVERSEER-HANDOVER docs; evidence land notes.
 
-Do not flip MY_WORK_CODEX_ENABLED, spend on Codex, or activate Knowtation production marker.
+Then: RHF-e fresh-browser smoke on https://scool.ing → RHF-f2 closeout.
 
-Model: Auto
-Branch: feat/retail-helper-finish-c
+Model: Operator + Auto
+Authority: scooling/docs/reviews/2026-08-27-retail-helper-finish.md rows 26a / 25 / 26b
 ```
 
 ### This session — RHF-d CODEX-HUB-ACTOR **DONE** (2026-08-28)
