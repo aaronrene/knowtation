@@ -66,16 +66,116 @@
   }
 
   /** After OAuth, mint HttpOnly refresh cookie when redirect Set-Cookie is missing (Netlify). */
-  async function establishPersistentSession(accessToken) {
-    if (!accessToken) return;
+  const SESSION_DURABILITY_WARN_KEY = 'hub_session_durability_warn';
+  const SESSION_DURABILITY_WARN_COPY =
+    'This session could not be made durable; sign in again before it expires.';
+  let _sessionDurabilityUiReady = false;
+
+  function showSessionDurabilityBanner(show) {
+    const banner = document.getElementById('hub-session-durability-banner');
+    if (!banner) return;
+    if (show) {
+      banner.textContent = SESSION_DURABILITY_WARN_COPY;
+      banner.classList.remove('hidden');
+    } else {
+      banner.textContent = '';
+      banner.classList.add('hidden');
+    }
+  }
+
+  function persistSessionDurabilityWarning(on) {
     try {
-      await fetch(apiBase + '/api/v1/auth/establish-refresh', {
+      if (on) sessionStorage.setItem(SESSION_DURABILITY_WARN_KEY, '1');
+      else sessionStorage.removeItem(SESSION_DURABILITY_WARN_KEY);
+    } catch (_) {}
+    if (_sessionDurabilityUiReady) showSessionDurabilityBanner(on);
+  }
+
+  function restoreSessionDurabilityWarning() {
+    let on = false;
+    try {
+      on = sessionStorage.getItem(SESSION_DURABILITY_WARN_KEY) === '1';
+    } catch (_) {
+      on = false;
+    }
+    showSessionDurabilityBanner(on);
+  }
+
+  /**
+   * @param {string} accessToken
+   * @returns {Promise<
+   *   | { ok: true; established: true }
+   *   | { ok: false; code: 'missing_access'|'unauthorized'|'session_establish_denied'|'session_store_unavailable'|'network'|'malformed' }
+   * >}
+   */
+  async function establishPersistentSession(accessToken) {
+    if (!accessToken) return { ok: false, code: 'missing_access' };
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer =
+      ctrl && typeof setTimeout === 'function'
+        ? setTimeout(function () {
+            try {
+              ctrl.abort();
+            } catch (_) {}
+          }, 10000)
+        : null;
+    try {
+      const res = await fetch(apiBase + '/api/v1/auth/establish-refresh', {
         method: 'POST',
         credentials: 'include',
         cache: 'no-store',
+        signal: ctrl ? ctrl.signal : undefined,
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
       });
-    } catch (_) {}
+      if (res.status === 401 || res.status === 403) {
+        token = null;
+        try {
+          localStorage.removeItem('hub_token');
+        } catch (_) {}
+        persistSessionDurabilityWarning(false);
+        const appEl = document.getElementById('app');
+        const mainEl = document.getElementById('main');
+        const loginEl = document.getElementById('login-required');
+        if (appEl) appEl.classList.add('login-screen');
+        if (mainEl) mainEl.classList.add('hidden');
+        if (loginEl) loginEl.classList.remove('hidden');
+        return {
+          ok: false,
+          code: res.status === 403 ? 'session_establish_denied' : 'unauthorized',
+        };
+      }
+      if (res.status === 503) {
+        persistSessionDurabilityWarning(true);
+        return { ok: false, code: 'session_store_unavailable' };
+      }
+      if (!res.ok) {
+        persistSessionDurabilityWarning(true);
+        return { ok: false, code: 'malformed' };
+      }
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        persistSessionDurabilityWarning(true);
+        return { ok: false, code: 'malformed' };
+      }
+      if (
+        !data ||
+        data.schema_version !== 1 ||
+        data.established !== true ||
+        Object.prototype.hasOwnProperty.call(data, 'refresh_token')
+      ) {
+        persistSessionDurabilityWarning(true);
+        return { ok: false, code: 'malformed' };
+      }
+      persistSessionDurabilityWarning(false);
+      return { ok: true, established: true };
+    } catch (_) {
+      persistSessionDurabilityWarning(true);
+      return { ok: false, code: 'network' };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
   if (freshLoginFromOAuth && token) {
     establishPersistentSession(token);
@@ -86,6 +186,8 @@
 
   const PRESETS_KEY = 'hub_view_presets';
   const el = (id) => document.getElementById(id);
+  _sessionDurabilityUiReady = true;
+  restoreSessionDurabilityWarning();
   const app = el('app');
   const main = el('main');
   const loginRequired = el('login-required');
@@ -554,16 +656,31 @@
           cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
         });
-        if (!res.ok) return false;
-        const data = await res.json().catch(() => null);
+        if (res.status === 401 || res.status === 403) {
+          return { ok: false, code: 'session_expired', status: res.status };
+        }
+        if (res.status === 503) {
+          return { ok: false, code: 'session_unavailable', status: 503 };
+        }
+        if (!res.ok) {
+          return { ok: false, code: 'session_unavailable', status: res.status };
+        }
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (_) {
+          return { ok: false, code: 'malformed', status: 200 };
+        }
         if (data && typeof data.access_token === 'string' && data.access_token) {
           token = data.access_token;
-          try { localStorage.setItem('hub_token', token); } catch (_) {}
-          return true;
+          try {
+            localStorage.setItem('hub_token', token);
+          } catch (_) {}
+          return { ok: true, token: data.access_token };
         }
-        return false;
+        return { ok: false, code: 'malformed', status: 200 };
       } catch (_) {
-        return false;
+        return { ok: false, code: 'session_unavailable', status: null };
       }
     })();
     try {
@@ -573,23 +690,208 @@
     }
   }
 
+  function forceHubLoginScreen() {
+    token = null;
+    try {
+      localStorage.removeItem('hub_token');
+    } catch (_) {}
+    persistSessionDurabilityWarning(false);
+    if (app) app.classList.add('login-screen');
+    if (main) main.classList.add('hidden');
+    if (loginRequired) loginRequired.classList.remove('hidden');
+    if (browseToolbar) browseToolbar.classList.add('hidden');
+    if (btnNewNote) btnNewNote.classList.add('hidden');
+    if (btnImport) btnImport.classList.add('hidden');
+    if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
+    if (btnHowToUse) btnHowToUse.classList.add('hidden');
+    if (btnSettings) btnSettings.classList.add('hidden');
+    if (typeof showLoginChrome === 'function') showLoginChrome();
+  }
+
+  /**
+   * Decode local JWT claims only as a refresh scheduling hint — never as authorization.
+   * @param {string} jwt
+   * @returns {{ type?: string, iat?: number, exp?: number } | null}
+   */
+  function peekAccessClaims(jwt) {
+    if (!jwt || typeof jwt !== 'string') return null;
+    const parts = jwt.split('.');
+    if (parts.length < 2) return null;
+    try {
+      const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+      const payload = JSON.parse(json);
+      if (!payload || typeof payload !== 'object') return null;
+      return payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * @param {number} [minRemainingSeconds=120]
+   * @returns {Promise<
+   *   | { ok: true; token: string }
+   *   | { ok: false; code: 'session_expired'|'session_unavailable'|'malformed' }
+   * >}
+   */
+  async function ensureFreshHumanSession(minRemainingSeconds) {
+    const floor = typeof minRemainingSeconds === 'number' ? minRemainingSeconds : 120;
+    const current =
+      token ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('hub_token') : null) ||
+      '';
+    const claims = peekAccessClaims(current);
+    const now = Math.floor(Date.now() / 1000);
+    const needsRefresh =
+      !current ||
+      !claims ||
+      claims.type !== 'session' ||
+      typeof claims.iat !== 'number' ||
+      typeof claims.exp !== 'number' ||
+      !Number.isFinite(claims.iat) ||
+      !Number.isFinite(claims.exp) ||
+      claims.exp - now <= floor;
+
+    if (!needsRefresh) {
+      token = current;
+      return { ok: true, token: current };
+    }
+
+    const refreshed = await refreshAccessToken();
+    if (refreshed && refreshed.ok && refreshed.token) {
+      return { ok: true, token: refreshed.token };
+    }
+    const code =
+      refreshed && refreshed.code === 'malformed'
+        ? 'malformed'
+        : refreshed && refreshed.code === 'session_unavailable'
+          ? 'session_unavailable'
+          : 'session_expired';
+    if (code === 'session_expired' || code === 'malformed') {
+      forceHubLoginScreen();
+    }
+    return { ok: false, code: code };
+  }
+
+  /**
+   * Fresh-session request helper for home/settings/copy/credentials/consent.
+   * Returns {status, ok, data} for typed UI mapping. Mutations never network-retry.
+   * @param {string} path
+   * @param {RequestInit & { noRetry?: boolean, _retriedAfterRefresh?: boolean }} [opts]
+   */
+  async function hubApiResponse(path, opts) {
+    opts = opts || {};
+    const method = (opts.method || 'GET').toUpperCase();
+    // Prefetch a fresh human session before protected calls (auth endpoints skip — never recurse).
+    if (
+      path !== '/api/v1/auth/refresh' &&
+      path !== '/api/v1/auth/logout' &&
+      path !== '/api/v1/auth/establish-refresh'
+    ) {
+      const fresh = await ensureFreshHumanSession(120);
+      if (!fresh.ok) {
+        return {
+          status: fresh.code === 'session_unavailable' ? 503 : 401,
+          ok: false,
+          data: { error: 'Session required', code: fresh.code },
+          sessionCode: fresh.code,
+        };
+      }
+    }
+    const maxNetworkRetries =
+      opts.noRetry === true ? 0 : method === 'GET' || method === 'HEAD' ? 2 : 0;
+    const { noRetry: _noRetry, _retriedAfterRefresh, ...fetchOpts } = opts;
+    let res;
+    let networkRetries = maxNetworkRetries;
+    for (;;) {
+      try {
+        res = await fetch(apiBase + path, {
+          ...fetchOpts,
+          cache: fetchOpts.cache != null ? fetchOpts.cache : 'no-store',
+          headers: { ...headers(), ...fetchOpts.headers },
+        });
+        break;
+      } catch (e) {
+        const m = e && e.message ? String(e.message) : String(e);
+        if ((m === 'Failed to fetch' || m.includes('NetworkError')) && networkRetries > 0) {
+          networkRetries--;
+          await new Promise(function (resolve) {
+            setTimeout(resolve, (maxNetworkRetries - networkRetries) * 2000);
+          });
+          continue;
+        }
+        return {
+          status: 0,
+          ok: false,
+          data: { error: m, code: 'network' },
+          sessionCode: 'session_unavailable',
+        };
+      }
+    }
+    if (
+      res.status === 401 &&
+      path !== '/api/v1/auth/refresh' &&
+      path !== '/api/v1/auth/logout' &&
+      path !== '/api/v1/auth/establish-refresh' &&
+      !_retriedAfterRefresh
+    ) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed && refreshed.ok) {
+        return hubApiResponse(path, { ...opts, _retriedAfterRefresh: true });
+      }
+      if (refreshed && refreshed.code === 'session_unavailable') {
+        return {
+          status: 503,
+          ok: false,
+          data: { error: 'Session unavailable', code: 'session_unavailable' },
+          sessionCode: 'session_unavailable',
+        };
+      }
+      forceHubLoginScreen();
+      return {
+        status: 401,
+        ok: false,
+        data: { error: 'Unauthorized', code: 'session_expired' },
+        sessionCode: 'session_expired',
+      };
+    }
+    let text = await res.text();
+    if (text.length > 0 && text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        data = { error: 'malformed', raw: text.slice(0, 200) };
+      }
+    }
+    return { status: res.status, ok: res.ok, data: data };
+  }
+
   async function api(path, opts = {}) {
     const method = (opts.method || 'GET').toUpperCase();
-    // GET/HEAD: retry up to 2×. POST/PATCH/DELETE: retry once only on pure network failures
-    // (before any HTTP response), which means the server never received the request so retrying
-    // is safe. Never retry on HTTP error responses (4xx/5xx) — those were received and processed.
-    //
-    // `opts.noRetry: true` opts out of retries entirely. Used by `POST /api/v1/index`: a 30s
-    // gateway timeout (Netlify Function cap) drops the client connection, which the browser
-    // surfaces as `Failed to fetch`. With retry on, the bridge then receives a SECOND index
-    // request while the first is still running, double-billing DeepInfra and worsening contention.
-    const maxNetworkRetries = opts.noRetry === true
-      ? 0
-      : (method === 'GET' || method === 'HEAD') ? 2 : 1;
+    // GET/HEAD: retry up to 2×. POST/PATCH/PUT/DELETE: zero network retries (only 401→refresh→once).
+    // `opts.noRetry: true` opts out of retries entirely (e.g. POST /api/v1/index).
+    const maxNetworkRetries =
+      opts.noRetry === true ? 0 : method === 'GET' || method === 'HEAD' ? 2 : 0;
     // Strip non-fetch keys before forwarding to fetch() so they don't pollute the request init.
     const { noRetry: _noRetry, ...fetchOpts } = opts;
     // Internal one-shot control flag for the 401 silent-refresh retry; never forward to fetch().
     delete fetchOpts._retriedAfterRefresh;
+    // Prefetch a fresh human session before protected calls (auth endpoints skip).
+    if (
+      path !== '/api/v1/auth/refresh' &&
+      path !== '/api/v1/auth/logout' &&
+      path !== '/api/v1/auth/establish-refresh'
+    ) {
+      const fresh = await ensureFreshHumanSession(120);
+      if (!fresh.ok) {
+        if (fresh.code === 'session_unavailable') {
+          throw new Error('Session could not be refreshed. Retry.');
+        }
+        throw new Error('Unauthorized');
+      }
+    }
     let res;
     let networkRetries = maxNetworkRetries;
     for (;;) {
@@ -623,25 +925,18 @@
       if (
         path !== '/api/v1/auth/refresh' &&
         path !== '/api/v1/auth/logout' &&
+        path !== '/api/v1/auth/establish-refresh' &&
         !opts._retriedAfterRefresh
       ) {
         const refreshed = await refreshAccessToken();
-        if (refreshed) {
+        if (refreshed && refreshed.ok) {
           return api(path, { ...opts, _retriedAfterRefresh: true });
         }
+        if (refreshed && refreshed.code === 'session_unavailable') {
+          throw new Error('Session could not be refreshed. Retry.');
+        }
       }
-      token = null;
-      localStorage.removeItem('hub_token');
-      if (app) app.classList.add('login-screen');
-      main.classList.add('hidden');
-      loginRequired.classList.remove('hidden');
-      browseToolbar.classList.add('hidden');
-      btnNewNote.classList.add('hidden');
-      if (btnImport) btnImport.classList.add('hidden');
-      if (btnHeaderSuggested) btnHeaderSuggested.classList.add('hidden');
-      if (btnHowToUse) btnHowToUse.classList.add('hidden');
-      if (btnSettings) btnSettings.classList.add('hidden');
-      showLoginChrome();
+      forceHubLoginScreen();
       throw new Error('Unauthorized');
     }
     let text = await res.text();
@@ -1617,6 +1912,7 @@
     } catch (_) { /* best effort */ }
     token = null;
     localStorage.removeItem('hub_token');
+    persistSessionDurabilityWarning(false);
     if (app) app.classList.add('login-screen');
     main.classList.add('hidden');
     browseToolbar.classList.add('hidden');
@@ -5563,18 +5859,22 @@
 
   const btnCopyHubApiEnv = el('btn-copy-hub-api-env');
   if (btnCopyHubApiEnv) {
-    btnCopyHubApiEnv.onclick = () => {
-      const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
-      const vaultId = getCurrentVaultId() || 'default';
-      const base = String(apiBase || '').replace(/\/$/, '');
+    btnCopyHubApiEnv.onclick = async () => {
       const msg = el('integrations-hub-api-copy-msg');
-      if (!hubTok) {
+      const fresh = await ensureFreshHumanSession(120);
+      if (!fresh.ok) {
         if (msg) {
-          msg.textContent = 'Sign in first, then copy again.';
+          msg.textContent =
+            fresh.code === 'session_unavailable'
+              ? 'Session could not be checked. Retry.'
+              : 'Session expired. Sign in again before copying.';
           msg.className = 'settings-msg err';
         }
         return;
       }
+      const hubTok = fresh.token;
+      const vaultId = getCurrentVaultId() || 'default';
+      const base = String(apiBase || '').replace(/\/$/, '');
       const copyLines = [
         'KNOWTATION_HUB_URL=' + base,
         'KNOWTATION_HUB_TOKEN=' + hubTok,
@@ -5768,13 +6068,13 @@
     msg.className = isErr ? 'settings-msg err' : 'settings-msg';
   }
 
-  function agentCredAuthHeaders() {
-    const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
-    return {
-      Authorization: 'Bearer ' + hubTok,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
+  function agentCredSessionRefusal(resp) {
+    if (!resp) return 'Session unavailable.';
+    if (resp.sessionCode === 'session_unavailable') return 'Session could not be checked. Retry.';
+    if (resp.sessionCode === 'session_expired' || resp.status === 401) {
+      return 'Session expired. Sign in again.';
+    }
+    return null;
   }
 
   function formatAgentCredTs(ms) {
@@ -5852,27 +6152,27 @@
   async function refreshAgentCredList() {
     const list = el('agent-cred-list');
     if (!list) return;
-    const hubTok = (typeof localStorage !== 'undefined' && localStorage.getItem('hub_token')) || token || '';
-    if (!hubTok) {
-      syncAgentCredStoreBanner({ show: false });
-      list.innerHTML = '<li>Sign in to manage agent credentials.</li>';
-      return;
-    }
     try {
-      const res = await fetch(String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials', {
-        headers: agentCredAuthHeaders(),
+      const resp = await hubApiResponse('/api/v1/auth/agent/credentials', {
+        method: 'GET',
         credentials: 'omit',
       });
-      const data = await res.json().catch(function () { return {}; });
+      const sessionMsg = agentCredSessionRefusal(resp);
+      if (sessionMsg) {
+        syncAgentCredStoreBanner({ show: false });
+        list.innerHTML = '<li>' + sessionMsg + '</li>';
+        return;
+      }
+      const data = resp.data && typeof resp.data === 'object' ? resp.data : {};
       const code = data && data.code ? String(data.code) : '';
-      if (!res.ok) {
-        if (res.status === 503 && code === 'AGENT_CREDENTIAL_STORE_INCONSISTENT') {
+      if (!resp.ok) {
+        if (resp.status === 503 && code === 'AGENT_CREDENTIAL_STORE_INCONSISTENT') {
           syncAgentCredStoreBanner({
             show: true,
             copy:
               'Agent credential store is inconsistent. Do not remint. Existing robots should retry; this is not a dead credential.',
           });
-        } else if (res.status === 503 && code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE') {
+        } else if (resp.status === 503 && code === 'AGENT_CREDENTIAL_STORE_UNAVAILABLE') {
           syncAgentCredStoreBanner({
             show: true,
             copy: 'Agent credential store is temporarily unavailable. Do not remint. Retry.',
@@ -5882,7 +6182,7 @@
         }
         list.innerHTML =
           '<li>Agent credentials unavailable on this host (' +
-          (code || String(res.status)) +
+          (code || String(resp.status)) +
           ').</li>';
         return;
       }
@@ -5948,26 +6248,33 @@
       list.querySelectorAll('.btn-agent-cred-revoke').forEach(function (btn) {
         btn.onclick = async function () {
           const id = btn.getAttribute('data-id');
-          const res = await fetch(
-            String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials/' + encodeURIComponent(id),
-            { method: 'DELETE', headers: agentCredAuthHeaders(), credentials: 'omit' }
+          const resp = await hubApiResponse(
+            '/api/v1/auth/agent/credentials/' + encodeURIComponent(id),
+            { method: 'DELETE', credentials: 'omit' },
           );
-          setAgentCredMsg(res.ok ? 'Revoked.' : 'Revoke failed', !res.ok);
+          const refuse = agentCredSessionRefusal(resp);
+          if (refuse) {
+            setAgentCredMsg(refuse, true);
+            return;
+          }
+          setAgentCredMsg(resp.ok ? 'Revoked.' : 'Revoke failed', !resp.ok);
           refreshAgentCredList();
         };
       });
       list.querySelectorAll('.btn-agent-cred-rotate').forEach(function (btn) {
         btn.onclick = async function () {
           const id = btn.getAttribute('data-id');
-          const res = await fetch(
-            String(apiBase || '').replace(/\/$/, '') +
-              '/api/v1/auth/agent/credentials/' +
-              encodeURIComponent(id) +
-              '/rotate',
-            { method: 'POST', headers: agentCredAuthHeaders(), credentials: 'omit' }
+          const resp = await hubApiResponse(
+            '/api/v1/auth/agent/credentials/' + encodeURIComponent(id) + '/rotate',
+            { method: 'POST', credentials: 'omit' },
           );
-          const data = await res.json().catch(function () { return {}; });
-          if (!res.ok) {
+          const refuse = agentCredSessionRefusal(resp);
+          if (refuse) {
+            setAgentCredMsg(refuse, true);
+            return;
+          }
+          const data = resp.data && typeof resp.data === 'object' ? resp.data : {};
+          if (!resp.ok) {
             setAgentCredMsg(data.error || 'Rotate failed', true);
             return;
           }
@@ -6012,9 +6319,8 @@
       if (el('agent-cred-scope-ingest') && el('agent-cred-scope-ingest').checked) scopes.push('ingest:automation');
       if (el('agent-cred-scope-write') && el('agent-cred-scope-write').checked) scopes.push('vault:write');
       try {
-        const res = await fetch(String(apiBase || '').replace(/\/$/, '') + '/api/v1/auth/agent/credentials', {
+        const resp = await hubApiResponse('/api/v1/auth/agent/credentials', {
           method: 'POST',
-          headers: agentCredAuthHeaders(),
           credentials: 'omit',
           body: JSON.stringify({
             name: name,
@@ -6022,8 +6328,13 @@
             scopes: scopes.length ? scopes : ['propose', 'vault:read'],
           }),
         });
-        const data = await res.json().catch(function () { return {}; });
-        if (!res.ok) {
+        const refuse = agentCredSessionRefusal(resp);
+        if (refuse) {
+          setAgentCredMsg(refuse, true);
+          return;
+        }
+        const data = resp.data && typeof resp.data === 'object' ? resp.data : {};
+        if (!resp.ok) {
           setAgentCredMsg(data.error || data.code || 'Mint failed', true);
           return;
         }

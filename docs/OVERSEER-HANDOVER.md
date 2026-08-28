@@ -15,46 +15,65 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-28, helper-access fix DONE)
+### Product-order relay (2026-08-28, SESSION-DURABILITY-b-KN BV pass)
 
-**Knowtation helper-access Lambda fix:** BV **pass**; Muse → [PR #316](https://github.com/aaronrene/knowtation/pull/316)
-`@e878b878`; gateway+bridge production ready; authenticated helper-access → **200** `renewable`.
-Business authority marker already active (`lineage_lymik9fcy353fuo`).
+**Knowtation SESSION-DURABILITY-b-KN:** BV round 2 **pass** on `feat/session-durability-b-kn`
+(not landed to Muse `main`). Seven-tier **93/93**. Evidence:
+`docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`.
 
-**Scooling product order wins:** NEXT = **resume RHF-e smoke** (Settings fold ≠
-`unavailable`) → finish smoke → RHF-f2. **No** RHF-e DONE until evidence pass. Spend 0/5.
+**Scooling product order wins:** NEXT = **SESSION-DURABILITY-b-SC** (Auto) on
+`feat/session-durability-b`. Freeze
+`~/scooling/docs/reviews/2026-08-28-session-durability.md`. RHF-e remains **PARKED**.
+**No** production env/auth deploy from this KN tip.
 
-Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`.
-Smoke evidence: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md`.
-Fix evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md`.
+Freeze Muse revision: `sha256:2ca4f221375666abf174c8a09de11e109d53f38150039610e841d8b55534ef47`  
+Freeze artifact SHA-256: `0294db66e399d72024ec41d33b9e48aaecb2f1cce9dc225da4472cdd8ef12f9f`
 
 ---
 
-## NEXT SESSION — Resume RHF-e smoke (Scooling)
+## NEXT SESSION — SESSION-DURABILITY-b-SC (Scooling product board)
 
 **Date:** 2026-08-28  
-**Model:** **Operator + Auto** (Scooling chat — product board)  
-**This board:** helper-access fix **DONE**. Paste from **Scooling** handover.
+**Model:** **Auto** (Scooling chat — product board)  
+**This board:** SESSION-DURABILITY-b-KN **DONE** (BV pass; feature branch). Paste from **Scooling** handover.
 
-### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in **Scooling** chat)
+### THE ONE NEXT STEP — **Model: Auto** (paste in **Scooling** chat)
 
 ```text
-RHF-e RETAIL-SMOKE resume (Operator + Auto)
+SESSION-DURABILITY-b-SC (Auto) — Scooling session expiry honesty + Helpers folds.
 
-Knowtation helper-access Lambda fix landed ([PR #316](https://github.com/aaronrene/knowtation/pull/316) `@e878b878`)
-+ bridge redeployed. Prod probe: helper-access **200** `renewable`.
-Confirm Settings helperAccessState ∈ ready|renewable|consent_required
-(not unavailable). Then finish production smoke checks 2–7, 9.
+Ground truth:
+  ~/scooling/docs/reviews/2026-08-28-session-durability.md
+Freeze Muse revision:
+  sha256:2ca4f221375666abf174c8a09de11e109d53f38150039610e841d8b55534ef47
+Freeze artifact SHA-256:
+  0294db66e399d72024ec41d33b9e48aaecb2f1cce9dc225da4472cdd8ef12f9f
 
-Spend still 0/5 until spend auth. No RHF-e DONE without evidence pass.
+KN contract (BV pass, not landed): Knowtation feat/session-durability-b-kn —
+  docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md
 
-Model: Operator + Auto
+From Scooling Muse main create feat/session-durability-b. Implement only the
+Scooling boundary in freeze §§2, 3, 5, 6, 7. Consume the passed KN contract.
+Do not redesign the freeze. Seven-tier + independent BV pass before DONE.
+
+No production env/auth deploy, secrets, consent apply, Codex spend, RHF-e smoke,
+MY_WORK_CODEX_ENABLED flip, main merge, or feature→GitHub-main PR.
+
+Model: Auto
 Repo: scooling
-Authority: docs/reviews/2026-08-27-retail-helper-finish.md row 25
-Evidence: docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md
+Branch: feat/session-durability-b
+Step: SESSION-DURABILITY-b-SC
+Authority: Scooling ROADMAP row 25b / passed SESSION-DURABILITY-a freeze + KN BV pass
 ```
 
-### This session — helper-access Lambda fix **DONE + LANDED** (2026-08-28)
+### This session — SESSION-DURABILITY-b-KN **DONE** (BV pass, 2026-08-28)
+
+Canonical-first Hub session continuity on `feat/session-durability-b-kn`. Hosted
+`type:session` admission, HUB_JWT_EXPIRY 3h–24h, browser/CLI establish-refresh,
+Hub fresh-session helper. BV round 2 **pass**; **93/93** tests. **Not** merged to
+Muse `main`. Evidence: `docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`.
+
+### Archived — helper-access Lambda fix **DONE + LANDED** (2026-08-28)
 
 Root cause: Netlify Blobs `consistency: 'strong'` under Lambda → `BlobsConsistencyError`
 → helper-access 503. Fix: `authorityBlobGetOpts()`. Seven-tier **25/25**; BV round 1
