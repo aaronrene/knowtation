@@ -97,6 +97,21 @@ describe('Agent delegation — unit', () => {
     assert.equal(JSON.stringify(client).includes('bearer'), false);
   });
 
+  it('grantForClient never includes authority audit counters', () => {
+    const stored = {
+      schema: DELEGATION_GRANT_SCHEMA,
+      grant_id: 'dgrnt_test',
+      grant_bearer_hash: hashGrantBearer('dgrnt_bearer_secret'),
+      audit_sequence: 1,
+      pending_audit_count: 1,
+      last_materialized_audit_sequence: 0,
+    };
+    const client = grantForClient(stored);
+    assert.equal(client.audit_sequence, undefined);
+    assert.equal(client.pending_audit_count, undefined);
+    assert.equal(client.last_materialized_audit_sequence, undefined);
+  });
+
   it('scope intersection is deterministic', () => {
     assert.equal(intersectScope('personal', 'org'), 'personal');
     assert.equal(effectiveScope('project', 'org'), 'project');
