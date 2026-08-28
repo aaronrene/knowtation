@@ -23,7 +23,13 @@ import { recordIndexingTokensAfterBridgeIndex } from './billing-index-usage.mjs'
 import { runBillingGate } from './billing-middleware.mjs';
 import { mergeHostedNoteBodyForCanister, isPostApiV1Notes, isNoteWriteRequest } from './apply-note-provenance.mjs';
 import { deriveFacetsFromCanisterNotes, materializeListFrontmatter } from './note-facets.mjs';
-import { applyGatewayCors } from './cors-middleware.mjs';
+import { applyGatewayCors, isWwwApexPair } from './cors-middleware.mjs';
+import {
+  parseHostedHubJwtExpirySeconds,
+  verifyHumanSessionAccessToken,
+  isEstablishRefreshBrowserOriginAllowed,
+  acceptIncludesRefreshTokenCli,
+} from '../lib/human-session-admission.mjs';
 import { upstreamPathAndQuery, pathPartNoQuery, effectiveRequestPath } from './request-path.mjs';
 import { applyScopeFilterToNotes } from '../lib/scope-filter.mjs';
 import { verifyJwtWithSecretRotation, resolveSessionSecretPrevious } from '../lib/session-secret-rotation.mjs';
@@ -140,7 +146,6 @@ import { resolveLocalAuthRole } from '../lib/local-auth-role.mjs';
 import {
   appleProviderAdvertised,
   defaultAppleIdentityVerifier,
-  jwtExpiryToSeconds,
   parseAppleExchangeBody,
 } from './apple-identity-token.mjs';
 
@@ -191,7 +196,16 @@ const SESSION_SECRET = process.env.SESSION_SECRET || process.env.HUB_JWT_SECRET;
 // SEC-KN-P6-ROTATE: verify-only previous secret for zero-downtime rotation.
 // Never used to sign (jwt.sign / HMAC / encrypt stay on SESSION_SECRET only).
 const SESSION_SECRET_PREVIOUS = resolveSessionSecretPrevious();
-const JWT_EXPIRY = process.env.HUB_JWT_EXPIRY || '24h';
+// Hosted human JWT lifetime: integer seconds in [3h, 24h]. Fail closed before listen / cold start.
+const _hostedJwtExpiry = parseHostedHubJwtExpirySeconds(process.env.HUB_JWT_EXPIRY);
+if (!_hostedJwtExpiry.ok) {
+  console.error('[gateway] ' + _hostedJwtExpiry.error);
+  throw new Error(_hostedJwtExpiry.error);
+}
+/** @type {number} integer seconds — used for jwt.sign expiresIn and public expires_in */
+const JWT_EXPIRY_SECONDS = _hostedJwtExpiry.seconds;
+/** @deprecated prefer JWT_EXPIRY_SECONDS; kept as alias for local-auth route injection */
+const JWT_EXPIRY = JWT_EXPIRY_SECONDS;
 /** Apple SIWA audience (Bundle ID or Services ID). Read once at boot — never commit real values. */
 const APPLE_CLIENT_ID =
   typeof process.env.APPLE_CLIENT_ID === 'string' ? process.env.APPLE_CLIENT_ID.trim() : '';
@@ -276,7 +290,7 @@ function issueToken(user) {
       type: 'session',
     },
     SESSION_SECRET,
-    { expiresIn: JWT_EXPIRY }
+    { expiresIn: JWT_EXPIRY_SECONDS }
   );
 }
 
@@ -327,7 +341,7 @@ function issueAccessTokenForSub(sub) {
   return jwt.sign(
     { sub, provider, id, name: '', role: roleForSub(sub), type: 'session' },
     SESSION_SECRET,
-    { expiresIn: JWT_EXPIRY }
+    { expiresIn: JWT_EXPIRY_SECONDS }
   );
 }
 
@@ -565,14 +579,14 @@ app.post('/api/v1/auth/native-apple-exchange', async (req, res) => {
     schema_version: 1,
     token_type: 'Bearer',
     access_token: accessToken,
-    expires_in: jwtExpiryToSeconds(JWT_EXPIRY),
+    expires_in: JWT_EXPIRY_SECONDS,
   });
 });
 
 // C7 Session introspection — returns the verified identity and derived scopes for the bearer.
 // Designed for Scooling (cross-origin, Bearer auth) and the Hub UI alike.
-// GET /api/v1/auth/session → { sub, provider, id, name, role, iat, exp, scopes }
-// Only reads what is already in the signed JWT — no extra DB call, no data elevation.
+// GET /api/v1/auth/session → { type, sub, provider, id, name, role, iat, exp, scopes }
+// Hosted admission: exact type:session + integer iat/exp + 3h–24h lifetime + unexpired.
 app.options('/api/v1/auth/session', (_req, res) => res.status(204).end());
 app.get('/api/v1/auth/session', (req, res) => {
   const auth = req.headers.authorization;
@@ -580,11 +594,15 @@ app.get('/api/v1/auth/session', (req, res) => {
     return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
   const token = auth.slice(7);
-  const payload = decodeVerifiedToken(token);
-  if (!payload || !payload.sub) {
-    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+  const verified = verifyHumanSessionAccessToken(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS);
+  if (!verified.ok) {
+    const code = verified.code === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : 'SESSION_INVALID';
+    const error = code === 'SESSION_EXPIRED' ? 'Session expired' : 'Invalid session';
+    return res.status(401).json({ error, code });
   }
+  const payload = verified.payload;
   return res.json({
+    type: 'session',
     sub: payload.sub,
     provider: payload.provider ?? '',
     id: payload.id ?? '',
@@ -621,8 +639,12 @@ app.post(
   '/api/v1/auth/establish-refresh',
   createEstablishRefreshHandler({
     store: refreshStore,
-    verifyAccessToken: decodeVerifiedToken,
+    verifyHumanSession: (token) =>
+      verifyHumanSessionAccessToken(token, SESSION_SECRET, SESSION_SECRET_PREVIOUS),
     cookieOptions: refreshCookiePolicy,
+    isBrowserOriginAllowed: (originHeader) =>
+      isEstablishRefreshBrowserOriginAllowed(originHeader, corsOrigins, BASE_URL, isWwwApexPair),
+    acceptIncludesCliMediaType: acceptIncludesRefreshTokenCli,
     meta: (req) => ({ ua: String(req.headers['user-agent'] || '').slice(0, 256) }),
   })
 );

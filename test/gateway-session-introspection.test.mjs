@@ -43,8 +43,9 @@ function validPayload(overrides = {}) {
     id: '123456789',
     name: 'Test User',
     role: 'member',
-    iat: now - 10,
-    exp: now + 900,
+    type: 'session',
+    iat: now - 60,
+    exp: now - 60 + 3 * 60 * 60,
     ...overrides,
   };
 }
@@ -134,8 +135,8 @@ describe('C7 unit: structural wiring in server.mjs', () => {
   it('response shape includes all required C7 contract fields', () => {
     const idx = SERVER_SRC.indexOf("app.get('/api/v1/auth/session'");
     assert.ok(idx > 0, 'route handler must exist');
-    const block = SERVER_SRC.slice(idx, idx + 700);
-    for (const field of ['sub', 'provider', 'id', 'name', 'role', 'iat', 'exp', 'scopes']) {
+    const block = SERVER_SRC.slice(idx, idx + 1400);
+    for (const field of ['type', 'sub', 'provider', 'id', 'name', 'role', 'iat', 'exp', 'scopes']) {
       assert.ok(block.includes(field), `response must include field '${field}'`);
     }
   });
@@ -189,6 +190,7 @@ describe('C7 integration, e2e, stress, data-integrity, performance, security', (
       Authorization: `Bearer ${token}`,
     });
     assert.equal(status, 200);
+    assert.equal(body.type, 'session');
     assert.equal(body.sub, 'google:123456789');
     assert.equal(body.provider, 'google');
     assert.equal(body.id, '123456789');
@@ -245,8 +247,9 @@ describe('C7 integration, e2e, stress, data-integrity, performance, security', (
       id: 'refresh-user',
       name: '',
       role: 'member',
-      iat: now - 5,
-      exp: now + 900,
+      type: 'session',
+      iat: now - 60,
+      exp: now - 60 + 3 * 60 * 60,
     });
     const { status, body } = await get(`${gw.url}/api/v1/auth/session`, {
       Authorization: `Bearer ${token}`,
@@ -254,16 +257,22 @@ describe('C7 integration, e2e, stress, data-integrity, performance, security', (
     assert.equal(status, 200);
     assert.equal(body.sub, 'google:refresh-user');
     assert.equal(body.name, '');
+    assert.equal(body.type, 'session');
     assert.ok(body.scopes.includes('vault:read'));
   });
 
-  it('e2e: expired token is rejected with 401', async () => {
+  it('e2e: expired token is rejected with 401 SESSION_EXPIRED', async () => {
     const now = Math.floor(Date.now() / 1000);
-    const token = makeJwt({ ...validPayload(), iat: now - 1000, exp: now - 1 });
-    const { status } = await get(`${gw.url}/api/v1/auth/session`, {
+    const token = makeJwt({
+      ...validPayload(),
+      iat: now - 3 * 60 * 60 - 10,
+      exp: now - 1,
+    });
+    const { status, body } = await get(`${gw.url}/api/v1/auth/session`, {
       Authorization: `Bearer ${token}`,
     });
     assert.equal(status, 401);
+    assert.equal(body.code, 'SESSION_EXPIRED');
   });
 
   it('e2e: two concurrent calls with the same token return identical responses', async () => {
@@ -324,8 +333,9 @@ describe('C7 integration, e2e, stress, data-integrity, performance, security', (
       provider: 'google',
       id: 'norole',
       name: '',
-      iat: now - 5,
-      exp: now + 900,
+      type: 'session',
+      iat: now - 60,
+      exp: now - 60 + 3 * 60 * 60,
     });
     const { status, body } = await get(`${gw.url}/api/v1/auth/session`, {
       Authorization: `Bearer ${token}`,

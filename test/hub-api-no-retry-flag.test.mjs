@@ -26,9 +26,8 @@ test('api() recognizes noRetry: true (zero retries when set, regardless of metho
     /opts\.noRetry\s*===\s*true[\s\S]{0,80}\?\s*0/,
     'api() should set maxNetworkRetries to 0 when opts.noRetry === true',
   );
-  // Sanity: the default branch for non-GET still allows one retry (we didn't
-  // accidentally remove the existing safety net for normal POSTs).
-  assert.match(hubJs, /method === 'GET' \|\| method === 'HEAD'\)\s*\?\s*2\s*:\s*1/);
+  // Sanity: mutations default to zero network retries (401→refresh→once only).
+  assert.match(hubJs, /method === 'GET' \|\| method === 'HEAD'\s*\?\s*2\s*:\s*0/);
 });
 
 test('api() strips noRetry from opts before forwarding to fetch()', () => {

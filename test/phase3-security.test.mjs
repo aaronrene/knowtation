@@ -47,10 +47,23 @@ describe('3.1 JWT token-in-URL: OAuth redirects use fragment, gateway expiry sho
 
   test('gateway JWT_EXPIRY default is no longer 7d', () => {
     const src = loadGateway();
-    const match = src.match(/JWT_EXPIRY\s*=\s*process\.env\.HUB_JWT_EXPIRY\s*\|\|\s*'([^']+)'/);
-    assert.ok(match, 'JWT_EXPIRY constant must exist with default');
-    assert.notEqual(match[1], '7d', 'default JWT_EXPIRY must not be 7d');
-    assert.equal(match[1], '24h', 'default JWT_EXPIRY should be 24h');
+    // SESSION-DURABILITY-b-KN: hosted expiry is parseHostedHubJwtExpirySeconds (default 24h),
+    // not a string `HUB_JWT_EXPIRY || '…'` assignment (that form must not reappear as 7d).
+    assert.ok(
+      src.includes('parseHostedHubJwtExpirySeconds(process.env.HUB_JWT_EXPIRY)'),
+      'gateway must parse HUB_JWT_EXPIRY via parseHostedHubJwtExpirySeconds',
+    );
+    assert.ok(src.includes('JWT_EXPIRY_SECONDS'), 'JWT_EXPIRY_SECONDS must exist');
+    assert.ok(!/\|\|\s*'7d'/.test(src), 'default JWT expiry must not be 7d');
+    const admission = fs.readFileSync(
+      path.join(ROOT, 'hub/lib/human-session-admission.mjs'),
+      'utf8',
+    );
+    assert.ok(
+      /raw\s*==\s*null\s*\|\|\s*raw\s*===\s*''\s*\?\s*'24h'/.test(admission) ||
+        admission.includes("? '24h'"),
+      'parser default when HUB_JWT_EXPIRY unset must be 24h',
+    );
   });
 
   test('self-hosted handleAuthCallback uses # fragment, not ?token= query param', () => {

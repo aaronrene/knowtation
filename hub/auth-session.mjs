@@ -168,15 +168,20 @@ export function createRefreshHandler(deps) {
  */
 /**
  * Build `POST /auth/establish-refresh`: exchange a valid human session access JWT for a durable
- * refresh token. Returns the refresh token in the JSON body (CLI bootstrap) and sets the HttpOnly
- * cookie (browser). Used when OAuth redirect cannot attach Set-Cookie reliably (Netlify).
+ * refresh record. Delivery is mode-split:
+ *   - Origin present → browser: HttpOnly cookie only; body is `{ schema_version, established }`
+ *   - Origin absent → CLI: requires Accept: application/vnd.knowtation.refresh-token+json;
+ *     body returns refresh_token and must not Set-Cookie
  *
  * @param {{
  *   store: { issue: (sub: string, opts?: object) => ({ token: string } | Promise<{ token: string }>) },
- *   verifyAccessToken: (token: string) => (object | null),
+ *   verifyHumanSession: (token: string) =>
+ *     ({ ok: true, payload: object } | { ok: false, code: 'SESSION_EXPIRED' | 'SESSION_INVALID' }),
  *   cookieName?: string,
  *   cookieOptions: () => object,
  *   meta?: (req: object) => object,
+ *   isBrowserOriginAllowed: (originHeader: string | undefined) => boolean,
+ *   acceptIncludesCliMediaType: (acceptHeader: string | undefined) => boolean,
  * }} deps
  * @returns {(req: object, res: object) => Promise<void>}
  */
@@ -189,19 +194,40 @@ export function createEstablishRefreshHandler(deps) {
     if (!m) {
       return res.status(401).json({ error: 'Missing bearer token', code: 'UNAUTHORIZED' });
     }
-    const payload = deps.verifyAccessToken(m[1]);
-    if (!payload || typeof payload.sub !== 'string' || !payload.sub) {
-      return res.status(401).json({ error: 'Invalid or expired session token', code: 'UNAUTHORIZED' });
+    const verified = deps.verifyHumanSession(m[1]);
+    if (!verified || !verified.ok) {
+      const code = verified && verified.code === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : 'SESSION_INVALID';
+      const error =
+        code === 'SESSION_EXPIRED' ? 'Session expired' : 'Invalid session token';
+      return res.status(401).json({ error, code });
     }
-    const typ = typeof payload.type === 'string' ? payload.type : 'session';
-    if (typ !== 'session') {
-      return res.status(403).json({ error: 'Not a human session token', code: 'SESSION_ESTABLISH_DENIED' });
+    const payload = verified.payload;
+    const originHeader =
+      req.headers && typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+    const hasOrigin = originHeader !== undefined && originHeader !== '';
+    const acceptHeader =
+      req.headers && typeof req.headers.accept === 'string' ? req.headers.accept : undefined;
+
+    if (hasOrigin) {
+      if (!deps.isBrowserOriginAllowed(originHeader)) {
+        return res.status(403).json({ error: 'Origin not allowed', code: 'FORBIDDEN_ORIGIN' });
+      }
+    } else if (!deps.acceptIncludesCliMediaType(acceptHeader)) {
+      return res.status(406).json({
+        error: 'CLI establish-refresh requires Accept: application/vnd.knowtation.refresh-token+json',
+        code: 'NOT_ACCEPTABLE',
+      });
     }
+
     try {
       const { token } = await deps.store.issue(payload.sub, {
         meta: typeof deps.meta === 'function' ? deps.meta(req) : undefined,
       });
-      res.cookie(cookieName, token, deps.cookieOptions());
+      if (hasOrigin) {
+        res.cookie(cookieName, token, deps.cookieOptions());
+        return res.json({ schema_version: 1, established: true });
+      }
+      // CLI mode: raw refresh in body; never Set-Cookie.
       return res.json({ schema_version: 1, refresh_token: token, token_type: 'refresh' });
     } catch (err) {
       // Must log — silent catch made SESSION_STORE_UNAVAILABLE undiagnosable on Netlify.

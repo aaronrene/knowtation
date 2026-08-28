@@ -113,7 +113,7 @@ export async function establishHostedRefreshFromAccess(accessToken, opts = {}) {
   const res = await fetch(`${apiBase}/api/v1/auth/establish-refresh`, {
     method: 'POST',
     headers: {
-      Accept: 'application/json',
+      Accept: 'application/vnd.knowtation.refresh-token+json',
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
