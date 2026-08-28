@@ -31,6 +31,7 @@ import {
   validateEnvelopeInternalIntegrity,
   pruneAuthorityEnvelope,
   principalActorKey,
+  authorityBlobGetOpts,
   RETAIL_ACTOR_ID,
   RENEW_RATE_LIMIT,
   RENEW_RATE_WINDOW_MS,
@@ -191,6 +192,29 @@ describe('RHF-b-KN1 — unit', () => {
     assert.match(gateway, /x-delegation-actor/);
     assert.match(gateway, /x-retail-visit/);
   });
+
+  test('authorityBlobGetOpts omits strong consistency on Lambda-compat', () => {
+    const prevNetlify = process.env.NETLIFY;
+    const prevLambda = process.env.AWS_LAMBDA_FUNCTION_NAME;
+    try {
+      delete process.env.NETLIFY;
+      delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      assert.equal(authorityBlobGetOpts().consistency, 'strong');
+
+      process.env.NETLIFY = 'true';
+      assert.equal(authorityBlobGetOpts().consistency, undefined);
+      assert.equal(authorityBlobGetOpts().type, 'text');
+
+      delete process.env.NETLIFY;
+      process.env.AWS_LAMBDA_FUNCTION_NAME = 'bridge';
+      assert.equal(authorityBlobGetOpts().consistency, undefined);
+    } finally {
+      if (prevNetlify === undefined) delete process.env.NETLIFY;
+      else process.env.NETLIFY = prevNetlify;
+      if (prevLambda === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      else process.env.AWS_LAMBDA_FUNCTION_NAME = prevLambda;
+    }
+  });
 });
 
 describe('RHF-b-KN1 — integration', () => {
@@ -211,6 +235,60 @@ describe('RHF-b-KN1 — integration', () => {
     assert.ok(mint.payload.bearer);
     const ready = await store2.readHelperAccess(TEST_UID, RETAIL_ACTOR_ID);
     assert.equal(ready.payload.state, 'ready');
+  });
+
+  test('helper-access survives Lambda-compat BlobsConsistencyError on strong gets', async () => {
+    /**
+     * Netlify connectLambda store: strong consistency throws; eventual succeeds.
+     * Pre-fix STRONG_GET always passed consistency:strong → 503 while grants worked.
+     */
+    class LambdaCompatCasStore extends MemoryCasBlobStore {
+      async get(key, opts = {}) {
+        if (opts.consistency === 'strong') {
+          throw new Error('BlobsConsistencyError: strong consistency is not available');
+        }
+        return super.get(key, opts);
+      }
+      async getWithMetadata(key, opts = {}) {
+        if (opts.consistency === 'strong') {
+          throw new Error('BlobsConsistencyError: strong consistency is not available');
+        }
+        return super.getWithMetadata(key, opts);
+      }
+    }
+
+    const prevNetlify = process.env.NETLIFY;
+    process.env.NETLIFY = 'true';
+    try {
+      const dataDir = mkDataDir();
+      const cas = new LambdaCompatCasStore();
+      await seedActiveAuthorityEnvelope({
+        dataDir,
+        vaultId: 'Business',
+        cas,
+        envelopeOverrides: {
+          consents_by_id: {
+            dcons_kn1retail01: personalConsent(),
+          },
+          newest_active_consent_id_by_principal_actor: {
+            [principalActorKey(PRINCIPAL, RETAIL_ACTOR_ID)]: 'dcons_kn1retail01',
+          },
+        },
+      });
+      const store = createDelegationAuthorityStore({
+        dataDir,
+        vaultId: 'Business',
+        blobStore: cas,
+        sessionSecret: SESSION_SECRET,
+        nowMs: NOW,
+      });
+      const access = await store.readHelperAccess(TEST_UID, RETAIL_ACTOR_ID);
+      assert.equal(access.ok, true);
+      assert.equal(access.payload.state, 'renewable');
+    } finally {
+      if (prevNetlify === undefined) delete process.env.NETLIFY;
+      else process.env.NETLIFY = prevNetlify;
+    }
   });
 
   test('renew without consent fails closed; validate consumes action_count', async () => {

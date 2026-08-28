@@ -15,49 +15,56 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-27, RHF-b-KN1 LANDED)
+### Product-order relay (2026-08-28, helper-access fix DONE)
 
-**Order complete through KN1 land:** KN0 deploy proof **PASS** → KN1 BV **`pass`** → Muse/`main`
-→ [PR #313](https://github.com/aaronrene/knowtation/pull/313) `@8df71bc` → gateway+bridge prod.
-**No production marker.** Product NEXT = Scooling **RHF-b-SC**.
+**Knowtation helper-access Lambda fix:** BV **pass**; land + bridge redeploy this tip.
+Business authority marker already active (`lineage_lymik9fcy353fuo`).
+
+**Scooling product order wins:** NEXT = **resume RHF-e smoke** (Settings fold ≠
+`unavailable`) → finish smoke → RHF-f2. **No** RHF-e DONE until evidence pass. Spend 0/5.
 
 Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`.
+Smoke evidence: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md`.
+Fix evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md`.
 
 ---
 
-## NEXT SESSION — Scooling RHF-b-SC (product order)
+## NEXT SESSION — Resume RHF-e smoke (Scooling)
 
-**Date:** 2026-08-27  
-**Model:** **Auto** (Scooling chat)  
-**This board:** Knowtation KN1 land **DONE**. No further Knowtation code until RHF-d / cutover Tier 3.
+**Date:** 2026-08-28  
+**Model:** **Operator + Auto** (Scooling chat — product board)  
+**This board:** helper-access fix **DONE**. Paste from **Scooling** handover.
 
-### THE ONE NEXT STEP — **Model: Auto** (paste in **Scooling** chat)
+### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in **Scooling** chat)
 
 ```text
-RHF-b-SC DELEGATION-RETAIL (Auto)
+RHF-e RETAIL-SMOKE resume (Operator + Auto)
 
-Implement only Scooling RHF-b-SC from the passed freeze:
-scooling/docs/reviews/2026-08-27-retail-helper-finish.md § RHF-b-SC.
+Knowtation helper-access Lambda fix landed + bridge redeployed.
+Confirm Settings helperAccessState ∈ ready|renewable|consent_required
+(not unavailable). Then finish production smoke checks 2–7, 9.
 
-Required:
-1. mintCodexShimGrantBearer calls only renew-personal with server-fixed agent_codex_retail.
-2. Bearer server-only in Remix action/transport; never in browser state, cookies, or logs.
-3. Typed next_helper_delegation + exact Helper settings copy/link (https://scool.ing/settings/delegation).
-4. Settings helperAccessState fold (ready / renewable / consent_required / unavailable) + enable_helper action.
-5. requireSameOriginMutation on Home/Work/Settings mutation actions per freeze.
-6. Seven-tier tests + independent /build-verification-review pass before DONE.
-7. Update Scooling ROADMAP + OVERSEER-HANDOVER together; commit on feature branch.
+Spend still 0/5 until spend auth. No RHF-e DONE without evidence pass.
 
-Prerequisite: Knowtation RHF-b-KN1 landed + deployed (renew-personal + helper-access live).
-
-Do not build RHF-c visit orchestration, deploy, flip MY_WORK_CODEX_ENABLED, or spend on Codex.
-Do not activate Knowtation production authority marker.
-
-Model: Auto
-Branch: feat/retail-helper-finish-b-sc
+Model: Operator + Auto
+Repo: scooling
+Authority: docs/reviews/2026-08-27-retail-helper-finish.md row 25
+Evidence: docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md
 ```
 
-### This session — SD-21 land RHF-b-KN1 **DONE** (2026-08-27)
+### This session — helper-access Lambda fix **DONE** (2026-08-28)
+
+Root cause: Netlify Blobs `consistency: 'strong'` under Lambda → `BlobsConsistencyError`
+→ helper-access 503. Fix: `authorityBlobGetOpts()`. Seven-tier **25/25**; BV round 1
+**pass**. Evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix.md` +
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix-bv-round1.md`.
+
+### Archived — RHF-f1 Knowtation land **DONE** (2026-08-28)
+
+Muse `sha256:bfb78d35…` RHF-d evidence → muse-mirror → [PR #314](https://github.com/aaronrene/knowtation/pull/314)
+`@525b914`. Docs/script only; gateway+bridge still KN1 retail.
+
+### Archived — SD-21 land RHF-b-KN1 **DONE** (2026-08-27)
 
 Muse FF `feat/retail-helper-finish-b-kn1` → `main` `sha256:354ec7b7…`. muse-bridge → GitHub
 [PR #313](https://github.com/aaronrene/knowtation/pull/313) merge `@8df71bc`. Netlify gateway +
