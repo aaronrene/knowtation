@@ -29,8 +29,8 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
-| **Product order (Scooling)** | **RHF RETAIL-HELPER-FINISH** — Scooling RHF-a semantic round 7 + mechanical check **pass**; freeze `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. |
-| **THE ONE NEXT STEP** | **Scooling RHF-b-SC** (product order — separate chat). KN1 **LANDED** 2026-08-27 ([PR #313](https://github.com/aaronrene/knowtation/pull/313) `@8df71bc`); gateway+bridge prod on that SHA. No production marker. |
+| **Product order (Scooling)** | **RHF RETAIL-HELPER-FINISH** — RHF-f1 **LANDED** 2026-08-28 (Scooling [#334](https://github.com/aaronrene/scooling/pull/334); Knowtation [#314](https://github.com/aaronrene/knowtation/pull/314)). Freeze `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`. |
+| **THE ONE NEXT STEP** | **Scooling RHF-e** (fresh-browser smoke — separate chat). RHF-d evidence landed; **no** production marker; **no** Codex spend until spend auth. |
 | **Parked (not Codex)** | SEC-KN-P6-ROTATE-b R4–R5 (quiet window); SOCIAL-OPEN-RANGE-b (F7). F7 does **not** block Codex. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 
