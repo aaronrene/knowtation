@@ -15,55 +15,58 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-29, 25c PASS — RHF-e unparked)
+### Product-order relay (2026-09-02 — Scooling PRIMARY = Auto 34b)
 
 **Knowtation:** gateway `/health` **200**; `HUB_JWT_EXPIRY=24h`; Business consent
-`dcons_beubs3bja1fqz5rtug6myq` active; helper-access `renewable`. Evidence:
-`docs/reviews/2026-08-29-session-durability-25c-consent-pass.md`.
+`dcons_beubs3bja1fqz5rtug6myq` active; helper-access `renewable` (25c PASS). RHF retail rows
+21–27 **DONE** on Scooling (RHF-e smoke **PASS with FINDINGS** 2026-08-30; RHF-f2 + UX-WORK-CHAT
+landed). Do **not** re-run RHF-e as PRIMARY.
 
-**Scooling product order wins:** NEXT = **RHF-e RETAIL-SMOKE resume** (Operator + Auto).
-Paste from **Scooling** handover.
+**Scooling product order wins:** NEXT = **Auto row 34b** (Phase 5B community knowledge).
+Paste from **Scooling** handover (`ok -C ~/scooling next`). Identity persistence row **32 DONE**.
 
 ---
 
 <!-- overseer:next role=primary lane=product status=live -->
-## NEXT SESSION — RHF-e RETAIL-SMOKE (Scooling product board)
+## NEXT SESSION — Auto row 34b (Scooling product board)
 
-**Date:** 2026-08-29  
-**Model:** **Operator + Auto**  
-**This board:** 25c **PASS**. Paste from **Scooling** handover.
+**Date:** 2026-09-02  
+**Model:** **Auto**  
+**This board:** Does not Auto Scooling. Paste the fence in a **Scooling** chat.
 
-### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in product chat)
+### THE ONE NEXT STEP — **Model: Auto** (paste in Scooling chat)
 
 ### Paste-ready prompt
 
 ```text
-RHF-e RETAIL-SMOKE resume (Operator + Auto)
+Scooling row 34b — Phase 5B community knowledge threads (Auto)
 
-Ground truth:
-  SESSION-DURABILITY-b LANDED (KN #318, SC #338).
-  HUB_JWT_EXPIRY=24h; api.knowtation.store/health 200 ok.
-  Business consent usable: dcons_beubs3bja1fqz5rtug6myq active/personal;
-  helper-access state=renewable for agent_codex_retail.
-  Evidence: ~/scooling/docs/reviews/2026-08-29-session-durability-25c-consent-pass.md
-  Prior smoke block: docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md
-  (visit-start 503 RUNNER_UNAVAILABLE; spend still 0/5).
+Repo: ~/scooling · Authority: ROADMAP row 34 · Model: Auto
+Branch: feat/phase-5b-community-knowledge-b (create at start)
 
-Resume fresh-browser RHF-e on https://scool.ing:
-  sign-in → Settings helper ready/renewable → Home Start → Work live stream →
-  Stop → refresh persist → expired-grant auto-renew. Zero terminal grants.
-Confirm nginx /v1/visits/start is not 503 RUNNER_UNAVAILABLE (EC2 runner tip
-+ restart if still required). Record evidence in the smoke-pass doc.
+Prior: Row 34a freeze-review pass
+sha256:df0f2484d8179ccbff853fd14e866d4e4ccdde87e3636eccab9b2680d88256c3.
+G4: handover PRIMARY named Auto 34b.
+Row 32 DONE (identity persistence BV pass) — do not reopen.
 
-Authorize Codex spend for this smoke only (budget 5). Verify MY_WORK_CODEX_ENABLED
-on Netlify scooling before Start — flip is separate Tier 3 if still false.
-No production marker. No feature→GitHub-main PR. No RHF-e DONE without evidence pass.
+Do:
+  1. Build exactly to docs/reviews/2026-09-02-phase-5b-community-knowledge.md §4 / §5
+  2. Ship CommunityKnowledgeAdapter fixtures only — no model summarizer
+  3. Seven-tier community-knowledge.test.ts; Coming strings unchanged
+  4. /build-verification-review → pass before ROADMAP DONE
+  5. Update ROADMAP + handover; Muse commit on feature branch
 
-Model: Operator + Auto
-Repo: scooling (+ knowtation runner if needed)
-Step: RHF-e RETAIL-SMOKE resume
-Authority: ROADMAP row 25 after 25c consent PASS
+Do not: flip SOCIAL_LIVE_* · MuseHub HTTP · flip COMMUNITY_KNOWLEDGE_LIVE_SYNTHESIS_AUTHORIZED ·
+invent Live · reopen row 32 · Apple/Brain
+
+Model: Auto
+Authority: ROADMAP row 34
 ```
+
+### Archived — RHF-e RETAIL-SMOKE (Operator **PASS with FINDINGS** 2026-08-30)
+
+Evidence `~/scooling/docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md`. Scooling ROADMAP
+row **25 DONE**. RHF-f2 + RHF-UX-WORK-CHAT closed. Do **not** paste RHF-e as PRIMARY again.
 
 ### Archived — SESSION-DURABILITY-25c (Operator **PASS** 2026-08-29)
 
