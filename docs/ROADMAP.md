@@ -22,15 +22,15 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-28)
+## Current status (2026-09-02)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
-| **Product order (Scooling)** | **Auto row 34b** — Phase 5B community knowledge. Identity row **32 DONE**. RHF retail 21–27 **DONE**. |
-| **THE ONE NEXT STEP** | **Auto row 34b** — paste from Scooling (`ok -C ~/scooling next`). This board does not Auto Scooling. |
+| **Product order (Scooling)** | **Operator wait** — rows 32 + 34 **LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). PRIMARY = Gabriel rows 30/31. RHF retail 21–27 **DONE**. |
+| **THE ONE NEXT STEP** | **Operator** — hold on Gabriel (do not Auto 34b; already LANDED). Paste from Scooling (`ok -C ~/scooling next`). This board does not Auto Scooling. |
 | **Parked (not Codex)** | SEC-KN-P6-ROTATE-b R4–R5 (quiet window); SOCIAL-OPEN-RANGE-b (F7). F7 does **not** block Codex. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
 

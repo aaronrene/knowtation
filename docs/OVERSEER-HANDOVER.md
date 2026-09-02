@@ -15,52 +15,50 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-09-02 — Scooling PRIMARY = Auto 34b)
+### Product-order relay (2026-09-02 — Scooling PRIMARY = Operator Gabriel wait)
 
 **Knowtation:** gateway `/health` **200**; `HUB_JWT_EXPIRY=24h`; Business consent
 `dcons_beubs3bja1fqz5rtug6myq` active; helper-access `renewable` (25c PASS). RHF retail rows
 21–27 **DONE** on Scooling (RHF-e smoke **PASS with FINDINGS** 2026-08-30; RHF-f2 + UX-WORK-CHAT
 landed). Do **not** re-run RHF-e as PRIMARY.
 
-**Scooling product order wins:** NEXT = **Auto row 34b** (Phase 5B community knowledge).
-Paste from **Scooling** handover (`ok -C ~/scooling next`). Identity persistence row **32 DONE**.
+**Scooling product order wins:** NEXT = **Operator wait** (Gabriel rows 30/31).
+Rows 32 + 34 **LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`).
+Do **not** paste Auto 34b — that build already shipped. Paste from **Scooling**
+(`ok -C ~/scooling next`).
 
 ---
 
 <!-- overseer:next role=primary lane=product status=live -->
-## NEXT SESSION — Auto row 34b (Scooling product board)
+## NEXT SESSION — Operator wait (Scooling product board)
 
 **Date:** 2026-09-02  
-**Model:** **Auto**  
+**Model:** **Operator**  
 **This board:** Does not Auto Scooling. Paste the fence in a **Scooling** chat.
 
-### THE ONE NEXT STEP — **Model: Auto** (paste in Scooling chat)
+### THE ONE NEXT STEP — **Model: Operator** (paste in Scooling chat)
 
 ### Paste-ready prompt
 
 ```text
-Scooling row 34b — Phase 5B community knowledge threads (Auto)
+Scooling — waiting on Gabriel rows 30/31 (Operator)
 
-Repo: ~/scooling · Authority: ROADMAP row 34 · Model: Auto
-Branch: feat/phase-5b-community-knowledge-b (create at start)
-
-Prior: Row 34a freeze-review pass
-sha256:df0f2484d8179ccbff853fd14e866d4e4ccdde87e3636eccab9b2680d88256c3.
-G4: handover PRIMARY named Auto 34b.
-Row 32 DONE (identity persistence BV pass) — do not reopen.
+Repo: ~/scooling · Authority: ROADMAP rows 30 + 31 · Model: Operator
+Prior: Rows 32 + 34 LANDED 2026-09-02 — GitHub #355 @fc2ad70f
+(docs/reviews/2026-09-02-land-32b-34b.md). Row 33 inert LANDED.
+COMMUNITY_KNOWLEDGE_LIVE_SYNTHESIS_AUTHORIZED=false. SOCIAL_LIVE_*=false.
 
 Do:
-  1. Build exactly to docs/reviews/2026-09-02-phase-5b-community-knowledge.md §4 / §5
-  2. Ship CommunityKnowledgeAdapter fixtures only — no model summarizer
-  3. Seven-tier community-knowledge.test.ts; Coming strings unchanged
-  4. /build-verification-review → pass before ROADMAP DONE
-  5. Update ROADMAP + handover; Muse commit on feature branch
+  1. Hold PRIMARY on Gabriel — do not retry row 30 mpack until he confirms fix
+  2. Hold row 31 until Gabriel OKs narrow #152 identity-key path
+  3. Optional parallel only: devices (Brain/Apple) · row 38 hygiene · row 39 AUTHORIZE
+  4. When Gabriel clears G1+G2, open Thinking for SOCIAL-OPEN-RANGE-live (not this chat)
 
-Do not: flip SOCIAL_LIVE_* · MuseHub HTTP · flip COMMUNITY_KNOWLEDGE_LIVE_SYNTHESIS_AUTHORIZED ·
-invent Live · reopen row 32 · Apple/Brain
+Do not: invent Live · flip SOCIAL_LIVE_* · flip COMMUNITY_KNOWLEDGE_LIVE_SYNTHESIS_AUTHORIZED ·
+temporary parallel social backend · feature→GitHub-main · invent F7 DONE
 
-Model: Auto
-Authority: ROADMAP row 34
+Model: Operator
+Authority: ROADMAP rows 30 + 31 (wait)
 ```
 
 ### Archived — RHF-e RETAIL-SMOKE (Operator **PASS with FINDINGS** 2026-08-30)
@@ -317,7 +315,21 @@ Authority: docs/reviews/2026-08-24-auth-lane-honesty-a.md; docs/reviews/2026-08-
 
 ## PRODUCT RELAY — sequencing (Scooling board)
 
-### This session — PRODUCT RELAY → Auto row 32b (2026-09-02)
+### This session — PRODUCT RELAY → Operator Gabriel wait (2026-09-02)
+
+Scooling rows **32 + 34 LANDED** — GitHub [SC #355](https://github.com/aaronrene/scooling/pull/355)
+`@fc2ad70f` (`docs/reviews/2026-09-02-land-32b-34b.md` on Scooling).
+Scooling PRIMARY = **Operator wait** (Gabriel rows 30/31). Auto 34b is **done** — do not rebuild.
+Live social / #152 stay **Gabriel**. This Knowtation board does **not** Auto Scooling.
+Canonical paste fences: `~/scooling/docs/OVERSEER-HANDOVER.md` +
+`OVERSEER-HANDOVER-PASTE.txt`.
+
+### Archived — PRODUCT RELAY → Auto row 34b (2026-09-02)
+
+Scooling PRIMARY was **Auto row 34b** (Phase 5B community knowledge). Superseded same day
+when 32b+34b landed on GitHub `main`. Do **not** paste that fence again.
+
+### Archived — PRODUCT RELAY → Auto row 32b (2026-09-02)
 
 Scooling row **32-auth DONE** — Operator AUTHORIZE T2
 `docs/reviews/2026-09-02-identity-persistence-authorize.md` (cites 32a
@@ -1205,6 +1217,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-02 | **PRODUCT RELAY → Operator Gabriel wait.** Scooling rows **32 + 34 LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). PRIMARY = hold rows 30/31. Auto 34b retired — do not rebuild. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-09-02 | **PRODUCT RELAY → Auto row 32b.** Scooling row **32-auth DONE** (AUTHORIZE T2 cites 32a `sha256:b949a466…`). PRIMARY = identity persistence Auto (const flip + store). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-09-02 | **PRODUCT RELAY → Thinking row 32.** Scooling row **34a DONE** (freeze-review **pass** `sha256:df0f2484…`). PRIMARY = identity persistence gate (no authorize flip). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-09-01 | **PRODUCT RELAY → Auto SOCIAL-OPEN-RANGE-b.** Scooling row **33a DONE** (freeze-review **pass** `sha256:1cc53668…`). PRIMARY = inert SOCIAL-OPEN-RANGE-b. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
