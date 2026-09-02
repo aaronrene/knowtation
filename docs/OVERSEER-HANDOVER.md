@@ -15,63 +15,112 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-28, SESSION-DURABILITY-b-KN BV pass)
+### Product-order relay (2026-09-02 — Scooling PRIMARY = row 42 SC-BRAIN-LIVE-1a)
 
-**Knowtation SESSION-DURABILITY-b-KN:** BV round 2 **pass** on `feat/session-durability-b-kn`
-(not landed to Muse `main`). Seven-tier **93/93**. Evidence:
-`docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`.
+**Knowtation:** gateway `/health` **200**; `HUB_JWT_EXPIRY=24h`; Business consent
+`dcons_beubs3bja1fqz5rtug6myq` active; helper-access `renewable` (25c PASS). RHF retail rows
+21–27 **DONE** on Scooling (RHF-e smoke **PASS with FINDINGS** 2026-08-30; RHF-f2 + UX-WORK-CHAT
+landed). Do **not** re-run RHF-e as PRIMARY. *(These are doc-sourced from the 2026-08-29/30 probes;
+not re-verified 2026-09-02.)*
 
-**Scooling product order wins:** NEXT = **SESSION-DURABILITY-b-SC** (Auto) on
-`feat/session-durability-b`. Freeze
-`~/scooling/docs/reviews/2026-08-28-session-durability.md`. RHF-e remains **PARKED**.
-**No** production env/auth deploy from this KN tip.
-
-Freeze Muse revision: `sha256:2ca4f221375666abf174c8a09de11e109d53f38150039610e841d8b55534ef47`  
-Freeze artifact SHA-256: `0294db66e399d72024ec41d33b9e48aaecb2f1cce9dc225da4472cdd8ef12f9f`
+**Scooling product order wins:** Scooling PRIMARY moved **off** the Gabriel wait to row **42
+SC-BRAIN-LIVE-1a** — the theBRAIN auth seam. Rows 32 + 34 **LANDED**
+([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). Gabriel rows 30/31 are
+held in the background. Do **not** paste Auto 34b — that build already shipped. Paste from
+**Scooling** (`ok -C ~/scooling next`).
 
 ---
 
-## NEXT SESSION — SESSION-DURABILITY-b-SC (Scooling product board)
+<!-- overseer:next role=primary lane=product status=live -->
+## NEXT SESSION — no Knowtation-owned step (board is caught up)
 
-**Date:** 2026-08-28  
-**Model:** **Auto** (Scooling chat — product board)  
-**This board:** SESSION-DURABILITY-b-KN **DONE** (BV pass; feature branch). Paste from **Scooling** handover.
+**Date:** 2026-09-02  
+**Model:** — (nothing to run here)  
+**This board:** Does not Auto Scooling. The active constellation work is the Scooling↔theBRAIN
+seam and it needs **no Knowtation change**.
 
-### THE ONE NEXT STEP — **Model: Auto** (paste in **Scooling** chat)
+### THE ONE NEXT STEP — **none owned by this repo**
+
+Knowtation's product board is complete. The two remaining rows are not startable work:
+
+| Row | State | Why not a next step |
+| --- | --- | --- |
+| `SEC-KN-P6-ROTATE-b` R4–R5 | PARKED | Needs a ≥24h quiet window. **Same item as Scooling row 38** — do not track twice |
+| `CODEX-HUB-FLOW-PROPOSAL` | QUEUED | Blocked behind Scooling row 31 → MuseHub #152 → Gabriel |
+
+**Do not open a Knowtation chat looking for work.** Knowtation's job right now is to keep serving
+Scooling — Hub API, MCP, delegation, retail helper — all of which is live. Expect a Knowtation row
+again when Scooling reaches **row 45 SC-BRAIN-LIVE-4 (TOOLS)**, because `SC-BRAIN-TOOLS-FREEZE`
+**T8** forbids a Knowtation write from a skill result without review-before-write.
+
+### Paste-ready prompt — run this in a **Scooling** chat, not here
 
 ```text
-SESSION-DURABILITY-b-SC (Auto) — Scooling session expiry honesty + Helpers folds.
+Scooling — row 42 SC-BRAIN-LIVE-1a AUTH seam freeze (Thinking)
 
-Ground truth:
-  ~/scooling/docs/reviews/2026-08-28-session-durability.md
-Freeze Muse revision:
-  sha256:2ca4f221375666abf174c8a09de11e109d53f38150039610e841d8b55534ef47
-Freeze artifact SHA-256:
-  0294db66e399d72024ec41d33b9e48aaecb2f1cce9dc225da4472cdd8ef12f9f
+Repo: ~/scooling · Authority: ROADMAP row 42 · Model: Thinking
+Consumes: docs/SC-BRAIN-AUTH-FREEZE.md deferred tips T2 (env assign) + T4 (prod redirect_uri)
 
-KN contract (BV pass, not landed): Knowtation feat/session-durability-b-kn —
-  docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md
+Context: Scooling landed SC-BRAIN-AUTH/PAIR/TOOLS/EMBED inert on 2026-08-24 and theBRAIN
+finished its app lane through F35. Both halves are stubs pointing at nothing. Today the
+production shell redirect_uri allowlist is the EMPTY SET, so every retail sign-in attempt
+fail-closes. theBRAIN's shell (ui/shell/src/auth/scoolingAuth.ts) accepts loopback only.
 
-From Scooling Muse main create feat/session-durability-b. Implement only the
-Scooling boundary in freeze §§2, 3, 5, 6, 7. Consume the passed KN contract.
-Do not redesign the freeze. Seven-tier + independent BV pass before DONE.
+Do:
+  1. Read docs/SC-BRAIN-AUTH-FREEZE.md in full — especially §T2/§T4 and the redirect_uri table
+  2. Read ~/theBRAIN/the-brain/ui/shell/src/auth/scoolingAuth.ts for the client side
+  3. Write a frozen: true artifact covering: the exact production https redirect_uri, how the
+     allowlist is sourced (env vs in-code), failure codes, CORS, cookie names, and the
+     fail-closed behavior when the allowlist is empty
+  4. Include the seven-tier test matrix and the exact Tier-3 AUTHORIZE ask for 42-auth
+  5. Run /freeze-review-loop until verdict is pass
 
-No production env/auth deploy, secrets, consent apply, Codex spend, RHF-e smoke,
-MY_WORK_CODEX_ENABLED flip, main merge, or feature→GitHub-main PR.
+Do not: assign any env · add the redirect URI · write any PHASE8B_* constant ·
+claim retail Scooling sign-in is live · touch rows 30/31 · invent Live social ·
+feature→GitHub-main
 
-Model: Auto
-Repo: scooling
-Branch: feat/session-durability-b
-Step: SESSION-DURABILITY-b-SC
-Authority: Scooling ROADMAP row 25b / passed SESSION-DURABILITY-a freeze + KN BV pass
+Model: Thinking
+Authority: ROADMAP row 42 (SC-BRAIN-LIVE-1a)
 ```
 
-### This session — SESSION-DURABILITY-b-KN **DONE** (BV pass, 2026-08-28)
+### VCS (verified 2026-09-02)
 
-Canonical-first Hub session continuity on `feat/session-durability-b-kn`. Hosted
+| Item | Value |
+| --- | --- |
+| Git branch | `feat/constellation-governance-2026-09-02` (created this session at `origin/main`) |
+| `origin/main` | `97dbd85689316c7f8a8725e21b5115df2e4d7cf6` (KN #318 SESSION-DURABILITY mirror) |
+| Regime | `muse+git-mirror` — Muse canonical, GitHub mirror via `muse-mirror` only |
+| Git tree | reconciled this session — see note |
+
+**Git pointer reconciliation (2026-09-02):** `git status` reported **254** dirty files. That was
+**not** uncommitted work — git `HEAD` was parked on `docs/ok-next-paste-hygiene` `@a164387`,
+**104 commits behind** `origin/main`, while the working tree already held landed content. Fixed
+with `git checkout -b feat/constellation-governance-2026-09-02` then `git reset --mixed origin/main`,
+which moves HEAD and index but **never** the worktree. Old branch preserved at `a164387`. Dirty
+count fell **254 → 28**, the remainder being Overseer-kit sync artifacts, these governance docs,
+verify scripts, and two review artifacts.
+
+### Archived — RHF-e RETAIL-SMOKE (Operator **PASS with FINDINGS** 2026-08-30)
+
+Evidence `~/scooling/docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md`. Scooling ROADMAP
+row **25 DONE**. RHF-f2 + RHF-UX-WORK-CHAT closed. Do **not** paste RHF-e as PRIMARY again.
+
+### Archived — SESSION-DURABILITY-25c (Operator **PASS** 2026-08-29)
+
+Gateway `HUB_JWT_EXPIRY=24h` + Business consent restore. Evidence:
+`docs/reviews/2026-08-29-session-durability-25c-consent-pass.md`.
+
+### This session — SESSION-DURABILITY-b-KN **LANDED** (2026-08-28)
+
+Canonical-first Hub session continuity on Muse `main` + GitHub `#318`. Hosted
 `type:session` admission, HUB_JWT_EXPIRY 3h–24h, browser/CLI establish-refresh,
-Hub fresh-session helper. BV round 2 **pass**; **93/93** tests. **Not** merged to
-Muse `main`. Evidence: `docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`.
+Hub fresh-session helper. **Gateway unhealthy until Tier-3 env.** Evidence:
+`docs/reviews/2026-08-28-session-durability-b-kn-land.md`.
+
+### Archived — SESSION-DURABILITY-b-KN **DONE** (BV pass on feature tip, 2026-08-28)
+
+BV round 2 **pass**; **93/93** tests on `feat/session-durability-b-kn` before land.
+Evidence: `docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`.
 
 ### Archived — helper-access Lambda fix **DONE + LANDED** (2026-08-28)
 
@@ -177,7 +226,7 @@ Model: Operator
 Repo: knowtation
 ```
 
-### Paste-ready prompt — RHF-b-KN1 (ARCHIVED — completed)
+### Archived paste — RHF-b-KN1 (completed; do not paste as PRIMARY)
 
 ```text
 Step: RHF-b-KN1 DELEGATION-RETAIL
@@ -269,7 +318,7 @@ Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, s
 
 Implemented D1–D27 against the freeze. Seven-tier **26/26**. BV r1 **pass**. Branch `feat/automation-ingest-policy-b`. Pack templates stay `enabled: false`. Session `POST api/v1/proposals` unchanged. No Scooling edits.
 
-### Paste-ready prompt — AIP-b Operator T2 live smoke
+### Archived paste — AIP-b Operator T2 live smoke
 
 ```text
 Run production automation ingest smoke on api.knowtation.store after KN #308 deploy. Use scripts/verify-automation-ingest-smoke.mjs with production target only if credentials are already in env (never paste kt_agent_ or JWTs into git). Record PASS or FINDINGS in docs/reviews/<date>-automation-ingest-live-smoke.md: rule_id, disposition, Review proposed-count delta, HTTP status + JSON code only. No secrets.
@@ -279,7 +328,7 @@ Model: Operator
 Authority: docs/AUTOMATION-INGEST-POLICY-FREEZE.md T2; docs/reviews/2026-08-24-automation-ingest-policy-b-land.md
 ```
 
-### Paste-ready prompt — trend-agent propose re-smoke (after deploy; Operator, not AIP-b)
+### Archived paste — trend-agent propose re-smoke (after deploy; Operator, not AIP-b)
 
 ```text
 Re-run KN-AUTH-LANE-D live smoke step 4 after propose-path hotfix deploy. POST /api/v1/proposals with agent_access Bearer + X-Vault-Id Business. Expect 200/201 with proposal id. Record PASS or FINDINGS (status + JSON code only, no secrets) in docs/reviews/2026-08-24-kn-auth-lane-d-live-smoke.md.
@@ -288,7 +337,7 @@ Repo: knowtation / VideoFactory trend agent
 Model: Operator
 ```
 
-### Paste-ready prompt — Scooling F28b land + F26 smoke (product order — paste in Scooling chat)
+### Archived paste — Scooling F28b land + F26 smoke (product order)
 
 ```text
 SD-21 land feat/auth-lane-honesty-a on Scooling. F28b BV pass. Then Operator F26 DELEGATION-WRITE smoke — signed-in /settings/delegation lists helpers and submit works without Netlify KNOWTATION_AUTH_TOKEN.
@@ -305,19 +354,61 @@ Authority: docs/reviews/2026-08-24-auth-lane-honesty-a.md; docs/reviews/2026-08-
 
 ## PRODUCT RELAY — sequencing (Scooling board)
 
-**Date:** 2026-08-27  
-**Order:** KN0 deploy proof → **KN1 (this repo)** → Scooling **RHF-b-SC** (blocked)  
-**Not parallel:** Scooling RHF-b-SC needs KN1 `renew-personal` + `helper-access` APIs.
+### This session — PRODUCT RELAY → Operator Gabriel wait (2026-09-02)
 
+Scooling rows **32 + 34 LANDED** — GitHub [SC #355](https://github.com/aaronrene/scooling/pull/355)
+`@fc2ad70f` (`docs/reviews/2026-09-02-land-32b-34b.md` on Scooling).
+Scooling PRIMARY = **Operator wait** (Gabriel rows 30/31). Auto 34b is **done** — do not rebuild.
+Live social / #152 stay **Gabriel**. This Knowtation board does **not** Auto Scooling.
+Canonical paste fences: `~/scooling/docs/OVERSEER-HANDOVER.md` +
+`OVERSEER-HANDOVER-PASTE.txt`.
 
-| Step | Repo       | ID               | Status                                           |
-| ---- | ---------- | ---------------- | ------------------------------------------------ |
-| 1    | Knowtation | KN0 deploy proof | **FINDINGS** — land KN0 + refresh JWT + re-probe |
-| 2    | Knowtation | **RHF-b-KN1**    | **BLOCKED** until step 1 **PASS**                |
-| 3    | Scooling   | RHF-b-SC         | **BLOCKED** until step 2 BV `**pass`**           |
+### Archived — PRODUCT RELAY → Auto row 34b (2026-09-02)
 
+Scooling PRIMARY was **Auto row 34b** (Phase 5B community knowledge). Superseded same day
+when 32b+34b landed on GitHub `main`. Do **not** paste that fence again.
 
-### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
+### Archived — PRODUCT RELAY → Auto row 32b (2026-09-02)
+
+Scooling row **32-auth DONE** — Operator AUTHORIZE T2
+`docs/reviews/2026-09-02-identity-persistence-authorize.md` (cites 32a
+`sha256:b949a46626ffdb556e21da7327162ada73d7d9b6da3410cd86bc66bb26f24bf6`).
+Scooling PRIMARY = **Auto row 32b** (flip `IDENTITY_PERSISTENCE_AUTHORIZED` + store;
+const still false until Auto). Row **34b** stays queued on its G4.
+Live social / #152 stay **Gabriel**. This Knowtation board does **not** Auto Scooling.
+Canonical paste fences: `~/scooling/docs/OVERSEER-HANDOVER.md` +
+`OVERSEER-HANDOVER-PASTE.txt`.
+
+### Archived — PRODUCT RELAY → Operator AUTHORIZE row 32 (2026-09-02)
+
+Scooling row **32a DONE** — identity persistence freeze-review **pass**
+`sha256:b949a46626ffdb556e21da7327162ada73d7d9b6da3410cd86bc66bb26f24bf6`.
+Scooling PRIMARY was **Operator AUTHORIZE row 32** (now **32-auth DONE** → Auto 32b).
+Superseded same day.
+
+### Archived — PRODUCT RELAY → Thinking row 32 (2026-09-02)
+
+Scooling row **34a DONE** — Phase 5B freeze-review **pass**
+`sha256:df0f2484d8179ccbff853fd14e866d4e4ccdde87e3636eccab9b2680d88256c3`.
+Scooling PRIMARY was **Thinking row 32** (now **32a pass**). Superseded same day.
+
+### Archived — PRODUCT RELAY → Auto SOCIAL-OPEN-RANGE-b (2026-09-01)
+
+Scooling row **33a DONE** — freeze-review **pass** `sha256:1cc53668…`. Scooling PRIMARY was
+**Auto row 33 SOCIAL-OPEN-RANGE-b** (now LANDED). Superseded 2026-09-02 by row 34a pass → row 32.
+
+### Archived — PRODUCT RELAY → Thinking 33a (2026-09-01)
+
+Scooling row **29a PASS** (Aaron MuseHub staging+prod deploy ownership). Scooling PRIMARY was
+**Thinking row 33a** (now **pass** → Auto SOCIAL-OPEN-RANGE-b). Parallel on Scooling board:
+**Operator 29b** (MuseHub F7b/KD-6b merges) · optional **T7 Muse main land**. This Knowtation board
+does **not** Auto Scooling. Live social / #152 and Knowtation domain registration stay **Gabriel**.
+Canonical paste fences: `~/scooling/docs/OVERSEER-HANDOVER.md` + `OVERSEER-HANDOVER-PASTE.txt`.
+
+RHF Codex retail path (KN0→KN1→SC) is **closed** on this board — do not treat the archived
+2026-08-27 KN0/KN1 table as current PRIMARY.
+
+### Archived — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
 
 Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = **Operator F20 HELPER-SMOKE re-smoke** after Netlify redeploy; read class `data-next-step`. Path writes stay **ON**. T5 not admitted. This board does not Auto Scooling. NEXT = **Operator F20** (Scooling).
 
@@ -1137,7 +1228,7 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 | Area                                            | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Overseer Kit**                                | `initialized: true`, `lock.kit_version: 0.1.0`, `footprint_self_integrity: ok`, `muse_sync: synced` — **re-verified 2026-08-18** via `ok -C ~/knowtation status --json`                                                                                                                                                                                                                                                                                                                                     |
-| **KN-WORK-PATH-LIST**                           | **LANDED** 2026-08-18 — Muse `main` `sha256:87cf7a0d…` → [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED` default off.                                                                                                                                                                                                                                                                                                                                        |
+| **KN-WORK-PATH-LIST**                           | **LANDED** 2026-08-18 — Muse `main` `sha256:87cf7a0d…` → [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff`. `PATH_WRITES_ENABLED` is **off in code default** but **ON in production** (Netlify `=1` on gateway+bridge, operator-flipped **2026-08-19**; see `docs/ROADMAP.md` KN-WORK-PATH-LIST-b). *(Corrected 2026-09-02 — this row previously read "default off" with no mention of the production flip.)*                                                                            |
 | **Footprint deviation (intentional)**           | `ok status --check-footprint` → `footprint_integrity: mismatch`. Cause: `MUSE-BRIDGE-WORKFLOW.md` and `scripts/muse-bridge-deploy.sh` were restored to Knowtation's live versions (sha256 `ef8a50b5…` and `fcc17c36…`) after `init --force` overwrote them with kit templates. Knowtation's bridge script is 10,004 bytes and is the live deploy path; the kit template is 3,842 bytes and is **not** a substitute. **Do not "repair" these two files.** Recorded in `.overseer/config.yaml` → `kit.notes`. |
 | **Canister gateway auth secret**                | **SET** (2026-07-26) — hub `rsovz-byaaa-aaaaa-qgira-cai`; `GET /vaults` without `X-Gateway-Auth` → `403 GATEWAY_AUTH_REQUIRED`. `operator_status` does not exist on canister.                                                                                                                                                                                                                                                                                                                               |
 | **SEC-KN-1 fail-closed**                        | **On Muse `main`** (tip contained). Live health `gateway_auth_configured:true` + `/vaults` → `403 GATEWAY_AUTH_REQUIRED` (**re-verified 2026-07-31**).                                                                                                                                                                                                                                                                                                                                                      |
@@ -1165,6 +1256,10 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-02 | **PRODUCT RELAY → Operator Gabriel wait.** Scooling rows **32 + 34 LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). PRIMARY = hold rows 30/31. Auto 34b retired — do not rebuild. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
+| 2026-09-02 | **PRODUCT RELAY → Auto row 32b.** Scooling row **32-auth DONE** (AUTHORIZE T2 cites 32a `sha256:b949a466…`). PRIMARY = identity persistence Auto (const flip + store). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
+| 2026-09-02 | **PRODUCT RELAY → Thinking row 32.** Scooling row **34a DONE** (freeze-review **pass** `sha256:df0f2484…`). PRIMARY = identity persistence gate (no authorize flip). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
+| 2026-09-01 | **PRODUCT RELAY → Auto SOCIAL-OPEN-RANGE-b.** Scooling row **33a DONE** (freeze-review **pass** `sha256:1cc53668…`). PRIMARY = inert SOCIAL-OPEN-RANGE-b. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-08-24 | **AIP-b LANDED (SD-21).** Muse FF `feat/automation-ingest-policy-b` → `main` `sha256:4f7a536…`; muse-bridge → GitHub [PR #308](https://github.com/aaronrene/knowtation/pull/308) `@e9300f2`. Born Free templates stay disabled. Production ingest smoke **not** claimed — Operator T2 next. Evidence: `docs/reviews/2026-08-24-automation-ingest-policy-b-land.md`. **AIP-c** not started.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 2026-08-20 | **PRODUCT RELAY → Operator F20 after F31b land.** Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step` (endpoint / malformed / abort / runtime). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-08-20 | **PRODUCT RELAY → Operator F20 HELPER-SMOKE re-smoke.** Scooling F30b **LANDED** [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step`. Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |

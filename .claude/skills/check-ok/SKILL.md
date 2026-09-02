@@ -43,7 +43,7 @@ Scooling, Knowtation, VideoFactory, and any repo after `ok sync`.
 ```bash
 ok check-ok --topic "my-side-research" --dry-run
 ok check-ok --path docs/reviews/2026-07-17-my-side-research.md
-ok check-ok --path docs/PHASE-FOO.md   # existing freeze artifact
+ok check-ok --path docs/archive/phases/PHASE-FOO.md   # existing freeze artifact
 ```
 
 (`ok check-if-ok` is a deprecated synonym for the same command.)

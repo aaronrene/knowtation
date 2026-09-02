@@ -21,6 +21,9 @@ Machine-readable source: `policy/tiers.yaml`. Standing Decisions: `{{docs.standi
 **Never** Tier 1: staging push, live posture flips, secrets/money/data deletion,
 feature→GitHub-`{{vcs.git.main_branch}}`, or `git push {{vcs.git.remote}} {{vcs.git.main_branch}}`.
 
+**Land closeout (PMHF):** land is incomplete until land-b post-merge sync — never claim
+"land complete" while `ok land-closeout` fails.
+
 ## Tier 2 — recommend, confirm once, record
 
 - Persistence shape, adapter contracts, schema-version choices

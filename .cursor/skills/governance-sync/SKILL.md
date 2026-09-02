@@ -34,6 +34,15 @@ truth. This automates the SD-17 obligation — it does not invent new policy.
 marker when D1/D2 are aligned (GFG carve-out). Governance-doc patches, commits, and
 realign apply only on explicit non-dry-run; never on `{{vcs.git.main_branch}}`.
 
+After apply/write of living docs, run `ok next` (or equivalent Read) and include the
+`## CURRENT NEXT — paste this` heading+fence in the user-visible close.
+
+## Post-merge land closeout (PMHF)
+
+When the handover NEXT is `land-phase=land-a` and D1 is drifted (the merge landed on
+`{{vcs.git.main_branch}}`), the plan emits the **land-b** paste for the same slice.
+land-b required: `ok governance-sync --dry-run` then apply; paste land-b; do not re-paste land-a.
+
 ## Closing commit
 
 Feature branch only. Message pattern: `governance: sync handover + roadmap (<date>)`. Bundle both docs.

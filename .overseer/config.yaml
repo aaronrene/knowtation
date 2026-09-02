@@ -57,3 +57,11 @@ kit:
 workspace:
   constellation_id: scooling-stack
   product_order_root: ~/scooling
+
+session_bookends:
+  enabled: true
+
+honesty:
+  enabled: true
+  ledger: .overseer/honesty/VERDICT-LEDGER.jsonl
+  require_verification_evidence: warn

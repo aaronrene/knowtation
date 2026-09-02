@@ -22,17 +22,37 @@ authorization behavior**, this board wins.
 then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table and paste block
 **must** include **`Model:`**.
 
-## Current status (2026-08-28)
+## Current status (2026-09-02)
 
 | | |
 | --- | --- |
 | **Overseer Kit** | **Live** — `initialized: true`, `kit_version: 0.1.0` (verify with `ok status` before claims). |
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
-| **Product order (Scooling)** | **SESSION-DURABILITY** — KN slice **BV pass** on `feat/session-durability-b-kn` (not landed). Freeze `~/scooling/docs/reviews/2026-08-28-session-durability.md`. RHF-e remains **PARKED**. |
-| **THE ONE NEXT STEP** | **Scooling SESSION-DURABILITY-b-SC** (Auto) — after this KN tip is available to SC. **No** RHF-e DONE. Spend 0/5. |
-| **Parked (not Codex)** | SEC-KN-P6-ROTATE-b R4–R5 (quiet window); SOCIAL-OPEN-RANGE-b (F7). F7 does **not** block Codex. |
+| **Product order (Scooling)** | Scooling PRIMARY moved **off** the Gabriel wait to row **42 SC-BRAIN-LIVE-1a** (theBRAIN auth seam). Rows 32 + 34 **LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). Gabriel rows 30/31 held in background. RHF retail 21–27 **DONE**. |
+| **THE ONE NEXT STEP** | **None owned by Knowtation.** This board is caught up. The active constellation work is the Scooling↔theBRAIN seam, which needs nothing from Knowtation. Paste from Scooling (`ok -C ~/scooling next`). This board does not Auto Scooling. |
+| **Only Knowtation-owned item** | **SEC-KN-P6-ROTATE-b R4–R5** — needs a ≥24h quiet window. This is the **same item** as Scooling ROADMAP row **38**; do not track it as two. |
+| **Queued on Gabriel** | **CODEX-HUB-FLOW-PROPOSAL** — blocked behind Scooling row 31 (MuseHub #152). Not startable. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |
+
+### Knowtation is effectively done (2026-09-02 assessment)
+
+Every product row below is **DONE** except two, and neither is startable work:
+
+| Item | Why it is not a next step |
+| --- | --- |
+| `SEC-KN-P6-ROTATE-b` R4–R5 | Waiting on a ≥24h quiet window, not on a decision or a build |
+| `CODEX-HUB-FLOW-PROPOSAL` | Queued behind Scooling row 31 → MuseHub #152 → Gabriel |
+| `HUB-HELP-UX` (`docs/HUB-UI-ROADMAP.md`) | Optional TODO, not blocking anything |
+| `AIP-b` Operator T2 live smoke | Optional residual; never claimed as done |
+| `legacy_session` KN0 re-probe | Optional; needs a fresh prod JWT + local `KNOWTATION_SESSION_SECRET` |
+
+**Implication for session planning:** do not open a Knowtation chat looking for work. Knowtation's
+role right now is to keep serving Scooling (Hub API, MCP, delegation, retail helper), all of which
+is live. The seam chapter in Scooling/theBRAIN does not need a Knowtation change — though
+**SC-BRAIN-LIVE-4 (TOOLS)** will eventually route skill results toward the vault, and
+`SC-BRAIN-TOOLS-FREEZE` **T8** forbids a Knowtation write from a skill result without
+review-before-write. Expect a Knowtation row only when that seam is reached.
 
 ## Build queue
 
@@ -70,7 +90,7 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **KN-APPLE-T1** | **Operator + Auto** | **DONE 2026-08-10** — `APPLE_CLIENT_ID=com.scooling.apple` on knowtation-gateway; live `apple:true`; Xcode SIWA capability; evidence `docs/reviews/2026-08-10-kn-apple-t1-complete.md` | Production Apple audience configured. Unlocks Scooling APPLE-4-live revisit (T1+T2+T15). |
 | **KN-DOCS-SYNC-a** | **Thinking** | **DONE 2026-08-17** — freeze-review **pass** | **Live Drive (then Notion) connector freeze.** Artifact `docs/KN-DOCS-SYNC-FREEZE.md`. Hub `gdrive` stays Markdown-folder import. Drive readonly OAuth + vault in Knowtation only; list/import as notes through Review-before-write; optional `sync_cursor`; Notion Hub-key (process-wide) only. No Scooling Ready flip in this tip. Source: `~/scooling/docs/CONNECT-AND-OPEN-RANGE.md`. |
 | **KN-DOCS-SYNC-b** | **Auto** | **DONE 2026-08-17** — BV round 1 = **`pass`** (`docs/reviews/2026-08-17-kn-docs-sync-b-bv-round1-pass.md`); seven-tier **12/12** (test_output `sha256:41713d88…`) on `feat/kn-docs-sync-b` | Implement freeze D1–D17: Drive readonly OAuth + `docs_oauth` vault; list/import → `docs-sync` proposals (no `writeNote`); optional `sync_cursor`; Notion Hub-key list/import; strong docs blob store; self-hosted + bridge + gateway routes; HUB-API/OpenAPI/PROPOSAL-LIFECYCLE honesty. Gates hard-coded **false** at ship. Folder `gdrive` unchanged. No Scooling edits. |
-| **KN-DOCS-SYNC-DRIVE-GATE** | **Operator + Auto** | **DONE 2026-08-17** — operator authorized “Flip Drive gate”; source `DOCS_OAUTH_GOOGLE_AUTHORIZED = true` | Live Drive OAuth gate on. Notion gate stays **false**. Env must already be set on gateway+bridge. |
+| **KN-DOCS-SYNC-DRIVE-GATE** | **Operator + Auto** | **DONE 2026-08-17** — operator authorized “Flip Drive gate”; source `DOCS_OAUTH_GOOGLE_AUTHORIZED = true` | Live Drive OAuth gate on. Env must already be set on gateway+bridge. **Correction 2026-09-02:** this row previously said “Notion gate stays **false**”. That is **stale** — `DOCS_NOTION_HUB_KEY_AUTHORIZED = true` in `lib/docs/notion-hub-connector.mjs:18`, flipped Tier 3 on **2026-08-22**. Both connector gates are now **on**. |
 | **KN-WORK-PATH-LIST-a** | **Thinking** | **DONE 2026-08-18** — freeze-review **pass** (`sha256:1354ed45531fc4dac329e989727deb9f9f4eb1ed17936a5d65c83b25cb8a1506`) | **Path persist + list/get freeze.** Artifact `docs/KN-WORK-PATH-LIST-FREEZE.md`. Dedicated `learning_paths[]` in `hub_flow_store.json`; list/get REST; Review-before-write persist gated `PATH_WRITES_ENABLED` default off. No Scooling harvest. No Home bind. No Live. Source: Scooling F14 + F13 BV pass + AGENT-WORK-CHAT-HOME-BIND park. |
 | **KN-WORK-PATH-LIST-b** | **Auto** | **DONE + landed 2026-08-18**; write env **ON 2026-08-19** (Netlify `PATH_WRITES_ENABLED=1` gateway+bridge; T5 not admitted). BV round 1 = **`pass`**; seven-tier **44/44**; GitHub [PR #299](https://github.com/aaronrene/knowtation/pull/299) `@005d00ff` | List/get REST; gated propose/apply. Hosted `maybeApplyHostedPathAfterApprove`. Evidence: `~/scooling/docs/reviews/2026-08-19-f16-f17-path-writes-land.md`. |
 | **KN-AUTH-LANE-D-a** | **Thinking** | **DONE 2026-08-24** — freeze-review **pass** (rounds 1–3 findings; round 4 + `ok review --freeze` **pass**; digest `sha256:e5c48a8fa0e80a61b2fd1505d7b7a857db94c904c3107eafc51d95b62e59f972`) | **Machine lane reliability freeze.** Hub health fields; isolate `kt_agent_` from `ktn_refresh` / `gateway-auth`; no silent mass-invalidate; 503 must not 401 robots; one automation path. Artifact: `docs/KN-AUTH-LANE-D-FREEZE.md`. No Auto in this tip. No live revoke. Sibling Scooling F28 = human session reads. |
@@ -81,7 +101,7 @@ then **`{step}b` (Auto)** in `docs/OVERSEER-HANDOVER.md`. Every next-step table 
 | **RHF-b-KN0 deploy proof** | **Operator** | **PASS 2026-08-27** — `docs/reviews/2026-08-27-rhf-b-kn0-deploy-proof.md`; `type:session` → **403** `DELEGATION_HELPER_ACTOR_DENIED`; `legacy_session` probe **SKIP** (no local secret) | KN1 unblocked. Optional: re-probe `legacy_session` with local `KNOWTATION_SESSION_SECRET`. |
 | **RHF-b-KN1 DELEGATION-RETAIL** | **Operator + Auto** | **DONE + LANDED 2026-08-27** — BV round 3 **`pass`**; Muse FF → GitHub [PR #313](https://github.com/aaronrene/knowtation/pull/313) `@8df71bc`; gateway+bridge redeployed | CAS store + renew/validate/helper-access live. **No** production marker. Evidence: `docs/reviews/2026-08-27-rhf-b-kn1-land.md`. |
 | **RHF-e helper-access Lambda fix** | **Auto** | **DONE + LANDED 2026-08-28** — BV round 1 **`pass`**; seven-tier **25/25**; Muse FF → GitHub [PR #316](https://github.com/aaronrene/knowtation/pull/316) `@e878b878`; gateway+bridge ready; prod helper-access **200** `renewable` | `authorityBlobGetOpts()` — eventual on Netlify Lambda. Evidence: `docs/reviews/2026-08-28-rhf-e-helper-access-fix-land.md`. **Not** RHF-e DONE. |
-| **SESSION-DURABILITY-b-KN** | **Auto** | **DONE 2026-08-28** (code on `feat/session-durability-b-kn`; **not merged to main**) — BV round 2 **`pass`**; seven-tier **93/93** | Hosted `type:session` admission + SESSION_EXPIRED/INVALID; HUB_JWT_EXPIRY 3h–24h integer seconds; establish-refresh browser vs CLI delivery; Hub fresh-session helper for copy + agent credentials. Freeze: `~/scooling/docs/reviews/2026-08-28-session-durability.md`. Evidence: `docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`. Product NEXT = Scooling SESSION-DURABILITY-b-SC. |
+| **SESSION-DURABILITY-b-KN** | **Auto** | **DONE + LANDED 2026-08-28** — Muse `88ceb7f4…` → [KN #318](https://github.com/aaronrene/knowtation/pull/318) `@97dbd85`; BV round 2 **`pass`**; seven-tier **93/93** | Hosted `type:session` admission + SESSION_EXPIRED/INVALID; HUB_JWT_EXPIRY 3h–24h integer seconds; establish-refresh browser vs CLI delivery; Hub fresh-session helper. Freeze: `~/scooling/docs/reviews/2026-08-28-session-durability.md`. Land: `docs/reviews/2026-08-28-session-durability-b-kn-land.md`. **Prod `/health` 502 until Tier-3 `HUB_JWT_EXPIRY`.** Product NEXT = Operator Tier-3 env → consent → RHF-e. |
 | **CODEX-HUB-ACTOR** | **Operator + Auto** | **SUPERSEDED by RHF-b-KN0/KN1 + RHF-d** | Do not register a mutable per-vault smoke actor or mint a terminal grant. Retail actor is immutable reserved catalog; later RHF-d verifies it and establishes reviewed smoke consent only. |
 | **CODEX-HUB-GRANT-UI** | **Thinking → Auto** | **SUPERSEDED by passed RHF freeze** | Personal server renewal and Settings eligibility are specified by RHF-b; generic mint remains privileged. |
 | **CODEX-HUB-FLOW-PROPOSAL** | **Thinking → Auto** | **QUEUED** | Codex Flow/Path output is a proposal only (Scooling row 31). Never silent apply. |

@@ -2,8 +2,8 @@ lock_version: 1
 kit_version: 0.1.0
 config_version: 1
 installed_at: '2026-07-26T12:46:56Z'
-synced_at: '2026-07-29T18:14:00Z'
-footprint_digest: sha256:66cceb2a7111e9ccc471acfeb9c4f1bc46bec3a211813643210a0da9d9c08b0b
+synced_at: '2026-09-02T11:49:31Z'
+footprint_digest: sha256:f60912fd3a459c4bb5e5878ad673dbc9875643e3bfa043342cd6005b2c42874b
 footprint:
 - path: .claude/skills/build-verification-review/SKILL.md
   source: cursor/skills/build-verification-review/SKILL.md
@@ -15,7 +15,7 @@ footprint:
   origin: kit
 - path: .claude/skills/check-ok/SKILL.md
   source: cursor/skills/check-ok/SKILL.md
-  sha256: 390aaaca3071d0adb3e0235f793e085362ba9ec0d9cf285c3e5fcb8333dd4a93
+  sha256: 3942f7752ac9e97e4e9ed7109b14e2c8ea8e460e263ecbbe790543d90359680a
   origin: kit
 - path: .claude/skills/deploy-verification-review/SKILL.md
   source: cursor/skills/deploy-verification-review/SKILL.md
@@ -31,11 +31,31 @@ footprint:
   origin: kit
 - path: .claude/skills/governance-sync/SKILL.md
   source: cursor/skills/governance-sync/SKILL.md
-  sha256: 1f7b8308627ffbb59f5535a58dbe3d321ccb5d6c38269064e4f3832fb5e6d4e3
+  sha256: 60df1ef0f87aea065c39d5bcd38754cc44279e99db447a2777c75d32b434e9b5
+  origin: kit
+- path: .claude/skills/print-next/SKILL.md
+  source: cursor/skills/print-next/SKILL.md
+  sha256: 811841a99a2452936f1e59cb69dd02b31bb16e852ad3ba1614904c6b5ecb6de7
   origin: kit
 - path: .claude/skills/workspace-status/SKILL.md
   source: cursor/skills/workspace-status/SKILL.md
   sha256: 11a6b0586d84997a1394a8f168a4115dcde735c3ff72cd533086dfc484d0d779
+  origin: kit
+- path: .cursor/hooks.json
+  source: cursor/hooks/hooks.json
+  sha256: 4ed9d7336f5c6fd4a1e3995d6b70b0b63b3451c5278baf651c3a5a42f0816eae
+  origin: kit
+- path: .cursor/hooks/README.md
+  source: cursor/hooks/README.md
+  sha256: 48e9ee363c5a2292d49765118f54eedac53ec788848ed53774812f55f897a31a
+  origin: kit
+- path: .cursor/hooks/session-end-closeout.sh
+  source: cursor/hooks/session-end-closeout.sh
+  sha256: bf188aebfed548a1c64800aa0294249f318548c06d8d679d3b5894bea3844634
+  origin: kit
+- path: .cursor/hooks/session-start-next.sh
+  source: cursor/hooks/session-start-next.sh
+  sha256: d695c4d2ddeace73fecb3d4fc460fe582d51e8da71b012c08e8dd8a66280bbfc
   origin: kit
 - path: .cursor/rules/build-verification-required.mdc
   source: cursor/rules/build-verification-required.mdc
@@ -47,7 +67,7 @@ footprint:
   origin: kit
 - path: .cursor/rules/governance-sync.mdc
   source: cursor/rules/governance-sync.mdc
-  sha256: d0b5c4111ed84c455aa1063b55cfa41dc328fda4a85afa2ff2702c63a0e85cd5
+  sha256: 81b78835bf5c822bcf76bde4cea37918956727122c02e91f89130e864c700078
   origin: kit
 - path: .cursor/rules/l1-checkpoints-consumer-owned.mdc
   source: cursor/rules/l1-checkpoints-consumer-owned.mdc
@@ -59,11 +79,15 @@ footprint:
   origin: kit
 - path: .cursor/rules/orchestrator.mdc
   source: cursor/rules/orchestrator.mdc
-  sha256: f8acc83945e7a196d97b565c219a012fc06504b5255593411d4c14ed3c7c6e9e
+  sha256: 48d461e588ce952f305c9b2635ceebbaa5acb9f1dc2007d3712b555c5076307c
+  origin: kit
+- path: .cursor/rules/print-next-closeout.mdc
+  source: cursor/rules/print-next-closeout.mdc
+  sha256: 8be1072133829866c3e1ced50c416448150ed4253a992169efd77748de4a8122
   origin: kit
 - path: .cursor/rules/tier-authority.mdc
   source: cursor/rules/tier-authority.mdc
-  sha256: 48e00205585703c4f5a50389155d337855db67ea0fefeaa370cac85f05664c18
+  sha256: 8b61784cce0f0905d43c7e453b0c4d7d6b219601eaf5b62d45304afaf0338b34
   origin: kit
 - path: .cursor/rules/workspace-authority.mdc
   source: cursor/rules/workspace-authority.mdc
@@ -79,7 +103,7 @@ footprint:
   origin: kit
 - path: .cursor/skills/check-ok/SKILL.md
   source: cursor/skills/check-ok/SKILL.md
-  sha256: 390aaaca3071d0adb3e0235f793e085362ba9ec0d9cf285c3e5fcb8333dd4a93
+  sha256: 3942f7752ac9e97e4e9ed7109b14e2c8ea8e460e263ecbbe790543d90359680a
   origin: kit
 - path: .cursor/skills/deploy-verification-review/SKILL.md
   source: cursor/skills/deploy-verification-review/SKILL.md
@@ -95,7 +119,11 @@ footprint:
   origin: kit
 - path: .cursor/skills/governance-sync/SKILL.md
   source: cursor/skills/governance-sync/SKILL.md
-  sha256: 1f7b8308627ffbb59f5535a58dbe3d321ccb5d6c38269064e4f3832fb5e6d4e3
+  sha256: 60df1ef0f87aea065c39d5bcd38754cc44279e99db447a2777c75d32b434e9b5
+  origin: kit
+- path: .cursor/skills/print-next/SKILL.md
+  source: cursor/skills/print-next/SKILL.md
+  sha256: 811841a99a2452936f1e59cb69dd02b31bb16e852ad3ba1614904c6b5ecb6de7
   origin: kit
 - path: .cursor/skills/workspace-status/SKILL.md
   source: cursor/skills/workspace-status/SKILL.md
