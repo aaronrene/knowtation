@@ -15,112 +15,89 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-08-28, RHF-d DONE)
+### Product-order relay (2026-08-29, 25c PASS — RHF-e unparked)
 
-**Knowtation RHF-d complete:** catalog `agent_codex_retail` verified on prod; Business vault
-personal consent active via reviewed proposal workflow. Evidence:
-`docs/reviews/2026-08-27-rhf-d-catalog-consent.md`. **No production marker.**
+**Knowtation:** gateway `/health` **200**; `HUB_JWT_EXPIRY=24h`; Business consent
+`dcons_beubs3bja1fqz5rtug6myq` active; helper-access `renewable`. Evidence:
+`docs/reviews/2026-08-29-session-durability-25c-consent-pass.md`.
 
-**Scooling product order wins** (`~/scooling/docs/OVERSEER-HANDOVER.md`): RHF-b-SC **DONE**,
-RHF-c **DONE**, RHF-d **DONE**. Product NEXT = **RHF-f1** (pre-smoke land + deploy), then
-**RHF-e** (fresh-browser smoke on `https://scool.ing`), then **RHF-f2** closeout.
-
-Freeze: `~/scooling/docs/reviews/2026-08-27-retail-helper-finish.md`.
+**Scooling product order wins:** NEXT = **RHF-e RETAIL-SMOKE resume** (Operator + Auto).
+Paste from **Scooling** handover.
 
 ---
 
-## NEXT SESSION — RHF-f1 PRE-SMOKE LAND (product order)
+<!-- overseer:next role=primary lane=product status=live -->
+## NEXT SESSION — RHF-e RETAIL-SMOKE (Scooling product board)
 
-**Date:** 2026-08-28  
-**Model:** **Operator + Auto** (cross-repo land)  
-**This board:** Knowtation **RHF-d DONE**. Paste from **Scooling** handover (product authority).
+**Date:** 2026-08-29  
+**Model:** **Operator + Auto**  
+**This board:** 25c **PASS**. Paste from **Scooling** handover.
 
-### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in **Scooling** chat — product board)
+### THE ONE NEXT STEP — **Model: Operator + Auto** (paste in product chat)
+
+### Paste-ready prompt
 
 ```text
-RHF-f1 PRE-SMOKE LAND (Operator + Auto)
+RHF-e RETAIL-SMOKE resume (Operator + Auto)
 
-Land + deploy all reviewed retail-helper code before smoke.
+Ground truth:
+  SESSION-DURABILITY-b LANDED (KN #318, SC #338).
+  HUB_JWT_EXPIRY=24h; api.knowtation.store/health 200 ok.
+  Business consent usable: dcons_beubs3bja1fqz5rtug6myq active/personal;
+  helper-access state=renewable for agent_codex_retail.
+  Evidence: ~/scooling/docs/reviews/2026-08-29-session-durability-25c-consent-pass.md
+  Prior smoke block: docs/reviews/2026-08-27-retail-helper-finish-smoke-pass.md
+  (visit-start 503 RUNNER_UNAVAILABLE; spend still 0/5).
 
-Prerequisites (all DONE):
-- Knowtation KN0 / KN1 landed + deployed
-- Scooling RHF-b-SC DONE (BV pass)
-- Scooling RHF-c DONE (BV pass)
-- Knowtation RHF-d DONE — catalog + Business personal consent
-  (knowtation/docs/reviews/2026-08-27-rhf-d-catalog-consent.md)
+Resume fresh-browser RHF-e on https://scool.ing:
+  sign-in → Settings helper ready/renewable → Home Start → Work live stream →
+  Stop → refresh persist → expired-grant auto-renew. Zero terminal grants.
+Confirm nginx /v1/visits/start is not 503 RUNNER_UNAVAILABLE (EC2 runner tip
++ restart if still required). Record evidence in the smoke-pass doc.
 
-Required:
-1. Muse-first land of remaining feature tips (Scooling RHF-b-SC + RHF-c; Knowtation RHF-d docs/script).
-2. muse-bridge → GitHub muse-mirror → main (SD-14); redeploy gateway/bridge/site as needed.
-3. Do NOT activate Knowtation production authority marker without Tier-3 auth.
-4. Do NOT flip MY_WORK_CODEX_ENABLED or spend on Codex until RHF-e spend authorization.
-5. Update both ROADMAP + OVERSEER-HANDOVER docs; evidence land notes.
-
-Then: RHF-e fresh-browser smoke on https://scool.ing → RHF-f2 closeout.
+Authorize Codex spend for this smoke only (budget 5). Verify MY_WORK_CODEX_ENABLED
+on Netlify scooling before Start — flip is separate Tier 3 if still false.
+No production marker. No feature→GitHub-main PR. No RHF-e DONE without evidence pass.
 
 Model: Operator + Auto
-Authority: scooling/docs/reviews/2026-08-27-retail-helper-finish.md rows 26a / 25 / 26b
+Repo: scooling (+ knowtation runner if needed)
+Step: RHF-e RETAIL-SMOKE resume
+Authority: ROADMAP row 25 after 25c consent PASS
 ```
 
-### This session — RHF-d CODEX-HUB-ACTOR **DONE** (2026-08-28)
+### Archived — SESSION-DURABILITY-25c (Operator **PASS** 2026-08-29)
 
-Operator + Auto on `feat/retail-helper-finish-d`. Production probes on `api.knowtation.store`
-vault **Business**:
+Gateway `HUB_JWT_EXPIRY=24h` + Business consent restore. Evidence:
+`docs/reviews/2026-08-29-session-durability-25c-consent-pass.md`.
 
-| Check | Result |
-| --- | --- |
-| Catalog | Exactly one active `external_provider`: `agent_codex_retail` / `codex` / personal ceiling |
-| Consent | Reviewed workflow: propose → evaluate → approve → apply-approved |
-| Grant mint | **Not** performed (no renew-personal, no terminal mint) |
-| Marker | **Not** activated (`RHF_AUTHORITY_MARKER_AUTHORIZED` unset) |
-| helper-access | 503 `DELEGATION_AUTHORITY_UNAVAILABLE` pre-marker (**expected**) |
+### This session — SESSION-DURABILITY-b-KN **LANDED** (2026-08-28)
 
-Consent record (no JWT/bearer): `actor_agent_id=agent_codex_retail`,
-`consent_id=dcons_1y5zhkxeb610mqsu3aia`, `scope=personal`, `status=active`,
-`created=2026-08-28T02:25:29.824Z`. Evidence:
-`docs/reviews/2026-08-27-rhf-d-catalog-consent.md`. Script:
-`scripts/verify-rhf-d-catalog-consent.mjs` (2/2 unit tests).
+Canonical-first Hub session continuity on Muse `main` + GitHub `#318`. Hosted
+`type:session` admission, HUB_JWT_EXPIRY 3h–24h, browser/CLI establish-refresh,
+Hub fresh-session helper. **Gateway unhealthy until Tier-3 env.** Evidence:
+`docs/reviews/2026-08-28-session-durability-b-kn-land.md`.
 
-### Archived — Scooling RHF-b-SC NEXT (superseded by RHF-c paste above when b-SC DONE)
+### Archived — SESSION-DURABILITY-b-KN **DONE** (BV pass on feature tip, 2026-08-28)
 
-```text
-RHF-b-SC DELEGATION-RETAIL (Auto)
-… (see prior handover block if b-SC not yet landed on Scooling)
-```
+BV round 2 **pass**; **93/93** tests on `feat/session-durability-b-kn` before land.
+Evidence: `docs/reviews/2026-08-28-session-durability-b-kn-bv-round2-pass.md`.
 
-## NEXT SESSION — Scooling RHF-b-SC (ARCHIVED — superseded)
+### Archived — helper-access Lambda fix **DONE + LANDED** (2026-08-28)
 
-**Date:** 2026-08-27  
-**Model:** **Auto** (Scooling chat)  
-**This board:** Knowtation KN1 land **DONE**. No further Knowtation code until RHF-d / cutover Tier 3.
+Root cause: Netlify Blobs `consistency: 'strong'` under Lambda → `BlobsConsistencyError`
+→ helper-access 503. Fix: `authorityBlobGetOpts()`. Seven-tier **25/25**; BV round 1
+**pass**. Land: Muse `sha256:78979467…` → [PR #316](https://github.com/aaronrene/knowtation/pull/316)
+`@e878b878`; prod **200** `renewable`. Evidence:
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix.md` +
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix-bv-round1.md` +
+`docs/reviews/2026-08-28-rhf-e-helper-access-fix-land.md`.
 
-### THE ONE NEXT STEP — **Model: Auto** (archived)
+### Archived — RHF-f1 Knowtation land **DONE** (2026-08-28)
 
-```text
-RHF-b-SC DELEGATION-RETAIL (Auto)
+Muse `sha256:bfb78d35…` RHF-d evidence → muse-mirror → [PR #314](https://github.com/aaronrene/knowtation/pull/314)
+`@525b914`. Docs/script only; gateway+bridge still KN1 retail.
 
-Implement only Scooling RHF-b-SC from the passed freeze:
-scooling/docs/reviews/2026-08-27-retail-helper-finish.md § RHF-b-SC.
-
-Required:
-1. mintCodexShimGrantBearer calls only renew-personal with server-fixed agent_codex_retail.
-2. Bearer server-only in Remix action/transport; never in browser state, cookies, or logs.
-3. Typed next_helper_delegation + exact Helper settings copy/link (https://scool.ing/settings/delegation).
-4. Settings helperAccessState fold (ready / renewable / consent_required / unavailable) + enable_helper action.
-5. requireSameOriginMutation on Home/Work/Settings mutation actions per freeze.
-6. Seven-tier tests + independent /build-verification-review pass before DONE.
-7. Update Scooling ROADMAP + OVERSEER-HANDOVER together; commit on feature branch.
-
-Prerequisite: Knowtation RHF-b-KN1 landed + deployed (renew-personal + helper-access live).
-
-Do not build RHF-c visit orchestration, deploy, flip MY_WORK_CODEX_ENABLED, or spend on Codex.
-Do not activate Knowtation production authority marker.
-
-Model: Auto
-Branch: feat/retail-helper-finish-b-sc
-```
-
-### This session — SD-21 land RHF-b-KN1 **DONE** (2026-08-27)
+### Archived — SD-21 land RHF-b-KN1 **DONE** (2026-08-27)
 
 Muse FF `feat/retail-helper-finish-b-kn1` → `main` `sha256:354ec7b7…`. muse-bridge → GitHub
 [PR #313](https://github.com/aaronrene/knowtation/pull/313) merge `@8df71bc`. Netlify gateway +
@@ -209,7 +186,7 @@ Model: Operator
 Repo: knowtation
 ```
 
-### Paste-ready prompt — RHF-b-KN1 (ARCHIVED — completed)
+### Archived paste — RHF-b-KN1 (completed; do not paste as PRIMARY)
 
 ```text
 Step: RHF-b-KN1 DELEGATION-RETAIL
@@ -301,7 +278,7 @@ Operator + Auto. SD-21 criteria met (BV r1 **pass**; no live posture/env flip, s
 
 Implemented D1–D27 against the freeze. Seven-tier **26/26**. BV r1 **pass**. Branch `feat/automation-ingest-policy-b`. Pack templates stay `enabled: false`. Session `POST api/v1/proposals` unchanged. No Scooling edits.
 
-### Paste-ready prompt — AIP-b Operator T2 live smoke
+### Archived paste — AIP-b Operator T2 live smoke
 
 ```text
 Run production automation ingest smoke on api.knowtation.store after KN #308 deploy. Use scripts/verify-automation-ingest-smoke.mjs with production target only if credentials are already in env (never paste kt_agent_ or JWTs into git). Record PASS or FINDINGS in docs/reviews/<date>-automation-ingest-live-smoke.md: rule_id, disposition, Review proposed-count delta, HTTP status + JSON code only. No secrets.
@@ -311,7 +288,7 @@ Model: Operator
 Authority: docs/AUTOMATION-INGEST-POLICY-FREEZE.md T2; docs/reviews/2026-08-24-automation-ingest-policy-b-land.md
 ```
 
-### Paste-ready prompt — trend-agent propose re-smoke (after deploy; Operator, not AIP-b)
+### Archived paste — trend-agent propose re-smoke (after deploy; Operator, not AIP-b)
 
 ```text
 Re-run KN-AUTH-LANE-D live smoke step 4 after propose-path hotfix deploy. POST /api/v1/proposals with agent_access Bearer + X-Vault-Id Business. Expect 200/201 with proposal id. Record PASS or FINDINGS (status + JSON code only, no secrets) in docs/reviews/2026-08-24-kn-auth-lane-d-live-smoke.md.
@@ -320,7 +297,7 @@ Repo: knowtation / VideoFactory trend agent
 Model: Operator
 ```
 
-### Paste-ready prompt — Scooling F28b land + F26 smoke (product order — paste in Scooling chat)
+### Archived paste — Scooling F28b land + F26 smoke (product order)
 
 ```text
 SD-21 land feat/auth-lane-honesty-a on Scooling. F28b BV pass. Then Operator F26 DELEGATION-WRITE smoke — signed-in /settings/delegation lists helpers and submit works without Netlify KNOWTATION_AUTH_TOKEN.
@@ -337,19 +314,47 @@ Authority: docs/reviews/2026-08-24-auth-lane-honesty-a.md; docs/reviews/2026-08-
 
 ## PRODUCT RELAY — sequencing (Scooling board)
 
-**Date:** 2026-08-27  
-**Order:** KN0 deploy proof → **KN1 (this repo)** → Scooling **RHF-b-SC** (blocked)  
-**Not parallel:** Scooling RHF-b-SC needs KN1 `renew-personal` + `helper-access` APIs.
+### This session — PRODUCT RELAY → Auto row 32b (2026-09-02)
 
+Scooling row **32-auth DONE** — Operator AUTHORIZE T2
+`docs/reviews/2026-09-02-identity-persistence-authorize.md` (cites 32a
+`sha256:b949a46626ffdb556e21da7327162ada73d7d9b6da3410cd86bc66bb26f24bf6`).
+Scooling PRIMARY = **Auto row 32b** (flip `IDENTITY_PERSISTENCE_AUTHORIZED` + store;
+const still false until Auto). Row **34b** stays queued on its G4.
+Live social / #152 stay **Gabriel**. This Knowtation board does **not** Auto Scooling.
+Canonical paste fences: `~/scooling/docs/OVERSEER-HANDOVER.md` +
+`OVERSEER-HANDOVER-PASTE.txt`.
 
-| Step | Repo       | ID               | Status                                           |
-| ---- | ---------- | ---------------- | ------------------------------------------------ |
-| 1    | Knowtation | KN0 deploy proof | **FINDINGS** — land KN0 + refresh JWT + re-probe |
-| 2    | Knowtation | **RHF-b-KN1**    | **BLOCKED** until step 1 **PASS**                |
-| 3    | Scooling   | RHF-b-SC         | **BLOCKED** until step 2 BV `**pass`**           |
+### Archived — PRODUCT RELAY → Operator AUTHORIZE row 32 (2026-09-02)
 
+Scooling row **32a DONE** — identity persistence freeze-review **pass**
+`sha256:b949a46626ffdb556e21da7327162ada73d7d9b6da3410cd86bc66bb26f24bf6`.
+Scooling PRIMARY was **Operator AUTHORIZE row 32** (now **32-auth DONE** → Auto 32b).
+Superseded same day.
 
-### This session — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
+### Archived — PRODUCT RELAY → Thinking row 32 (2026-09-02)
+
+Scooling row **34a DONE** — Phase 5B freeze-review **pass**
+`sha256:df0f2484d8179ccbff853fd14e866d4e4ccdde87e3636eccab9b2680d88256c3`.
+Scooling PRIMARY was **Thinking row 32** (now **32a pass**). Superseded same day.
+
+### Archived — PRODUCT RELAY → Auto SOCIAL-OPEN-RANGE-b (2026-09-01)
+
+Scooling row **33a DONE** — freeze-review **pass** `sha256:1cc53668…`. Scooling PRIMARY was
+**Auto row 33 SOCIAL-OPEN-RANGE-b** (now LANDED). Superseded 2026-09-02 by row 34a pass → row 32.
+
+### Archived — PRODUCT RELAY → Thinking 33a (2026-09-01)
+
+Scooling row **29a PASS** (Aaron MuseHub staging+prod deploy ownership). Scooling PRIMARY was
+**Thinking row 33a** (now **pass** → Auto SOCIAL-OPEN-RANGE-b). Parallel on Scooling board:
+**Operator 29b** (MuseHub F7b/KD-6b merges) · optional **T7 Muse main land**. This Knowtation board
+does **not** Auto Scooling. Live social / #152 and Knowtation domain registration stay **Gabriel**.
+Canonical paste fences: `~/scooling/docs/OVERSEER-HANDOVER.md` + `OVERSEER-HANDOVER-PASTE.txt`.
+
+RHF Codex retail path (KN0→KN1→SC) is **closed** on this board — do not treat the archived
+2026-08-27 KN0/KN1 table as current PRIMARY.
+
+### Archived — PRODUCT RELAY → Operator F20 after F32b land (2026-08-20)
 
 Scooling F32b **LANDED** [SC #317](https://github.com/aaronrene/scooling/pull/317) `@7691fba9`. PRIMARY = **Operator F20 HELPER-SMOKE re-smoke** after Netlify redeploy; read class `data-next-step`. Path writes stay **ON**. T5 not admitted. This board does not Auto Scooling. NEXT = **Operator F20** (Scooling).
 
@@ -1197,6 +1202,9 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-02 | **PRODUCT RELAY → Auto row 32b.** Scooling row **32-auth DONE** (AUTHORIZE T2 cites 32a `sha256:b949a466…`). PRIMARY = identity persistence Auto (const flip + store). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
+| 2026-09-02 | **PRODUCT RELAY → Thinking row 32.** Scooling row **34a DONE** (freeze-review **pass** `sha256:df0f2484…`). PRIMARY = identity persistence gate (no authorize flip). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
+| 2026-09-01 | **PRODUCT RELAY → Auto SOCIAL-OPEN-RANGE-b.** Scooling row **33a DONE** (freeze-review **pass** `sha256:1cc53668…`). PRIMARY = inert SOCIAL-OPEN-RANGE-b. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-08-24 | **AIP-b LANDED (SD-21).** Muse FF `feat/automation-ingest-policy-b` → `main` `sha256:4f7a536…`; muse-bridge → GitHub [PR #308](https://github.com/aaronrene/knowtation/pull/308) `@e9300f2`. Born Free templates stay disabled. Production ingest smoke **not** claimed — Operator T2 next. Evidence: `docs/reviews/2026-08-24-automation-ingest-policy-b-land.md`. **AIP-c** not started.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 2026-08-20 | **PRODUCT RELAY → Operator F20 after F31b land.** Scooling F31b **LANDED** [SC #315](https://github.com/aaronrene/scooling/pull/315) `@b2e643b4`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step` (endpoint / malformed / abort / runtime). Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-08-20 | **PRODUCT RELAY → Operator F20 HELPER-SMOKE re-smoke.** Scooling F30b **LANDED** [SC #313](https://github.com/aaronrene/scooling/pull/313) `@52aaac5c`. PRIMARY = F20 re-smoke after Netlify redeploy; read `data-next-step`. Canonical fence on Scooling board. MuseHub F7 parallel. This board does not Auto Scooling. Path writes stay ON. T5 not admitted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
