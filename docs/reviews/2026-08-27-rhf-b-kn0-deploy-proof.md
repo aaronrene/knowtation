@@ -22,4 +22,4 @@
 
 ## Unblocks
 
-**RHF-b-KN1** — separate chat per `docs/OVERSEER-HANDOVER.md`.
+**RHF-b-KN1** — separate chat per `docs/KNOWTATION-OVERSEER-HANDOVER.md`.

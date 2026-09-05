@@ -10,7 +10,7 @@
 4. `test/sec-kn-4c-migration-hook-restore.test.mjs` — new seven-tier suite (4C-R7)
 5. `docs/SEC-KN-4C-MIGRATION-HOOK-RESTORE-FREEZE.md` — freeze artifact carried onto branch (new relative to `main`)
 
-Governance docs (`docs/ROADMAP.md`, `docs/OVERSEER-HANDOVER.md`) are intentionally absent from this commit — they land in the closing SD-17 commit after this verdict, per the review instructions. Not a finding.
+Governance docs (`docs/KNOWTATION-ROADMAP.md`, `docs/KNOWTATION-OVERSEER-HANDOVER.md`) are intentionally absent from this commit — they land in the closing SD-17 commit after this verdict, per the review instructions. Not a finding.
 
 **Reviewer posture:** independent (thinking-high); did not author the build. All evidence below re-run in this session, 2026-08-01.
 

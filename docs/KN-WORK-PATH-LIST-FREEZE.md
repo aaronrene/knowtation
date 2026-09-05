@@ -417,8 +417,8 @@ Frozen so HOME-BIND / Path-row harvest does not re-derive the Hub shape. **Do no
 | `docs/HUB-API.md` | Honesty — new routes + gate default off |
 | `docs/openapi.yaml` | Route shapes |
 | `docs/PROPOSAL-LIFECYCLE.md` | `learning-path` queue note; T5 not admitted |
-| `docs/ROADMAP.md` | Status |
-| `docs/OVERSEER-HANDOVER.md` | NEXT |
+| `docs/KNOWTATION-ROADMAP.md` | Status |
+| `docs/KNOWTATION-OVERSEER-HANDOVER.md` | NEXT |
 | `test/path-list-*.test.mjs` | Seven-tier |
 | `.env.example` | `PATH_WRITES_ENABLED` name only, if that file exists on the tip |
 

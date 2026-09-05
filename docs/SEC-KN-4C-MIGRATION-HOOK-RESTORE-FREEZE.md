@@ -100,7 +100,7 @@ with M0216 (`Missing field 'created_by'`), blocking hotfixes — not silent auth
 | Fact | Evidence |
 | --- | --- |
 | Live hub module hash | `dfx canister --network ic info rsovz-byaaa-aaaaa-qgira-cai` → `Module hash: 0x039360a0985c79e2ec993e0d0b81dc6e6b85e4d924c1123f5d1af26cdfd69bae` |
-| Matches 2026-07-28 T4 deploy record | `docs/OVERSEER-HANDOVER.md` on `feat/sec-kn-4c-identity-migration` (Prior session §FCA.2) |
+| Matches 2026-07-28 T4 deploy record | `docs/KNOWTATION-OVERSEER-HANDOVER.md` on `feat/sec-kn-4c-identity-migration` (Prior session §FCA.2) |
 | Live health (raw) | `GET https://rsovz-byaaa-aaaaa-qgira-cai.raw.icp0.io/health` → `{"ok":true,"gateway_auth_configured":true}` |
 | Feature-branch Motoko | `hub/icp/src/hub/Migration.mo:455-457` is identity `migration(old : { var storage : StableStorage }) { old }` |
 | Feature-branch verify script | `scripts/verify-canister-migration.mjs:49-50` + `:101-106` require identity + forbid `TODO(SEC-KN-4c)` |
@@ -227,7 +227,7 @@ whether a new WASM is required. Do not improvise a redeploy.
    - `hub/icp/src/hub/Migration.mo` identity hook (4C-R1–R4)
    - `scripts/verify-canister-migration.mjs` (4C-R5)
    - SEC-KN-4 / SEC-KN-4c test assertion updates (4C-R6–R7)
-   - `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md` (SD-17)
+   - `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md` (SD-17)
 3. Run seven-tier suite for the land + `npm run canister:verify-migration` + Motoko
    `--check` compile.
 4. Re-read live module hash (4C-R8). If match → no deploy.

@@ -1,10 +1,10 @@
 # Hub UI Roadmap — Knowtation (signed-in dashboard)
 
 **Lane:** Hub UI redesign only.  
-**Not** the product/security board (`docs/ROADMAP.md` / Scooling).  
+**Not** the product/security board (`docs/KNOWTATION-ROADMAP.md` / Scooling).  
 **Not** wired as `.overseer/config.yaml` → `docs.roadmap` (that stays the product roadmap).
 
-Use this file + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) for any session that redesigns the **signed-in Hub**. Product NEXT stays on `docs/OVERSEER-HANDOVER.md`.
+Use this file + [`HUB-UI-HANDOVER.md`](./HUB-UI-HANDOVER.md) for any session that redesigns the **signed-in Hub**. Product NEXT stays on `docs/KNOWTATION-OVERSEER-HANDOVER.md`.
 
 ## Phase Model Key
 

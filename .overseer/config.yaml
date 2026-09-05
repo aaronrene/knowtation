@@ -29,10 +29,9 @@ vcs:
     staging_remote: staging
     main_branch: main
 docs:
-  # Living boards stay at OVERSEER-HANDOVER.md / ROADMAP.md until a dedicated
-  # §MR.6.5 rename land (K13 dogfood SCOOLING-/KNOWTATION- prefixes never reached main).
-  handover: OVERSEER-HANDOVER.md
-  roadmap: ROADMAP.md
+  # §MR.6.5 board-identity: repo-prefixed living boards (KNOWTATION-*).
+  handover: KNOWTATION-OVERSEER-HANDOVER.md
+  roadmap: KNOWTATION-ROADMAP.md
   handover_title: Knowtation Overseer Handover
   roadmap_title: Knowtation Roadmap
   coordination: CROSS-REPO-COORDINATION.md

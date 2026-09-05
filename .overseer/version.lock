@@ -157,14 +157,14 @@ footprint:
   source: templates/CROSS-REPO-COORDINATION.template.md
   sha256: a35c822caa79e4237b5ef2f44ec4c40afbd09bc7c853be4dcdaadcdfec03cb72
   origin: preserved
-- path: docs/OVERSEER-HANDOVER.md
+- path: docs/KNOWTATION-OVERSEER-HANDOVER.md
   source: templates/OVERSEER-HANDOVER.template.md
   sha256: a8057d7d07df73c603d67e241a73192cc3c87d54539355fd8621c44378253290
-  origin: kit
-- path: docs/ROADMAP.md
+  origin: preserved
+- path: docs/KNOWTATION-ROADMAP.md
   source: templates/ROADMAP.template.md
   sha256: 80e319c7c5213683bb159004f3d94cff4d6eafc56ffbb35901630e51b98fe0b5
-  origin: kit
+  origin: preserved
 - path: scripts/muse-bridge-deploy.sh
   source: templates/scripts/muse-bridge-deploy.sh.template
   sha256: 7b1cda63aff0903d914459c84326efe6bef614b774e1a13fe8b29d5d474a6c97

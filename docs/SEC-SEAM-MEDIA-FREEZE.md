@@ -516,7 +516,7 @@ Existing `test/sec-seam-1-session-bound-identity.test.mjs` MUST remain green (re
 - Seven-tier tests green
 - `/build-verification-review` → `pass` before ROADMAP → DONE
 - No secrets committed; no posture/env flip; no P6 R4–R5
-- `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md` updated together (SD-17)
+- `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md` updated together (SD-17)
 - Feature-branch Muse commit; merge remains Tier 3 / SD-21 land path
 
 ---
