@@ -1,7 +1,7 @@
 # Build verification — FLOW-WRITE-LIVE-GATEWAY-PROXY round 1
 
 **Verdict:** pass  
-**Frozen contract:** product-order paste in `docs/OVERSEER-HANDOVER.md` /
+**Frozen contract:** product-order paste in `docs/KNOWTATION-OVERSEER-HANDOVER.md` /
 `~/scooling/docs/OVERSEER-HANDOVER.md` (FLOW-WRITE-LIVE-GATEWAY-PROXY Auto);
 parent `~/scooling/docs/FLOW-WRITE-LIVE-FREEZE.md` (§FWL.9 gap).  
 **Diff scope:** Knowtation Muse branch `feat/fwl9-smoke-fail-gateway-gap` —

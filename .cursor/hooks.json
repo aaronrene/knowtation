@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/session-start-next.sh",
+        "failClosed": false
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": ".cursor/hooks/session-end-closeout.sh",
+        "failClosed": false
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/session-start-next.sh",
+        "failClosed": false,
+        "loop_limit": 1,
+        "note": "Print NEXT once on stop. Do not re-run governance-sync --dry-run here (sessionEnd already did)."
+      }
+    ]
+  }
+}

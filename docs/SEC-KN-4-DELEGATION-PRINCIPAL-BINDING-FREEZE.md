@@ -19,8 +19,8 @@ outputs:
     frozen: true
 frozen_inputs:
   - docs/AGENT-DELEGATION-V0-SPEC.md
-  - docs/ROADMAP.md
-  - docs/OVERSEER-HANDOVER.md
+  - docs/KNOWTATION-ROADMAP.md
+  - docs/KNOWTATION-OVERSEER-HANDOVER.md
   - "~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md"
 tier3_gates:
   - T1 canister WASM upgrade that installs the new proposal author field
@@ -399,7 +399,7 @@ Every freeze-review or build-verification finding against this spec must cite **
    toolchain resolves; otherwise the compile is recorded **UNVERIFIED** and left to the Tier-3
    pre-deploy path (`scripts/canister-predeploy.sh`) — never claimed as verified.
 4. No secrets, no absolute machine paths, and no author/uid values in logs or error payloads.
-5. `docs/ROADMAP.md` and `docs/OVERSEER-HANDOVER.md` updated in the closing Muse commit (SD-17).
+5. `docs/KNOWTATION-ROADMAP.md` and `docs/KNOWTATION-OVERSEER-HANDOVER.md` updated in the closing Muse commit (SD-17).
 6. `/build-verification-review` verdict **pass** before the roadmap row flips to DONE.
 7. Feature branch only. No merge to Muse `main`, no `muse-mirror` PR, no canister deploy.
 

@@ -20,6 +20,9 @@ The session-ending commit on the current feature branch **must bundle**:
 
 A commit that omits either governance doc is **incomplete**.
 
+After writing both docs, print the CURRENT NEXT block via `ok next` (or equivalent Read
+from disk) under `## CURRENT NEXT — paste this` in the final reply.
+
 ## Tier 1 — do without asking
 
 | Action | Authority |

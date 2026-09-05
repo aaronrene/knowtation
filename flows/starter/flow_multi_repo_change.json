@@ -36,7 +36,7 @@
       "when_not_to_run": "Skip for a single-repo change with no canonical or substrate dependency.",
       "requires": [
         { "kind": "vault_scope", "id": "project" },
-        { "kind": "file", "id": "docs/ROADMAP.md" },
+        { "kind": "file", "id": "docs/KNOWTATION-ROADMAP.md" },
         { "kind": "file", "id": "docs/CROSS-REPO-COORDINATION.md" }
       ],
       "boundaries": [
@@ -226,7 +226,7 @@
       "when_not_to_run": "Skip if no cross-repo reference exists and the snapshot already matches reality.",
       "requires": [
         { "kind": "vault_scope", "id": "project" },
-        { "kind": "file", "id": "docs/ROADMAP.md" }
+        { "kind": "file", "id": "docs/KNOWTATION-ROADMAP.md" }
       ],
       "boundaries": [
         "Cross-repo refs are commit ids/handles only \u2014 no secrets",
@@ -256,7 +256,7 @@
       "when_not_to_run": "Skip if no multi-repo state is in flight and no handover is needed.",
       "requires": [
         { "kind": "vault_scope", "id": "project" },
-        { "kind": "file", "id": "docs/OVERSEER-HANDOVER.md" }
+        { "kind": "file", "id": "docs/KNOWTATION-OVERSEER-HANDOVER.md" }
       ],
       "boundaries": [
         "Docs-first \u2014 update durable docs before regenerating the block",
@@ -267,7 +267,7 @@
       "outputs": [
         { "name": "handover_ref", "type": "string" }
       ],
-      "output_shape": "A refreshed handover block in docs/OVERSEER-HANDOVER.md matching the durable docs.",
+      "output_shape": "A refreshed handover block in docs/KNOWTATION-OVERSEER-HANDOVER.md matching the durable docs.",
       "verification": {
         "kind": "artifact_exists",
         "evidence_required": true,

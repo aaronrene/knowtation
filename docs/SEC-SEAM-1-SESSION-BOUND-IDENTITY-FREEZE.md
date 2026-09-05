@@ -44,8 +44,8 @@ outputs:
   path: docs/SEC-SEAM-1-SESSION-BOUND-IDENTITY-FREEZE.md
   frozen: true
 frozen_inputs:
-- docs/ROADMAP.md
-- docs/OVERSEER-HANDOVER.md
+- docs/KNOWTATION-ROADMAP.md
+- docs/KNOWTATION-OVERSEER-HANDOVER.md
 - docs/SEC-KN-4-DELEGATION-PRINCIPAL-BINDING-FREEZE.md
 - docs/PROPOSAL-LIFECYCLE.md
 - ~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md
@@ -283,7 +283,7 @@ accident.
 ### 3.4 Deviation from the driving finding's fix wording
 
 Pass 2 P3 prescribes: "Gateway must reject service-token proposals from the self-apply class"
-(`~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md:81`), and `docs/ROADMAP.md:49` repeats it
+(`~/scooling/docs/PRE-BUILD-SECURITY-AUDIT-FINDINGS-PASS2.md:81`), and `docs/KNOWTATION-ROADMAP.md:49` repeats it
 as the Knowtation deliverable. Taken literally, that instruction **cannot be implemented**, and
 `SEC-SEAM-1b` must not pretend to implement it: there is no property of an inbound request that
 identifies it as carrying a "service token" (G1, G2, §3.2). A gateway check that claimed to detect
@@ -302,7 +302,7 @@ What replaces it, in descending order of directness:
    present `signServiceJwt` mint (G35) already lacks `type` and classifies `legacy_session`; a
    future mint that stamps a non-`session` class is barred the same way.
 
-`docs/ROADMAP.md:49` **already carries** the §3.4 disclaimer ("the audit's literal 'reject
+`docs/KNOWTATION-ROADMAP.md:49` **already carries** the §3.4 disclaimer ("the audit's literal 'reject
 service-token proposals' wording **cannot be implemented**…"). The closing commit does **not**
 re-argue that point; it **refreshes the SEC-SEAM-1 status row** (round-4 state, D5 = A ratified,
 reviewer verdict) and adds the hosted-media roadmap row required by ratified D2 = A (S7.5). This
@@ -791,7 +791,7 @@ is a complement to C1–C4, not a substitute.
 | `hub/server.mjs:467-491`, `:476`, `:486-490` | S2.1 self-hosted inputs (incl. authorized import of `access-token-authz.mjs` — W2); S6.2 seam-code HTTP branch (V4, V5) |
 | `hub/gateway/cors-middleware.mjs:60`, `hub/bridge/server.mjs:872` | S4.2 |
 | `docs/PROPOSAL-LIFECYCLE.md` | S7.2, S8 |
-| `docs/ROADMAP.md:49` | **Status refresh** for SEC-SEAM-1 (round-4 / D5 = A / reviewer verdict) **plus** the new roadmap row for a hosted media proposal surface (S7.5, ratified D2 = A). The §3.4 disclaimer on line 49 already exists — do not re-argue it (W4) |
+| `docs/KNOWTATION-ROADMAP.md:49` | **Status refresh** for SEC-SEAM-1 (round-4 / D5 = A / reviewer verdict) **plus** the new roadmap row for a hosted media proposal surface (S7.5, ratified D2 = A). The §3.4 disclaimer on line 49 already exists — do not re-argue it (W4) |
 | `~/scooling/docs/ADAPTER-CONTRACTS.md` | S8 cross-link. **Owned by Scooling as C6**, not built by `SEC-SEAM-1b` — listed here so this table is not contradicted by S8 (N12) |
 | `test/sec-seam-1-session-bound-identity.test.mjs` | new |
 
@@ -986,7 +986,7 @@ attempt a third self-directed redesign inside the loop.
 
 **Round 3 (this fix round) started by obtaining the operator's selection, not by assuming it.** The
 paste-ready prompt it was launched with contained the words "fix N1 per D4 option A" — but that text
-was written by the round-2 session itself (`docs/OVERSEER-HANDOVER.md:46-60`), so treating it as
+was written by the round-2 session itself (`docs/KNOWTATION-OVERSEER-HANDOVER.md:46-60`), so treating it as
 ratification would have been an authoring session clearing its own escalation, the exact defect that
 reverted SEC-KN-4a §12.1 in that phase's round 2. The session stopped, asked, and recorded the
 operator's four answers verbatim in §12.1 before editing any rule.
@@ -1101,7 +1101,7 @@ under D4 = A (fail-closed overlap), with tier-7 overlap tests as the build-time 
 | **W1** | MINOR | S2.1 + S9 now require payload on `resolveHostedActorRole` main return `:3025` as well as `:2969` |
 | **W2** | MINOR | Self-hosted import of `access-token-authz.mjs` for S1 helpers explicitly authorized; module verified side-effect-free |
 | **W3** | MINOR | Admission frozen empty this phase; step 11 unconditional seam refusal; no admission input/env/allowlist in `SEC-SEAM-1b` |
-| **W4** | MINOR | §3.4 + S9: `docs/ROADMAP.md:49` already has the disclaimer; closing commit = status refresh + D2 media row |
+| **W4** | MINOR | §3.4 + S9: `docs/KNOWTATION-ROADMAP.md:49` already has the disclaimer; closing commit = status refresh + D2 media row |
 | **W5** | MINOR | G19.5 + S4.2 record Paperclip `hub-client.mjs:65` sending `X-User-Id`; inert; out of scope to remove |
 
 ---
@@ -1243,6 +1243,6 @@ conditional on that population and is qualified as such (S10.4, §3.2, §9 R9 �
 **Governance note (preserved deliberately).** A general instruction to proceed is **not** a
 selection, and an authoring session may never ratify its own escalations
 (`docs/SEC-KN-4-DELEGATION-PRINCIPAL-BINDING-FREEZE.md:504-509`). Round 3 opened with the
-paste-ready prompt in `docs/OVERSEER-HANDOVER.md` whose text read "fix N1 per D4 option A".
+paste-ready prompt in `docs/KNOWTATION-OVERSEER-HANDOVER.md` whose text read "fix N1 per D4 option A".
 That clause was **prior-session authorship** and was **not** treated as ratification. Round 4
 likewise obtained an explicit D5 selection before touching S3.1 scope.

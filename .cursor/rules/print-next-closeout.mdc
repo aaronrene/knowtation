@@ -1,0 +1,19 @@
+---
+description: Closeout must print CURRENT NEXT from disk (ONS)
+alwaysApply: true
+---
+
+# Print NEXT on closeout
+
+After **any** update to the living handover and/or roadmap, the agent’s **FINAL reply**
+MUST include the full paste-ready fence under heading `## CURRENT NEXT — paste this`.
+Bytes MUST come from read from disk after write (run `ok next`, or Read the
+handover and extract the `### Paste-ready prompt` fence). Do **not** paste from memory,
+an earlier chat, or an unsaved buffer. Session incomplete without it.
+
+Prefer native editor tools for living docs (best-effort tab refresh). That does **not**
+replace `ok next`. Host niceties do not guarantee an accurate open tab.
+
+```bash
+ok next
+```
