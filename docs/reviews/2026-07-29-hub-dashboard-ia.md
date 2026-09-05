@@ -183,7 +183,7 @@ These are **in scope as recommended defaults** for Auto unless the operator stri
 
 ## Ground-truth edge
 
-Downstream Auto may treat this document as ground truth for Hub shell IA without re-deriving operator decisions. Session control for this work is **`HUB-UI-ROADMAP.md` + `HUB-UI-HANDOVER.md`**, not the product `OVERSEER-HANDOVER.md` / Scooling baton.
+Downstream Auto may treat this document as ground truth for Hub shell IA without re-deriving operator decisions. Session control for this work is **`HUB-UI-ROADMAP.md` + `HUB-UI-HANDOVER.md`**, not the product `KNOWTATION-OVERSEER-HANDOVER.md` / Scooling baton.
 
 ## Test matrix (seven tiers)
 

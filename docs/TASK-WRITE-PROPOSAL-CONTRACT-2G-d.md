@@ -413,7 +413,7 @@ Each row must pass **before** flipping `TASK_WRITES_ENABLED` (Knowtation) and
 | T3-11 | **Classroom defer** | `assignment` at project/org returns `403 TASK_CLASSROOM_AUTHORITY_REQUIRED` until 2C |
 | T3-12 | **Cross-repo I-T-LOOP-02** | propose loop create → approve → materialize → get instance with matching `loop_ref`/`occurrence_key` |
 | T3-13 | **Hosted smoke** | `scripts/verify-hosted-task-write-smoke.mjs` PASS on staging Hub (propose only — approve via UI or test admin) |
-| T3-14 | **Governance sync** | `ROADMAP.md` + `OVERSEER-HANDOVER.md` updated; Tier 3 row marked CONSUMED |
+| T3-14 | **Governance sync** | `KNOWTATION-ROADMAP.md` + `KNOWTATION-OVERSEER-HANDOVER.md` updated; Tier 3 row marked CONSUMED |
 | T3-15 | **Merge path** | Muse merge to `main` + GitHub muse-mirror PR (SD-14); **no** direct push to GitHub `main` |
 
 **Explicit authorization record (operator fills on flip day):**

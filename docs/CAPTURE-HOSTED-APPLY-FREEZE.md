@@ -423,7 +423,7 @@ KN-b existing `test/flow-capture-live-kn-b.test.mjs` T5 suite MUST remain green
 - Seven-tier tests green
 - `/build-verification-review` → `pass` before ROADMAP → DONE
 - No secrets committed; no posture/env flip; no live approve of `prop-1785500300353491755`
-- `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md` updated together (SD-17)
+- `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md` updated together (SD-17)
 - Feature-branch Muse commit; merge remains Tier 3 / SD-21 land path
 
 ---

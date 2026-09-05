@@ -6,8 +6,8 @@ cross-repo context.
 
 Related:
 
-- `docs/ROADMAP.md` — phase control + build status
-- `docs/OVERSEER-HANDOVER.md` — living, always-current filled handover block
+- `docs/KNOWTATION-ROADMAP.md` — phase control + build status
+- `docs/KNOWTATION-OVERSEER-HANDOVER.md` — living, always-current filled handover block
 - `docs/CROSS-REPO-COORDINATION.md` — Standing Decisions (ADR) log + decision authority tiers
 - `policy/tiers.yaml`, `policy/model-labels.yaml`, `policy/test-tiers.yaml` — machine-readable policy
 
@@ -64,7 +64,7 @@ secrets or ignored paths. Say **"Muse commit"** vs **"Git commit"** explicitly w
 - **No secrets** across repo boundaries — tokens, keys, and private content never in adapters, logs,
   or shared procedures.
 - **Canonical-first ordering** — do not wire a consumer before the surface it reads exists.
-- **Governance sync (SD-17)** — update `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md` before session end.
+- **Governance sync (SD-17)** — update `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md` before session end.
 
 ---
 
@@ -72,8 +72,8 @@ secrets or ignored paths. Say **"Muse commit"** vs **"Git commit"** explicitly w
 
 | Question | Authoritative doc |
 | --- | --- |
-| What phase / what's next / which model | `docs/ROADMAP.md` |
-| Current filled handover block | `docs/OVERSEER-HANDOVER.md` |
+| What phase / what's next / which model | `docs/KNOWTATION-ROADMAP.md` |
+| Current filled handover block | `docs/KNOWTATION-OVERSEER-HANDOVER.md` |
 | Decision authority + Standing Decisions | `docs/CROSS-REPO-COORDINATION.md` |
 | Cross-repo coordination (this page) | `docs/CROSS-REPO-COORDINATION.md` |
 
@@ -86,16 +86,16 @@ reconstructable from **durable docs**, not chat history.
 
 **Durable state of record:**
 
-1. `docs/ROADMAP.md` — phase truth + build status.
-2. `docs/OVERSEER-HANDOVER.md` — living filled handover block (single paste source).
+1. `docs/KNOWTATION-ROADMAP.md` — phase truth + build status.
+2. `docs/KNOWTATION-OVERSEER-HANDOVER.md` — living filled handover block (single paste source).
 3. `docs/CROSS-REPO-COORDINATION.md` — tiers + ADR log.
 4. This doc — boundaries + decision table (when `docs.coordination` is configured).
 
 **Docs-first ordering:** (1) update durable docs to match reality, (2) regenerate
-`docs/OVERSEER-HANDOVER.md` from those docs, (3) emit/paste the NEXT block. Never hand-write the block
+`docs/KNOWTATION-OVERSEER-HANDOVER.md` from those docs, (3) emit/paste the NEXT block. Never hand-write the block
 from memory ahead of the docs.
 
-**Handover snapshot shape** (filled into `docs/OVERSEER-HANDOVER.md`):
+**Handover snapshot shape** (filled into `docs/KNOWTATION-OVERSEER-HANDOVER.md`):
 
 ```text
 OVERSEER HANDOVER — <date/time>
@@ -107,7 +107,7 @@ Per-repo state:
 
 Open gates / blockers: <list>
 Boundaries to honor: <list>
-Links: docs/ROADMAP.md; docs/OVERSEER-HANDOVER.md
+Links: docs/KNOWTATION-ROADMAP.md; docs/KNOWTATION-OVERSEER-HANDOVER.md
 ```
 
 ---
@@ -137,7 +137,7 @@ Scope: session end, chat switch, or multi-repo state in flight. **Docs-first.**
 | 2 | **Record step + next action + blockers** | Next action unambiguous |
 | 3 | **List boundaries + cross-repo wiring touched** | Boundaries explicit |
 | 4 | **Update durable docs FIRST** — roadmap, standing decisions if needed | Docs match reality |
-| 5 | **Regenerate `docs/OVERSEER-HANDOVER.md`** from current docs; SD-3 split if Thinking → Auto | Living file matches docs |
+| 5 | **Regenerate `docs/KNOWTATION-OVERSEER-HANDOVER.md`** from current docs; SD-3 split if Thinking → Auto | Living file matches docs |
 | 6 | **Emit/paste** NEXT block into the next chat | New overseer needs no prior history |
 
 ---

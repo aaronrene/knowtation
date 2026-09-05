@@ -663,11 +663,11 @@ pattern (`PHASE8_*` compile + `SCOOLING_*` env) adapted to Knowtation's env-firs
 
 ## Governance sync (both docs together, per RULE #8)
 
-- `knowtation/docs/ROADMAP.md` (if present) — Phase P1b-a status row → **DONE on branch**;
+- `knowtation/docs/KNOWTATION-ROADMAP.md` (if present) — Phase P1b-a status row → **DONE on branch**;
   P1b-b → TODO.
-- `knowtation/docs/OVERSEER-HANDOVER.md` (if present) — PRIMARY rotated to P1b-b Auto build
+- `knowtation/docs/KNOWTATION-OVERSEER-HANDOVER.md` (if present) — PRIMARY rotated to P1b-b Auto build
   prompt when this branch merges.
-- Scooling `docs/OVERSEER-HANDOVER.md` — 5a row → **DONE on branch / 5b TODO**; this update
+- Scooling `docs/KNOWTATION-OVERSEER-HANDOVER.md` — 5a row → **DONE on branch / 5b TODO**; this update
   happens in the Scooling repo, not here, and is a separate Tier 1 commit.
 
 ## Branch

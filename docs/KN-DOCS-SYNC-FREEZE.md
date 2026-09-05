@@ -429,8 +429,8 @@ Security tier MUST fail against a pre-fix stub that returns refresh material on 
 | `docs/HUB-API.md` | Honesty — live routes + “folder gdrive is not Drive OAuth” |
 | `docs/openapi.yaml` | Route shapes |
 | `docs/PROPOSAL-LIFECYCLE.md` | `docs-sync` queue note |
-| `docs/ROADMAP.md` | Status |
-| `docs/OVERSEER-HANDOVER.md` | NEXT |
+| `docs/KNOWTATION-ROADMAP.md` | Status |
+| `docs/KNOWTATION-OVERSEER-HANDOVER.md` | NEXT |
 | `test/docs-oauth-connector-*.test.mjs` | Seven-tier |
 | `.env.example` | Names only, if the file exists on the tip |
 | `.gitignore` / `.museignore` | Only if `calendar_oauth` is named and `docs_oauth` must join it |

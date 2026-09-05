@@ -473,7 +473,7 @@ not live T15 production evidence. APPLE-4-live still needs Operator evidence pac
 - Seven-tier suite green
 - Build-verification-review **`pass`**
 - No secrets committed; gitleaks green
-- `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md` updated together (NEXT → land/deploy
+- `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md` updated together (NEXT → land/deploy
   or Scooling APPLE-4-live revisit per board)
 - Freeze-review of this artifact was **`pass`** before Auto started
 - No Scooling gate flips; no vault-write authorize; no App Store; no APPLE-6

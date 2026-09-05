@@ -8,7 +8,7 @@ public tree under a local **`development/`** folder (gitignored + museignored). 
 
 Public developer recipes for agents stay in [AGENT-INTEGRATION.md](./AGENT-INTEGRATION.md).
 
-Cross-repo “what’s next” lives in **Scooling** `docs/ROADMAP.md` + `docs/OVERSEER-HANDOVER.md`
+Cross-repo “what’s next” lives in **Scooling** `docs/KNOWTATION-ROADMAP.md` + `docs/KNOWTATION-OVERSEER-HANDOVER.md`
 — not in a second Knowtation roadmap.
 
 ## Start here

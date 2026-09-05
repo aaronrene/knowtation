@@ -80,7 +80,7 @@ secret is Tier 3 (secrets) and requires a `SEC-KN` Thinking freeze first — see
   signing domain.
 - The specific P6 hazard is that the MCP host mounts the full stateful `/mcp` router **and**
   `SEC-KN-3` (`resolveHostedActorRole` capping `mcp_access` role by scopes, never the admin
-  allowlist) is recorded **DONE but not merged to `main`** (`docs/ROADMAP.md` SEC-KN-3 row).
+  allowlist) is recorded **DONE but not merged to `main`** (`docs/KNOWTATION-ROADMAP.md` SEC-KN-3 row).
   If the code running on the EC2 MCP host predates SEC-KN-3, an `mcp_access` token minted for
   an admin `sub` — now verifiable there because the secret is shared — could still resolve
   `role: admin`. **UNVERIFIED and intentionally not probed here**, because confirming it would

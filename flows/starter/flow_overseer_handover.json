@@ -124,7 +124,7 @@
       "when_not_to_run": "Never skip when handing off \u2014 docs-first ordering is mandatory.",
       "requires": [
         { "kind": "vault_scope", "id": "project" },
-        { "kind": "file", "id": "docs/ROADMAP.md" },
+        { "kind": "file", "id": "docs/KNOWTATION-ROADMAP.md" },
         { "kind": "file", "id": "docs/PRODUCT-SURFACES-NEXT-SESSION-PLAN.md" },
         { "kind": "file", "id": "docs/CROSS-REPO-COORDINATION.md" }
       ],
@@ -151,12 +151,12 @@
       "flow_id": "flow_overseer_handover",
       "ordinal": 5,
       "owned_job": "Regenerate the handover block into the living file from the now-current docs.",
-      "instruction": "Overwrite docs/OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.",
+      "instruction": "Overwrite docs/KNOWTATION-OVERSEER-HANDOVER.md with a block regenerated from the updated durable docs, not from memory.",
       "trigger": "Run only after the durable docs are updated.",
       "when_not_to_run": "Skip if the docs have not yet been updated this handover.",
       "requires": [
         { "kind": "vault_scope", "id": "project" },
-        { "kind": "file", "id": "docs/OVERSEER-HANDOVER.md" }
+        { "kind": "file", "id": "docs/KNOWTATION-OVERSEER-HANDOVER.md" }
       ],
       "boundaries": [
         "The block is a projection of the docs \u2014 never hand-written ahead of them",
@@ -169,7 +169,7 @@
       "outputs": [
         { "name": "handover_block_ref", "type": "string" }
       ],
-      "output_shape": "An overwritten docs/OVERSEER-HANDOVER.md whose block matches the durable docs.",
+      "output_shape": "An overwritten docs/KNOWTATION-OVERSEER-HANDOVER.md whose block matches the durable docs.",
       "verification": {
         "kind": "artifact_exists",
         "evidence_required": true,
@@ -188,7 +188,7 @@
       "when_not_to_run": "Skip if no new chat is being started.",
       "requires": [
         { "kind": "vault_scope", "id": "project" },
-        { "kind": "file", "id": "docs/OVERSEER-HANDOVER.md" }
+        { "kind": "file", "id": "docs/KNOWTATION-OVERSEER-HANDOVER.md" }
       ],
       "boundaries": [
         "Emit only the projected block \u2014 do not add scope beyond the durable docs"

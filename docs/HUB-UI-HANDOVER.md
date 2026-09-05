@@ -2,7 +2,7 @@
 
 **Lane:** Hub UI redesign only.  
 **Pair with:** [`HUB-UI-ROADMAP.md`](./HUB-UI-ROADMAP.md).  
-**Do not use** this file for Scooling product order or SEC work — that lives in [`OVERSEER-HANDOVER.md`](./OVERSEER-HANDOVER.md).
+**Do not use** this file for Scooling product order or SEC work — that lives in [`KNOWTATION-OVERSEER-HANDOVER.md`](./KNOWTATION-OVERSEER-HANDOVER.md).
 
 ---
 
@@ -60,7 +60,7 @@ this lane's optional work.
 | HUB-DASH-IA-polish | Rail vault switcher (“Active vault”); sticky header above detail; notes `50vw`; Quick tags; condensed search row; clustered rail; no onboarding auto-popup; Knowtation + gray **HUB** |
 | Git remote | `origin/feat/hub-dashboard-ia` — **landed** 2026-07-31 (Muse `main` → muse-mirror PR #286) |
 | Optional next (not merge-blocking) | **HUB-HELP-UX** — How to use / Integrations school-friendly copy & layout (Thinking → Auto if authorized) |
-| Product board (ignore for UI sessions) | `docs/OVERSEER-HANDOVER.md` / `docs/ROADMAP.md` |
+| Product board (ignore for UI sessions) | `docs/KNOWTATION-OVERSEER-HANDOVER.md` / `docs/KNOWTATION-ROADMAP.md` |
 | Kit config primary docs | `.overseer/config.yaml` → product handover/roadmap (**unchanged**) |
 
 ### Change log

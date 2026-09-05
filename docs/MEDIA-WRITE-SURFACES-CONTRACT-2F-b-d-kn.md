@@ -617,7 +617,7 @@ for the matching Scooling Tier 3 flip (2F-b-d-e / 2F-b-d-f). **Never enable both
 | KE-8 | Read-model join | Approved link shows in `GET /api/v1/attachments?source=connector_ref`, credential-free |
 | KE-9 | Attach gate untouched | `MEDIA_ATTACH_ENABLED` remains **off** this session (never bundled) |
 | KE-10 | Hosted smoke | `scripts/verify-media-write-smoke.mjs` link path PASS (propose only) |
-| KE-11 | Governance sync | `OVERSEER-HANDOVER.md` updated; row CONSUMED |
+| KE-11 | Governance sync | `KNOWTATION-OVERSEER-HANDOVER.md` updated; row CONSUMED |
 | KE-12 | Merge path | Muse merge to `main` + GitHub `muse-mirror` PR (SD-14); no direct GitHub `main` push |
 
 ### 16.2 Attach (`MEDIA_ATTACH_ENABLED`) — prerequisite for Scooling 2F-b-d-f
@@ -634,7 +634,7 @@ for the matching Scooling Tier 3 flip (2F-b-d-e / 2F-b-d-f). **Never enable both
 | KA-8 | No secrets | `JSON.stringify` audit — no tokens/paths/bodies |
 | KA-9 | External-link gate untouched | `MEDIA_EXTERNAL_LINK_ENABLED` state unchanged this session (never bundled) |
 | KA-10 | Hosted smoke | `scripts/verify-media-write-smoke.mjs` attach path PASS (propose only) |
-| KA-11 | Governance sync | `OVERSEER-HANDOVER.md` updated; row CONSUMED |
+| KA-11 | Governance sync | `KNOWTATION-OVERSEER-HANDOVER.md` updated; row CONSUMED |
 | KA-12 | Merge path | Muse merge + `muse-mirror` PR (SD-14); no direct GitHub `main` push |
 
 **Explicit authorization record (operator fills on enable day, per gate):**
