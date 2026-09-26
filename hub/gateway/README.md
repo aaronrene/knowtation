@@ -106,6 +106,36 @@ Point the Hub UI at the same origin as **`HUB_BASE_URL`** (e.g. `window.HUB_API_
 - For other hosts, use a Node adapter or deploy the Express app as you would any Node service; set **HUB_BASE_URL** and **HUB_UI_ORIGIN** to production URLs.
 - Ensure **CANISTER_URL** points to the deployed canister and **SESSION_SECRET** is set in env (no secrets in repo).
 
+### Persistent gateway startup and OAuth routing
+
+`server.mjs` imports the existing OAuth and MCP router factories statically and constructs
+enabled routers before registering the `/api/v1` proxy fallback or opening the listener.
+Native discovery lives at `/api/v1/auth/native/.well-known/oauth-authorization-server`;
+device discovery lives at `/api/v1/auth/device/.well-known/oauth-authorization-server`.
+Both are public when durable agent authentication is enabled. Root MCP OAuth discovery
+remains separate. Netlify and offline-locked mode keep durable OAuth disabled.
+
+Do not move these mounts into unawaited dynamic imports: Express preserves registration
+order, so the proxy fallback would return `401 UNAUTHORIZED` before either router runs,
+even after the imports finish. Required router import or construction errors now stop
+startup instead of leaving a partially functional gateway. Expired-code pruning remains
+best effort.
+
+Run `node --test test/gateway-oauth-bootstrap.test.mjs` from the repository root to check
+the actual startup boundary, public discovery, native/device flows, MCP sessions, disabled
+modes, and injected startup failures. This test uses generated credentials, temporary
+stores, and loopback mock upstreams; it disables local `.env` loading.
+
+For a production rollout, first inspect the running revision, PM2 process, application
+directory, nginx routing, and installed dependencies without dumping environment values.
+Compare the deployed source with the tested artifact before copying it. Preserve the
+previous code for rollback, retain durable authentication data, and restart only the
+gateway process after operator approval. No dependency or data migration is required by
+the route-ordering repair. A restart disconnects in-memory MCP sessions and registrations;
+durable refresh records remain on disk. Recheck discovery and an authorized MCP session
+after restarting, and restore the previous code and restart that same process if checks
+fail. Treat CORS configuration changes as a separate rollout item.
+
 ## Post-deploy verification (GitHub backup + CORS)
 
 1. **CORS (Hub UI on knowtation.store / www):** From the repo root, run `npm run check:gateway-cors`. Each listed origin should get a **specific** `Allow-Origin` and `Allow-Credentials: true`. If not, set **`HUB_CORS_ORIGIN`** on this gateway site to both apex and www (`hub/gateway/cors-middleware.mjs`), then redeploy.

@@ -115,6 +115,13 @@ import {
   resolveActorTokenClass,
 } from './access-token-authz.mjs';
 import { createAgentCredentialRouter } from './agent-credential-routes.mjs';
+import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
+import { KnowtationOAuthProvider } from './mcp-oauth-provider.mjs';
+import { createNativeOAuthRouter } from './native-oauth-provider.mjs';
+import { pruneExpiredCodes } from './native-as-store.mjs';
+import { createDeviceOAuthRouter } from './device-oauth-provider.mjs';
+import { pruneExpiredDeviceCodes } from './device-oauth-store.mjs';
+import { createMcpProxyRouter } from './mcp-proxy.mjs';
 import { loadReviewTriggers } from '../../lib/hub-proposal-review-triggers.mjs';
 import { appendAudit } from '../audit-log.mjs';
 import {
@@ -792,94 +799,79 @@ app.get('/api/v1/auth/login', gatewayOauthBlocked, (req, res) => {
 // Phase D2/D3 + Phase A durable MCP OAuth: MCP gateway + OAuth 2.1.
 // MCP requires stateful sessions (SSE, session pool) that are incompatible with Netlify's
 // serverless function model (26s timeout, no shared memory between invocations).
-// On Netlify, only the OAuth discovery endpoints are mounted (lightweight, stateless).
+// On Netlify, these stateful OAuth providers and the MCP session router stay unmounted.
 // The full /mcp session endpoint requires a persistent Express server (local dev, Docker, VPS,
 // or a dedicated MCP host like Railway/Fly.io). See docs/AGENT-INTEGRATION.md §2 (hosted MCP).
 // Offline-locked mode: durable agent auth is unsupported — MCP + native OAuth stay unmounted
 // (docs/DURABLE-AGENT-AUTH-SPEC.md §14).
+// Register required routers synchronously, before the /api/v1 catch-all and listen.
+// Import or construction failures must abort startup, never serve a partial gateway.
 if (shouldMountDurableAgentAuth({
   sessionSecret: SESSION_SECRET,
   netlify: Boolean(process.env.NETLIFY),
   offlineLockedActive,
 })) {
-  import('./mcp-oauth-provider.mjs').then(async ({ KnowtationOAuthProvider }) => {
-    const { mcpAuthRouter } = await import('@modelcontextprotocol/sdk/server/auth/router.js');
-    const oauthProvider = new KnowtationOAuthProvider({
-      sessionSecret: SESSION_SECRET,
-      sessionSecretPrevious: SESSION_SECRET_PREVIOUS,
-      baseUrl: BASE_URL,
-      // Phase A: reuse the same durable refresh store as native OAuth (strong file backend).
-      refreshStore,
-    });
-    app._mcpOAuthProvider = oauthProvider;
-    // @modelcontextprotocol/sdk OAuth routes use express-rate-limit behind Nginx. The limiter's
-    // default validations (X-Forwarded-For vs Express trust proxy) still throw ERR_ERL_* on some
-    // Express/SDK mount combinations. Disable express-rate-limit validations for these routes only;
-    // limits stay on; edge limits remain in Nginx (gateway deploy notes in hub/gateway/README.md).
-    const mcpOAuthSdkRateLimitOpts = {
-      rateLimit: { validate: false },
-    };
-    app.use(mcpAuthRouter({
-      provider: oauthProvider,
-      issuerUrl: new URL(BASE_URL),
-      scopesSupported: ['vault:read', 'vault:write', 'vault:admin'],
-      authorizationOptions: mcpOAuthSdkRateLimitOpts,
-      tokenOptions: mcpOAuthSdkRateLimitOpts,
-      clientRegistrationOptions: mcpOAuthSdkRateLimitOpts,
-      revocationOptions: mcpOAuthSdkRateLimitOpts,
-    }));
-    console.log('[gateway] MCP OAuth 2.1 endpoints mounted (durable refresh store)');
-
-    // C1–C6 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native client OAuth 2.1 endpoints.
-    // The native path issues web-session JWTs (issueToken shape) instead of mcp_access
-    // tokens, uses refresh-token-core for durable rotation, enforces loopback-only
-    // redirect URIs, validates redirect_uri at exchange, and applies a scope ceiling.
-    // Mounted only on the persistent gateway host — same guard as the MCP router.
-    try {
-      const { createNativeOAuthRouter } = await import('./native-oauth-provider.mjs');
-      const { router: nativeRouter, completeNativeAuthorization } = createNativeOAuthRouter({
-        baseUrl: BASE_URL,
-        loginUrl: `${BASE_URL}/auth/login`,
-        issueAccessToken: issueAccessTokenForSub,
-        // C6: grantedScopes resolves the scope ceiling via roleForSub; unknown sub → member.
-        grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
-        // C2/C4: reuse the same durable refresh store as the web session so rotation +
-        // reuse-detection use the same family records. Store is file-backed on this host.
-        refreshStore,
-      });
-      // Bind completeNativeAuthorization so IDP callbacks can reach it (see /auth/callback/*).
-      app._nativeOAuthProvider = { completeNativeAuthorization };
-      app.use('/api/v1/auth/native', nativeRouter);
-      console.log('[gateway] Native OAuth 2.1 endpoints mounted at /api/v1/auth/native');
-
-      // C4: opportunistically prune expired native auth codes at startup.
-      const { pruneExpiredCodes } = await import('./native-as-store.mjs');
-      pruneExpiredCodes().catch(() => { /* best effort; never fatal */ });
-    } catch (e) {
-      console.error('[gateway] Native OAuth router failed to load:', e.message || e);
-    }
-
-    // Phase B: RFC 8628 device authorization — Hub “Connect cloud agent”.
-    try {
-      const { createDeviceOAuthRouter } = await import('./device-oauth-provider.mjs');
-      const { router: deviceRouter } = createDeviceOAuthRouter({
-        baseUrl: BASE_URL,
-        sessionSecret: SESSION_SECRET,
-        refreshStore,
-        getUserId,
-        grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
-        hubVerificationPath: '/hub/#settings/integrations',
-      });
-      app.use('/api/v1/auth/device', deviceRouter);
-      console.log('[gateway] Device OAuth (RFC 8628) mounted at /api/v1/auth/device');
-      const { pruneExpiredDeviceCodes } = await import('./device-oauth-store.mjs');
-      pruneExpiredDeviceCodes().catch(() => { /* best effort; never fatal */ });
-    } catch (e) {
-      console.error('[gateway] Device OAuth router failed to load:', e.message || e);
-    }
-  }).catch((e) => {
-    console.error('[gateway] MCP OAuth router failed to load:', e.message || e);
+  const oauthProvider = new KnowtationOAuthProvider({
+    sessionSecret: SESSION_SECRET,
+    sessionSecretPrevious: SESSION_SECRET_PREVIOUS,
+    baseUrl: BASE_URL,
+    // Phase A: reuse the same durable refresh store as native OAuth (strong file backend).
+    refreshStore,
   });
+  app._mcpOAuthProvider = oauthProvider;
+  // @modelcontextprotocol/sdk OAuth routes use express-rate-limit behind Nginx. The limiter's
+  // default validations (X-Forwarded-For vs Express trust proxy) still throw ERR_ERL_* on some
+  // Express/SDK mount combinations. Disable express-rate-limit validations for these routes only;
+  // limits stay on; edge limits remain in Nginx (gateway deploy notes in hub/gateway/README.md).
+  const mcpOAuthSdkRateLimitOpts = {
+    rateLimit: { validate: false },
+  };
+  app.use(mcpAuthRouter({
+    provider: oauthProvider,
+    issuerUrl: new URL(BASE_URL),
+    scopesSupported: ['vault:read', 'vault:write', 'vault:admin'],
+    authorizationOptions: mcpOAuthSdkRateLimitOpts,
+    tokenOptions: mcpOAuthSdkRateLimitOpts,
+    clientRegistrationOptions: mcpOAuthSdkRateLimitOpts,
+    revocationOptions: mcpOAuthSdkRateLimitOpts,
+  }));
+  console.log('[gateway] MCP OAuth 2.1 endpoints mounted (durable refresh store)');
+
+  // C1–C6 (COMPANION-APP-OAUTH-SERVERSIDE-GATE §6): native client OAuth 2.1 endpoints.
+  // The native path issues web-session JWTs (issueToken shape) instead of mcp_access
+  // tokens, uses refresh-token-core for durable rotation, enforces loopback-only
+  // redirect URIs, validates redirect_uri at exchange, and applies a scope ceiling.
+  // Mounted only on the persistent gateway host — same guard as the MCP router.
+  const { router: nativeRouter, completeNativeAuthorization } = createNativeOAuthRouter({
+    baseUrl: BASE_URL,
+    loginUrl: `${BASE_URL}/auth/login`,
+    issueAccessToken: issueAccessTokenForSub,
+    // C6: grantedScopes resolves the scope ceiling via roleForSub; unknown sub → member.
+    grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+    // C2/C4: reuse the same durable refresh store as the web session so rotation +
+    // reuse-detection use the same family records. Store is file-backed on this host.
+    refreshStore,
+  });
+  // Bind completeNativeAuthorization so IDP callbacks can reach it (see /auth/callback/*).
+  app._nativeOAuthProvider = { completeNativeAuthorization };
+  app.use('/api/v1/auth/native', nativeRouter);
+  console.log('[gateway] Native OAuth 2.1 endpoints mounted at /api/v1/auth/native');
+
+  // C4: opportunistically prune expired native auth codes at startup.
+  pruneExpiredCodes().catch(() => { /* best effort; never fatal */ });
+
+  // Phase B: RFC 8628 device authorization — Hub “Connect cloud agent”.
+  const { router: deviceRouter } = createDeviceOAuthRouter({
+    baseUrl: BASE_URL,
+    sessionSecret: SESSION_SECRET,
+    refreshStore,
+    getUserId,
+    grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+    hubVerificationPath: '/hub/#settings/integrations',
+  });
+  app.use('/api/v1/auth/device', deviceRouter);
+  console.log('[gateway] Device OAuth (RFC 8628) mounted at /api/v1/auth/device');
+  pruneExpiredDeviceCodes().catch(() => { /* best effort; never fatal */ });
 } else if (SESSION_SECRET && process.env.NETLIFY) {
   console.log('[gateway] MCP OAuth/session endpoints skipped on Netlify (stateful sessions require persistent server)');
 } else if (SESSION_SECRET && offlineLockedActive) {
@@ -888,42 +880,34 @@ if (shouldMountDurableAgentAuth({
 
 // Phase C — scoped REST agent credentials. Mounted on Netlify REST (unlike MCP OAuth).
 if (SESSION_SECRET) {
-  try {
-    const { router: agentCredRouter } = createAgentCredentialRouter({
-      sessionSecret: SESSION_SECRET,
-      getSessionSub: getUserId,
-      getSessionPayload: getBearerPayload,
-      grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
-      offlineLockedActive,
-    });
-    app.use('/api/v1/auth/agent', agentCredRouter);
-    console.log('[gateway] Phase C agent credentials mounted at /api/v1/auth/agent');
-  } catch (e) {
-    console.error('[gateway] Agent credential router failed to load:', e.message || e);
-  }
+  const { router: agentCredRouter } = createAgentCredentialRouter({
+    sessionSecret: SESSION_SECRET,
+    getSessionSub: getUserId,
+    getSessionPayload: getBearerPayload,
+    grantedScopes: (sub) => scopesForRole(roleForSub(sub)),
+    offlineLockedActive,
+  });
+  app.use('/api/v1/auth/agent', agentCredRouter);
+  console.log('[gateway] Phase C agent credentials mounted at /api/v1/auth/agent');
 }
 
 if (BRIDGE_URL && CANISTER_URL && !process.env.NETLIFY) {
-  import('./mcp-proxy.mjs').then(({ createMcpProxyRouter }) => {
-    const mcpRouter = createMcpProxyRouter({
-      getUserId,
-      getHostedAccessContext,
-      canisterUrl: CANISTER_URL,
-      canisterAuthSecret: CANISTER_AUTH_SECRET,
-      bridgeUrl: BRIDGE_URL,
-      gatewayApiBaseUrl: BASE_URL.replace(/\/$/, ''),
-      sessionSecret: SESSION_SECRET || '',
-    });
-    app.use('/mcp', mcpRouter);
-    console.log('[gateway] MCP endpoint mounted at /mcp');
-    if (!CANISTER_AUTH_SECRET) {
-      console.warn(
-        '[gateway] MCP /mcp: CANISTER_AUTH_SECRET is empty. Direct canister HTTP calls from hosted MCP (list_notes, get_note, write, enrich; summarize note fetches) send no X-Gateway-Auth and the canister returns GATEWAY_AUTH_REQUIRED. Set the same CANISTER_AUTH_SECRET as the Netlify gateway and as configured on the canister (admin_set_gateway_auth_secret), then pm2 restart with --update-env.'
-      );
-    }
-  }).catch((e) => {
-    console.error('[gateway] MCP proxy failed to load:', e.message || e);
+  const mcpRouter = createMcpProxyRouter({
+    getUserId,
+    getHostedAccessContext,
+    canisterUrl: CANISTER_URL,
+    canisterAuthSecret: CANISTER_AUTH_SECRET,
+    bridgeUrl: BRIDGE_URL,
+    gatewayApiBaseUrl: BASE_URL.replace(/\/$/, ''),
+    sessionSecret: SESSION_SECRET || '',
   });
+  app.use('/mcp', mcpRouter);
+  console.log('[gateway] MCP endpoint mounted at /mcp');
+  if (!CANISTER_AUTH_SECRET) {
+    console.warn(
+      '[gateway] MCP /mcp: CANISTER_AUTH_SECRET is empty. Direct canister HTTP calls from hosted MCP (list_notes, get_note, write, enrich; summarize note fetches) send no X-Gateway-Auth and the canister returns GATEWAY_AUTH_REQUIRED. Set the same CANISTER_AUTH_SECRET as the Netlify gateway and as configured on the canister (admin_set_gateway_auth_secret), then pm2 restart with --update-env.'
+    );
+  }
 } else if (process.env.NETLIFY) {
   app.all('/mcp', (_req, res) => {
     res.status(503).json({
@@ -4843,12 +4827,6 @@ app.post('/api/v1/proposals', async (req, res) => {
   return proxyToCanister(req, res);
 });
 
-app.use('/api/v1', async (req, res) => {
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
-  return proxyToCanister(req, res);
-});
-
 // Health from canister if UI calls /health via same origin
 app.get('/api/v1/health-canister', async (_req, res) => {
   try {
@@ -4858,6 +4836,13 @@ app.get('/api/v1/health-canister', async (_req, res) => {
   } catch (e) {
     res.status(502).json({ ok: false, error: e.message });
   }
+});
+
+// Keep the authenticated fallback after every specific /api/v1 route.
+app.use('/api/v1', async (req, res) => {
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (!(await runBillingGate(req, res, getUserId, { getNoteCount: getNoteCountForUser }))) return;
+  return proxyToCanister(req, res);
 });
 
 app.use((err, req, res, next) => {
