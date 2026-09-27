@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "sourceDirectories": [
+    "cli",
+    "companion/runtime",
+    "lib",
+    "mcp"
+  ],
+  "sourceFiles": [
+    "LICENSE",
+    "hub/lib/breached-passwords-sha1.txt",
+    "hub/lib/breached-passwords.mjs",
+    "hub/lib/local-auth-audit.mjs",
+    "hub/lib/local-auth-bootstrap.mjs",
+    "hub/lib/local-auth-cli.mjs",
+    "hub/lib/local-auth-feature-flag.mjs",
+    "hub/lib/local-auth-gate.mjs",
+    "hub/lib/local-auth-role.mjs",
+    "hub/lib/local-auth.mjs",
+    "hub/lib/scope-filter.mjs",
+    "hub/proposals-store.mjs",
+    "hub/roles.mjs",
+    "hub/automation-ingest-rules-default.json",
+    "hub/proposal-review-triggers-default.json",
+    "hub/proposal-rubric-default.json",
+    "package.json"
+  ],
+  "assetDirectories": [
+    "flows/starter",
+    "orchestrator-graphs/starter",
+    "task-loops/starter",
+    "tasks/starter"
+  ],
+  "excludedDependencyNames": [
+    "sharp",
+    "onnxruntime-node",
+    "@img",
+    "@img/sharp-darwin-arm64",
+    "@img/sharp-libvips-darwin-arm64"
+  ]
+}

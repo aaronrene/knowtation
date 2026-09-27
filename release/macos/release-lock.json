@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "node": {
+    "version": "24.21.0",
+    "npmVersion": "11.19.0",
+    "archive": "node-v24.21.0-darwin-arm64.tar.gz",
+    "url": "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.gz",
+    "sha256": "bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057"
+  },
+  "model": {
+    "repository": "Xenova/all-MiniLM-L6-v2",
+    "revision": "751bff37182d3f1213fa05d7196b954e230abad9",
+    "w3BundleDigest": "4d229a39c42e1bc81576d079b22c56d1ada04c1d7aefbe9e76ee3067a70c5b68",
+    "files": [
+      {
+        "path": "README.md",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/README.md",
+        "bytes": 1767,
+        "sha256": "63ea99bf681a2e9eda4f6a537d5ed8fda95d1677111656da37e9cfd080c3af02"
+      },
+      {
+        "path": "config.json",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/config.json",
+        "bytes": 650,
+        "sha256": "7135149f7cffa1a573466c6e4d8423ed73b62fd2332c575bf738a0d033f70df7"
+      },
+      {
+        "path": "onnx/model_quantized.onnx",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/onnx/model_quantized.onnx",
+        "bytes": 22972370,
+        "sha256": "afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1"
+      },
+      {
+        "path": "special_tokens_map.json",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/special_tokens_map.json",
+        "bytes": 125,
+        "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3"
+      },
+      {
+        "path": "tokenizer.json",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/tokenizer.json",
+        "bytes": 711661,
+        "sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/tokenizer_config.json",
+        "bytes": 366,
+        "sha256": "9261e7d79b44c8195c1cada2b453e55b00aeb81e907a6664974b4d7776172ab3"
+      },
+      {
+        "path": "vocab.txt",
+        "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/vocab.txt",
+        "bytes": 231508,
+        "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+      }
+    ]
+  },
+  "runtime": {
+    "transformers": "3.8.1",
+    "onnxruntimeWeb": "1.22.0-dev.20250409-89f8206ba4",
+    "onnxruntimeCommon": "1.21.0",
+    "files": [
+      {
+        "path": "node_modules/@huggingface/transformers/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "path": "node_modules/@huggingface/transformers/dist/transformers.web.js",
+        "sha256": "1b41438d839ca3ea1346031472edee8cb3eefbf0bad48945f969559e2eb03394"
+      },
+      {
+        "path": "node_modules/@huggingface/transformers/package.json",
+        "sha256": "00c02ca357bf03c801f33c9a431c0169b99c1de1e14f2134cabc902cce53d4f3"
+      },
+      {
+        "path": "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs",
+        "sha256": "43c25054b6b9ac000f786c65545ff83a45f871e0e310e8c2f4d48a363bb66db4"
+      },
+      {
+        "path": "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm",
+        "sha256": "f061472c6e77d6d50d079aacdc0ff9b63fee287ddd2cbf46cf62438d3891de2b"
+      },
+      {
+        "path": "node_modules/onnxruntime-web/dist/ort.wasm.min.mjs",
+        "sha256": "0cb5ac5be2c414d5b9e361f857108630c6d6e24a5ab9be3cf5f761de55289e94"
+      },
+      {
+        "path": "node_modules/onnxruntime-web/package.json",
+        "sha256": "02f25f8c2c4f090efee69090b9264776f5593123ae2172b862fe9b942bbddeac"
+      }
+    ]
+  }
+}

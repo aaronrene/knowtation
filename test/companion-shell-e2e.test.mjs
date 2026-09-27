@@ -32,14 +32,14 @@ describe('E2E simulated companion shell', () => {
       assert.equal(opts.method, 'POST');
       return {
         ok: true,
-        async json() {
-          return {
+        async text() {
+          return JSON.stringify({
             access_token: 'jwt-access-token',
             refresh_token: 'refresh-token',
             token_type: 'Bearer',
             expires_in: 900,
             scope: 'vault:read vault:write',
-          };
+          });
         },
       };
     };

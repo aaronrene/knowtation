@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+installed_plist="/Applications/Knowtation.app/Contents/Info.plist"
+if [[ ! -f "$installed_plist" ]]; then exit 0; fi
+installed_build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$installed_plist" 2>/dev/null || true)"
+if [[ "$installed_build" =~ ^[0-9]+$ ]] && (( installed_build > 100 )); then
+  echo "Knowtation build $installed_build is newer than build 100; rollback is rejected." >&2
+  exit 1
+fi

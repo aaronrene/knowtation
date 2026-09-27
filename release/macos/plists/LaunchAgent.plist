@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>store.knowtation.companion.custody</string>
+  <key>BundleProgram</key><string>Contents/Library/LaunchServices/KnowtationCustodyAgent.app/Contents/MacOS/KnowtationCustodyAgent</string>
+  <key>MachServices</key>
+  <dict>
+    <key>store.knowtation.companion.custody</key><true/>
+  </dict>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key><false/>
+  </dict>
+</dict>
+</plist>
