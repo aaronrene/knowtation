@@ -75,10 +75,10 @@ node "$repo_root/scripts/release/macos/verify-update-manifest.mjs" \
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = "store.knowtation.companion"
 test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "0.1.0"
 test "$(plutil -extract CFBundleVersion raw "$app/Contents/Info.plist")" = "100"
-lipo -verify_arch arm64 "$app/Contents/MacOS/Knowtation"
-lipo -verify_arch arm64 "$app/Contents/Helpers/knowtation"
-lipo -verify_arch arm64 "$app/Contents/Helpers/knowtation-mcp"
-lipo -verify_arch arm64 "$app/Contents/Resources/runtime/node/bin/node"
+lipo "$app/Contents/MacOS/Knowtation" -verify_arch arm64
+lipo "$app/Contents/Helpers/knowtation" -verify_arch arm64
+lipo "$app/Contents/Helpers/knowtation-mcp" -verify_arch arm64
+lipo "$app/Contents/Resources/runtime/node/bin/node" -verify_arch arm64
 while IFS= read -r -d '' native; do
   test "$(lipo -archs "$native")" = "arm64"
 done < <(find "$app/Contents/Resources/runtime" -type f \( -name '*.node' -o -name '*.dylib' \) -print0)
