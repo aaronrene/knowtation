@@ -50,8 +50,24 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")" 
   "$KNOWTATION_APPLE_TEAM_ID"
 test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$profile_plist")" = \
   "$KNOWTATION_APPLE_TEAM_ID.store.knowtation.companion.custody"
-test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:keychain-access-groups:0' "$profile_plist")" = \
-  "$KNOWTATION_APPLE_TEAM_ID.store.knowtation.companion.custody"
+required_keychain_group="$KNOWTATION_APPLE_TEAM_ID.store.knowtation.companion.custody"
+profile_authorizes_keychain_group=false
+profile_group_index=0
+# Apple Developer ID profiles normally authorize Keychain groups with TEAM_ID.*.
+# The custody signature still claims only the exact group above.
+while profile_group="$(/usr/libexec/PlistBuddy \
+  -c "Print :Entitlements:keychain-access-groups:$profile_group_index" \
+  "$profile_plist" 2>/dev/null)"; do
+  if [[ "$profile_group" = "$required_keychain_group" || \
+        "$profile_group" = "$KNOWTATION_APPLE_TEAM_ID.*" ]]; then
+    profile_authorizes_keychain_group=true
+  fi
+  profile_group_index=$((profile_group_index + 1))
+done
+if [[ "$profile_authorizes_keychain_group" != true ]]; then
+  echo "custody provisioning profile does not authorize the required Keychain group" >&2
+  exit 1
+fi
 if /usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.get-task-allow' \
   "$profile_plist" 2>/dev/null | grep -qx true; then
   echo "custody provisioning profile permits debugging" >&2
