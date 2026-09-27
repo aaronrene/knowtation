@@ -51,7 +51,7 @@ verify_identity "$app/Contents/Resources/runtime/node/bin/node" "store.knowtatio
 custody_app="$app/Contents/Library/LaunchServices/KnowtationCustodyAgent.app"
 test -f "$custody_app/Contents/embedded.provisionprofile"
 codesign -d --entitlements :- "$custody_app" > "$verification_tmp/custody-entitlements.plist" 2>/dev/null
-test "$(plutil -extract com.apple.application-identifier raw \
+test "$(plutil -extract 'com\.apple\.application-identifier' raw \
   "$verification_tmp/custody-entitlements.plist")" = \
   "$KNOWTATION_APPLE_TEAM_ID.store.knowtation.companion.custody"
 test "$(plutil -extract keychain-access-groups.0 raw \

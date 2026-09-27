@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const release = JSON.parse(fs.readFileSync('release/macos/release.json', 'utf8'));
@@ -46,3 +49,37 @@ test('release entitlements do not disable library validation or permit debugging
     assert.doesNotMatch(text, /disable-library-validation/);
   }
 });
+
+const custodyIdentifier = 'C72VAF2EM2.store.knowtation.companion.custody';
+for (const [name, applicationIdentifier, keychainGroup, accepted] of [
+  ['correct application identifier and Keychain group', custodyIdentifier, custodyIdentifier, true],
+  ['missing application identifier', null, custodyIdentifier, false],
+  ['incorrect application identifier', 'wrong.custody', custodyIdentifier, false],
+  ['missing Keychain group', custodyIdentifier, null, false],
+  ['incorrect Keychain group', custodyIdentifier, 'wrong.custody', false],
+]) {
+  test(`release custody entitlement checks: ${name}`, { skip: process.platform !== 'darwin' }, () => {
+    // Run the verifier's actual shell checks against the real macOS plutil.
+    const verifier = fs.readFileSync('scripts/release/macos/verify.sh', 'utf8');
+    const checks = verifier.match(/^test "\$\(plutil -extract [\s\S]*?(?=^pkgutil --check-signature)/m)?.[0];
+    assert.ok(checks, 'custody entitlement checks must be present');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-entitlements-'));
+    try {
+      const appEntry = applicationIdentifier === null ? '' :
+        `<key>com.apple.application-identifier</key><string>${applicationIdentifier}</string>`;
+      const groupEntry = keychainGroup === null ? '' :
+        `<key>keychain-access-groups</key><array><string>${keychainGroup}</string></array>`;
+      fs.writeFileSync(path.join(root, 'custody-entitlements.plist'),
+        `<?xml version="1.0"?><plist version="1.0"><dict>${appEntry}${groupEntry}</dict></plist>`);
+      const result = spawnSync('/bin/bash', ['-euo', 'pipefail', '-c', checks], {
+        encoding: 'utf8',
+        env: { ...process.env, verification_tmp: root, KNOWTATION_APPLE_TEAM_ID: 'C72VAF2EM2' },
+      });
+      assert.ifError(result.error);
+      assert.equal(result.signal, null);
+      assert.equal(result.status, accepted ? 0 : 1, result.stdout + result.stderr);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
