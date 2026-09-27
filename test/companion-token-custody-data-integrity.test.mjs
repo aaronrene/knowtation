@@ -27,7 +27,7 @@ describe('Data integrity — buildSessionMeta is pure/deterministic', () => {
 describe('Data integrity — store/load fidelity', () => {
   it('loaded session fields equal the stored values', async () => {
     const custody = createTokenCustody(makeSyncKeychain());
-    const meta = buildSessionMeta({ expiresIn: 7200, refreshToken: 'r', scope: 'vault:read vault:write', tokenType: 'Bearer' }, { now: 500, refreshTtlMs: 2000, issuer: 'https://knowtation.store' });
+    const meta = buildSessionMeta({ expiresIn: 7200, refreshToken: 'r', scope: 'vault:read vault:write', tokenType: 'Bearer' }, { now: 500, refreshTtlMs: 2000, issuer: 'https://knowtation.store', clientId: 'client-1' });
     await custody.storeSession({ accessToken: 'jwt', refreshToken: 'r', meta });
     const loaded = await custody.loadSession();
     assert.equal(loaded.expiresAt, meta.expiresAt);
@@ -35,6 +35,7 @@ describe('Data integrity — store/load fidelity', () => {
     assert.equal(loaded.scope, 'vault:read vault:write');
     assert.equal(loaded.issuer, 'https://knowtation.store');
     assert.equal(loaded.tokenType, 'Bearer');
+    assert.equal(loaded.clientId, 'client-1');
   });
 });
 

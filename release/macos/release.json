@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "product": "Knowtation",
+  "version": "0.1.0",
+  "build": 100,
+  "channel": "stable",
+  "platform": "macos",
+  "minimumMacOS": "14.0",
+  "architectures": ["arm64"],
+  "sourceBaseline": {
+    "muse": "sha256:6256c13e26667f2de19ea84b32a992deabbe8f70f5108f49ce8ddb76fef37c62",
+    "github": "7df64c82b905ce9e845d36374b13419e33dc500c"
+  },
+  "identifiers": {
+    "app": "store.knowtation.companion",
+    "custody": "store.knowtation.companion.custody",
+    "cli": "store.knowtation.cli",
+    "mcp": "store.knowtation.mcp",
+    "node": "store.knowtation.runtime.node",
+    "package": "store.knowtation.pkg"
+  },
+  "hosted": {
+    "origin": "https://mcp.knowtation.store",
+    "nativeOAuthIssuer": "https://mcp.knowtation.store/api/v1/auth/native",
+    "sessionEndpoint": "https://mcp.knowtation.store/api/v1/auth/session",
+    "scopes": ["vault:read", "vault:write"]
+  },
+  "optionalExternalTools": [
+    {
+      "feature": "vaultGitSync",
+      "command": "git",
+      "bundled": false,
+      "failureMode": "explicit command error"
+    },
+    {
+      "feature": "mcpPrimeContext",
+      "command": "muse",
+      "bundled": false,
+      "failureMode": "optional context omitted"
+    }
+  ],
+  "signing": {
+    "applicationIdentity": "<DEVELOPER_ID_APPLICATION>",
+    "installerIdentity": "<DEVELOPER_ID_INSTALLER>",
+    "teamID": "<APPLE_TEAM_ID>",
+    "notaryProfile": "<NOTARY_KEYCHAIN_PROFILE>"
+  },
+  "update": {
+    "algorithm": "Ed25519",
+    "keyID": "<UPDATE_ED25519_KEY_ID>",
+    "publicKey": "<UPDATE_ED25519_PUBLIC_KEY>",
+    "minimumAcceptedBuild": 100
+  },
+  "outputs": [
+    "Knowtation-0.1.0-100-macos-arm64.zip",
+    "Knowtation-0.1.0-100-macos-arm64.pkg",
+    "release-manifest.json",
+    "release-manifest.sig",
+    "SHA256SUMS",
+    "sbom.spdx.json",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.txt"
+  ]
+}

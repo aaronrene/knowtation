@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "algorithm": "Ed25519",
+  "activeKey": {
+    "keyID": "<UPDATE_ED25519_KEY_ID>",
+    "publicKey": "<UPDATE_ED25519_PUBLIC_KEY>"
+  },
+  "revokedKeyIDs": [],
+  "minimumAcceptedBuild": 100,
+  "note": "Public trust data only. Private update-signing keys are never stored in this repository."
+}

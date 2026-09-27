@@ -235,6 +235,7 @@ class NativeClientStore {
  *     issue: (sub: string, opts?: object) => Promise<{ token: string, id: string, familyId: string }>,
  *     rotate: (token: string, opts?: object) => Promise<{ ok: boolean, token?: string, sub?: string, reason?: string }>,
  *     revoke: (token: string) => Promise<{ revoked: boolean, sub: string|null }>,
+ *     peek: (token: string) => Promise<null | { sub: string, meta: object, revoked: boolean, consumed: boolean, expires_at: number, family_expires_at: number }>,
  *   },
  * }} opts
  * @returns {{
@@ -379,18 +380,27 @@ export function createNativeOAuthRouter(opts) {
       const body = req.body || {};
       const grantType = body.grant_type;
 
-      // ─ Authenticate the client (native clients are always public — no secret) ─
-      const clientId = body.client_id;
-      const client = clientId ? clientStore.getClient(String(clientId)) : null;
-      if (!client) {
+      // Native clients are public, so client_id is an identifier rather than a secret.
+      // Authorization-code exchange still requires the live registration. Refresh binds
+      // client_id to the durable token record, allowing an installed app to refresh after
+      // a gateway restart without weakening that binding.
+      const clientId = typeof body.client_id === 'string' ? body.client_id : '';
+      if (!clientId) {
         return res.status(401).json({
           error: 'invalid_client',
-          error_description: 'Unknown or missing client_id',
+          error_description: 'Missing client_id',
         });
       }
 
       // ─ authorization_code grant ──────────────────────────────────────────
       if (grantType === 'authorization_code') {
+        const client = clientStore.getClient(clientId);
+        if (!client) {
+          return res.status(401).json({
+            error: 'invalid_client',
+            error_description: 'Unknown client_id',
+          });
+        }
         const { code, code_verifier, redirect_uri } = body;
 
         if (!code || !code_verifier || !redirect_uri) {
@@ -452,7 +462,11 @@ export function createNativeOAuthRouter(opts) {
         try {
           refreshResult = await opts.refreshStore.issue(sub, {
             tokenTtlMs: NATIVE_REFRESH_TOKEN_TTL_MS,
-            meta: { ua: String(req.headers['user-agent'] || '').slice(0, 256) },
+            meta: {
+              ua: String(req.headers['user-agent'] || '').slice(0, 256),
+              client_id: clientId,
+              scopes: effectiveScopes.join(' '),
+            },
           });
         } catch (_) {
           return res.status(503).json({ error: 'server_error', error_description: 'Refresh token issuance failed' });
@@ -474,10 +488,31 @@ export function createNativeOAuthRouter(opts) {
           return res.status(400).json({ error: 'invalid_request', error_description: 'refresh_token is required' });
         }
 
+        let peeked;
+        try {
+          peeked = await opts.refreshStore.peek(String(presentedToken));
+        } catch (_) {
+          return res.status(503).json({
+            error: 'server_error',
+            error_description: 'Session service temporarily unavailable',
+            code: 'SESSION_STORE_UNAVAILABLE',
+          });
+        }
+        if (!peeked || peeked.meta?.client_id !== clientId) {
+          return res.status(401).json({
+            error: 'invalid_grant',
+            error_description: 'Invalid session.',
+            code: 'UNAUTHORIZED',
+          });
+        }
+
         let result;
         try {
           result = await opts.refreshStore.rotate(String(presentedToken), {
-            meta: { ua: String(req.headers['user-agent'] || '').slice(0, 256) },
+            meta: {
+              ...peeked.meta,
+              ua: String(req.headers['user-agent'] || '').slice(0, 256),
+            },
           });
         } catch (_) {
           // A transient store fault: do NOT treat as theft. Fail soft with 503.
@@ -497,6 +532,10 @@ export function createNativeOAuthRouter(opts) {
         const sub = result.sub;
         // C6: re-derive ceiling on every refresh (role may have changed since last login).
         const ceiling = opts.grantedScopes(sub);
+        const storedScopes = typeof result.meta?.scopes === 'string' && result.meta.scopes.trim()
+          ? result.meta.scopes.trim().split(/\s+/).filter(Boolean)
+          : ceiling;
+        const effectiveScopes = applyScopeCeiling(storedScopes, ceiling);
 
         let accessToken;
         try {
@@ -511,7 +550,7 @@ export function createNativeOAuthRouter(opts) {
           token_type: 'Bearer',
           expires_in: NATIVE_TOKEN_EXPIRY_SECONDS,
           refresh_token: result.token,
-          scope: ceiling.join(' '),
+          scope: effectiveScopes.join(' '),
         });
       }
 

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "packages": {
+    "buffers@0.1.1": {
+      "license": "MIT",
+      "copyright": "James Halliday",
+      "source": "https://github.com/substack/node-buffers"
+    },
+    "onnxruntime-common@1.21.0": {
+      "license": "MIT",
+      "copyright": "Microsoft Corporation",
+      "source": "https://github.com/microsoft/onnxruntime"
+    },
+    "onnxruntime-common@1.22.0-dev.20250409-89f8206ba4": {
+      "license": "MIT",
+      "copyright": "Microsoft Corporation",
+      "source": "https://github.com/microsoft/onnxruntime"
+    },
+    "onnxruntime-web@1.22.0-dev.20250409-89f8206ba4": {
+      "license": "MIT",
+      "copyright": "Microsoft Corporation",
+      "source": "https://github.com/microsoft/onnxruntime"
+    },
+    "sqlite-vec@0.1.7-alpha.2": {
+      "license": "MIT OR Apache-2.0",
+      "copyright": "Alex Garcia",
+      "source": "https://github.com/asg017/sqlite-vec"
+    },
+    "sqlite-vec-darwin-arm64@0.1.7-alpha.2": {
+      "license": "MIT OR Apache-2.0",
+      "copyright": "Alex Garcia",
+      "source": "https://github.com/asg017/sqlite-vec"
+    }
+  }
+}

@@ -15,12 +15,13 @@ describe('buildSessionMeta', () => {
   it('computes expiresAt and refreshExpiresAt from the clock', () => {
     const meta = buildSessionMeta(
       { expiresIn: 3600, refreshToken: 'r', scope: 'vault:read', tokenType: 'Bearer' },
-      { now: 1_000_000, refreshTtlMs: 86_400_000, issuer: 'https://knowtation.store' },
+      { now: 1_000_000, refreshTtlMs: 86_400_000, issuer: 'https://knowtation.store', clientId: 'native-client' },
     );
     assert.equal(meta.expiresAt, 1_000_000 + 3600 * 1000);
     assert.equal(meta.refreshExpiresAt, 1_000_000 + 86_400_000);
     assert.equal(meta.scope, 'vault:read');
     assert.equal(meta.issuer, 'https://knowtation.store');
+    assert.equal(meta.clientId, 'native-client');
   });
   it('leaves refreshExpiresAt null without a refresh token or TTL', () => {
     assert.equal(buildSessionMeta({ expiresIn: 60, refreshToken: null, scope: null, tokenType: 'Bearer' }, { now: 0 }).refreshExpiresAt, null);
@@ -43,7 +44,7 @@ describe('storeSession / loadSession', () => {
   it('round-trips a full session through the keychain', async () => {
     const kc = makeSyncKeychain();
     const custody = createTokenCustody(kc);
-    const meta = buildSessionMeta({ expiresIn: 3600, refreshToken: 'refresh-1', scope: 'vault:read vault:write', tokenType: 'Bearer' }, { now: 1000, refreshTtlMs: 1_000_000 });
+    const meta = buildSessionMeta({ expiresIn: 3600, refreshToken: 'refresh-1', scope: 'vault:read vault:write', tokenType: 'Bearer' }, { now: 1000, refreshTtlMs: 1_000_000, clientId: 'native-client' });
     await custody.storeSession({ accessToken: 'jwt-1', refreshToken: 'refresh-1', meta });
 
     const loaded = await custody.loadSession();
@@ -51,6 +52,7 @@ describe('storeSession / loadSession', () => {
     assert.equal(loaded.refreshToken, 'refresh-1');
     assert.equal(loaded.expiresAt, 1000 + 3600 * 1000);
     assert.equal(loaded.scope, 'vault:read vault:write');
+    assert.equal(loaded.clientId, 'native-client');
   });
 
   it('persists each secret under its own keychain account', async () => {
