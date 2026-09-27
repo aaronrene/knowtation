@@ -83,3 +83,63 @@ for (const [name, applicationIdentifier, keychainGroup, accepted] of [
     }
   });
 }
+
+const releaseVerifier = fs.readFileSync('scripts/release/macos/verify.sh', 'utf8');
+const executablePaths = [
+  'Contents/MacOS/Knowtation',
+  'Contents/Helpers/knowtation',
+  'Contents/Helpers/knowtation-mcp',
+  'Contents/Resources/runtime/node/bin/node',
+];
+const architectureChecks = releaseVerifier.match(/^lipo .*$/gm) ?? [];
+
+test('release executable checks put each input before the lipo architecture list', () => {
+  assert.deepEqual(architectureChecks, executablePaths.map((file) =>
+    `lipo "$app/${file}" -verify_arch arm64`));
+  assert.ok(releaseVerifier.includes("plutil -extract 'com\\.apple\\.application-identifier' raw"));
+  assert.ok(releaseVerifier.includes('plutil -extract keychain-access-groups.0 raw'));
+});
+
+test('release executable checks accept arm64 and reject an absent architecture with real lipo', {
+  skip: process.platform === 'darwin' ? false : 'requires macOS lipo and clang',
+}, () => {
+  assert.equal(architectureChecks.length, executablePaths.length);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowtation-lipo-'));
+  try {
+    const fixture = path.join(root, 'arm64.o');
+    const compiled = spawnSync('/usr/bin/xcrun', [
+      'clang', '-arch', 'arm64', '-x', 'c', '-c', '-o', fixture, '-',
+    ], { encoding: 'utf8', input: 'int architecture_fixture(void) { return 0; }\n' });
+    assert.ifError(compiled.error);
+    assert.equal(compiled.signal, null);
+    assert.equal(compiled.status, 0, compiled.stdout + compiled.stderr);
+    const architectures = spawnSync('/usr/bin/lipo', [fixture, '-archs'], { encoding: 'utf8' });
+    assert.ifError(architectures.error);
+    assert.equal(architectures.status, 0, architectures.stdout + architectures.stderr);
+    assert.equal(architectures.stdout.trim(), 'arm64');
+
+    const app = path.join(root, 'Knowtation fixture.app');
+    for (const file of executablePaths) {
+      const target = path.join(app, file);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(fixture, target);
+    }
+    for (const check of architectureChecks) {
+      for (const [command, expectedStatus] of [
+        [check, 0],
+        [check.replace('-verify_arch arm64', '-verify_arch x86_64'), 1],
+      ]) {
+        // Execute the verifier's actual invocation with Apple's lipo, without running the release verifier.
+        const result = spawnSync('/bin/bash', ['-euo', 'pipefail', '-c', command], {
+          encoding: 'utf8',
+          env: { ...process.env, app, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+        });
+        assert.ifError(result.error);
+        assert.equal(result.signal, null);
+        assert.equal(result.status, expectedStatus, `${command}\n${result.stdout}${result.stderr}`);
+      }
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
