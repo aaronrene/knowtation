@@ -372,49 +372,30 @@ describe('security: no secret/path/URL/digest in reason strings', () => {
 // ── (d) CONSTANT-TIME DIGEST COMPARISON ──────────────────────────────────────
 
 describe('security: constant-time digest comparison in integrity accumulator', () => {
-  it('timing is not correlated with prefix match length (statistical bound)', () => {
-    // We measure timing for: all-zeros wrong digest vs. correct-prefix-but-wrong-suffix digest.
-    // Both should produce DIGEST_MISMATCH in similar time. This is a statistical test;
-    // the hash-of-hash approach in the implementation makes the comparison truly constant-time.
-    const N = 100;
-
-    // Prefix matches perfectly for many chars then diverges
+  it('uses equal-length timing-safe comparisons regardless of mismatch position', (t) => {
     const prefixWrong = VALID_DIGEST.slice(0, 60) + '0000';
-    // Completely different digest
     const allWrong = '0'.repeat(64);
+    const comparisons = [];
+    const timingSafeEqual = crypto.timingSafeEqual;
+    t.mock.method(crypto, 'timingSafeEqual', (actual, expected) => {
+      comparisons.push([Buffer.from(actual), Buffer.from(expected)]);
+      return timingSafeEqual(actual, expected);
+    });
 
-    const timeWith = (digest) => {
-      const start = performance.now();
-      for (let i = 0; i < N; i++) {
-        const acc = createIntegrityAccumulator({
-          expectedDigest: VALID_DIGEST, expectedSizeBytes: VALID_SIZE,
-          sourceUrl: VALID_URL, allowedSourceUrls: ALLOWED_URLS,
-        });
-        acc.update(VALID_DATA);
-        // Override internal state by creating a new acc with the attacker's digest as expected
-        // Actually test via verifyModelBytes which uses the same constant-time path
-      }
-      return performance.now() - start;
-    };
+    for (const expectedDigest of [allWrong, prefixWrong]) {
+      const verdict = verifyModelBytes({
+        fileData: VALID_DATA, expectedDigest, expectedSizeBytes: VALID_SIZE,
+        sourceUrl: VALID_URL, allowedSourceUrls: ALLOWED_URLS,
+      });
+      assert.equal(verdict.ok, false);
+      assert.equal(verdict.reason, RUNTIME_MANAGER_REASONS.DIGEST_MISMATCH);
+    }
 
-    // Use verifyModelBytes which exposes the same comparison path
-    const timeVerify = (digest) => {
-      const start = performance.now();
-      for (let i = 0; i < N; i++) {
-        verifyModelBytes({
-          fileData: VALID_DATA, expectedDigest: digest, expectedSizeBytes: VALID_SIZE,
-          sourceUrl: VALID_URL, allowedSourceUrls: ALLOWED_URLS,
-        });
-      }
-      return performance.now() - start;
-    };
-
-    const tAll = timeVerify(allWrong);
-    const tPrefix = timeVerify(prefixWrong);
-    // Allow up to 5× difference — a true timing oracle would be 10-100×.
-    // This is a sanity check, not a rigorous timing test (which requires controlled hardware).
-    const ratio = Math.max(tAll, tPrefix) / Math.min(tAll, tPrefix);
-    assert.ok(ratio < 5, `Timing ratio ${ratio.toFixed(2)} suggests timing oracle. tAll=${tAll.toFixed(2)}ms tPrefix=${tPrefix.toFixed(2)}ms`);
+    assert.equal(comparisons.length, 2);
+    for (const [actual, expected] of comparisons) {
+      assert.equal(actual.length, 32);
+      assert.equal(expected.length, 32);
+    }
   });
 });
 
