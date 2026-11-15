@@ -1,0 +1,113 @@
+{
+  "date": "2026-11-13",
+  "kind": "author documentation checks only; not freeze review",
+  "contract_sha256": "e542b2a4cbdcb63d810559ac10cc1e59cb88e4051c529b74742c6735016ffd81",
+  "source_inputs_checked": 52,
+  "source_hash_mismatches": [],
+  "reference_snapshots_byte_identical": true,
+  "active_protected_files_checked": [
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/.muse/HEAD",
+      "bytes": 47,
+      "sha256": "ce97a045186f77bb07ab96d82b5de0e8cdb6cce9ca25ca2415a6ff852b694a22"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/.git/HEAD",
+      "bytes": 52,
+      "sha256": "d7e81112d2105a1347c146db7aed4b5473b42991c4773540f78eddc2373f7ce6"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/.git/index",
+      "bytes": 161340,
+      "sha256": "60b6dc344291590bcb1dc04123bd3a034726726550d7aa0c659d7df38652a7b9"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/NEXT.md",
+      "bytes": 2176,
+      "sha256": "c3e00ee70bd5d897f68e3dcf4b3ea446cda7ae158050b2b3a51ddac626307a96"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-ROADMAP.md",
+      "bytes": 365500,
+      "sha256": "1877b8e6a57324720ad30d3e0c95177fe809643607424c68468477017a2674ac"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "bytes": 610190,
+      "sha256": "cc17ccd80494672288051687b829da3c10d6f8eaf5404c37435f98673bcc785a"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/B02-UNATTENDED-AVAILABILITY-PREINSTALL-DELTA-20261112.md",
+      "bytes": 149579,
+      "sha256": "593c82133249f0fdc9c0cdce02430ff68db9078348b911ac36cdbfd9a2b1c295"
+    }
+  ],
+  "active_protected_files_changed": [],
+  "worktree_modified": [
+    "docs/KNOWTATION-OVERSEER-HANDOVER.md",
+    "docs/KNOWTATION-ROADMAP.md"
+  ],
+  "worktree_added_before_validation": [
+    "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+    "docs/evidence/KD-P1/20261113/sources.json",
+    "docs/evidence/KD-P1/20261113/review-readiness.md",
+    "docs/evidence/KD-P1/20261113/inputs/KNOWTATION-DOMAIN-AND-IDENTITY-ROADMAP.md",
+    "docs/evidence/KD-P1/20261113/inputs/KNOWTATION-MUSE-DOMAIN-CORE-PLAN.md",
+    "docs/evidence/KD-P1/20261113/inputs/decisions/2026-11-13-muse-domain-core-direction.md"
+  ],
+  "worktree_deleted": [],
+  "navigation_original_tails_preserved": true,
+  "authored_markdown_links": [
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/inputs/KNOWTATION-MUSE-DOMAIN-CORE-PLAN.md",
+      "exists": true
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/inputs/KNOWTATION-DOMAIN-AND-IDENTITY-ROADMAP.md",
+      "exists": true
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/inputs/decisions/2026-11-13-muse-domain-core-direction.md",
+      "exists": true
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/sources.json",
+      "exists": true
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/docs/evidence/B02/knowtation-semantic-core-20261103/README.md",
+      "exists": true
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/domains/knowtation-synthetic-v1/README.md",
+      "exists": true
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/docs/AGENT-INTEGRATION.md",
+      "exists": true
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "../../../KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "exists": true
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "sources.json",
+      "exists": true
+    }
+  ],
+  "product_or_provider_tests_run": false,
+  "independent_review": "not performed; required before acceptance",
+  "next_reader": "refused: next_stale_head",
+  "next_modified": false,
+  "remote_operations": false,
+  "committed": false
+}

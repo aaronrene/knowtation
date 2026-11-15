@@ -21,6 +21,10 @@ Before any **Auto** phase **starts**, the frozen spec must have **`pass`** freez
 
 Tests green alone is **not** sufficient for DONE.
 
+When `honesty.require_independent_second_reviewer` is `warn` or `require`, do **not** mark
+DONE in the builder chat. Open a second chat or follow `docs/INDEPENDENT-SECOND-REVIEWER.md`
+(`/independent-second-reviewer`). A builder-session BV `pass` does not unlock DONE.
+
 **Sibling (shipped / live-health claims only):** when the session claims a live deploy, production
 health, or "shipped" outside the local repo, also run **`/deploy-verification-review`**
 (`.cursor/skills/deploy-verification-review/SKILL.md`). Do **not** run it for ordinary kit-only

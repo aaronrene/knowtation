@@ -18,16 +18,24 @@
 #   - git remote "origin" points to your GitHub/GitLab repo
 #   - MUSE_BRIDGE_GIT_BRANCH env var (default: muse-mirror)
 #   - MUSE_BRIDGE_BASE_BRANCH env var (default: main)
-#   - MUSE_BRIDGE_MIRROR_DIR env var (default: .muse/mirror)
+#   - MUSE_BRIDGE_MIRROR_DIR env var (default: $TMPDIR/knowtation-muse-mirror-$USER
+#     outside the Cursor workspace — in-repo .muse/mirror fails when Cursor locks
+#     nested .cursor/hooks.json during git-export)
+#   - MUSE_BRIDGE_MUSE_REF env var (default: main)
 
 set -euo pipefail
 
 # ── Config (override via env) ──────────────────────────────────────────────────
 MIRROR_BRANCH="${MUSE_BRIDGE_GIT_BRANCH:-muse-mirror}"
 BASE_BRANCH="${MUSE_BRIDGE_BASE_BRANCH:-main}"
+MUSE_REF="${MUSE_BRIDGE_MUSE_REF:-main}"
 PR_TITLE="${1:-mirror: deploy from MuseHub $(date '+%Y-%m-%d')}"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-MIRROR_DIR="${MUSE_BRIDGE_MIRROR_DIR:-.muse/mirror}"
+# Prefer an out-of-workspace mirror so Cursor file locks on .cursor/* cannot abort export.
+DEFAULT_MIRROR_DIR="${TMPDIR:-/tmp}/knowtation-muse-mirror-${USER:-user}"
+MIRROR_DIR="${MUSE_BRIDGE_MIRROR_DIR:-$DEFAULT_MIRROR_DIR}"
+# SIGPIPE-safe git-export entry (see scripts/muse-bridge-git-export.py).
+GIT_EXPORT_WRAPPER="${REPO_ROOT}/scripts/muse-bridge-git-export.py"
 
 # ── Colors ─────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -37,6 +45,23 @@ warn()    { echo -e "${YELLOW}[bridge]${NC} $*"; }
 fail()    { echo -e "${RED}[bridge] ERROR:${NC} $*" >&2; exit 1; }
 
 cd "$REPO_ROOT"
+
+# Resolve the Muse venv interpreter from the `muse` shim shebang so the wrapper
+# can `import muse` without relying on system Python.
+resolve_muse_python() {
+  local muse_bin shebang
+  muse_bin="$(command -v muse 2>/dev/null || true)"
+  [[ -n "$muse_bin" ]] || fail "muse CLI not found in PATH. Install Muse and retry."
+  shebang="$(head -n 1 "$muse_bin" 2>/dev/null || true)"
+  if [[ "$shebang" == "#!"* ]]; then
+    MUSE_PYTHON="${shebang:2}"
+  else
+    MUSE_PYTHON="$(command -v python3)"
+  fi
+  [[ -x "$MUSE_PYTHON" ]] || fail "Muse Python interpreter not executable: ${MUSE_PYTHON}"
+  [[ -f "$GIT_EXPORT_WRAPPER" ]] || fail "Missing git-export wrapper: ${GIT_EXPORT_WRAPPER}"
+}
+resolve_muse_python
 
 if [[ "$MIRROR_DIR" = /* ]]; then
   MIRROR_DIR_ABS="$MIRROR_DIR"
@@ -155,10 +180,29 @@ info "Step 3/4 — Bridging Muse main → ${MIRROR_BRANCH} via isolated mirror c
 ensure_mirror_checkout
 prepare_sentinels
 
-muse bridge git-export \
+info "Exporting Muse ref '${MUSE_REF}' → ${MIRROR_DIR_ABS} (${MIRROR_BRANCH})..."
+info "Using SIGPIPE-safe wrapper (${GIT_EXPORT_WRAPPER}) via ${MUSE_PYTHON}"
+
+# Cursor locks .cursor/hooks.json even under TMPDIR. Exclude those paths from
+# export (mirror keeps prior Git copies) and clear local hot paths before sync.
+if [[ -d "${MIRROR_DIR_ABS}/.cursor" ]]; then
+  info "Clearing mirror .cursor hot paths before export..."
+  rm -f "${MIRROR_DIR_ABS}/.cursor/hooks.json" 2>/dev/null || true
+  rm -rf "${MIRROR_DIR_ABS}/.cursor/hooks" 2>/dev/null || true
+fi
+
+# Do not redirect muse stdout through a pipe/log here: macOS mktemp templates
+# that put XXXXXX in the middle (….XXXXXX.log) create a literal empty file and
+# historically produced exit 141. The remaining 141 root cause is Muse's
+# ``git check-ignore --stdin`` under CPython SIG_DFL — fixed by the wrapper.
+info "Starting muse bridge git-export (output follows)..."
+set +e
+"${MUSE_PYTHON}" "${GIT_EXPORT_WRAPPER}" \
+  --muse-ref "${MUSE_REF}" \
   --git-dir "${MIRROR_DIR_ABS}" \
   --git-branch "${MIRROR_BRANCH}" \
   --git-remote origin \
+  --push \
   --force-push \
   --strip-muse-metadata \
   --exclude '.muse/*' \
@@ -171,8 +215,21 @@ muse bridge git-export \
   --exclude 'data/*' \
   --exclude 'data/**' \
   --exclude '*.db' \
-  --exclude '*.sqlite'
+  --exclude '*.sqlite' \
+  --exclude '.cursor/hooks.json' \
+  --exclude '.cursor/hooks/**'
+EXPORT_EC=$?
+set -e
 
+if [[ "$EXPORT_EC" -ne 0 ]]; then
+  if [[ "$EXPORT_EC" -eq 141 ]]; then
+    fail "muse bridge git-export failed (exit 141 / SIGPIPE) even with the SIGPIPE-safe wrapper. Capture output and file a MuseHub issue (git check-ignore --stdin)."
+  fi
+  fail "muse bridge git-export failed (exit ${EXPORT_EC}).
+If you saw PermissionError on .cursor/hooks.json: Cmd+Q Cursor, remove the mirror dir, re-run the bridge."
+fi
+
+success "git-export finished."
 verify_sentinels
 
 # `muse bridge git-export --exclude` prevents ADDING .muse/, but it does NOT prune

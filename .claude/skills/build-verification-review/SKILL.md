@@ -34,8 +34,11 @@ honest about what landed.
 
 ## Model
 
-**Always `thinking-high`** — independent reviewer; **not** the same session that did the build if
-possible (fresh chat or explicit "verifier" role). Never Auto for this gate.
+Always `thinking-high`. When `honesty.require_independent_second_reviewer` is
+`warn` or `require`, this review **must** run in a second chat or separate
+verifier runtime — not the session that built. A builder-session BV `pass`
+does not unlock DONE. When the flag is `off`, prefer a second session but do
+not fail the kit gate (process honesty only).
 
 ## Inputs (read all)
 
@@ -58,6 +61,7 @@ possible (fresh chat or explicit "verifier" role). Never Auto for this gate.
 | V6 | Governance docs truthful | ROADMAP/HANDOVER say DONE but tests fail or deliverables missing |
 | V7 | No secrets, injection surfaces, or unsafe defaults introduced | grep + read changed paths |
 | V8 | Agent claims match verifiable state **and** (when `honesty.enabled`) are bound to ledger `verification_evidence` artifacts | "All green" with empty/unrelated diff; "tests passed" with no `test_output` hash; "deployed" / "healthy" with no `deploy_health` ref+hash; "UI verified" with no `screenshot` hash — or a claimed `pass` with no matching ledger entry when `require_verification_evidence: require` |
+| V9 | When ISR is `warn` or `require`, ROADMAP/HANDOVER may claim **DONE** only after a matching `independent_second_review` pass exists for this Auto slice with `actor_session_id` ≠ `producer_session_id` | Builder chat wrote DONE; no ISR ledger line; equal session ids |
 
 **Evidence table (required in skill output whenever honesty module is enabled, and recommended
 always):**
@@ -85,6 +89,11 @@ Rules for a skill verdict of **`pass`** (frozen process rules):
 6. `findings` / `blocked` rounds MAY append `verification_evidence` with the corresponding
    `bv_verdict` so the chain records failed rounds; this is allowed but not required for skill
    progress. A later `pass` round is a separate append (new `round`).
+7. **V9 is DONE-unlock only** — not a V1–V8 implementation check. V9 does **not** block a
+   V1–V8 implementation `pass` and does **not** require the ISR line before the second session
+   appends it. Order: V1–V8 → ISR append → Mode B when it applies → DONE. V9 is **N/A** (not a
+   fail) when the flag is `off` or honesty is disabled. A builder-session V1–V8 `pass` still
+   does not unlock DONE when ISR is `warn` or `require`.
 
 ## Verdicts
 

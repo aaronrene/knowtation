@@ -1,0 +1,51 @@
+KNOWTATION KD-P1 — AUTHOR REVISION AFTER INDEPENDENT REVIEW R1
+Prepared 2026-11-15 after staging cleanup land. This is the only task in this handoff.
+
+SESSION AND MODEL
+Model: Thinking
+Use a new chat. Do not start Auto / domain implementation. Do not re-run R1 review
+as if it were unfinished — R1 already wrote FINDINGS.
+
+WORKSPACE
+Work in /Users/aaronrenecarvajal/knowtation only.
+Do NOT use /Users/aaronrenecarvajal/knowtation-kd-p1-20261113 for this revision.
+Do NOT touch feat/private-vault-encryption-continuation.
+
+Muse tip context (verify with `muse rev-parse main` before edits):
+- Cleanup land C2 preserved the KD-P1 packet onto staging/local Muse main.
+- Bridge-audit override tip may sit on main above C2; packet bytes for the
+  contract must still hash to the subject below unless this revision intentionally
+  changes the contract.
+
+SUBJECT (pre-revision bytes — verify before editing)
+docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md revision 1
+Exact whole-file SHA-256:
+e542b2a4cbdcb63d810559ac10cc1e59cb88e4051c529b74742c6735016ffd81
+
+CONSUME
+docs/evidence/KD-P1/20261113/INDEPENDENT-SPEC-REVIEW-R1.md
+Verdict: FINDINGS (4 High, 5 Medium, 3 Low; no Critical; not blocked).
+Also read packet manifests under docs/evidence/KD-P1/20261113/.
+
+OBJECTIVE
+Revise the KD-P1 contract (and only the minimum supporting packet docs if
+hashes/manifests must track) so every High finding has a concrete fix and
+Medium/Low are either fixed or explicitly deferred with owner-decision rows.
+Produce a revision ready for a later independent re-review / freeze path.
+Do not claim freeze pass, owner acceptance, or KD-P2 Auto authorization.
+
+HARD STOPS
+- No domain/runtime implementation
+- No encryption-branch work
+- No muse push to production; no git push origin main
+- No secrets / live posture flips
+- Do not delete or rewrite INDEPENDENT-SPEC-REVIEW-R1.md
+
+DONE WHEN
+- Contract revision addresses R1 High findings with path:line-auditable text
+- Manifest/hash notes updated for changed packet files
+- Roadmap + handover NEXT regenerated together (SD-17) pointing at the next
+  independent re-review or freeze step — not at Auto build
+- Feature-branch Muse commit hygiene complete
+
+After revision, stop for independent re-review. Do not self-accept.
