@@ -58,7 +58,13 @@ describe('muse-bridge-deploy push flag — integration', () => {
 });
 
 describe('muse-bridge-deploy push flag — end-to-end', () => {
-  test('muse CLI help documents --force-push requires --push', () => {
+  test('muse CLI help documents --force-push requires --push', (t) => {
+    // CI runners do not install Muse; static script contract is covered above.
+    const which = spawnSync('bash', ['-lc', 'command -v muse'], { encoding: 'utf8' });
+    if (which.status !== 0 || !which.stdout.trim()) {
+      t.skip('muse CLI not on PATH (expected in GitHub Actions)');
+      return;
+    }
     const res = spawnSync('muse', ['bridge', 'git-export', '--help'], {
       encoding: 'utf8',
       cwd: ROOT,
@@ -72,6 +78,13 @@ describe('muse-bridge-deploy push flag — end-to-end', () => {
       'CLI help must state --force-push requires --push',
     );
     assert.match(out, /Local-only by default/i);
+  });
+
+  test('deploy script documents SIGPIPE-safe wrapper path (CI-safe)', () => {
+    const src = readScript();
+    assert.match(src, /muse-bridge-git-export\.py/);
+    assert.match(src, /GIT_EXPORT_WRAPPER=/);
+    assert.match(src, /resolve_muse_python/);
   });
 });
 

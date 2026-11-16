@@ -18,17 +18,28 @@ const WRAPPER = path.join(ROOT, 'scripts/muse-bridge-git-export.py');
 const DEPLOY = path.join(ROOT, 'scripts/muse-bridge-deploy.sh');
 
 /**
- * @returns {string}
+ * @returns {string|null} Muse venv Python path, or null when Muse is not installed.
  */
-function musePython() {
+function musePythonOrNull() {
   const museBin = spawnSync('bash', ['-lc', 'command -v muse'], {
     encoding: 'utf8',
   });
-  assert.equal(museBin.status, 0, 'muse must be on PATH for bridge tests');
+  if (museBin.status !== 0 || !museBin.stdout.trim()) return null;
   const bin = museBin.stdout.trim();
   const head = fs.readFileSync(bin, 'utf8').split('\n')[0] || '';
-  assert.ok(head.startsWith('#!'), `muse shim must have a shebang: ${bin}`);
+  if (!head.startsWith('#!')) return null;
   return head.slice(2).trim();
+}
+
+/**
+ * @returns {string}
+ */
+function systemPython() {
+  const res = spawnSync('bash', ['-lc', 'command -v python3'], {
+    encoding: 'utf8',
+  });
+  assert.equal(res.status, 0, 'python3 must be on PATH');
+  return res.stdout.trim();
 }
 
 /**
@@ -77,8 +88,12 @@ describe('muse-bridge SIGPIPE wrapper — integration', () => {
 });
 
 describe('muse-bridge SIGPIPE wrapper — end-to-end', () => {
-  test('wrapper --help reaches muse git-export help', () => {
-    const py = musePython();
+  test('wrapper --help reaches muse git-export help', (t) => {
+    const py = musePythonOrNull();
+    if (!py) {
+      t.skip('muse CLI not on PATH (expected in GitHub Actions)');
+      return;
+    }
     const res = spawnSync(py, [WRAPPER, '--help'], {
       encoding: 'utf8',
       cwd: ROOT,
@@ -109,14 +124,21 @@ describe('muse-bridge SIGPIPE wrapper — data-integrity', () => {
 });
 
 describe('muse-bridge SIGPIPE wrapper — performance', () => {
-  test('wrapper module compiles under 2s', () => {
-    const py = musePython();
+  test('wrapper module parses under 2s', () => {
+    // AST parse only — no bytecode write (avoids cache PermissionError) and no Muse import.
+    const py = systemPython();
     const t0 = performance.now();
-    const res = spawnSync(py, ['-m', 'py_compile', WRAPPER], {
-      encoding: 'utf8',
-      cwd: ROOT,
-    });
+    const res = spawnSync(
+      py,
+      [
+        '-c',
+        'import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text()); print("ok")',
+        WRAPPER,
+      ],
+      { encoding: 'utf8', cwd: ROOT },
+    );
     assert.equal(res.status, 0, res.stderr || res.stdout);
+    assert.match(res.stdout || '', /ok/);
     assert.ok(performance.now() - t0 < 2000);
   });
 });

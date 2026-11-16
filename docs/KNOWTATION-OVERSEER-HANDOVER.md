@@ -46,21 +46,21 @@ fix, then Chrome Incognito re-smoke** (**Operator + Auto**) — tip
 ---
 
 <!-- overseer:next role=primary lane=product status=live -->
-## NEXT SESSION — Land hub audit pins → re-bridge → merge PR #326
+## NEXT SESSION — Land CI-safe bridge tests → re-bridge → merge PR #326
 
 **Date:** 2026-11-15  
 **Model:** **Operator + Auto**  
-**This board:** Knowtation-owned. SIGPIPE export **succeeded** (PR
-[#326](https://github.com/aaronrene/knowtation/pull/326)); CI `test (20)` failed on
-`hub/gateway` + `hub/bridge` high/critical audits. Domain Auto is **not** authorized.
-Encryption branch stays untouched.
+**This board:** Knowtation-owned. Muse staging/`main` holds hub audit pins
+(`sha256:c390518a…`); SIGPIPE bridge + re-bridge updated
+[PR #326](https://github.com/aaronrene/knowtation/pull/326). Latest CI failed
+because 3 tests require the Muse CLI (absent on GitHub Actions). Domain Auto is
+**not** authorized. Encryption branch stays untouched.
 
 ### THE ONE NEXT STEP — **Model: Operator + Auto**
 
-Land the hub/gateway + hub/bridge audit override tip, re-run
-`./scripts/muse-bridge-deploy.sh` (updates PR #326), merge when CI is green
-(merge commit). Then fresh **Thinking** chat for KD-P1 author revision
-(`docs/KD-P1-NEXT-SESSION.txt`).
+Land the CI-skip tip for Muse-dependent bridge tests, re-run
+`./scripts/muse-bridge-deploy.sh`, merge #326 when green (merge commit). Then
+fresh **Thinking** chat for KD-P1 (`docs/KD-P1-NEXT-SESSION.txt`).
 
 ### Paste-ready prompt
 
@@ -71,14 +71,14 @@ Repo: /Users/aaronrenecarvajal/knowtation
 Do not touch feat/private-vault-encryption-continuation.
 Do not start KD-P1 Auto / domain implementation.
 
-1) Confirm Muse tip on chore/bridge-audit-overrides-20261115 includes
-   hub/gateway + hub/bridge body-parser/proxy-addr/qs overrides and lockfiles.
-2) From Terminal.app:
+1) Confirm Muse tip on chore/bridge-audit-overrides-20261115 skips Muse CLI
+   tests when muse is absent (CI-safe).
+2) From Terminal.app (local main may lag the chore tip — push the chore branch):
    muse push staging chore/bridge-audit-overrides-20261115:main
-   muse update-ref main <new-tip-sha> --old-value <current-staging-main>
-   muse rev-parse main
-   ./scripts/muse-bridge-deploy.sh "mirror: hub gateway/bridge audit pins for CI"
-3) Wait for PR #326 CI green (test + TruffleHog); merge with merge commit.
+   muse update-ref main <new-tip-sha> --old-value <staging-main-before>
+   muse ls-remote staging | grep 'main'
+   ./scripts/muse-bridge-deploy.sh "mirror: CI-safe muse-optional bridge tests"
+3) Wait for PR #326 CI green; gh pr merge 326 --merge
    Never git push origin main.
 4) Then fresh Thinking chat: docs/KD-P1-NEXT-SESSION.txt
 ```
