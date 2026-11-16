@@ -127,20 +127,17 @@ verify_sentinels() {
 # ── Step 1: Security audit ─────────────────────────────────────────────────────
 info "Step 1/4 — Running security audit (npm audit fix)..."
 
-if [[ ! -f package.json ]]; then
-  warn "No package.json found — skipping npm audit. Add audits for your stack manually."
-else
-  AUDIT_FIX_OUTPUT=$(npm audit fix --audit-level=moderate 2>&1 || true)
-  printf '%s\n' "$AUDIT_FIX_OUTPUT" | tail -5
-
-  # Check if high/critical vulns remain after auto-fix.
-  # Capture audit JSON into a variable FIRST. `npm audit --json` exits non-zero when
-  # vulnerabilities exist, and with `set -o pipefail` a `cmd | python3 || echo 0` chain
-  # would append "0" to python's output (yielding a multi-line "N\n0" that breaks the
-  # numeric `[[ -gt ]]` test). Separating capture from parse and normalizing to a single
-  # integer makes this robust regardless of audit exit code / output shape.
-  AUDIT_JSON=$(npm audit --json 2>/dev/null || true)
-  HIGH_COUNT=$(printf '%s' "$AUDIT_JSON" | python3 -c "
+# Match CI (.github/workflows/ci.yml): root + hub/gateway + hub/bridge.
+audit_tree_high_critical() {
+  local dir="$1"
+  local label="$2"
+  local audit_json high_count
+  (
+    cd "$dir"
+    npm audit fix --audit-level=moderate --omit=dev >/dev/null 2>&1 || true
+  )
+  audit_json="$(cd "$dir" && npm audit --json --omit=dev 2>/dev/null || true)"
+  high_count=$(printf '%s' "$audit_json" | python3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -149,14 +146,21 @@ try:
 except Exception:
     print(0)
 " 2>/dev/null || echo "0")
-  HIGH_COUNT=$(printf '%s\n' "$HIGH_COUNT" | tail -1 | tr -cd '0-9'); HIGH_COUNT=${HIGH_COUNT:-0}
-
-  if (( HIGH_COUNT > 0 )); then
-    fail "npm audit found $HIGH_COUNT high/critical vulnerabilities that could not be auto-fixed.\n\
-Run 'npm audit' to review them, fix manually, then re-run this script.\n\
+  high_count=$(printf '%s\n' "$high_count" | tail -1 | tr -cd '0-9'); high_count=${high_count:-0}
+  if (( high_count > 0 )); then
+    fail "npm audit (${label}) found ${high_count} high/critical vulnerabilities that could not be auto-fixed.\n\
+Run 'npm audit --omit=dev' in ${dir} to review them, fix manually, then re-run this script.\n\
 DO NOT bridge with known high/critical vulnerabilities."
   fi
-  success "Audit clean — 0 high/critical vulnerabilities."
+  success "Audit clean (${label}) — 0 high/critical vulnerabilities."
+}
+
+if [[ ! -f package.json ]]; then
+  warn "No package.json found — skipping npm audit. Add audits for your stack manually."
+else
+  audit_tree_high_critical "$REPO_ROOT" "root"
+  [[ -f hub/gateway/package.json ]] && audit_tree_high_critical "${REPO_ROOT}/hub/gateway" "hub/gateway"
+  [[ -f hub/bridge/package.json ]] && audit_tree_high_critical "${REPO_ROOT}/hub/bridge" "hub/bridge"
 fi
 
 # ── Step 2: Commit audit changes if any ───────────────────────────────────────
@@ -166,7 +170,9 @@ AUDIT_CHANGED=$(muse status --short 2>/dev/null | grep -E "package-lock\.json|pa
 
 if [[ -n "$AUDIT_CHANGED" ]]; then
   warn "Audit changed package files — committing to Muse before bridging."
-  muse code add package-lock.json package.json 2>/dev/null || true
+  muse code add package-lock.json package.json \
+    hub/gateway/package-lock.json hub/gateway/package.json \
+    hub/bridge/package-lock.json hub/bridge/package.json 2>/dev/null || true
   muse commit -m "security: npm audit fix pre-bridge $(date '+%Y-%m-%d')"
   muse push staging "${BASE_BRANCH}"
   success "Audit commit pushed to Muse main."

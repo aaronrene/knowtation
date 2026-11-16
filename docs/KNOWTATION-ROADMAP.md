@@ -7,9 +7,10 @@ This tip adds `scripts/muse-bridge-git-export.py` (SIGPIPE ignored) and wires
 `muse-bridge-deploy.sh` to it; export also excludes `.cursor/hooks.json` and
 `.cursor/hooks/**`. Encryption tip **V** untouched. KD-P1 R1 remains **FINDINGS**.
 
-**THE ONE NEXT STEP (Knowtation-owned):** **Model: Operator + Auto** — land this
-wrapper tip → Muse staging/`main` → `./scripts/muse-bridge-deploy.sh` → merge
-green `muse-mirror` PR. Then **Thinking** KD-P1 author revision
+**THE ONE NEXT STEP (Knowtation-owned):** **Model: Operator + Auto** — SIGPIPE
+export already produced [PR #326](https://github.com/aaronrene/knowtation/pull/326);
+CI failed on hub gateway/bridge audits. Land hub audit pins → re-bridge → merge
+#326 when green. Then **Thinking** KD-P1 author revision
 ([KD-P1-NEXT-SESSION.txt](KD-P1-NEXT-SESSION.txt)).
 
 ---

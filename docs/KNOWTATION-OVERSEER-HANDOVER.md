@@ -46,20 +46,20 @@ fix, then Chrome Incognito re-smoke** (**Operator + Auto**) — tip
 ---
 
 <!-- overseer:next role=primary lane=product status=live -->
-## NEXT SESSION — Land SIGPIPE bridge fix → GitHub muse-mirror
+## NEXT SESSION — Land hub audit pins → re-bridge → merge PR #326
 
 **Date:** 2026-11-15  
 **Model:** **Operator + Auto**  
-**This board:** Knowtation-owned. SIGPIPE wrapper is on
-`chore/bridge-audit-overrides-20261115`. Domain Auto is **not** authorized.
+**This board:** Knowtation-owned. SIGPIPE export **succeeded** (PR
+[#326](https://github.com/aaronrene/knowtation/pull/326)); CI `test (20)` failed on
+`hub/gateway` + `hub/bridge` high/critical audits. Domain Auto is **not** authorized.
 Encryption branch stays untouched.
 
 ### THE ONE NEXT STEP — **Model: Operator + Auto**
 
-From Terminal.app: land the SIGPIPE wrapper tip onto Muse staging/`main`, retarget
-local Muse `main`, run `./scripts/muse-bridge-deploy.sh`, merge the green
-`muse-mirror` → GitHub `main` PR. Cursor may stay open (hooks paths excluded).
-Then open a fresh **Thinking** chat for KD-P1 author revision
+Land the hub/gateway + hub/bridge audit override tip, re-run
+`./scripts/muse-bridge-deploy.sh` (updates PR #326), merge when CI is green
+(merge commit). Then fresh **Thinking** chat for KD-P1 author revision
 (`docs/KD-P1-NEXT-SESSION.txt`).
 
 ### Paste-ready prompt
@@ -72,16 +72,15 @@ Do not touch feat/private-vault-encryption-continuation.
 Do not start KD-P1 Auto / domain implementation.
 
 1) Confirm Muse tip on chore/bridge-audit-overrides-20261115 includes
-   scripts/muse-bridge-git-export.py and deploy wiring.
-2) From Terminal.app (sandbox-free):
+   hub/gateway + hub/bridge body-parser/proxy-addr/qs overrides and lockfiles.
+2) From Terminal.app:
    muse push staging chore/bridge-audit-overrides-20261115:main
    muse update-ref main <new-tip-sha> --old-value <current-staging-main>
    muse rev-parse main
-   rm -rf "${TMPDIR:-/tmp}/knowtation-muse-mirror-$USER"
-   ./scripts/muse-bridge-deploy.sh "mirror: SIGPIPE-safe git-export wrapper"
-3) Merge green GitHub PR muse-mirror → main (merge commit; never git push origin main).
-4) Update roadmap + handover together; then stop — next chat is Thinking KD-P1
-   author revision per docs/KD-P1-NEXT-SESSION.txt.
+   ./scripts/muse-bridge-deploy.sh "mirror: hub gateway/bridge audit pins for CI"
+3) Wait for PR #326 CI green (test + TruffleHog); merge with merge commit.
+   Never git push origin main.
+4) Then fresh Thinking chat: docs/KD-P1-NEXT-SESSION.txt
 ```
 
 Parked (unchanged): `SEC-KN-P6-ROTATE-b` R4–R5 (≥24h window; same as Scooling row 38).

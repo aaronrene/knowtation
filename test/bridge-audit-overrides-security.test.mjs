@@ -141,6 +141,9 @@ describe('bridge audit overrides — end-to-end', () => {
     assert.match(src, /npm audit --json/);
     assert.match(src, /high\/critical/);
     assert.match(src, /DO NOT bridge with known high\/critical vulnerabilities/);
+    assert.match(src, /audit_tree_high_critical/);
+    assert.match(src, /hub\/gateway/);
+    assert.match(src, /hub\/bridge/);
     assert.ok(
       src.includes("int(v.get('high', 0)) + int(v.get('critical', 0))"),
       'bridge must sum high+critical from audit metadata',
@@ -208,24 +211,38 @@ describe('bridge audit overrides — performance', () => {
 });
 
 describe('bridge audit overrides — security', () => {
-  test('npm audit reports zero high and zero critical findings', () => {
-    const res = spawnSync('npm', ['audit', '--json'], {
-      cwd: ROOT,
+  /**
+   * @param {string} cwd
+   * @param {string} label
+   */
+  function assertNoHighCritical(cwd, label) {
+    const res = spawnSync('npm', ['audit', '--json', '--omit=dev'], {
+      cwd,
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024,
     });
-    // npm audit exits non-zero when findings exist; parse stdout regardless.
     const raw = res.stdout || '';
-    assert.ok(raw.trim().length > 0, 'npm audit --json must emit JSON');
+    assert.ok(raw.trim().length > 0, `${label}: npm audit --json must emit JSON`);
     const report = JSON.parse(raw);
     const meta = report.metadata?.vulnerabilities || {};
     const high = Number(meta.high || 0);
     const critical = Number(meta.critical || 0);
-    assert.equal(critical, 0, `critical vulnerabilities must be 0, got ${critical}`);
-    assert.equal(
-      high,
-      0,
-      `high vulnerabilities must be 0 (bridge gate), got ${high}`,
-    );
+    assert.equal(critical, 0, `${label}: critical must be 0, got ${critical}`);
+    assert.equal(high, 0, `${label}: high must be 0 (CI gate), got ${high}`);
+  }
+
+  test('npm audit reports zero high and zero critical findings', () => {
+    assertNoHighCritical(ROOT, 'root');
+    assertNoHighCritical(path.join(ROOT, 'hub/gateway'), 'hub/gateway');
+    assertNoHighCritical(path.join(ROOT, 'hub/bridge'), 'hub/bridge');
+  });
+
+  test('hub gateway/bridge pin body-parser, proxy-addr, qs floors', () => {
+    for (const rel of ['hub/gateway/package.json', 'hub/bridge/package.json']) {
+      const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+      assert.equal(pkg.overrides?.['body-parser'], '1.20.9', rel);
+      assert.equal(pkg.overrides?.['proxy-addr'], '2.0.8', rel);
+      assert.equal(pkg.overrides?.qs, '6.16.2', rel);
+    }
   });
 });
