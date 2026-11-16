@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-13",
+  "kind": "documentation hygiene and review-handoff checks; not independent review",
+  "contract_sha256": "e542b2a4cbdcb63d810559ac10cc1e59cb88e4051c529b74742c6735016ffd81",
+  "contract_unchanged": true,
+  "original_validation_sha256": "2b644b1cf36ecc1e27d1652184e8292012627972aac8122652fd2c33f2aa19d1",
+  "original_validation_unchanged": true,
+  "source_inputs_rechecked": 52,
+  "source_mismatches": [],
+  "active_protected_file_mismatches": [],
+  "isolated_navigation_historical_tails_sha256": {
+    "docs/KNOWTATION-ROADMAP.md": "45eca5b2d76ad5259d7faf6c17e7354d91595b3a97106e3c65cfef173c9479e1",
+    "docs/KNOWTATION-OVERSEER-HANDOVER.md": "7376ad9b26cff3a38fe4e52f3ec2463c681b644e9b641cae367301c274317659"
+  },
+  "authored_links_checked": [
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/inputs/KNOWTATION-MUSE-DOMAIN-CORE-PLAN.md"
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/inputs/KNOWTATION-DOMAIN-AND-IDENTITY-ROADMAP.md"
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/inputs/decisions/2026-11-13-muse-domain-core-direction.md"
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "evidence/KD-P1/20261113/sources.json"
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/docs/evidence/B02/knowtation-semantic-core-20261103/README.md"
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/domains/knowtation-synthetic-v1/README.md"
+    },
+    {
+      "document": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/docs/AGENT-INTEGRATION.md"
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "../../../KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md"
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "sources.json"
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "validation.json"
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "../../../KD-P1-NEXT-SESSION.txt"
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "packet-manifest.json"
+    },
+    {
+      "document": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "target": "handoff-checks.json"
+    },
+    {
+      "document": "docs/KNOWTATION-ROADMAP.md",
+      "target": "KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md"
+    },
+    {
+      "document": "docs/KNOWTATION-ROADMAP.md",
+      "target": "evidence/KD-P1/20261113/review-readiness.md"
+    },
+    {
+      "document": "docs/KNOWTATION-ROADMAP.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-OVERSEER-HANDOVER.md"
+    },
+    {
+      "document": "docs/KNOWTATION-ROADMAP.md",
+      "target": "KD-P1-NEXT-SESSION.txt"
+    },
+    {
+      "document": "docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "target": "KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md"
+    },
+    {
+      "document": "docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "target": "evidence/KD-P1/20261113/review-readiness.md"
+    },
+    {
+      "document": "docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "target": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-OVERSEER-HANDOVER.md"
+    },
+    {
+      "document": "docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "target": "KD-P1-NEXT-SESSION.txt"
+    }
+  ],
+  "isolated_bound_review_launcher_present": false,
+  "next_action": "independent draft specification review in a new chat; report only",
+  "product_tests_run": false,
+  "provider_tests_run": false,
+  "contract_accepted": false,
+  "formal_review_stamp_or_ledger_write": false,
+  "vcs_staging_or_commit": false,
+  "remote_mutations": false
+}

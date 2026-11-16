@@ -1,3 +1,20 @@
+**BRIDGE EXIT 141 = MUSE check-ignore SIGPIPE — WRAPPER 2026-11-15.**
+
+Cleanup land **C2** and audit overrides are on Muse staging/`main` (through
+`sha256:eb98e969…`). Bare `muse bridge git-export` still died at exit **141** during
+`git check-ignore -z --stdin` (CPython SIG_DFL), not only from Cursor locks.
+This tip adds `scripts/muse-bridge-git-export.py` (SIGPIPE ignored) and wires
+`muse-bridge-deploy.sh` to it; export also excludes `.cursor/hooks.json` and
+`.cursor/hooks/**`. Encryption tip **V** untouched. KD-P1 R1 remains **FINDINGS**.
+
+**THE ONE NEXT STEP (Knowtation-owned):** **Model: Operator + Auto** —
+[PR #326](https://github.com/aaronrene/knowtation/pull/326) re-bridged with hub
+audit pins; CI still fails Muse-CLI e2e tests on Actions. Land CI-skip tip →
+re-bridge → merge #326 when green. Then **Thinking** KD-P1 author revision
+([KD-P1-NEXT-SESSION.txt](KD-P1-NEXT-SESSION.txt)).
+
+---
+
 # Roadmap — knowtation
 
 **Scope of this board.** Knowtation is the **canonical store and permission authority**. This
@@ -30,7 +47,7 @@ then **`{step}b` (Auto)** in `docs/KNOWTATION-OVERSEER-HANDOVER.md`. Every next-
 | **Product API** | `api.knowtation.store` live · MCP `https://mcp.knowtation.store/mcp` · Calendar 1D live · Hub OAuth = Google + GitHub + **Apple exchange live** |
 | **Apple / T15** | **KN-APPLE land + Operator T1 DONE** — [KN #295](https://github.com/aaronrene/knowtation/pull/295) `@c2a77b1`. |
 | **Product order (Scooling)** | Scooling PRIMARY moved **off** the Gabriel wait to row **42 SC-BRAIN-LIVE-1a** (theBRAIN auth seam). Rows 32 + 34 **LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). Gabriel rows 30/31 held in background. RHF retail 21–27 **DONE**. |
-| **THE ONE NEXT STEP** | **None owned by Knowtation.** This board is caught up. The active constellation work is the Scooling↔theBRAIN seam, which needs nothing from Knowtation. Paste from Scooling (`ok -C ~/scooling next`). This board does not Auto Scooling. |
+| **THE ONE NEXT STEP** | **KD-P1 author revision (Thinking)** after R1 FINDINGS — paste `docs/KD-P1-NEXT-SESSION.txt` in `/Users/aaronrenecarvajal/knowtation`. No Auto / no encryption-branch work. |
 | **Only Knowtation-owned item** | **SEC-KN-P6-ROTATE-b R4–R5** — needs a ≥24h quiet window. This is the **same item** as Scooling ROADMAP row **38**; do not track it as two. |
 | **Queued on Gabriel** | **CODEX-HUB-FLOW-PROPOSAL** — blocked behind Scooling row 31 (MuseHub #152). Not startable. |
 | **Known footprint deviation** | Intentional `MUSE-BRIDGE-WORKFLOW.md` / `muse-bridge-deploy.sh` preserve — do not "repair" by kit re-sync |

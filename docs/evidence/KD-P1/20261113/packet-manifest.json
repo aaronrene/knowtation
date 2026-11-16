@@ -1,0 +1,70 @@
+{
+  "schema": "knowtation.kd-p1-local-review-packet/1",
+  "date": "2026-11-13",
+  "worktree": "/Users/aaronrenecarvajal/knowtation-kd-p1-20261113",
+  "branch": "docs/kd-p1-domain-memory-contract",
+  "subject": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+  "subject_sha256": "e542b2a4cbdcb63d810559ac10cc1e59cb88e4051c529b74742c6735016ffd81",
+  "status": "draft; uncommitted; independent review pending",
+  "excludes": [
+    "this manifest",
+    "future independent review reports"
+  ],
+  "files": [
+    {
+      "path": "docs/KNOWTATION-DOMAIN-RETRIEVAL-MEMORY-CONTRACT.md",
+      "bytes": 61835,
+      "sha256": "e542b2a4cbdcb63d810559ac10cc1e59cb88e4051c529b74742c6735016ffd81"
+    },
+    {
+      "path": "docs/KD-P1-NEXT-SESSION.txt",
+      "bytes": 11523,
+      "sha256": "17ef36fa4dc302cbee440392f1aa3ce3f251ba7990a0c98a1a780e458ffc4fa7"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/review-readiness.md",
+      "bytes": 8019,
+      "sha256": "0a3b3f1a8763f821f7a61f8595aeb47a1cda920ee5341c76d763b3c21fe9d33c"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/sources.json",
+      "bytes": 11237,
+      "sha256": "9d344833e8bb98d9bfb11c03ea5322dca564773b29d4c463db33e073073615fa"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/validation.json",
+      "bytes": 4346,
+      "sha256": "2b644b1cf36ecc1e27d1652184e8292012627972aac8122652fd2c33f2aa19d1"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/handoff-checks.json",
+      "bytes": 4151,
+      "sha256": "b24fd735112be350d2bc4faa5f990f6902d0ae58bf74dbeac71fcdce21c49476"
+    },
+    {
+      "path": "docs/KNOWTATION-ROADMAP.md",
+      "bytes": 38367,
+      "sha256": "91b13483e75f2646c131e8ae71c29d46168d640a09c49e189c9cbf401b11fcb8"
+    },
+    {
+      "path": "docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "bytes": 215594,
+      "sha256": "5e0e866fc27bbe1f51005410267b92beacda9206b0da57eb672b7a3826360e72"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/inputs/KNOWTATION-DOMAIN-AND-IDENTITY-ROADMAP.md",
+      "bytes": 31593,
+      "sha256": "57c5093032f0eee1117cba198827cbcacd0aa7069059426674642b1338ff7cc6"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/inputs/KNOWTATION-MUSE-DOMAIN-CORE-PLAN.md",
+      "bytes": 41305,
+      "sha256": "41bbef68cdeb213788092062959aadbafb042851abccadddad86ec5a1408c3cb"
+    },
+    {
+      "path": "docs/evidence/KD-P1/20261113/inputs/decisions/2026-11-13-muse-domain-core-direction.md",
+      "bytes": 4627,
+      "sha256": "76c8bfbe5fd3a5b9c6341140a678f3b63307ec9218f9242d6af394bb2ba8b982"
+    }
+  ]
+}

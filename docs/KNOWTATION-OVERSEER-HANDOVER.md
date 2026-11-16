@@ -1,3 +1,16 @@
+**BRIDGE SIGPIPE ROOT CAUSE FIXED 2026-11-15 — LAND + MIRROR NEXT.**
+
+Exit 141 was Muse `git check-ignore --stdin` under CPython SIG_DFL (not Cursor
+alone). Fix: `scripts/muse-bridge-git-export.py` + deploy wiring; also exclude
+`.cursor/hooks.json` / `.cursor/hooks/**`. Muse staging/`main` already holds
+cleanup **C2** + bridge-audit tips through
+`sha256:eb98e969bff3db2f511109848dea80ceba4a41c1209da019c901ded8dbf92475`.
+Encryption **V** untouched. After this tip lands and `muse-bridge-deploy` succeeds,
+KD-P1 author revision (**Thinking**) is next — not Auto.
+Packet: [KD-P1-NEXT-SESSION.txt](KD-P1-NEXT-SESSION.txt).
+
+---
+
 # Overseer Handover — Knowtation
 
 **Living relay for Knowtation-owned work.** Paste the **NEXT SESSION** block into a fresh chat to
@@ -15,45 +28,68 @@ behavior**, this board wins.
 code-level findings in Knowtation**. Knowtation was doing the highest-risk work with no governed
 roadmap, no freeze review, and no build-verification gate.
 
-### Product-order relay (2026-09-02 — Scooling PRIMARY = row 42 SC-BRAIN-LIVE-1a)
+### Product-order relay (2026-09-10 — Scooling PRIMARY = OAuth callback submit-loop fix)
 
 **Knowtation:** gateway `/health` **200**; `HUB_JWT_EXPIRY=24h`; Business consent
 `dcons_beubs3bja1fqz5rtug6myq` active; helper-access `renewable` (25c PASS). RHF retail rows
-21–27 **DONE** on Scooling (RHF-e smoke **PASS with FINDINGS** 2026-08-30; RHF-f2 + UX-WORK-CHAT
-landed). Do **not** re-run RHF-e as PRIMARY. *(These are doc-sourced from the 2026-08-29/30 probes;
-not re-verified 2026-09-02.)*
+21–27 **DONE** on Scooling. Do **not** re-run RHF-e as PRIMARY. *(These are doc-sourced from the
+2026-08-29/30 probes; not re-verified 2026-09-05.)*
 
-**Scooling product order wins:** Scooling PRIMARY moved **off** the Gabriel wait to row **42
-SC-BRAIN-LIVE-1a** — the theBRAIN auth seam. Rows 32 + 34 **LANDED**
-([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). Gabriel rows 30/31 are
-held in the background. Do **not** paste Auto 34b — that build already shipped. Paste from
-**Scooling** (`ok -C ~/scooling next`).
+**Scooling product order wins:** Scooling PRIMARY is **BV + land the OAuth callback submit-loop
+fix, then Chrome Incognito re-smoke** (**Operator + Auto**) — tip
+`fix/hosted-oauth-callback-submit-loop-2026-09-07`, seven-tier 31/31, authority
+"ROADMAP (post 45-AUTH)". Auth / pair / embed already granted. **45-PARENTAL-a/b DONE** and
+**45-AUTH DONE** (2026-09-05/06). Gabriel rows 30/31 stay held. Do **not** paste row
+42 / 43 / 44 / 45-PARENTAL / 45-AUTH — those shipped. Paste from **Scooling**
+(`ok -C ~/scooling next`).
 
 ---
 
 <!-- overseer:next role=primary lane=product status=live -->
-## NEXT SESSION — no Knowtation-owned step (board is caught up)
+## NEXT SESSION — Land CI-safe bridge tests → re-bridge → merge PR #326
 
-**Date:** 2026-09-02  
-**Model:** — (nothing to run here)  
-**This board:** Does not Auto Scooling. The active constellation work is the Scooling↔theBRAIN
-seam and it needs **no Knowtation change**.
+**Date:** 2026-11-15  
+**Model:** **Operator + Auto**  
+**This board:** Knowtation-owned. Muse staging/`main` holds hub audit pins
+(`sha256:c390518a…`); SIGPIPE bridge + re-bridge updated
+[PR #326](https://github.com/aaronrene/knowtation/pull/326). Latest CI failed
+because 3 tests require the Muse CLI (absent on GitHub Actions). Domain Auto is
+**not** authorized. Encryption branch stays untouched.
 
-### THE ONE NEXT STEP — **none owned by this repo**
+### THE ONE NEXT STEP — **Model: Operator + Auto**
 
-Knowtation's product board is complete. The two remaining rows are not startable work:
+Land the CI-skip tip for Muse-dependent bridge tests, re-run
+`./scripts/muse-bridge-deploy.sh`, merge #326 when green (merge commit). Then
+fresh **Thinking** chat for KD-P1 (`docs/KD-P1-NEXT-SESSION.txt`).
 
-| Row | State | Why not a next step |
-| --- | --- | --- |
-| `SEC-KN-P6-ROTATE-b` R4–R5 | PARKED | Needs a ≥24h quiet window. **Same item as Scooling row 38** — do not track twice |
-| `CODEX-HUB-FLOW-PROPOSAL` | QUEUED | Blocked behind Scooling row 31 → MuseHub #152 → Gabriel |
+### Paste-ready prompt
 
-**Do not open a Knowtation chat looking for work.** Knowtation's job right now is to keep serving
-Scooling — Hub API, MCP, delegation, retail helper — all of which is live. Expect a Knowtation row
-again when Scooling reaches **row 45 SC-BRAIN-LIVE-4 (TOOLS)**, because `SC-BRAIN-TOOLS-FREEZE`
-**T8** forbids a Knowtation write from a skill result without review-before-write.
+```text
+Model: Operator + Auto
 
-### Paste-ready prompt — run this in a **Scooling** chat, not here
+Repo: /Users/aaronrenecarvajal/knowtation
+Do not touch feat/private-vault-encryption-continuation.
+Do not start KD-P1 Auto / domain implementation.
+
+1) Confirm Muse tip on chore/bridge-audit-overrides-20261115 skips Muse CLI
+   tests when muse is absent (CI-safe).
+2) From Terminal.app (local main may lag the chore tip — push the chore branch):
+   muse push staging chore/bridge-audit-overrides-20261115:main
+   muse update-ref main <new-tip-sha> --old-value <staging-main-before>
+   muse ls-remote staging | grep 'main'
+   ./scripts/muse-bridge-deploy.sh "mirror: CI-safe muse-optional bridge tests"
+3) Wait for PR #326 CI green; gh pr merge 326 --merge
+   Never git push origin main.
+4) Then fresh Thinking chat: docs/KD-P1-NEXT-SESSION.txt
+```
+
+Parked (unchanged): `SEC-KN-P6-ROTATE-b` R4–R5 (≥24h window; same as Scooling row 38).
+Queued: `CODEX-HUB-FLOW-PROPOSAL` (Gabriel/MuseHub blockers).
+
+### Archived — stale row-42 paste (2026-09-02 SUPERSEDED)
+
+Row **42a / 42b / 42-AUTH** all **DONE**. Do not paste the old AUTH-seam freeze.
+Canonical fence lives on the **Scooling** board — get it with `ok -C ~/scooling next`.
 
 ```text
 Scooling — row 42 SC-BRAIN-LIVE-1a AUTH seam freeze (Thinking)
@@ -1256,6 +1292,8 @@ gate; canister proposals are partitioned by effective user id with no gateway-pa
 
 | Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-10 | **GOVERNANCE DRIFT REPAIR.** Removed the stale 45-AUTH paste fence (`ok next` was emitting **DONE** work as the next step); relay now points at Scooling's real PRIMARY (OAuth callback submit-loop fix). Recorded the MuseHub blockers: 403 push (collaborator `accepted_at = NULL`, musehub#131) and musehub#182 (non-UTC `committed_at` destroyed by `timestamptz` round-trip — **1,778 / 2,197** of this repo's `git-import` commits unclonable from MuseHub). **Do not re-push knowtation to MuseHub before the #182 fix lands.** |
+| 2026-09-05 | **PRODUCT RELAY → Scooling 45-AUTH.** 45-PARENTAL-a/b DONE (B6 closed). Auth/pair/embed granted. This board still has **no owned step**. T8 vault write stays closed. Do not paste row 42. Canonical fence on Scooling board. |
 | 2026-09-02 | **PRODUCT RELAY → Operator Gabriel wait.** Scooling rows **32 + 34 LANDED** ([SC #355](https://github.com/aaronrene/scooling/pull/355) `@fc2ad70f`). PRIMARY = hold rows 30/31. Auto 34b retired — do not rebuild. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-09-02 | **PRODUCT RELAY → Auto row 32b.** Scooling row **32-auth DONE** (AUTHORIZE T2 cites 32a `sha256:b949a466…`). PRIMARY = identity persistence Auto (const flip + store). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |
 | 2026-09-02 | **PRODUCT RELAY → Thinking row 32.** Scooling row **34a DONE** (freeze-review **pass** `sha256:df0f2484…`). PRIMARY = identity persistence gate (no authorize flip). 34b queued on G4. Live social / #152 stay Gabriel. This board does not Auto Scooling. Canonical fence on Scooling board. |

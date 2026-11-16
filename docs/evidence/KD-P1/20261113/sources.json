@@ -1,0 +1,272 @@
+{
+  "date": "2026-11-13",
+  "kind": "local source inspection; no runtime or deployed verification",
+  "source_root": "/Users/aaronrenecarvajal/knowtation",
+  "worktree": "/Users/aaronrenecarvajal/knowtation-kd-p1-20261113",
+  "branch": "docs/kd-p1-domain-memory-contract",
+  "base": "sha256:7ba3e811ecfbf1c9786b2f5a227d7aab17768eb73a16f1f2758036bf908009d5",
+  "source_muse_head": "ref: refs/heads/docs/scooling-brain-pair-relay",
+  "next_read": "refused: next_stale_head",
+  "files": [
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/AGENTS.md",
+      "bytes": 2782,
+      "sha256": "84a70d3b54ef1888ef5a4b4a02c16ad8fe2556be7f1378139905a54bba8c4e92"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/CONTRIBUTING.md",
+      "bytes": 2721,
+      "sha256": "a856bacf2b218138e96d4c0be83b07ee2e33dff4131ad7f921d71a95115e547d"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-ROADMAP.md",
+      "bytes": 365500,
+      "sha256": "1877b8e6a57324720ad30d3e0c95177fe809643607424c68468477017a2674ac"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-OVERSEER-HANDOVER.md",
+      "bytes": 610190,
+      "sha256": "cc17ccd80494672288051687b829da3c10d6f8eaf5404c37435f98673bcc785a"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/NEXT.md",
+      "bytes": 2176,
+      "sha256": "c3e00ee70bd5d897f68e3dcf4b3ea446cda7ae158050b2b3a51ddac626307a96"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-MUSE-DOMAIN-CORE-PLAN.md",
+      "bytes": 41305,
+      "sha256": "41bbef68cdeb213788092062959aadbafb042851abccadddad86ec5a1408c3cb"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/KNOWTATION-DOMAIN-AND-IDENTITY-ROADMAP.md",
+      "bytes": 31593,
+      "sha256": "57c5093032f0eee1117cba198827cbcacd0aa7069059426674642b1338ff7cc6"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/decisions/2026-11-13-muse-domain-core-direction.md",
+      "bytes": 4627,
+      "sha256": "76c8bfbe5fd3a5b9c6341140a678f3b63307ec9218f9242d6af394bb2ba8b982"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/AGENT-INTEGRATION.md",
+      "bytes": 37445,
+      "sha256": "7c5012de0a7a917de620f1e09a1bbaa3cd2e7759d57bb9b5f5460acc2712857e"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/AGENT-ORCHESTRATION.md",
+      "bytes": 9891,
+      "sha256": "7ff1e9377433aa69dc05a331397ff0381766c84e04d2a6b92ac9ce0680038aff"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/MEMORY-AUGMENTATION-PLAN.md",
+      "bytes": 5038,
+      "sha256": "13f9908ecf468dfbe4b3bffdef9035c9cd803e28481ce66a924e3e66ca4ed876"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/PARITY-MATRIX-HOSTED.md",
+      "bytes": 19671,
+      "sha256": "c1f5ecdaaf58aea63eac80e30523c89f3a42a2525eea9c45882e32c1a01724ad"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/DOCUMENT-TREE-V0-SPEC.md",
+      "bytes": 29493,
+      "sha256": "3efc64d78b238c609a0103fe699f15b65f11c2e49e46fe4038def2404050790c"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/METADATA-FACETS-V0-SPEC.md",
+      "bytes": 12889,
+      "sha256": "4fe8ac31d49c7dea71baf39630daea1a0d6d26fd24d1b8d04d1b7f530c9ca780"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/SECTION-SOURCE-V0-SPEC.md",
+      "bytes": 27594,
+      "sha256": "7569fa305c541628f715fd022a5f02b9feb9408f5b9d3b3c192e4ca29fcfb521"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/AGENT-DELEGATION-V0-SPEC.md",
+      "bytes": 34795,
+      "sha256": "fb2c4050befd994441746e2286371ac541b7872b6c4a7113427a9e793ce32068"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/SCOOLING-B06-PRODUCER-FOLLOWUP.md",
+      "bytes": 3999,
+      "sha256": "ac9135984383cbc7d278921fc12ee72cb5d33ed322f9b3e81411d7111e6431dc"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/EXPLORE-DISCOVER-INSIGHTS-TO-VAULT-NOTES.md",
+      "bytes": 8776,
+      "sha256": "5024ca537a18dfef5e6d1df9b10534e5545caf6e9fe2e67ddc8739c1a87c97c7"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/evidence/B02/knowtation-semantic-core-20261103/README.md",
+      "bytes": 5096,
+      "sha256": "561c30ae2db3446c443fc9f43544c34be180bd56f46cdd932ac62733fbc3359d"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/evidence/B02/knowtation-domain-contract-20261103-r2/IMPLEMENTATION-SCOPE.md",
+      "bytes": 5745,
+      "sha256": "15c44f344b3fa0ed941defc0893c93a2977424d60dac83b29aabd2a11e0d396b"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/B02-UNATTENDED-AVAILABILITY-PREINSTALL-DELTA-20261112.md",
+      "bytes": 149579,
+      "sha256": "593c82133249f0fdc9c0cdce02430ff68db9078348b911ac36cdbfd9a2b1c295"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/evidence/B02/unattended-availability-implementation-20261110/OWNER-ACCEPTANCE-PREINSTALL-REV9-20261113.md",
+      "bytes": 1356,
+      "sha256": "4abcf63faca0937e00ce1b9f7ee5ae718d72d06cec6251ccd37142322cabf3cf"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/docs/evidence/B02/unattended-availability-implementation-20261110/ADVERSARIAL-FREEZE-REVIEW-ROUND9-20261113.md",
+      "bytes": 16571,
+      "sha256": "df35fb1937df5fd3e730a23ffa1acbed373b11909a4d0034ed67db85b53413ba"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/domains/knowtation-synthetic-v1/README.md",
+      "bytes": 4210,
+      "sha256": "9e3550669fa5794aff4af722658b76f10027adfa204ecf95bdb02102dec834bd"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/domains/knowtation-synthetic-v1/core/note.mjs",
+      "bytes": 6259,
+      "sha256": "06d6bdb88499c55b3e950f1047ff22eac1bc735dd11eb89d6efca32ed7e7e682"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/domains/knowtation-synthetic-v1/core/operations.mjs",
+      "bytes": 2486,
+      "sha256": "131f21d2a3af6befe11a5a4d4aa5d3417e0186571e10cb7cbff7dceb9f62f8b1"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/mcp/create-server.mjs",
+      "bytes": 24385,
+      "sha256": "a556e7ab511978549a04e2505f8252184db46048348eb0cac488cdcb25252a12"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/mcp/http-server.mjs",
+      "bytes": 1913,
+      "sha256": "92f19bae7bddd99d1de7e1b45a97d0de6246b39c6f9457b438e634a302e4c032"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/mcp/tools/memory.mjs",
+      "bytes": 17943,
+      "sha256": "f2169506e669f0f7bd4587d9b1643082d2bfffc9f5a9c481bb7a757b7f900632"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/mcp/tools/agent-delegation.mjs",
+      "bytes": 10255,
+      "sha256": "45b915f43f10f6ce8f26be73072fe1224368deef3750082b3a486771aca51076"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/mcp/resources/register.mjs",
+      "bytes": 24070,
+      "sha256": "1fa1371edb3cc9bd7d8b4d4a8f28f56aed1eda8fafeed16ac0e0ef42c36d3f78"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/hub/gateway/mcp-hosted-server.mjs",
+      "bytes": 133645,
+      "sha256": "c08e312e3de16d20f8e407ddfa92b7c86131cfd4f0140e0b3f130c615ab69419"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/hub/gateway/mcp-tool-acl.mjs",
+      "bytes": 4067,
+      "sha256": "dbdd338e63463b8e6e9bc7c8d55107e885e4eab16c302b761b985b4c929294b2"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/hub/gateway/mcp-proxy.mjs",
+      "bytes": 11110,
+      "sha256": "ee7fd9fdb9656ed2b74d81d3487f4a49351b881738eec0c269017b7417f69f8a"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/hub/bridge/server.mjs",
+      "bytes": 156584,
+      "sha256": "0fd4b45aade0650e74425198502ab77b54370eda1ce567a09ae7084bdfe5ab78"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/hub/gateway/server.mjs",
+      "bytes": 199418,
+      "sha256": "c3892a3f0fe4b4c8d25826bf7d69fe16ede13dbae67ea5cfdee0cf3333097edf"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/cli/index.mjs",
+      "bytes": 110784,
+      "sha256": "c213e537825b72521956256004474283fe60bbbbe2992a172a5a8eb68c503a3b"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory-event.mjs",
+      "bytes": 6577,
+      "sha256": "f0f2a109da61cbc063bd06a0309b3d2c8ea5fbeb65e5733d74b12719385b3026"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory.mjs",
+      "bytes": 18251,
+      "sha256": "881463b5c162fd81a8df8225d12ee89cfb81ebc6ea21743a9087b43cc334d3d6"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory-provider-file.mjs",
+      "bytes": 11104,
+      "sha256": "c61de5fa8973ef48a58b2bc78b1b5b591b75e705229e67b7238b32c9d9c112e8"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory-provider-vector.mjs",
+      "bytes": 4880,
+      "sha256": "e5b83d20d48954621a5e2924a7b6005d724e16547c4eaa4b539ee1f1a03fb85b"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory-provider-mem0.mjs",
+      "bytes": 3372,
+      "sha256": "54d5b0b7f809fe1c15852ef337f87936bb6848149ca1835126416884fb26f847"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory-provider-supabase.mjs",
+      "bytes": 5649,
+      "sha256": "36a8b351181dd02712cfadc67256feb316b371163e65988ccf733d7c65fd4c7a"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/memory-provider-encrypted.mjs",
+      "bytes": 7301,
+      "sha256": "e6f355dd9f708a2fb0e05dbd486b1877400f23e223a99c9f1ac91eb42db1f428"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/scooling/src/adapters/knowtationVaultRetrieve.ts",
+      "bytes": 8060,
+      "sha256": "a712cc690ef06ee4747757d79567784991d0c716a0db08baa9e1c8f7ff07e18a"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/scooling/docs/AGENT-ARCHITECTURE.md",
+      "bytes": 5071,
+      "sha256": "531ffd0ff3802d10f89831b6e6f17629c42e78c14b80921b65ef5d1dc421bf30"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/scooling/docs/SC-BRAIN-LIVE-4-TOOLS-FREEZE.md",
+      "bytes": 36483,
+      "sha256": "66e2c08bc8d89f06a2f03303334a3fdd61f4d405977c8953bb62102903215338"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/MUSE_HUB/docs/MUSEHUB-NEXT-SESSION.txt",
+      "bytes": 6796,
+      "sha256": "72b16624935a52b370b40dbcd62734f5bca97492e3b7051b65d27c884750f105"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/MUSE_HUB/muse-108-contract-clean/docs/ROADMAP.md",
+      "bytes": 175967,
+      "sha256": "741f173b012bb30bbbba12e6119b9aa341efbc39d957bcc7e7f03bfbcb65b292"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/MUSE_HUB/muse-108-contract-clean/docs/issues/108-production-readiness-next.md",
+      "bytes": 2266,
+      "sha256": "4b7944fc507aab2c970119074fe8f91a82fab760edfca104d5a74e84ec0ff11d"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/section-source.mjs",
+      "bytes": 9413,
+      "sha256": "777bcd6598a634944b2ebad00d7595e6345ee3a3c74004364d40b40980ee6a65"
+    },
+    {
+      "path": "/Users/aaronrenecarvajal/knowtation/lib/write.mjs",
+      "bytes": 5726,
+      "sha256": "696b6991deed3884aabeed1270d728a0a611a4e50569b08527d410ea9a6281d6"
+    }
+  ]
+}
